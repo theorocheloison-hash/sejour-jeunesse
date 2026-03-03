@@ -1,0 +1,172 @@
+// ============================================================
+// Prisma Schema — Séjour Jeunesse
+// Base de données : PostgreSQL 16
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUM : rôle utilisateur
+// ============================================================
+enum Role {
+  TEACHER
+  DIRECTOR
+  RECTOR
+  PARENT
+  VENUE
+}
+
+// ============================================================
+// ENUM : statut d'un séjour
+// ============================================================
+enum StatutSejour {
+  ouvert
+  complet
+  annule
+  termine
+}
+
+// ============================================================
+// ENUM : statut d'une inscription
+// ============================================================
+enum StatutInscription {
+  en_attente
+  confirmee
+  annulee
+  remboursee
+}
+
+// ============================================================
+// ENUM : statut d'un paiement
+// ============================================================
+enum StatutPaiement {
+  en_attente
+  valide
+  refuse
+  rembourse
+}
+
+// ============================================================
+// ENUM : méthode de paiement
+// ============================================================
+enum MethodePaiement {
+  carte
+  virement
+  cheque
+  especes
+}
+
+// ============================================================
+// ENUM : type d'hébergement
+// ============================================================
+enum TypeHebergement {
+  chalet
+  tente
+  auberge
+  hotel
+  gite
+  autre
+}
+
+// ============================================================
+// MODEL : User (utilisateurs)
+// ============================================================
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  role           Role     @default(PARENT)
+  prenom         String   @db.VarChar(100)
+  nom            String   @db.VarChar(100)
+  email          String   @unique @db.VarChar(255)
+  motDePasse     String   @map("mot_de_passe") @db.VarChar(255)
+  telephone      String?  @db.VarChar(20)
+  dateNaissance  DateTime? @map("date_naissance") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  inscriptions Inscription[]
+
+  @@map("utilisateurs")
+}
+
+// ============================================================
+// MODEL : Sejour (séjours)
+// ============================================================
+model Sejour {
+  id              String       @id @default(uuid()) @db.Uuid
+  titre           String       @db.VarChar(255)
+  description     String?      @db.Text
+  lieu            String       @db.VarChar(255)
+  dateDebut       DateTime     @map("date_debut") @db.Date
+  dateFin         DateTime     @map("date_fin") @db.Date
+  placesTotales   Int          @map("places_totales")
+  placesRestantes Int          @map("places_restantes")
+  prix            Decimal      @default(0) @db.Decimal(10, 2)
+  statut          StatutSejour @default(ouvert)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  inscriptions  Inscription[]
+  hebergements  Hebergement[]
+
+  @@map("sejours")
+}
+
+// ============================================================
+// MODEL : Hebergement (hébergements liés à un séjour)
+// ============================================================
+model Hebergement {
+  id          String          @id @default(uuid()) @db.Uuid
+  sejourId    String          @map("sejour_id") @db.Uuid
+  nom         String          @db.VarChar(255)
+  type        TypeHebergement @default(autre)
+  adresse     String?         @db.VarChar(500)
+  capacite    Int
+  description String?         @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("hebergements")
+}
+
+// ============================================================
+// MODEL : Inscription (inscriptions)
+// ============================================================
+model Inscription {
+  id              String            @id @default(uuid()) @db.Uuid
+  sejourId        String            @map("sejour_id") @db.Uuid
+  utilisateurId   String            @map("utilisateur_id") @db.Uuid
+  statut          StatutInscription @default(en_attente)
+  dateInscription DateTime          @default(now()) @map("date_inscription")
+  remarques       String?           @db.Text
+
+  sejour      Sejour    @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  utilisateur User      @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  paiements   Paiement[]
+
+  @@unique([sejourId, utilisateurId])
+  @@map("inscriptions")
+}
+
+// ============================================================
+// MODEL : Paiement (paiements)
+// ============================================================
+model Paiement {
+  id            String          @id @default(uuid()) @db.Uuid
+  inscriptionId String          @map("inscription_id") @db.Uuid
+  montant       Decimal         @db.Decimal(10, 2)
+  statut        StatutPaiement  @default(en_attente)
+  methode       MethodePaiement?
+  datePaiement  DateTime        @default(now()) @map("date_paiement")
+
+  inscription Inscription @relation(fields: [inscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("paiements")
+}

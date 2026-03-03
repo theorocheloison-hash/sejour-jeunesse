@@ -1,0 +1,103 @@
+version: '3.9'
+
+services:
+  # ─────────────────────────────────────────
+  # Frontend — Next.js
+  # ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: sejour-jeunesse-frontend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://backend:4000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - sejour-network
+
+  # ─────────────────────────────────────────
+  # Backend — Node.js / Express
+  # ─────────────────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: sejour-jeunesse-backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sejour-network
+
+  # ─────────────────────────────────────────
+  # Base de données — PostgreSQL
+  # ─────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: sejour-jeunesse-db
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sejour-network
+
+  # ─────────────────────────────────────────
+  # Adminer — Interface d'administration BDD
+  # ─────────────────────────────────────────
+  adminer:
+    image: adminer:latest
+    container_name: sejour-jeunesse-adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      - db
+    networks:
+      - sejour-network
+
+# ─────────────────────────────────────────
+# Volumes persistants
+# ─────────────────────────────────────────
+volumes:
+  postgres_data:
+    name: sejour-jeunesse-postgres-data
+
+# ─────────────────────────────────────────
+# Réseau interne
+# ─────────────────────────────────────────
+networks:
+  sejour-network:
+    name: sejour-jeunesse-network
+    driver: bridge
