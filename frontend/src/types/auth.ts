@@ -1,9 +1,18 @@
+export enum Role {
+  TEACHER = 'TEACHER',
+  DIRECTOR = 'DIRECTOR',
+  ACCOUNTANT = 'ACCOUNTANT',
+  RECTOR = 'RECTOR',
+  PARENT = 'PARENT',
+  VENUE = 'VENUE',
+}
+
 export interface User {
   id: string;
   email: string;
-  prenom: string;
-  nom: string;
-  role: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
 }
 
 export interface LoginDto {

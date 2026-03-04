@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import axios from 'axios';
 import api from '@/src/lib/api';
-import type { User, LoginDto, AuthResponse } from '@/src/types/auth';
+import type { User, LoginDto } from '@/src/types/auth';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
@@ -21,11 +21,12 @@ const LS_USER      = 'sj_user';
 const COOKIE_OPTS  = { expires: 7, sameSite: 'lax' as const };
 
 const ROLE_ROUTES: Record<string, string> = {
-  TEACHER:  '/dashboard/teacher',
-  DIRECTOR: '/dashboard/director',
-  RECTOR:   '/dashboard/rector',
-  PARENT:   '/dashboard/parent',
-  VENUE:    '/dashboard/venue',
+  TEACHER:     '/dashboard/teacher',
+  DIRECTOR:    '/dashboard/director',
+  ACCOUNTANT:  '/dashboard/accountant',
+  RECTOR:      '/dashboard/rector',
+  PARENT:      '/dashboard/parent',
+  VENUE:       '/dashboard/venue',
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -65,13 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (dto: LoginDto) => {
-    const { data } = await api.post<AuthResponse>('/auth/login', dto);
+    // Le backend retourne prenom/nom — type fidèle à la réponse réelle
+    type BackendLoginResponse = {
+      access_token: string;
+      user: { id: string; email: string; prenom: string; nom: string; role: User['role'] };
+    };
+
+    const { data } = await api.post<BackendLoginResponse>('/auth/login', dto);
+
+    const user: User = {
+      id:        data.user.id,
+      email:     data.user.email,
+      firstName: data.user.prenom,
+      lastName:  data.user.nom,
+      role:      data.user.role,
+    };
 
     Cookies.set(COOKIE_TOKEN, data.access_token, COOKIE_OPTS);
-    localStorage.setItem(LS_USER, JSON.stringify(data.user));
-    setUser(data.user);
+    localStorage.setItem(LS_USER, JSON.stringify(user));
+    setUser(user);
 
-    router.push(ROLE_ROUTES[data.user.role] ?? '/dashboard');
+    router.push(ROLE_ROUTES[user.role] ?? '/dashboard');
   }, [router]);
 
   const logout = useCallback(() => {
@@ -100,7 +115,8 @@ export function useAuth(): AuthContextValue {
 
 export function extractApiError(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const msg = err.response?.data?.message as string | string[] | undefined;
+    if (!err.response) return 'Impossible de contacter le serveur';
+    const msg = err.response.data?.message as string | string[] | undefined;
     return Array.isArray(msg) ? msg[0] : (msg ?? 'Identifiants invalides');
   }
   return 'Impossible de contacter le serveur';
