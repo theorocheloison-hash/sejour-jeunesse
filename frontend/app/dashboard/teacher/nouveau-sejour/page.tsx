@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSejour } from '@/src/lib/sejour';
+import type { TypeZone } from '@/src/lib/sejour';
 import { extractApiError } from '@/src/contexts/AuthContext';
-import { NIVEAUX, THEMATIQUES, REGIONS } from '@/src/data/thematiques-pedagogiques';
+import { NIVEAUX, THEMATIQUES, REGIONS, DEPARTEMENTS } from '@/src/data/thematiques-pedagogiques';
 import type { Niveau } from '@/src/data/thematiques-pedagogiques';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -18,8 +19,8 @@ interface SejourFormData {
   niveauClasse: string;
   thematiquesPedagogiques: string[];
   informationsComplementaires: string;
-  ville: string;
-  regionSouhaitee: string;
+  typeZone: TypeZone | '';
+  zoneGeographique: string;
   dateButoireDevis: string;
 }
 
@@ -31,10 +32,17 @@ const INITIAL_DATA: SejourFormData = {
   niveauClasse: '',
   thematiquesPedagogiques: [],
   informationsComplementaires: '',
-  ville: '',
-  regionSouhaitee: '',
+  typeZone: '',
+  zoneGeographique: '',
   dateButoireDevis: '',
 };
+
+const ZONE_OPTIONS: { value: TypeZone; emoji: string; label: string }[] = [
+  { value: 'FRANCE',      emoji: '\uD83C\uDDEB\uD83C\uDDF7', label: 'France entière' },
+  { value: 'REGION',      emoji: '\uD83D\uDCCD', label: 'Région' },
+  { value: 'DEPARTEMENT', emoji: '\uD83C\uDFD9\uFE0F', label: 'Département' },
+  { value: 'VILLE',       emoji: '\uD83C\uDFD8\uFE0F', label: 'Ville' },
+];
 
 // ─── Step Indicator ────────────────────────────────────────────────────────
 
@@ -110,7 +118,9 @@ export default function NouveauSejourPage() {
   const [form, setForm] = useState<SejourFormData>(INITIAL_DATA);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
-  const [regionFilter, setRegionFilter] = useState('');
+  const [zoneFilter, setZoneFilter] = useState('');
+  const [villeResults, setVilleResults] = useState<string[]>([]);
+  const [villeLoading, setVilleLoading] = useState(false);
 
   const set = (field: keyof SejourFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -122,13 +132,33 @@ export default function NouveauSejourPage() {
     return THEMATIQUES[form.niveauClasse as Niveau] ?? [];
   }, [form.niveauClasse]);
 
-  // Régions filtrées
-  const regionsFiltrees = useMemo(() => {
-    if (!regionFilter) return [...REGIONS];
-    return REGIONS.filter((r) =>
-      r.toLowerCase().includes(regionFilter.toLowerCase())
-    );
-  }, [regionFilter]);
+  // Filtrage local régions/départements
+  const filteredItems = useMemo(() => {
+    const list = form.typeZone === 'REGION' ? [...REGIONS] : form.typeZone === 'DEPARTEMENT' ? [...DEPARTEMENTS] : [];
+    if (!zoneFilter) return list;
+    return list.filter((item) => item.toLowerCase().includes(zoneFilter.toLowerCase()));
+  }, [form.typeZone, zoneFilter]);
+
+  // Recherche ville via geo.api.gouv.fr
+  const searchVilles = useCallback(async (q: string) => {
+    if (q.length < 2) { setVilleResults([]); return; }
+    setVilleLoading(true);
+    try {
+      const res = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=nom,departement&boost=population&limit=8`);
+      const data = await res.json() as Array<{ nom: string; departement?: { code: string; nom: string } }>;
+      setVilleResults(data.map((c) => c.departement ? `${c.nom} (${c.departement.code})` : c.nom));
+    } catch {
+      setVilleResults([]);
+    }
+    setVilleLoading(false);
+  }, []);
+
+  // Debounce ville search
+  useEffect(() => {
+    if (form.typeZone !== 'VILLE' || !zoneFilter || form.zoneGeographique) return;
+    const timer = setTimeout(() => searchVilles(zoneFilter), 300);
+    return () => clearTimeout(timer);
+  }, [zoneFilter, form.typeZone, form.zoneGeographique, searchVilles]);
 
   const toggleThematique = (t: string) => {
     setForm((prev) => ({
@@ -138,6 +168,24 @@ export default function NouveauSejourPage() {
         : [...prev.thematiquesPedagogiques, t],
     }));
   };
+
+  const selectZoneType = (type: TypeZone) => {
+    setForm((prev) => ({
+      ...prev,
+      typeZone: type,
+      zoneGeographique: type === 'FRANCE' ? 'France' : '',
+    }));
+    setZoneFilter('');
+    setVilleResults([]);
+  };
+
+  const selectZoneValue = (value: string) => {
+    setForm((prev) => ({ ...prev, zoneGeographique: value }));
+    setZoneFilter('');
+    setVilleResults([]);
+  };
+
+  const zoneComplete = form.typeZone !== '' && form.zoneGeographique !== '';
 
   const canAdvance = () => {
     if (step === 1)
@@ -149,8 +197,15 @@ export default function NouveauSejourPage() {
         form.niveauClasse &&
         form.thematiquesPedagogiques.length > 0
       );
-    if (step === 2) return form.ville && form.regionSouhaitee && form.dateButoireDevis;
+    if (step === 2) return zoneComplete && form.dateButoireDevis;
     return true;
+  };
+
+  const zoneLabel = () => {
+    if (!form.typeZone) return '';
+    const opt = ZONE_OPTIONS.find((o) => o.value === form.typeZone);
+    if (form.typeZone === 'FRANCE') return `${opt?.emoji} France entière`;
+    return `${opt?.emoji} ${opt?.label} : ${form.zoneGeographique}`;
   };
 
   const handleSubmit = async () => {
@@ -158,16 +213,16 @@ export default function NouveauSejourPage() {
     setIsPending(true);
     try {
       await createSejour({
-        titre:                    form.titre,
+        titre:                      form.titre,
         informationsComplementaires: form.informationsComplementaires || undefined,
-        dateDebut:                form.dateDebut,
-        dateFin:                  form.dateFin,
-        nombreEleves:             parseInt(form.nbEleves, 10),
-        villeHebergement:         form.ville,
-        niveauClasse:             form.niveauClasse,
-        thematiquesPedagogiques:  form.thematiquesPedagogiques,
-        regionSouhaitee:          form.regionSouhaitee,
-        dateButoireDevis:         form.dateButoireDevis,
+        dateDebut:                  form.dateDebut,
+        dateFin:                    form.dateFin,
+        nombreEleves:               parseInt(form.nbEleves, 10),
+        niveauClasse:               form.niveauClasse,
+        thematiquesPedagogiques:    form.thematiquesPedagogiques,
+        typeZone:                   form.typeZone as TypeZone,
+        zoneGeographique:           form.zoneGeographique,
+        dateButoireDevis:           form.dateButoireDevis,
       });
       router.push('/dashboard/teacher');
     } catch (err) {
@@ -284,49 +339,136 @@ export default function NouveauSejourPage() {
             <div className="space-y-5">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Appel d&apos;offres hébergement</h2>
 
-              <Field label="Ville / lieu souhaité *">
-                <input type="text" value={form.ville} onChange={set('ville')} placeholder="Ex : Chamonix" className={inputCls} required />
-              </Field>
+              {/* Zone géographique */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">Zone géographique souhaitée *</label>
 
-              <Field label="Région souhaitée *">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={form.regionSouhaitee || regionFilter}
-                    onChange={(e) => {
-                      setRegionFilter(e.target.value);
-                      if (form.regionSouhaitee) setForm((prev) => ({ ...prev, regionSouhaitee: '' }));
-                    }}
-                    placeholder="Tapez pour rechercher…"
-                    className={inputCls}
-                  />
-                  {regionFilter && !form.regionSouhaitee && regionsFiltrees.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {regionsFiltrees.map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            setForm((prev) => ({ ...prev, regionSouhaitee: r }));
-                            setRegionFilter('');
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
-                        >
-                          {r}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {/* Tabs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {ZONE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => selectZoneType(opt.value)}
+                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        form.typeZone === opt.value
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{opt.emoji}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  ))}
                 </div>
-              </Field>
+
+                {/* Autocomplete: Région */}
+                {form.typeZone === 'REGION' && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={form.zoneGeographique || zoneFilter}
+                      onChange={(e) => {
+                        setZoneFilter(e.target.value);
+                        if (form.zoneGeographique) setForm((prev) => ({ ...prev, zoneGeographique: '' }));
+                      }}
+                      placeholder="Tapez pour rechercher une région…"
+                      className={inputCls}
+                    />
+                    {zoneFilter && !form.zoneGeographique && filteredItems.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredItems.map((r) => (
+                          <button key={r} type="button" onClick={() => selectZoneValue(r)} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Autocomplete: Département */}
+                {form.typeZone === 'DEPARTEMENT' && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={form.zoneGeographique || zoneFilter}
+                      onChange={(e) => {
+                        setZoneFilter(e.target.value);
+                        if (form.zoneGeographique) setForm((prev) => ({ ...prev, zoneGeographique: '' }));
+                      }}
+                      placeholder="Tapez pour rechercher un département…"
+                      className={inputCls}
+                    />
+                    {zoneFilter && !form.zoneGeographique && filteredItems.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredItems.map((d) => (
+                          <button key={d} type="button" onClick={() => selectZoneValue(d)} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Autocomplete: Ville via geo.api.gouv.fr */}
+                {form.typeZone === 'VILLE' && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={form.zoneGeographique || zoneFilter}
+                      onChange={(e) => {
+                        setZoneFilter(e.target.value);
+                        if (form.zoneGeographique) setForm((prev) => ({ ...prev, zoneGeographique: '' }));
+                      }}
+                      placeholder="Tapez le nom d'une ville…"
+                      className={inputCls}
+                    />
+                    {villeLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <span className="h-4 w-4 block animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                      </div>
+                    )}
+                    {zoneFilter && !form.zoneGeographique && villeResults.length > 0 && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {villeResults.map((v) => (
+                          <button key={v} type="button" onClick={() => selectZoneValue(v)} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sélection confirmée */}
+                {form.zoneGeographique && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700">
+                      {zoneLabel()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm((prev) => ({ ...prev, zoneGeographique: '', typeZone: '' }));
+                        setZoneFilter('');
+                      }}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <Field label="Date butoire de réponse des hébergements *">
-                <input type="date" value={form.dateButoireDevis} onChange={set('dateButoireDevis')} min={form.dateDebut ? new Date().toISOString().split('T')[0] : ''} className={inputCls} required />
+                <input type="date" value={form.dateButoireDevis} onChange={set('dateButoireDevis')} min={new Date().toISOString().split('T')[0]} className={inputCls} required />
               </Field>
 
               <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
                 <p className="text-sm text-blue-700">
-                  Tous les hébergements de cette région recevront votre demande et pourront y répondre avant cette date.
+                  Tous les hébergements de la zone sélectionnée recevront votre demande et pourront y répondre avant cette date.
                 </p>
               </div>
 
@@ -367,8 +509,7 @@ export default function NouveauSejourPage() {
                   </div>
                 </Section>
                 <Section title="Appel d'offres">
-                  <Row label="Ville" value={form.ville} />
-                  <Row label="Région" value={form.regionSouhaitee} />
+                  <Row label="Zone géographique" value={zoneLabel()} />
                   <Row label="Date butoire" value={formatDate(form.dateButoireDevis)} />
                 </Section>
                 {form.informationsComplementaires && (

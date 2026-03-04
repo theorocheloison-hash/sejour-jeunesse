@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -8,6 +9,13 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum TypeZone {
+  FRANCE = 'FRANCE',
+  REGION = 'REGION',
+  DEPARTEMENT = 'DEPARTEMENT',
+  VILLE = 'VILLE',
+}
 
 export class CreateSejourDto {
   @IsString()
@@ -31,19 +39,18 @@ export class CreateSejourDto {
 
   @IsString()
   @MinLength(1)
-  villeHebergement: string;
-
-  @IsString()
-  @MinLength(1)
   niveauClasse: string;
 
   @IsArray()
   @IsString({ each: true })
   thematiquesPedagogiques: string[];
 
-  @IsOptional()
+  @IsEnum(TypeZone)
+  typeZone: TypeZone;
+
   @IsString()
-  regionSouhaitee?: string;
+  @MinLength(1)
+  zoneGeographique: string;
 
   @IsOptional()
   @IsDateString()

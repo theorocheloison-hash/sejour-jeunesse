@@ -4,6 +4,7 @@ import api from '@/src/lib/api';
 
 export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type AppelOffreStatut = 'BROUILLON' | 'OUVERT' | 'FERME';
+export type TypeZone = 'FRANCE' | 'REGION' | 'DEPARTEMENT' | 'VILLE';
 
 export interface CreateSejourDto {
   titre: string;
@@ -11,10 +12,10 @@ export interface CreateSejourDto {
   dateDebut: string;
   dateFin: string;
   nombreEleves: number;
-  villeHebergement: string;
   niveauClasse: string;
   thematiquesPedagogiques: string[];
-  regionSouhaitee?: string;
+  typeZone: TypeZone;
+  zoneGeographique: string;
   dateButoireDevis?: string;
 }
 
@@ -36,7 +37,8 @@ export interface Sejour {
   statut: StatutSejour;
   niveauClasse: string | null;
   thematiquesPedagogiques: string[];
-  regionSouhaitee: string | null;
+  typeZone: TypeZone | null;
+  zoneGeographique: string | null;
   dateButoireDevis: string | null;
   appelOffreStatut: AppelOffreStatut;
   demandes?: SejourDemande[];
