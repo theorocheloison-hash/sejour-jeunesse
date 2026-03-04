@@ -18,7 +18,8 @@
       "Bash(gh issue:*)",
       "WebFetch(domain:github.com)",
       "Bash(wc:*)",
-      "Bash(echo Token: ${TOKEN:0:20}...:*)"
+      "Bash(echo Token: ${TOKEN:0:20}...:*)",
+      "Bash(gh auth:*)"
     ]
   }
 }
