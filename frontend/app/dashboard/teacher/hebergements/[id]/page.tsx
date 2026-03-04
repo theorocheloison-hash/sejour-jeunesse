@@ -7,15 +7,6 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getHebergement } from '@/src/lib/hebergement';
 import type { Hebergement } from '@/src/lib/hebergement';
 
-const TYPE_LABELS: Record<string, string> = {
-  chalet: 'Chalet',
-  tente: 'Tente',
-  auberge: 'Auberge',
-  hotel: 'Hôtel',
-  gite: 'Gîte',
-  autre: 'Autre',
-};
-
 export default function HebergementDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -79,6 +70,11 @@ export default function HebergementDetailPage() {
 
         {!loading && hebergement && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Image */}
+            {hebergement.image && (
+              <img src={hebergement.image} alt={hebergement.nom} className="w-full h-56 object-cover" />
+            )}
+
             {/* En-tête */}
             <div className="p-6 sm:p-8 border-b border-gray-200">
               <div className="flex items-start justify-between gap-4">
@@ -89,16 +85,18 @@ export default function HebergementDetailPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {hebergement.ville}
+                    {hebergement.ville} ({hebergement.departement}), {hebergement.region}
                   </p>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <span className="inline-flex items-center rounded-full bg-indigo-100 text-indigo-700 px-3 py-1 text-sm font-medium">
-                    {TYPE_LABELS[hebergement.type] ?? 'Autre'}
-                  </span>
-                  {hebergement.agrement && (
+                <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                  {hebergement.accessible && (
                     <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-sm font-medium">
-                      Agréé
+                      Accessible PMR
+                    </span>
+                  )}
+                  {hebergement.avisSecurite === 'Favorable' && (
+                    <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-sm font-medium">
+                      Avis favorable
                     </span>
                   )}
                 </div>
@@ -110,23 +108,43 @@ export default function HebergementDetailPage() {
               {/* Localisation */}
               <Section title="Localisation">
                 <Row label="Ville" value={hebergement.ville} />
-                <Row label="Adresse" value={hebergement.adresse ?? '—'} />
+                <Row label="Code postal" value={hebergement.codePostal} />
+                <Row label="Département" value={hebergement.departement} />
+                <Row label="Région" value={hebergement.region} />
               </Section>
 
-              {/* Caractéristiques */}
-              <Section title="Caractéristiques">
-                <Row label="Type" value={TYPE_LABELS[hebergement.type] ?? 'Autre'} />
-                <Row label="Capacité" value={`${hebergement.capacite} places`} />
-                <Row label="Prix par jour" value={hebergement.prixParJour != null ? `${hebergement.prixParJour} €` : '—'} />
-                <Row label="Agrément" value={hebergement.agrement ? 'Oui' : 'Non'} />
+              {/* Capacité */}
+              <Section title="Capacité et accueil">
+                <Row label="Lits élèves" value={hebergement.capaciteEleves != null ? `${hebergement.capaciteEleves}` : '—'} />
+                <Row label="Lits adultes (encadrement)" value={hebergement.capaciteAdultes != null ? `${hebergement.capaciteAdultes}` : '—'} />
+                <Row label="Accessibilité handicap" value={hebergement.accessible ? 'Oui' : 'Non'} />
+                <Row label="Avis sécurité" value={hebergement.avisSecurite ?? '—'} />
+                <Row label="Période d'ouverture" value={hebergement.periodeOuverture ?? '—'} />
               </Section>
 
               {/* Contact */}
-              {(hebergement.telephone || hebergement.email) && (
+              {hebergement.contact && (
                 <Section title="Contact">
-                  {hebergement.telephone && <Row label="Téléphone" value={hebergement.telephone} />}
-                  {hebergement.email && <Row label="Email" value={hebergement.email} />}
+                  <div className="px-6 py-4 text-sm text-gray-700 whitespace-pre-line">
+                    {hebergement.contact}
+                  </div>
                 </Section>
+              )}
+
+              {/* Thématiques */}
+              {hebergement.thematiques.length > 0 && (
+                <div>
+                  <div className="bg-gray-50 px-6 py-2.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Thématiques
+                  </div>
+                  <div className="px-6 py-4 flex flex-wrap gap-2">
+                    {hebergement.thematiques.map((t) => (
+                      <span key={t} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-3 py-1 text-sm font-medium">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* Activités */}
@@ -137,7 +155,7 @@ export default function HebergementDetailPage() {
                   </div>
                   <div className="px-6 py-4 flex flex-wrap gap-2">
                     {hebergement.activites.map((a) => (
-                      <span key={a} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-3 py-1 text-sm font-medium">
+                      <span key={a} className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-3 py-1 text-sm font-medium">
                         {a}
                       </span>
                     ))}
@@ -148,10 +166,27 @@ export default function HebergementDetailPage() {
               {/* Description */}
               {hebergement.description && (
                 <Section title="Description">
-                  <div className="px-6 py-4 text-sm text-gray-700 leading-relaxed">
+                  <div className="px-6 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
                     {hebergement.description}
                   </div>
                 </Section>
+              )}
+
+              {/* Lien fiche officielle */}
+              {hebergement.permalien && (
+                <div className="px-6 py-4">
+                  <a
+                    href={hebergement.permalien}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    Voir la fiche officielle
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
               )}
             </div>
           </div>

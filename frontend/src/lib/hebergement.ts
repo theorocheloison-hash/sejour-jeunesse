@@ -2,35 +2,44 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type TypeHebergement = 'chalet' | 'tente' | 'auberge' | 'hotel' | 'gite' | 'autre';
-
 export interface Hebergement {
   id: string;
   nom: string;
-  type: TypeHebergement;
-  adresse: string | null;
   ville: string;
-  capacite: number;
-  prixParJour: number | null;
-  agrement: boolean;
-  telephone: string | null;
-  email: string | null;
-  activites: string[];
+  departement: string;
+  region: string;
+  codePostal: string;
+  latitude: number | null;
+  longitude: number | null;
+  capaciteEleves: number | null;
+  capaciteAdultes: number | null;
   description: string | null;
+  image: string | null;
+  permalien: string | null;
+  contact: string | null;
+  thematiques: string[];
+  activites: string[];
+  accessible: boolean;
+  avisSecurite: string | null;
+  periodeOuverture: string | null;
 }
 
 export interface SearchHebergementParams {
   ville?: string;
+  region?: string;
   capaciteMin?: number;
   capaciteMax?: number;
-  prixMax?: number;
-  agrement?: boolean;
+}
+
+export interface SearchHebergementResponse {
+  total: number;
+  results: Hebergement[];
 }
 
 // ─── API calls ──────────────────────────────────────────────────────────────
 
-export async function searchHebergements(params?: SearchHebergementParams): Promise<Hebergement[]> {
-  const { data } = await api.get<Hebergement[]>('/hebergements', { params });
+export async function searchHebergements(params?: SearchHebergementParams): Promise<SearchHebergementResponse> {
+  const { data } = await api.get<SearchHebergementResponse>('/hebergements', { params });
   return data;
 }
 

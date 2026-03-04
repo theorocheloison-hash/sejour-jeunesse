@@ -1,10 +1,14 @@
-import { IsOptional, IsString, IsInt, IsNumber, IsBoolean, Min } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class SearchHebergementDto {
   @IsOptional()
   @IsString()
   ville?: string;
+
+  @IsOptional()
+  @IsString()
+  region?: string;
 
   @IsOptional()
   @IsInt()
@@ -17,15 +21,4 @@ export class SearchHebergementDto {
   @Min(1)
   @Type(() => Number)
   capaciteMax?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  prixMax?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
-  agrement?: boolean;
 }
