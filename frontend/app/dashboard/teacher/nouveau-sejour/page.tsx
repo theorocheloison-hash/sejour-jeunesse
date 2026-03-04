@@ -131,15 +131,13 @@ export default function NouveauSejourPage() {
     setIsPending(true);
     try {
       await createSejour({
-        titre:        form.titre,
-        description:  form.description,
-        lieu:         form.ville,
-        dateDebut:    form.dateDebut,
-        dateFin:      form.dateFin,
-        placesTotales: parseInt(form.nbEleves, 10),
-        hebergement: form.nomHebergement
-          ? { nom: form.nomHebergement, capacite: parseInt(form.capacite || '0', 10) }
-          : undefined,
+        titre:             form.titre,
+        description:       form.description || undefined,
+        dateDebut:         form.dateDebut,
+        dateFin:           form.dateFin,
+        nombreEleves:      parseInt(form.nbEleves, 10),
+        villeHebergement:  form.ville,
+        capaciteSouhaitee: form.capacite ? parseInt(form.capacite, 10) : undefined,
       });
       router.push('/dashboard/teacher');
     } catch (err) {

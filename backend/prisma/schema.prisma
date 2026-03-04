@@ -26,10 +26,10 @@ enum Role {
 // ENUM : statut d'un séjour
 // ============================================================
 enum StatutSejour {
-  ouvert
-  complet
-  annule
-  termine
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
 }
 
 // ============================================================
@@ -89,7 +89,8 @@ model User {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  inscriptions Inscription[]
+  inscriptions  Inscription[]
+  sejoursCreer  Sejour[]      @relation("SejoursCreer")
 
   @@map("utilisateurs")
 }
@@ -107,10 +108,12 @@ model Sejour {
   placesTotales   Int          @map("places_totales")
   placesRestantes Int          @map("places_restantes")
   prix            Decimal      @default(0) @db.Decimal(10, 2)
-  statut          StatutSejour @default(ouvert)
+  statut          StatutSejour @default(DRAFT)
+  createurId      String?      @map("createur_id") @db.Uuid
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
+  createur      User?         @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   inscriptions  Inscription[]
   hebergements  Hebergement[]
 
