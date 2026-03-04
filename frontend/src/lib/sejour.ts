@@ -27,6 +27,10 @@ export interface Sejour {
   statut: StatutSejour;
 }
 
+export interface SejourDirecteur extends Sejour {
+  createur: { prenom: string; nom: string } | null;
+}
+
 // ─── API calls ──────────────────────────────────────────────────────────────
 
 export async function createSejour(dto: CreateSejourDto): Promise<Sejour> {
@@ -36,6 +40,11 @@ export async function createSejour(dto: CreateSejourDto): Promise<Sejour> {
 
 export async function getMesSejours(): Promise<Sejour[]> {
   const { data } = await api.get<Sejour[]>('/sejours/me');
+  return data;
+}
+
+export async function getAllSejours(): Promise<SejourDirecteur[]> {
+  const { data } = await api.get<SejourDirecteur[]>('/sejours');
   return data;
 }
 

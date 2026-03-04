@@ -1,14 +1,326 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import DashboardShell from '../_components/DashboardShell';
+'use client';
 
-export default async function DirectorDashboard() {
-  const cookieStore = await cookies();
-  if (!cookieStore.get('token')) redirect('/login');
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getAllSejours, updateSejourStatus } from '@/src/lib/sejour';
+import type { SejourDirecteur, StatutSejour } from '@/src/lib/sejour';
+
+// ─── Badge statut ───────────────────────────────────────────────────────────
+
+const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
+  DRAFT:     { label: 'Brouillon',  cls: 'bg-gray-100 text-gray-600' },
+  SUBMITTED: { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
+  APPROVED:  { label: 'Approuvé',   cls: 'bg-green-100 text-green-700' },
+  REJECTED:  { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
+};
+
+function StatutBadge({ statut }: { statut: StatutSejour }) {
+  const { label, cls } = STATUT_CONFIG[statut] ?? STATUT_CONFIG.DRAFT;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+// ─── Carte séjour ────────────────────────────────────────────────────────────
+
+function SejourCard({
+  sejour,
+  onApprove,
+  onReject,
+  isActing,
+}: {
+  sejour: SejourDirecteur;
+  onApprove: (id: string) => void;
+  onReject: (id: string, motif: string) => void;
+  isActing: boolean;
+}) {
+  const [refusMode, setRefusMode] = useState(false);
+  const [motif, setMotif] = useState('');
+
+  const dateDebut = new Date(sejour.dateDebut).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const dateFin = new Date(sejour.dateFin).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const enseignant = sejour.createur
+    ? `${sejour.createur.prenom} ${sejour.createur.nom}`
+    : '—';
+
+  const handleConfirmRefus = () => {
+    onReject(sejour.id, motif);
+    setRefusMode(false);
+    setMotif('');
+  };
 
   return (
-    <DashboardShell role="DIRECTOR" title="Espace Directeur">
-      <p className="text-gray-600">Bienvenue dans votre espace directeur.</p>
-    </DashboardShell>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h3 className="text-sm font-semibold text-gray-900">{sejour.titre}</h3>
+            <StatutBadge statut={sejour.statut} />
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {enseignant}
+            </span>
+            <span>{sejour.lieu}</span>
+            <span>{dateDebut} → {dateFin}</span>
+            <span>{sejour.placesTotales} élève{sejour.placesTotales > 1 ? 's' : ''}</span>
+          </div>
+        </div>
+
+        {/* Actions — uniquement pour SUBMITTED */}
+        {sejour.statut === 'SUBMITTED' && !refusMode && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onApprove(sejour.id)}
+              disabled={isActing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            >
+              {isActing ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              Approuver
+            </button>
+            <button
+              type="button"
+              onClick={() => setRefusMode(true)}
+              disabled={isActing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Refuser
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Formulaire de refus inline */}
+      {refusMode && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+          <label className="block text-xs font-medium text-red-700">
+            Motif du refus (optionnel)
+          </label>
+          <textarea
+            value={motif}
+            onChange={(e) => setMotif(e.target.value)}
+            rows={2}
+            placeholder="Expliquez la raison du refus…"
+            className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => { setRefusMode(false); setMotif(''); }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmRefus}
+              disabled={isActing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isActing && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              Confirmer le refus
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page principale ─────────────────────────────────────────────────────────
+
+export default function DirectorDashboard() {
+  const { user, isLoading, logout } = useAuth();
+  const router = useRouter();
+
+  const [sejours, setSejours]     = useState<SejourDirecteur[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actingId, setActingId]   = useState<string | null>(null);
+  const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('SUBMITTED');
+
+  useEffect(() => {
+    if (!isLoading && !user) router.replace('/login');
+  }, [isLoading, user, router]);
+
+  const loadSejours = useCallback(async () => {
+    try {
+      const data = await getAllSejours();
+      setSejours(data);
+    } catch {
+      setLoadError('Impossible de charger les séjours.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) loadSejours();
+  }, [user, loadSejours]);
+
+  const handleApprove = async (id: string) => {
+    setActingId(id);
+    try {
+      await updateSejourStatus(id, 'APPROVED');
+      await loadSejours();
+    } catch {
+      // no-op
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleReject = async (id: string, _motif: string) => {
+    setActingId(id);
+    try {
+      await updateSejourStatus(id, 'REJECTED');
+      await loadSejours();
+    } catch {
+      // no-op
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  const initials = `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase();
+
+  const sejoursFiltres = filtre === 'ALL'
+    ? sejours
+    : sejours.filter((s) => s.statut === filtre);
+
+  const countByStatut = (s: StatutSejour) => sejours.filter((x) => x.statut === s).length;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+
+      {/* ── Navigation ──────────────────────────────────────────────────────── */}
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <span className="font-semibold text-gray-900">Séjour Jeunesse</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
+                  <span className="text-xs font-semibold text-indigo-700">{initials}</span>
+                </div>
+                <div className="hidden sm:block leading-tight">
+                  <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
+                  <p className="text-xs text-gray-500">Directeur</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Se déconnecter
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Contenu ─────────────────────────────────────────────────────────── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        {/* En-tête */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Validation des séjours</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Approuvez ou refusez les séjours soumis par les enseignants
+          </p>
+        </div>
+
+        {/* Filtres / compteurs */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {([
+            ['ALL',       'Tous',         sejours.length,             'bg-gray-100 text-gray-700 ring-gray-300'],
+            ['SUBMITTED', 'En attente',   countByStatut('SUBMITTED'), 'bg-orange-50 text-orange-700 ring-orange-300'],
+            ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-green-50 text-green-700 ring-green-300'],
+            ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
+          ] as const).map(([val, label, count, cls]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setFiltre(val)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-all ${cls} ${
+                filtre === val ? 'ring-2 shadow-sm' : 'opacity-70 hover:opacity-100'
+              }`}
+            >
+              {label}
+              <span className="rounded-full bg-white/60 px-1.5 py-0.5 font-semibold">{count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Erreur */}
+        {loadError && (
+          <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
+        {/* Liste */}
+        {sejoursFiltres.length > 0 ? (
+          <div className="space-y-3">
+            {sejoursFiltres.map((s) => (
+              <SejourCard
+                key={s.id}
+                sejour={s}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                isActing={actingId === s.id}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50">
+              <svg className="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-base font-semibold text-gray-900">Aucun séjour à afficher</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {filtre === 'SUBMITTED'
+                ? 'Aucun séjour en attente de validation.'
+                : 'Aucun séjour dans cette catégorie.'}
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

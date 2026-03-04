@@ -32,6 +32,9 @@ export class SejourService {
 
   async findAll() {
     return this.prisma.sejour.findMany({
+      include: {
+        createur: { select: { prenom: true, nom: true } },
+      },
       orderBy: { dateDebut: 'asc' },
     });
   }
