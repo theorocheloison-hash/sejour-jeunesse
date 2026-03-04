@@ -35,4 +35,10 @@ export class DemandeController {
   findOne(@Param('id') id: string) {
     return this.demandeService.findOne(id);
   }
+
+  @Get(':id/devis/comparatif')
+  @Roles(Role.TEACHER, Role.DIRECTOR)
+  getComparatif(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.demandeService.getComparatif(id, user);
+  }
 }

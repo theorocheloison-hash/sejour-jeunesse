@@ -16,6 +16,8 @@ export class DemandeService {
         dateFin: new Date(dto.dateFin),
         nombreEleves: dto.nombreEleves,
         villeHebergement: dto.villeHebergement,
+        regionCible: dto.regionCible ?? '',
+        dateButoireReponse: dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,
         sejourId: dto.sejourId,
         enseignantId,
       },
@@ -23,7 +25,6 @@ export class DemandeService {
   }
 
   async findOpen(userId: string) {
-    // Vérifier que le VENUE a un abonnement actif
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
     });
@@ -33,9 +34,28 @@ export class DemandeService {
     }
 
     return this.prisma.demandeDevis.findMany({
-      where: { statut: 'OUVERTE' },
+      where: {
+        statut: 'OUVERTE',
+        AND: [
+          // Région : la demande correspond à la région du centre OU pas de filtre région
+          {
+            OR: [
+              { regionCible: centre.ville },
+              { regionCible: '' },
+            ],
+          },
+          // Date butoire : pas de date OU pas encore dépassée
+          {
+            OR: [
+              { dateButoireReponse: null },
+              { dateButoireReponse: { gte: new Date() } },
+            ],
+          },
+        ],
+      },
       include: {
         enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
+        sejour: { select: { niveauClasse: true, thematiquesPedagogiques: true } },
         _count: { select: { devis: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -59,12 +79,33 @@ export class DemandeService {
         enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
         devis: {
           include: {
-            centre: { select: { id: true, nom: true, ville: true } },
+            centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
           },
         },
       },
     });
     if (!demande) throw new NotFoundException('Demande introuvable');
     return demande;
+  }
+
+  async getComparatif(demandeId: string, user: { id: string; role: string }) {
+    const demande = await this.prisma.demandeDevis.findUnique({
+      where: { id: demandeId },
+    });
+    if (!demande) throw new NotFoundException('Demande introuvable');
+
+    if (user.role === 'TEACHER' && demande.enseignantId !== user.id) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    return this.prisma.devis.findMany({
+      where: { demandeId },
+      include: {
+        centre: {
+          select: { id: true, nom: true, ville: true, email: true, capacite: true, description: true },
+        },
+      },
+      orderBy: { montantTotal: 'asc' },
+    });
   }
 }

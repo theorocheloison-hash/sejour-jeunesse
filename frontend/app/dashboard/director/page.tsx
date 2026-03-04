@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getAllSejours, updateSejourStatus } from '@/src/lib/sejour';
+import { getDevisAValider, updateDevisStatut } from '@/src/lib/devis';
 import type { SejourDirecteur, StatutSejour } from '@/src/lib/sejour';
+import type { Devis } from '@/src/lib/devis';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -158,6 +160,8 @@ export default function DirectorDashboard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actingId, setActingId]   = useState<string | null>(null);
   const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('SUBMITTED');
+  const [devisAValider, setDevisAValider] = useState<Devis[]>([]);
+  const [devisActingId, setDevisActingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -172,9 +176,18 @@ export default function DirectorDashboard() {
     }
   }, []);
 
+  const loadDevis = useCallback(async () => {
+    try {
+      setDevisAValider(await getDevisAValider());
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
-    if (user) loadSejours();
-  }, [user, loadSejours]);
+    if (user) {
+      loadSejours();
+      loadDevis();
+    }
+  }, [user, loadSejours, loadDevis]);
 
   const handleApprove = async (id: string) => {
     setActingId(id);
@@ -186,6 +199,15 @@ export default function DirectorDashboard() {
     } finally {
       setActingId(null);
     }
+  };
+
+  const handleDevisAction = async (devisId: string, statut: 'SELECTIONNE' | 'NON_RETENU') => {
+    setDevisActingId(devisId);
+    try {
+      await updateDevisStatut(devisId, statut);
+      await loadDevis();
+    } catch { /* ignore */ }
+    setDevisActingId(null);
   };
 
   const handleReject = async (id: string, _motif: string) => {
@@ -318,6 +340,60 @@ export default function DirectorDashboard() {
                 ? 'Aucun séjour en attente de validation.'
                 : 'Aucun séjour dans cette catégorie.'}
             </p>
+          </div>
+        )}
+
+        {/* ── Devis à valider ─────────────────────────────────────────── */}
+        {devisAValider.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              Devis à valider
+              <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                {devisAValider.length}
+              </span>
+            </h2>
+            <div className="space-y-3">
+              {devisAValider.map((dv) => (
+                <div key={dv.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-gray-900">{dv.centre?.nom ?? 'Centre'}</h3>
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                          Soumis par l&apos;enseignant
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                        <span>Séjour : {dv.demande?.sejour?.titre ?? dv.demande?.titre ?? '—'}</span>
+                        {dv.demande?.enseignant && <span>Enseignant : {dv.demande.enseignant.prenom} {dv.demande.enseignant.nom}</span>}
+                        <span>{dv.centre?.ville ?? '—'}</span>
+                        <span>Total : {dv.montantTotal} €</span>
+                        <span>Par élève : {dv.montantParEleve} €</span>
+                      </div>
+                      {dv.description && <p className="mt-2 text-xs text-gray-600">{dv.description}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDevisAction(dv.id, 'SELECTIONNE')}
+                        disabled={devisActingId === dv.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Valider
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDevisAction(dv.id, 'NON_RETENU')}
+                        disabled={devisActingId === dv.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        Refuser
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>

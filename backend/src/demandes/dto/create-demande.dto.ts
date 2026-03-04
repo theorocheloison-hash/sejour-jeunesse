@@ -26,6 +26,13 @@ export class CreateDemandeDto {
   villeHebergement: string;
 
   @IsOptional()
+  @IsString()
+  regionCible?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateButoireReponse?: string;
+
   @IsUUID()
-  sejourId?: string;
+  sejourId: string;
 }

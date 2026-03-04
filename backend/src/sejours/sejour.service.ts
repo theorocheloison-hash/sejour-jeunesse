@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Role, StatutSejour } from '@prisma/client';
+import { Role, StatutSejour, AppelOffreStatut } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
@@ -11,13 +11,17 @@ export class SejourService {
   async create(dto: CreateSejourDto, createurId: string) {
     return this.prisma.sejour.create({
       data: {
-        titre:          dto.titre,
-        description:    dto.description,
-        lieu:           dto.villeHebergement,
-        dateDebut:      new Date(dto.dateDebut),
-        dateFin:        new Date(dto.dateFin),
-        placesTotales:  dto.nombreEleves,
-        placesRestantes: dto.nombreEleves,
+        titre:                    dto.titre,
+        description:              dto.description,
+        lieu:                     dto.villeHebergement,
+        dateDebut:                new Date(dto.dateDebut),
+        dateFin:                  new Date(dto.dateFin),
+        placesTotales:            dto.nombreEleves,
+        placesRestantes:          dto.nombreEleves,
+        niveauClasse:             dto.niveauClasse,
+        thematiquesPedagogiques:  dto.thematiquesPedagogiques,
+        regionSouhaitee:          dto.regionSouhaitee,
+        dateButoireDevis:         dto.dateButoireDevis ? new Date(dto.dateButoireDevis) : null,
         createurId,
       },
     });
@@ -26,6 +30,11 @@ export class SejourService {
   async getMesSejours(createurId: string) {
     return this.prisma.sejour.findMany({
       where:   { createurId },
+      include: {
+        demandes: {
+          include: { _count: { select: { devis: true } } },
+        },
+      },
       orderBy: { dateDebut: 'asc' },
     });
   }
@@ -50,9 +59,41 @@ export class SejourService {
         throw new ForbiddenException('Les enseignants peuvent uniquement soumettre un séjour');
     }
 
-    return this.prisma.sejour.update({
+    const updated = await this.prisma.sejour.update({
       where: { id },
       data:  { statut },
     });
+
+    // Auto-create DemandeDevis when a sejour is SUBMITTED
+    if (statut === StatutSejour.SUBMITTED && sejour.createurId) {
+      const thematiques = sejour.thematiquesPedagogiques ?? [];
+      const descParts = [
+        sejour.description ?? '',
+        sejour.niveauClasse ? `Niveau : ${sejour.niveauClasse}` : '',
+        thematiques.length > 0 ? `Thématiques : ${thematiques.join(', ')}` : '',
+      ].filter(Boolean);
+
+      await this.prisma.demandeDevis.create({
+        data: {
+          sejourId:           sejour.id,
+          titre:              sejour.titre,
+          description:        descParts.join('\n'),
+          dateDebut:          sejour.dateDebut,
+          dateFin:            sejour.dateFin,
+          nombreEleves:       sejour.placesTotales,
+          villeHebergement:   sejour.lieu,
+          regionCible:        sejour.regionSouhaitee ?? '',
+          dateButoireReponse: sejour.dateButoireDevis,
+          enseignantId:       sejour.createurId,
+        },
+      });
+
+      await this.prisma.sejour.update({
+        where: { id },
+        data:  { appelOffreStatut: AppelOffreStatut.OUVERT },
+      });
+    }
+
+    return updated;
   }
 }

@@ -8,9 +8,12 @@ import { getMesDevis } from '@/src/lib/devis';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
-  ACCEPTE:    { label: 'Accepté',    cls: 'bg-green-100 text-green-700' },
-  REFUSE:     { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
+  EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
+  ACCEPTE:               { label: 'Accepté',             cls: 'bg-green-100 text-green-700' },
+  REFUSE:                { label: 'Refusé',              cls: 'bg-red-100 text-red-700' },
+  EN_ATTENTE_VALIDATION: { label: 'En validation',       cls: 'bg-blue-100 text-blue-700' },
+  SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-emerald-100 text-emerald-700' },
+  NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
 };
 
 export default function VenueDevisPage() {
@@ -76,6 +79,16 @@ export default function VenueDevisPage() {
                         <span>{new Date(d.createdAt).toLocaleDateString('fr-FR')}</span>
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
+                    </div>
+                    <div className="shrink-0">
+                      {d.statut === 'SELECTIONNE' && d.demande?.enseignant?.email && (
+                        <a
+                          href={`mailto:${d.demande.enseignant.email}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                        >
+                          Contacter l&apos;enseignant
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

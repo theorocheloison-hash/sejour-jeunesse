@@ -1,22 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSejour } from '@/src/lib/sejour';
 import { extractApiError } from '@/src/contexts/AuthContext';
+import { NIVEAUX, THEMATIQUES, REGIONS } from '@/src/data/thematiques-pedagogiques';
+import type { Niveau } from '@/src/data/thematiques-pedagogiques';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface SejourFormData {
-  // Étape 1 — Informations générales
   titre: string;
   description: string;
   dateDebut: string;
   dateFin: string;
   nbEleves: string;
-  // Étape 2 — Hébergement
+  niveauClasse: string;
+  thematiquesPedagogiques: string[];
   ville: string;
+  regionSouhaitee: string;
+  dateButoireDevis: string;
 }
 
 const INITIAL_DATA: SejourFormData = {
@@ -25,13 +29,17 @@ const INITIAL_DATA: SejourFormData = {
   dateDebut: '',
   dateFin: '',
   nbEleves: '',
+  niveauClasse: '',
+  thematiquesPedagogiques: [],
   ville: '',
+  regionSouhaitee: '',
+  dateButoireDevis: '',
 };
 
-// ─── Composant indicateur d'étapes ─────────────────────────────────────────
+// ─── Step Indicator ────────────────────────────────────────────────────────
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
-  const labels = ['Informations', 'Hébergement', 'Récapitulatif'];
+  const labels = ['Informations', 'Appel d\'offres', 'Récapitulatif'];
   return (
     <div className="flex items-center gap-0 mb-8">
       {labels.map((label, i) => {
@@ -80,15 +88,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-// ─── Composant champ de formulaire ─────────────────────────────────────────
+// ─── Field wrapper ─────────────────────────────────────────────────────────
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -100,7 +102,7 @@ function Field({
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent';
 
-// ─── Page principale ────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function NouveauSejourPage() {
   const router = useRouter();
@@ -108,31 +110,64 @@ export default function NouveauSejourPage() {
   const [form, setForm] = useState<SejourFormData>(INITIAL_DATA);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [regionFilter, setRegionFilter] = useState('');
 
   const set = (field: keyof SejourFormData) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
-  // ── Validation par étape ──────────────────────────────────────────────────
+  // Thématiques pour le niveau sélectionné
+  const thematiquesDisponibles = useMemo(() => {
+    if (!form.niveauClasse) return [];
+    return THEMATIQUES[form.niveauClasse as Niveau] ?? [];
+  }, [form.niveauClasse]);
+
+  // Régions filtrées
+  const regionsFiltrees = useMemo(() => {
+    if (!regionFilter) return [...REGIONS];
+    return REGIONS.filter((r) =>
+      r.toLowerCase().includes(regionFilter.toLowerCase())
+    );
+  }, [regionFilter]);
+
+  const toggleThematique = (t: string) => {
+    setForm((prev) => ({
+      ...prev,
+      thematiquesPedagogiques: prev.thematiquesPedagogiques.includes(t)
+        ? prev.thematiquesPedagogiques.filter((x) => x !== t)
+        : [...prev.thematiquesPedagogiques, t],
+    }));
+  };
+
   const canAdvance = () => {
     if (step === 1)
-      return form.titre && form.dateDebut && form.dateFin && form.nbEleves;
-    if (step === 2) return form.ville;
+      return (
+        form.titre &&
+        form.dateDebut &&
+        form.dateFin &&
+        form.nbEleves &&
+        form.niveauClasse &&
+        form.thematiquesPedagogiques.length > 0
+      );
+    if (step === 2) return form.ville && form.regionSouhaitee && form.dateButoireDevis;
     return true;
   };
 
-  // ── Soumission ─────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setError(null);
     setIsPending(true);
     try {
       await createSejour({
-        titre:             form.titre,
-        description:       form.description || undefined,
-        dateDebut:         form.dateDebut,
-        dateFin:           form.dateFin,
-        nombreEleves:      parseInt(form.nbEleves, 10),
-        villeHebergement:  form.ville,
+        titre:                    form.titre,
+        description:              form.description || undefined,
+        dateDebut:                form.dateDebut,
+        dateFin:                  form.dateFin,
+        nombreEleves:             parseInt(form.nbEleves, 10),
+        villeHebergement:         form.ville,
+        niveauClasse:             form.niveauClasse,
+        thematiquesPedagogiques:  form.thematiquesPedagogiques,
+        regionSouhaitee:          form.regionSouhaitee,
+        dateButoireDevis:         form.dateButoireDevis,
       });
       router.push('/dashboard/teacher');
     } catch (err) {
@@ -144,8 +179,6 @@ export default function NouveauSejourPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -158,25 +191,22 @@ export default function NouveauSejourPage() {
               <span className="font-semibold text-gray-900">Séjour Jeunesse</span>
             </div>
             <Link href="/dashboard/teacher" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-              ← Retour
+              &larr; Retour
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* ── Contenu ────────────────────────────────────────────────────────── */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Nouveau séjour</h1>
-          <p className="mt-1 text-sm text-gray-500">Renseignez les informations en {3} étapes</p>
+          <p className="mt-1 text-sm text-gray-500">Renseignez les informations en 3 étapes</p>
         </div>
 
         <StepIndicator current={step} total={3} />
 
-        {/* ── Carte du formulaire ───────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
 
-          {/* Erreur globale */}
           {error && (
             <div role="alert" className="mb-6 flex items-start gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
               <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -186,122 +216,167 @@ export default function NouveauSejourPage() {
             </div>
           )}
 
-          {/* ── Étape 1 : Informations générales ─────────────────────────── */}
+          {/* ── Étape 1 : Informations + thématiques ─────────────────── */}
           {step === 1 && (
             <div className="space-y-5">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Informations générales</h2>
 
               <Field label="Titre du séjour *">
-                <input
-                  type="text"
-                  value={form.titre}
-                  onChange={set('titre')}
-                  placeholder="Ex : Séjour découverte des Alpes"
-                  className={inputCls}
-                  required
-                />
+                <input type="text" value={form.titre} onChange={set('titre')} placeholder="Ex : Séjour découverte des Alpes" className={inputCls} required />
               </Field>
 
               <Field label="Description / objectifs pédagogiques">
-                <textarea
-                  value={form.description}
-                  onChange={set('description')}
-                  rows={4}
-                  placeholder="Décrivez les objectifs pédagogiques de ce séjour…"
-                  className={`${inputCls} resize-none`}
-                />
+                <textarea value={form.description} onChange={set('description')} rows={3} placeholder="Décrivez les objectifs pédagogiques de ce séjour…" className={`${inputCls} resize-none`} />
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Date de début *">
-                  <input
-                    type="date"
-                    value={form.dateDebut}
-                    onChange={set('dateDebut')}
-                    className={inputCls}
-                    required
-                  />
+                  <input type="date" value={form.dateDebut} onChange={set('dateDebut')} className={inputCls} required />
                 </Field>
                 <Field label="Date de fin *">
-                  <input
-                    type="date"
-                    value={form.dateFin}
-                    min={form.dateDebut}
-                    onChange={set('dateFin')}
-                    className={inputCls}
-                    required
-                  />
+                  <input type="date" value={form.dateFin} min={form.dateDebut} onChange={set('dateFin')} className={inputCls} required />
                 </Field>
               </div>
 
-              <Field label="Nombre d'élèves *">
-                <input
-                  type="number"
-                  value={form.nbEleves}
-                  onChange={set('nbEleves')}
-                  min={1}
-                  placeholder="Ex : 25"
-                  className={inputCls}
-                  required
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Nombre d'élèves *">
+                  <input type="number" value={form.nbEleves} onChange={set('nbEleves')} min={1} placeholder="Ex : 25" className={inputCls} required />
+                </Field>
+                <Field label="Niveau de classe *">
+                  <select
+                    value={form.niveauClasse}
+                    onChange={(e) => setForm((prev) => ({ ...prev, niveauClasse: e.target.value, thematiquesPedagogiques: [] }))}
+                    className={inputCls}
+                  >
+                    <option value="">Sélectionnez un niveau</option>
+                    {NIVEAUX.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              {form.niveauClasse && thematiquesDisponibles.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Thématiques pédagogiques * <span className="text-xs font-normal text-gray-400">(min. 1)</span>
+                  </label>
+                  <div className="space-y-2">
+                    {thematiquesDisponibles.map((t) => (
+                      <label key={t} className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={form.thematiquesPedagogiques.includes(t)}
+                          onChange={() => toggleThematique(t)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-gray-700">{t}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── Étape 2 : Hébergement ────────────────────────────────────── */}
+          {/* ── Étape 2 : Appel d'offres ──────────────────────────── */}
           {step === 2 && (
             <div className="space-y-5">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Hébergement</h2>
+              <h2 className="text-base font-semibold text-gray-900 mb-4">Appel d&apos;offres hébergement</h2>
 
-              <Field label="Ville / lieu *">
-                <input
-                  type="text"
-                  value={form.ville}
-                  onChange={set('ville')}
-                  placeholder="Ex : Chamonix"
-                  className={inputCls}
-                  required
-                />
+              <Field label="Ville / lieu souhaité *">
+                <input type="text" value={form.ville} onChange={set('ville')} placeholder="Ex : Chamonix" className={inputCls} required />
               </Field>
 
-              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-                <p className="text-sm text-indigo-700 mb-3">
-                  Consultez notre catalogue pour trouver un hébergement adapté à votre séjour.
+              <Field label="Région souhaitée *">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.regionSouhaitee || regionFilter}
+                    onChange={(e) => {
+                      setRegionFilter(e.target.value);
+                      if (form.regionSouhaitee) setForm((prev) => ({ ...prev, regionSouhaitee: '' }));
+                    }}
+                    placeholder="Tapez pour rechercher…"
+                    className={inputCls}
+                  />
+                  {regionFilter && !form.regionSouhaitee && regionsFiltrees.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {regionsFiltrees.map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, regionSouhaitee: r }));
+                            setRegionFilter('');
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Field>
+
+              <Field label="Date butoire de réponse des hébergements *">
+                <input type="date" value={form.dateButoireDevis} onChange={set('dateButoireDevis')} min={form.dateDebut ? new Date().toISOString().split('T')[0] : ''} className={inputCls} required />
+              </Field>
+
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+                <p className="text-sm text-blue-700">
+                  Tous les hébergements de cette région recevront votre demande et pourront y répondre avant cette date.
                 </p>
+              </div>
+
+              <div className="pt-2">
                 <Link
                   href="/dashboard/teacher/hebergements"
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  Rechercher un hébergement
+                  Parcourir le catalogue
                 </Link>
               </div>
             </div>
           )}
 
-          {/* ── Étape 3 : Récapitulatif ──────────────────────────────────── */}
+          {/* ── Étape 3 : Récapitulatif ───────────────────────────── */}
           {step === 3 && (
             <div className="space-y-6">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Récapitulatif</h2>
 
               <div className="rounded-xl bg-gray-50 border border-gray-200 divide-y divide-gray-200 overflow-hidden text-sm">
                 <Section title="Informations générales">
-                  <Row label="Titre"        value={form.titre} />
-                  <Row label="Description"  value={form.description || '—'} />
+                  <Row label="Titre" value={form.titre} />
+                  <Row label="Description" value={form.description || '—'} />
                   <Row label="Date de début" value={formatDate(form.dateDebut)} />
-                  <Row label="Date de fin"   value={formatDate(form.dateFin)} />
+                  <Row label="Date de fin" value={formatDate(form.dateFin)} />
                   <Row label="Nombre d'élèves" value={form.nbEleves} />
+                  <Row label="Niveau de classe" value={form.niveauClasse} />
                 </Section>
-                <Section title="Hébergement">
+                <Section title="Thématiques pédagogiques">
+                  <div className="px-4 py-3 flex flex-wrap gap-2">
+                    {form.thematiquesPedagogiques.map((t) => (
+                      <span key={t} className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </Section>
+                <Section title="Appel d'offres">
                   <Row label="Ville" value={form.ville} />
+                  <Row label="Région" value={form.regionSouhaitee} />
+                  <Row label="Date butoire" value={formatDate(form.dateButoireDevis)} />
                 </Section>
               </div>
             </div>
           )}
 
-          {/* ── Navigation ───────────────────────────────────────────────── */}
+          {/* ── Navigation ──────────────────────────────────────── */}
           <div className="mt-8 flex items-center justify-between">
             <button
               type="button"
@@ -309,7 +384,7 @@ export default function NouveauSejourPage() {
               disabled={step === 1}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              ← Précédent
+              &larr; Précédent
             </button>
 
             {step < 3 ? (
@@ -319,7 +394,7 @@ export default function NouveauSejourPage() {
                 disabled={!canAdvance()}
                 className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
-                Suivant →
+                Suivant &rarr;
               </button>
             ) : (
               <button
@@ -334,7 +409,7 @@ export default function NouveauSejourPage() {
                     Envoi en cours…
                   </>
                 ) : (
-                  'Soumettre le séjour'
+                  'Créer le séjour'
                 )}
               </button>
             )}
@@ -345,7 +420,7 @@ export default function NouveauSejourPage() {
   );
 }
 
-// ─── Helpers d'affichage ────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
   if (!iso) return '—';

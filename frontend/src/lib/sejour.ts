@@ -3,6 +3,7 @@ import api from '@/src/lib/api';
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+export type AppelOffreStatut = 'BROUILLON' | 'OUVERT' | 'FERME';
 
 export interface CreateSejourDto {
   titre: string;
@@ -11,7 +12,15 @@ export interface CreateSejourDto {
   dateFin: string;
   nombreEleves: number;
   villeHebergement: string;
-  capaciteSouhaitee?: number;
+  niveauClasse: string;
+  thematiquesPedagogiques: string[];
+  regionSouhaitee?: string;
+  dateButoireDevis?: string;
+}
+
+export interface SejourDemande {
+  id: string;
+  _count: { devis: number };
 }
 
 export interface Sejour {
@@ -25,6 +34,12 @@ export interface Sejour {
   placesRestantes: number;
   prix: number;
   statut: StatutSejour;
+  niveauClasse: string | null;
+  thematiquesPedagogiques: string[];
+  regionSouhaitee: string | null;
+  dateButoireDevis: string | null;
+  appelOffreStatut: AppelOffreStatut;
+  demandes?: SejourDemande[];
 }
 
 export interface SejourDirecteur extends Sejour {

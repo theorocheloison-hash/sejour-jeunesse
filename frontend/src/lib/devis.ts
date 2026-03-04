@@ -2,7 +2,7 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type StatutDevis = 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE';
+export type StatutDevis = 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'NON_RETENU';
 
 export interface Devis {
   id: string;
@@ -20,13 +20,16 @@ export interface Devis {
     titre: string;
     villeHebergement: string;
     nombreEleves: number;
-    enseignant?: { prenom: string; nom: string };
+    enseignant?: { prenom: string; nom: string; email?: string };
+    sejour?: { id: string; titre: string } | null;
   };
   centre?: {
     id: string;
     nom: string;
     ville: string;
+    email?: string | null;
     capacite?: number;
+    description?: string | null;
   };
 }
 
@@ -52,6 +55,16 @@ export async function getMesDevis(): Promise<Devis[]> {
 
 export async function getDevisForDemande(demandeId: string): Promise<Devis[]> {
   const { data } = await api.get<Devis[]>(`/devis/demande/${demandeId}`);
+  return data;
+}
+
+export async function getDevisAValider(): Promise<Devis[]> {
+  const { data } = await api.get<Devis[]>('/devis/a-valider');
+  return data;
+}
+
+export async function getComparatif(demandeId: string): Promise<Devis[]> {
+  const { data } = await api.get<Devis[]>(`/demandes/${demandeId}/devis/comparatif`);
   return data;
 }
 

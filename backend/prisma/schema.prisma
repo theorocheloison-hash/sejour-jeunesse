@@ -109,11 +109,16 @@ model Sejour {
   dateFin         DateTime     @map("date_fin") @db.Date
   placesTotales   Int          @map("places_totales")
   placesRestantes Int          @map("places_restantes")
-  prix            Decimal      @default(0) @db.Decimal(10, 2)
-  statut          StatutSejour @default(DRAFT)
-  createurId      String?      @map("createur_id") @db.Uuid
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  prix                      Decimal          @default(0) @db.Decimal(10, 2)
+  statut                    StatutSejour     @default(DRAFT)
+  niveauClasse              String?          @map("niveau_classe") @db.VarChar(50)
+  thematiquesPedagogiques   String[]         @map("thematiques_pedagogiques")
+  regionSouhaitee           String?          @map("region_souhaitee") @db.VarChar(255)
+  dateButoireDevis          DateTime?        @map("date_butoire_devis") @db.Date
+  appelOffreStatut          AppelOffreStatut @default(BROUILLON) @map("appel_offre_statut")
+  createurId                String?          @map("createur_id") @db.Uuid
+  createdAt                 DateTime         @default(now()) @map("created_at")
+  updatedAt                 DateTime         @updatedAt @map("updated_at")
 
   createur      User?         @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   inscriptions  Inscription[]
@@ -236,6 +241,18 @@ enum StatutDevis {
   EN_ATTENTE
   ACCEPTE
   REFUSE
+  EN_ATTENTE_VALIDATION
+  SELECTIONNE
+  NON_RETENU
+}
+
+// ============================================================
+// ENUM : statut d'un appel d'offres
+// ============================================================
+enum AppelOffreStatut {
+  BROUILLON
+  OUVERT
+  FERME
 }
 
 // ============================================================
@@ -338,21 +355,23 @@ model InvitationHebergement {
 // MODEL : DemandeDevis (demandes de devis enseignant → venues)
 // ============================================================
 model DemandeDevis {
-  id                String       @id @default(uuid()) @db.Uuid
-  sejourId          String?      @map("sejour_id") @db.Uuid
-  titre             String       @db.VarChar(255)
-  description       String?      @db.Text
-  dateDebut         DateTime     @map("date_debut") @db.Date
-  dateFin           DateTime     @map("date_fin") @db.Date
-  nombreEleves      Int          @map("nombre_eleves")
-  villeHebergement  String       @map("ville_hebergement") @db.VarChar(255)
-  statut            StatutDemande @default(OUVERTE)
-  enseignantId      String       @map("enseignant_id") @db.Uuid
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  id                  String        @id @default(uuid()) @db.Uuid
+  sejourId            String        @map("sejour_id") @db.Uuid
+  titre               String        @db.VarChar(255)
+  description         String?       @db.Text
+  dateDebut           DateTime      @map("date_debut") @db.Date
+  dateFin             DateTime      @map("date_fin") @db.Date
+  nombreEleves        Int           @map("nombre_eleves")
+  villeHebergement    String        @map("ville_hebergement") @db.VarChar(255)
+  regionCible         String        @default("") @map("region_cible") @db.VarChar(255)
+  dateButoireReponse  DateTime?     @map("date_butoire_reponse") @db.Date
+  statut              StatutDemande @default(OUVERTE)
+  enseignantId        String        @map("enseignant_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
 
-  enseignant User          @relation("DemandesCreer", fields: [enseignantId], references: [id], onDelete: Cascade)
-  sejour     Sejour?       @relation(fields: [sejourId], references: [id], onDelete: SetNull)
+  enseignant User     @relation("DemandesCreer", fields: [enseignantId], references: [id], onDelete: Cascade)
+  sejour     Sejour   @relation(fields: [sejourId], references: [id], onDelete: Cascade)
   devis      Devis[]
 
   @@map("demandes_devis")

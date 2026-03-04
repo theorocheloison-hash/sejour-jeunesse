@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsDateString,
   IsInt,
   IsOptional,
@@ -32,9 +33,19 @@ export class CreateSejourDto {
   @MinLength(1)
   villeHebergement: string;
 
+  @IsString()
+  @MinLength(1)
+  niveauClasse: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  thematiquesPedagogiques: string[];
+
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  capaciteSouhaitee?: number;
+  @IsString()
+  regionSouhaitee?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateButoireDevis?: string;
 }

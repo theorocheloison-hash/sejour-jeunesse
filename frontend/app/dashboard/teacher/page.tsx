@@ -59,7 +59,7 @@ function SejourCard({
       </div>
 
       {/* Actions */}
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 gap-2 flex-wrap">
         {/* Bouton soumettre — uniquement pour DRAFT */}
         {sejour.statut === 'DRAFT' && (
           <button
@@ -78,6 +78,29 @@ function SejourCard({
             Soumettre au directeur
           </button>
         )}
+
+        {/* Appel d'offres — pour SUBMITTED */}
+        {sejour.statut === 'SUBMITTED' && sejour.demandes && sejour.demandes.length > 0 && (() => {
+          const totalDevis = sejour.demandes.reduce((sum, d) => sum + (d._count?.devis ?? 0), 0);
+          return (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                Appel d&apos;offres ouvert &middot; {totalDevis} devis
+              </span>
+              {sejour.dateButoireDevis && (
+                <span className="text-xs text-gray-400">
+                  avant le {new Date(sejour.dateButoireDevis).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                </span>
+              )}
+              <Link
+                href={`/dashboard/teacher/sejours/${sejour.id}/offres`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                Voir les offres
+              </Link>
+            </div>
+          );
+        })()}
 
         {/* Bouton autorisations — uniquement pour APPROVED */}
         {sejour.statut === 'APPROVED' && (

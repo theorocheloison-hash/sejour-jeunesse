@@ -25,6 +25,12 @@ export class DevisController {
     return this.devisService.getMesDevis(user.id);
   }
 
+  @Get('a-valider')
+  @Roles(Role.DIRECTOR)
+  getDevisAValider() {
+    return this.devisService.getDevisAValider();
+  }
+
   @Get('demande/:demandeId')
   @Roles(Role.TEACHER, Role.DIRECTOR)
   getDevisForDemande(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
@@ -32,12 +38,12 @@ export class DevisController {
   }
 
   @Patch(':id/statut')
-  @Roles(Role.TEACHER)
+  @Roles(Role.TEACHER, Role.DIRECTOR)
   updateStatut(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: UpdateStatutDevisDto,
   ) {
-    return this.devisService.updateStatut(id, dto.statut, user.id);
+    return this.devisService.updateStatut(id, dto.statut, user.id, user.role);
   }
 }

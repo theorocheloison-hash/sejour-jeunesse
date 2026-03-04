@@ -12,10 +12,13 @@ export interface Demande {
   dateFin: string;
   nombreEleves: number;
   villeHebergement: string;
+  regionCible: string;
+  dateButoireReponse: string | null;
   statut: StatutDemande;
-  sejourId: string | null;
+  sejourId: string;
   enseignantId: string;
   enseignant?: { id: string; prenom: string; nom: string; email: string };
+  sejour?: { niveauClasse: string | null; thematiquesPedagogiques: string[] } | null;
   _count?: { devis: number };
   createdAt: string;
 }
@@ -27,7 +30,9 @@ export interface CreateDemandeDto {
   dateFin: string;
   nombreEleves: number;
   villeHebergement: string;
-  sejourId?: string;
+  regionCible?: string;
+  dateButoireReponse?: string;
+  sejourId: string;
 }
 
 // ─── API calls ──────────────────────────────────────────────────────────────

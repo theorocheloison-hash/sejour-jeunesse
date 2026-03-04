@@ -12,7 +12,11 @@
       "Bash(docker:*)",
       "Bash(MSYS_NO_PATHCONV=1 docker exec:*)",
       "Bash(MSYS_NO_PATHCONV=1 rm:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:old.gcl.global)",
+      "Bash(gh issue:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
