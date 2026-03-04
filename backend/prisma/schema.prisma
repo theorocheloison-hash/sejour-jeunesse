@@ -116,8 +116,28 @@ model Sejour {
   createur      User?         @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   inscriptions  Inscription[]
   hebergements  Hebergement[]
+  autorisations AutorisationParentale[]
 
   @@map("sejours")
+}
+
+// ============================================================
+// MODEL : AutorisationParentale (autorisations parentales)
+// ============================================================
+model AutorisationParentale {
+  id              String    @id @default(uuid()) @db.Uuid
+  sejourId        String    @map("sejour_id") @db.Uuid
+  eleveNom        String    @map("eleve_nom") @db.VarChar(100)
+  elevePrenom     String    @map("eleve_prenom") @db.VarChar(100)
+  parentEmail     String    @map("parent_email") @db.VarChar(255)
+  tokenAcces      String    @unique @default(uuid()) @map("token_acces") @db.Uuid
+  signeeAt        DateTime? @map("signee_at")
+  infosMedicales  String?   @map("infos_medicales") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("autorisations_parentales")
 }
 
 // ============================================================

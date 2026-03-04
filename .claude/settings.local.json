@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(docker exec:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(rm:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker:*)",
+      "Bash(MSYS_NO_PATHCONV=1 docker exec:*)",
+      "Bash(MSYS_NO_PATHCONV=1 rm:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
