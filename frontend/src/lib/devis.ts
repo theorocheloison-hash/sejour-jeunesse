@@ -27,6 +27,7 @@ export interface Devis {
     id: string;
     nom: string;
     ville: string;
+    telephone?: string | null;
     email?: string | null;
     capacite?: number;
     description?: string | null;

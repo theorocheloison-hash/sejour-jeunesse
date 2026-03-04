@@ -16,7 +16,9 @@
       "WebSearch",
       "WebFetch(domain:old.gcl.global)",
       "Bash(gh issue:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(wc:*)",
+      "Bash(echo Token: ${TOKEN:0:20}...:*)"
     ]
   }
 }

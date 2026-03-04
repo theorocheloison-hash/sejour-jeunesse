@@ -95,6 +95,7 @@ export default function OffresPage() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Description</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Annulation</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Statut</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Coordonnées</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
@@ -114,16 +115,26 @@ export default function OffresPage() {
                           {badge.label}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        {d.centre?.telephone || d.centre?.email ? (
+                          <div className="flex flex-col gap-0.5 text-xs text-gray-600">
+                            {d.centre.telephone && (
+                              <a href={`tel:${d.centre.telephone}`} className="hover:text-blue-600">
+                                📞 {d.centre.telephone}
+                              </a>
+                            )}
+                            {d.centre.email && (
+                              <a href={`mailto:${d.centre.email}`} className="hover:text-blue-600">
+                                ✉️ {d.centre.email}
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Coordonnées non renseignées</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {d.centre?.email && (
-                            <a
-                              href={`mailto:${d.centre.email}`}
-                              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              Contacter
-                            </a>
-                          )}
                           {d.statut === 'EN_ATTENTE' && (
                             <button
                               onClick={() => handleStatut(d.id, 'EN_ATTENTE_VALIDATION')}
