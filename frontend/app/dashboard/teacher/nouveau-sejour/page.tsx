@@ -12,12 +12,12 @@ import type { Niveau } from '@/src/data/thematiques-pedagogiques';
 
 interface SejourFormData {
   titre: string;
-  description: string;
   dateDebut: string;
   dateFin: string;
   nbEleves: string;
   niveauClasse: string;
   thematiquesPedagogiques: string[];
+  informationsComplementaires: string;
   ville: string;
   regionSouhaitee: string;
   dateButoireDevis: string;
@@ -25,12 +25,12 @@ interface SejourFormData {
 
 const INITIAL_DATA: SejourFormData = {
   titre: '',
-  description: '',
   dateDebut: '',
   dateFin: '',
   nbEleves: '',
   niveauClasse: '',
   thematiquesPedagogiques: [],
+  informationsComplementaires: '',
   ville: '',
   regionSouhaitee: '',
   dateButoireDevis: '',
@@ -159,7 +159,7 @@ export default function NouveauSejourPage() {
     try {
       await createSejour({
         titre:                    form.titre,
-        description:              form.description || undefined,
+        informationsComplementaires: form.informationsComplementaires || undefined,
         dateDebut:                form.dateDebut,
         dateFin:                  form.dateFin,
         nombreEleves:             parseInt(form.nbEleves, 10),
@@ -225,10 +225,6 @@ export default function NouveauSejourPage() {
                 <input type="text" value={form.titre} onChange={set('titre')} placeholder="Ex : Séjour découverte des Alpes" className={inputCls} required />
               </Field>
 
-              <Field label="Description / objectifs pédagogiques">
-                <textarea value={form.description} onChange={set('description')} rows={3} placeholder="Décrivez les objectifs pédagogiques de ce séjour…" className={`${inputCls} resize-none`} />
-              </Field>
-
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Date de début *">
                   <input type="date" value={form.dateDebut} onChange={set('dateDebut')} className={inputCls} required />
@@ -276,6 +272,10 @@ export default function NouveauSejourPage() {
                   </div>
                 </div>
               )}
+
+              <Field label="Informations complémentaires (optionnel)">
+                <textarea value={form.informationsComplementaires} onChange={set('informationsComplementaires')} rows={3} placeholder="Précisez ici tout élément spécifique à votre projet : contraintes particulières, besoins spéciaux, contexte de classe..." className={`${inputCls} resize-none`} />
+              </Field>
             </div>
           )}
 
@@ -352,7 +352,6 @@ export default function NouveauSejourPage() {
               <div className="rounded-xl bg-gray-50 border border-gray-200 divide-y divide-gray-200 overflow-hidden text-sm">
                 <Section title="Informations générales">
                   <Row label="Titre" value={form.titre} />
-                  <Row label="Description" value={form.description || '—'} />
                   <Row label="Date de début" value={formatDate(form.dateDebut)} />
                   <Row label="Date de fin" value={formatDate(form.dateFin)} />
                   <Row label="Nombre d'élèves" value={form.nbEleves} />
@@ -372,6 +371,11 @@ export default function NouveauSejourPage() {
                   <Row label="Région" value={form.regionSouhaitee} />
                   <Row label="Date butoire" value={formatDate(form.dateButoireDevis)} />
                 </Section>
+                {form.informationsComplementaires && (
+                  <Section title="Informations complémentaires">
+                    <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-line">{form.informationsComplementaires}</div>
+                  </Section>
+                )}
               </div>
             </div>
           )}

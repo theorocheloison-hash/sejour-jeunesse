@@ -7,7 +7,7 @@ export type AppelOffreStatut = 'BROUILLON' | 'OUVERT' | 'FERME';
 
 export interface CreateSejourDto {
   titre: string;
-  description?: string;
+  informationsComplementaires?: string;
   dateDebut: string;
   dateFin: string;
   nombreEleves: number;
@@ -26,7 +26,7 @@ export interface SejourDemande {
 export interface Sejour {
   id: string;
   titre: string;
-  description?: string;
+  informationsComplementaires?: string;
   lieu: string;
   dateDebut: string;
   dateFin: string;

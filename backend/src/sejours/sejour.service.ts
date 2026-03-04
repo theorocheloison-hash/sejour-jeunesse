@@ -12,7 +12,7 @@ export class SejourService {
     return this.prisma.sejour.create({
       data: {
         titre:                    dto.titre,
-        description:              dto.description,
+        description:              dto.informationsComplementaires,
         lieu:                     dto.villeHebergement,
         dateDebut:                new Date(dto.dateDebut),
         dateFin:                  new Date(dto.dateFin),

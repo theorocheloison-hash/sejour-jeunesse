@@ -16,7 +16,7 @@ export class CreateSejourDto {
 
   @IsOptional()
   @IsString()
-  description?: string;
+  informationsComplementaires?: string;
 
   @IsDateString()
   dateDebut: string;
