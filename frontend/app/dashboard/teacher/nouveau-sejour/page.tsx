@@ -16,9 +16,7 @@ interface SejourFormData {
   dateFin: string;
   nbEleves: string;
   // Étape 2 — Hébergement
-  nomHebergement: string;
   ville: string;
-  capacite: string;
 }
 
 const INITIAL_DATA: SejourFormData = {
@@ -27,9 +25,7 @@ const INITIAL_DATA: SejourFormData = {
   dateDebut: '',
   dateFin: '',
   nbEleves: '',
-  nomHebergement: '',
   ville: '',
-  capacite: '',
 };
 
 // ─── Composant indicateur d'étapes ─────────────────────────────────────────
@@ -137,7 +133,6 @@ export default function NouveauSejourPage() {
         dateFin:           form.dateFin,
         nombreEleves:      parseInt(form.nbEleves, 10),
         villeHebergement:  form.ville,
-        capaciteSouhaitee: form.capacite ? parseInt(form.capacite, 10) : undefined,
       });
       router.push('/dashboard/teacher');
     } catch (err) {
@@ -258,16 +253,6 @@ export default function NouveauSejourPage() {
             <div className="space-y-5">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Hébergement</h2>
 
-              <Field label="Recherche d'hébergement">
-                <input
-                  type="text"
-                  value={form.nomHebergement}
-                  onChange={set('nomHebergement')}
-                  placeholder="Nom de l'hébergement, gîte, auberge…"
-                  className={inputCls}
-                />
-              </Field>
-
               <Field label="Ville / lieu *">
                 <input
                   type="text"
@@ -279,16 +264,20 @@ export default function NouveauSejourPage() {
                 />
               </Field>
 
-              <Field label="Capacité souhaitée">
-                <input
-                  type="number"
-                  value={form.capacite}
-                  onChange={set('capacite')}
-                  min={1}
-                  placeholder="Ex : 30"
-                  className={inputCls}
-                />
-              </Field>
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                <p className="text-sm text-indigo-700 mb-3">
+                  Consultez notre catalogue pour trouver un hébergement adapté à votre séjour.
+                </p>
+                <Link
+                  href="/dashboard/teacher/hebergements"
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Rechercher un hébergement
+                </Link>
+              </div>
             </div>
           )}
 
@@ -306,9 +295,7 @@ export default function NouveauSejourPage() {
                   <Row label="Nombre d'élèves" value={form.nbEleves} />
                 </Section>
                 <Section title="Hébergement">
-                  <Row label="Nom"      value={form.nomHebergement || '—'} />
-                  <Row label="Ville"    value={form.ville} />
-                  <Row label="Capacité" value={form.capacite || '—'} />
+                  <Row label="Ville" value={form.ville} />
                 </Section>
               </div>
             </div>

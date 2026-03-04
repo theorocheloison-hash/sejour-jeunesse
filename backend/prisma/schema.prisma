@@ -141,20 +141,26 @@ model AutorisationParentale {
 }
 
 // ============================================================
-// MODEL : Hebergement (hébergements liés à un séjour)
+// MODEL : Hebergement (catalogue + liés à un séjour)
 // ============================================================
 model Hebergement {
   id          String          @id @default(uuid()) @db.Uuid
-  sejourId    String          @map("sejour_id") @db.Uuid
+  sejourId    String?         @map("sejour_id") @db.Uuid
   nom         String          @db.VarChar(255)
   type        TypeHebergement @default(autre)
   adresse     String?         @db.VarChar(500)
+  ville       String          @db.VarChar(255)
   capacite    Int
+  prixParJour Decimal?        @map("prix_par_jour") @db.Decimal(10, 2)
+  agrement    Boolean         @default(false)
+  telephone   String?         @db.VarChar(20)
+  email       String?         @db.VarChar(255)
+  activites   String[]
   description String?         @db.Text
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
-  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  sejour Sejour? @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 
   @@map("hebergements")
 }
