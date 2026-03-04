@@ -1,11 +1,140 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { searchHebergements } from '@/src/lib/hebergement';
 import type { Hebergement, SearchHebergementParams } from '@/src/lib/hebergement';
+
+// ─── Régions métropolitaines ─────────────────────────────────────────────────
+
+const REGIONS = [
+  'Auvergne-Rhône-Alpes',
+  'Bourgogne-Franche-Comté',
+  'Bretagne',
+  'Centre-Val de Loire',
+  'Corse',
+  'Grand Est',
+  'Hauts-de-France',
+  'Île-de-France',
+  'Normandie',
+  'Nouvelle-Aquitaine',
+  'Occitanie',
+  'Pays de la Loire',
+  'Provence-Alpes-Côte d\'Azur',
+];
+
+// ─── Autocomplete générique ──────────────────────────────────────────────────
+
+interface Suggestion {
+  label: string;
+  sub?: string;
+}
+
+function Autocomplete({
+  value,
+  onChange,
+  placeholder,
+  fetchSuggestions,
+  inputCls,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  fetchSuggestions: (query: string) => Promise<Suggestion[]>;
+  inputCls: string;
+}) {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handleInput = (val: string) => {
+    onChange(val);
+    if (val.length < 2) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const results = await fetchSuggestions(val);
+      setSuggestions(results);
+      setOpen(results.length > 0);
+    }, 250);
+  };
+
+  const select = (s: Suggestion) => {
+    onChange(s.label);
+    setSuggestions([]);
+    setOpen(false);
+  };
+
+  // Fermer quand on clique ailleurs
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => handleInput(e.target.value)}
+        onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+        placeholder={placeholder}
+        className={inputCls}
+        autoComplete="off"
+      />
+      {open && (
+        <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+          {suggestions.map((s, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => select(s)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors flex items-baseline gap-2"
+              >
+                <span className="font-medium text-gray-900">{s.label}</span>
+                {s.sub && <span className="text-xs text-gray-400">{s.sub}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Helpers fetch suggestions ───────────────────────────────────────────────
+
+async function fetchVilleSuggestions(query: string): Promise<Suggestion[]> {
+  try {
+    const params = new URLSearchParams({ nom: query, limit: '8', fields: 'nom,codesPostaux,codeDepartement' });
+    const res = await fetch(`https://geo.api.gouv.fr/communes?${params}`);
+    const data: { nom: string; codesPostaux: string[]; codeDepartement: string }[] = await res.json();
+    return data.map((c) => ({
+      label: c.nom,
+      sub: `${c.codesPostaux[0]} — dép. ${c.codeDepartement}`,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRegionSuggestions(query: string): Promise<Suggestion[]> {
+  const q = query.toLowerCase();
+  return REGIONS
+    .filter((r) => r.toLowerCase().includes(q))
+    .map((r) => ({ label: r }));
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -106,22 +235,22 @@ export default function HebergementsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
-              <input
-                type="text"
+              <Autocomplete
                 value={ville}
-                onChange={(e) => setVille(e.target.value)}
+                onChange={setVille}
                 placeholder="Ex : Chamonix"
-                className={inputCls}
+                fetchSuggestions={fetchVilleSuggestions}
+                inputCls={inputCls}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Région</label>
-              <input
-                type="text"
+              <Autocomplete
                 value={region}
-                onChange={(e) => setRegion(e.target.value)}
+                onChange={setRegion}
                 placeholder="Ex : Bretagne"
-                className={inputCls}
+                fetchSuggestions={fetchRegionSuggestions}
+                inputCls={inputCls}
               />
             </div>
             <div>

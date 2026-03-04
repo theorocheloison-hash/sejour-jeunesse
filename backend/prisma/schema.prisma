@@ -91,6 +91,8 @@ model User {
 
   inscriptions  Inscription[]
   sejoursCreer  Sejour[]      @relation("SejoursCreer")
+  centres       CentreHebergement[]
+  demandes      DemandeDevis[] @relation("DemandesCreer")
 
   @@map("utilisateurs")
 }
@@ -117,6 +119,7 @@ model Sejour {
   inscriptions  Inscription[]
   hebergements  Hebergement[]
   autorisations AutorisationParentale[]
+  demandes      DemandeDevis[]
 
   @@map("sejours")
 }
@@ -198,4 +201,181 @@ model Paiement {
   inscription Inscription @relation(fields: [inscriptionId], references: [id], onDelete: Cascade)
 
   @@map("paiements")
+}
+
+// ============================================================
+// ENUM : type d'abonnement
+// ============================================================
+enum TypeAbonnement {
+  MENSUEL
+  ANNUEL
+}
+
+// ============================================================
+// ENUM : statut d'abonnement
+// ============================================================
+enum StatutAbonnement {
+  INACTIF
+  ACTIF
+  SUSPENDU
+}
+
+// ============================================================
+// ENUM : statut d'une demande de devis
+// ============================================================
+enum StatutDemande {
+  OUVERTE
+  FERMEE
+  ANNULEE
+}
+
+// ============================================================
+// ENUM : statut d'un devis
+// ============================================================
+enum StatutDevis {
+  EN_ATTENTE
+  ACCEPTE
+  REFUSE
+}
+
+// ============================================================
+// ENUM : statut d'un centre d'hébergement
+// ============================================================
+enum StatutCentre {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// ============================================================
+// ENUM : type de document
+// ============================================================
+enum TypeDocument {
+  AGREMENT
+  ASSURANCE
+  AUTRE
+}
+
+// ============================================================
+// MODEL : CentreHebergement (centres gérés par VENUE)
+// ============================================================
+model CentreHebergement {
+  id          String       @id @default(uuid()) @db.Uuid
+  nom         String       @db.VarChar(255)
+  adresse     String       @db.VarChar(500)
+  ville       String       @db.VarChar(255)
+  codePostal  String       @map("code_postal") @db.VarChar(10)
+  telephone   String?      @db.VarChar(20)
+  email       String?      @db.VarChar(255)
+  capacite    Int
+  description String?      @db.Text
+  userId              String            @map("user_id") @db.Uuid
+  statut              StatutCentre      @default(PENDING)
+  abonnement          TypeAbonnement?   @map("abonnement")
+  abonnementActifJusquAu DateTime?      @map("abonnement_actif_jusqua") @db.Date
+  abonnementStatut    StatutAbonnement  @default(INACTIF) @map("abonnement_statut")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  disponibilites Disponibilite[]
+  documents      Document[]
+  devis          Devis[]
+
+  @@map("centres_hebergement")
+}
+
+// ============================================================
+// MODEL : Disponibilite (créneaux dispo d'un centre)
+// ============================================================
+model Disponibilite {
+  id                  String   @id @default(uuid()) @db.Uuid
+  centreId            String   @map("centre_id") @db.Uuid
+  dateDebut           DateTime @map("date_debut") @db.Date
+  dateFin             DateTime @map("date_fin") @db.Date
+  capaciteDisponible  Int      @map("capacite_disponible")
+  commentaire         String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@map("disponibilites")
+}
+
+// ============================================================
+// MODEL : Document (documents d'un centre)
+// ============================================================
+model Document {
+  id              String       @id @default(uuid()) @db.Uuid
+  centreId        String       @map("centre_id") @db.Uuid
+  type            TypeDocument @default(AUTRE)
+  nom             String       @db.VarChar(255)
+  s3Key           String?      @map("s3_key") @db.VarChar(500)
+  url             String?      @db.VarChar(500)
+  dateExpiration  DateTime?    @map("date_expiration") @db.Date
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// ============================================================
+// MODEL : InvitationHebergement (invitations envoyées)
+// ============================================================
+model InvitationHebergement {
+  id          String    @id @default(uuid()) @db.Uuid
+  email       String    @db.VarChar(255)
+  nomCentre   String    @map("nom_centre") @db.VarChar(255)
+  token       String    @unique @default(uuid()) @db.Uuid
+  utilisedAt  DateTime? @map("utilised_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("invitations_hebergement")
+}
+
+// ============================================================
+// MODEL : DemandeDevis (demandes de devis enseignant → venues)
+// ============================================================
+model DemandeDevis {
+  id                String       @id @default(uuid()) @db.Uuid
+  sejourId          String?      @map("sejour_id") @db.Uuid
+  titre             String       @db.VarChar(255)
+  description       String?      @db.Text
+  dateDebut         DateTime     @map("date_debut") @db.Date
+  dateFin           DateTime     @map("date_fin") @db.Date
+  nombreEleves      Int          @map("nombre_eleves")
+  villeHebergement  String       @map("ville_hebergement") @db.VarChar(255)
+  statut            StatutDemande @default(OUVERTE)
+  enseignantId      String       @map("enseignant_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  enseignant User          @relation("DemandesCreer", fields: [enseignantId], references: [id], onDelete: Cascade)
+  sejour     Sejour?       @relation(fields: [sejourId], references: [id], onDelete: SetNull)
+  devis      Devis[]
+
+  @@map("demandes_devis")
+}
+
+// ============================================================
+// MODEL : Devis (réponse d'un centre à une demande)
+// ============================================================
+model Devis {
+  id                    String       @id @default(uuid()) @db.Uuid
+  demandeId             String       @map("demande_id") @db.Uuid
+  centreId              String       @map("centre_id") @db.Uuid
+  montantTotal          Decimal      @map("montant_total") @db.Decimal(10, 2)
+  montantParEleve       Decimal      @map("montant_par_eleve") @db.Decimal(10, 2)
+  description           String?      @db.Text
+  conditionsAnnulation  String?      @map("conditions_annulation") @db.Text
+  statut                StatutDevis  @default(EN_ATTENTE)
+  documentUrl           String?      @map("document_url") @db.VarChar(500)
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@map("devis")
 }

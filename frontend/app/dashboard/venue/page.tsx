@@ -1,14 +1,152 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import DashboardShell from '../_components/DashboardShell';
+'use client';
 
-export default async function VenueDashboard() {
-  const cookieStore = await cookies();
-  if (!cookieStore.get('token')) redirect('/login');
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getMonProfil } from '@/src/lib/centre';
+import { getAbonnementStatut } from '@/src/lib/abonnement';
+import type { Centre } from '@/src/lib/centre';
+import type { AbonnementStatut } from '@/src/lib/abonnement';
+
+const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
+  PENDING:   { label: 'En attente',  cls: 'bg-orange-100 text-orange-700' },
+  ACTIVE:    { label: 'Actif',       cls: 'bg-green-100 text-green-700' },
+  SUSPENDED: { label: 'Suspendu',    cls: 'bg-red-100 text-red-700' },
+};
+
+const SECTIONS = [
+  {
+    title: 'Disponibilités',
+    desc: 'Gérez vos périodes d\'accueil et capacités disponibles',
+    href: '/dashboard/venue/disponibilites',
+    icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+    color: 'bg-indigo-100 text-indigo-600',
+  },
+  {
+    title: 'Documents de conformité',
+    desc: 'Agréments, assurances et autres documents officiels',
+    href: '/dashboard/venue/documents',
+    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    color: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    title: 'Demandes des enseignants',
+    desc: 'Consultez et répondez aux demandes reçues',
+    href: '/dashboard/venue/demandes',
+    icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+    color: 'bg-blue-100 text-blue-600',
+  },
+  {
+    title: 'Devis envoyés',
+    desc: 'Suivez vos propositions et devis en cours',
+    href: '/dashboard/venue/devis',
+    icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+    color: 'bg-purple-100 text-purple-600',
+  },
+  {
+    title: 'Abonnement',
+    desc: 'Gérez votre abonnement pour accéder aux demandes',
+    href: '/dashboard/venue/abonnement',
+    icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+    color: 'bg-yellow-100 text-yellow-600',
+  },
+];
+
+export default function VenueDashboard() {
+  const router = useRouter();
+  const { user, isLoading, logout } = useAuth();
+  const [centre, setCentre] = useState<Centre | null>(null);
+  const [abo, setAbo] = useState<AbonnementStatut | null>(null);
+
+  useEffect(() => {
+    if (!isLoading && (!user || user.role !== 'VENUE')) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user?.role === 'VENUE') {
+      getMonProfil().then(setCentre).catch(() => {});
+      getAbonnementStatut().then(setAbo).catch(() => {});
+    }
+  }, [user]);
+
+  if (isLoading || !user) return null;
+
+  const statut = STATUT_BADGE[centre?.statut ?? 'PENDING'] ?? STATUT_BADGE.PENDING;
 
   return (
-    <DashboardShell role="VENUE" title="Espace Hébergement">
-      <p className="text-gray-600">Bienvenue dans votre espace hébergement.</p>
-    </DashboardShell>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+                </svg>
+              </div>
+              <div>
+                <span className="font-semibold text-gray-900">{centre?.nom ?? 'Mon centre'}</span>
+                <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statut.cls}`}>{statut.label}</span>
+              </div>
+            </div>
+            <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Tableau de bord</h1>
+        <p className="text-sm text-gray-500 mb-8">Gérez votre centre d'hébergement</p>
+
+        {centre && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div><span className="text-gray-500">Ville</span><p className="font-medium text-gray-900">{centre.ville}</p></div>
+              <div><span className="text-gray-500">Capacité</span><p className="font-medium text-gray-900">{centre.capacite} lits</p></div>
+              <div><span className="text-gray-500">Adresse</span><p className="font-medium text-gray-900">{centre.adresse}</p></div>
+              <div><span className="text-gray-500">Téléphone</span><p className="font-medium text-gray-900">{centre.telephone ?? '—'}</p></div>
+            </div>
+          </div>
+        )}
+
+        {abo && abo.statut !== 'ACTIF' && (
+          <div className="mb-6 rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
+            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            Abonnement inactif — <Link href="/dashboard/venue/abonnement" className="font-semibold underline hover:text-yellow-900">Activer votre abonnement</Link> pour accéder aux demandes des enseignants.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {SECTIONS.map((s) => (
+            <Link
+              key={s.title}
+              href={s.href}
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
+            >
+              <div className="flex items-start gap-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${s.color}`}>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                    {s.title}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">{s.desc}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </main>
+    </div>
   );
 }

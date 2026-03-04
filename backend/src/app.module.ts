@@ -7,6 +7,11 @@ import { AuthModule } from './auth/auth.module.js';
 import { SejourModule } from './sejours/sejour.module.js';
 import { AutorisationModule } from './autorisations/autorisation.module.js';
 import { HebergementModule } from './hebergements/hebergement.module.js';
+import { InvitationModule } from './invitations/invitation.module.js';
+import { CentreModule } from './centres/centre.module.js';
+import { AbonnementModule } from './abonnements/abonnement.module.js';
+import { DemandeModule } from './demandes/demande.module.js';
+import { DevisModule } from './devis/devis.module.js';
 
 @Module({
   imports: [
@@ -16,6 +21,11 @@ import { HebergementModule } from './hebergements/hebergement.module.js';
     SejourModule,
     AutorisationModule,
     HebergementModule,
+    InvitationModule,
+    CentreModule,
+    AbonnementModule,
+    DemandeModule,
+    DevisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

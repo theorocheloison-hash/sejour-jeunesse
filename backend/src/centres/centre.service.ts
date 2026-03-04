@@ -1,0 +1,143 @@
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { RegisterCentreDto } from './dto/register-centre.dto.js';
+import { UpdateCentreDto } from './dto/update-centre.dto.js';
+import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
+import { CreateDocumentDto } from './dto/create-document.dto.js';
+
+@Injectable()
+export class CentreService {
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+  ) {}
+
+  async register(dto: RegisterCentreDto) {
+    const invitation = await this.prisma.invitationHebergement.findUnique({
+      where: { token: dto.token },
+    });
+    if (!invitation) throw new NotFoundException('Invitation introuvable');
+    if (invitation.utilisedAt) throw new ConflictException('Cette invitation a déjà été utilisée');
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email: invitation.email },
+    });
+    if (existing) throw new ConflictException('Cet email est déjà utilisé');
+
+    const hashed = await bcrypt.hash(dto.password, 12);
+
+    const user = await this.prisma.user.create({
+      data: {
+        prenom: dto.nom,
+        nom: '',
+        email: invitation.email,
+        motDePasse: hashed,
+        role: Role.VENUE,
+      },
+    });
+
+    const centre = await this.prisma.centreHebergement.create({
+      data: {
+        nom: dto.nom,
+        adresse: dto.adresse,
+        ville: dto.ville,
+        codePostal: dto.codePostal,
+        telephone: dto.telephone,
+        email: invitation.email,
+        capacite: dto.capacite,
+        description: dto.description,
+        userId: user.id,
+      },
+    });
+
+    await this.prisma.invitationHebergement.update({
+      where: { id: invitation.id },
+      data: { utilisedAt: new Date() },
+    });
+
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    return {
+      access_token: this.jwt.sign(payload),
+      user: { id: user.id, email: user.email, prenom: user.prenom, nom: user.nom, role: user.role },
+      centre,
+    };
+  }
+
+  async getMonProfil(userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    return centre;
+  }
+
+  async updateMonProfil(userId: string, dto: UpdateCentreDto) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: dto,
+    });
+  }
+
+  async getDisponibilites(userId: string) {
+    const centre = await this.getMonProfil(userId);
+    return this.prisma.disponibilite.findMany({
+      where: { centreId: centre.id },
+      orderBy: { dateDebut: 'asc' },
+    });
+  }
+
+  async createDisponibilite(userId: string, dto: CreateDisponibiliteDto) {
+    const centre = await this.getMonProfil(userId);
+    return this.prisma.disponibilite.create({
+      data: {
+        centreId: centre.id,
+        dateDebut: new Date(dto.dateDebut),
+        dateFin: new Date(dto.dateFin),
+        capaciteDisponible: dto.capaciteDisponible,
+        commentaire: dto.commentaire,
+      },
+    });
+  }
+
+  async deleteDisponibilite(userId: string, id: string) {
+    const centre = await this.getMonProfil(userId);
+    const dispo = await this.prisma.disponibilite.findUnique({ where: { id } });
+    if (!dispo || dispo.centreId !== centre.id) {
+      throw new ForbiddenException('Disponibilité introuvable ou non autorisée');
+    }
+    return this.prisma.disponibilite.delete({ where: { id } });
+  }
+
+  async getDocuments(userId: string) {
+    const centre = await this.getMonProfil(userId);
+    return this.prisma.document.findMany({
+      where: { centreId: centre.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createDocument(userId: string, dto: CreateDocumentDto) {
+    const centre = await this.getMonProfil(userId);
+    return this.prisma.document.create({
+      data: {
+        centreId: centre.id,
+        type: dto.type,
+        nom: dto.nom,
+        dateExpiration: dto.dateExpiration ? new Date(dto.dateExpiration) : null,
+      },
+    });
+  }
+}
