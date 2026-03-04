@@ -56,7 +56,7 @@ export class DevisService {
       include: {
         demande: {
           include: {
-            enseignant: { select: { prenom: true, nom: true, email: true } },
+            enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
           },
         },
       },

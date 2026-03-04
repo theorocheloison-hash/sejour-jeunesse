@@ -80,16 +80,27 @@ export default function VenueDevisPage() {
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
-                    <div className="shrink-0">
-                      {d.statut === 'SELECTIONNE' && d.demande?.enseignant?.email && (
-                        <a
-                          href={`mailto:${d.demande.enseignant.email}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
-                        >
-                          Contacter l&apos;enseignant
-                        </a>
-                      )}
-                    </div>
+                    {d.statut === 'SELECTIONNE' && d.demande?.enseignant && (
+                      <div className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                        <p className="text-xs font-semibold text-emerald-800 mb-1">
+                          👤 {d.demande.enseignant.prenom} {d.demande.enseignant.nom}
+                        </p>
+                        <div className="flex flex-col gap-0.5 text-xs text-emerald-700">
+                          {d.demande.enseignant.email && (
+                            <a href={`mailto:${d.demande.enseignant.email}`} className="hover:underline">
+                              ✉️ {d.demande.enseignant.email}
+                            </a>
+                          )}
+                          {d.demande.enseignant.telephone ? (
+                            <a href={`tel:${d.demande.enseignant.telephone}`} className="hover:underline">
+                              📞 {d.demande.enseignant.telephone}
+                            </a>
+                          ) : (
+                            <span className="text-emerald-500">📞 Téléphone non renseigné</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
