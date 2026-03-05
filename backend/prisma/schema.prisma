@@ -30,6 +30,7 @@ enum StatutSejour {
   SUBMITTED
   APPROVED
   REJECTED
+  CONVENTION
 }
 
 // ============================================================
@@ -117,14 +118,16 @@ model Sejour {
   dateButoireDevis          DateTime?        @map("date_butoire_devis") @db.Date
   appelOffreStatut          AppelOffreStatut @default(BROUILLON) @map("appel_offre_statut")
   createurId                String?          @map("createur_id") @db.Uuid
+  hebergementSelectionneId  String?          @map("hebergement_selectionne_id") @db.Uuid
   createdAt                 DateTime         @default(now()) @map("created_at")
   updatedAt                 DateTime         @updatedAt @map("updated_at")
 
-  createur      User?         @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
-  inscriptions  Inscription[]
-  hebergements  Hebergement[]
-  autorisations AutorisationParentale[]
-  demandes      DemandeDevis[]
+  createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
+  hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)
+  inscriptions           Inscription[]
+  hebergements           Hebergement[]
+  autorisations          AutorisationParentale[]
+  demandes               DemandeDevis[]
 
   @@map("sejours")
 }
@@ -294,10 +297,11 @@ model CentreHebergement {
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  disponibilites Disponibilite[]
-  documents      Document[]
-  devis          Devis[]
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  disponibilites    Disponibilite[]
+  documents         Document[]
+  devis             Devis[]
+  sejoursSelectionne Sejour[]       @relation("SejourCentreSelectionne")
 
   @@map("centres_hebergement")
 }

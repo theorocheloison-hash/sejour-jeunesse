@@ -10,10 +10,11 @@ import type { Sejour, StatutSejour } from '@/src/lib/sejour';
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
-  DRAFT:     { label: 'Brouillon',  cls: 'bg-gray-100 text-gray-600' },
-  SUBMITTED: { label: 'Soumis',     cls: 'bg-orange-100 text-orange-700' },
-  APPROVED:  { label: 'Approuvé',   cls: 'bg-green-100 text-green-700' },
-  REJECTED:  { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
+  DRAFT:      { label: 'Brouillon',   cls: 'bg-gray-100 text-gray-600' },
+  SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
+  APPROVED:   { label: 'Approuvé',    cls: 'bg-green-100 text-green-700' },
+  REJECTED:   { label: 'Refusé',      cls: 'bg-red-100 text-red-700' },
+  CONVENTION: { label: 'Convention',   cls: 'bg-indigo-100 text-indigo-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {

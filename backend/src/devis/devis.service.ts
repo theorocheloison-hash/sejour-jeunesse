@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { StatutAbonnement, StatutDevis, Role } from '@prisma/client';
+import { StatutAbonnement, StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 
@@ -104,10 +104,41 @@ export class DevisService {
       }
     }
 
-    return this.prisma.devis.update({
+    const updated = await this.prisma.devis.update({
       where: { id },
       data: { statut },
     });
+
+    // Workflow complet quand un devis est SELECTIONNE
+    if (statut === StatutDevis.SELECTIONNE) {
+      // 1. Passer tous les autres devis de la même demande en NON_RETENU
+      await this.prisma.devis.updateMany({
+        where: {
+          demandeId: devis.demandeId,
+          id: { not: id },
+          statut: { not: StatutDevis.NON_RETENU },
+        },
+        data: { statut: StatutDevis.NON_RETENU },
+      });
+
+      // 2. Fermer la demande de devis
+      await this.prisma.demandeDevis.update({
+        where: { id: devis.demandeId },
+        data: { statut: 'FERMEE' },
+      });
+
+      // 3. Mettre à jour le séjour : appel d'offres fermé + centre sélectionné + statut CONVENTION
+      await this.prisma.sejour.update({
+        where: { id: devis.demande.sejourId },
+        data: {
+          appelOffreStatut: AppelOffreStatut.FERME,
+          hebergementSelectionneId: devis.centreId,
+          statut: StatutSejour.CONVENTION,
+        },
+      });
+    }
+
+    return updated;
   }
 
   async getDevisAValider() {
