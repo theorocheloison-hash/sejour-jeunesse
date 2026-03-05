@@ -1,37 +1,43 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
 
-  // Middleware CORS bas-niveau — AVANT tout le reste
-  // Railway CDN (Fastly) strip Access-Control-Allow-Origin sur les réponses cachées
-  // Surrogate-Control: no-store force Fastly à ne pas interférer
+  // CORS avant tout middleware
   app.use((req: any, res: any, next: any) => {
-    const origin = req.headers.origin;
+    const origin = req.headers['origin'];
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
     }
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept');
-    res.setHeader('Surrogate-Control', 'no-store');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD'
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Origin,X-Requested-With,Content-Type,Accept,Authorization'
+    );
+    res.setHeader('Access-Control-Max-Age', '86400');
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
-      return res.end();
+      res.end();
+      return;
     }
     next();
   });
 
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
+  console.log(`Backend running on port ${port}`);
 }
 bootstrap();
