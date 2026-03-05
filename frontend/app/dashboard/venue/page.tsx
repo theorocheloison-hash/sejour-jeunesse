@@ -7,8 +7,10 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { useNotifications } from '@/src/hooks/useNotifications';
 import { getMonProfil } from '@/src/lib/centre';
 import { getAbonnementStatut } from '@/src/lib/abonnement';
+import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import type { Centre } from '@/src/lib/centre';
 import type { AbonnementStatut } from '@/src/lib/abonnement';
+import type { SejourConventionVenue } from '@/src/lib/collaboration';
 
 const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
   PENDING:   { label: 'En attente',  cls: 'bg-orange-100 text-orange-700' },
@@ -59,6 +61,7 @@ export default function VenueDashboard() {
   const { user, isLoading, logout } = useAuth();
   const [centre, setCentre] = useState<Centre | null>(null);
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
+  const [sejoursConvention, setSejoursConvention] = useState<SejourConventionVenue[]>([]);
   const notifs = useNotifications(user?.role === 'VENUE');
 
   const badgeMap: Record<string, number> = {
@@ -76,6 +79,7 @@ export default function VenueDashboard() {
     if (user?.role === 'VENUE') {
       getMonProfil().then(setCentre).catch(() => {});
       getAbonnementStatut().then(setAbo).catch(() => {});
+      getMesSejoursConvention().then(setSejoursConvention).catch(() => {});
     }
   }, [user]);
 
@@ -161,6 +165,44 @@ export default function VenueDashboard() {
             );
           })}
         </div>
+
+        {/* ── Séjours en convention ──────────────────────────────────────── */}
+        {sejoursConvention.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Mes séjours en convention</h2>
+            <div className="space-y-3">
+              {sejoursConvention.map((s) => {
+                const dateDebut = new Date(s.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+                const dateFin = new Date(s.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+                return (
+                  <div key={s.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{s.titre}</h3>
+                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">Convention</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                        <span>{s.lieu}</span>
+                        <span>{dateDebut} &rarr; {dateFin}</span>
+                        <span>{s.placesTotales} élève{s.placesTotales > 1 ? 's' : ''}</span>
+                        {s.createur && <span>Enseignant : {s.createur.prenom} {s.createur.nom}</span>}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/dashboard/sejour/${s.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
+                      </svg>
+                      Espace collaboratif
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

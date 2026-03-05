@@ -93,7 +93,9 @@ model User {
   inscriptions  Inscription[]
   sejoursCreer  Sejour[]      @relation("SejoursCreer")
   centres       CentreHebergement[]
-  demandes      DemandeDevis[] @relation("DemandesCreer")
+  demandes        DemandeDevis[]   @relation("DemandesCreer")
+  messages        Message[]        @relation("MessagesAuteur")
+  documentsSejour DocumentSejour[] @relation("DocumentsUploader")
 
   @@map("utilisateurs")
 }
@@ -128,6 +130,9 @@ model Sejour {
   hebergements           Hebergement[]
   autorisations          AutorisationParentale[]
   demandes               DemandeDevis[]
+  messages               Message[]
+  planningActivites      PlanningActivite[]
+  documentsSejour        DocumentSejour[]
 
   @@map("sejours")
 }
@@ -401,4 +406,68 @@ model Devis {
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
 
   @@map("devis")
+}
+
+// ============================================================
+// ENUM : type de document de séjour (collaboration)
+// ============================================================
+enum TypeDocumentSejour {
+  PROGRAMME
+  TRANSPORT
+  ASSURANCE
+  FACTURE
+  AUTRE
+}
+
+// ============================================================
+// MODEL : Message (messagerie collaboration)
+// ============================================================
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  auteurId  String   @map("auteur_id") @db.Uuid
+  contenu   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  auteur User   @relation("MessagesAuteur", fields: [auteurId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+// ============================================================
+// MODEL : PlanningActivite (planning collaboration)
+// ============================================================
+model PlanningActivite {
+  id          String   @id @default(uuid()) @db.Uuid
+  sejourId    String   @map("sejour_id") @db.Uuid
+  date        DateTime @db.Date
+  heureDebut  String   @map("heure_debut") @db.VarChar(5)
+  heureFin    String   @map("heure_fin") @db.VarChar(5)
+  titre       String   @db.VarChar(255)
+  description String?  @db.Text
+  responsable String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("planning_activites")
+}
+
+// ============================================================
+// MODEL : DocumentSejour (documents collaboration)
+// ============================================================
+model DocumentSejour {
+  id         String            @id @default(uuid()) @db.Uuid
+  sejourId   String            @map("sejour_id") @db.Uuid
+  uploaderId String            @map("uploader_id") @db.Uuid
+  nom        String            @db.VarChar(255)
+  type       TypeDocumentSejour @default(AUTRE)
+  url        String            @db.VarChar(500)
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  sejour   Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  uploader User   @relation("DocumentsUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@map("documents_sejour")
 }

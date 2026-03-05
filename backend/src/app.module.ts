@@ -12,6 +12,7 @@ import { CentreModule } from './centres/centre.module.js';
 import { AbonnementModule } from './abonnements/abonnement.module.js';
 import { DemandeModule } from './demandes/demande.module.js';
 import { DevisModule } from './devis/devis.module.js';
+import { CollaborationModule } from './collaboration/collaboration.module.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { DevisModule } from './devis/devis.module.js';
     AbonnementModule,
     DemandeModule,
     DevisModule,
+    CollaborationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
