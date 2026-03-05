@@ -114,16 +114,30 @@ export default function VenueDemandesPage() {
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
-                    <div className="shrink-0">
+                    <div className="shrink-0 flex flex-col sm:flex-row gap-2">
                       {successId === d.id ? (
                         <span className="text-sm font-medium text-green-600">Devis envoyé !</span>
                       ) : (
-                        <button
-                          onClick={() => { setOpenForm(openForm === d.id ? null : d.id); setForm(EMPTY_FORM); setSuccessId(null); }}
-                          className="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
-                        >
-                          {openForm === d.id ? 'Annuler' : 'Envoyer un devis'}
-                        </button>
+                        <>
+                          <Link
+                            href={`/dashboard/venue/devis/nouveau?demandeId=${d.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            Créer un devis
+                          </Link>
+                          <button
+                            onClick={() => { setOpenForm(openForm === d.id ? null : d.id); setForm(EMPTY_FORM); setSuccessId(null); }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            {openForm === d.id ? 'Annuler' : 'Devis rapide'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

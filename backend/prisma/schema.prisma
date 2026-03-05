@@ -402,10 +402,55 @@ model Devis {
   createdAt             DateTime     @default(now()) @map("created_at")
   updatedAt             DateTime     @updatedAt @map("updated_at")
 
+  // Informations entreprise
+  nomEntreprise         String?      @map("nom_entreprise") @db.VarChar(255)
+  adresseEntreprise     String?      @map("adresse_entreprise") @db.Text
+  siretEntreprise       String?      @map("siret_entreprise") @db.VarChar(20)
+  emailEntreprise       String?      @map("email_entreprise") @db.VarChar(255)
+  telEntreprise         String?      @map("tel_entreprise") @db.VarChar(20)
+
+  // TVA et montants calculés
+  tauxTva               Float?       @default(0) @map("taux_tva")
+  montantHT             Float?       @map("montant_ht")
+  montantTVA            Float?       @map("montant_tva")
+  montantTTC            Float?       @map("montant_ttc")
+
+  // Acompte
+  pourcentageAcompte    Float?       @default(30) @map("pourcentage_acompte")
+  montantAcompte        Float?       @map("montant_acompte")
+
+  // Facturation
+  estFacture            Boolean      @default(false) @map("est_facture")
+  dateFacture           DateTime?    @map("date_facture")
+  numeroDevis           String?      @map("numero_devis") @db.VarChar(50)
+  numeroFacture         String?      @map("numero_facture") @db.VarChar(50)
+
+  // Type de soumission
+  typeDevis             String       @default("PLATEFORME") @map("type_devis") @db.VarChar(20)
+
   demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  lignes  LigneDevis[]
 
   @@map("devis")
+}
+
+// ============================================================
+// MODEL : LigneDevis (lignes d'un devis)
+// ============================================================
+model LigneDevis {
+  id           String @id @default(uuid()) @db.Uuid
+  devisId      String @map("devis_id") @db.Uuid
+  description  String @db.Text
+  quantite     Float
+  prixUnitaire Float  @map("prix_unitaire")
+  tva          Float  @default(0)
+  totalHT      Float  @map("total_ht")
+  totalTTC     Float  @map("total_ttc")
+
+  devis Devis @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_devis")
 }
 
 // ============================================================

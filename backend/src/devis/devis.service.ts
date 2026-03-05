@@ -33,7 +33,10 @@ export class DevisService {
       throw new ForbiddenException('La date butoire de réponse est dépassée');
     }
 
-    return this.prisma.devis.create({
+    // Auto-generate numero devis if not provided
+    const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
+
+    const devis = await this.prisma.devis.create({
       data: {
         demandeId: dto.demandeId,
         centreId: centre.id,
@@ -41,7 +44,41 @@ export class DevisService {
         montantParEleve: dto.montantParEleve,
         description: dto.description,
         conditionsAnnulation: dto.conditionsAnnulation,
+        // Professional fields
+        nomEntreprise: dto.nomEntreprise,
+        adresseEntreprise: dto.adresseEntreprise,
+        siretEntreprise: dto.siretEntreprise,
+        emailEntreprise: dto.emailEntreprise,
+        telEntreprise: dto.telEntreprise,
+        tauxTva: dto.tauxTva,
+        montantHT: dto.montantHT,
+        montantTVA: dto.montantTVA,
+        montantTTC: dto.montantTTC,
+        pourcentageAcompte: dto.pourcentageAcompte,
+        montantAcompte: dto.montantAcompte,
+        numeroDevis,
+        typeDevis: dto.typeDevis ?? 'PLATEFORME',
       },
+    });
+
+    // Create lignes if provided
+    if (dto.lignes && dto.lignes.length > 0) {
+      await this.prisma.ligneDevis.createMany({
+        data: dto.lignes.map((l) => ({
+          devisId: devis.id,
+          description: l.description,
+          quantite: l.quantite,
+          prixUnitaire: l.prixUnitaire,
+          tva: l.tva ?? 0,
+          totalHT: l.totalHT,
+          totalTTC: l.totalTTC,
+        })),
+      });
+    }
+
+    return this.prisma.devis.findUnique({
+      where: { id: devis.id },
+      include: { lignes: true },
     });
   }
 
@@ -54,6 +91,7 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { centreId: centre.id },
       include: {
+        lignes: true,
         demande: {
           include: {
             enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
@@ -77,6 +115,7 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
+        lignes: true,
         centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -145,6 +184,7 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
       include: {
+        lignes: true,
         centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
         demande: {
           include: {
@@ -155,5 +195,54 @@ export class DevisService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getNextNumeroDevis(userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    return { numero: await this.generateNumeroDevis(centre.id) };
+  }
+
+  async getDemandeInfo(demandeId: string, userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const demande = await this.prisma.demandeDevis.findUnique({
+      where: { id: demandeId },
+      include: {
+        enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
+        sejour: {
+          select: {
+            titre: true,
+            lieu: true,
+            dateDebut: true,
+            dateFin: true,
+            placesTotales: true,
+            niveauClasse: true,
+          },
+        },
+      },
+    });
+    if (!demande) throw new NotFoundException('Demande introuvable');
+
+    return { demande, centre };
+  }
+
+  private async generateNumeroDevis(centreId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await this.prisma.devis.count({
+      where: {
+        centreId,
+        createdAt: {
+          gte: new Date(`${year}-01-01`),
+          lt: new Date(`${year + 1}-01-01`),
+        },
+      },
+    });
+    return `DEV-${year}-${String(count + 1).padStart(3, '0')}`;
   }
 }

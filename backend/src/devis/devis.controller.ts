@@ -25,6 +25,12 @@ export class DevisController {
     return this.devisService.getMesDevis(user.id);
   }
 
+  @Get('next-numero')
+  @Roles(Role.VENUE)
+  getNextNumeroDevis(@CurrentUser() user: JwtUser) {
+    return this.devisService.getNextNumeroDevis(user.id);
+  }
+
   @Get('a-valider')
   @Roles(Role.DIRECTOR)
   getDevisAValider() {
@@ -35,6 +41,12 @@ export class DevisController {
   @Roles(Role.TEACHER, Role.DIRECTOR)
   getDevisForDemande(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
     return this.devisService.getDevisForDemande(demandeId, user);
+  }
+
+  @Get('demande-info/:demandeId')
+  @Roles(Role.VENUE)
+  getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
+    return this.devisService.getDemandeInfo(demandeId, user.id);
   }
 
   @Patch(':id/statut')
