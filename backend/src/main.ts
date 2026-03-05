@@ -5,22 +5,22 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      callback(null, true);
-    },
-    credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type,Authorization,Accept',
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept');
+    if (req.method === 'OPTIONS') {
+      return res.status(204).send();
+    }
+    next();
   });
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,         // supprime les champs non déclarés dans les DTOs
-      forbidNonWhitelisted: true, // renvoie une erreur si des champs inconnus sont envoyés
-      transform: true,         // transforme les payloads en instances de DTO
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
 
