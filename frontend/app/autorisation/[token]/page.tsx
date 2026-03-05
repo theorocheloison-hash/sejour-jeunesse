@@ -3,10 +3,44 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
+  MapPin,
+  CalendarDays,
+  Users,
+  GraduationCap,
+  Building2,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  ClipboardCheck,
+  Clock,
+  CheckCircle2,
+  Heart,
+  BookOpen,
+} from 'lucide-react';
+import {
   getAutorisationPublique,
   signerAutorisation,
   type AutorisationPublique,
 } from '@/src/lib/autorisation';
+
+const THEMATIQUE_COLORS = [
+  'bg-blue-100 text-blue-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-purple-100 text-purple-700',
+  'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700',
+  'bg-cyan-100 text-cyan-700',
+];
+
+const TYPE_HEBERGEMENT_LABEL: Record<string, string> = {
+  auberge_jeunesse: 'Auberge de jeunesse',
+  centre_vacances: 'Centre de vacances',
+  camping: 'Camping',
+  gite: 'Gîte',
+  hotel: 'Hôtel',
+  refuge: 'Refuge',
+  autre: 'Autre',
+};
 
 export default function SignerAutorisationPage() {
   const { token } = useParams<{ token: string }>();
@@ -47,28 +81,30 @@ export default function SignerAutorisationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#003189]/5 to-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#003189] border-t-transparent" />
       </div>
     );
   }
 
   if (error && !autorisation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#003189]/5 to-white px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+            <ShieldCheck className="h-7 w-7 text-red-500" />
           </div>
-          <p className="mt-4 text-sm text-red-700">{error}</p>
+          <h2 className="mt-4 text-lg font-bold text-gray-900">Lien invalide</h2>
+          <p className="mt-2 text-sm text-gray-500">{error}</p>
         </div>
       </div>
     );
   }
 
   if (!autorisation) return null;
+
+  const { sejour, hebergement } = autorisation;
+  const thematiques = sejour.thematiquesPedagogiques ?? [];
 
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString('fr-FR', {
@@ -78,62 +114,161 @@ export default function SignerAutorisationPage() {
     });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-start justify-center px-4 py-12">
-      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        {/* En-tête */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
-            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+    <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
+      {/* ── HEADER ── */}
+      <header className="bg-[#003189] text-white">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
+            <GraduationCap className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Autorisation parentale</h1>
+          <span className="text-sm font-medium tracking-wide">Autorisation parentale</span>
         </div>
+      </header>
 
-        {/* Infos séjour */}
-        <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-5 mb-6">
-          <h2 className="text-lg font-semibold text-indigo-900 mb-3">
-            {autorisation.sejour.titre}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* ── HERO — Présentation du séjour ── */}
+        <section className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-[#003189] to-[#0050c8] px-6 py-8 text-white">
+            <p className="text-3xl mb-2">🏕️</p>
+            <h1 className="text-2xl font-bold leading-tight">{sejour.titre}</h1>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-blue-100">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                Du {fmt(sejour.dateDebut)} au {fmt(sejour.dateFin)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                {sejour.lieu}
+              </span>
+              {sejour.niveauClasse && (
+                <span className="inline-flex items-center gap-1.5">
+                  <BookOpen className="h-4 w-4" />
+                  {sejour.niveauClasse}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-4 w-4" />
+                {sejour.placesTotales} élèves
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Le séjour en détail ── */}
+        {(sejour.description || thematiques.length > 0) && (
+          <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <ClipboardCheck className="h-5 w-5" />
+              Le séjour en détail
+            </h2>
+            {sejour.description && (
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line mb-4">
+                {sejour.description}
+              </p>
+            )}
+            {thematiques.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Thématiques pédagogiques
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {thematiques.map((t, i) => (
+                    <span
+                      key={t}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${THEMATIQUE_COLORS[i % THEMATIQUE_COLORS.length]}`}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── L'hébergement ── */}
+        {hebergement && (
+          <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <Building2 className="h-5 w-5" />
+              L&apos;hébergement
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-gray-500">Établissement</p>
+                <p className="font-semibold text-gray-900">{hebergement.nom}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Type</p>
+                <p className="font-medium text-gray-900">
+                  {TYPE_HEBERGEMENT_LABEL[hebergement.type] ?? hebergement.type}
+                </p>
+              </div>
+              {hebergement.adresse && (
+                <div>
+                  <p className="text-xs text-gray-500">Adresse</p>
+                  <p className="font-medium text-gray-900">{hebergement.adresse}, {hebergement.ville}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-500">Capacité</p>
+                <p className="font-medium text-gray-900">{hebergement.capacite} places</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Votre enfant ── */}
+        <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+            <UserRound className="h-5 w-5" />
+            Votre enfant
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-indigo-700">
+          <div className="flex items-center justify-between">
             <div>
-              <span className="font-medium">Lieu :</span> {autorisation.sejour.lieu}
+              <p className="text-xs text-gray-500">Élève concerné(e)</p>
+              <p className="text-base font-semibold text-gray-900">
+                {autorisation.elevePrenom} {autorisation.eleveNom}
+              </p>
             </div>
             <div>
-              <span className="font-medium">Du</span> {fmt(autorisation.sejour.dateDebut)}{' '}
-              <span className="font-medium">au</span> {fmt(autorisation.sejour.dateFin)}
+              {signed ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Autorisation signée
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                  <Clock className="h-4 w-4" />
+                  En attente de signature
+                </span>
+              )}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Infos élève */}
-        <div className="rounded-xl bg-gray-50 border border-gray-200 p-5 mb-6">
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-900">Élève concerné(e) :</span>{' '}
-            {autorisation.elevePrenom} {autorisation.eleveNom}
-          </p>
-        </div>
-
+        {/* ── Formulaire / Confirmation ── */}
         {signed ? (
-          /* Message confirmation */
-          <div className="rounded-xl bg-green-50 border border-green-200 p-5 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-3">
-              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+          <section className="bg-green-50 rounded-2xl shadow-md border border-green-200 p-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
-            <p className="text-sm font-semibold text-green-800">
+            <h2 className="text-xl font-bold text-green-800">
               {autorisation.signeeAt
-                ? 'Cette autorisation a déjà été signée.'
+                ? 'Cette autorisation a déjà été signée'
                 : 'Autorisation signée avec succès !'}
+            </h2>
+            <p className="mt-2 text-sm text-green-600">
+              Merci pour votre confiance. Votre enfant pourra participer au séjour.
             </p>
-            <p className="mt-1 text-xs text-green-600">
-              Merci pour votre confiance.
-            </p>
-          </div>
+          </section>
         ) : (
-          /* Formulaire de signature */
-          <>
+          <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <Heart className="h-5 w-5" />
+              Autoriser la participation
+            </h2>
+
             {error && (
               <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
                 {error}
@@ -143,18 +278,19 @@ export default function SignerAutorisationPage() {
             <div className="mb-6">
               <label
                 htmlFor="infosMedicales"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 mb-1.5"
               >
-                Informations médicales importantes{' '}
-                <span className="text-gray-400 font-normal">(optionnel)</span>
+                <Phone className="inline h-4 w-4 mr-1 text-gray-400" />
+                Informations médicales importantes
+                <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
               </label>
               <textarea
                 id="infosMedicales"
                 rows={3}
                 value={infosMedicales}
                 onChange={(e) => setInfosMedicales(e.target.value)}
-                placeholder="Allergies, traitements en cours, régime alimentaire..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                placeholder="Allergies, traitements en cours, régime alimentaire, contacts d'urgence..."
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none transition-shadow"
               />
             </div>
 
@@ -162,24 +298,35 @@ export default function SignerAutorisationPage() {
               type="button"
               onClick={handleSign}
               disabled={signing}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="w-full rounded-xl bg-green-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-700 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
             >
               {signing ? (
                 <span className="inline-flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   Signature en cours…
                 </span>
               ) : (
-                'Je signe et autorise mon enfant à participer'
+                <span className="inline-flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5" />
+                  J&apos;autorise mon enfant à participer
+                </span>
               )}
             </button>
 
             <p className="mt-3 text-xs text-gray-400 text-center">
-              En signant, vous autorisez la participation de votre enfant à ce séjour.
+              En signant, vous autorisez la participation de votre enfant à ce séjour
+              et certifiez avoir pris connaissance des informations ci-dessus.
             </p>
-          </>
+          </section>
         )}
-      </div>
+      </main>
+
+      {/* ── Footer ── */}
+      <footer className="max-w-3xl mx-auto px-4 sm:px-6 py-6 text-center">
+        <p className="text-xs text-gray-400">
+          Séjour Jeunesse — Plateforme de gestion des séjours scolaires
+        </p>
+      </footer>
     </div>
   );
 }

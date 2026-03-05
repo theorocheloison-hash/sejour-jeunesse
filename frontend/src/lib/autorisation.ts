@@ -23,7 +23,18 @@ export interface AutorisationPublique {
     lieu: string;
     dateDebut: string;
     dateFin: string;
+    description: string | null;
+    niveauClasse: string | null;
+    thematiquesPedagogiques: string[];
+    placesTotales: number;
   };
+  hebergement: {
+    nom: string;
+    adresse: string | null;
+    ville: string;
+    type: string;
+    capacite: number;
+  } | null;
 }
 
 export interface CreateAutorisationDto {

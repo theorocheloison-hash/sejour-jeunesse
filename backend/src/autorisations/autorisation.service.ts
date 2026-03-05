@@ -40,17 +40,44 @@ export class AutorisationService {
             lieu: true,
             dateDebut: true,
             dateFin: true,
+            description: true,
+            niveauClasse: true,
+            thematiquesPedagogiques: true,
+            placesTotales: true,
+            hebergements: {
+              select: {
+                nom: true,
+                adresse: true,
+                ville: true,
+                type: true,
+                capacite: true,
+              },
+              take: 1,
+            },
           },
         },
       },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
 
+    const sejour = autorisation.sejour;
+    const hebergement = sejour.hebergements[0] ?? null;
+
     return {
       eleveNom: autorisation.eleveNom,
       elevePrenom: autorisation.elevePrenom,
       signeeAt: autorisation.signeeAt,
-      sejour: autorisation.sejour,
+      sejour: {
+        titre: sejour.titre,
+        lieu: sejour.lieu,
+        dateDebut: sejour.dateDebut,
+        dateFin: sejour.dateFin,
+        description: sejour.description,
+        niveauClasse: sejour.niveauClasse,
+        thematiquesPedagogiques: sejour.thematiquesPedagogiques,
+        placesTotales: sejour.placesTotales,
+      },
+      hebergement,
     };
   }
 
