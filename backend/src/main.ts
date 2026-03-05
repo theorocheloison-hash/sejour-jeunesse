@@ -8,7 +8,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
-      'https://easygoing-luck-production-f0df.up.railway.app',
+      'https://precious-comfort-production-52c6.up.railway.app',
     ],
     credentials: true,
   });
