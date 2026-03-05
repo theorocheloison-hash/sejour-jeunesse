@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { useNotifications } from '@/src/hooks/useNotifications';
 import { getMonProfil } from '@/src/lib/centre';
 import { getAbonnementStatut } from '@/src/lib/abonnement';
 import type { Centre } from '@/src/lib/centre';
@@ -58,6 +59,12 @@ export default function VenueDashboard() {
   const { user, isLoading, logout } = useAuth();
   const [centre, setCentre] = useState<Centre | null>(null);
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
+  const notifs = useNotifications(user?.role === 'VENUE');
+
+  const badgeMap: Record<string, number> = {
+    '/dashboard/venue/demandes': notifs.demandes,
+    '/dashboard/venue/devis': notifs.devisAcceptes,
+  };
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) {
@@ -124,27 +131,35 @@ export default function VenueDashboard() {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {SECTIONS.map((s) => (
-            <Link
-              key={s.title}
-              href={s.href}
-              className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
-            >
-              <div className="flex items-start gap-4">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${s.color}`}>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
-                  </svg>
+          {SECTIONS.map((s) => {
+            const badge = badgeMap[s.href] ?? 0;
+            return (
+              <Link
+                key={s.title}
+                href={s.href}
+                className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
+              >
+                {badge > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    {badge}
+                  </span>
+                )}
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${s.color}`}>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                      {s.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">{s.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                    {s.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">{s.desc}</p>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>
