@@ -48,6 +48,45 @@ export class SejourService {
     });
   }
 
+  async getDossierPedagogique(id: string, user: JwtUser) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id },
+      include: {
+        createur: { select: { prenom: true, nom: true, email: true, telephone: true } },
+        hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true } },
+        autorisations: {
+          select: { eleveNom: true, elevePrenom: true, parentEmail: true, signeeAt: true },
+          orderBy: { eleveNom: 'asc' },
+        },
+        _count: { select: { inscriptions: true, autorisations: true } },
+      },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+
+    // TEACHER can only see their own
+    if (user.role === Role.TEACHER && sejour.createurId !== user.id) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    return sejour;
+  }
+
+  async getAccompagnateurs(id: string, user: JwtUser) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== user.id) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    // Return the teacher (createur) as default accompagnateur
+    const createur = await this.prisma.user.findUnique({
+      where: { id: sejour.createurId! },
+      select: { id: true, prenom: true, nom: true, email: true, telephone: true },
+    });
+
+    return { accompagnateurs: createur ? [createur] : [] };
+  }
+
   async updateStatus(id: string, statut: StatutSejour, user: JwtUser) {
     const sejour = await this.prisma.sejour.findUnique({ where: { id } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');

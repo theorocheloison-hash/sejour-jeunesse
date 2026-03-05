@@ -45,6 +45,26 @@ export class SejourController {
     return this.sejourService.findAll();
   }
 
+  /** GET /sejours/:id/dossier-pedagogique — Données enrichies du séjour */
+  @Get(':id/dossier-pedagogique')
+  @Roles(Role.TEACHER, Role.DIRECTOR)
+  getDossierPedagogique(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.getDossierPedagogique(id, user);
+  }
+
+  /** GET /sejours/:id/accompagnateurs — Liste accompagnateurs */
+  @Get(':id/accompagnateurs')
+  @Roles(Role.TEACHER)
+  getAccompagnateurs(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.getAccompagnateurs(id, user);
+  }
+
   /** PATCH /sejours/:id/status — Changer le statut */
   @Patch(':id/status')
   @Roles(Role.TEACHER, Role.DIRECTOR, Role.RECTOR)
