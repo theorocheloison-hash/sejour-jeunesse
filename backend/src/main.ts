@@ -7,6 +7,11 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // Health check — avant tout middleware
+  app.use('/health', (req: any, res: any) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
   // CORS avant tout middleware
   app.use((req: any, res: any, next: any) => {
     const origin = req.headers['origin'];
