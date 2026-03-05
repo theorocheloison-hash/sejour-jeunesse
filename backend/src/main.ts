@@ -9,8 +9,11 @@ async function bootstrap() {
     origin: [
       'http://localhost:3000',
       'https://precious-comfort-production-52c6.up.railway.app',
+      'https://easygoing-luck-production-f0df.up.railway.app',
     ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(
