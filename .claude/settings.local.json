@@ -19,7 +19,10 @@
       "WebFetch(domain:github.com)",
       "Bash(wc:*)",
       "Bash(echo Token: ${TOKEN:0:20}...:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(npx prisma:*)",
+      "Bash(ls:*)",
+      "Bash(npx nest:*)"
     ]
   }
 }
