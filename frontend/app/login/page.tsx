@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useAuth, extractApiError } from '@/src/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -110,7 +111,14 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Pas encore de compte ?{' '}
+          <Link href="/register" className="font-semibold text-indigo-600 hover:underline">
+            Créer un compte
+          </Link>
+        </p>
+
+        <p className="mt-4 text-center text-xs text-gray-400">
           Séjour Jeunesse &copy; {new Date().getFullYear()}
         </p>
       </div>

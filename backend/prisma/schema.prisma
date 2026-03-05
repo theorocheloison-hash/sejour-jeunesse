@@ -85,9 +85,11 @@ model User {
   nom            String   @db.VarChar(100)
   email          String   @unique @db.VarChar(255)
   motDePasse     String   @map("mot_de_passe") @db.VarChar(255)
-  telephone      String?  @db.VarChar(20)
-  dateNaissance  DateTime? @map("date_naissance") @db.Date
-  createdAt      DateTime @default(now()) @map("created_at")
+  telephone         String?  @db.VarChar(20)
+  dateNaissance     DateTime? @map("date_naissance") @db.Date
+  emailVerifie      Boolean  @default(false) @map("email_verifie")
+  tokenVerification String?  @map("token_verification") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   inscriptions  Inscription[]

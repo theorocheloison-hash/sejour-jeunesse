@@ -164,7 +164,35 @@ export class EmailService {
     await this.send(to, `Devis sélectionné — ${sejourTitre}`, html);
   }
 
-  // ── f) Dossier soumis au rectorat ─────────────────────────────────────
+  // ── f) Vérification email ────────────────────────────────────────────
+
+  async sendVerificationEmail(to: string, prenom: string, token: string) {
+    const lien = `${FRONTEND_URL}/verify-email/${token}`;
+    const html = emailLayout(
+      'Vérifiez votre adresse email',
+      `<p>Bonjour ${prenom},</p>
+       <p>Bienvenue sur <strong>Séjour Jeunesse</strong> ! Pour activer votre compte, veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.</p>
+       <p style="color:#888;font-size:12px;margin-top:16px">Ce lien est valable 48 heures.</p>`,
+      'Vérifier mon email',
+      lien,
+    );
+    await this.send(to, 'Vérifiez votre email — Séjour Jeunesse', html);
+  }
+
+  // ── g) Compte hébergeur en attente ─────────────────────────────────
+
+  async sendVenueAccountPending(to: string, prenom: string, nomCentre: string) {
+    const html = emailLayout(
+      'Compte en attente de validation',
+      `<p>Bonjour ${prenom},</p>
+       <p>Votre inscription en tant qu'hébergeur pour le centre <strong>« ${nomCentre} »</strong> a bien été enregistrée.</p>
+       <p>Votre compte est actuellement <strong style="color:#d97706">en attente de validation</strong> par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
+       <p>En attendant, vous pouvez vérifier votre email pour accélérer le processus.</p>`,
+    );
+    await this.send(to, 'Inscription hébergeur en attente — Séjour Jeunesse', html);
+  }
+
+  // ── h) Dossier soumis au rectorat ─────────────────────────────────────
 
   async sendDossierSoumisRectorat(
     to: string,
