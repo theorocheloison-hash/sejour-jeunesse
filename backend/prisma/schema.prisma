@@ -157,10 +157,15 @@ model AutorisationParentale {
   eleveNom        String    @map("eleve_nom") @db.VarChar(100)
   elevePrenom     String    @map("eleve_prenom") @db.VarChar(100)
   parentEmail     String    @map("parent_email") @db.VarChar(255)
-  tokenAcces      String    @unique @default(uuid()) @map("token_acces") @db.Uuid
-  signeeAt        DateTime? @map("signee_at")
-  infosMedicales  String?   @map("infos_medicales") @db.Text
-  createdAt       DateTime  @default(now()) @map("created_at")
+  tokenAcces        String    @unique @default(uuid()) @map("token_acces") @db.Uuid
+  signeeAt          DateTime? @map("signee_at")
+  taille            Int?
+  poids             Int?
+  pointure          Int?
+  regimeAlimentaire String?   @map("regime_alimentaire") @db.VarChar(100)
+  niveauSki         String?   @map("niveau_ski") @db.VarChar(50)
+  infosMedicales    String?   @map("infos_medicales") @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 

@@ -138,6 +138,30 @@ export class CollaborationService {
     });
   }
 
+  // ── Participants (autorisations parentales) ──────────────────
+
+  async getParticipants(sejourId: string, userId: string) {
+    await this.verifyAccess(sejourId, userId);
+    return this.prisma.autorisationParentale.findMany({
+      where: { sejourId },
+      select: {
+        id: true,
+        eleveNom: true,
+        elevePrenom: true,
+        parentEmail: true,
+        signeeAt: true,
+        taille: true,
+        poids: true,
+        pointure: true,
+        regimeAlimentaire: true,
+        niveauSki: true,
+        infosMedicales: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   // ── Vue hébergeur : mes séjours en convention ─────────────────
 
   async getMesSejoursConvention(userId: string) {

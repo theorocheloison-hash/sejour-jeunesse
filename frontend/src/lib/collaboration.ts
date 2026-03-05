@@ -59,6 +59,21 @@ export interface SejourConventionVenue {
   hebergementSelectionne?: { nom: string };
 }
 
+export interface Participant {
+  id: string;
+  eleveNom: string;
+  elevePrenom: string;
+  parentEmail: string;
+  signeeAt: string | null;
+  taille: number | null;
+  poids: number | null;
+  pointure: number | null;
+  regimeAlimentaire: string | null;
+  niveauSki: string | null;
+  infosMedicales: string | null;
+  createdAt: string;
+}
+
 // ── API calls ────────────────────────────────────────────────────────────────
 
 export async function getSejourCollabInfo(sejourId: string): Promise<SejourCollabInfo> {
@@ -103,6 +118,11 @@ export async function createDocument(
   body: { nom: string; type: TypeDocumentSejour; url: string },
 ): Promise<DocumentSejour> {
   const { data } = await api.post<DocumentSejour>(`/collaboration/${sejourId}/documents`, body);
+  return data;
+}
+
+export async function getParticipants(sejourId: string): Promise<Participant[]> {
+  const { data } = await api.get<Participant[]>(`/collaboration/${sejourId}/participants`);
   return data;
 }
 

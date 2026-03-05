@@ -110,6 +110,11 @@ export class AutorisationService {
       where: { tokenAcces: token },
       data: {
         signeeAt: new Date(),
+        taille: dto.taille ?? null,
+        poids: dto.poids ?? null,
+        pointure: dto.pointure ?? null,
+        regimeAlimentaire: dto.regimeAlimentaire ?? null,
+        niveauSki: dto.niveauSki ?? null,
         infosMedicales: dto.infosMedicales ?? null,
       },
     });

@@ -13,6 +13,7 @@ import {
   deletePlanning,
   getDocuments,
   createDocument,
+  getParticipants,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -20,15 +21,17 @@ import type {
   PlanningActivite,
   DocumentSejour,
   TypeDocumentSejour,
+  Participant,
 } from '@/src/lib/collaboration';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'messages' | 'planning' | 'documents';
+type Tab = 'messages' | 'planning' | 'participants' | 'documents';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'messages', label: 'Messages' },
   { key: 'planning', label: 'Planning' },
+  { key: 'participants', label: 'Participants' },
   { key: 'documents', label: 'Documents' },
 ];
 
@@ -46,6 +49,13 @@ const TYPE_DOC_BADGE: Record<TypeDocumentSejour, string> = {
   ASSURANCE: 'bg-green-100 text-green-700',
   FACTURE: 'bg-purple-100 text-purple-700',
   AUTRE: 'bg-gray-100 text-gray-600',
+};
+
+const NIVEAU_SKI_LABEL: Record<string, string> = {
+  DEBUTANT: 'Débutant',
+  INTERMEDIAIRE: 'Intermédiaire',
+  CONFIRME: 'Confirmé',
+  HORS_PISTE: 'Hors-piste',
 };
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -72,6 +82,10 @@ export default function CollaborationPage() {
   // Documents
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
   const [docForm, setDocForm] = useState({ nom: '', type: 'AUTRE' as TypeDocumentSejour, url: '' });
+
+  // Participants
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
 
   // ── Auth guard ──
   useEffect(() => {
@@ -102,11 +116,17 @@ export default function CollaborationPage() {
     try { setDocs(await getDocuments(id)); } catch { /* ignore */ }
   }, [id]);
 
+  const loadParticipants = useCallback(async () => {
+    if (!id) return;
+    try { setParticipants(await getParticipants(id)); } catch { /* ignore */ }
+  }, [id]);
+
   useEffect(() => {
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
     if (tab === 'documents') loadDocs();
-  }, [tab, loadMessages, loadPlanning, loadDocs]);
+    if (tab === 'participants') loadParticipants();
+  }, [tab, loadMessages, loadPlanning, loadDocs, loadParticipants]);
 
   // ── Polling messages 10s ──
   useEffect(() => {
@@ -164,6 +184,42 @@ export default function CollaborationPage() {
       setDocForm({ nom: '', type: 'AUTRE', url: '' });
     } catch { /* ignore */ }
   };
+
+  // ── CSV Export ──
+  const exportCSV = () => {
+    const headers = ['Prénom', 'Nom', 'Statut', 'Taille (cm)', 'Poids (kg)', 'Pointure', 'Régime alimentaire', 'Niveau ski', 'Infos médicales'];
+    const rows = participants.map((p) => [
+      p.elevePrenom,
+      p.eleveNom,
+      p.signeeAt ? 'Signée' : 'En attente',
+      p.taille?.toString() ?? '',
+      p.poids?.toString() ?? '',
+      p.pointure?.toString() ?? '',
+      p.regimeAlimentaire ?? '',
+      p.niveauSki ? (NIVEAU_SKI_LABEL[p.niveauSki] ?? p.niveauSki) : '',
+      p.infosMedicales ?? '',
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `participants-${sejour?.titre ?? 'sejour'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Filter participants ──
+  const filteredParticipants = participants.filter((p) => {
+    if (participantFilter === 'signed') return !!p.signeeAt;
+    if (participantFilter === 'pending') return !p.signeeAt;
+    return true;
+  });
+
+  const signedCount = participants.filter((p) => p.signeeAt).length;
+
+  // Check if ski column relevant
+  const showSkiColumn = participants.some((p) => p.niveauSki);
 
   // ── Loading / Error ──
   if (isLoading || !user) {
@@ -298,7 +354,6 @@ export default function CollaborationPage() {
         {/* ── Planning ─── */}
         {tab === 'planning' && (
           <div className="space-y-6">
-            {/* Formulaire inline */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter une activité</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -324,7 +379,6 @@ export default function CollaborationPage() {
               </button>
             </div>
 
-            {/* Liste par jour */}
             {Object.keys(planningByDay).length === 0 && (
               <p className="text-center text-sm text-gray-400 py-8">Aucune activité planifiée.</p>
             )}
@@ -355,10 +409,128 @@ export default function CollaborationPage() {
           </div>
         )}
 
+        {/* ── Participants ─── */}
+        {tab === 'participants' && (
+          <div className="space-y-4">
+            {/* Header + actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-gray-900">
+                  {signedCount}/{participants.length} autorisations signées
+                </span>
+                <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all"
+                    style={{ width: participants.length ? `${(signedCount / participants.length) * 100}%` : '0%' }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Filtres */}
+                {(['all', 'signed', 'pending'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setParticipantFilter(f)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      participantFilter === f
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {f === 'all' ? 'Tous' : f === 'signed' ? 'Signés' : 'En attente'}
+                  </button>
+                ))}
+                <button
+                  onClick={exportCSV}
+                  disabled={participants.length === 0}
+                  className="rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Exporter CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Tableau */}
+            {filteredParticipants.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-8">
+                {participants.length === 0 ? 'Aucun participant enregistré.' : 'Aucun résultat pour ce filtre.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-3 font-semibold text-gray-700">Élève</th>
+                      <th className="text-left py-3 px-3 font-semibold text-gray-700">Statut</th>
+                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Taille</th>
+                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Poids</th>
+                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Pointure</th>
+                      <th className="text-left py-3 px-3 font-semibold text-gray-700">Régime</th>
+                      {showSkiColumn && (
+                        <th className="text-left py-3 px-3 font-semibold text-gray-700">Ski</th>
+                      )}
+                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Médical</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredParticipants.map((p) => (
+                      <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-3">
+                          <p className="font-medium text-gray-900">{p.elevePrenom} {p.eleveNom}</p>
+                        </td>
+                        <td className="py-3 px-3">
+                          {p.signeeAt ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-xs font-medium text-green-700">
+                              Signée
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                              En attente
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600">
+                          {p.taille ? `${p.taille} cm` : '—'}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600">
+                          {p.poids ? `${p.poids} kg` : '—'}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600">
+                          {p.pointure ?? '—'}
+                        </td>
+                        <td className="py-3 px-3 text-gray-600">
+                          {p.regimeAlimentaire ?? '—'}
+                        </td>
+                        {showSkiColumn && (
+                          <td className="py-3 px-3 text-gray-600">
+                            {p.niveauSki ? (NIVEAU_SKI_LABEL[p.niveauSki] ?? p.niveauSki) : '—'}
+                          </td>
+                        )}
+                        <td className="py-3 px-3 text-center">
+                          {p.infosMedicales ? (
+                            <span className="relative group cursor-help">
+                              <span className="text-base" title={p.infosMedicales}>&#127973;</span>
+                              <span className="invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-lg bg-gray-900 text-white text-xs p-3 shadow-lg">
+                                {p.infosMedicales}
+                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Documents ─── */}
         {tab === 'documents' && (
           <div className="space-y-6">
-            {/* Formulaire */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -380,7 +552,6 @@ export default function CollaborationPage() {
               </button>
             </div>
 
-            {/* Liste */}
             {docs.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-8">Aucun document partagé.</p>
             )}

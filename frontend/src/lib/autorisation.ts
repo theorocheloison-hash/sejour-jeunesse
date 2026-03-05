@@ -10,6 +10,11 @@ export interface AutorisationParentale {
   parentEmail: string;
   tokenAcces: string;
   signeeAt: string | null;
+  taille: number | null;
+  poids: number | null;
+  pointure: number | null;
+  regimeAlimentaire: string | null;
+  niveauSki: string | null;
   infosMedicales: string | null;
   createdAt: string;
 }
@@ -45,6 +50,11 @@ export interface CreateAutorisationDto {
 }
 
 export interface SignerAutorisationDto {
+  taille?: number;
+  poids?: number;
+  pointure?: number;
+  regimeAlimentaire?: string;
+  niveauSki?: string;
   infosMedicales?: string;
 }
 
