@@ -14,6 +14,8 @@ import { DemandeModule } from './demandes/demande.module.js';
 import { DevisModule } from './devis/devis.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
 import { EmailModule } from './email/email.module.js';
+import { EtablissementsModule } from './etablissements/etablissements.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { EmailModule } from './email/email.module.js';
     DemandeModule,
     DevisModule,
     CollaborationModule,
+    EtablissementsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

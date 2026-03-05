@@ -89,6 +89,15 @@ model User {
   dateNaissance     DateTime? @map("date_naissance") @db.Date
   emailVerifie      Boolean  @default(false) @map("email_verifie")
   tokenVerification String?  @map("token_verification") @db.Uuid
+
+  // Établissement scolaire (données API Éducation Nationale)
+  etablissementUai       String?  @map("etablissement_uai") @db.VarChar(20)
+  etablissementNom       String?  @map("etablissement_nom") @db.VarChar(255)
+  etablissementAdresse   String?  @map("etablissement_adresse") @db.VarChar(500)
+  etablissementVille     String?  @map("etablissement_ville") @db.VarChar(255)
+  etablissementEmail     String?  @map("etablissement_email") @db.VarChar(255)
+  etablissementTelephone String?  @map("etablissement_telephone") @db.VarChar(20)
+
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

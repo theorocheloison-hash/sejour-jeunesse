@@ -92,7 +92,12 @@ export interface DemandeInfo {
     dateFin: string;
     nombreEleves: number;
     villeHebergement: string;
-    enseignant?: { prenom: string; nom: string; email: string; telephone?: string | null };
+    enseignant?: {
+      prenom: string; nom: string; email: string; telephone?: string | null;
+      etablissementNom?: string | null; etablissementAdresse?: string | null;
+      etablissementVille?: string | null; etablissementEmail?: string | null;
+      etablissementTelephone?: string | null;
+    };
     sejour?: {
       titre: string;
       lieu: string;

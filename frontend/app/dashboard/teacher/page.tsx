@@ -211,9 +211,12 @@ export default function TeacherDashboard() {
               <span className="font-semibold text-gray-900">Séjour Jeunesse</span>
             </div>
 
-            {/* User + logout */}
+            {/* User + profil + logout */}
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2.5">
+              <Link
+                href="/dashboard/teacher/profil"
+                className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+              >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
                   <span className="text-xs font-semibold text-indigo-700">{initials}</span>
                 </div>
@@ -223,7 +226,7 @@ export default function TeacherDashboard() {
                   </p>
                   <p className="text-xs text-gray-500">Enseignant</p>
                 </div>
-              </div>
+              </Link>
               <button
                 onClick={logout}
                 className="text-sm text-gray-500 hover:text-gray-900 transition-colors"

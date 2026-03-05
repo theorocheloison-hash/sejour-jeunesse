@@ -256,7 +256,13 @@ export class DevisService {
     const demande = await this.prisma.demandeDevis.findUnique({
       where: { id: demandeId },
       include: {
-        enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
+        enseignant: {
+          select: {
+            prenom: true, nom: true, email: true, telephone: true,
+            etablissementNom: true, etablissementAdresse: true,
+            etablissementVille: true, etablissementEmail: true, etablissementTelephone: true,
+          },
+        },
         sejour: {
           select: {
             titre: true,
