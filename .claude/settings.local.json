@@ -22,7 +22,8 @@
       "Bash(gh auth:*)",
       "Bash(npx prisma:*)",
       "Bash(ls:*)",
-      "Bash(npx nest:*)"
+      "Bash(npx nest:*)",
+      "Bash(PGPASSWORD=sejour_pass_2024 psql:*)"
     ]
   }
 }
