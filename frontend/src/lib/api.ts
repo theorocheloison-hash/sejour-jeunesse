@@ -1,8 +1,11 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
+// Production API URL - Railway deployment
+const baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://sejour-jeunesse-production.up.railway.app';
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://sejour-jeunesse-production.up.railway.app',
+  baseURL,
 });
 
 api.interceptors.request.use((config) => {
