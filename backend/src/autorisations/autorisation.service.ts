@@ -5,12 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 
+const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
+
 @Injectable()
 export class AutorisationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+  ) {}
 
   async create(dto: CreateAutorisationDto, createurId: string) {
     const sejour = await this.prisma.sejour.findUnique({
@@ -20,7 +26,7 @@ export class AutorisationService {
     if (sejour.createurId !== createurId)
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
-    return this.prisma.autorisationParentale.create({
+    const autorisation = await this.prisma.autorisationParentale.create({
       data: {
         sejourId: dto.sejourId,
         eleveNom: dto.eleveNom,
@@ -28,6 +34,17 @@ export class AutorisationService {
         parentEmail: dto.parentEmail,
       },
     });
+
+    // Envoyer l'email d'autorisation parentale
+    const lien = `${FRONTEND_URL}/autorisation/${autorisation.tokenAcces}`;
+    await this.email.sendAutorisationParentale(
+      dto.parentEmail,
+      `${dto.elevePrenom} ${dto.eleveNom}`,
+      sejour.titre,
+      lien,
+    );
+
+    return autorisation;
   }
 
   async getByToken(token: string) {

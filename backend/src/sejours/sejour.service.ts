@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Role, StatutSejour, AppelOffreStatut } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 
 @Injectable()
 export class SejourService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+  ) {}
 
   async create(dto: CreateSejourDto, createurId: string) {
     return this.prisma.sejour.create({
@@ -103,6 +107,21 @@ export class SejourService {
       data:  { statut },
     });
 
+    // Notifier l'enseignant quand le séjour est approuvé
+    if (statut === StatutSejour.APPROVED && sejour.createurId) {
+      const enseignant = await this.prisma.user.findUnique({
+        where: { id: sejour.createurId },
+        select: { email: true, prenom: true, nom: true },
+      });
+      if (enseignant) {
+        await this.email.sendSejourApprouve(
+          enseignant.email,
+          `${enseignant.prenom} ${enseignant.nom}`,
+          sejour.titre,
+        );
+      }
+    }
+
     // Auto-create DemandeDevis when a sejour is SUBMITTED
     if (statut === StatutSejour.SUBMITTED && sejour.createurId) {
       const thematiques = sejour.thematiquesPedagogiques ?? [];
@@ -131,6 +150,24 @@ export class SejourService {
         where: { id },
         data:  { appelOffreStatut: AppelOffreStatut.OUVERT },
       });
+
+      // Notifier les hébergeurs de la nouvelle demande
+      const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
+      const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+      const centres = await this.prisma.centreHebergement.findMany({
+        where: { abonnementStatut: 'ACTIF' },
+        include: { user: { select: { email: true } } },
+      });
+      for (const centre of centres) {
+        await this.email.sendNouvelleDemandeDevis(
+          centre.user.email,
+          centre.nom,
+          sejour.titre,
+          sejour.lieu ?? '',
+          dateDebut,
+          dateFin,
+        );
+      }
     }
 
     return updated;

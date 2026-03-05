@@ -5,11 +5,15 @@ import {
 } from '@nestjs/common';
 import { StatutAbonnement, StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 
 @Injectable()
 export class DevisService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+  ) {}
 
   async create(dto: CreateDevisDto, userId: string) {
     const centre = await this.prisma.centreHebergement.findFirst({
@@ -76,10 +80,31 @@ export class DevisService {
       });
     }
 
-    return this.prisma.devis.findUnique({
+    const fullDevis = await this.prisma.devis.findUnique({
       where: { id: devis.id },
       include: { lignes: true },
     });
+
+    // Notifier l'enseignant du nouveau devis
+    const enseignant = await this.prisma.user.findUnique({
+      where: { id: demande.enseignantId! },
+      select: { email: true, prenom: true, nom: true },
+    });
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: demande.sejourId },
+      select: { titre: true },
+    });
+    if (enseignant && sejour) {
+      await this.email.sendDevisRecu(
+        enseignant.email,
+        `${enseignant.prenom} ${enseignant.nom}`,
+        sejour.titre,
+        centre.nom,
+        String(dto.montantTotal),
+      );
+    }
+
+    return fullDevis;
   }
 
   async getMesDevis(userId: string) {
@@ -175,6 +200,23 @@ export class DevisService {
           statut: StatutSejour.CONVENTION,
         },
       });
+
+      // 4. Notifier l'hébergeur que son devis est sélectionné
+      const centre = await this.prisma.centreHebergement.findUnique({
+        where: { id: devis.centreId },
+        include: { user: { select: { email: true } } },
+      });
+      const sejour = await this.prisma.sejour.findUnique({
+        where: { id: devis.demande.sejourId },
+        select: { titre: true },
+      });
+      if (centre && sejour) {
+        await this.email.sendDevisSelectionne(
+          centre.user.email,
+          centre.nom,
+          sejour.titre,
+        );
+      }
     }
 
     return updated;
