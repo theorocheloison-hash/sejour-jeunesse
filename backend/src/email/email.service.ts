@@ -254,7 +254,38 @@ export class EmailService {
     await this.send(to, 'Inscription hébergeur en attente — Séjour Jeunesse', html);
   }
 
-  // ── h) Dossier soumis au rectorat ─────────────────────────────────────
+  // ── h) Compte hébergeur validé ──────────────────────────────────────
+
+  async sendVenueAccountValidated(to: string, prenom: string, nomCentre: string) {
+    const html = emailLayout(
+      'Compte validé !',
+      `<p>Bonjour ${prenom},</p>
+       <p>Bonne nouvelle ! Votre compte hébergeur pour le centre <strong>« ${nomCentre} »</strong> a été <strong style="color:#16a34a">validé</strong> par notre équipe.</p>
+       <p>Vous pouvez dès maintenant vous connecter et répondre aux demandes de devis des enseignants.</p>`,
+      'Accéder à mon espace',
+      `${FRONTEND_URL}/dashboard/venue`,
+    );
+    await this.send(to, 'Compte hébergeur validé — Séjour Jeunesse', html);
+  }
+
+  // ── i) Compte hébergeur refusé ────────────────────────────────────────
+
+  async sendVenueAccountRefused(to: string, prenom: string, nomCentre: string, motif?: string) {
+    const motifHtml = motif
+      ? `<p><strong>Motif :</strong> ${motif}</p>`
+      : '';
+    const html = emailLayout(
+      'Inscription non retenue',
+      `<p>Bonjour ${prenom},</p>
+       <p>Nous avons examiné votre demande d'inscription en tant qu'hébergeur pour le centre <strong>« ${nomCentre} »</strong>.</p>
+       <p>Malheureusement, votre inscription <strong style="color:#dc2626">n'a pas été retenue</strong>.</p>
+       ${motifHtml}
+       <p>Si vous pensez qu'il s'agit d'une erreur, n'hésitez pas à nous contacter.</p>`,
+    );
+    await this.send(to, 'Inscription hébergeur non retenue — Séjour Jeunesse', html);
+  }
+
+  // ── j) Dossier soumis au rectorat ─────────────────────────────────────
 
   async sendDossierSoumisRectorat(
     to: string,

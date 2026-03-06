@@ -20,6 +20,7 @@ enum Role {
   RECTOR
   PARENT
   VENUE
+  ADMIN
 }
 
 // ============================================================
@@ -88,6 +89,7 @@ model User {
   telephone         String?  @db.VarChar(20)
   dateNaissance     DateTime? @map("date_naissance") @db.Date
   emailVerifie      Boolean  @default(false) @map("email_verifie")
+  compteValide      Boolean  @default(false) @map("compte_valide")
   tokenVerification String?  @map("token_verification") @db.Uuid
 
   // Établissement scolaire (données API Éducation Nationale)

@@ -5,6 +5,7 @@ export enum Role {
   RECTOR = 'RECTOR',
   PARENT = 'PARENT',
   VENUE = 'VENUE',
+  ADMIN = 'ADMIN',
 }
 
 export interface User {
