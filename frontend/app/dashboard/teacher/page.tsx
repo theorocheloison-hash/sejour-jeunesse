@@ -103,8 +103,8 @@ function SejourCard({
           );
         })()}
 
-        {/* Bouton autorisations — uniquement pour APPROVED */}
-        {sejour.statut === 'APPROVED' && (
+        {/* Bouton autorisations — pour APPROVED et CONVENTION */}
+        {(sejour.statut === 'APPROVED' || sejour.statut === 'CONVENTION') && (
           <Link
             href={`/dashboard/teacher/sejours/${sejour.id}/autorisations`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
