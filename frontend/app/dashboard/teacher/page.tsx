@@ -80,8 +80,8 @@ function SejourCard({
           </button>
         )}
 
-        {/* Appel d'offres — pour SUBMITTED */}
-        {sejour.statut === 'SUBMITTED' && sejour.demandes && sejour.demandes.length > 0 && (() => {
+        {/* Appel d'offres — pour SUBMITTED et APPROVED */}
+        {(sejour.statut === 'SUBMITTED' || sejour.statut === 'APPROVED') && sejour.demandes && sejour.demandes.length > 0 && (() => {
           const totalDevis = sejour.demandes.reduce((sum, d) => sum + (d._count?.devis ?? 0), 0);
           return (
             <div className="flex items-center gap-2">
