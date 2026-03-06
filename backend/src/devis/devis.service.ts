@@ -292,6 +292,45 @@ export class DevisService {
     return { demande, centre };
   }
 
+  async facturerAcompte(id: string, userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+    if (devis.statut !== StatutDevis.SELECTIONNE) {
+      throw new ForbiddenException('Seul un devis sélectionné peut être facturé');
+    }
+    if (devis.typeDocument !== 'DEVIS') {
+      throw new ForbiddenException('Ce devis a déjà été converti en facture');
+    }
+
+    const year = new Date().getFullYear();
+    const numeroFacture = `FA-${year}-${id.substring(0, 4).toUpperCase()}`;
+    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+    const pourcentage = devis.pourcentageAcompte ?? 30;
+    const montantAcompte = montantTTC * pourcentage / 100;
+
+    return this.prisma.devis.update({
+      where: { id },
+      data: {
+        typeDocument: 'FACTURE_ACOMPTE',
+        estFacture: true,
+        dateFacture: new Date(),
+        numeroFacture,
+        montantAcompte,
+      },
+      include: { lignes: true },
+    });
+  }
+
   private async generateNumeroDevis(centreId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.devis.count({

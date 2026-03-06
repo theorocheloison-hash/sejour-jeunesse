@@ -36,7 +36,25 @@ export class SejourService {
       where:   { createurId },
       include: {
         demandes: {
-          include: { _count: { select: { devis: true } } },
+          include: {
+            _count: { select: { devis: true } },
+            devis: {
+              where: { statut: 'SELECTIONNE' },
+              select: {
+                id: true,
+                statut: true,
+                montantTotal: true,
+                montantTTC: true,
+                typeDocument: true,
+                estFacture: true,
+                numeroFacture: true,
+                montantAcompte: true,
+                pourcentageAcompte: true,
+                centre: { select: { nom: true } },
+              },
+              take: 1,
+            },
+          },
         },
       },
       orderBy: { dateDebut: 'asc' },

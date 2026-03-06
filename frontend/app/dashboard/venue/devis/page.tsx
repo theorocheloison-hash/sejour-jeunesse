@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesDevis } from '@/src/lib/devis';
+import { getMesDevis, facturerAcompte } from '@/src/lib/devis';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
@@ -21,6 +21,7 @@ export default function VenueDevisPage() {
   const { user, isLoading } = useAuth();
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [facturantId, setFacturantId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.push('/login');
@@ -33,6 +34,18 @@ export default function VenueDevisPage() {
         .catch(() => setError('Impossible de charger les devis.'));
     }
   }, [user]);
+
+  const handleFacturerAcompte = async (id: string) => {
+    setFacturantId(id);
+    try {
+      const updated = await facturerAcompte(id);
+      setDevisList((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
+    } catch {
+      setError('Erreur lors de la conversion en facture.');
+    } finally {
+      setFacturantId(null);
+    }
+  };
 
   if (isLoading || !user) return null;
 
@@ -80,25 +93,43 @@ export default function VenueDevisPage() {
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
-                    {d.statut === 'SELECTIONNE' && d.demande?.enseignant && (
-                      <div className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-                        <p className="text-xs font-semibold text-emerald-800 mb-1">
-                          👤 {d.demande.enseignant.prenom} {d.demande.enseignant.nom}
-                        </p>
-                        <div className="flex flex-col gap-0.5 text-xs text-emerald-700">
-                          {d.demande.enseignant.email && (
-                            <a href={`mailto:${d.demande.enseignant.email}`} className="hover:underline">
-                              ✉️ {d.demande.enseignant.email}
-                            </a>
-                          )}
-                          {d.demande.enseignant.telephone ? (
-                            <a href={`tel:${d.demande.enseignant.telephone}`} className="hover:underline">
-                              📞 {d.demande.enseignant.telephone}
-                            </a>
-                          ) : (
-                            <span className="text-emerald-500">📞 Téléphone non renseigné</span>
-                          )}
-                        </div>
+                    {d.statut === 'SELECTIONNE' && (
+                      <div className="shrink-0 flex flex-col gap-2 items-end">
+                        {d.demande?.enseignant && (
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <p className="text-xs font-semibold text-emerald-800 mb-1">
+                              {d.demande.enseignant.prenom} {d.demande.enseignant.nom}
+                            </p>
+                            <div className="flex flex-col gap-0.5 text-xs text-emerald-700">
+                              {d.demande.enseignant.email && (
+                                <a href={`mailto:${d.demande.enseignant.email}`} className="hover:underline">
+                                  {d.demande.enseignant.email}
+                                </a>
+                              )}
+                              {d.demande.enseignant.telephone && (
+                                <a href={`tel:${d.demande.enseignant.telephone}`} className="hover:underline">
+                                  {d.demande.enseignant.telephone}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {d.typeDocument === 'FACTURE_ACOMPTE' ? (
+                          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-800 font-semibold">
+                            Facture acompte envoyee — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} EUR
+                          </div>
+                        ) : (!d.typeDocument || d.typeDocument === 'DEVIS') && (
+                          <button
+                            onClick={() => handleFacturerAcompte(d.id)}
+                            disabled={facturantId === d.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+                          >
+                            {facturantId === d.id ? (
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : null}
+                            Convertir en facture d&apos;acompte
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

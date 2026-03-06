@@ -448,6 +448,9 @@ model Devis {
   // Type de soumission
   typeDevis             String       @default("PLATEFORME") @map("type_devis") @db.VarChar(20)
 
+  // Type de document : DEVIS | FACTURE_ACOMPTE | FACTURE_SOLDE
+  typeDocument          String       @default("DEVIS") @map("type_document") @db.VarChar(30)
+
   demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
   lignes  LigneDevis[]

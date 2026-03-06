@@ -19,9 +19,23 @@ export interface CreateSejourDto {
   dateButoireDevis?: string;
 }
 
+export interface DevisSelectionne {
+  id: string;
+  statut: string;
+  montantTotal: string;
+  montantTTC: number | null;
+  typeDocument: string;
+  estFacture: boolean;
+  numeroFacture: string | null;
+  montantAcompte: number | null;
+  pourcentageAcompte: number | null;
+  centre?: { nom: string };
+}
+
 export interface SejourDemande {
   id: string;
   _count: { devis: number };
+  devis?: DevisSelectionne[];
 }
 
 export interface Sejour {

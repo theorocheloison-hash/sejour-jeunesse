@@ -40,6 +40,9 @@ export interface Devis {
   numeroDevis?: string | null;
   numeroFacture?: string | null;
   typeDevis?: string;
+  typeDocument?: string;
+  estFacture?: boolean;
+  dateFacture?: string | null;
   lignes?: LigneDevis[];
   demande?: {
     id: string;
@@ -157,6 +160,11 @@ export async function getNextNumeroDevis(): Promise<{ numero: string }> {
 
 export async function getDemandeInfo(demandeId: string): Promise<DemandeInfo> {
   const { data } = await api.get<DemandeInfo>(`/devis/demande-info/${demandeId}`);
+  return data;
+}
+
+export async function facturerAcompte(id: string): Promise<Devis> {
+  const { data } = await api.patch<Devis>(`/devis/${id}/facturer-acompte`);
   return data;
 }
 
