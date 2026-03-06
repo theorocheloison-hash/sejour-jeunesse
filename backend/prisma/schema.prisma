@@ -438,6 +438,8 @@ model Devis {
   // Acompte
   pourcentageAcompte    Float?       @default(30) @map("pourcentage_acompte")
   montantAcompte        Float?       @map("montant_acompte")
+  acompteVerse          Boolean      @default(false) @map("acompte_verse")
+  dateVersementAcompte  DateTime?    @map("date_versement_acompte")
 
   // Facturation
   estFacture            Boolean      @default(false) @map("est_facture")

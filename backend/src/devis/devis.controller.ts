@@ -43,6 +43,12 @@ export class DevisController {
     return this.devisService.getDevisAValider();
   }
 
+  @Get('factures-acompte')
+  @Roles(Role.DIRECTOR)
+  getFacturesAcompte() {
+    return this.devisService.getFacturesAcompte();
+  }
+
   @Get('demande/:demandeId')
   @Roles(Role.TEACHER, Role.DIRECTOR)
   getDevisForDemande(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
@@ -72,5 +78,17 @@ export class DevisController {
     @Param('id') id: string,
   ) {
     return this.devisService.facturerAcompte(id, user.id);
+  }
+
+  @Patch(':id/valider-acompte')
+  @Roles(Role.DIRECTOR)
+  validerAcompte(@Param('id') id: string) {
+    return this.devisService.validerAcompte(id);
+  }
+
+  @Get(':id/chorus-xml')
+  @Roles(Role.DIRECTOR)
+  getChorusXml(@Param('id') id: string) {
+    return this.devisService.getChorusXml(id);
   }
 }

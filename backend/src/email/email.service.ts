@@ -164,7 +164,19 @@ export class EmailService {
     await this.send(to, `Devis sélectionné — ${sejourTitre}`, html);
   }
 
-  // ── f) Vérification email ────────────────────────────────────────────
+  // ── f) Notification générique ────────────────────────────────────────
+
+  async sendGenericNotification(to: string, subject: string, message: string) {
+    const html = emailLayout(
+      subject,
+      `<p>${message}</p>`,
+      'Accéder à la plateforme',
+      `${FRONTEND_URL}/login`,
+    );
+    await this.send(to, subject, html);
+  }
+
+  // ── g) Vérification email ────────────────────────────────────────────
 
   async sendVerificationEmail(to: string, prenom: string, token: string) {
     const lien = `${FRONTEND_URL}/verify-email/${token}`;

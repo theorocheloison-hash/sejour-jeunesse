@@ -43,6 +43,8 @@ export interface Devis {
   typeDocument?: string;
   estFacture?: boolean;
   dateFacture?: string | null;
+  acompteVerse?: boolean;
+  dateVersementAcompte?: string | null;
   lignes?: LigneDevis[];
   demande?: {
     id: string;
@@ -160,6 +162,21 @@ export async function getNextNumeroDevis(): Promise<{ numero: string }> {
 
 export async function getDemandeInfo(demandeId: string): Promise<DemandeInfo> {
   const { data } = await api.get<DemandeInfo>(`/devis/demande-info/${demandeId}`);
+  return data;
+}
+
+export async function getFacturesAcompte(): Promise<Devis[]> {
+  const { data } = await api.get<Devis[]>('/devis/factures-acompte');
+  return data;
+}
+
+export async function validerAcompte(id: string): Promise<Devis> {
+  const { data } = await api.patch<Devis>(`/devis/${id}/valider-acompte`);
+  return data;
+}
+
+export async function getChorusXml(id: string): Promise<{ xml: string }> {
+  const { data } = await api.get<{ xml: string }>(`/devis/${id}/chorus-xml`);
   return data;
 }
 

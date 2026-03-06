@@ -331,6 +331,214 @@ export class DevisService {
     });
   }
 
+  async getFacturesAcompte() {
+    return this.prisma.devis.findMany({
+      where: {
+        typeDocument: 'FACTURE_ACOMPTE',
+        statut: StatutDevis.SELECTIONNE,
+      },
+      include: {
+        lignes: true,
+        centre: { select: { id: true, nom: true, ville: true } },
+        demande: {
+          include: {
+            sejour: {
+              select: {
+                id: true,
+                titre: true,
+                dateDebut: true,
+                dateFin: true,
+                createur: {
+                  select: { prenom: true, nom: true, etablissementNom: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { dateFacture: 'desc' },
+    });
+  }
+
+  async validerAcompte(id: string) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+      include: {
+        centre: { include: { user: { select: { email: true } } } },
+        demande: { include: { sejour: { select: { titre: true } } } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.typeDocument !== 'FACTURE_ACOMPTE') {
+      throw new ForbiddenException('Ce document n\'est pas une facture d\'acompte');
+    }
+    if (devis.acompteVerse) {
+      throw new ForbiddenException('L\'acompte a déjà été validé');
+    }
+
+    const updated = await this.prisma.devis.update({
+      where: { id },
+      data: {
+        acompteVerse: true,
+        dateVersementAcompte: new Date(),
+      },
+      include: { lignes: true, centre: { select: { nom: true } } },
+    });
+
+    // Notifier l'hébergeur
+    if (devis.centre?.user?.email && devis.demande?.sejour?.titre) {
+      await this.email.sendGenericNotification(
+        devis.centre.user.email,
+        'Acompte validé',
+        `L'acompte de ${Number(devis.montantAcompte ?? 0).toFixed(2)} € pour le séjour "${devis.demande.sejour.titre}" a été validé par le directeur. Facture ${devis.numeroFacture}.`,
+      );
+    }
+
+    return updated;
+  }
+
+  async getChorusXml(id: string) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+      include: {
+        lignes: true,
+        centre: true,
+        demande: {
+          include: {
+            sejour: {
+              include: {
+                createur: {
+                  select: {
+                    etablissementNom: true,
+                    etablissementUai: true,
+                    etablissementAdresse: true,
+                    etablissementVille: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.typeDocument !== 'FACTURE_ACOMPTE') {
+      throw new ForbiddenException('Seule une facture d\'acompte peut être exportée');
+    }
+
+    const sejour = devis.demande?.sejour;
+    const createur = sejour?.createur;
+    const dateFacture = devis.dateFacture
+      ? new Date(devis.dateFacture).toISOString().substring(0, 10)
+      : new Date().toISOString().substring(0, 10);
+
+    const lignesXml = devis.lignes.map((l, i) => `
+    <cac:InvoiceLine>
+      <cbc:ID>${i + 1}</cbc:ID>
+      <cbc:InvoicedQuantity unitCode="C62">${l.quantite}</cbc:InvoicedQuantity>
+      <cbc:LineExtensionAmount currencyID="EUR">${l.totalHT.toFixed(2)}</cbc:LineExtensionAmount>
+      <cac:Item>
+        <cbc:Name>${this.escapeXml(l.description)}</cbc:Name>
+        <cac:ClassifiedTaxCategory>
+          <cbc:Percent>${l.tva}</cbc:Percent>
+          <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+        </cac:ClassifiedTaxCategory>
+      </cac:Item>
+      <cac:Price>
+        <cbc:PriceAmount currencyID="EUR">${l.prixUnitaire.toFixed(2)}</cbc:PriceAmount>
+      </cac:Price>
+    </cac:InvoiceLine>`).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0</cbc:CustomizationID>
+  <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+  <cbc:ID>${this.escapeXml(devis.numeroFacture ?? '')}</cbc:ID>
+  <cbc:IssueDate>${dateFacture}</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>381</cbc:InvoiceTypeCode>
+  <cbc:Note>Facture d'acompte - ${this.escapeXml(sejour?.titre ?? '')}</cbc:Note>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+
+  <!-- Émetteur (hébergeur) -->
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyName>
+        <cbc:Name>${this.escapeXml(devis.nomEntreprise ?? devis.centre?.nom ?? '')}</cbc:Name>
+      </cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>${this.escapeXml(devis.adresseEntreprise ?? devis.centre?.adresse ?? '')}</cbc:StreetName>
+        <cbc:CityName>${this.escapeXml(devis.centre?.ville ?? '')}</cbc:CityName>
+        <cbc:PostalZone>${this.escapeXml(devis.centre?.codePostal ?? '')}</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>FR</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>${this.escapeXml(devis.siretEntreprise ?? '')}</cbc:CompanyID>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${this.escapeXml(devis.nomEntreprise ?? devis.centre?.nom ?? '')}</cbc:RegistrationName>
+        <cbc:CompanyID schemeID="0002">${this.escapeXml(devis.siretEntreprise ?? '')}</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+
+  <!-- Destinataire (établissement scolaire) -->
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyName>
+        <cbc:Name>${this.escapeXml(createur?.etablissementNom ?? '')}</cbc:Name>
+      </cac:PartyName>
+      <cac:PostalAddress>
+        <cbc:StreetName>${this.escapeXml(createur?.etablissementAdresse ?? '')}</cbc:StreetName>
+        <cbc:CityName>${this.escapeXml(createur?.etablissementVille ?? '')}</cbc:CityName>
+        <cac:Country><cbc:IdentificationCode>FR</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>${this.escapeXml(createur?.etablissementNom ?? '')}</cbc:RegistrationName>
+        <cbc:CompanyID schemeID="0009">${this.escapeXml(createur?.etablissementUai ?? '')}</cbc:CompanyID>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+
+  <!-- Montants -->
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">${(devis.montantTVA ?? 0).toFixed(2)}</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">${(devis.montantTVA ?? 0).toFixed(2)}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:Percent>${devis.tauxTva ?? 0}</cbc:Percent>
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">${(devis.montantTTC ?? 0).toFixed(2)}</cbc:TaxInclusiveAmount>
+    <cbc:PrepaidAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
+    <cbc:PayableAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+
+  <!-- Lignes -->${lignesXml}
+</Invoice>`;
+
+    return { xml };
+  }
+
+  private escapeXml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
   private async generateNumeroDevis(centreId: string): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.devis.count({
