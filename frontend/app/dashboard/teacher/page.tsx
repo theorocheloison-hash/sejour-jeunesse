@@ -49,8 +49,8 @@ function SejourCard({
     : undefined;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="p-5 flex flex-col sm:flex-row sm:items-start gap-4">
         {/* Infos principales */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -309,7 +309,7 @@ export default function TeacherDashboard() {
 
         {/* Liste ou état vide */}
         {sejours.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {sejours.map((s) => (
               <SejourCard
                 key={s.id}
