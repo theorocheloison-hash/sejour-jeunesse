@@ -46,6 +46,13 @@ export class SejourController {
     return this.sejourService.findAll();
   }
 
+  /** GET /sejours/:id/detail — Détail complet du séjour (directeur) */
+  @Get(':id/detail')
+  @Roles(Role.DIRECTOR)
+  getSejourDetail(@Param('id') id: string) {
+    return this.sejourService.getSejourDetail(id);
+  }
+
   /** GET /sejours/:id/dossier-pedagogique — Données enrichies du séjour */
   @Get(':id/dossier-pedagogique')
   @Roles(Role.TEACHER, Role.DIRECTOR)

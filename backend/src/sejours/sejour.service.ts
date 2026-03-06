@@ -71,6 +71,50 @@ export class SejourService {
     });
   }
 
+  async getSejourDetail(id: string) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id },
+      include: {
+        createur: {
+          select: {
+            prenom: true, nom: true, email: true, telephone: true,
+            etablissementNom: true, etablissementAdresse: true,
+            etablissementVille: true, etablissementUai: true,
+            etablissementEmail: true, etablissementTelephone: true,
+          },
+        },
+        accompagnateurs: {
+          select: {
+            id: true, prenom: true, nom: true, email: true,
+            telephone: true, signeeAt: true, signatureNom: true,
+            moyenTransport: true, createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        autorisations: {
+          select: {
+            id: true, elevePrenom: true, eleveNom: true,
+            parentEmail: true, signeeAt: true,
+          },
+          orderBy: { eleveNom: 'asc' },
+        },
+        demandes: {
+          include: {
+            devis: {
+              include: {
+                lignes: true,
+                centre: { select: { id: true, nom: true, ville: true, email: true, telephone: true } },
+              },
+            },
+          },
+        },
+        hebergements: { select: { nom: true, adresse: true, ville: true }, take: 1 },
+      },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    return sejour;
+  }
+
   async getDossierPedagogique(id: string, user: JwtUser) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },

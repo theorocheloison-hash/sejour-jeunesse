@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAllSejours, updateSejourStatus } from '@/src/lib/sejour';
+import { getAllSejours, updateSejourStatus, getSejourDetail } from '@/src/lib/sejour';
 import {
   getDevisAValider,
   updateDevisStatut,
@@ -11,16 +11,16 @@ import {
   validerAcompte,
   getChorusXml,
 } from '@/src/lib/devis';
-import type { SejourDirecteur, StatutSejour } from '@/src/lib/sejour';
-import type { Devis } from '@/src/lib/devis';
+import type { SejourDirecteur, StatutSejour, SejourDetail } from '@/src/lib/sejour';
+import type { Devis, LigneDevis } from '@/src/lib/devis';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',  cls: 'bg-gray-100 text-gray-600' },
   SUBMITTED:  { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
-  APPROVED:   { label: 'Approuv\u00e9',   cls: 'bg-green-100 text-green-700' },
-  REJECTED:   { label: 'Refus\u00e9',     cls: 'bg-red-100 text-red-700' },
+  APPROVED:   { label: 'Approuvé',   cls: 'bg-green-100 text-green-700' },
+  REJECTED:   { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
   CONVENTION: { label: 'Convention',  cls: 'bg-indigo-100 text-indigo-700' },
 };
 
@@ -47,42 +47,391 @@ function ChorusModal({ xml, onClose }: { xml: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[85vh] flex flex-col">
-        {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-gray-900">
-              Aper&ccedil;u Chorus Pro — Format PEPPOL UBL 2.1
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              En production, ce fichier sera transmis automatiquement &agrave; chorus-pro.gouv.fr
-            </p>
+            <h2 className="text-base font-bold text-gray-900">Aperçu Chorus Pro — Format PEPPOL UBL 2.1</h2>
+            <p className="text-xs text-gray-500 mt-0.5">En production, ce fichier sera transmis automatiquement à chorus-pro.gouv.fr</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-            Pr&ecirc;t pour Chorus Pro
-          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Prêt pour Chorus Pro</span>
+        </div>
+        <div className="flex-1 overflow-auto px-6 py-4">
+          <pre className="text-xs leading-relaxed text-gray-800 bg-gray-50 rounded-lg border border-gray-200 p-4 overflow-x-auto whitespace-pre-wrap break-all font-mono">{xml}</pre>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+          <button onClick={handleCopy} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+            {copied ? 'Copié !' : 'Copier le XML'}
+          </button>
+          <button onClick={onClose} className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors">Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Section Label ──────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2 mt-5 first:mt-0 flex items-center gap-2">
+      <span className="h-px flex-1 bg-indigo-100" />
+      <span>{children}</span>
+      <span className="h-px flex-1 bg-indigo-100" />
+    </h3>
+  );
+}
+
+// ─── Modale Détail Séjour ───────────────────────────────────────────────────
+
+function SejourDetailModal({
+  detail,
+  onClose,
+  onApprove,
+  onReject,
+  isActing,
+}: {
+  detail: SejourDetail;
+  onClose: () => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string, motif: string) => void;
+  isActing: boolean;
+}) {
+  const [refusMode, setRefusMode] = useState(false);
+  const [motif, setMotif] = useState('');
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const c = detail.createur;
+  const signees = detail.autorisations.filter((a) => a.signeeAt).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-bold text-gray-900 truncate">{detail.titre}</h2>
+              <StatutBadge statut={detail.statut} />
+            </div>
+            <p className="text-xs text-gray-500">{detail.lieu} — {fmtDate(detail.dateDebut)} → {fmtDate(detail.dateFin)}</p>
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
-        {/* XML content */}
+        {/* Body */}
+        <div className="flex-1 overflow-auto px-6 py-4 space-y-1">
+
+          {/* Infos séjour */}
+          <SectionLabel>Informations du séjour</SectionLabel>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div><span className="text-gray-500">Élèves</span><p className="font-medium">{detail.placesTotales}</p></div>
+            {detail.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{detail.niveauClasse}</p></div>}
+            {detail.prix > 0 && <div><span className="text-gray-500">Prix / élève</span><p className="font-medium">{detail.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p></div>}
+            {detail.hebergements?.[0] && (
+              <div className="col-span-2"><span className="text-gray-500">Hébergement</span><p className="font-medium">{detail.hebergements[0].nom}{detail.hebergements[0].ville ? `, ${detail.hebergements[0].ville}` : ''}</p></div>
+            )}
+          </div>
+
+          {/* Enseignant / Établissement */}
+          {c && (
+            <>
+              <SectionLabel>Enseignant & Établissement</SectionLabel>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div><span className="text-gray-500">Enseignant</span><p className="font-medium">{c.prenom} {c.nom}</p></div>
+                <div><span className="text-gray-500">Email</span><p className="font-medium">{c.email}</p></div>
+                {c.telephone && <div><span className="text-gray-500">Téléphone</span><p className="font-medium">{c.telephone}</p></div>}
+                {c.etablissementNom && <div><span className="text-gray-500">Établissement</span><p className="font-medium">{c.etablissementNom}</p></div>}
+                {c.etablissementAdresse && <div><span className="text-gray-500">Adresse</span><p className="font-medium">{c.etablissementAdresse}{c.etablissementVille ? `, ${c.etablissementVille}` : ''}</p></div>}
+                {c.etablissementUai && <div><span className="text-gray-500">UAI</span><p className="font-medium">{c.etablissementUai}</p></div>}
+              </div>
+            </>
+          )}
+
+          {/* Accompagnateurs */}
+          <SectionLabel>Accompagnateurs ({detail.accompagnateurs.length})</SectionLabel>
+          {detail.accompagnateurs.length > 0 ? (
+            <div className="space-y-2">
+              {detail.accompagnateurs.map((a) => (
+                <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{a.prenom} {a.nom}</p>
+                    <p className="text-xs text-gray-500">{a.email}{a.telephone ? ` — ${a.telephone}` : ''}</p>
+                  </div>
+                  {a.signeeAt ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      Signé
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Aucun accompagnateur ajouté</p>
+          )}
+
+          {/* Autorisations parentales */}
+          <SectionLabel>Autorisations parentales ({signees}/{detail.autorisations.length})</SectionLabel>
+          {detail.autorisations.length > 0 ? (
+            <div className="space-y-1.5">
+              {detail.autorisations.map((a) => (
+                <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{a.elevePrenom} {a.eleveNom}</p>
+                    <p className="text-xs text-gray-500">{a.parentEmail}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {a.signeeAt ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        Signée
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Aucune autorisation parentale</p>
+          )}
+
+          {/* Devis associés */}
+          {detail.demandes && detail.demandes.length > 0 && detail.demandes.some((d) => d.devis.length > 0) && (
+            <>
+              <SectionLabel>Devis reçus</SectionLabel>
+              <div className="space-y-2">
+                {detail.demandes.flatMap((d) => d.devis).map((dv) => (
+                  <div key={dv.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{dv.centre?.nom ?? 'Centre'}</p>
+                      <p className="text-xs text-gray-500">{dv.montantTotal} € total — {dv.montantParEleve} € / élève</p>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      dv.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
+                      dv.statut === 'NON_RETENU' ? 'bg-red-100 text-red-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>
+                      {dv.statut === 'SELECTIONNE' ? 'Sélectionné' : dv.statut === 'NON_RETENU' ? 'Non retenu' : 'En attente'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Refus motif */}
+          {refusMode && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+              <label className="block text-xs font-medium text-red-700">Motif du refus (optionnel)</label>
+              <textarea
+                value={motif}
+                onChange={(e) => setMotif(e.target.value)}
+                rows={2}
+                placeholder="Expliquez la raison du refus..."
+                className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
+              />
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setRefusMode(false); setMotif(''); }} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors">Annuler</button>
+                <button
+                  type="button"
+                  onClick={() => { onReject(detail.id, motif); setRefusMode(false); setMotif(''); }}
+                  disabled={isActing}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isActing && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                  Confirmer le refus
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer avec actions */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+          {detail.statut === 'SUBMITTED' && !refusMode && (
+            <>
+              <button
+                type="button"
+                onClick={() => setRefusMode(true)}
+                disabled={isActing}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                Refuser
+              </button>
+              <button
+                type="button"
+                onClick={() => onApprove(detail.id)}
+                disabled={isActing}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {isActing ? (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                )}
+                Approuver
+              </button>
+            </>
+          )}
+          <button onClick={onClose} className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modale Détail Devis ────────────────────────────────────────────────────
+
+function DevisDetailModal({
+  devis,
+  onClose,
+  onAction,
+  isActing,
+}: {
+  devis: Devis;
+  onClose: () => void;
+  onAction: (id: string, statut: 'SELECTIONNE' | 'NON_RETENU') => void;
+  isActing: boolean;
+}) {
+  const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const lignes = devis.lignes ?? [];
+  const isPdf = devis.typeDevis === 'PDF' || !!devis.documentUrl;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg font-bold text-gray-900 truncate">Devis — {devis.centre?.nom ?? 'Centre'}</h2>
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                {devis.typeDevis === 'PDF' ? 'PDF' : 'Plateforme'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              Séjour : {devis.demande?.sejour?.titre ?? devis.demande?.titre ?? '—'}
+              {devis.demande?.enseignant && ` — ${devis.demande.enseignant.prenom} ${devis.demande.enseignant.nom}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Body */}
         <div className="flex-1 overflow-auto px-6 py-4">
-          <pre className="text-xs leading-relaxed text-gray-800 bg-gray-50 rounded-lg border border-gray-200 p-4 overflow-x-auto whitespace-pre-wrap break-all font-mono">
-            {xml}
-          </pre>
+
+          {/* Infos hébergeur */}
+          <SectionLabel>Hébergeur</SectionLabel>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4">
+            <div><span className="text-gray-500">Centre</span><p className="font-medium">{devis.centre?.nom ?? '—'}</p></div>
+            <div><span className="text-gray-500">Ville</span><p className="font-medium">{devis.centre?.ville ?? '—'}</p></div>
+            {devis.centre?.email && <div><span className="text-gray-500">Email</span><p className="font-medium">{devis.centre.email}</p></div>}
+            {devis.centre?.telephone && <div><span className="text-gray-500">Téléphone</span><p className="font-medium">{devis.centre.telephone}</p></div>}
+            {devis.nomEntreprise && <div><span className="text-gray-500">Entreprise</span><p className="font-medium">{devis.nomEntreprise}</p></div>}
+            {devis.siretEntreprise && <div><span className="text-gray-500">SIRET</span><p className="font-medium">{devis.siretEntreprise}</p></div>}
+          </div>
+
+          {/* PDF preview */}
+          {isPdf && devis.documentUrl && (
+            <>
+              <SectionLabel>Document PDF</SectionLabel>
+              <div className="rounded-lg border border-gray-200 overflow-hidden mb-4">
+                <iframe
+                  src={devis.documentUrl}
+                  className="w-full h-[400px]"
+                  title="Devis PDF"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Lignes du devis (PLATEFORME) */}
+          {!isPdf && lignes.length > 0 && (
+            <>
+              <SectionLabel>Détail des prestations</SectionLabel>
+              <div className="overflow-x-auto rounded-lg border border-gray-200 mb-4">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600">Description</th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600">Qté</th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600">PU HT</th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600">TVA</th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600">Total TTC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lignes.map((l: LigneDevis, i: number) => (
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="px-3 py-2 text-gray-900">{l.description}</td>
+                        <td className="px-3 py-2 text-right text-gray-700">{l.quantite}</td>
+                        <td className="px-3 py-2 text-right text-gray-700">{fmt(l.prixUnitaire)} €</td>
+                        <td className="px-3 py-2 text-right text-gray-700">{l.tva} %</td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">{fmt(l.totalTTC)} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* Totaux */}
+          <SectionLabel>Montants</SectionLabel>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div><span className="text-gray-500">Total HT</span><p className="font-medium">{devis.montantHT != null ? `${fmt(devis.montantHT)} €` : '—'}</p></div>
+            <div><span className="text-gray-500">TVA</span><p className="font-medium">{devis.montantTVA != null ? `${fmt(devis.montantTVA)} €` : '—'}</p></div>
+            <div><span className="text-gray-500">Total TTC</span><p className="font-bold text-indigo-700 text-base">{devis.montantTTC != null ? `${fmt(devis.montantTTC)} €` : `${devis.montantTotal} €`}</p></div>
+            <div><span className="text-gray-500">Par élève</span><p className="font-medium">{devis.montantParEleve} €</p></div>
+            {devis.pourcentageAcompte != null && devis.montantAcompte != null && (
+              <div className="col-span-2"><span className="text-gray-500">Acompte ({devis.pourcentageAcompte} %)</span><p className="font-medium">{fmt(devis.montantAcompte)} €</p></div>
+            )}
+          </div>
+
+          {/* Conditions */}
+          {devis.conditionsAnnulation && (
+            <>
+              <SectionLabel>Conditions d&apos;annulation</SectionLabel>
+              <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{devis.conditionsAnnulation}</p>
+            </>
+          )}
+
+          {/* Description */}
+          {devis.description && (
+            <>
+              <SectionLabel>Description</SectionLabel>
+              <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{devis.description}</p>
+            </>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
           <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            type="button"
+            onClick={() => onAction(devis.id, 'NON_RETENU')}
+            disabled={isActing}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
           >
-            {copied ? 'Copi\u00e9 !' : 'Copier le XML'}
+            Refuser
           </button>
           <button
-            onClick={onClose}
-            className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+            type="button"
+            onClick={() => onAction(devis.id, 'SELECTIONNE')}
+            disabled={isActing}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
-            Fermer
+            {isActing ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
+            Valider ce devis
           </button>
+          <button onClick={onClose} className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Fermer</button>
         </div>
       </div>
     </div>
@@ -93,18 +442,11 @@ function ChorusModal({ xml, onClose }: { xml: string; onClose: () => void }) {
 
 function SejourCard({
   sejour,
-  onApprove,
-  onReject,
-  isActing,
+  onClick,
 }: {
   sejour: SejourDirecteur;
-  onApprove: (id: string) => void;
-  onReject: (id: string, motif: string) => void;
-  isActing: boolean;
+  onClick: () => void;
 }) {
-  const [refusMode, setRefusMode] = useState(false);
-  const [motif, setMotif] = useState('');
-
   const dateDebut = new Date(sejour.dateDebut).toLocaleDateString('fr-FR', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
@@ -113,17 +455,14 @@ function SejourCard({
   });
   const enseignant = sejour.createur
     ? `${sejour.createur.prenom} ${sejour.createur.nom}`
-    : '\u2014';
-
-  const handleConfirmRefus = () => {
-    onReject(sejour.id, motif);
-    setRefusMode(false);
-    setMotif('');
-  };
+    : '—';
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+    <div
+      className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
+      onClick={onClick}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="text-sm font-semibold text-gray-900">{sejour.titre}</h3>
@@ -137,75 +476,16 @@ function SejourCard({
               {enseignant}
             </span>
             <span>{sejour.lieu}</span>
-            <span>{dateDebut} &rarr; {dateFin}</span>
-            <span>{sejour.placesTotales} &eacute;l&egrave;ve{sejour.placesTotales > 1 ? 's' : ''}</span>
+            <span>{dateDebut} → {dateFin}</span>
+            <span>{sejour.placesTotales} élève{sejour.placesTotales > 1 ? 's' : ''}</span>
           </div>
         </div>
-
-        {sejour.statut === 'SUBMITTED' && !refusMode && (
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onApprove(sejour.id)}
-              disabled={isActing}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            >
-              {isActing ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-              Approuver
-            </button>
-            <button
-              type="button"
-              onClick={() => setRefusMode(true)}
-              disabled={isActing}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Refuser
-            </button>
-          </div>
-        )}
+        <div className="shrink-0 text-gray-400">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </div>
       </div>
-
-      {refusMode && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
-          <label className="block text-xs font-medium text-red-700">
-            Motif du refus (optionnel)
-          </label>
-          <textarea
-            value={motif}
-            onChange={(e) => setMotif(e.target.value)}
-            rows={2}
-            placeholder="Expliquez la raison du refus..."
-            className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none"
-          />
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={() => { setRefusMode(false); setMotif(''); }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmRefus}
-              disabled={isActing}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isActing && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-              Confirmer le refus
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -228,6 +508,11 @@ export default function DirectorDashboard() {
   const [factureActingId, setFactureActingId] = useState<string | null>(null);
   const [chorusXml, setChorusXml] = useState<string | null>(null);
 
+  // Modales
+  const [sejourDetail, setSejourDetail] = useState<SejourDetail | null>(null);
+  const [sejourDetailLoading, setSejourDetailLoading] = useState(false);
+  const [devisDetail, setDevisDetail] = useState<Devis | null>(null);
+
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
   }, [isLoading, user, router]);
@@ -237,7 +522,7 @@ export default function DirectorDashboard() {
       const data = await getAllSejours();
       setSejours(data);
     } catch {
-      setLoadError('Impossible de charger les s\u00e9jours.');
+      setLoadError('Impossible de charger les séjours.');
     }
   }, []);
 
@@ -261,11 +546,44 @@ export default function DirectorDashboard() {
     }
   }, [user, loadSejours, loadDevis, loadFactures]);
 
+  const handleOpenSejourDetail = async (id: string) => {
+    setSejourDetailLoading(true);
+    try {
+      const detail = await getSejourDetail(id);
+      setSejourDetail(detail);
+    } catch {
+      // fallback: ignore
+    } finally {
+      setSejourDetailLoading(false);
+    }
+  };
+
   const handleApprove = async (id: string) => {
     setActingId(id);
     try {
       await updateSejourStatus(id, 'APPROVED');
       await loadSejours();
+      // Refresh detail modal if open
+      if (sejourDetail?.id === id) {
+        const updated = await getSejourDetail(id);
+        setSejourDetail(updated);
+      }
+    } catch {
+      // no-op
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const handleReject = async (id: string, _motif: string) => {
+    setActingId(id);
+    try {
+      await updateSejourStatus(id, 'REJECTED');
+      await loadSejours();
+      if (sejourDetail?.id === id) {
+        const updated = await getSejourDetail(id);
+        setSejourDetail(updated);
+      }
     } catch {
       // no-op
     } finally {
@@ -279,20 +597,9 @@ export default function DirectorDashboard() {
       await updateDevisStatut(devisId, statut);
       await loadDevis();
       await loadFactures();
+      setDevisDetail(null);
     } catch { /* ignore */ }
     setDevisActingId(null);
-  };
-
-  const handleReject = async (id: string, _motif: string) => {
-    setActingId(id);
-    try {
-      await updateSejourStatus(id, 'REJECTED');
-      await loadSejours();
-    } catch {
-      // no-op
-    } finally {
-      setActingId(null);
-    }
   };
 
   const handleValiderAcompte = async (devisId: string) => {
@@ -335,8 +642,32 @@ export default function DirectorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Chorus Pro Modal */}
+      {/* Modals */}
       {chorusXml && <ChorusModal xml={chorusXml} onClose={() => setChorusXml(null)} />}
+      {sejourDetail && (
+        <SejourDetailModal
+          detail={sejourDetail}
+          onClose={() => setSejourDetail(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          isActing={actingId === sejourDetail.id}
+        />
+      )}
+      {devisDetail && (
+        <DevisDetailModal
+          devis={devisDetail}
+          onClose={() => setDevisDetail(null)}
+          onAction={handleDevisAction}
+          isActing={devisActingId === devisDetail.id}
+        />
+      )}
+
+      {/* Loading overlay for detail fetch */}
+      {sejourDetailLoading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+        </div>
+      )}
 
       {/* ── Navigation ──────────────────────────────────────────────────────── */}
       <nav className="bg-white border-b border-gray-200">
@@ -348,7 +679,7 @@ export default function DirectorDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <span className="font-semibold text-gray-900">S&eacute;jour Jeunesse</span>
+              <span className="font-semibold text-gray-900">Séjour Jeunesse</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
@@ -360,12 +691,7 @@ export default function DirectorDashboard() {
                   <p className="text-xs text-gray-500">Directeur</p>
                 </div>
               </div>
-              <button
-                onClick={logout}
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Se d&eacute;connecter
-              </button>
+              <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Se déconnecter</button>
             </div>
           </div>
         </div>
@@ -374,12 +700,10 @@ export default function DirectorDashboard() {
       {/* ── Contenu ─────────────────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-        {/* En-t&ecirc;te */}
+        {/* En-tête */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Validation des s&eacute;jours</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Approuvez ou refusez les s&eacute;jours soumis par les enseignants
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Validation des séjours</h1>
+          <p className="mt-1 text-sm text-gray-500">Approuvez ou refusez les séjours soumis par les enseignants</p>
         </div>
 
         {/* Filtres / compteurs */}
@@ -387,8 +711,8 @@ export default function DirectorDashboard() {
           {([
             ['ALL',       'Tous',         sejours.length,             'bg-gray-100 text-gray-700 ring-gray-300'],
             ['SUBMITTED', 'En attente',   countByStatut('SUBMITTED'), 'bg-orange-50 text-orange-700 ring-orange-300'],
-            ['APPROVED',  'Approuv\u00e9s',    countByStatut('APPROVED'),  'bg-green-50 text-green-700 ring-green-300'],
-            ['REJECTED',  'Refus\u00e9s',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
+            ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-green-50 text-green-700 ring-green-300'],
+            ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
             ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-indigo-50 text-indigo-700 ring-indigo-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
@@ -412,16 +736,14 @@ export default function DirectorDashboard() {
           </div>
         )}
 
-        {/* Liste s&eacute;jours */}
+        {/* Liste séjours */}
         {sejoursFiltres.length > 0 ? (
           <div className="space-y-3">
             {sejoursFiltres.map((s) => (
               <SejourCard
                 key={s.id}
                 sejour={s}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                isActing={actingId === s.id}
+                onClick={() => handleOpenSejourDetail(s.id)}
               />
             ))}
           </div>
@@ -432,61 +754,51 @@ export default function DirectorDashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
             </div>
-            <h2 className="mt-4 text-base font-semibold text-gray-900">Aucun s&eacute;jour &agrave; afficher</h2>
+            <h2 className="mt-4 text-base font-semibold text-gray-900">Aucun séjour à afficher</h2>
             <p className="mt-1 text-sm text-gray-500">
               {filtre === 'SUBMITTED'
-                ? 'Aucun s\u00e9jour en attente de validation.'
-                : 'Aucun s\u00e9jour dans cette cat\u00e9gorie.'}
+                ? 'Aucun séjour en attente de validation.'
+                : 'Aucun séjour dans cette catégorie.'}
             </p>
           </div>
         )}
 
-        {/* ── Devis &agrave; valider ─────────────────────────────────────────── */}
+        {/* ── Devis à valider ─────────────────────────────────────────── */}
         {devisAValider.length > 0 && (
           <div className="mt-10">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Devis &agrave; valider
+              Devis à valider
               <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                 {devisAValider.length}
               </span>
             </h2>
             <div className="space-y-3">
               {devisAValider.map((dv) => (
-                <div key={dv.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div
+                  key={dv.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+                  onClick={() => setDevisDetail(dv)}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900">{dv.centre?.nom ?? 'Centre'}</h3>
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                          Soumis par l&apos;enseignant
+                          {dv.typeDevis === 'PDF' ? 'PDF' : 'Plateforme'}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>S&eacute;jour : {dv.demande?.sejour?.titre ?? dv.demande?.titre ?? '\u2014'}</span>
+                        <span>Séjour : {dv.demande?.sejour?.titre ?? dv.demande?.titre ?? '—'}</span>
                         {dv.demande?.enseignant && <span>Enseignant : {dv.demande.enseignant.prenom} {dv.demande.enseignant.nom}</span>}
-                        <span>{dv.centre?.ville ?? '\u2014'}</span>
-                        <span>Total : {dv.montantTotal} &euro;</span>
-                        <span>Par &eacute;l&egrave;ve : {dv.montantParEleve} &euro;</span>
+                        <span>{dv.centre?.ville ?? '—'}</span>
+                        <span>Total : {dv.montantTotal} €</span>
+                        <span>Par élève : {dv.montantParEleve} €</span>
                       </div>
-                      {dv.description && <p className="mt-2 text-xs text-gray-600">{dv.description}</p>}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDevisAction(dv.id, 'SELECTIONNE')}
-                        disabled={devisActingId === dv.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Valider
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDevisAction(dv.id, 'NON_RETENU')}
-                        disabled={devisActingId === dv.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                      >
-                        Refuser
-                      </button>
+                    <div className="shrink-0 text-gray-400">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
                     </div>
                   </div>
                 </div>
@@ -495,11 +807,11 @@ export default function DirectorDashboard() {
           </div>
         )}
 
-        {/* ── Factures d'acompte &agrave; valider ──────────────────────────── */}
+        {/* ── Factures d'acompte à valider ──────────────────────────── */}
         {facturesNonPayees.length > 0 && (
           <div className="mt-10">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Factures d&apos;acompte &agrave; valider
+              Factures d&apos;acompte à valider
               <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                 {facturesNonPayees.length}
               </span>
@@ -511,19 +823,19 @@ export default function DirectorDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900">
-                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'S\u00e9jour'}
+                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'Séjour'}
                         </h3>
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                           {f.numeroFacture}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>H&eacute;bergeur : {f.centre?.nom ?? '\u2014'}</span>
+                        <span>Hébergeur : {f.centre?.nom ?? '—'}</span>
                         <span>
                           Montant acompte :{' '}
-                          <span className="font-bold text-amber-700">{fmt(Number(f.montantAcompte ?? 0))} &euro;</span>
+                          <span className="font-bold text-amber-700">{fmt(Number(f.montantAcompte ?? 0))} €</span>
                         </span>
-                        <span>Total TTC : {fmt(Number(f.montantTTC ?? f.montantTotal))} &euro;</span>
+                        <span>Total TTC : {fmt(Number(f.montantTTC ?? f.montantTotal))} €</span>
                         {f.dateFacture && (
                           <span>Date : {new Date(f.dateFacture).toLocaleDateString('fr-FR')}</span>
                         )}
@@ -546,7 +858,7 @@ export default function DirectorDashboard() {
                         onClick={() => handleChorusXml(f.id)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
                       >
-                        Envoyer &agrave; Chorus Pro
+                        Envoyer à Chorus Pro
                       </button>
                     </div>
                   </div>
@@ -556,11 +868,11 @@ export default function DirectorDashboard() {
           </div>
         )}
 
-        {/* ── Factures pay&eacute;es ───────────────────────────────────────── */}
+        {/* ── Factures payées ───────────────────────────────────────── */}
         {facturesPayees.length > 0 && (
           <div className="mt-10">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Acomptes valid&eacute;s
+              Acomptes validés
               <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
                 {facturesPayees.length}
               </span>
@@ -572,17 +884,17 @@ export default function DirectorDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900">
-                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'S\u00e9jour'}
+                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'Séjour'}
                         </h3>
                         <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                          Acompte vers&eacute; &mdash; {f.numeroFacture}
+                          Acompte versé — {f.numeroFacture}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>H&eacute;bergeur : {f.centre?.nom ?? '\u2014'}</span>
-                        <span>Montant : {fmt(Number(f.montantAcompte ?? 0))} &euro;</span>
+                        <span>Hébergeur : {f.centre?.nom ?? '—'}</span>
+                        <span>Montant : {fmt(Number(f.montantAcompte ?? 0))} €</span>
                         {f.dateVersementAcompte && (
-                          <span>Vers&eacute; le : {new Date(f.dateVersementAcompte).toLocaleDateString('fr-FR')}</span>
+                          <span>Versé le : {new Date(f.dateVersementAcompte).toLocaleDateString('fr-FR')}</span>
                         )}
                       </div>
                     </div>
