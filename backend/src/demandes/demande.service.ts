@@ -1,5 +1,4 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { StatutAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
 
@@ -101,9 +100,7 @@ export class DemandeService {
       where: { userId },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
-    if (centre.abonnementStatut !== StatutAbonnement.ACTIF) {
-      throw new ForbiddenException('Abonnement inactif — activez votre abonnement pour voir les demandes');
-    }
+    // TODO: ABONNEMENT — réactiver la vérification d'abonnement
 
     const demandes = await this.prisma.demandeDevis.findMany({
       where: {

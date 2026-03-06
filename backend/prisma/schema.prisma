@@ -315,6 +315,10 @@ model CentreHebergement {
   abonnement          TypeAbonnement?   @map("abonnement")
   abonnementActifJusquAu DateTime?      @map("abonnement_actif_jusqua") @db.Date
   abonnementStatut    StatutAbonnement  @default(INACTIF) @map("abonnement_statut")
+  siret               String?           @map("siret") @db.VarChar(14)
+  departement         String?           @map("departement") @db.VarChar(100)
+  agrementEducationNationale String?    @map("agrement_education_nationale") @db.VarChar(50)
+  typeSejours         String[]          @default([]) @map("type_sejours")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 

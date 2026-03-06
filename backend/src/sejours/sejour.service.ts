@@ -154,8 +154,8 @@ export class SejourService {
       // Notifier les hébergeurs de la nouvelle demande
       const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
       const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+      // TODO: ABONNEMENT — réactiver le filtre par abonnement actif
       const centres = await this.prisma.centreHebergement.findMany({
-        where: { abonnementStatut: 'ACTIF' },
         include: { user: { select: { email: true } } },
       });
       for (const centre of centres) {

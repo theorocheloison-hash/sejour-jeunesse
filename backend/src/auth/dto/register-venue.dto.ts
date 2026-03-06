@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsInt,
   Min,
+  IsArray,
 } from 'class-validator';
 
 export class RegisterVenueDto {
@@ -46,4 +47,25 @@ export class RegisterVenueDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  siret?: string;
+
+  @IsOptional()
+  @IsString()
+  departement?: string;
+
+  @IsOptional()
+  @IsString()
+  emailContact?: string;
+
+  @IsOptional()
+  @IsString()
+  agrementEducationNationale?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  typeSejours?: string[];
 }

@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { StatutAbonnement, StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
+import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
@@ -20,9 +20,7 @@ export class DevisService {
       where: { userId },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
-    if (centre.abonnementStatut !== StatutAbonnement.ACTIF) {
-      throw new ForbiddenException('Abonnement inactif');
-    }
+    // TODO: ABONNEMENT — réactiver la vérification d'abonnement
 
     const demande = await this.prisma.demandeDevis.findUnique({
       where: { id: dto.demandeId },
