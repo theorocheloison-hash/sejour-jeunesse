@@ -1,4 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
@@ -122,15 +125,26 @@ export class CollaborationService {
     });
   }
 
-  async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto) {
+  async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File) {
     await this.verifyAccess(sejourId, userId);
+
+    let url = dto.url ?? '';
+    if (file) {
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'documents');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `${randomUUID()}-${safeName}`;
+      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+      url = `/uploads/documents/${filename}`;
+    }
+
     return this.prisma.documentSejour.create({
       data: {
         sejourId,
         uploaderId: userId,
         nom: dto.nom,
         type: dto.type,
-        url: dto.url,
+        url,
       },
       include: {
         uploader: { select: { id: true, prenom: true, nom: true } },

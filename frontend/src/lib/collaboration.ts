@@ -115,8 +115,19 @@ export async function getDocuments(sejourId: string): Promise<DocumentSejour[]> 
 
 export async function createDocument(
   sejourId: string,
-  body: { nom: string; type: TypeDocumentSejour; url: string },
+  body: { nom: string; type: TypeDocumentSejour },
+  file?: File,
 ): Promise<DocumentSejour> {
+  if (file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('nom', body.nom);
+    formData.append('type', body.type);
+    const { data } = await api.post<DocumentSejour>(`/collaboration/${sejourId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  }
   const { data } = await api.post<DocumentSejour>(`/collaboration/${sejourId}/documents`, body);
   return data;
 }

@@ -6,7 +6,10 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -109,11 +112,13 @@ export class CollaborationController {
   }
 
   @Post(':sejourId/documents')
+  @UseInterceptors(FileInterceptor('file'))
   createDocument(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateDocumentDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.service.createDocument(sejourId, user.id, dto);
+    return this.service.createDocument(sejourId, user.id, dto, file);
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, type DragEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -81,7 +81,11 @@ export default function CollaborationPage() {
 
   // Documents
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
-  const [docForm, setDocForm] = useState({ nom: '', type: 'AUTRE' as TypeDocumentSejour, url: '' });
+  const [docForm, setDocForm] = useState({ nom: '', type: 'AUTRE' as TypeDocumentSejour });
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docDragging, setDocDragging] = useState(false);
+  const [docSending, setDocSending] = useState(false);
+  const docFileRef = useRef<HTMLInputElement>(null);
 
   // Participants
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -176,13 +180,39 @@ export default function CollaborationPage() {
     } catch { /* ignore */ }
   };
 
+  const handleDocFileSelect = (file: File | undefined) => {
+    if (!file) return;
+    const allowed = [
+      'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'image/png', 'image/jpeg',
+    ];
+    if (allowed.includes(file.type)) {
+      setDocFile(file);
+      if (!docForm.nom) {
+        setDocForm((f) => ({ ...f, nom: file.name.replace(/\.[^.]+$/, '') }));
+      }
+    }
+  };
+
+  const handleDocDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setDocDragging(false);
+    handleDocFileSelect(e.dataTransfer.files[0]);
+  };
+
   const handleAddDocument = async () => {
-    if (!id || !docForm.nom || !docForm.url) return;
+    if (!id || !docForm.nom || !docFile) return;
+    setDocSending(true);
     try {
-      const doc = await createDocument(id, docForm);
+      const doc = await createDocument(id, { nom: docForm.nom, type: docForm.type }, docFile);
       setDocs((prev) => [doc, ...prev]);
-      setDocForm({ nom: '', type: 'AUTRE', url: '' });
+      setDocForm({ nom: '', type: 'AUTRE' });
+      setDocFile(null);
     } catch { /* ignore */ }
+    setDocSending(false);
   };
 
   // ── CSV Export ──
@@ -533,7 +563,7 @@ export default function CollaborationPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <input type="text" value={docForm.nom} onChange={(e) => setDocForm((f) => ({ ...f, nom: e.target.value }))}
                   placeholder="Nom du document" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 <select value={docForm.type} onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value as TypeDocumentSejour }))}
@@ -542,13 +572,78 @@ export default function CollaborationPage() {
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-                <input type="url" value={docForm.url} onChange={(e) => setDocForm((f) => ({ ...f, url: e.target.value }))}
-                  placeholder="URL du document" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
+
+              {/* Zone drag & drop */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDocDragging(true); }}
+                onDragLeave={() => setDocDragging(false)}
+                onDrop={handleDocDrop}
+                className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                  docDragging
+                    ? 'border-indigo-400 bg-indigo-50'
+                    : docFile
+                      ? 'border-green-300 bg-green-50'
+                      : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                }`}
+              >
+                {docFile ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-900">{docFile.name}</p>
+                      <p className="text-xs text-gray-500">{(docFile.size / 1024).toFixed(0)} Ko</p>
+                    </div>
+                    <button onClick={() => setDocFile(null)} className="ml-2 text-gray-400 hover:text-red-500">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <svg className="mx-auto h-10 w-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p className="text-sm text-gray-600 mb-1">Glissez-déposez votre fichier ici</p>
+                    <p className="text-xs text-gray-400 mb-3">ou</p>
+                    <button
+                      type="button"
+                      onClick={() => docFileRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                      </svg>
+                      Parcourir
+                    </button>
+                    <input
+                      ref={docFileRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={(e) => handleDocFileSelect(e.target.files?.[0])}
+                    />
+                    <p className="mt-3 text-xs text-gray-400">PDF, Word, Excel, PowerPoint, PNG, JPG</p>
+                  </>
+                )}
+              </div>
+
               <button onClick={handleAddDocument}
-                disabled={!docForm.nom || !docForm.url}
-                className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                Ajouter
+                disabled={!docForm.nom || !docFile || docSending}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {docSending ? (
+                  <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi...</>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    Ajouter
+                  </>
+                )}
               </button>
             </div>
 

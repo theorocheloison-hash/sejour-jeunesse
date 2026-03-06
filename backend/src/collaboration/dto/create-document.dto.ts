@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 import { TypeDocumentSejour } from '@prisma/client';
 
 export class CreateDocumentDto {
@@ -9,7 +9,7 @@ export class CreateDocumentDto {
   @IsEnum(TypeDocumentSejour)
   type!: TypeDocumentSejour;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  url!: string;
+  url?: string;
 }
