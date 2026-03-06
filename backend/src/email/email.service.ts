@@ -164,7 +164,27 @@ export class EmailService {
     await this.send(to, `Devis sélectionné — ${sejourTitre}`, html);
   }
 
-  // ── f) Paiement disponible (parents) ─────────────────────────────────
+  // ── f) Ordre de mission accompagnateur ────────────────────────────────
+
+  async sendOrdreMission(
+    to: string,
+    accompagnateurPrenom: string,
+    accompagnateurNom: string,
+    sejourTitre: string,
+    lienOrdreMission: string,
+  ) {
+    const html = emailLayout(
+      'Ordre de mission — Séjour scolaire',
+      `<p>Bonjour ${accompagnateurPrenom} ${accompagnateurNom},</p>
+       <p>Vous êtes désigné(e) comme <strong>accompagnateur(trice)</strong> pour le séjour scolaire <strong>« ${sejourTitre} »</strong>.</p>
+       <p>Veuillez consulter et signer votre ordre de mission en cliquant sur le bouton ci-dessous :</p>`,
+      'Signer mon ordre de mission',
+      lienOrdreMission,
+    );
+    await this.send(to, `Ordre de mission — ${sejourTitre}`, html);
+  }
+
+  // ── g) Paiement disponible (parents) ─────────────────────────────────
 
   async sendPaiementDisponible(
     to: string,

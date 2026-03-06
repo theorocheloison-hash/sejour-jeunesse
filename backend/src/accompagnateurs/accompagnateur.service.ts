@@ -36,11 +36,15 @@ export class AccompagnateurService {
     });
 
     const lien = `${FRONTEND_URL}/ordre-mission/${accompagnateur.tokenAcces}`;
-    await this.email.sendGenericNotification(
+    console.log(`[ACCOMPAGNATEUR] Envoi email ordre de mission à ${dto.email} — lien: ${lien}`);
+    await this.email.sendOrdreMission(
       dto.email,
-      `Ordre de mission — ${sejour.titre}`,
-      `Bonjour ${dto.prenom} ${dto.nom},<br><br>Vous êtes désigné(e) comme accompagnateur pour le séjour scolaire <strong>« ${sejour.titre} »</strong>.<br><br>Veuillez signer votre ordre de mission en cliquant sur le lien suivant :<br><a href="${lien}">${lien}</a>`,
+      dto.prenom,
+      dto.nom,
+      sejour.titre,
+      lien,
     );
+    console.log(`[ACCOMPAGNATEUR] Email envoyé avec succès à ${dto.email}`);
 
     return accompagnateur;
   }
