@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as SibApiV3Sdk from '@sendinblue/client';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL ?? 'noreply@sejour-jeunesse.fr';
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.com';
 const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Séjour Jeunesse';
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
