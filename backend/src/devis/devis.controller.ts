@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -15,8 +16,13 @@ export class DevisController {
 
   @Post()
   @Roles(Role.VENUE)
-  create(@CurrentUser() user: JwtUser, @Body() dto: CreateDevisDto) {
-    return this.devisService.create(dto, user.id);
+  @UseInterceptors(FileInterceptor('file'))
+  create(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateDevisDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.devisService.create(dto, user.id, file);
   }
 
   @Get('mes-devis')

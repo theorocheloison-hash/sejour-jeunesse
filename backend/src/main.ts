@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  // Serve uploaded files statically
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
   // Health check — avant tout middleware
   app.use('/health', (req: any, res: any) => {

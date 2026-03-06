@@ -4,6 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
@@ -15,7 +18,7 @@ export class DevisService {
     private email: EmailService,
   ) {}
 
-  async create(dto: CreateDevisDto, userId: string) {
+  async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
     });
@@ -38,6 +41,16 @@ export class DevisService {
     // Auto-generate numero devis if not provided
     const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
 
+    // Save uploaded PDF file if present
+    let documentUrl: string | null = null;
+    if (file && file.mimetype === 'application/pdf') {
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'devis');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      const filename = `${randomUUID()}.pdf`;
+      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+      documentUrl = `/uploads/devis/${filename}`;
+    }
+
     const devis = await this.prisma.devis.create({
       data: {
         demandeId: dto.demandeId,
@@ -46,6 +59,7 @@ export class DevisService {
         montantParEleve: dto.montantParEleve,
         description: dto.description,
         conditionsAnnulation: dto.conditionsAnnulation,
+        documentUrl,
         // Professional fields
         nomEntreprise: dto.nomEntreprise,
         adresseEntreprise: dto.adresseEntreprise,
