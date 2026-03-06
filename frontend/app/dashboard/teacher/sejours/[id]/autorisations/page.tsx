@@ -77,17 +77,17 @@ export default function GestionAutorisationsPage() {
     if (user && sejourId) loadData();
   }, [user, sejourId, loadData]);
 
-  // Montant TTC du devis sélectionné
+  // Montant TTC du devis sélectionné (0 si aucun devis)
   const devisSelectionne = sejour?.demandes
     ?.flatMap((d) => d.devis ?? [])
     .find((dv) => dv.statut === 'SELECTIONNE');
   const montantTTC = devisSelectionne
     ? Number(devisSelectionne.montantTTC ?? devisSelectionne.montantTotal)
-    : null;
+    : 0;
 
   // Recalculate prix when nbEleves changes (unless manual)
   useEffect(() => {
-    if (prixManuel || !montantTTC || prixSaved) return;
+    if (prixManuel || montantTTC <= 0 || prixSaved) return;
     const nb = parseInt(nbElevesDefinitif, 10);
     if (nb > 0) {
       setPrixParEleve((montantTTC / nb).toFixed(2));
@@ -153,7 +153,7 @@ export default function GestionAutorisationsPage() {
   }
 
   const nbInscrits = autorisations.length;
-  const prixEstime = montantTTC && nbInscrits > 0
+  const prixEstime = montantTTC > 0 && nbInscrits > 0
     ? (montantTTC / nbInscrits).toFixed(2)
     : null;
 
@@ -190,7 +190,7 @@ export default function GestionAutorisationsPage() {
         </p>
 
         {/* ── Section prix par élève ─────────────────────────────── */}
-        {montantTTC !== null && montantTTC > 0 && (
+        {sejour?.statut === 'CONVENTION' && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
             <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
               <svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
