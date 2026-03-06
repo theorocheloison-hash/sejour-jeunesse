@@ -159,3 +159,16 @@ export async function getDemandeInfo(demandeId: string): Promise<DemandeInfo> {
   const { data } = await api.get<DemandeInfo>(`/devis/demande-info/${demandeId}`);
   return data;
 }
+
+export async function uploadDevisPdf(demandeId: string, file: File): Promise<Devis> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('demandeId', demandeId);
+  formData.append('typeDevis', 'PDF');
+  formData.append('montantTotal', '0');
+  formData.append('montantParEleve', '0');
+  const { data } = await api.post<Devis>('/devis', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}

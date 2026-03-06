@@ -1,31 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDemandesOuvertes } from '@/src/lib/demande';
-import { createDevis } from '@/src/lib/devis';
+import { uploadDevisPdf } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
-
-interface DevisForm {
-  montantTotal: string;
-  montantParEleve: string;
-  description: string;
-  conditionsAnnulation: string;
-}
-
-const EMPTY_FORM: DevisForm = { montantTotal: '', montantParEleve: '', description: '', conditionsAnnulation: '' };
 
 export default function VenueDemandesPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [demandes, setDemandes] = useState<Demande[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [openForm, setOpenForm] = useState<string | null>(null);
-  const [form, setForm] = useState<DevisForm>(EMPTY_FORM);
+  const [openUpload, setOpenUpload] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [sending, setSending] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.push('/login');
@@ -50,22 +43,30 @@ export default function VenueDemandesPage() {
     if (user?.role === 'VENUE') load();
   }, [user]);
 
-  const handleSend = async (demandeId: string) => {
+  const handleFileSelect = (file: File | undefined) => {
+    if (file && file.type === 'application/pdf') {
+      setPdfFile(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleFileSelect(file);
+  };
+
+  const handleUpload = async (demandeId: string) => {
+    if (!pdfFile) return;
     setSending(true);
     setSuccessId(null);
     try {
-      await createDevis({
-        demandeId,
-        montantTotal: form.montantTotal,
-        montantParEleve: form.montantParEleve,
-        description: form.description || undefined,
-        conditionsAnnulation: form.conditionsAnnulation || undefined,
-      });
+      await uploadDevisPdf(demandeId, pdfFile);
       setSuccessId(demandeId);
-      setOpenForm(null);
-      setForm(EMPTY_FORM);
+      setOpenUpload(null);
+      setPdfFile(null);
     } catch {
-      setError('Erreur lors de l\'envoi du devis.');
+      setError('Erreur lors de l\'envoi du devis PDF.');
     } finally {
       setSending(false);
     }
@@ -108,7 +109,7 @@ export default function VenueDemandesPage() {
                       <h3 className="font-semibold text-gray-900">{d.titre}</h3>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
                         <span>{d.villeHebergement}</span>
-                        <span>{dateDebut} → {dateFin}</span>
+                        <span>{dateDebut} &rarr; {dateFin}</span>
                         <span>{d.nombreEleves} élève{d.nombreEleves > 1 ? 's' : ''}</span>
                         {d.enseignant && <span>{d.enseignant.prenom} {d.enseignant.nom}</span>}
                       </div>
@@ -129,46 +130,102 @@ export default function VenueDemandesPage() {
                             Créer un devis
                           </Link>
                           <button
-                            onClick={() => { setOpenForm(openForm === d.id ? null : d.id); setForm(EMPTY_FORM); setSuccessId(null); }}
+                            onClick={() => { setOpenUpload(openUpload === d.id ? null : d.id); setPdfFile(null); setSuccessId(null); }}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                             </svg>
-                            {openForm === d.id ? 'Annuler' : 'Devis rapide'}
+                            {openUpload === d.id ? 'Annuler' : 'Charger un PDF'}
                           </button>
                         </>
                       )}
                     </div>
                   </div>
 
-                  {openForm === d.id && (
-                    <div className="mt-4 border-t border-gray-100 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Montant total (€)</label>
-                        <input type="number" step="0.01" value={form.montantTotal} onChange={(e) => setForm({ ...form, montantTotal: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  {openUpload === d.id && (
+                    <div className="mt-4 border-t border-gray-100 pt-4">
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={handleDrop}
+                        className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                          dragging
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : pdfFile
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                        }`}
+                      >
+                        {pdfFile ? (
+                          <div className="flex items-center justify-center gap-3">
+                            <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-gray-900">{pdfFile.name}</p>
+                              <p className="text-xs text-gray-500">{(pdfFile.size / 1024).toFixed(0)} Ko</p>
+                            </div>
+                            <button onClick={() => setPdfFile(null)} className="ml-2 text-gray-400 hover:text-red-500">
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <svg className="mx-auto h-10 w-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                            </svg>
+                            <p className="text-sm text-gray-600 mb-1">
+                              Glissez-déposez votre devis PDF ici
+                            </p>
+                            <p className="text-xs text-gray-400 mb-3">ou</p>
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                              </svg>
+                              Parcourir
+                            </button>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept=".pdf"
+                              className="hidden"
+                              onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                            />
+                            <p className="mt-3 text-xs text-gray-400">PDF uniquement</p>
+                          </>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Montant par élève (€)</label>
-                        <input type="number" step="0.01" value={form.montantParEleve} onChange={(e) => setForm({ ...form, montantParEleve: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Description (optionnel)</label>
-                        <textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Conditions d&apos;annulation (optionnel)</label>
-                        <textarea rows={2} value={form.conditionsAnnulation} onChange={(e) => setForm({ ...form, conditionsAnnulation: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      </div>
-                      <div className="sm:col-span-2 flex justify-end">
-                        <button
-                          onClick={() => handleSend(d.id)}
-                          disabled={sending || !form.montantTotal || !form.montantParEleve}
-                          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {sending ? 'Envoi…' : 'Envoyer le devis'}
-                        </button>
-                      </div>
+
+                      {pdfFile && (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            onClick={() => handleUpload(d.id)}
+                            disabled={sending}
+                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {sending ? (
+                              <>
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                Envoi...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                                </svg>
+                                Envoyer ce devis
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
