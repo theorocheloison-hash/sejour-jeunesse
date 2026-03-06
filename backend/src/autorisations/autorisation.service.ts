@@ -1,9 +1,13 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
@@ -61,6 +65,7 @@ export class AutorisationService {
             niveauClasse: true,
             thematiquesPedagogiques: true,
             placesTotales: true,
+            prix: true,
             hebergements: {
               select: {
                 nom: true,
@@ -71,6 +76,15 @@ export class AutorisationService {
               },
               take: 1,
             },
+            demandes: {
+              select: {
+                devis: {
+                  where: { statut: 'SELECTIONNE' },
+                  select: { montantParEleve: true },
+                  take: 1,
+                },
+              },
+            },
           },
         },
       },
@@ -79,6 +93,13 @@ export class AutorisationService {
 
     const sejour = autorisation.sejour;
     const hebergement = sejour.hebergements[0] ?? null;
+
+    // Find montantParEleve from selected devis
+    const devisSelectionne = sejour.demandes
+      ?.flatMap((d) => d.devis)
+      .find((dv) => dv);
+    const montantParEleve = devisSelectionne?.montantParEleve
+      ?? (Number(sejour.prix) > 0 ? String(sejour.prix) : null);
 
     return {
       eleveNom: autorisation.eleveNom,
@@ -93,12 +114,19 @@ export class AutorisationService {
         niveauClasse: sejour.niveauClasse,
         thematiquesPedagogiques: sejour.thematiquesPedagogiques,
         placesTotales: sejour.placesTotales,
+        montantParEleve,
       },
       hebergement,
     };
   }
 
   async signer(token: string, dto: SignerAutorisationDto) {
+    if (!dto.rgpdAccepte) {
+      throw new BadRequestException(
+        'Vous devez accepter les conditions de traitement des données personnelles (RGPD).',
+      );
+    }
+
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { tokenAcces: token },
     });
@@ -116,7 +144,28 @@ export class AutorisationService {
         regimeAlimentaire: dto.regimeAlimentaire ?? null,
         niveauSki: dto.niveauSki ?? null,
         infosMedicales: dto.infosMedicales ?? null,
+        rgpdAccepte: true,
+        nombreMensualites: dto.nombreMensualites ?? 1,
       },
+    });
+  }
+
+  async uploadDocumentMedical(token: string, file: Express.Multer.File) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { tokenAcces: token },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'documents-medicaux');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${randomUUID()}-${safeName}`;
+    fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
+    const url = `/uploads/documents-medicaux/${filename}`;
+
+    return this.prisma.autorisationParentale.update({
+      where: { tokenAcces: token },
+      data: { documentMedicalUrl: url },
     });
   }
 

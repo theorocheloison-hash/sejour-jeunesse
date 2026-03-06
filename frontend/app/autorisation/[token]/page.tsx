@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   MapPin,
@@ -21,10 +21,16 @@ import {
   UtensilsCrossed,
   Mountain,
   Stethoscope,
+  CreditCard,
+  Paperclip,
+  Upload,
+  FileText,
+  Lock,
 } from 'lucide-react';
 import {
   getAutorisationPublique,
   signerAutorisation,
+  uploadDocumentMedical,
   type AutorisationPublique,
 } from '@/src/lib/autorisation';
 
@@ -64,6 +70,12 @@ const NIVEAU_SKI_OPTIONS = [
   { value: 'HORS_PISTE', label: 'Hors-piste' },
 ];
 
+const MENSUALITES_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const ACCEPTED_DOC_TYPES = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
+
+const RGPD_TEXT = `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par l'établissement scolaire responsable du séjour, en qualité de responsable de traitement. Elles sont transmises uniquement à l'hébergement accueillant votre enfant, en qualité de sous-traitant, dans le strict cadre de l'organisation du séjour scolaire. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Conformément à vos droits, vous pouvez accéder, rectifier ou supprimer vos données en contactant l'établissement scolaire. Les données sont conservées pour la durée légale applicable aux archives scolaires (5 ans).`;
+
 export default function SignerAutorisationPage() {
   const { token } = useParams<{ token: string }>();
 
@@ -82,6 +94,20 @@ export default function SignerAutorisationPage() {
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
 
+  // Payment
+  const [nombreMensualites, setNombreMensualites] = useState(1);
+  const [showPaymentMsg, setShowPaymentMsg] = useState(false);
+
+  // Document médical
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docUploaded, setDocUploaded] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // RGPD
+  const [rgpdAccepte, setRgpdAccepte] = useState(false);
+
   useEffect(() => {
     if (!token) return;
     getAutorisationPublique(token)
@@ -97,8 +123,13 @@ export default function SignerAutorisationPage() {
     (t) => /ski|montagne|neige/i.test(t),
   );
 
+  const montantParEleve = autorisation?.sejour.montantParEleve
+    ? Number(autorisation.sejour.montantParEleve)
+    : null;
+  const mensualite = montantParEleve ? montantParEleve / nombreMensualites : null;
+
   const handleSign = async () => {
-    if (!token || !taille || !poids || !pointure) return;
+    if (!token || !taille || !poids || !pointure || !rgpdAccepte) return;
     setSigning(true);
     try {
       const regimeVal = regime === 'Autre' ? regimeAutre.trim() : regime === 'Aucun régime particulier' ? undefined : regime;
@@ -109,6 +140,8 @@ export default function SignerAutorisationPage() {
         regimeAlimentaire: regimeVal || undefined,
         niveauSki: niveauSki || undefined,
         infosMedicales: infosMedicales.trim() || undefined,
+        rgpdAccepte: true,
+        nombreMensualites,
       });
       setSigned(true);
     } catch {
@@ -116,6 +149,31 @@ export default function SignerAutorisationPage() {
     } finally {
       setSigning(false);
     }
+  };
+
+  const handleDocUpload = async () => {
+    if (!token || !docFile) return;
+    setDocUploading(true);
+    try {
+      await uploadDocumentMedical(token, docFile);
+      setDocUploaded(true);
+    } catch {
+      setError('Erreur lors de l\'envoi du document.');
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) setDocFile(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setDocFile(file);
   };
 
   if (loading) {
@@ -152,7 +210,7 @@ export default function SignerAutorisationPage() {
       year: 'numeric',
     });
 
-  const formValid = taille && poids && pointure;
+  const formValid = taille && poids && pointure && rgpdAccepte;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
@@ -303,174 +361,361 @@ export default function SignerAutorisationPage() {
             </p>
           </section>
         ) : (
-          <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
-              <Heart className="h-5 w-5" />
-              Autoriser la participation
-            </h2>
+          <>
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+                <Heart className="h-5 w-5" />
+                Autoriser la participation
+              </h2>
 
-            {error && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Informations pratiques */}
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Ruler className="h-4 w-4 text-gray-400" />
-                Informations pratiques
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="taille" className="block text-sm font-medium text-gray-700 mb-1">
-                    Taille (cm) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      id="taille"
-                      type="number"
-                      min="50"
-                      max="250"
-                      value={taille}
-                      onChange={(e) => setTaille(e.target.value)}
-                      placeholder="ex: 145"
-                      className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
-                    />
-                  </div>
+              {error && (
+                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                  {error}
                 </div>
-                <div>
-                  <label htmlFor="poids" className="block text-sm font-medium text-gray-700 mb-1">
-                    Poids (kg) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      id="poids"
-                      type="number"
-                      min="10"
-                      max="200"
-                      value={poids}
-                      onChange={(e) => setPoids(e.target.value)}
-                      placeholder="ex: 38"
-                      className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="pointure" className="block text-sm font-medium text-gray-700 mb-1">
-                    Pointure <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Footprints className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      id="pointure"
-                      type="number"
-                      min="20"
-                      max="50"
-                      value={pointure}
-                      onChange={(e) => setPointure(e.target.value)}
-                      placeholder="ex: 37"
-                      className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Régime alimentaire */}
-            <div className="mb-6">
-              <label htmlFor="regime" className="block text-sm font-medium text-gray-700 mb-1">
-                <UtensilsCrossed className="inline h-4 w-4 mr-1 text-gray-400" />
-                Régime alimentaire
-              </label>
-              <select
-                id="regime"
-                value={regime}
-                onChange={(e) => setRegime(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
-              >
-                {REGIME_OPTIONS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-              {regime === 'Autre' && (
-                <input
-                  type="text"
-                  value={regimeAutre}
-                  onChange={(e) => setRegimeAutre(e.target.value)}
-                  placeholder="Précisez le régime alimentaire..."
-                  className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
-                />
               )}
-            </div>
 
-            {/* Niveau de ski (conditionnel) */}
-            {showSki && (
+              {/* Informations pratiques */}
               <div className="mb-6">
-                <label htmlFor="niveauSki" className="block text-sm font-medium text-gray-700 mb-1">
-                  <Mountain className="inline h-4 w-4 mr-1 text-gray-400" />
-                  Niveau de ski
-                  <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
+                <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Ruler className="h-4 w-4 text-gray-400" />
+                  Informations pratiques
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="taille" className="block text-sm font-medium text-gray-700 mb-1">
+                      Taille (cm) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        id="taille"
+                        type="number"
+                        min="50"
+                        max="250"
+                        value={taille}
+                        onChange={(e) => setTaille(e.target.value)}
+                        placeholder="ex: 145"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="poids" className="block text-sm font-medium text-gray-700 mb-1">
+                      Poids (kg) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        id="poids"
+                        type="number"
+                        min="10"
+                        max="200"
+                        value={poids}
+                        onChange={(e) => setPoids(e.target.value)}
+                        placeholder="ex: 38"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="pointure" className="block text-sm font-medium text-gray-700 mb-1">
+                      Pointure <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Footprints className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        id="pointure"
+                        type="number"
+                        min="20"
+                        max="50"
+                        value={pointure}
+                        onChange={(e) => setPointure(e.target.value)}
+                        placeholder="ex: 37"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Régime alimentaire */}
+              <div className="mb-6">
+                <label htmlFor="regime" className="block text-sm font-medium text-gray-700 mb-1">
+                  <UtensilsCrossed className="inline h-4 w-4 mr-1 text-gray-400" />
+                  Régime alimentaire
                 </label>
                 <select
-                  id="niveauSki"
-                  value={niveauSki}
-                  onChange={(e) => setNiveauSki(e.target.value)}
+                  id="regime"
+                  value={regime}
+                  onChange={(e) => setRegime(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
                 >
-                  {NIVEAU_SKI_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                  {REGIME_OPTIONS.map((r) => (
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
+                {regime === 'Autre' && (
+                  <input
+                    type="text"
+                    value={regimeAutre}
+                    onChange={(e) => setRegimeAutre(e.target.value)}
+                    placeholder="Précisez le régime alimentaire..."
+                    className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                  />
+                )}
               </div>
+
+              {/* Niveau de ski (conditionnel) */}
+              {showSki && (
+                <div className="mb-6">
+                  <label htmlFor="niveauSki" className="block text-sm font-medium text-gray-700 mb-1">
+                    <Mountain className="inline h-4 w-4 mr-1 text-gray-400" />
+                    Niveau de ski
+                    <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
+                  </label>
+                  <select
+                    id="niveauSki"
+                    value={niveauSki}
+                    onChange={(e) => setNiveauSki(e.target.value)}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                  >
+                    {NIVEAU_SKI_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Informations médicales */}
+              <div className="mb-6">
+                <label
+                  htmlFor="infosMedicales"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  <Stethoscope className="inline h-4 w-4 mr-1 text-gray-400" />
+                  Informations médicales importantes
+                  <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
+                </label>
+                <textarea
+                  id="infosMedicales"
+                  rows={3}
+                  value={infosMedicales}
+                  onChange={(e) => setInfosMedicales(e.target.value)}
+                  placeholder="Allergies, traitements en cours, contacts d'urgence..."
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none transition-shadow"
+                />
+              </div>
+            </section>
+
+            {/* ── SECTION PAIEMENT ──────────────────────────────────────────── */}
+            {montantParEleve !== null && montantParEleve > 0 && (
+              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+                  <CreditCard className="h-5 w-5" />
+                  Règlement du séjour
+                </h2>
+
+                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 mb-6">
+                  <p className="text-sm text-blue-800">
+                    Montant total par élève :{' '}
+                    <span className="text-lg font-bold">
+                      {montantParEleve.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                    </span>
+                  </p>
+                </div>
+
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Nombre de mensualités
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {MENSUALITES_OPTIONS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNombreMensualites(n)}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                          nombreMensualites === n
+                            ? 'bg-[#003189] text-white border-[#003189]'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-[#003189] hover:text-[#003189]'
+                        }`}
+                      >
+                        {n}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {mensualite !== null && nombreMensualites > 1 && (
+                  <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mb-6">
+                    <p className="text-sm text-green-800">
+                      {nombreMensualites} mensualités de{' '}
+                      <span className="text-lg font-bold">
+                        {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {showPaymentMsg ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 text-center">
+                    <Lock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-amber-800">
+                      Paiement sécurisé — intégration Stripe à venir
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentMsg(true)}
+                    className="w-full rounded-xl bg-[#003189] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-[#002570] transition-colors focus:outline-none focus:ring-2 focus:ring-[#003189] focus:ring-offset-2"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Procéder au paiement
+                    </span>
+                  </button>
+                )}
+
+                <p className="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Paiement 100% sécurisé — sans frais
+                </p>
+              </section>
             )}
 
-            {/* Informations médicales */}
-            <div className="mb-6">
-              <label
-                htmlFor="infosMedicales"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                <Stethoscope className="inline h-4 w-4 mr-1 text-gray-400" />
-                Informations médicales importantes
-                <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
-              </label>
-              <textarea
-                id="infosMedicales"
-                rows={3}
-                value={infosMedicales}
-                onChange={(e) => setInfosMedicales(e.target.value)}
-                placeholder="Allergies, traitements en cours, contacts d'urgence..."
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none transition-shadow"
-              />
-            </div>
+            {/* ── SECTION DOCUMENTS MÉDICAUX ────────────────────────────────── */}
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-2">
+                <Paperclip className="h-5 w-5" />
+                Documents médicaux
+                <span className="text-sm font-normal text-gray-400">(optionnel)</span>
+              </h2>
+              <p className="text-sm text-gray-500 mb-5">
+                Ordonnance, certificat médical, PAI...
+              </p>
 
-            <button
-              type="button"
-              onClick={handleSign}
-              disabled={signing || !formValid}
-              className="w-full rounded-xl bg-green-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-700 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            >
-              {signing ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Signature en cours...
-                </span>
+              {docUploaded ? (
+                <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 text-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-green-800">Document envoyé avec succès</p>
+                  <p className="text-xs text-green-600 mt-1">{docFile?.name}</p>
+                </div>
               ) : (
-                <span className="inline-flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" />
-                  J&apos;autorise mon enfant à participer
-                </span>
-              )}
-            </button>
+                <>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleFileDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${
+                      dragOver
+                        ? 'border-[#003189] bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_DOC_TYPES}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold text-[#003189]">Cliquer pour choisir</span> ou glisser-déposer un fichier
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC, DOCX</p>
+                  </div>
 
-            <p className="mt-3 text-xs text-gray-400 text-center">
-              En signant, vous autorisez la participation de votre enfant à ce séjour
-              et certifiez avoir pris connaissance des informations ci-dessus.
-            </p>
-          </section>
+                  {docFile && (
+                    <div className="mt-4 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-gray-500 shrink-0" />
+                        <span className="text-sm text-gray-700 truncate">{docFile.name}</span>
+                        <span className="text-xs text-gray-400 shrink-0">
+                          ({(docFile.size / 1024).toFixed(0)} Ko)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDocUpload}
+                        disabled={docUploading}
+                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#003189] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002570] transition-colors disabled:opacity-50"
+                      >
+                        {docUploading ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Joindre ce document
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            {/* ── SECTION RGPD ──────────────────────────────────────────────── */}
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+                <ShieldCheck className="h-5 w-5" />
+                Protection des données personnelles
+              </h2>
+
+              <div className="rounded-xl bg-gray-50 border border-gray-200 px-5 py-4 mb-5 max-h-48 overflow-y-auto">
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {RGPD_TEXT}
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={rgpdAccepte}
+                  onChange={(e) => setRgpdAccepte(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[#003189] focus:ring-[#003189] focus:ring-2 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                  J&apos;ai lu et j&apos;accepte les conditions de traitement de mes données personnelles
+                  <span className="text-red-500 ml-0.5">*</span>
+                </span>
+              </label>
+            </section>
+
+            {/* ── BOUTON SIGNER ─────────────────────────────────────────────── */}
+            <section className="pb-2">
+              <button
+                type="button"
+                onClick={handleSign}
+                disabled={signing || !formValid}
+                className="w-full rounded-xl bg-green-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-700 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                {signing ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Signature en cours...
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5" />
+                    Je signe et autorise mon enfant à participer
+                  </span>
+                )}
+              </button>
+
+              {!rgpdAccepte && (
+                <p className="mt-2 text-xs text-amber-600 text-center">
+                  Vous devez accepter les conditions RGPD pour pouvoir signer.
+                </p>
+              )}
+
+              <p className="mt-3 text-xs text-gray-400 text-center">
+                En signant, vous autorisez la participation de votre enfant à ce séjour
+                et certifiez avoir pris connaissance des informations ci-dessus.
+              </p>
+            </section>
+          </>
         )}
       </main>
 

@@ -32,6 +32,7 @@ export interface AutorisationPublique {
     niveauClasse: string | null;
     thematiquesPedagogiques: string[];
     placesTotales: number;
+    montantParEleve: string | null;
   };
   hebergement: {
     nom: string;
@@ -56,6 +57,8 @@ export interface SignerAutorisationDto {
   regimeAlimentaire?: string;
   niveauSki?: string;
   infosMedicales?: string;
+  rgpdAccepte: boolean;
+  nombreMensualites?: number;
 }
 
 // ─── Appels protégés (enseignant) ──────────────────────────────────────────
@@ -92,4 +95,15 @@ export async function signerAutorisation(
   dto: SignerAutorisationDto,
 ): Promise<void> {
   await api.patch(`/autorisations/signer/${token}`, dto);
+}
+
+export async function uploadDocumentMedical(
+  token: string,
+  file: File,
+): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', file);
+  await api.post(`/autorisations/${token}/document`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
 }

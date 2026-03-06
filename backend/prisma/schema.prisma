@@ -165,6 +165,9 @@ model AutorisationParentale {
   regimeAlimentaire String?   @map("regime_alimentaire") @db.VarChar(100)
   niveauSki         String?   @map("niveau_ski") @db.VarChar(50)
   infosMedicales    String?   @map("infos_medicales") @db.Text
+  rgpdAccepte       Boolean   @default(false) @map("rgpd_accepte")
+  nombreMensualites Int       @default(1) @map("nombre_mensualites")
+  documentMedicalUrl String?  @map("document_medical_url") @db.VarChar(500)
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)

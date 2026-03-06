@@ -1,12 +1,16 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   Param,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -55,5 +59,16 @@ export class AutorisationController {
     @Body() dto: SignerAutorisationDto,
   ) {
     return this.autorisationService.signer(token, dto);
+  }
+
+  /** POST /autorisations/:token/document — Upload document médical (PAS de guard) */
+  @Post(':token/document')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadDocument(
+    @Param('token') token: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Aucun fichier fourni');
+    return this.autorisationService.uploadDocumentMedical(token, file);
   }
 }

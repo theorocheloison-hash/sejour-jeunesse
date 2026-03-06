@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 
 export class SignerAutorisationDto {
   @IsOptional()
@@ -27,4 +27,13 @@ export class SignerAutorisationDto {
   @IsOptional()
   @IsString()
   infosMedicales?: string;
+
+  @IsBoolean()
+  rgpdAccepte!: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  nombreMensualites?: number;
 }
