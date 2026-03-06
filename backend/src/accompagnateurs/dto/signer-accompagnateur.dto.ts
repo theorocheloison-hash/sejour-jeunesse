@@ -12,6 +12,10 @@ export class SignerAccompagnateurDto {
   @IsString()
   signatureNom!: string;
 
+  @IsOptional()
+  @IsString()
+  moyenTransport?: string;
+
   @IsBoolean()
   rgpdAccepte!: boolean;
 }

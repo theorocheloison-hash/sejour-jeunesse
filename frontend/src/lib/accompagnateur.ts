@@ -18,19 +18,28 @@ export interface AccompagnateurMission {
 }
 
 export interface AccompagnateurPublique {
+  id: string;
   prenom: string;
   nom: string;
   email: string;
   signeeAt: string | null;
+  signatureNom: string | null;
+  createdAt: string;
   sejour: {
+    id: string;
     titre: string;
     lieu: string;
     dateDebut: string;
     dateFin: string;
     description: string | null;
     niveauClasse: string | null;
+    placesTotales: number;
     etablissement: string | null;
+    etablissementAdresse: string | null;
     etablissementVille: string | null;
+    etablissementUai: string | null;
+    etablissementEmail: string | null;
+    etablissementTelephone: string | null;
     enseignant: string | null;
   };
   hebergement: {
@@ -51,6 +60,7 @@ export interface CreateAccompagnateurDto {
 export interface SignerAccompagnateurDto {
   signatureNom: string;
   rgpdAccepte: boolean;
+  moyenTransport?: string;
   contactUrgenceNom?: string;
   contactUrgenceTel?: string;
 }

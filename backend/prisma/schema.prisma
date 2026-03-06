@@ -192,6 +192,7 @@ model AccompagnateurMission {
   tokenAcces        String    @unique @default(uuid()) @map("token_acces") @db.Uuid
   signeeAt          DateTime? @map("signee_at")
   signatureNom      String?   @map("signature_nom") @db.VarChar(200)
+  moyenTransport    String?   @map("moyen_transport") @db.VarChar(50)
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
