@@ -131,7 +131,23 @@ export class DevisService {
         lignes: true,
         demande: {
           include: {
-            enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
+            enseignant: {
+              select: {
+                prenom: true, nom: true, email: true, telephone: true,
+                etablissementNom: true, etablissementVille: true,
+              },
+            },
+            sejour: {
+              select: {
+                id: true, titre: true,
+                createur: {
+                  select: {
+                    prenom: true, nom: true,
+                    etablissementNom: true, etablissementVille: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
