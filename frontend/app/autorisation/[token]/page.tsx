@@ -347,19 +347,182 @@ export default function SignerAutorisationPage() {
 
         {/* Formulaire / Confirmation */}
         {signed ? (
-          <section className="bg-green-50 rounded-2xl shadow-md border border-green-200 p-8 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h2 className="text-xl font-bold text-green-800">
-              {autorisation.signeeAt
-                ? 'Cette autorisation a déjà été signée'
-                : 'Autorisation signée avec succès !'}
-            </h2>
-            <p className="mt-2 text-sm text-green-600">
-              Merci pour votre confiance. Votre enfant pourra participer au séjour.
-            </p>
-          </section>
+          <>
+            <section className="bg-green-50 rounded-2xl shadow-md border border-green-200 p-8 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-green-800">
+                {autorisation.signeeAt
+                  ? `Autorisation signée le ${fmt(autorisation.signeeAt)}`
+                  : 'Autorisation signée avec succès !'}
+              </h2>
+              <p className="mt-2 text-sm text-green-600">
+                Merci pour votre confiance. Votre enfant pourra participer au séjour.
+              </p>
+            </section>
+
+            {/* ── SECTION PAIEMENT (retour parent) ───────────────────────── */}
+            {(montantParEleve === null || montantParEleve === 0) ? (
+              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+                  <CreditCard className="h-5 w-5" />
+                  Règlement du séjour
+                </h2>
+                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 text-center">
+                  <p className="text-sm text-blue-800">
+                    Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
+                  </p>
+                </div>
+              </section>
+            ) : (
+              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+                  <CreditCard className="h-5 w-5" />
+                  Règlement du séjour
+                </h2>
+
+                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 mb-6">
+                  <p className="text-sm text-blue-800">
+                    Montant total par élève :{' '}
+                    <span className="text-lg font-bold">
+                      {montantParEleve.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                    </span>
+                  </p>
+                </div>
+
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Nombre de mensualités
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {MENSUALITES_OPTIONS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setNombreMensualites(n)}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                          nombreMensualites === n
+                            ? 'bg-[#003189] text-white border-[#003189]'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-[#003189] hover:text-[#003189]'
+                        }`}
+                      >
+                        {n}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {mensualite !== null && nombreMensualites > 1 && (
+                  <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mb-6">
+                    <p className="text-sm text-green-800">
+                      {nombreMensualites} mensualités de{' '}
+                      <span className="text-lg font-bold">
+                        {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {showPaymentMsg ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 text-center">
+                    <Lock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-amber-800">
+                      Paiement sécurisé — intégration Stripe à venir
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentMsg(true)}
+                    className="w-full rounded-xl bg-[#003189] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-[#002570] transition-colors focus:outline-none focus:ring-2 focus:ring-[#003189] focus:ring-offset-2"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Procéder au paiement
+                    </span>
+                  </button>
+                )}
+
+                <p className="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Paiement 100% sécurisé — sans frais
+                </p>
+              </section>
+            )}
+
+            {/* ── SECTION DOCUMENTS MÉDICAUX (retour parent) ─────────────── */}
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-2">
+                <Paperclip className="h-5 w-5" />
+                Documents médicaux
+                <span className="text-sm font-normal text-gray-400">(optionnel)</span>
+              </h2>
+              <p className="text-sm text-gray-500 mb-5">
+                Ordonnance, certificat médical, PAI...
+              </p>
+
+              {docUploaded ? (
+                <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 text-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-green-800">Document envoyé avec succès</p>
+                  <p className="text-xs text-green-600 mt-1">{docFile?.name}</p>
+                </div>
+              ) : (
+                <>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={handleFileDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${
+                      dragOver
+                        ? 'border-[#003189] bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_DOC_TYPES}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold text-[#003189]">Cliquer pour choisir</span> ou glisser-déposer un fichier
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC, DOCX</p>
+                  </div>
+
+                  {docFile && (
+                    <div className="mt-4 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-gray-500 shrink-0" />
+                        <span className="text-sm text-gray-700 truncate">{docFile.name}</span>
+                        <span className="text-xs text-gray-400 shrink-0">
+                          ({(docFile.size / 1024).toFixed(0)} Ko)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDocUpload}
+                        disabled={docUploading}
+                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#003189] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002570] transition-colors disabled:opacity-50"
+                      >
+                        {docUploading ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Joindre ce document
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          </>
         ) : (
           <>
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">

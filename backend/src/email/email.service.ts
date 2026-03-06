@@ -164,7 +164,34 @@ export class EmailService {
     await this.send(to, `Devis sélectionné — ${sejourTitre}`, html);
   }
 
-  // ── f) Notification générique ────────────────────────────────────────
+  // ── f) Paiement disponible (parents) ─────────────────────────────────
+
+  async sendPaiementDisponible(
+    to: string,
+    sejourTitre: string,
+    etablissement: string,
+    prixFormate: string,
+    elevePrenom: string,
+    eleveNom: string,
+    lienAutorisation: string,
+  ) {
+    const html = emailLayout(
+      'Paiement du séjour disponible',
+      `<p>Bonjour,</p>
+       <p>Le prix du séjour <strong>« ${sejourTitre} »</strong> organisé par <strong>${etablissement}</strong> vient d'être défini :</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Prix par élève</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${prixFormate} €</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Paiement</td><td style="padding:8px 12px;font-size:13px;font-weight:600">En 1 à 10 fois sans frais</td></tr>
+       </table>
+       <p>Pour régler la participation de <strong>${elevePrenom} ${eleveNom}</strong>, cliquez sur le bouton ci-dessous.</p>
+       <p style="color:#888;font-size:12px;margin-top:16px">Ce lien vous permettra également de retrouver l'ensemble des informations du séjour.</p>`,
+      'Accéder au paiement',
+      lienAutorisation,
+    );
+    await this.send(to, `Règlement du séjour ${sejourTitre} — paiement disponible`, html);
+  }
+
+  // ── g) Notification générique ────────────────────────────────────────
 
   async sendGenericNotification(to: string, subject: string, message: string) {
     const html = emailLayout(

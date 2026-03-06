@@ -111,7 +111,10 @@ export class SejourService {
   }
 
   async update(id: string, dto: UpdateSejourDto, userId: string) {
-    const sejour = await this.prisma.sejour.findUnique({ where: { id } });
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id },
+      include: { createur: { select: { etablissementNom: true } } },
+    });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== userId)
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
@@ -121,7 +124,33 @@ export class SejourService {
     if (dto.dateLimiteInscription !== undefined)
       data.dateLimiteInscription = new Date(dto.dateLimiteInscription);
 
-    return this.prisma.sejour.update({ where: { id }, data });
+    const updated = await this.prisma.sejour.update({ where: { id }, data });
+
+    // Envoyer un email aux parents quand le prix est défini
+    if (dto.prix !== undefined && dto.prix > 0) {
+      const autorisations = await this.prisma.autorisationParentale.findMany({
+        where: { sejourId: id },
+        select: { parentEmail: true, elevePrenom: true, eleveNom: true, tokenAcces: true },
+      });
+
+      const etablissement = sejour.createur?.etablissementNom ?? 'L\'établissement scolaire';
+      const prixFormate = dto.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+
+      for (const aut of autorisations) {
+        const lien = `https://precious-comfort-production-52c6.up.railway.app/autorisation/${aut.tokenAcces}`;
+        await this.email.sendPaiementDisponible(
+          aut.parentEmail,
+          sejour.titre,
+          etablissement,
+          prixFormate,
+          aut.elevePrenom,
+          aut.eleveNom,
+          lien,
+        );
+      }
+    }
+
+    return updated;
   }
 
   async updateStatus(id: string, statut: StatutSejour, user: JwtUser) {
