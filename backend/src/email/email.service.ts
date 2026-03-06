@@ -51,9 +51,10 @@ export class EmailService {
 
   private async send(to: string, subject: string, html: string) {
     if (!BREVO_API_KEY) {
-      this.logger.warn(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
+      console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
       return;
     }
+    console.log(`[EMAIL] Envoi via Brevo — from: ${SENDER_EMAIL} — to: ${to} — subject: ${subject}`);
     try {
       await this.api.sendTransacEmail({
         sender: { name: SENDER_NAME, email: SENDER_EMAIL },
@@ -61,9 +62,11 @@ export class EmailService {
         subject,
         htmlContent: html,
       });
-      this.logger.log(`[EMAIL OK] ${subject} → ${to}`);
-    } catch (err) {
-      this.logger.error(`[EMAIL FAIL] ${subject} → ${to}`, err);
+      console.log(`[EMAIL OK] ${subject} → ${to}`);
+    } catch (err: any) {
+      const body = err?.response?.body ?? err?.body ?? err?.message ?? err;
+      console.error(`[EMAIL FAIL] ${subject} → ${to}`, JSON.stringify(body, null, 2));
+      throw err;
     }
   }
 

@@ -37,14 +37,18 @@ export class AccompagnateurService {
 
     const lien = `${FRONTEND_URL}/ordre-mission/${accompagnateur.tokenAcces}`;
     console.log(`[ACCOMPAGNATEUR] Envoi email ordre de mission à ${dto.email} — lien: ${lien}`);
-    await this.email.sendOrdreMission(
-      dto.email,
-      dto.prenom,
-      dto.nom,
-      sejour.titre,
-      lien,
-    );
-    console.log(`[ACCOMPAGNATEUR] Email envoyé avec succès à ${dto.email}`);
+    try {
+      await this.email.sendOrdreMission(
+        dto.email,
+        dto.prenom,
+        dto.nom,
+        sejour.titre,
+        lien,
+      );
+      console.log(`[ACCOMPAGNATEUR] Email envoyé avec succès à ${dto.email}`);
+    } catch (err: any) {
+      console.error(`[ACCOMPAGNATEUR] ERREUR envoi email à ${dto.email}:`, err?.message ?? err);
+    }
 
     return accompagnateur;
   }
