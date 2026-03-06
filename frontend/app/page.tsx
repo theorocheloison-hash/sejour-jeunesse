@@ -90,7 +90,7 @@ export default function Home() {
           {/* Titre */}
           <FadeIn>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[#1e3a5f] leading-[1.1]">
-              La plateforme qui supprime la paperasse des séjours scolaires
+              La plateforme qui digitalise l&apos;organisation des séjours scolaires
             </h1>
           </FadeIn>
 
@@ -104,11 +104,11 @@ export default function Home() {
           {/* CTAs */}
           <FadeIn>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#2d8a4e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#2d8a4e]/25 hover:bg-[#246f3f] transition-all hover:shadow-[#2d8a4e]/40">
-                Je suis un établissement
+              <Link href="/register?type=teacher" className="inline-flex items-center gap-2 rounded-xl bg-[#2d8a4e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#2d8a4e]/25 hover:bg-[#246f3f] transition-all hover:shadow-[#2d8a4e]/40">
+                Je suis un établissement scolaire
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Link>
-              <Link href="/register/venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#1e3a5f] px-8 py-3.5 text-base font-semibold text-[#1e3a5f] hover:bg-[#1e3a5f]/5 transition-colors">
+              <Link href="/register?type=venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#1e3a5f] px-8 py-3.5 text-base font-semibold text-[#1e3a5f] hover:bg-[#1e3a5f]/5 transition-colors">
                 Je suis un hébergeur
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Link>

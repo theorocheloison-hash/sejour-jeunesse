@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -22,6 +23,12 @@ import { CreateDocumentDto } from './dto/create-document.dto.js';
 @Controller('centres')
 export class CentreController {
   constructor(private readonly centreService: CentreService) {}
+
+  /** GET /centres/search-public?search=xxx — Recherche publique (pas d'auth) */
+  @Get('search-public')
+  searchPublic(@Query('search') search?: string) {
+    return this.centreService.searchPublic(search ?? '');
+  }
 
   @Post('register')
   register(@Body() dto: RegisterCentreDto) {

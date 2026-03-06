@@ -20,6 +20,35 @@ export class CentreService {
     private jwt: JwtService,
   ) {}
 
+  async searchPublic(search: string) {
+    if (!search || search.length < 2) return [];
+    return this.prisma.centreHebergement.findMany({
+      where: {
+        OR: [
+          { nom: { contains: search, mode: 'insensitive' } },
+          { ville: { contains: search, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        nom: true,
+        adresse: true,
+        ville: true,
+        codePostal: true,
+        telephone: true,
+        email: true,
+        capacite: true,
+        description: true,
+        departement: true,
+        siret: true,
+        agrementEducationNationale: true,
+        typeSejours: true,
+      },
+      take: 10,
+      orderBy: { nom: 'asc' },
+    });
+  }
+
   async register(dto: RegisterCentreDto) {
     const invitation = await this.prisma.invitationHebergement.findUnique({
       where: { token: dto.token },

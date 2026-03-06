@@ -1,5 +1,7 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 
 const TYPES = [
@@ -27,7 +29,32 @@ const TYPES = [
   },
 ] as const;
 
-export default function RegisterChoicePage() {
+function RegisterContent() {
+  const searchParams = useSearchParams();
+  const type = searchParams.get('type');
+
+  // Redirection directe si type préselectionné
+  if (type === 'teacher') {
+    if (typeof window !== 'undefined') {
+      window.location.replace('/register/teacher');
+    }
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#003189] border-t-transparent" />
+      </main>
+    );
+  }
+  if (type === 'venue') {
+    if (typeof window !== 'undefined') {
+      window.location.replace('/register/venue');
+    }
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#003189] border-t-transparent" />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <div className="w-full max-w-2xl">
@@ -80,5 +107,17 @@ export default function RegisterChoicePage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function RegisterChoicePage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#003189] border-t-transparent" />
+      </main>
+    }>
+      <RegisterContent />
+    </Suspense>
   );
 }

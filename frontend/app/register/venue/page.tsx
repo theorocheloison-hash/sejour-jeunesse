@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
@@ -16,8 +16,25 @@ const TYPES_SEJOURS = [
   { value: 'groupe', label: 'Groupe / Association' },
 ];
 
+interface CentrePublic {
+  id: string;
+  nom: string;
+  adresse: string;
+  ville: string;
+  codePostal: string;
+  telephone: string | null;
+  email: string | null;
+  capacite: number;
+  description: string | null;
+  departement: string | null;
+  siret: string | null;
+  agrementEducationNationale: string | null;
+  typeSejours: string[];
+}
+
 export default function RegisterVenuePage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // step 1 = personal info, 1.5 = centre search, 2 = centre details, 3 = types séjours
+  const [step, setStep] = useState<1 | 1.5 | 2 | 3>(1);
   const [form, setForm] = useState({
     prenom: '',
     nom: '',
@@ -41,6 +58,13 @@ export default function RegisterVenuePage() {
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Centre search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CentrePublic[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [centrePreFilled, setCentrePreFilled] = useState(false);
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -52,7 +76,49 @@ export default function RegisterVenuePage() {
         : [...f.typeSejours, value],
     }));
 
-  const goStep2 = (e: FormEvent) => {
+  // Debounced search
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const { data } = await api.get<CentrePublic[]>(`/centres/search-public?search=${encodeURIComponent(searchQuery)}`);
+        setSearchResults(data);
+        setHasSearched(true);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  const handleSelectCentre = (centre: CentrePublic) => {
+    setForm((f) => ({
+      ...f,
+      nomCentre: centre.nom,
+      adresse: centre.adresse,
+      ville: centre.ville,
+      codePostal: centre.codePostal,
+      telephoneCentre: centre.telephone ?? '',
+      emailContact: centre.email ?? '',
+      capacite: String(centre.capacite),
+      description: centre.description ?? '',
+      departement: centre.departement ?? '',
+      siret: centre.siret ?? '',
+      agrementEducationNationale: centre.agrementEducationNationale ?? '',
+      typeSejours: centre.typeSejours ?? [],
+    }));
+    setCentrePreFilled(true);
+    setStep(2);
+  };
+
+  const goStep15 = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!form.prenom || !form.nom || !form.email || !form.password) {
@@ -63,6 +129,11 @@ export default function RegisterVenuePage() {
       setError('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
+    setStep(1.5);
+  };
+
+  const goStep2 = () => {
+    setError(null);
     setStep(2);
   };
 
@@ -128,10 +199,7 @@ export default function RegisterVenuePage() {
               Votre compte sera activé après validation par notre équipe.
             </div>
           </div>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003189] hover:underline"
-          >
+          <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-[#003189] hover:underline">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
@@ -142,7 +210,13 @@ export default function RegisterVenuePage() {
     );
   }
 
-  const stepLabels = ['Vos informations', 'Votre centre', 'Types de séjours'];
+  const stepLabels: Record<number, string> = {
+    1: 'Vos informations',
+    1.5: 'Recherche de votre centre',
+    2: 'Votre centre',
+    3: 'Types de séjours',
+  };
+  const stepIndex = step === 1 ? 1 : step === 1.5 ? 2 : step === 2 ? 3 : 4;
   const inputCls = "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50";
 
   return (
@@ -164,15 +238,16 @@ export default function RegisterVenuePage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Inscription hébergeur</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Étape {step} sur 3 — {stepLabels[step - 1]}
+            Étape {stepIndex} sur 4 — {stepLabels[step]}
           </p>
         </div>
 
         {/* Progress bar */}
         <div className="flex gap-2 mb-6">
           <div className="h-1 flex-1 rounded-full bg-[#003189]" />
-          <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-[#003189]' : 'bg-gray-200'}`} />
-          <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 3 ? 'bg-[#003189]' : 'bg-gray-200'}`} />
+          <div className={`h-1 flex-1 rounded-full transition-colors ${stepIndex >= 2 ? 'bg-[#003189]' : 'bg-gray-200'}`} />
+          <div className={`h-1 flex-1 rounded-full transition-colors ${stepIndex >= 3 ? 'bg-[#003189]' : 'bg-gray-200'}`} />
+          <div className={`h-1 flex-1 rounded-full transition-colors ${stepIndex >= 4 ? 'bg-[#003189]' : 'bg-gray-200'}`} />
         </div>
 
         {/* Card */}
@@ -187,8 +262,9 @@ export default function RegisterVenuePage() {
             </div>
           )}
 
+          {/* ── STEP 1 : Infos personnelles ── */}
           {step === 1 && (
-            <form onSubmit={goStep2} className="space-y-4">
+            <form onSubmit={goStep15} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="prenom" className="block text-sm font-medium text-gray-700 mb-1.5">Prénom</label>
@@ -223,8 +299,106 @@ export default function RegisterVenuePage() {
             </form>
           )}
 
+          {/* ── STEP 1.5 : Recherche centre ── */}
+          {step === 1.5 && (
+            <div className="space-y-4">
+              <div className="text-center mb-2">
+                <div className="text-2xl mb-2">🔍</div>
+                <h2 className="text-base font-bold text-gray-900">Votre établissement est-il déjà référencé ?</h2>
+                <p className="text-xs text-gray-500 mt-1">Recherchez votre centre pour pré-remplir automatiquement vos informations</p>
+              </div>
+
+              {/* Search bar */}
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tapez le nom de votre centre..."
+                  className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent"
+                  autoFocus
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#003189] border-t-transparent" />
+                  </div>
+                )}
+              </div>
+
+              {/* Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-2 max-h-64 overflow-auto">
+                  {searchResults.map((centre) => (
+                    <button
+                      key={centre.id}
+                      type="button"
+                      onClick={() => handleSelectCentre(centre)}
+                      className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-[#003189] hover:bg-blue-50/50 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{centre.nom}</p>
+                          <p className="text-xs text-gray-500">{centre.adresse}, {centre.ville} ({centre.codePostal})</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {centre.agrementEducationNationale && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              Agréé EN
+                            </span>
+                          )}
+                          <span className="text-xs font-semibold text-[#003189]">Sélectionner</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* No results */}
+              {hasSearched && searchResults.length === 0 && searchQuery.length >= 2 && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
+                  <p className="text-sm text-gray-500">Votre centre n&apos;est pas encore référencé — vous pourrez compléter votre fiche après inscription.</p>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setStep(1); setError(null); }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                  </svg>
+                  Retour
+                </button>
+                <button type="button" onClick={goStep2}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                  Passer cette étape
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 2 : Détails du centre ── */}
           {step === 2 && (
             <form onSubmit={goStep3} className="space-y-4">
+
+              {/* Pre-fill banner */}
+              {centrePreFilled && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 mb-2">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Données récupérées depuis notre base — vérifiez et complétez si nécessaire</span>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="nomCentre" className="block text-sm font-medium text-gray-700 mb-1.5">Nom du centre</label>
                 <input id="nomCentre" type="text" required value={form.nomCentre} onChange={set('nomCentre')}
@@ -291,7 +465,7 @@ export default function RegisterVenuePage() {
               </div>
 
               <div className="flex gap-3 mt-2">
-                <button type="button" onClick={() => { setStep(1); setError(null); }}
+                <button type="button" onClick={() => { setStep(1.5); setError(null); }}
                   className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -309,6 +483,7 @@ export default function RegisterVenuePage() {
             </form>
           )}
 
+          {/* ── STEP 3 : Types de séjours ── */}
           {step === 3 && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
