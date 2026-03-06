@@ -54,6 +54,7 @@ export interface Sejour {
   typeZone: TypeZone | null;
   zoneGeographique: string | null;
   dateButoireDevis: string | null;
+  dateLimiteInscription: string | null;
   appelOffreStatut: AppelOffreStatut;
   demandes?: SejourDemande[];
 }
@@ -81,5 +82,13 @@ export async function getAllSejours(): Promise<SejourDirecteur[]> {
 
 export async function updateSejourStatus(id: string, statut: StatutSejour): Promise<Sejour> {
   const { data } = await api.patch<Sejour>(`/sejours/${id}/status`, { statut });
+  return data;
+}
+
+export async function updateSejour(
+  id: string,
+  dto: { prix?: number; dateLimiteInscription?: string },
+): Promise<Sejour> {
+  const { data } = await api.patch<Sejour>(`/sejours/${id}`, dto);
   return data;
 }

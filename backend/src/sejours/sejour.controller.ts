@@ -15,6 +15,7 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { SejourService }    from './sejour.service.js';
 import { CreateSejourDto }  from './dto/create-sejour.dto.js';
 import { UpdateStatusDto }  from './dto/update-status.dto.js';
+import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
 
 @Controller('sejours')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -63,6 +64,17 @@ export class SejourController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.sejourService.getAccompagnateurs(id, user);
+  }
+
+  /** PATCH /sejours/:id — Mettre à jour prix / dateLimiteInscription */
+  @Patch(':id')
+  @Roles(Role.TEACHER)
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSejourDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.update(id, dto, user.id);
   }
 
   /** PATCH /sejours/:id/status — Changer le statut */

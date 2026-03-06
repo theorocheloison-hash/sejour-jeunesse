@@ -129,6 +129,7 @@ model Sejour {
   thematiquesPedagogiques   String[]         @map("thematiques_pedagogiques")
   regionSouhaitee           String?          @map("region_souhaitee") @db.VarChar(255)
   dateButoireDevis          DateTime?        @map("date_butoire_devis") @db.Date
+  dateLimiteInscription     DateTime?        @map("date_limite_inscription") @db.Date
   appelOffreStatut          AppelOffreStatut @default(BROUILLON) @map("appel_offre_statut")
   createurId                String?          @map("createur_id") @db.Uuid
   hebergementSelectionneId  String?          @map("hebergement_selectionne_id") @db.Uuid

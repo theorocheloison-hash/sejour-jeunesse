@@ -508,7 +508,19 @@ export default function SignerAutorisationPage() {
             </section>
 
             {/* ── SECTION PAIEMENT ──────────────────────────────────────────── */}
-            {montantParEleve !== null && montantParEleve > 0 && (
+            {(montantParEleve === null || montantParEleve === 0) ? (
+              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+                  <CreditCard className="h-5 w-5" />
+                  Règlement du séjour
+                </h2>
+                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 text-center">
+                  <p className="text-sm text-blue-800">
+                    Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
+                  </p>
+                </div>
+              </section>
+            ) : (
               <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
                   <CreditCard className="h-5 w-5" />

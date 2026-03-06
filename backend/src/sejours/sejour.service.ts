@@ -3,6 +3,7 @@ import { Role, StatutSejour, AppelOffreStatut } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
+import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 
 @Injectable()
@@ -107,6 +108,20 @@ export class SejourService {
     });
 
     return { accompagnateurs: createur ? [createur] : [] };
+  }
+
+  async update(id: string, dto: UpdateSejourDto, userId: string) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    const data: Record<string, unknown> = {};
+    if (dto.prix !== undefined) data.prix = dto.prix;
+    if (dto.dateLimiteInscription !== undefined)
+      data.dateLimiteInscription = new Date(dto.dateLimiteInscription);
+
+    return this.prisma.sejour.update({ where: { id }, data });
   }
 
   async updateStatus(id: string, statut: StatutSejour, user: JwtUser) {
