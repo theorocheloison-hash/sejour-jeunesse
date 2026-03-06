@@ -16,6 +16,7 @@ import { CollaborationModule } from './collaboration/collaboration.module.js';
 import { EmailModule } from './email/email.module.js';
 import { EtablissementsModule } from './etablissements/etablissements.module.js';
 import { UsersModule } from './users/users.module.js';
+import { AccompagnateurModule } from './accompagnateurs/accompagnateur.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     CollaborationModule,
     EtablissementsModule,
     UsersModule,
+    AccompagnateurModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -141,6 +141,7 @@ model Sejour {
   inscriptions           Inscription[]
   hebergements           Hebergement[]
   autorisations          AutorisationParentale[]
+  accompagnateurs        AccompagnateurMission[]
   demandes               DemandeDevis[]
   messages               Message[]
   planningActivites      PlanningActivite[]
@@ -174,6 +175,28 @@ model AutorisationParentale {
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 
   @@map("autorisations_parentales")
+}
+
+// ============================================================
+// MODEL : AccompagnateurMission (ordres de mission)
+// ============================================================
+model AccompagnateurMission {
+  id                String    @id @default(uuid()) @db.Uuid
+  sejourId          String    @map("sejour_id") @db.Uuid
+  prenom            String    @db.VarChar(100)
+  nom               String    @db.VarChar(100)
+  email             String    @db.VarChar(255)
+  telephone         String?   @db.VarChar(30)
+  contactUrgenceNom String?   @map("contact_urgence_nom") @db.VarChar(200)
+  contactUrgenceTel String?   @map("contact_urgence_tel") @db.VarChar(30)
+  tokenAcces        String    @unique @default(uuid()) @map("token_acces") @db.Uuid
+  signeeAt          DateTime? @map("signee_at")
+  signatureNom      String?   @map("signature_nom") @db.VarChar(200)
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("accompagnateurs_missions")
 }
 
 // ============================================================
