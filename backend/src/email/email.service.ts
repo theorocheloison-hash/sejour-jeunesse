@@ -3,7 +3,7 @@ import * as SibApiV3Sdk from '@sendinblue/client';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.com';
-const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Séjour Jeunesse';
+const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Liavo';
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
 // ─── Couleurs Éducation Nationale ───────────────────────────────────────────
@@ -22,7 +22,7 @@ function emailLayout(title: string, body: string, buttonText?: string, buttonUrl
 <tr><td align="center">
   <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
     <tr><td style="background:${PRIMARY};padding:20px 32px">
-      <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:0.5px">Séjour Jeunesse</span>
+      <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:0.5px">Liavo</span>
     </td></tr>
     <tr><td style="padding:32px">
       <h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">${title}</h2>
@@ -30,7 +30,7 @@ function emailLayout(title: string, body: string, buttonText?: string, buttonUrl
       ${btn}
     </td></tr>
     <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #eee">
-      <p style="margin:0;color:#999;font-size:11px">Cet email a été envoyé automatiquement par la plateforme Séjour Jeunesse. Ne répondez pas à cet email.</p>
+      <p style="margin:0;color:#999;font-size:11px">Cet email a été envoyé automatiquement par la plateforme Liavo. Ne répondez pas à cet email.</p>
     </td></tr>
   </table>
 </td></tr></table>
@@ -233,12 +233,12 @@ export class EmailService {
     const html = emailLayout(
       'Vérifiez votre adresse email',
       `<p>Bonjour ${prenom},</p>
-       <p>Bienvenue sur <strong>Séjour Jeunesse</strong> ! Pour activer votre compte, veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.</p>
+       <p>Bienvenue sur <strong>Liavo</strong> ! Pour activer votre compte, veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.</p>
        <p style="color:#888;font-size:12px;margin-top:16px">Ce lien est valable 48 heures.</p>`,
       'Vérifier mon email',
       lien,
     );
-    await this.send(to, 'Vérifiez votre email — Séjour Jeunesse', html);
+    await this.send(to, 'Vérifiez votre email — Liavo', html);
   }
 
   // ── g) Compte hébergeur en attente ─────────────────────────────────
@@ -251,7 +251,7 @@ export class EmailService {
        <p>Votre compte est actuellement <strong style="color:#d97706">en attente de validation</strong> par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
        <p>En attendant, vous pouvez vérifier votre email pour accélérer le processus.</p>`,
     );
-    await this.send(to, 'Inscription hébergeur en attente — Séjour Jeunesse', html);
+    await this.send(to, 'Inscription hébergeur en attente — Liavo', html);
   }
 
   // ── h) Compte hébergeur validé ──────────────────────────────────────
@@ -265,7 +265,7 @@ export class EmailService {
       'Accéder à mon espace',
       `${FRONTEND_URL}/dashboard/venue`,
     );
-    await this.send(to, 'Compte hébergeur validé — Séjour Jeunesse', html);
+    await this.send(to, 'Compte hébergeur validé — Liavo', html);
   }
 
   // ── i) Compte hébergeur refusé ────────────────────────────────────────
@@ -282,7 +282,7 @@ export class EmailService {
        ${motifHtml}
        <p>Si vous pensez qu'il s'agit d'une erreur, n'hésitez pas à nous contacter.</p>`,
     );
-    await this.send(to, 'Inscription hébergeur non retenue — Séjour Jeunesse', html);
+    await this.send(to, 'Inscription hébergeur non retenue — Liavo', html);
   }
 
   // ── j) Dossier soumis au rectorat ─────────────────────────────────────
