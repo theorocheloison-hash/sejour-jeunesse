@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSejour } from '@/src/lib/sejour';
@@ -8,6 +8,7 @@ import type { TypeZone } from '@/src/lib/sejour';
 import { Logo } from '@/app/components/Logo';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import { INITIAL_DATA } from '@/src/components/sejour/shared';
+import type { SejourFormData } from '@/src/components/sejour/shared';
 import EtapeInfos from '@/src/components/sejour/EtapeInfos';
 import EtapeGeographie from '@/src/components/sejour/EtapeGeographie';
 import EtapeRecapitulatif from '@/src/components/sejour/EtapeRecapitulatif';
@@ -66,12 +67,35 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+const SESSION_KEY = 'liavo_nouveau_sejour';
+
 export default function NouveauSejourPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState(INITIAL_DATA);
+
+  const [step, setStep] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved).step ?? 1 : 1;
+    } catch { return 1; }
+  });
+
+  const [form, setForm] = useState<SejourFormData>(() => {
+    if (typeof window === 'undefined') return INITIAL_DATA;
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved).form ?? INITIAL_DATA : INITIAL_DATA;
+    } catch { return INITIAL_DATA; }
+  });
+
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ form, step }));
+    } catch {}
+  }, [form, step]);
 
   const canAdvance = () => {
     if (step === 1)
@@ -103,6 +127,7 @@ export default function NouveauSejourPage() {
         zoneGeographique:           form.zoneGeographique,
         dateButoireDevis:           form.dateButoireDevis,
       });
+      sessionStorage.removeItem(SESSION_KEY);
       router.push('/dashboard/teacher');
     } catch (err) {
       setError(extractApiError(err));
