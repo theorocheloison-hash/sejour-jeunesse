@@ -18,6 +18,7 @@ import { EtablissementsModule } from './etablissements/etablissements.module.js'
 import { UsersModule } from './users/users.module.js';
 import { AccompagnateurModule } from './accompagnateurs/accompagnateur.module.js';
 import { AdminModule } from './admin/admin.module.js';
+import { InvitationCollaborationModule } from './invitation-collaboration/invitation-collaboration.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AdminModule } from './admin/admin.module.js';
     UsersModule,
     AccompagnateurModule,
     AdminModule,
+    InvitationCollaborationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

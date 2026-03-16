@@ -54,6 +54,13 @@ const SECTIONS = [
     icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
     color: 'bg-yellow-100 text-yellow-600',
   },
+  {
+    title: 'Inviter un enseignant',
+    desc: 'Créez un séjour directement avec un enseignant partenaire',
+    href: '/dashboard/venue/inviter-enseignant',
+    icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z',
+    color: 'bg-amber-100 text-amber-600',
+  },
 ];
 
 export default function VenueDashboard() {

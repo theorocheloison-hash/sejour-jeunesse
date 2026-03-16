@@ -357,6 +357,7 @@ model CentreHebergement {
   documents         Document[]
   devis             Devis[]
   sejoursSelectionne Sejour[]       @relation("SejourCentreSelectionne")
+  invitationsCollaboration InvitationCollaboration[]
 
   @@map("centres_hebergement")
 }
@@ -570,4 +571,25 @@ model DocumentSejour {
   uploader User   @relation("DocumentsUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
 
   @@map("documents_sejour")
+}
+
+// ============================================================
+// MODEL : InvitationCollaboration (hébergeur invite enseignant)
+// ============================================================
+model InvitationCollaboration {
+  id                  String             @id @default(uuid()) @db.Uuid
+  token               String             @unique @default(uuid()) @db.Uuid
+  centreId            String             @map("centre_id") @db.Uuid
+  centre              CentreHebergement  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  emailEnseignant     String             @map("email_enseignant") @db.VarChar(255)
+  titreSejourSuggere  String             @map("titre_sejour_suggere") @db.VarChar(255)
+  dateDebut           DateTime           @map("date_debut") @db.Date
+  dateFin             DateTime           @map("date_fin") @db.Date
+  nbElevesEstime      Int                @map("nb_eleves_estime")
+  message             String?            @db.Text
+  acceptedAt          DateTime?          @map("accepted_at")
+  sejourId            String?            @map("sejour_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  @@map("invitations_collaboration")
 }
