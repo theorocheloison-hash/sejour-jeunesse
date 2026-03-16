@@ -34,7 +34,7 @@ export function ActeursSchema() {
           fontFamily="var(--font-sans)" letterSpacing="0.04em">
           Liavo
         </text>
-        <circle cx={320} cy={210} r={5} fill="var(--color-accent)" />
+        <circle cx={320} cy={188} r={5} fill="var(--color-accent)" />
 
         {/* Nœuds acteurs */}
         {acteurs.map(a => {
