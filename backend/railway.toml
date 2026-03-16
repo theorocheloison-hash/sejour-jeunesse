@@ -2,5 +2,5 @@
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node /app/dist/main"
+startCommand = "node /app/dist/src/main"
 

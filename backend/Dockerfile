@@ -7,4 +7,4 @@ RUN npx prisma generate
 RUN npm run build
 EXPOSE 4000
 ENV NODE_ENV=production
-CMD ["sh", "-c", "ls /app/dist/ && node /app/dist/main"]
+CMD ["sh", "-c", "node /app/dist/src/main"]
