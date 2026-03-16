@@ -35,7 +35,7 @@ const ROLE_ROUTES: Record<string, string> = {
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
-  login: (dto: LoginDto) => Promise<void>;
+  login: (dto: LoginDto, redirectTo?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (dto: LoginDto) => {
+  const login = useCallback(async (dto: LoginDto, redirectTo?: string) => {
     // Le backend retourne prenom/nom — type fidèle à la réponse réelle
     type BackendLoginResponse = {
       access_token: string;
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
 
-    router.push(ROLE_ROUTES[user.role] ?? '/dashboard');
+    router.push(redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard');
   }, [router]);
 
   const logout = useCallback(() => {

@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, extractApiError } from '@/src/contexts/AuthContext';
 import { Logo } from '@/app/components/Logo';
 
-export default function LoginPage() {
+function LoginForm() {
   const { login }                   = useAuth();
+  const searchParams                = useSearchParams();
+  const redirectTo                  = searchParams.get('redirect') ?? undefined;
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [error, setError]           = useState<string | null>(null);
@@ -17,7 +20,7 @@ export default function LoginPage() {
     setError(null);
     setIsPending(true);
     try {
-      await login({ email, password });
+      await login({ email, password }, redirectTo);
     } catch (err: unknown) {
       setError(extractApiError(err));
     } finally {
@@ -121,5 +124,13 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
