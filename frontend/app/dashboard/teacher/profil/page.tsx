@@ -63,7 +63,7 @@ export default function ProfilPage() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -180,7 +180,7 @@ export default function ProfilPage() {
                 )}
               </button>
               {saveMsg && (
-                <span className={`text-sm ${saveMsg.includes('succès') ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-sm ${saveMsg.includes('succès') ? 'text-[var(--color-success)]' : 'text-red-600'}`}>
                   {saveMsg}
                 </span>
               )}

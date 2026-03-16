@@ -114,7 +114,7 @@ function StatsTab({ stats }: { stats: AdminStats | null }) {
                 <span className="text-xs text-gray-600 w-24 shrink-0">{STATUT_SEJOUR_LABELS[s.statut] ?? s.statut}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                   <div
-                    className="bg-emerald-500 h-full rounded-full transition-all"
+                    className="bg-[var(--color-success)] h-full rounded-full transition-all"
                     style={{ width: `${(s.count / maxSejour) * 100}%` }}
                   />
                 </div>
@@ -198,7 +198,7 @@ function HebergeursTab() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-semibold text-gray-900">{h.prenom} {h.nom}</h3>
                       {h.compteValide ? (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Validé</span>
+                        <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">Validé</span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">En attente</span>
                       )}
@@ -219,7 +219,7 @@ function HebergeursTab() {
                           {centre.siret && <span>SIRET : {centre.siret}</span>}
                           {centre.departement && <span>{centre.departement}</span>}
                           {centre.agrementEducationNationale && (
-                            <span className="text-emerald-600 font-medium">Agréé EN : {centre.agrementEducationNationale}</span>
+                            <span className="text-[var(--color-success)] font-medium">Agréé EN : {centre.agrementEducationNationale}</span>
                           )}
                         </div>
                       </div>
@@ -231,7 +231,7 @@ function HebergeursTab() {
                       <button
                         onClick={() => handleValider(h.id)}
                         disabled={actionId === h.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600 transition disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-success)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--color-success)] transition disabled:opacity-50"
                       >
                         {actionId === h.id ? <Spinner /> : null}
                         Valider
@@ -370,7 +370,7 @@ function UtilisateursTab() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {u.compteValide ? (
-                          <span className="h-2 w-2 rounded-full bg-green-500" title="Compte validé" />
+                          <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" title="Compte validé" />
                         ) : (
                           <span className="h-2 w-2 rounded-full bg-amber-500" title="En attente" />
                         )}
@@ -385,7 +385,7 @@ function UtilisateursTab() {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleToggleValide(u)}
-                        className={`text-xs font-medium px-2 py-1 rounded transition ${u.compteValide ? 'text-amber-700 hover:bg-amber-50' : 'text-green-700 hover:bg-green-50'}`}
+                        className={`text-xs font-medium px-2 py-1 rounded transition ${u.compteValide ? 'text-amber-700 hover:bg-amber-50' : 'text-[var(--color-success)] hover:bg-[var(--color-success-light)]'}`}
                       >
                         {u.compteValide ? 'Désactiver' : 'Activer'}
                       </button>
@@ -449,7 +449,7 @@ function CentresTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h3 className="font-semibold text-gray-900">{c.nom}</h3>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${c.statut === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${c.statut === 'ACTIVE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' : 'bg-amber-100 text-amber-700'}`}>
                       {c.statut === 'ACTIVE' ? 'Actif' : c.statut}
                     </span>
                     {c.agrementEducationNationale && (

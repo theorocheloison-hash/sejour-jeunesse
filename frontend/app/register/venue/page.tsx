@@ -345,7 +345,7 @@ export default function RegisterVenuePage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {centre.agrementEducationNationale && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                               Agréé EN
                             </span>
@@ -391,7 +391,7 @@ export default function RegisterVenuePage() {
 
               {/* Pre-fill banner */}
               {centrePreFilled && (
-                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 mb-2">
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 text-sm text-[var(--color-success)] mb-2">
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>

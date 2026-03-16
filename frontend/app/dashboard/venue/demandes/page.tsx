@@ -117,12 +117,12 @@ export default function VenueDemandesPage() {
                     </div>
                     <div className="shrink-0 flex flex-col sm:flex-row gap-2">
                       {successId === d.id ? (
-                        <span className="text-sm font-medium text-green-600">Devis envoyé !</span>
+                        <span className="text-sm font-medium text-[var(--color-success)]">Devis envoyé !</span>
                       ) : (
                         <>
                           <Link
                             href={`/dashboard/venue/devis/nouveau?demandeId=${d.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--color-primary)] transition-colors"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -151,9 +151,9 @@ export default function VenueDemandesPage() {
                         onDrop={handleDrop}
                         className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
                           dragging
-                            ? 'border-indigo-400 bg-indigo-50'
+                            ? 'border-indigo-400 bg-[var(--color-primary-light)]'
                             : pdfFile
-                              ? 'border-green-300 bg-green-50'
+                              ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
                               : 'border-gray-300 bg-gray-50 hover:border-gray-400'
                         }`}
                       >
@@ -208,7 +208,7 @@ export default function VenueDemandesPage() {
                           <button
                             onClick={() => handleUpload(d.id)}
                             disabled={sending}
-                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {sending ? (
                               <>

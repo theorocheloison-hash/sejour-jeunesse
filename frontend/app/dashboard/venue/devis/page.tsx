@@ -11,10 +11,10 @@ import type { Devis, StatutDevis } from '@/src/lib/devis';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
-  ACCEPTE:               { label: 'Accepté',             cls: 'bg-green-100 text-green-700' },
+  ACCEPTE:               { label: 'Accepté',             cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REFUSE:                { label: 'Refusé',              cls: 'bg-red-100 text-red-700' },
   EN_ATTENTE_VALIDATION: { label: 'En validation',       cls: 'bg-blue-100 text-blue-700' },
-  SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-emerald-100 text-emerald-700' },
+  SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
 };
 
@@ -251,11 +251,11 @@ export default function VenueDevisPage() {
                     {d.statut === 'SELECTIONNE' && (
                       <div className="shrink-0 flex flex-col gap-2 items-end">
                         {d.demande?.enseignant && (
-                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-                            <p className="text-xs font-semibold text-emerald-800 mb-1">
+                          <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-3">
+                            <p className="text-xs font-semibold text-[var(--color-success)] mb-1">
                               {d.demande.enseignant.prenom} {d.demande.enseignant.nom}
                             </p>
-                            <div className="flex flex-col gap-0.5 text-xs text-emerald-700">
+                            <div className="flex flex-col gap-0.5 text-xs text-[var(--color-success)]">
                               {d.demande.enseignant.email && (
                                 <a href={`mailto:${d.demande.enseignant.email}`} className="hover:underline">
                                   {d.demande.enseignant.email}
@@ -270,7 +270,7 @@ export default function VenueDevisPage() {
                           </div>
                         )}
                         {d.typeDocument === 'FACTURE_ACOMPTE' ? (
-                          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-800 font-semibold">
+                          <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-2 text-xs text-[var(--color-success)] font-semibold">
                             Facture acompte envoyée — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                           </div>
                         ) : (!d.typeDocument || d.typeDocument === 'DEVIS') && (

@@ -8,7 +8,7 @@ import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/s
 import type { Disponibilite } from '@/src/lib/centre';
 
 const inputCls =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent';
+  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -101,14 +101,14 @@ export default function DisponibilitesPage() {
               <input type="text" value={commentaire} onChange={(e) => setCommentaire(e.target.value)} placeholder="Ex : Vacances de printemps" className={inputCls} />
             </div>
           </div>
-          <button type="submit" disabled={submitting} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-60">
+          <button type="submit" disabled={submitting} className="mt-4 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors disabled:opacity-60">
             {submitting ? 'Ajout...' : 'Ajouter'}
           </button>
         </form>
 
         {/* Liste */}
         {loading ? (
-          <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" /></div>
+          <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" /></div>
         ) : dispos.length === 0 ? (
           <p className="text-center text-gray-500 py-8">Aucune disponibilité enregistrée.</p>
         ) : (

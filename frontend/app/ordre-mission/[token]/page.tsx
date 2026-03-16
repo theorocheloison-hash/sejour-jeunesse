@@ -119,7 +119,7 @@ export default function SignerOrdreMissionPage() {
           <span className="text-sm font-medium tracking-wide">Ordre de mission</span>
           <div className="ml-auto">
             {signed ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/20 border border-green-300/30 px-3 py-1 text-xs font-semibold text-green-100">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success-light)]/20 border border-[var(--color-success)]/30 px-3 py-1 text-xs font-semibold text-[var(--color-success-light)]">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Signé
               </span>
@@ -388,16 +388,16 @@ export default function SignerOrdreMissionPage() {
             FORMULAIRE DE SIGNATURE / CONFIRMATION
             ══════════════════════════════════════════════════════════════════ */}
         {signed ? (
-          <section className="bg-green-50 rounded-2xl shadow-md border border-green-200 p-8 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <section className="bg-[var(--color-success-light)] rounded-2xl shadow-md border border-[var(--color-success)]/20 p-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-light)] mb-4">
+              <CheckCircle2 className="h-8 w-8 text-[var(--color-success)]" />
             </div>
-            <h2 className="text-xl font-bold text-green-800">
+            <h2 className="text-xl font-bold text-[var(--color-success)]">
               {data.signeeAt
                 ? `Ordre de mission signé le ${fmt(data.signeeAt)}`
                 : 'Ordre de mission signé avec succès !'}
             </h2>
-            <p className="mt-2 text-sm text-green-600">
+            <p className="mt-2 text-sm text-[var(--color-success)]">
               Merci. Votre ordre de mission est validé pour ce séjour.
             </p>
           </section>
@@ -546,7 +546,7 @@ export default function SignerOrdreMissionPage() {
                 type="button"
                 onClick={handleSign}
                 disabled={signing || !formValid}
-                className="w-full rounded-xl bg-green-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-700 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="w-full rounded-xl bg-[var(--color-success)] px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:opacity-90 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
               >
                 {signing ? (
                   <span className="inline-flex items-center gap-2">

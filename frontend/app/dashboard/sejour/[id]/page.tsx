@@ -50,7 +50,7 @@ const TYPE_DOC_OPTIONS: { value: TypeDocumentSejour; label: string }[] = [
 const TYPE_DOC_BADGE: Record<TypeDocumentSejour, string> = {
   PROGRAMME: 'bg-blue-100 text-blue-700',
   TRANSPORT: 'bg-orange-100 text-orange-700',
-  ASSURANCE: 'bg-green-100 text-green-700',
+  ASSURANCE: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
   FACTURE: 'bg-purple-100 text-purple-700',
   AUTRE: 'bg-gray-100 text-gray-600',
 };
@@ -269,7 +269,7 @@ export default function CollaborationPage() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -298,7 +298,7 @@ export default function CollaborationPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link href={retourHref} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              <Link href={retourHref} className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
                 &larr; Retour
               </Link>
               {sejour && (
@@ -306,7 +306,7 @@ export default function CollaborationPage() {
                   {sejour.titre}
                 </span>
               )}
-              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
                 Convention
               </span>
             </div>
@@ -330,7 +330,7 @@ export default function CollaborationPage() {
                 onClick={() => setTab(t.key)}
                 className={`py-3 text-sm font-medium border-b-2 transition-colors ${
                   tab === t.key
-                    ? 'border-indigo-600 text-indigo-600'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -356,7 +356,7 @@ export default function CollaborationPage() {
                   <div key={m.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
                       isOwn
-                        ? 'bg-indigo-600 text-white rounded-br-md'
+                        ? 'bg-[var(--color-primary)] text-white rounded-br-md'
                         : 'bg-gray-100 text-gray-900 rounded-bl-md'
                     }`}>
                       {!isOwn && (
@@ -365,7 +365,7 @@ export default function CollaborationPage() {
                         </p>
                       )}
                       <p className="text-sm whitespace-pre-wrap">{m.contenu}</p>
-                      <p className={`text-[10px] mt-1 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}>
+                      <p className={`text-[10px] mt-1 ${isOwn ? 'text-[var(--color-primary-light)]' : 'text-gray-400'}`}>
                         {new Date(m.createdAt).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
                       </p>
                     </div>
@@ -382,12 +382,12 @@ export default function CollaborationPage() {
                 onChange={(e) => setMsgInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 placeholder="Votre message..."
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-border-strong)]"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={sending || !msgInput.trim()}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? '...' : 'Envoyer'}
               </button>
@@ -402,23 +402,23 @@ export default function CollaborationPage() {
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter une activité</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input type="date" value={planForm.date} onChange={(e) => setPlanForm((f) => ({ ...f, date: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Date" />
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" placeholder="Date" />
                 <input type="time" value={planForm.heureDebut} onChange={(e) => setPlanForm((f) => ({ ...f, heureDebut: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                 <input type="time" value={planForm.heureFin} onChange={(e) => setPlanForm((f) => ({ ...f, heureFin: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                 <input type="text" value={planForm.titre} onChange={(e) => setPlanForm((f) => ({ ...f, titre: e.target.value }))}
-                  placeholder="Titre de l'activité" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  placeholder="Titre de l'activité" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                 <input type="text" value={planForm.description} onChange={(e) => setPlanForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Description (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  placeholder="Description (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                 <input type="text" value={planForm.responsable} onChange={(e) => setPlanForm((f) => ({ ...f, responsable: e.target.value }))}
-                  placeholder="Responsable (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  placeholder="Responsable (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
               </div>
               <button onClick={handleAddPlanning}
                 disabled={!planForm.date || !planForm.heureDebut || !planForm.heureFin || !planForm.titre}
-                className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                className="mt-3 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 Ajouter
               </button>
             </div>
@@ -437,7 +437,7 @@ export default function CollaborationPage() {
                     {items.map((p) => (
                       <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
                         <div>
-                          <span className="text-xs font-mono text-indigo-600">{p.heureDebut} - {p.heureFin}</span>
+                          <span className="text-xs font-mono text-[var(--color-primary)]">{p.heureDebut} - {p.heureFin}</span>
                           <span className="ml-3 text-sm font-medium text-gray-900">{p.titre}</span>
                           {p.description && <span className="ml-2 text-xs text-gray-500">— {p.description}</span>}
                           {p.responsable && <span className="ml-2 text-xs text-gray-400">({p.responsable})</span>}
@@ -464,7 +464,7 @@ export default function CollaborationPage() {
                 </span>
                 <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-500 rounded-full transition-all"
+                    className="h-full bg-[var(--color-success)] rounded-full transition-all"
                     style={{ width: participants.length ? `${(signedCount / participants.length) * 100}%` : '0%' }}
                   />
                 </div>
@@ -477,7 +477,7 @@ export default function CollaborationPage() {
                     onClick={() => setParticipantFilter(f)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                       participantFilter === f
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-[var(--color-primary)] text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -524,7 +524,7 @@ export default function CollaborationPage() {
                         </td>
                         <td className="py-3 px-3">
                           {p.signeeAt ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-xs font-medium text-green-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
                               Signée
                             </span>
                           ) : (
@@ -574,7 +574,7 @@ export default function CollaborationPage() {
             {accompagnateurs.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-4 w-4 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                   </svg>
                   Accompagnateurs ({accompagnateurs.length})
@@ -586,7 +586,7 @@ export default function CollaborationPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{a.prenom} {a.nom}</span>
                           {a.signeeAt ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-xs font-medium text-green-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
                               Signé
                             </span>
                           ) : (
@@ -618,9 +618,9 @@ export default function CollaborationPage() {
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <input type="text" value={docForm.nom} onChange={(e) => setDocForm((f) => ({ ...f, nom: e.target.value }))}
-                  placeholder="Nom du document" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  placeholder="Nom du document" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                 <select value={docForm.type} onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value as TypeDocumentSejour }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
                   {TYPE_DOC_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
@@ -634,15 +634,15 @@ export default function CollaborationPage() {
                 onDrop={handleDocDrop}
                 className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
                   docDragging
-                    ? 'border-indigo-400 bg-indigo-50'
+                    ? 'border-indigo-400 bg-[var(--color-primary-light)]'
                     : docFile
-                      ? 'border-green-300 bg-green-50'
+                      ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
                       : 'border-gray-300 bg-gray-50 hover:border-gray-400'
                 }`}
               >
                 {docFile ? (
                   <div className="flex items-center justify-center gap-3">
-                    <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="h-8 w-8 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <div className="text-left">
@@ -686,7 +686,7 @@ export default function CollaborationPage() {
 
               <button onClick={handleAddDocument}
                 disabled={!docForm.nom || !docFile || docSending}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {docSending ? (
                   <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi...</>
                 ) : (
@@ -714,7 +714,7 @@ export default function CollaborationPage() {
                     <span className="text-xs text-gray-400">par {d.uploader.prenom} {d.uploader.nom}</span>
                   </div>
                   <a href={d.url} target="_blank" rel="noopener noreferrer"
-                    className="shrink-0 text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                    className="shrink-0 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
                     Télécharger
                   </a>
                 </div>

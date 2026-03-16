@@ -64,9 +64,9 @@ export default function AbonnementPage() {
         )}
 
         {abo?.statut === 'ACTIF' ? (
-          <div className="bg-white rounded-2xl border border-green-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-[var(--color-success)]/20 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
-              <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-3 py-1 text-sm font-semibold text-[var(--color-success)]">
                 Abonnement actif
               </span>
               <span className="text-sm text-gray-500">Plan {abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}</span>
@@ -85,12 +85,12 @@ export default function AbonnementPage() {
             {PLANS.map((plan) => (
               <div key={plan.type} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
                 <h3 className="text-lg font-semibold text-gray-900">{plan.label}</h3>
-                <p className="text-2xl font-bold text-indigo-600 mt-2">{plan.prix}</p>
+                <p className="text-2xl font-bold text-[var(--color-primary)] mt-2">{plan.prix}</p>
                 <p className="text-sm text-gray-500 mt-2 flex-1">{plan.desc}</p>
                 <button
                   onClick={() => handleActivate(plan.type)}
                   disabled={activating !== null}
-                  className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-4 w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {activating === plan.type ? 'Activation…' : 'Activer'}
                 </button>

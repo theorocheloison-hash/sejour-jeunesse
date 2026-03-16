@@ -29,7 +29,7 @@ export default function DashboardShell({ role, title, children }: DashboardShell
           </div>
 
           <div className="flex items-center gap-4">
-            <span className="hidden sm:inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+            <span className="hidden sm:inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)] ring-1 ring-inset ring-[var(--color-primary)]/10">
               {ROLE_LABELS[role] ?? role}
             </span>
             <form action={logoutAction}>

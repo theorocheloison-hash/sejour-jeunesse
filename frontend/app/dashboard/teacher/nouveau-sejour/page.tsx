@@ -29,9 +29,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                   done
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--color-primary)] text-white'
                     : active
-                    ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
+                    ? 'bg-[var(--color-primary)] text-white ring-4 ring-indigo-100'
                     : 'bg-gray-100 text-gray-400'
                 }`}
               >
@@ -45,7 +45,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
               </div>
               <span
                 className={`mt-1.5 text-xs font-medium whitespace-nowrap ${
-                  active ? 'text-indigo-600' : done ? 'text-gray-500' : 'text-gray-400'
+                  active ? 'text-[var(--color-primary)]' : done ? 'text-gray-500' : 'text-gray-400'
                 }`}
               >
                 {label}
@@ -54,7 +54,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
             {step < total && (
               <div
                 className={`flex-1 h-0.5 mx-2 mb-5 transition-colors ${
-                  done ? 'bg-indigo-600' : 'bg-gray-200'
+                  done ? 'bg-[var(--color-primary)]' : 'bg-gray-200'
                 }`}
               />
             )}
@@ -190,7 +190,7 @@ export default function NouveauSejourPage() {
                 type="button"
                 onClick={() => setStep((s) => s + 1)}
                 disabled={!canAdvance()}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
               >
                 Suivant &rarr;
               </button>
@@ -199,7 +199,7 @@ export default function NouveauSejourPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isPending}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
               >
                 {isPending ? (
                   <>

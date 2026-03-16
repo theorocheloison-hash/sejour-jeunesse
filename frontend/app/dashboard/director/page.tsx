@@ -875,7 +875,7 @@ export default function DirectorDashboard() {
             </h2>
             <div className="space-y-3">
               {facturesPayees.map((f) => (
-                <div key={f.id} className="bg-white rounded-xl border border-green-200 shadow-sm p-5">
+                <div key={f.id} className="bg-white rounded-xl border border-[var(--color-success)]/20 shadow-sm p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">

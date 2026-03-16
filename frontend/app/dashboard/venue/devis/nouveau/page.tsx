@@ -45,7 +45,7 @@ export default function NouveauDevisPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     }>
       <NouveauDevisContent />
@@ -209,7 +209,7 @@ function NouveauDevisContent() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -226,14 +226,14 @@ function NouveauDevisContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center max-w-md">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mb-4">
-            <svg className="h-7 w-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-success-light)] mb-4">
+            <svg className="h-7 w-7 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2">Devis envoyé !</h2>
           <p className="text-sm text-gray-500 mb-6">Votre devis {numeroDevis} a été transmis à l&apos;enseignant.</p>
-          <Link href="/dashboard/venue/devis" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
+          <Link href="/dashboard/venue/devis" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors">
             Voir mes devis
           </Link>
         </div>
@@ -256,7 +256,7 @@ function NouveauDevisContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/venue/demandes" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">&larr; Retour aux demandes</Link>
+              <Link href="/dashboard/venue/demandes" className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">&larr; Retour aux demandes</Link>
             </div>
             <span className="text-sm font-semibold text-gray-700">Créateur de devis</span>
           </div>
@@ -277,20 +277,20 @@ function NouveauDevisContent() {
               <div className="flex-1 space-y-3">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Émetteur</h2>
                 <input value={nomEntreprise} onChange={(e) => setNomEntreprise(e.target.value)}
-                  placeholder="Nom de l'entreprise" className="w-full text-lg font-bold text-gray-900 border-0 border-b border-gray-200 focus:border-indigo-500 focus:ring-0 px-0 py-1" />
+                  placeholder="Nom de l'entreprise" className="w-full text-lg font-bold text-gray-900 border-0 border-b border-gray-200 focus:border-[var(--color-border-strong)] focus:ring-0 px-0 py-1" />
                 <textarea value={adresseEntreprise} onChange={(e) => setAdresseEntreprise(e.target.value)}
-                  placeholder="Adresse complète" rows={2} className="w-full text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-indigo-500 focus:ring-0 px-0 py-1 resize-none" />
+                  placeholder="Adresse complète" rows={2} className="w-full text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[var(--color-border-strong)] focus:ring-0 px-0 py-1 resize-none" />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <input value={siretEntreprise} onChange={(e) => setSiretEntreprise(e.target.value)}
-                    placeholder="SIRET" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-indigo-500 focus:ring-0 px-0 py-1" />
+                    placeholder="SIRET" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[var(--color-border-strong)] focus:ring-0 px-0 py-1" />
                   <input value={emailEntreprise} onChange={(e) => setEmailEntreprise(e.target.value)}
-                    placeholder="Email" type="email" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-indigo-500 focus:ring-0 px-0 py-1" />
+                    placeholder="Email" type="email" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[var(--color-border-strong)] focus:ring-0 px-0 py-1" />
                   <input value={telEntreprise} onChange={(e) => setTelEntreprise(e.target.value)}
-                    placeholder="Téléphone" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-indigo-500 focus:ring-0 px-0 py-1" />
+                    placeholder="Téléphone" className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[var(--color-border-strong)] focus:ring-0 px-0 py-1" />
                 </div>
               </div>
               <div className="sm:text-right space-y-2 shrink-0">
-                <h1 className="text-2xl font-extrabold text-indigo-600">DEVIS</h1>
+                <h1 className="text-2xl font-extrabold text-[var(--color-primary)]">DEVIS</h1>
                 <p className="text-sm text-gray-500">N° <span className="font-mono font-semibold text-gray-900">{numeroDevis}</span></p>
                 <p className="text-sm text-gray-500">Date : {dateDevis}</p>
                 <p className="text-sm text-gray-500">Valide jusqu&apos;au : {dateValidite}</p>
@@ -399,7 +399,7 @@ function NouveauDevisContent() {
             })}
 
             <button onClick={addLigne}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
@@ -419,7 +419,7 @@ function NouveauDevisContent() {
                       <button key={opt.value} onClick={() => setTauxTva(opt.value)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                           tauxTva === opt.value
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-[var(--color-primary)] text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}>
                         {opt.label}
@@ -453,7 +453,7 @@ function NouveauDevisContent() {
                 </div>
                 <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
                   <span className="text-gray-900">Total TTC</span>
-                  <span className="text-indigo-600">{fmt(calculs.montantTTC)} €</span>
+                  <span className="text-[var(--color-primary)]">{fmt(calculs.montantTTC)} €</span>
                 </div>
                 <div className="border-t border-dashed border-gray-200 pt-2 space-y-1">
                   <div className="flex justify-between text-sm">
@@ -473,7 +473,7 @@ function NouveauDevisContent() {
           <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Conditions</h2>
             <textarea value={conditionsAnnulation} onChange={(e) => setConditionsAnnulation(e.target.value)}
-              rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+              rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-border-strong)] bg-white" />
             <p className="mt-2 text-xs text-gray-400">Validité du devis : {validiteJours} jours (jusqu&apos;au {dateValidite})</p>
           </div>
 
@@ -485,7 +485,7 @@ function NouveauDevisContent() {
             </Link>
             <button onClick={handleSubmit}
               disabled={sending || calculs.montantHT <= 0}
-              className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               {sending ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

@@ -100,7 +100,7 @@ function Autocomplete({
               <button
                 type="button"
                 onClick={() => select(s)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors flex items-baseline gap-2"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-primary-light)] transition-colors flex items-baseline gap-2"
               >
                 <span className="font-medium text-gray-900">{s.label}</span>
                 {s.sub && <span className="text-xs text-gray-400">{s.sub}</span>}
@@ -200,7 +200,7 @@ export default function HebergementsPage() {
   if (authLoading) return null;
 
   const inputCls =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent';
+    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -209,7 +209,7 @@ export default function HebergementsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
                 </svg>
@@ -279,7 +279,7 @@ export default function HebergementsPage() {
           <div className="flex gap-3 mt-4">
             <button
               type="submit"
-              className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="inline-flex items-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
             >
               Rechercher
             </button>
@@ -303,7 +303,7 @@ export default function HebergementsPage() {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
           </div>
         )}
 
@@ -324,7 +324,7 @@ export default function HebergementsPage() {
                 <Link
                   key={h.id}
                   href={`/dashboard/teacher/hebergements/${h.id}`}
-                  className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-[var(--color-border-strong)] transition-all group"
                 >
                   {/* Image */}
                   {h.image && (
@@ -334,7 +334,7 @@ export default function HebergementsPage() {
                   )}
 
                   {/* Nom */}
-                  <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2 mb-2">
+                  <h3 className="font-semibold text-gray-900 group-hover:text-[var(--color-primary)] transition-colors line-clamp-2 mb-2">
                     {h.nom}
                   </h3>
 
@@ -357,7 +357,7 @@ export default function HebergementsPage() {
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1.5">
                     {h.accessible && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
+                      <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium">
                         Accessible PMR
                       </span>
                     )}
@@ -367,7 +367,7 @@ export default function HebergementsPage() {
                       </span>
                     )}
                     {h.thematiques.slice(0, 2).map((t) => (
-                      <span key={t} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-600 px-2 py-0.5 text-xs">
+                      <span key={t} className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] px-2 py-0.5 text-xs">
                         {t}
                       </span>
                     ))}

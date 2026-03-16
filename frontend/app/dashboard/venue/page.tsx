@@ -14,7 +14,7 @@ import type { SejourConventionVenue } from '@/src/lib/collaboration';
 
 const STATUT_BADGE: Record<string, { label: string; cls: string }> = {
   PENDING:   { label: 'En attente',  cls: 'bg-orange-100 text-orange-700' },
-  ACTIVE:    { label: 'Actif',       cls: 'bg-green-100 text-green-700' },
+  ACTIVE:    { label: 'Actif',       cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   SUSPENDED: { label: 'Suspendu',    cls: 'bg-red-100 text-red-700' },
 };
 
@@ -24,14 +24,14 @@ const SECTIONS = [
     desc: 'Gérez vos périodes d\'accueil et capacités disponibles',
     href: '/dashboard/venue/disponibilites',
     icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-    color: 'bg-indigo-100 text-indigo-600',
+    color: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
   },
   {
     title: 'Documents de conformité',
     desc: 'Agréments, assurances et autres documents officiels',
     href: '/dashboard/venue/documents',
     icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-    color: 'bg-emerald-100 text-emerald-600',
+    color: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
   },
   {
     title: 'Demandes des enseignants',
@@ -93,7 +93,7 @@ export default function VenueDashboard() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
                 </svg>
@@ -141,7 +141,7 @@ export default function VenueDashboard() {
               <Link
                 key={s.title}
                 href={s.href}
-                className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
+                className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-[var(--color-border-strong)] transition-all group"
               >
                 {badge > 0 && (
                   <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
@@ -155,7 +155,7 @@ export default function VenueDashboard() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-[var(--color-primary)] transition-colors">
                       {s.title}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">{s.desc}</p>
@@ -179,7 +179,7 @@ export default function VenueDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900 truncate">{s.titre}</h3>
-                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">Convention</span>
+                        <span className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">Convention</span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                         <span>{s.lieu}</span>
@@ -190,7 +190,7 @@ export default function VenueDashboard() {
                     </div>
                     <Link
                       href={`/dashboard/sejour/${s.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors shrink-0"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />

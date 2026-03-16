@@ -41,7 +41,7 @@ export default function HebergementDetailPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)]">
                 <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
                 </svg>
@@ -64,7 +64,7 @@ export default function HebergementDetailPage() {
 
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
           </div>
         )}
 
@@ -90,7 +90,7 @@ export default function HebergementDetailPage() {
                 </div>
                 <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                   {hebergement.accessible && (
-                    <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-sm font-medium">
+                    <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-3 py-1 text-sm font-medium">
                       Accessible PMR
                     </span>
                   )}
@@ -139,7 +139,7 @@ export default function HebergementDetailPage() {
                   </div>
                   <div className="px-6 py-4 flex flex-wrap gap-2">
                     {hebergement.thematiques.map((t) => (
-                      <span key={t} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-3 py-1 text-sm font-medium">
+                      <span key={t} className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] px-3 py-1 text-sm font-medium">
                         {t}
                       </span>
                     ))}
@@ -179,7 +179,7 @@ export default function HebergementDetailPage() {
                     href={hebergement.permalien}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
                   >
                     Voir la fiche officielle
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

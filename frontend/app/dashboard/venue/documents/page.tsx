@@ -8,7 +8,7 @@ import { getDocuments, createDocument } from '@/src/lib/centre';
 import type { DocumentCentre } from '@/src/lib/centre';
 
 const inputCls =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent';
+  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
 const TYPE_LABELS: Record<string, { label: string; cls: string }> = {
   AGREMENT:  { label: 'Agrément',  cls: 'bg-blue-100 text-blue-700' },
@@ -24,7 +24,7 @@ function expirationBadge(dateExpiration: string | null) {
 
   if (daysLeft < 0) return <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-medium">Expiré</span>;
   if (daysLeft <= 30) return <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 px-2 py-0.5 text-xs font-medium">Expire bientôt</span>;
-  return <span className="inline-flex items-center rounded-full bg-green-100 text-green-700 px-2 py-0.5 text-xs font-medium">Valide</span>;
+  return <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium">Valide</span>;
 }
 
 export default function DocumentsPage() {
@@ -107,14 +107,14 @@ export default function DocumentsPage() {
               <input type="date" value={dateExpiration} onChange={(e) => setDateExpiration(e.target.value)} className={inputCls} />
             </div>
           </div>
-          <button type="submit" disabled={submitting} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-60">
+          <button type="submit" disabled={submitting} className="mt-4 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary)] transition-colors disabled:opacity-60">
             {submitting ? 'Ajout...' : 'Ajouter'}
           </button>
         </form>
 
         {/* Liste */}
         {loading ? (
-          <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" /></div>
+          <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" /></div>
         ) : docs.length === 0 ? (
           <p className="text-center text-gray-500 py-8">Aucun document enregistré.</p>
         ) : (

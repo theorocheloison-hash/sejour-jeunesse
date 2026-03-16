@@ -11,10 +11,10 @@ import type { Devis, StatutDevis } from '@/src/lib/devis';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
-  ACCEPTE:               { label: 'Accepté',               cls: 'bg-green-100 text-green-700' },
+  ACCEPTE:               { label: 'Accepté',               cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REFUSE:                { label: 'Refusé',                cls: 'bg-red-100 text-red-700' },
   EN_ATTENTE_VALIDATION: { label: 'Soumis au directeur',   cls: 'bg-blue-100 text-blue-700' },
-  SELECTIONNE:           { label: 'Sélectionné',           cls: 'bg-emerald-100 text-emerald-700' },
+  SELECTIONNE:           { label: 'Sélectionné',           cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   NON_RETENU:            { label: 'Non retenu',            cls: 'bg-gray-100 text-gray-600' },
 };
 
