@@ -379,7 +379,7 @@ export default function SignerOrdreMissionPage() {
           {/* Pied de document */}
           <div className="border-t border-gray-200 px-8 sm:px-12 py-3 text-center">
             <p className="text-[10px] text-gray-400">
-              Document généré automatiquement par la plateforme Séjour Jeunesse — {numOM}
+              Document généré automatiquement par la plateforme Liavo — {numOM}
             </p>
           </div>
         </section>
@@ -577,7 +577,7 @@ export default function SignerOrdreMissionPage() {
 
       <footer className="max-w-4xl mx-auto px-4 sm:px-6 py-6 text-center">
         <p className="text-xs text-gray-400">
-          Séjour Jeunesse — Plateforme de gestion des séjours scolaires
+          Liavo — Plateforme de gestion des séjours scolaires
         </p>
       </footer>
     </div>

@@ -57,7 +57,7 @@ function generateDossierPedagogique(data: DossierData) {
   doc.setTextColor(150);
   doc.text('MINISTÈRE DE L\'ÉDUCATION NATIONALE', m, y);
   y += 5;
-  doc.text('Séjour Jeunesse — Dossier pédagogique', m, y);
+  doc.text('Liavo — Dossier pédagogique', m, y);
   y += 15;
 
   // Title
@@ -174,7 +174,7 @@ function generateDossierPedagogique(data: DossierData) {
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — Séjour Jeunesse`, m, 287);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — Liavo`, m, 287);
 
   doc.save(`dossier-pedagogique-${data.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`);
 }
@@ -258,7 +258,7 @@ function generateOrdreMission(data: DossierData) {
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — Séjour Jeunesse`, m, 287);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} — Liavo`, m, 287);
 
   doc.save(`ordre-mission-${data.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`);
 }

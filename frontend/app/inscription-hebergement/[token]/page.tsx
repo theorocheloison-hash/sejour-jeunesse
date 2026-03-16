@@ -100,7 +100,7 @@ export default function InscriptionHebergementPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Inscription centre d'hébergement</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Vous avez été invité à enregistrer <strong>{invitation.nomCentre}</strong> sur Séjour Jeunesse.
+            Vous avez été invité à enregistrer <strong>{invitation.nomCentre}</strong> sur Liavo.
           </p>
         </div>
 

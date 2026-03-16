@@ -896,7 +896,7 @@ export default function SignerAutorisationPage() {
 
       <footer className="max-w-3xl mx-auto px-4 sm:px-6 py-6 text-center">
         <p className="text-xs text-gray-400">
-          Séjour Jeunesse — Plateforme de gestion des séjours scolaires
+          Liavo — Plateforme de gestion des séjours scolaires
         </p>
       </footer>
     </div>

@@ -3,7 +3,7 @@ import { AuthProvider } from '@/src/contexts/AuthContext';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Séjour Jeunesse',
+  title: 'Liavo',
   description: 'Gestion des séjours jeunesse',
 };
 
