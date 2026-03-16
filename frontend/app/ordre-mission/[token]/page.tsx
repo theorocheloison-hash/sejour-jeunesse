@@ -74,7 +74,7 @@ export default function SignerOrdreMissionPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#003189]/5 to-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#003189] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[var(--color-border-strong)] border-t-transparent" />
       </div>
     );
   }
@@ -111,7 +111,7 @@ export default function SignerOrdreMissionPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
       {/* HEADER */}
-      <header className="bg-[#003189] text-white">
+      <header className="bg-[var(--color-primary)] text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
             <ClipboardCheck className="h-5 w-5" />
@@ -141,7 +141,7 @@ export default function SignerOrdreMissionPage() {
         <section className="bg-white border-2 border-gray-300 shadow-lg print:shadow-none print:border" style={{ fontFamily: "'Times New Roman', Georgia, serif" }}>
           {/* Bandeau ministère */}
           <div className="text-center py-4 border-b border-gray-200">
-            <p className="text-[11px] font-bold uppercase tracking-[2px] text-[#003189]">
+            <p className="text-[11px] font-bold uppercase tracking-[2px] text-[var(--color-primary)]">
               Ministère de l&apos;Éducation Nationale
             </p>
             <p className="text-[10px] text-gray-500 mt-0.5">
@@ -151,9 +151,9 @@ export default function SignerOrdreMissionPage() {
 
           <div className="px-8 sm:px-12 py-6">
             {/* En-tête établissement + numéro */}
-            <div className="flex justify-between items-start border-b-2 border-[#003189] pb-4 mb-6">
+            <div className="flex justify-between items-start border-b-2 border-[var(--color-border-strong)] pb-4 mb-6">
               <div className="text-[12px] leading-relaxed">
-                <p className="text-[15px] font-bold text-[#003189]">
+                <p className="text-[15px] font-bold text-[var(--color-primary)]">
                   {sejour.etablissement ?? 'Établissement scolaire'}
                 </p>
                 {sejour.etablissementAdresse && (
@@ -173,7 +173,7 @@ export default function SignerOrdreMissionPage() {
                 )}
               </div>
               <div className="text-right text-[11px] leading-relaxed">
-                <p className="text-[14px] font-bold text-[#003189] mb-1">{numOM}</p>
+                <p className="text-[14px] font-bold text-[var(--color-primary)] mb-1">{numOM}</p>
                 <p className="text-gray-600">
                   Date d&apos;émission : {fmt(data.createdAt)}
                 </p>
@@ -181,13 +181,13 @@ export default function SignerOrdreMissionPage() {
             </div>
 
             {/* Titre */}
-            <h2 className="text-center text-[18px] font-bold uppercase tracking-[3px] text-[#003189] border-b border-[#003189] pb-2 mb-6">
+            <h2 className="text-center text-[18px] font-bold uppercase tracking-[3px] text-[var(--color-primary)] border-b border-[var(--color-border-strong)] pb-2 mb-6">
               Ordre de mission
             </h2>
 
             {/* Section DÉSIGNATION DE L'AGENT */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Désignation de l&apos;agent
               </div>
               <table className="w-full text-[13px]">
@@ -210,7 +210,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Section OBJET DE LA MISSION */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Objet de la mission
               </div>
               <table className="w-full text-[13px]">
@@ -245,7 +245,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Section LIEU ET DATES DE MISSION */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Lieu et dates de mission
               </div>
               <table className="w-full text-[13px]">
@@ -284,7 +284,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Section TRANSPORT */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Transport
               </div>
               <div className="text-[13px] text-gray-700 space-y-1.5 pl-1">
@@ -308,7 +308,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Section RÉFÉRENCES RÉGLEMENTAIRES */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Références réglementaires
               </div>
               <div className="text-[11px] text-gray-600 leading-relaxed border border-gray-200 bg-gray-50 px-4 py-3 text-justify">
@@ -323,7 +323,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Section VISA DU CHEF D'ÉTABLISSEMENT */}
             <div className="mb-5">
-              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[#003189] bg-[#f0f4fa] px-3 py-1.5 border-l-[3px] border-[#003189] mb-3">
+              <div className="text-[12px] font-bold uppercase tracking-[1px] text-[var(--color-primary)] bg-[var(--color-primary-light)] px-3 py-1.5 border-l-[3px] border-[var(--color-border-strong)] mb-3">
                 Visa du chef d&apos;établissement
               </div>
               <div className="text-[13px] text-gray-700 mb-3">
@@ -332,7 +332,7 @@ export default function SignerOrdreMissionPage() {
               <div className="flex justify-between gap-8">
                 <div>
                   <p className="text-[11px] text-gray-500 uppercase tracking-[0.5px] mb-1">Le(La) Chef(fe) d&apos;établissement</p>
-                  <p className="text-[13px] font-semibold text-[#003189]">
+                  <p className="text-[13px] font-semibold text-[var(--color-primary)]">
                     {sejour.etablissement ?? '—'}
                   </p>
                   <p className="text-[11px] text-gray-500 mt-1">Cachet et signature</p>
@@ -347,13 +347,13 @@ export default function SignerOrdreMissionPage() {
 
             {/* Signature accompagnateur (si signé) */}
             {signed && (
-              <div className="mt-8 pt-6 border-t-2 border-[#003189]">
+              <div className="mt-8 pt-6 border-t-2 border-[var(--color-border-strong)]">
                 <div className="flex justify-between gap-8">
                   <div>
                     <p className="text-[11px] text-gray-500 uppercase tracking-[0.5px] mb-1">
                       Signature de l&apos;accompagnateur
                     </p>
-                    <p className="text-[14px] font-bold text-[#003189]">
+                    <p className="text-[14px] font-bold text-[var(--color-primary)]">
                       {data.signatureNom ?? `${data.prenom} ${data.nom}`}
                     </p>
                     <p className="text-[12px] text-gray-600 mt-1">
@@ -364,7 +364,7 @@ export default function SignerOrdreMissionPage() {
                     <p className="text-[11px] text-gray-500 uppercase tracking-[0.5px] mb-1">
                       Enseignant responsable
                     </p>
-                    <p className="text-[14px] font-bold text-[#003189]">
+                    <p className="text-[14px] font-bold text-[var(--color-primary)]">
                       {sejour.enseignant ?? '—'}
                     </p>
                     <p className="text-[12px] text-gray-600 mt-1">
@@ -405,35 +405,35 @@ export default function SignerOrdreMissionPage() {
           <>
             {/* Moyen de transport */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                 </svg>
                 Moyen de transport
               </h2>
               <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer group rounded-xl border border-gray-200 px-4 py-3 hover:border-[#003189]/30 transition-colors has-[:checked]:border-[#003189] has-[:checked]:bg-blue-50/50">
+                <label className="flex items-center gap-3 cursor-pointer group rounded-xl border border-gray-200 px-4 py-3 hover:border-[var(--color-border-strong)]/30 transition-colors has-[:checked]:border-[var(--color-border-strong)] has-[:checked]:bg-[var(--color-primary-light)]/50">
                   <input
                     type="radio"
                     name="transport"
                     value="collectif"
                     checked={moyenTransport === 'collectif'}
                     onChange={(e) => setMoyenTransport(e.target.value)}
-                    className="h-4 w-4 text-[#003189] focus:ring-[#003189]"
+                    className="h-4 w-4 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Transport collectif</p>
                     <p className="text-xs text-gray-500">Organisé par l&apos;établissement</p>
                   </div>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer group rounded-xl border border-gray-200 px-4 py-3 hover:border-[#003189]/30 transition-colors has-[:checked]:border-[#003189] has-[:checked]:bg-blue-50/50">
+                <label className="flex items-center gap-3 cursor-pointer group rounded-xl border border-gray-200 px-4 py-3 hover:border-[var(--color-border-strong)]/30 transition-colors has-[:checked]:border-[var(--color-border-strong)] has-[:checked]:bg-[var(--color-primary-light)]/50">
                   <input
                     type="radio"
                     name="transport"
                     value="personnel"
                     checked={moyenTransport === 'personnel'}
                     onChange={(e) => setMoyenTransport(e.target.value)}
-                    className="h-4 w-4 text-[#003189] focus:ring-[#003189]"
+                    className="h-4 w-4 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Véhicule personnel</p>
@@ -445,7 +445,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Contact d'urgence */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
                 <Phone className="h-5 w-5" />
                 Contact d&apos;urgence
                 <span className="text-sm font-normal text-gray-400">(optionnel)</span>
@@ -461,7 +461,7 @@ export default function SignerOrdreMissionPage() {
                     value={contactUrgenceNom}
                     onChange={(e) => setContactUrgenceNom(e.target.value)}
                     placeholder="ex : Marie Dupont"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -474,7 +474,7 @@ export default function SignerOrdreMissionPage() {
                     value={contactUrgenceTel}
                     onChange={(e) => setContactUrgenceTel(e.target.value)}
                     placeholder="ex : 06 12 34 56 78"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                   />
                 </div>
               </div>
@@ -482,7 +482,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* RGPD */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                 <ShieldCheck className="h-5 w-5" />
                 Protection des données personnelles
               </h2>
@@ -498,7 +498,7 @@ export default function SignerOrdreMissionPage() {
                   type="checkbox"
                   checked={rgpdAccepte}
                   onChange={(e) => setRgpdAccepte(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[#003189] focus:ring-[#003189] focus:ring-2 cursor-pointer"
+                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)] focus:ring-2 cursor-pointer"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
                   J&apos;ai lu et j&apos;accepte les conditions de traitement de mes données personnelles
@@ -509,7 +509,7 @@ export default function SignerOrdreMissionPage() {
 
             {/* Signature */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                 <ClipboardCheck className="h-5 w-5" />
                 Signature électronique
               </h2>
@@ -532,7 +532,7 @@ export default function SignerOrdreMissionPage() {
                   value={signatureNom}
                   onChange={(e) => setSignatureNom(e.target.value)}
                   placeholder="Prénom Nom"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                 />
               </div>
 

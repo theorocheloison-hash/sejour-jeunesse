@@ -179,7 +179,7 @@ export default function SignerAutorisationPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#003189]/5 to-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#003189] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[var(--color-border-strong)] border-t-transparent" />
       </div>
     );
   }
@@ -215,7 +215,7 @@ export default function SignerAutorisationPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
       {/* HEADER */}
-      <header className="bg-[#003189] text-white">
+      <header className="bg-[var(--color-primary)] text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20">
             <GraduationCap className="h-5 w-5" />
@@ -255,7 +255,7 @@ export default function SignerAutorisationPage() {
         {/* Détail séjour */}
         {(sejour.description || thematiques.length > 0) && (
           <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
               <ClipboardCheck className="h-5 w-5" />
               Le séjour en détail
             </h2>
@@ -287,7 +287,7 @@ export default function SignerAutorisationPage() {
         {/* Hébergement */}
         {hebergement && (
           <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
               <Building2 className="h-5 w-5" />
               L&apos;hébergement
             </h2>
@@ -318,7 +318,7 @@ export default function SignerAutorisationPage() {
 
         {/* Votre enfant */}
         <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
             <UserRound className="h-5 w-5" />
             Votre enfant
           </h2>
@@ -365,11 +365,11 @@ export default function SignerAutorisationPage() {
             {/* ── SECTION PAIEMENT (retour parent) ───────────────────────── */}
             {(montantParEleve === null || montantParEleve === 0) ? (
               <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                   <CreditCard className="h-5 w-5" />
                   Règlement du séjour
                 </h2>
-                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 text-center">
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 text-center">
                   <p className="text-sm text-blue-800">
                     Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
                   </p>
@@ -377,12 +377,12 @@ export default function SignerAutorisationPage() {
               </section>
             ) : (
               <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
                   <CreditCard className="h-5 w-5" />
                   Règlement du séjour
                 </h2>
 
-                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 mb-6">
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6">
                   <p className="text-sm text-blue-800">
                     Montant total par élève :{' '}
                     <span className="text-lg font-bold">
@@ -403,8 +403,8 @@ export default function SignerAutorisationPage() {
                         onClick={() => setNombreMensualites(n)}
                         className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
                           nombreMensualites === n
-                            ? 'bg-[#003189] text-white border-[#003189]'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-[#003189] hover:text-[#003189]'
+                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)] hover:text-[var(--color-primary)]'
                         }`}
                       >
                         {n}x
@@ -435,7 +435,7 @@ export default function SignerAutorisationPage() {
                   <button
                     type="button"
                     onClick={() => setShowPaymentMsg(true)}
-                    className="w-full rounded-xl bg-[#003189] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-[#002570] transition-colors focus:outline-none focus:ring-2 focus:ring-[#003189] focus:ring-offset-2"
+                    className="w-full rounded-xl bg-[var(--color-primary)] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
                   >
                     <span className="inline-flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
@@ -453,7 +453,7 @@ export default function SignerAutorisationPage() {
 
             {/* ── SECTION DOCUMENTS MÉDICAUX (retour parent) ─────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-2">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-2">
                 <Paperclip className="h-5 w-5" />
                 Documents médicaux
                 <span className="text-sm font-normal text-gray-400">(optionnel)</span>
@@ -477,7 +477,7 @@ export default function SignerAutorisationPage() {
                     onClick={() => fileInputRef.current?.click()}
                     className={`rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${
                       dragOver
-                        ? 'border-[#003189] bg-blue-50'
+                        ? 'border-[var(--color-border-strong)] bg-[var(--color-primary-light)]'
                         : 'border-gray-300 hover:border-gray-400 bg-gray-50'
                     }`}
                   >
@@ -490,7 +490,7 @@ export default function SignerAutorisationPage() {
                     />
                     <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
                     <p className="text-sm text-gray-600">
-                      <span className="font-semibold text-[#003189]">Cliquer pour choisir</span> ou glisser-déposer un fichier
+                      <span className="font-semibold text-[var(--color-primary)]">Cliquer pour choisir</span> ou glisser-déposer un fichier
                     </p>
                     <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC, DOCX</p>
                   </div>
@@ -508,7 +508,7 @@ export default function SignerAutorisationPage() {
                         type="button"
                         onClick={handleDocUpload}
                         disabled={docUploading}
-                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#003189] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002570] transition-colors disabled:opacity-50"
+                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50"
                       >
                         {docUploading ? (
                           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -526,7 +526,7 @@ export default function SignerAutorisationPage() {
         ) : (
           <>
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
                 <Heart className="h-5 w-5" />
                 Autoriser la participation
               </h2>
@@ -558,7 +558,7 @@ export default function SignerAutorisationPage() {
                         value={taille}
                         onChange={(e) => setTaille(e.target.value)}
                         placeholder="ex: 145"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -576,7 +576,7 @@ export default function SignerAutorisationPage() {
                         value={poids}
                         onChange={(e) => setPoids(e.target.value)}
                         placeholder="ex: 38"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -594,7 +594,7 @@ export default function SignerAutorisationPage() {
                         value={pointure}
                         onChange={(e) => setPointure(e.target.value)}
                         placeholder="ex: 37"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -611,7 +611,7 @@ export default function SignerAutorisationPage() {
                   id="regime"
                   value={regime}
                   onChange={(e) => setRegime(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                 >
                   {REGIME_OPTIONS.map((r) => (
                     <option key={r} value={r}>{r}</option>
@@ -623,7 +623,7 @@ export default function SignerAutorisationPage() {
                     value={regimeAutre}
                     onChange={(e) => setRegimeAutre(e.target.value)}
                     placeholder="Précisez le régime alimentaire..."
-                    className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                    className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                   />
                 )}
               </div>
@@ -640,7 +640,7 @@ export default function SignerAutorisationPage() {
                     id="niveauSki"
                     value={niveauSki}
                     onChange={(e) => setNiveauSki(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
                   >
                     {NIVEAU_SKI_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -665,7 +665,7 @@ export default function SignerAutorisationPage() {
                   value={infosMedicales}
                   onChange={(e) => setInfosMedicales(e.target.value)}
                   placeholder="Allergies, traitements en cours, contacts d'urgence..."
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[#003189] focus:ring-2 focus:ring-[#003189]/20 focus:outline-none transition-shadow"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none transition-shadow"
                 />
               </div>
             </section>
@@ -673,11 +673,11 @@ export default function SignerAutorisationPage() {
             {/* ── SECTION PAIEMENT ──────────────────────────────────────────── */}
             {(montantParEleve === null || montantParEleve === 0) ? (
               <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                   <CreditCard className="h-5 w-5" />
                   Règlement du séjour
                 </h2>
-                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 text-center">
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 text-center">
                   <p className="text-sm text-blue-800">
                     Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
                   </p>
@@ -685,12 +685,12 @@ export default function SignerAutorisationPage() {
               </section>
             ) : (
               <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-6">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
                   <CreditCard className="h-5 w-5" />
                   Règlement du séjour
                 </h2>
 
-                <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 mb-6">
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6">
                   <p className="text-sm text-blue-800">
                     Montant total par élève :{' '}
                     <span className="text-lg font-bold">
@@ -711,8 +711,8 @@ export default function SignerAutorisationPage() {
                         onClick={() => setNombreMensualites(n)}
                         className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
                           nombreMensualites === n
-                            ? 'bg-[#003189] text-white border-[#003189]'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-[#003189] hover:text-[#003189]'
+                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)] hover:text-[var(--color-primary)]'
                         }`}
                       >
                         {n}x
@@ -743,7 +743,7 @@ export default function SignerAutorisationPage() {
                   <button
                     type="button"
                     onClick={() => setShowPaymentMsg(true)}
-                    className="w-full rounded-xl bg-[#003189] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-[#002570] transition-colors focus:outline-none focus:ring-2 focus:ring-[#003189] focus:ring-offset-2"
+                    className="w-full rounded-xl bg-[var(--color-primary)] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
                   >
                     <span className="inline-flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
@@ -761,7 +761,7 @@ export default function SignerAutorisationPage() {
 
             {/* ── SECTION DOCUMENTS MÉDICAUX ────────────────────────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-2">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-2">
                 <Paperclip className="h-5 w-5" />
                 Documents médicaux
                 <span className="text-sm font-normal text-gray-400">(optionnel)</span>
@@ -785,7 +785,7 @@ export default function SignerAutorisationPage() {
                     onClick={() => fileInputRef.current?.click()}
                     className={`rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${
                       dragOver
-                        ? 'border-[#003189] bg-blue-50'
+                        ? 'border-[var(--color-border-strong)] bg-[var(--color-primary-light)]'
                         : 'border-gray-300 hover:border-gray-400 bg-gray-50'
                     }`}
                   >
@@ -798,7 +798,7 @@ export default function SignerAutorisationPage() {
                     />
                     <Upload className="h-8 w-8 text-gray-400 mx-auto mb-3" />
                     <p className="text-sm text-gray-600">
-                      <span className="font-semibold text-[#003189]">Cliquer pour choisir</span> ou glisser-déposer un fichier
+                      <span className="font-semibold text-[var(--color-primary)]">Cliquer pour choisir</span> ou glisser-déposer un fichier
                     </p>
                     <p className="text-xs text-gray-400 mt-1">PDF, JPG, PNG, DOC, DOCX</p>
                   </div>
@@ -816,7 +816,7 @@ export default function SignerAutorisationPage() {
                         type="button"
                         onClick={handleDocUpload}
                         disabled={docUploading}
-                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#003189] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#002570] transition-colors disabled:opacity-50"
+                        className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50"
                       >
                         {docUploading ? (
                           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -833,7 +833,7 @@ export default function SignerAutorisationPage() {
 
             {/* ── SECTION RGPD ──────────────────────────────────────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="flex items-center gap-2 text-lg font-bold text-[#003189] mb-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
                 <ShieldCheck className="h-5 w-5" />
                 Protection des données personnelles
               </h2>
@@ -849,7 +849,7 @@ export default function SignerAutorisationPage() {
                   type="checkbox"
                   checked={rgpdAccepte}
                   onChange={(e) => setRgpdAccepte(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[#003189] focus:ring-[#003189] focus:ring-2 cursor-pointer"
+                  className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)] focus:ring-2 cursor-pointer"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
                   J&apos;ai lu et j&apos;accepte les conditions de traitement de mes données personnelles
