@@ -49,7 +49,7 @@ export default function Home() {
             <Link href="/register" style={{
               fontSize: 13, fontWeight: 500, padding: '8px 16px',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
+              backgroundColor: 'var(--color-accent)',
               color: '#FFFFFF', textDecoration: 'none',
             }}>
               Créer un compte
@@ -89,7 +89,7 @@ export default function Home() {
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 14, fontWeight: 500, padding: '12px 24px',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
+              backgroundColor: 'var(--color-accent)',
               color: '#FFFFFF', textDecoration: 'none',
             }}>
               Je suis un établissement scolaire
@@ -174,7 +174,7 @@ export default function Home() {
                   'Chaque validation horodatée, archivée, traçable',
                 ].map((t, i) => (
                   <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-primary)' }}>
-                    — {t}
+                    <span style={{ color: 'var(--color-accent)', marginRight: 8, fontWeight: 500 }}>—</span>{t}
                   </li>
                 ))}
               </ul>
@@ -333,8 +333,8 @@ export default function Home() {
                 <div style={{
                   width: 48, height: 48, minWidth: 48,
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-primary-light)',
-                  color: 'var(--color-primary)',
+                  backgroundColor: 'var(--color-accent-light)',
+                  color: 'var(--color-accent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 20, fontWeight: 500,
                 }}>
