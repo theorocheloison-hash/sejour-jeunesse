@@ -109,18 +109,6 @@ export class InvitationCollaborationService {
         },
       });
 
-      await tx.devis.create({
-        data: {
-          demandeId: demande.id,
-          centreId: invitation.centreId,
-          montantTotal: 0,
-          montantParEleve: 0,
-          statut: 'SELECTIONNE',
-          typeDevis: 'PLATEFORME',
-          typeDocument: 'DEVIS',
-        },
-      });
-
       await tx.invitationCollaboration.update({
         where: { id: invitation.id },
         data: { acceptedAt: new Date(), sejourId: sejour.id },
