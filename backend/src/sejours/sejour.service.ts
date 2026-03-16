@@ -274,6 +274,12 @@ export class SejourService {
           dateFin,
         );
       }
+
+      // Auto-approve : le séjour passe directement en APPROVED sans validation directeur
+      await this.prisma.sejour.update({
+        where: { id },
+        data:  { statut: StatutSejour.APPROVED },
+      });
     }
 
     return updated;
