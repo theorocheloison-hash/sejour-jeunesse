@@ -499,7 +499,7 @@ export default function DirectorDashboard() {
   const [sejours, setSejours]     = useState<SejourDirecteur[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actingId, setActingId]   = useState<string | null>(null);
-  const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('SUBMITTED');
+  const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('APPROVED');
   const [devisAValider, setDevisAValider] = useState<Devis[]>([]);
   const [devisActingId, setDevisActingId] = useState<string | null>(null);
 

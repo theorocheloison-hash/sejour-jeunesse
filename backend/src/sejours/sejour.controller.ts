@@ -39,10 +39,13 @@ export class SejourController {
     return this.sejourService.getMesSejours(user.id);
   }
 
-  /** GET /sejours — Tous les séjours (DIRECTOR, RECTOR) */
+  /** GET /sejours — Séjours par établissement (DIRECTOR) ou tous (RECTOR) */
   @Get()
   @Roles(Role.DIRECTOR, Role.RECTOR)
-  findAll() {
+  findAll(@CurrentUser() user: JwtUser) {
+    if (user.role === Role.DIRECTOR && user.etablissementUai) {
+      return this.sejourService.findByEtablissement(user.etablissementUai);
+    }
     return this.sejourService.findAll();
   }
 

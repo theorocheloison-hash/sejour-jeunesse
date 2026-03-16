@@ -71,6 +71,36 @@ export class SejourService {
     });
   }
 
+  async findByEtablissement(etablissementUai: string) {
+    return this.prisma.sejour.findMany({
+      where: {
+        createur: {
+          etablissementUai: etablissementUai,
+        },
+      },
+      include: {
+        createur: {
+          select: {
+            prenom: true,
+            nom: true,
+            etablissementNom: true,
+          },
+        },
+        demandes: {
+          include: {
+            devis: {
+              include: { lignes: true },
+            },
+          },
+        },
+        hebergementSelectionne: {
+          select: { nom: true },
+        },
+      },
+      orderBy: { dateDebut: 'asc' },
+    });
+  }
+
   async getSejourDetail(id: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },
