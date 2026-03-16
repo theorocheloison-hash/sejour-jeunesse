@@ -133,51 +133,79 @@ export default function Home() {
             Organiser un séjour scolaire aujourd&apos;hui, c&apos;est ça.
           </h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, alignItems: 'center' }} className="max-md:!grid-cols-1">
             {/* Colonne Aujourd'hui */}
-            <div style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '0.5px solid var(--color-border)',
-              borderRadius: 'var(--radius-lg)', padding: 28,
-            }}>
-              <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text)', marginBottom: 20 }}>
-                Aujourd&apos;hui
-              </h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center',
+                backgroundColor: 'var(--color-danger-light)',
+                color: 'var(--color-danger)',
+                fontSize: 12, fontWeight: 500,
+                padding: '4px 12px', borderRadius: 'var(--radius-pill)',
+                marginBottom: 16,
+              }}>
+                Sans LIAVO
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
                   'Des semaines d\'emails pour obtenir des devis comparables',
                   'Des autorisations parentales perdues, relancées manuellement',
                   'Des dossiers rectorat en PDF remplis à la main',
                   'Une responsabilité administrative portée seul',
                 ].map((t, i) => (
-                  <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
-                    — {t}
-                  </li>
+                  <div key={i} style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderLeft: '3px solid var(--color-danger)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px 20px',
+                    fontSize: 14, lineHeight: 1.6,
+                    color: 'var(--color-text-muted)',
+                  }}>
+                    {t}
+                  </div>
                 ))}
-              </ul>
+              </div>
+            </div>
+
+            {/* Flèche centrale — desktop uniquement */}
+            <div className="hidden md:flex" style={{
+              fontSize: 32, color: 'var(--color-accent)',
+              alignSelf: 'center', padding: '0 8px',
+            }}>
+              →
             </div>
 
             {/* Colonne Avec LIAVO */}
-            <div style={{
-              backgroundColor: 'var(--color-primary-light)',
-              border: '0.5px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-lg)', padding: 28,
-            }}>
-              <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+            <div>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center',
+                backgroundColor: 'var(--color-success-light)',
+                color: 'var(--color-success)',
+                fontSize: 12, fontWeight: 500,
+                padding: '4px 12px', borderRadius: 'var(--radius-pill)',
+                marginBottom: 16,
+              }}>
                 Avec LIAVO
-              </h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
                   'Devis reçus en 48h de tous les centres de votre région',
                   'Signatures électroniques avec relances automatiques',
                   'Dossier généré automatiquement, envoyé directement',
                   'Chaque validation horodatée, archivée, traçable',
                 ].map((t, i) => (
-                  <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-primary)' }}>
-                    <span style={{ color: 'var(--color-accent)', marginRight: 8, fontWeight: 500 }}>—</span>{t}
-                  </li>
+                  <div key={i} style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderLeft: '3px solid var(--color-accent)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px 20px',
+                    fontSize: 14, lineHeight: 1.6,
+                    color: 'var(--color-text)',
+                  }}>
+                    {t}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </div>
