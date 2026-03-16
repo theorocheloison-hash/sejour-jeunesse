@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import { Logo } from '@/app/components/Logo';
 
 /* ─── Fade-in au scroll ───────────────────────────────────────────────────── */
 
@@ -25,9 +26,7 @@ function FadeIn({ children, className = '' }: { children: React.ReactNode; class
   return <div ref={ref} className={`opacity-0 translate-y-6 transition-all duration-700 ease-out ${className}`}>{children}</div>;
 }
 
-/* ─── Couleurs ────────────────────────────────────────────────────────────── */
-// Bleu marine : #1e3a5f  →  bg-[#1e3a5f] text-[#1e3a5f]
-// Vert éducation : #2d8a4e  →  bg-[#2d8a4e] text-[#2d8a4e]
+/* ─── Couleurs — tokens LIAVO (voir globals.css) ─────────────────────────── */
 
 export default function Home() {
   return (
@@ -40,27 +39,22 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e3a5f] shadow-sm">
-              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold text-[#1e3a5f] tracking-tight">Séjour Jeunesse</span>
+            <Logo size="md" variant="light" showTagline={false} />
           </Link>
 
           {/* Nav desktop */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <a href="#etablissements" className="hover:text-[#1e3a5f] transition-colors">Pour les établissements</a>
-            <a href="#hebergeurs" className="hover:text-[#1e3a5f] transition-colors">Pour les hébergeurs</a>
-            <a href="#workflow" className="hover:text-[#1e3a5f] transition-colors">Comment ça marche</a>
+            <a href="#etablissements" className="hover:text-[var(--color-primary)] transition-colors">Pour les établissements</a>
+            <a href="#hebergeurs" className="hover:text-[var(--color-primary)] transition-colors">Pour les hébergeurs</a>
+            <a href="#workflow" className="hover:text-[var(--color-primary)] transition-colors">Comment ça marche</a>
           </nav>
 
           {/* Boutons */}
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:inline-flex items-center rounded-lg border border-[#1e3a5f] px-4 py-2 text-sm font-semibold text-[#1e3a5f] hover:bg-[#1e3a5f]/5 transition-colors">
+            <Link href="/login" className="hidden sm:inline-flex items-center rounded-lg border border-[var(--color-border-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors">
               Se connecter
             </Link>
-            <Link href="/register" className="inline-flex items-center rounded-lg bg-[#2d8a4e] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#246f3f] transition-colors">
+            <Link href="/register" className="inline-flex items-center rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors">
               Essai gratuit
             </Link>
           </div>
@@ -73,23 +67,23 @@ export default function Home() {
       <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
         {/* Background */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-[#1e3a5f]/[0.04] via-white to-white" />
-          <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full bg-gradient-to-bl from-[#2d8a4e]/[0.06] to-transparent blur-3xl" />
-          <div className="absolute top-20 left-0 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[#1e3a5f]/[0.06] to-transparent blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary)]/[0.04] via-white to-white" />
+          <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full bg-gradient-to-bl from-[var(--color-accent)]/[0.06] to-transparent blur-3xl" />
+          <div className="absolute top-20 left-0 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[var(--color-primary)]/[0.06] to-transparent blur-3xl" />
         </div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Badge */}
           <FadeIn>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#2d8a4e]/10 border border-[#2d8a4e]/20 px-4 py-1.5 mb-8">
-              <svg className="h-4 w-4 text-[#2d8a4e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              <span className="text-sm font-semibold text-[#2d8a4e]">Agréé Éducation Nationale</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-4 py-1.5 mb-8">
+              <svg className="h-4 w-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+              <span className="text-sm font-semibold text-[var(--color-accent)]">Agréé Éducation Nationale</span>
             </div>
           </FadeIn>
 
           {/* Titre */}
           <FadeIn>
-            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[#1e3a5f] leading-[1.1]">
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[var(--color-primary)] leading-[1.1]">
               La plateforme qui digitalise l&apos;organisation des séjours scolaires
             </h1>
           </FadeIn>
@@ -104,11 +98,11 @@ export default function Home() {
           {/* CTAs */}
           <FadeIn>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register?type=teacher" className="inline-flex items-center gap-2 rounded-xl bg-[#2d8a4e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#2d8a4e]/25 hover:bg-[#246f3f] transition-all hover:shadow-[#2d8a4e]/40">
+              <Link href="/register?type=teacher" className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[var(--color-accent)]/25 hover:opacity-90 transition-all hover:shadow-[var(--color-accent)]/40">
                 Je suis un établissement scolaire
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Link>
-              <Link href="/register?type=venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-[#1e3a5f] px-8 py-3.5 text-base font-semibold text-[#1e3a5f] hover:bg-[#1e3a5f]/5 transition-colors">
+              <Link href="/register?type=venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-[var(--color-border-strong)] px-8 py-3.5 text-base font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors">
                 Je suis un hébergeur
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Link>
@@ -119,15 +113,15 @@ export default function Home() {
           <FadeIn>
             <div className="mt-12 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-400">
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2d8a4e]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
                 649 centres d&apos;hébergement agréés EN
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2d8a4e]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
                 Conforme RGPD
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2d8a4e]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
                 Intégration Chorus Pro
               </span>
             </div>
@@ -141,7 +135,7 @@ export default function Home() {
       <section className="py-20 sm:py-28 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
               Organiser un séjour scolaire aujourd&apos;hui, c&apos;est...
             </h2>
           </FadeIn>
@@ -167,8 +161,8 @@ export default function Home() {
           {/* Flèche */}
           <FadeIn className="text-center mb-12">
             <div className="inline-flex flex-col items-center gap-2">
-              <svg className="h-8 w-8 text-[#2d8a4e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-              <span className="text-lg font-bold text-[#2d8a4e]">Avec Séjour Jeunesse :</span>
+              <svg className="h-8 w-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+              <span className="text-lg font-bold text-[var(--color-accent)]">Avec Liavo :</span>
             </div>
           </FadeIn>
 
@@ -180,9 +174,9 @@ export default function Home() {
               'Dossier rectorat généré automatiquement, Chorus Pro intégré',
             ].map((text, i) => (
               <FadeIn key={i}>
-                <div className="bg-white rounded-2xl border border-[#2d8a4e]/20 p-6 shadow-sm h-full">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2d8a4e]/10 mb-4">
-                    <svg className="h-5 w-5 text-[#2d8a4e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                <div className="bg-white rounded-2xl border border-[var(--color-accent)]/20 p-6 shadow-sm h-full">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 mb-4">
+                    <svg className="h-5 w-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-sm font-medium text-gray-700 leading-relaxed">{text}</p>
                 </div>
@@ -198,7 +192,7 @@ export default function Home() {
       <section className="py-20 sm:py-28" id="etablissements">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
               Une plateforme, deux univers
             </h2>
           </FadeIn>
@@ -206,7 +200,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="hebergeurs">
             {/* Colonne Établissement */}
             <FadeIn>
-              <div className="bg-[#1e3a5f] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
+              <div className="bg-[var(--color-primary)] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
                 <div className="text-3xl mb-4">🏫</div>
                 <h3 className="text-xl font-bold mb-1">Vous êtes un établissement scolaire ?</h3>
                 <p className="text-white/60 text-sm mb-6">Enseignant, directeur ou gestionnaire</p>
@@ -220,12 +214,12 @@ export default function Home() {
                     'Générez automatiquement les ordres de mission accompagnateurs',
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm text-white/90">
-                      <svg className="h-5 w-5 text-[#2d8a4e] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      <svg className="h-5 w-5 text-[var(--color-accent)] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <Link href="/register" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#1e3a5f] hover:bg-white/90 transition-colors">
+                <Link href="/register" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[var(--color-primary)] hover:bg-white/90 transition-colors">
                   Créer un compte établissement — Gratuit
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                 </Link>
@@ -234,7 +228,7 @@ export default function Home() {
 
             {/* Colonne Hébergeur */}
             <FadeIn>
-              <div className="bg-[#2d8a4e] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
+              <div className="bg-[var(--color-accent)] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
                 <div className="text-3xl mb-4">🏡</div>
                 <h3 className="text-xl font-bold mb-1">Vous êtes un centre d&apos;hébergement ?</h3>
                 <p className="text-white/60 text-sm mb-6">Chalet, centre de vacances, auberge de jeunesse...</p>
@@ -253,7 +247,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/register/venue" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#2d8a4e] hover:bg-white/90 transition-colors">
+                <Link href="/register/venue" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-white/90 transition-colors">
                   Référencer mon centre — 1er mois gratuit
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
                 </Link>
@@ -269,7 +263,7 @@ export default function Home() {
       <section className="py-20 sm:py-28 bg-white" id="workflow">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <FadeIn className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
               De l&apos;idée au séjour en 6 étapes
             </h2>
           </FadeIn>
@@ -285,7 +279,7 @@ export default function Home() {
             ].map((step, i) => (
               <FadeIn key={i}>
                 <div className="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow h-full">
-                  <div className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full bg-[#1e3a5f]/5 text-xs font-bold text-[#1e3a5f]">
+                  <div className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)]/5 text-xs font-bold text-[var(--color-primary)]">
                     {step.num}
                   </div>
                   <div className="text-2xl mb-3">{step.icon}</div>
@@ -304,7 +298,7 @@ export default function Home() {
       <section className="py-20 sm:py-28 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1e3a5f] tracking-tight">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
               Conçu pour et avec l&apos;Éducation Nationale
             </h2>
           </FadeIn>
@@ -319,7 +313,7 @@ export default function Home() {
               <FadeIn key={i}>
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm text-center h-full">
                   <div className="text-3xl mb-4">{card.icon}</div>
-                  <h3 className="text-sm font-bold text-[#1e3a5f] uppercase tracking-wider mb-2">{card.title}</h3>
+                  <h3 className="text-sm font-bold text-[var(--color-primary)] uppercase tracking-wider mb-2">{card.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{card.desc}</p>
                 </div>
               </FadeIn>
@@ -331,7 +325,7 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════════════════════
           SECTION 7 — CTA FINAL
       ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28 bg-[#1e3a5f]">
+      <section className="py-20 sm:py-28 bg-[var(--color-primary)]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <FadeIn>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
@@ -341,7 +335,7 @@ export default function Home() {
               Rejoignez les établissements et hébergeurs qui ont déjà digitalisé leur organisation.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-[#1e3a5f] shadow-lg hover:bg-white/90 transition-colors">
+              <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-[var(--color-primary)] shadow-lg hover:bg-white/90 transition-colors">
                 Créer un compte établissement
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
               </Link>
@@ -357,18 +351,11 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════════════════════
           FOOTER
       ══════════════════════════════════════════════════════════════════════ */}
-      <footer className="bg-[#162d4a] py-12">
+      <footer className="bg-[var(--color-primary)] py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
             {/* Logo */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <span className="font-semibold text-white">Séjour Jeunesse</span>
-            </div>
+            <Logo size="md" variant="dark" showTagline={true} />
             {/* Liens */}
             <div className="flex items-center gap-6 text-sm text-white/50">
               <a href="#" className="hover:text-white transition-colors">CGU</a>
@@ -378,7 +365,7 @@ export default function Home() {
           </div>
           <div className="border-t border-white/10 pt-6 text-center">
             <p className="text-xs text-white/30">
-              © 2026 Séjour Jeunesse — Plateforme agréée Éducation Nationale
+              © 2026 Liavo — Plateforme agréée Éducation Nationale
             </p>
           </div>
         </div>
