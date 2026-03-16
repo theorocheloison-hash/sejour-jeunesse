@@ -197,7 +197,7 @@ export default function GestionAutorisationsPage() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -218,7 +218,7 @@ export default function GestionAutorisationsPage() {
             </div>
             <Link
               href="/dashboard/teacher"
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+              className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium transition-colors"
             >
               &larr; Retour au tableau de bord
             </Link>
@@ -257,9 +257,9 @@ export default function GestionAutorisationsPage() {
                 <p className="text-lg font-bold text-purple-800">{nbInscrits} élève{nbInscrits > 1 ? 's' : ''}</p>
               </div>
               {prixEstime && (
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
-                  <p className="text-xs text-emerald-600 font-medium">Prix/élève estimé</p>
-                  <p className="text-lg font-bold text-emerald-800">{prixEstime} €</p>
+                <div className="rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3">
+                  <p className="text-xs text-[var(--color-success)] font-medium">Prix/élève estimé</p>
+                  <p className="text-lg font-bold text-[var(--color-success)]">{prixEstime} €</p>
                 </div>
               )}
             </div>
@@ -271,8 +271,8 @@ export default function GestionAutorisationsPage() {
             {/* Bandeau état paiement */}
             {prixSaved && !editingPrix ? (
               <>
-                <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 mb-4">
-                  <p className="text-sm text-green-800 font-semibold">
+                <div className="rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3 mb-4">
+                  <p className="text-sm text-[var(--color-success)] font-semibold">
                     Paiement activé — {Number(prixParEleve).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €/élève — les parents peuvent régler en 1 à 10 fois sans frais
                   </p>
                 </div>
@@ -311,7 +311,7 @@ export default function GestionAutorisationsPage() {
                         setNbElevesDefinitif(e.target.value);
                         setPrixManuel(false);
                       }}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -328,7 +328,7 @@ export default function GestionAutorisationsPage() {
                         setPrixParEleve(e.target.value);
                         setPrixManuel(true);
                       }}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -340,7 +340,7 @@ export default function GestionAutorisationsPage() {
                       type="date"
                       value={dateLimite}
                       onChange={(e) => setDateLimite(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function GestionAutorisationsPage() {
                   type="button"
                   onClick={handleSavePrix}
                   disabled={savingPrix || !prixParEleve || parseFloat(prixParEleve) <= 0}
-                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-success)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
                 >
                   {savingPrix ? (
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -369,7 +369,7 @@ export default function GestionAutorisationsPage() {
         {sejour?.statut === 'CONVENTION' && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
             <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <svg className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-5 w-5 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
               </svg>
               Accompagnateurs — Ordres de mission
@@ -388,7 +388,7 @@ export default function GestionAutorisationsPage() {
                 value={accPrenom}
                 onChange={(e) => setAccPrenom(e.target.value)}
                 required
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
               />
               <input
                 type="text"
@@ -396,7 +396,7 @@ export default function GestionAutorisationsPage() {
                 value={accNom}
                 onChange={(e) => setAccNom(e.target.value)}
                 required
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
               />
               <input
                 type="email"
@@ -404,19 +404,19 @@ export default function GestionAutorisationsPage() {
                 value={accEmail}
                 onChange={(e) => setAccEmail(e.target.value)}
                 required
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
               />
               <input
                 type="tel"
                 placeholder="Téléphone (optionnel)"
                 value={accTelephone}
                 onChange={(e) => setAccTelephone(e.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={creatingAcc}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
               >
                 {creatingAcc ? 'Envoi…' : 'Ajouter'}
               </button>
@@ -441,7 +441,7 @@ export default function GestionAutorisationsPage() {
                             {a.prenom} {a.nom}
                           </span>
                           {isSigned ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2.5 py-0.5 text-xs font-medium">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2.5 py-0.5 text-xs font-medium">
                               Signé le{' '}
                               {new Date(a.signeeAt!).toLocaleDateString('fr-FR', {
                                 day: '2-digit',
@@ -460,14 +460,14 @@ export default function GestionAutorisationsPage() {
                       <button
                         type="button"
                         onClick={() => copyAccLink(a.tokenAcces, a.id)}
-                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
                       >
                         {copiedAccId === a.id ? (
                           <>
-                            <svg className="h-3.5 w-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg className="h-3.5 w-3.5 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span className="text-green-600">Copié !</span>
+                            <span className="text-[var(--color-success)]">Copié !</span>
                           </>
                         ) : (
                           <>
@@ -509,7 +509,7 @@ export default function GestionAutorisationsPage() {
               value={elevePrenom}
               onChange={(e) => setElevePrenom(e.target.value)}
               required
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
             />
             <input
               type="text"
@@ -517,7 +517,7 @@ export default function GestionAutorisationsPage() {
               value={eleveNom}
               onChange={(e) => setEleveNom(e.target.value)}
               required
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
             />
             <input
               type="email"
@@ -525,12 +525,12 @@ export default function GestionAutorisationsPage() {
               value={parentEmail}
               onChange={(e) => setParentEmail(e.target.value)}
               required
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
             />
             <button
               type="submit"
               disabled={creating}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
             >
               {creating ? 'Ajout…' : 'Ajouter'}
             </button>
@@ -560,7 +560,7 @@ export default function GestionAutorisationsPage() {
                         {a.elevePrenom} {a.eleveNom}
                       </span>
                       {isSigned ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2.5 py-0.5 text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2.5 py-0.5 text-xs font-medium">
                           Signé le{' '}
                           {new Date(a.signeeAt!).toLocaleDateString('fr-FR', {
                             day: '2-digit',
@@ -581,14 +581,14 @@ export default function GestionAutorisationsPage() {
                   <button
                     type="button"
                     onClick={() => copyLink(a.tokenAcces, a.id)}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
                   >
                     {copiedId === a.id ? (
                       <>
-                        <svg className="h-3.5 w-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="h-3.5 w-3.5 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-green-600">Copié !</span>
+                        <span className="text-[var(--color-success)]">Copié !</span>
                       </>
                     ) : (
                       <>

@@ -36,7 +36,7 @@ import {
 
 const THEMATIQUE_COLORS = [
   'bg-blue-100 text-blue-700',
-  'bg-emerald-100 text-emerald-700',
+  'bg-[var(--color-success-light)] text-[var(--color-success)]',
   'bg-purple-100 text-purple-700',
   'bg-amber-100 text-amber-700',
   'bg-rose-100 text-rose-700',
@@ -331,7 +331,7 @@ export default function SignerAutorisationPage() {
             </div>
             <div>
               {signed ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-3 py-1.5 text-xs font-semibold text-[var(--color-success)]">
                   <CheckCircle2 className="h-4 w-4" />
                   Autorisation signée
                 </span>
@@ -348,16 +348,16 @@ export default function SignerAutorisationPage() {
         {/* Formulaire / Confirmation */}
         {signed ? (
           <>
-            <section className="bg-green-50 rounded-2xl shadow-md border border-green-200 p-8 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
+            <section className="bg-[var(--color-success-light)] rounded-2xl shadow-md border border-[var(--color-success)]/20 p-8 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-light)] mb-4">
+                <CheckCircle2 className="h-8 w-8 text-[var(--color-success)]" />
               </div>
-              <h2 className="text-xl font-bold text-green-800">
+              <h2 className="text-xl font-bold text-[var(--color-success)]">
                 {autorisation.signeeAt
                   ? `Autorisation signée le ${fmt(autorisation.signeeAt)}`
                   : 'Autorisation signée avec succès !'}
               </h2>
-              <p className="mt-2 text-sm text-green-600">
+              <p className="mt-2 text-sm text-[var(--color-success)]">
                 Merci pour votre confiance. Votre enfant pourra participer au séjour.
               </p>
             </section>
@@ -414,8 +414,8 @@ export default function SignerAutorisationPage() {
                 </div>
 
                 {mensualite !== null && nombreMensualites > 1 && (
-                  <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mb-6">
-                    <p className="text-sm text-green-800">
+                  <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 mb-6">
+                    <p className="text-sm text-[var(--color-success)]">
                       {nombreMensualites} mensualités de{' '}
                       <span className="text-lg font-bold">
                         {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
@@ -463,10 +463,10 @@ export default function SignerAutorisationPage() {
               </p>
 
               {docUploaded ? (
-                <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 text-center">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-green-800">Document envoyé avec succès</p>
-                  <p className="text-xs text-green-600 mt-1">{docFile?.name}</p>
+                <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 text-center">
+                  <CheckCircle2 className="h-5 w-5 text-[var(--color-success)] mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-[var(--color-success)]">Document envoyé avec succès</p>
+                  <p className="text-xs text-[var(--color-success)] mt-1">{docFile?.name}</p>
                 </div>
               ) : (
                 <>
@@ -722,8 +722,8 @@ export default function SignerAutorisationPage() {
                 </div>
 
                 {mensualite !== null && nombreMensualites > 1 && (
-                  <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mb-6">
-                    <p className="text-sm text-green-800">
+                  <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 mb-6">
+                    <p className="text-sm text-[var(--color-success)]">
                       {nombreMensualites} mensualités de{' '}
                       <span className="text-lg font-bold">
                         {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
@@ -771,10 +771,10 @@ export default function SignerAutorisationPage() {
               </p>
 
               {docUploaded ? (
-                <div className="rounded-xl bg-green-50 border border-green-200 px-5 py-4 text-center">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-green-800">Document envoyé avec succès</p>
-                  <p className="text-xs text-green-600 mt-1">{docFile?.name}</p>
+                <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 text-center">
+                  <CheckCircle2 className="h-5 w-5 text-[var(--color-success)] mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-[var(--color-success)]">Document envoyé avec succès</p>
+                  <p className="text-xs text-[var(--color-success)] mt-1">{docFile?.name}</p>
                 </div>
               ) : (
                 <>
@@ -864,7 +864,7 @@ export default function SignerAutorisationPage() {
                 type="button"
                 onClick={handleSign}
                 disabled={signing || !formValid}
-                className="w-full rounded-xl bg-green-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-green-600/25 hover:bg-green-700 hover:shadow-green-700/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="w-full rounded-xl bg-[var(--color-success)] px-6 py-4 text-base font-bold text-white shadow-lg shadow-[var(--color-success)]/25 hover:opacity-90 hover:shadow-[var(--color-success)]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
               >
                 {signing ? (
                   <span className="inline-flex items-center gap-2">

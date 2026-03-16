@@ -13,9 +13,9 @@ import { Logo } from '@/app/components/Logo';
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',   cls: 'bg-gray-100 text-gray-600' },
   SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
-  APPROVED:   { label: 'Approuvé',    cls: 'bg-green-100 text-green-700' },
+  APPROVED:   { label: 'Approuvé',    cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REJECTED:   { label: 'Refusé',      cls: 'bg-red-100 text-red-700' },
-  CONVENTION: { label: 'Convention',   cls: 'bg-indigo-100 text-indigo-700' },
+  CONVENTION: { label: 'Convention',   cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {
@@ -113,7 +113,7 @@ function SejourCard({
           {(sejour.statut === 'APPROVED' || sejour.statut === 'CONVENTION') && (
             <Link
               href={`/dashboard/teacher/sejours/${sejour.id}/autorisations`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -127,7 +127,7 @@ function SejourCard({
             <>
               <Link
                 href={`/dashboard/sejour/${sejour.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
@@ -136,7 +136,7 @@ function SejourCard({
               </Link>
               <Link
                 href={`/dashboard/teacher/documents/${sejour.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -216,7 +216,7 @@ export default function TeacherDashboard() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -242,8 +242,8 @@ export default function TeacherDashboard() {
                 href="/dashboard/teacher/profil"
                 className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-                  <span className="text-xs font-semibold text-indigo-700">{initials}</span>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
+                  <span className="text-xs font-semibold text-[var(--color-primary)]">{initials}</span>
                 </div>
                 <div className="hidden sm:block leading-tight">
                   <p className="text-sm font-medium text-gray-900">
@@ -375,8 +375,8 @@ export default function TeacherDashboard() {
           </div>
         ) : (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50">
-              <svg className="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-primary-light)]">
+              <svg className="h-7 w-7 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
               </svg>
             </div>

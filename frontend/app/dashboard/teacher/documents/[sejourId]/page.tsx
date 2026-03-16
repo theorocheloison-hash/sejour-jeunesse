@@ -313,7 +313,7 @@ export default function DocumentsOfficielsPage() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -328,10 +328,10 @@ export default function DocumentsOfficielsPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/teacher" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">&larr; Mes séjours</Link>
+              <Link href="/dashboard/teacher" className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">&larr; Mes séjours</Link>
               {dossier && <span className="text-sm font-semibold text-gray-900 truncate max-w-xs">{dossier.titre}</span>}
             </div>
-            <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">Documents officiels</span>
+            <span className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">Documents officiels</span>
           </div>
         </div>
       </nav>
@@ -353,7 +353,7 @@ export default function DocumentsOfficielsPage() {
             <button
               onClick={() => dossier && generateDossierPedagogique(dossier)}
               disabled={!dossier}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -376,7 +376,7 @@ export default function DocumentsOfficielsPage() {
                 <p className="text-xs text-gray-500">Thématiques</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                <p className="text-2xl font-bold text-indigo-600 text-sm font-semibold">{dossier.hebergementSelectionne?.nom ?? '—'}</p>
+                <p className="text-2xl font-bold text-[var(--color-primary)] text-sm font-semibold">{dossier.hebergementSelectionne?.nom ?? '—'}</p>
                 <p className="text-xs text-gray-500">Centre</p>
               </div>
             </div>
@@ -395,7 +395,7 @@ export default function DocumentsOfficielsPage() {
             <button
               onClick={() => dossier && generateOrdreMission(dossier)}
               disabled={!dossier}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-success)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -419,7 +419,7 @@ export default function DocumentsOfficielsPage() {
               <p className="mt-1 text-sm text-gray-500">Vérifiez que tous les documents sont réunis avant soumission.</p>
             </div>
             <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${
-              allChecked ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+              allChecked ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' : 'bg-orange-100 text-orange-700'
             }`}>
               {checkedCount}/{checklist.length}
             </span>
@@ -427,7 +427,7 @@ export default function DocumentsOfficielsPage() {
 
           {/* Progress bar */}
           <div className="w-full bg-gray-200 rounded-full h-2 mb-5">
-            <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${(checkedCount / checklist.length) * 100}%` }} />
+            <div className="bg-[var(--color-primary)] h-2 rounded-full transition-all duration-300" style={{ width: `${(checkedCount / checklist.length) * 100}%` }} />
           </div>
 
           <div className="space-y-2">
@@ -437,7 +437,7 @@ export default function DocumentsOfficielsPage() {
                   type="checkbox"
                   checked={item.checked}
                   onChange={() => toggleCheck(item.id)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                 />
                 <span className={`text-sm ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                   {item.label}
@@ -450,20 +450,20 @@ export default function DocumentsOfficielsPage() {
         {/* ── Section 4 : Soumettre au rectorat ───────────────────────────── */}
         <div className={`rounded-2xl border-2 p-6 ${
           submitted
-            ? 'bg-green-50 border-green-200'
+            ? 'bg-[var(--color-success-light)] border-[var(--color-success)]/20'
             : allChecked
-              ? 'bg-indigo-50 border-indigo-200'
+              ? 'bg-[var(--color-primary-light)] border-[var(--color-border-strong)]'
               : 'bg-gray-50 border-gray-200'
         }`}>
           {submitted ? (
             <div className="text-center py-4">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-3">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-success-light)] mb-3">
+                <svg className="h-6 w-6 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-lg font-bold text-green-900">Dossier soumis au rectorat</h2>
-              <p className="mt-1 text-sm text-green-700">
+              <h2 className="text-lg font-bold text-[var(--color-success)]">Dossier soumis au rectorat</h2>
+              <p className="mt-1 text-sm text-[var(--color-success)]">
                 Votre dossier a été transmis. Vous recevrez une confirmation par email.
               </p>
             </div>
@@ -481,7 +481,7 @@ export default function DocumentsOfficielsPage() {
               <button
                 onClick={handleSubmitRectorat}
                 disabled={!allChecked || submitting}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 {submitting ? (
                   <>

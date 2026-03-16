@@ -20,9 +20,9 @@ import type { Devis, LigneDevis } from '@/src/lib/devis';
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',  cls: 'bg-gray-100 text-gray-600' },
   SUBMITTED:  { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
-  APPROVED:   { label: 'Approuvé',   cls: 'bg-green-100 text-green-700' },
+  APPROVED:   { label: 'Approuvé',   cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REJECTED:   { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
-  CONVENTION: { label: 'Convention',  cls: 'bg-indigo-100 text-indigo-700' },
+  CONVENTION: { label: 'Convention',  cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {
@@ -53,7 +53,7 @@ function ChorusModal({ xml, onClose }: { xml: string; onClose: () => void }) {
             <h2 className="text-base font-bold text-gray-900">Aperçu Chorus Pro — Format PEPPOL UBL 2.1</h2>
             <p className="text-xs text-gray-500 mt-0.5">En production, ce fichier sera transmis automatiquement à chorus-pro.gouv.fr</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Prêt pour Chorus Pro</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-success-light)] px-3 py-1 text-xs font-semibold text-[var(--color-success)]">Prêt pour Chorus Pro</span>
         </div>
         <div className="flex-1 overflow-auto px-6 py-4">
           <pre className="text-xs leading-relaxed text-gray-800 bg-gray-50 rounded-lg border border-gray-200 p-4 overflow-x-auto whitespace-pre-wrap break-all font-mono">{xml}</pre>
@@ -62,7 +62,7 @@ function ChorusModal({ xml, onClose }: { xml: string; onClose: () => void }) {
           <button onClick={handleCopy} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
             {copied ? 'Copié !' : 'Copier le XML'}
           </button>
-          <button onClick={onClose} className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors">Fermer</button>
+          <button onClick={onClose} className="inline-flex items-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-colors">Fermer</button>
         </div>
       </div>
     </div>
@@ -73,10 +73,10 @@ function ChorusModal({ xml, onClose }: { xml: string; onClose: () => void }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2 mt-5 first:mt-0 flex items-center gap-2">
-      <span className="h-px flex-1 bg-indigo-100" />
+    <h3 className="text-xs font-semibold text-[var(--color-primary)] uppercase tracking-wider mb-2 mt-5 first:mt-0 flex items-center gap-2">
+      <span className="h-px flex-1 bg-[var(--color-primary-light)]" />
       <span>{children}</span>
-      <span className="h-px flex-1 bg-indigo-100" />
+      <span className="h-px flex-1 bg-[var(--color-primary-light)]" />
     </h3>
   );
 }
@@ -159,7 +159,7 @@ function SejourDetailModal({
                     <p className="text-xs text-gray-500">{a.email}{a.telephone ? ` — ${a.telephone}` : ''}</p>
                   </div>
                   {a.signeeAt ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                       Signé
                     </span>
@@ -185,7 +185,7 @@ function SejourDetailModal({
                   </div>
                   <div className="flex items-center gap-2">
                     {a.signeeAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                         Signée
                       </span>
@@ -212,7 +212,7 @@ function SejourDetailModal({
                       <p className="text-xs text-gray-500">{dv.montantTotal} € total — {dv.montantParEleve} € / élève</p>
                     </div>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      dv.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
+                      dv.statut === 'SELECTIONNE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' :
                       dv.statut === 'NON_RETENU' ? 'bg-red-100 text-red-700' :
                       'bg-blue-100 text-blue-700'
                     }`}>
@@ -268,7 +268,7 @@ function SejourDetailModal({
                 type="button"
                 onClick={() => onApprove(detail.id)}
                 disabled={isActing}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-success)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 {isActing ? (
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -389,7 +389,7 @@ function DevisDetailModal({
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><span className="text-gray-500">Total HT</span><p className="font-medium">{devis.montantHT != null ? `${fmt(devis.montantHT)} €` : '—'}</p></div>
             <div><span className="text-gray-500">TVA</span><p className="font-medium">{devis.montantTVA != null ? `${fmt(devis.montantTVA)} €` : '—'}</p></div>
-            <div><span className="text-gray-500">Total TTC</span><p className="font-bold text-indigo-700 text-base">{devis.montantTTC != null ? `${fmt(devis.montantTTC)} €` : `${devis.montantTotal} €`}</p></div>
+            <div><span className="text-gray-500">Total TTC</span><p className="font-bold text-[var(--color-primary)] text-base">{devis.montantTTC != null ? `${fmt(devis.montantTTC)} €` : `${devis.montantTotal} €`}</p></div>
             <div><span className="text-gray-500">Par élève</span><p className="font-medium">{devis.montantParEleve} €</p></div>
             {devis.pourcentageAcompte != null && devis.montantAcompte != null && (
               <div className="col-span-2"><span className="text-gray-500">Acompte ({devis.pourcentageAcompte} %)</span><p className="font-medium">{fmt(devis.montantAcompte)} €</p></div>
@@ -427,7 +427,7 @@ function DevisDetailModal({
             type="button"
             onClick={() => onAction(devis.id, 'SELECTIONNE')}
             disabled={isActing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-success)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {isActing ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
             Valider ce devis
@@ -460,7 +460,7 @@ function SejourCard({
 
   return (
     <div
-      className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
+      className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-md transition-all"
       onClick={onClick}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -622,7 +622,7 @@ export default function DirectorDashboard() {
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -666,7 +666,7 @@ export default function DirectorDashboard() {
       {/* Loading overlay for detail fetch */}
       {sejourDetailLoading && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
-          <div className="h-8 w-8 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-[var(--color-primary)] border-t-transparent" />
         </div>
       )}
 
@@ -679,8 +679,8 @@ export default function DirectorDashboard() {
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-                  <span className="text-xs font-semibold text-indigo-700">{initials}</span>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
+                  <span className="text-xs font-semibold text-[var(--color-primary)]">{initials}</span>
                 </div>
                 <div className="hidden sm:block leading-tight">
                   <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
@@ -707,9 +707,9 @@ export default function DirectorDashboard() {
           {([
             ['ALL',       'Tous',         sejours.length,             'bg-gray-100 text-gray-700 ring-gray-300'],
             ['SUBMITTED', 'En attente',   countByStatut('SUBMITTED'), 'bg-orange-50 text-orange-700 ring-orange-300'],
-            ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-green-50 text-green-700 ring-green-300'],
+            ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-[var(--color-success-light)] text-[var(--color-success)] ring-[var(--color-success)]'],
             ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
-            ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-indigo-50 text-indigo-700 ring-indigo-300'],
+            ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
           ] as const).map(([val, label, count, cls]) => (
             <button
               key={val}
@@ -745,8 +745,8 @@ export default function DirectorDashboard() {
           </div>
         ) : (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50">
-              <svg className="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-[var(--color-primary-light)]">
+              <svg className="h-7 w-7 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
             </div>
@@ -842,7 +842,7 @@ export default function DirectorDashboard() {
                         type="button"
                         onClick={() => handleValiderAcompte(f.id)}
                         disabled={factureActingId === f.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-success)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                       >
                         {factureActingId === f.id ? (
                           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -852,7 +852,7 @@ export default function DirectorDashboard() {
                       <button
                         type="button"
                         onClick={() => handleChorusXml(f.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
                       >
                         Envoyer à Chorus Pro
                       </button>
@@ -869,7 +869,7 @@ export default function DirectorDashboard() {
           <div className="mt-10">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
               Acomptes validés
-              <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              <span className="ml-2 inline-flex items-center rounded-full bg-[var(--color-success-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-success)]">
                 {facturesPayees.length}
               </span>
             </h2>
@@ -882,7 +882,7 @@ export default function DirectorDashboard() {
                         <h3 className="text-sm font-semibold text-gray-900">
                           {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'Séjour'}
                         </h3>
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-success)]">
                           Acompte versé — {f.numeroFacture}
                         </span>
                       </div>
