@@ -171,7 +171,7 @@ export default function ProfilPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#003189] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#002570] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {saving ? (
                   <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Sauvegarde...</>

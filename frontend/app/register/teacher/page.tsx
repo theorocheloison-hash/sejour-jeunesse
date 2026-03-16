@@ -53,7 +53,7 @@ export default function RegisterTeacherPage() {
           </div>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#003189] hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -71,13 +71,13 @@ export default function RegisterTeacherPage() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/register" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-[#003189] mb-4">
+          <Link href="/register" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-[var(--color-primary)] mb-4">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
             Retour
           </Link>
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#003189] mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--color-primary)] mb-4">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
             </svg>
@@ -103,12 +103,12 @@ export default function RegisterTeacherPage() {
               <div>
                 <label htmlFor="prenom" className="block text-sm font-medium text-gray-700 mb-1.5">Prénom</label>
                 <input id="prenom" type="text" required disabled={isPending} value={form.prenom} onChange={set('prenom')}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
               </div>
               <div>
                 <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-1.5">Nom</label>
                 <input id="nom" type="text" required disabled={isPending} value={form.nom} onChange={set('nom')}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
               </div>
             </div>
 
@@ -116,7 +116,7 @@ export default function RegisterTeacherPage() {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email académique</label>
               <input id="email" type="email" required disabled={isPending} value={form.email} onChange={set('email')}
                 placeholder="prenom.nom@ac-paris.fr"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50" />
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
               <p className="mt-1 text-xs text-gray-400">Adresse en @ac-*.fr ou @education.gouv.fr</p>
             </div>
 
@@ -126,18 +126,18 @@ export default function RegisterTeacherPage() {
               </label>
               <input id="telephone" type="tel" disabled={isPending} value={form.telephone} onChange={set('telephone')}
                 placeholder="06 12 34 56 78"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50" />
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe</label>
               <input id="password" type="password" required disabled={isPending} value={form.password} onChange={set('password')}
                 placeholder="8 caractères minimum"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent disabled:opacity-50" />
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
             </div>
 
             <button type="submit" disabled={isPending}
-              className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-[#003189] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#002570] focus:outline-none focus:ring-2 focus:ring-[#003189] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed">
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed">
               {isPending ? (
                 <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Inscription en cours...</>
               ) : (
@@ -149,7 +149,7 @@ export default function RegisterTeacherPage() {
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Déjà un compte ?{' '}
-          <Link href="/login" className="font-semibold text-[#003189] hover:underline">Se connecter</Link>
+          <Link href="/login" className="font-semibold text-[var(--color-primary)] hover:underline">Se connecter</Link>
         </p>
       </div>
     </main>

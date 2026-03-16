@@ -85,7 +85,7 @@ export default function VerifyEmailPage() {
         {status !== 'loading' && (
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#003189] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#002570]"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90"
           >
             Se connecter
           </Link>

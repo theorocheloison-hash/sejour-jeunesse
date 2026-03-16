@@ -197,7 +197,7 @@ export default function VenueDevisPage() {
               {devisList.length === 0 ? 'Aucun devis envoyé pour le moment.' : 'Aucun devis ne correspond à votre recherche'}
             </p>
             {searchQuery.length >= 2 && (
-              <button onClick={() => { setSearchQuery(''); setFiltreStatut('ALL'); }} className="mt-3 text-sm text-[#003189] font-semibold hover:underline">
+              <button onClick={() => { setSearchQuery(''); setFiltreStatut('ALL'); }} className="mt-3 text-sm text-[var(--color-primary)] font-semibold hover:underline">
                 Réinitialiser la recherche
               </button>
             )}

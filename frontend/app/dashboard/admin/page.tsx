@@ -95,7 +95,7 @@ function StatsTab({ stats }: { stats: AdminStats | null }) {
                 <span className="text-xs text-gray-600 w-24 shrink-0">{ROLE_LABELS[r.role] ?? r.role}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                   <div
-                    className="bg-[#003189] h-full rounded-full transition-all"
+                    className="bg-[var(--color-primary)] h-full rounded-full transition-all"
                     style={{ width: `${(r.count / maxRole) * 100}%` }}
                   />
                 </div>
@@ -178,7 +178,7 @@ function HebergeursTab() {
           <button
             key={val}
             onClick={() => setSubTab(val)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${subTab === val ? 'bg-[#003189] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${subTab === val ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             {label}
           </button>
@@ -487,7 +487,7 @@ function CentresTab() {
 function LoadingSpinner() {
   return (
     <div className="flex justify-center py-12">
-      <span className="h-8 w-8 animate-spin rounded-full border-4 border-[#003189] border-t-transparent" />
+      <span className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-border-strong)] border-t-transparent" />
     </div>
   );
 }
@@ -531,7 +531,7 @@ export default function AdminDashboardPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-[#003189]">Liavo</span>
+              <span className="text-sm font-bold text-[var(--color-primary)]">Liavo</span>
               <span className="text-xs text-gray-400">Administration</span>
             </div>
             <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition">
@@ -553,7 +553,7 @@ export default function AdminDashboardPage() {
               onClick={() => setTab(t.value)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition ${
                 tab === t.value
-                  ? 'border-[#003189] text-[#003189]'
+                  ? 'border-[var(--color-border-strong)] text-[var(--color-primary)]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
