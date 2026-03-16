@@ -267,33 +267,91 @@ export default function TeacherDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
         {/* En-tête de page */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mes séjours</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Gérez et suivez vos séjours pédagogiques
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/dashboard/teacher/demandes"
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+        <div style={{ marginBottom: 8 }}>
+          <h1 className="text-2xl font-bold text-gray-900">Mes séjours</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Gérez et suivez vos séjours pédagogiques
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+          {/* Bouton 1 — Catalogue */}
+          <a href="/dashboard/teacher/hebergements"
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 4,
+              padding: '16px 24px', borderRadius: 'var(--radius-lg)',
+              border: '0.5px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              textDecoration: 'none', flex: 1, minWidth: 200,
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+            }}>
+            <span style={{
+              fontSize: 14, fontWeight: 500,
+              color: 'var(--color-primary)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Parcourir les 649 centres
+            </span>
+            <span style={{
+              fontSize: 12, color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Trouvez et contactez un hébergeur directement
+            </span>
+          </a>
+
+          {/* Bouton 2 — Appel d'offres */}
+          <a href="/dashboard/teacher/nouveau-sejour"
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 4,
+              padding: '16px 24px', borderRadius: 'var(--radius-lg)',
+              border: '0.5px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              textDecoration: 'none', flex: 1, minWidth: 200,
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+            }}>
+            <span style={{
+              fontSize: 14, fontWeight: 500,
+              color: 'var(--color-primary)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Lancer un appel d&apos;offres
+            </span>
+            <span style={{
+              fontSize: 12, color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Recevez des devis de tous les centres de la destination que vous choisissez
+            </span>
+          </a>
+
+          {/* Bouton 3 — Mes demandes */}
+          <a href="/dashboard/teacher/demandes"
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 4,
+              padding: '16px 24px', borderRadius: 'var(--radius-lg)',
+              border: '0.5px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              textDecoration: 'none', flex: 1, minWidth: 200,
+              boxShadow: 'var(--shadow-sm)',
+              cursor: 'pointer',
+            }}>
+            <span style={{
+              fontSize: 14, fontWeight: 500,
+              color: 'var(--color-primary)',
+              fontFamily: 'var(--font-sans)',
+            }}>
               Mes demandes de devis
-            </Link>
-            <Link
-              href="/dashboard/teacher/nouveau-sejour"
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Créer un nouveau séjour
-            </Link>
-          </div>
+            </span>
+            <span style={{
+              fontSize: 12, color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Suivez vos échanges avec les hébergeurs
+            </span>
+          </a>
         </div>
 
         {/* Erreur de chargement */}
@@ -326,15 +384,19 @@ export default function TeacherDashboard() {
             <p className="mt-1 text-sm text-gray-500">
               Commencez par créer votre premier séjour pédagogique.
             </p>
-            <Link
+            <a
               href="/dashboard/teacher/nouveau-sejour"
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                marginTop: 24, fontSize: 14, fontWeight: 500,
+                padding: '10px 20px', borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-primary)',
+                color: '#FFFFFF', textDecoration: 'none',
+              }}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Créer un nouveau séjour
-            </Link>
+              Lancer un appel d&apos;offres
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </a>
           </div>
         )}
       </main>
