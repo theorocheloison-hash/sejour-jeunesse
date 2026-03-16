@@ -1,373 +1,474 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
 import { Logo } from '@/app/components/Logo';
-
-/* ─── Fade-in au scroll ───────────────────────────────────────────────────── */
-
-function useFadeIn() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { el.classList.add('opacity-100', 'translate-y-0'); el.classList.remove('opacity-0', 'translate-y-6'); } },
-      { threshold: 0.15 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return ref;
-}
-
-function FadeIn({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useFadeIn();
-  return <div ref={ref} className={`opacity-0 translate-y-6 transition-all duration-700 ease-out ${className}`}>{children}</div>;
-}
-
-/* ─── Couleurs — tokens LIAVO (voir globals.css) ─────────────────────────── */
+import { ActeursSchema } from '@/app/components/ActeursSchema';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-gray-900 antialiased">
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 1 — HEADER FIXE
-      ══════════════════════════════════════════════════════════════════════ */}
-      <header className="fixed inset-x-0 top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <Logo size="md" variant="light" showTagline={false} />
+      {/* ── NAV FIXE ────────────────────────────────────────────────────────── */}
+      <header style={{
+        position: 'fixed', inset: '0 0 auto 0', zIndex: 50,
+        backgroundColor: 'var(--color-surface)',
+        borderBottom: '0.5px solid var(--color-border)',
+        backdropFilter: 'blur(12px)',
+      }}>
+        <div style={{
+          maxWidth: 1200, margin: '0 auto',
+          padding: '0 24px', display: 'flex',
+          height: 56, alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            <Logo size="sm" variant="light" showTagline={false} />
           </Link>
 
-          {/* Nav desktop */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <a href="#etablissements" className="hover:text-[var(--color-primary)] transition-colors">Pour les établissements</a>
-            <a href="#hebergeurs" className="hover:text-[var(--color-primary)] transition-colors">Pour les hébergeurs</a>
-            <a href="#workflow" className="hover:text-[var(--color-primary)] transition-colors">Comment ça marche</a>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 32 }} className="hidden md:flex">
+            <a href="#acteurs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Pour les établissements
+            </a>
+            <a href="#acteurs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Pour les hébergeurs
+            </a>
+            <a href="#workflow" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Comment ça marche
+            </a>
           </nav>
 
-          {/* Boutons */}
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:inline-flex items-center rounded-lg border border-[var(--color-border-strong)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link href="/login" className="hidden sm:inline-flex" style={{
+              fontSize: 13, fontWeight: 500, padding: '8px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '0.5px solid var(--color-border)',
+              color: 'var(--color-primary)', textDecoration: 'none',
+              backgroundColor: 'transparent',
+            }}>
               Se connecter
             </Link>
-            <Link href="/register" className="inline-flex items-center rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors">
-              Essai gratuit
+            <Link href="/register" style={{
+              fontSize: 13, fontWeight: 500, padding: '8px 16px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-primary)',
+              color: '#FFFFFF', textDecoration: 'none',
+            }}>
+              Créer un compte
             </Link>
           </div>
         </div>
       </header>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 2 — HERO
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-        {/* Background */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary)]/[0.04] via-white to-white" />
-          <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full bg-gradient-to-bl from-[var(--color-accent)]/[0.06] to-transparent blur-3xl" />
-          <div className="absolute top-20 left-0 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[var(--color-primary)]/[0.06] to-transparent blur-3xl" />
+      {/* ── SECTION 1 — HERO ────────────────────────────────────────────────── */}
+      <section style={{ paddingTop: 140, paddingBottom: 0 }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
+          <h1 style={{
+            fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 500,
+            lineHeight: 1.15, letterSpacing: '-0.01em',
+            color: 'var(--color-primary)',
+          }}>
+            Du projet pédagogique à la facturation finale.
+            <br />
+            <span style={{ color: 'var(--color-text-muted)' }}>
+              Chaque étape coordonnée. Chaque validation tracée.
+            </span>
+          </h1>
+
+          <p style={{
+            marginTop: 24, fontSize: 15, lineHeight: 1.7,
+            color: 'var(--color-text-muted)', maxWidth: 600,
+            marginLeft: 'auto', marginRight: 'auto',
+          }}>
+            LIAVO digitalise l&apos;intégralité de la démarche administrative d&apos;un séjour scolaire — appel d&apos;offres hébergeurs, validations directeur et rectorat, autorisations parentales, paiements échelonnés, Chorus Pro. Cinq acteurs. Un seul workflow.
+          </p>
+
+          <div style={{
+            marginTop: 32, display: 'flex', flexWrap: 'wrap',
+            justifyContent: 'center', gap: 12,
+          }}>
+            <Link href="/register?type=teacher" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 500, padding: '12px 24px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-primary)',
+              color: '#FFFFFF', textDecoration: 'none',
+            }}>
+              Je suis un établissement scolaire
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+            <Link href="/register?type=venue" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 500, padding: '12px 24px',
+              borderRadius: 'var(--radius-md)',
+              border: '0.5px solid var(--color-border-strong)',
+              color: 'var(--color-primary)', textDecoration: 'none',
+              backgroundColor: 'transparent',
+            }}>
+              Je suis un hébergeur
+            </Link>
+          </div>
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Badge */}
-          <FadeIn>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-4 py-1.5 mb-8">
-              <svg className="h-4 w-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              <span className="text-sm font-semibold text-[var(--color-accent)]">Agréé Éducation Nationale</span>
-            </div>
-          </FadeIn>
-
-          {/* Titre */}
-          <FadeIn>
-            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight text-[var(--color-primary)] leading-[1.1]">
-              La plateforme qui digitalise l&apos;organisation des séjours scolaires
-            </h1>
-          </FadeIn>
-
-          {/* Sous-titre */}
-          <FadeIn>
-            <p className="mt-6 text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
-              De la demande de devis à la signature parentale, en passant par la validation rectorat — tout en un seul endroit, 100% dématérialisé.
-            </p>
-          </FadeIn>
-
-          {/* CTAs */}
-          <FadeIn>
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register?type=teacher" className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[var(--color-accent)]/25 hover:opacity-90 transition-all hover:shadow-[var(--color-accent)]/40">
-                Je suis un établissement scolaire
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Link>
-              <Link href="/register?type=venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-[var(--color-border-strong)] px-8 py-3.5 text-base font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors">
-                Je suis un hébergeur
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Link>
-            </div>
-          </FadeIn>
-
-          {/* Social proof */}
-          <FadeIn>
-            <div className="mt-12 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-400">
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-                649 centres d&apos;hébergement agréés EN
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-                Conforme RGPD
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-                Intégration Chorus Pro
-              </span>
-            </div>
-          </FadeIn>
+        {/* Bandeau preuves */}
+        <div style={{
+          marginTop: 64,
+          backgroundColor: 'var(--color-surface)',
+          borderTop: '0.5px solid var(--color-border)',
+          borderBottom: '0.5px solid var(--color-border)',
+          padding: '16px 24px',
+          textAlign: 'center',
+          fontSize: 13, color: 'var(--color-text-muted)',
+        }}>
+          649 centres référencés depuis la base officielle de l&apos;Éducation Nationale · Conforme RGPD, hébergé en France · Chorus Pro intégré
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 3 — PROBLÈME / SOLUTION
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
-              Organiser un séjour scolaire aujourd&apos;hui, c&apos;est...
-            </h2>
-          </FadeIn>
+      {/* ── SECTION 2 — LA DOULEUR ──────────────────────────────────────────── */}
+      <section id="probleme" style={{ padding: '80px 24px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', textAlign: 'center',
+            marginBottom: 48,
+          }}>
+            Organiser un séjour scolaire aujourd&apos;hui, c&apos;est ça.
+          </h2>
 
-          {/* Douleurs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {[
-              'Des semaines de mails avec les hébergeurs pour obtenir des devis',
-              'Des autorisations parentales perdues, oubliées, relancées manuellement',
-              'Des dossiers rectorat en PDF à remplir à la main',
-            ].map((text, i) => (
-              <FadeIn key={i}>
-                <div className="bg-white rounded-2xl border border-red-100 p-6 shadow-sm h-full">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 mb-4">
-                    <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-700 leading-relaxed">{text}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-
-          {/* Flèche */}
-          <FadeIn className="text-center mb-12">
-            <div className="inline-flex flex-col items-center gap-2">
-              <svg className="h-8 w-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
-              <span className="text-lg font-bold text-[var(--color-accent)]">Avec Liavo :</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+            {/* Colonne Aujourd'hui */}
+            <div style={{
+              backgroundColor: 'var(--color-bg)',
+              border: '0.5px solid var(--color-border)',
+              borderRadius: 'var(--radius-lg)', padding: 28,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text)', marginBottom: 20 }}>
+                Aujourd&apos;hui
+              </h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  'Des semaines d\'emails pour obtenir des devis comparables',
+                  'Des autorisations parentales perdues, relancées manuellement',
+                  'Des dossiers rectorat en PDF remplis à la main',
+                  'Une responsabilité administrative portée seul',
+                ].map((t, i) => (
+                  <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                    — {t}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </FadeIn>
 
-          {/* Solutions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              'Devis reçus en 48h de tous les centres agréés de votre région',
-              'Autorisations signées électroniquement, relances automatiques',
-              'Dossier rectorat généré automatiquement, Chorus Pro intégré',
-            ].map((text, i) => (
-              <FadeIn key={i}>
-                <div className="bg-white rounded-2xl border border-[var(--color-accent)]/20 p-6 shadow-sm h-full">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent)]/10 mb-4">
-                    <svg className="h-5 w-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-700 leading-relaxed">{text}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 4 — POUR QUI ? (2 colonnes)
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28" id="etablissements">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
-              Une plateforme, deux univers
-            </h2>
-          </FadeIn>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="hebergeurs">
-            {/* Colonne Établissement */}
-            <FadeIn>
-              <div className="bg-[var(--color-primary)] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
-                <div className="text-3xl mb-4">🏫</div>
-                <h3 className="text-xl font-bold mb-1">Vous êtes un établissement scolaire ?</h3>
-                <p className="text-white/60 text-sm mb-6">Enseignant, directeur ou gestionnaire</p>
-                <ul className="space-y-3 flex-1">
-                  {[
-                    'Trouvez le centre agréé idéal parmi 649 référencés',
-                    'Recevez et comparez les devis en un clic',
-                    'Faites valider le séjour par votre directeur et le rectorat',
-                    'Envoyez les autorisations parentales numériques',
-                    'Suivez les inscriptions et paiements en temps réel',
-                    'Générez automatiquement les ordres de mission accompagnateurs',
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-white/90">
-                      <svg className="h-5 w-5 text-[var(--color-accent)] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/register" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[var(--color-primary)] hover:bg-white/90 transition-colors">
-                  Créer un compte établissement — Gratuit
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-                </Link>
-              </div>
-            </FadeIn>
-
-            {/* Colonne Hébergeur */}
-            <FadeIn>
-              <div className="bg-[var(--color-accent)] rounded-3xl p-8 sm:p-10 text-white h-full flex flex-col">
-                <div className="text-3xl mb-4">🏡</div>
-                <h3 className="text-xl font-bold mb-1">Vous êtes un centre d&apos;hébergement ?</h3>
-                <p className="text-white/60 text-sm mb-6">Chalet, centre de vacances, auberge de jeunesse...</p>
-                <ul className="space-y-3 flex-1">
-                  {[
-                    'Recevez des demandes de séjours qualifiées directement',
-                    'Créez vos devis professionnels HT/TTC en quelques minutes',
-                    'Gérez vos disponibilités et votre calendrier',
-                    'Émettez vos factures et acomptes automatiquement',
-                    'Intégration Chorus Pro pour facturer les établissements publics',
-                    'Espace collaboratif avec l\'enseignant organisateur',
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-white/90">
-                      <svg className="h-5 w-5 text-white shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/register/venue" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-white/90 transition-colors">
-                  Référencer mon centre — 1er mois gratuit
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-                </Link>
-              </div>
-            </FadeIn>
+            {/* Colonne Avec LIAVO */}
+            <div style={{
+              backgroundColor: 'var(--color-primary-light)',
+              border: '0.5px solid var(--color-border-strong)',
+              borderRadius: 'var(--radius-lg)', padding: 28,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+                Avec LIAVO
+              </h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  'Devis reçus en 48h de tous les centres de votre région',
+                  'Signatures électroniques avec relances automatiques',
+                  'Dossier généré automatiquement, envoyé directement',
+                  'Chaque validation horodatée, archivée, traçable',
+                ].map((t, i) => (
+                  <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-primary)' }}>
+                    — {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 5 — WORKFLOW (6 étapes)
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28 bg-white" id="workflow">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
-              De l&apos;idée au séjour en 6 étapes
-            </h2>
-          </FadeIn>
+      {/* ── SECTION 3 — 5 ACTEURS ───────────────────────────────────────────── */}
+      <section id="acteurs" style={{
+        padding: '80px 24px',
+        backgroundColor: 'var(--color-surface)',
+        borderTop: '0.5px solid var(--color-border)',
+        borderBottom: '0.5px solid var(--color-border)',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', textAlign: 'center',
+            marginBottom: 16,
+          }}>
+            La première plateforme qui connecte tous les acteurs d&apos;un séjour scolaire.
+          </h2>
+          <p style={{
+            fontSize: 15, lineHeight: 1.7,
+            color: 'var(--color-text-muted)', textAlign: 'center',
+            maxWidth: 560, margin: '0 auto 48px',
+          }}>
+            Pas un outil de plus dans votre boîte mail. Une infrastructure partagée où chaque acteur intervient au bon moment, dans le bon ordre.
+          </p>
+          <ActeursSchema />
+        </div>
+      </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* ── SECTION 4 — DEUX UNIVERS ────────────────────────────────────────── */}
+      <section style={{ padding: '80px 24px' }}>
+        <div style={{
+          maxWidth: 960, margin: '0 auto',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 32,
+        }}>
+          {/* Bloc établissements */}
+          <div style={{
+            backgroundColor: 'var(--color-surface)',
+            border: '0.5px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)', padding: 32,
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+              Pour les enseignants et les directeurs
+            </h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+              {[
+                'Lancez un appel d\'offres en 10 minutes auprès de 649 centres référencés',
+                'Recevez et comparez les devis directement dans la plateforme',
+                'Workflow de validation directeur et rectorat intégré',
+                'Autorisations parentales numériques avec relances automatiques',
+                'Paiement échelonné jusqu\'à 10 fois sans frais pour les familles',
+                'Ordres de mission accompagnateurs générés automatiquement',
+              ].map((t, i) => (
+                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                  — {t}
+                </li>
+              ))}
+            </ul>
+            <Link href="/register?type=teacher" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 24, fontSize: 14, fontWeight: 500,
+              padding: '10px 20px', borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-primary)',
+              color: '#FFFFFF', textDecoration: 'none',
+              alignSelf: 'flex-start',
+            }}>
+              Créer un compte établissement
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+          </div>
+
+          {/* Bloc hébergeurs */}
+          <div style={{
+            backgroundColor: 'var(--color-surface)',
+            border: '0.5px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)', padding: 32,
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+              Pour les centres d&apos;hébergement
+            </h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+              {[
+                'Recevez des demandes qualifiées directement depuis les établissements',
+                'Créez vos devis HT/TTC en quelques minutes',
+                'Gérez votre calendrier et vos disponibilités',
+                'Facturation Chorus Pro intégrée pour les établissements publics',
+                'Espace collaboratif avec l\'enseignant organisateur',
+              ].map((t, i) => (
+                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                  — {t}
+                </li>
+              ))}
+            </ul>
+            <Link href="/register?type=venue" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 24, fontSize: 14, fontWeight: 500,
+              padding: '10px 20px', borderRadius: 'var(--radius-md)',
+              border: '0.5px solid var(--color-border-strong)',
+              color: 'var(--color-primary)', textDecoration: 'none',
+              backgroundColor: 'transparent', alignSelf: 'flex-start',
+            }}>
+              Référencer mon centre
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 5 — WORKFLOW ─────────────────────────────────────────────── */}
+      <section id="workflow" style={{
+        padding: '80px 24px',
+        backgroundColor: 'var(--color-surface)',
+        borderTop: '0.5px solid var(--color-border)',
+        borderBottom: '0.5px solid var(--color-border)',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', textAlign: 'center',
+            marginBottom: 12,
+          }}>
+            De l&apos;idée au séjour en 6 étapes.
+          </h2>
+          <p style={{
+            fontSize: 15, lineHeight: 1.7,
+            color: 'var(--color-text-muted)', textAlign: 'center',
+            maxWidth: 480, margin: '0 auto 48px',
+          }}>
+            Chaque étape débloque la suivante. Aucune validation ne peut être sautée.
+          </p>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 24,
+          }}>
             {[
-              { num: '1', icon: '📝', title: 'Création du projet', desc: 'L\'enseignant définit la destination, les dates et les objectifs pédagogiques du séjour.' },
-              { num: '2', icon: '🏡', title: 'Réception des devis', desc: 'Les centres agréés de la région reçoivent la demande et envoient leurs devis sous 48h.' },
-              { num: '3', icon: '✅', title: 'Validation directeur', desc: 'Le directeur d\'établissement compare les offres, sélectionne le devis et approuve le séjour.' },
-              { num: '4', icon: '🏛️', title: 'Dossier rectorat', desc: 'Le dossier complet est envoyé automatiquement au rectorat pour validation réglementaire.' },
-              { num: '5', icon: '👨‍👩‍👧', title: 'Signatures & paiements', desc: 'Les parents signent l\'autorisation en ligne et règlent en 1 à 10 fois sans frais.' },
-              { num: '6', icon: '🎒', title: 'Le séjour a lieu', desc: 'L\'espace collaboratif relie tous les acteurs : enseignant, hébergeur, accompagnateurs.' },
+              { num: '1', title: 'Création du projet', desc: 'L\'enseignant définit la destination, les dates et les objectifs pédagogiques. Le dossier s\'ouvre automatiquement.' },
+              { num: '2', title: 'Appel d\'offres hébergeurs', desc: 'Les 649 centres référencés de la région reçoivent la demande. Les devis arrivent directement dans la plateforme sous 48h.' },
+              { num: '3', title: 'Validation directeur', desc: 'Le directeur compare les offres, sélectionne le centre et approuve le séjour. Tout est horodaté.' },
+              { num: '4', title: 'Dossier rectorat', desc: 'Le dossier réglementaire complet est généré automatiquement et transmis au rectorat pour validation.' },
+              { num: '5', title: 'Autorisations et paiements', desc: 'Les parents reçoivent l\'autorisation à signer en ligne. Le paiement s\'échelonne jusqu\'à 10 fois sans frais.' },
+              { num: '6', title: 'Le séjour a lieu', desc: 'L\'espace collaboratif relie enseignant, hébergeur et accompagnateurs jusqu\'au retour.' },
             ].map((step, i) => (
-              <FadeIn key={i}>
-                <div className="relative bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow h-full">
-                  <div className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-primary)]/5 text-xs font-bold text-[var(--color-primary)]">
-                    {step.num}
+              <div key={i} style={{
+                display: 'flex', gap: 16, alignItems: 'flex-start',
+              }}>
+                <div style={{
+                  width: 48, height: 48, minWidth: 48,
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-primary-light)',
+                  color: 'var(--color-primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 20, fontWeight: 500,
+                }}>
+                  {step.num}
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-text)', marginBottom: 4 }}>
+                    {step.title}
                   </div>
-                  <div className="text-2xl mb-3">{step.icon}</div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">{step.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
+                  <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                    {step.desc}
+                  </div>
                 </div>
-              </FadeIn>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 6 — RÉASSURANCE
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[var(--color-primary)] tracking-tight">
-              Conçu pour et avec l&apos;Éducation Nationale
-            </h2>
-          </FadeIn>
+      {/* ── SECTION 6 — ARGUMENTS INSTITUTIONNELS ────────────────────────────── */}
+      <section style={{ padding: '80px 24px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', textAlign: 'center',
+            marginBottom: 48,
+          }}>
+            Conçu pour les exigences de l&apos;Éducation Nationale.
+          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 24,
+          }}>
             {[
-              { icon: '🔒', title: '100% RGPD', desc: 'Données hébergées en France, conformes CNIL et réglementations européennes.' },
-              { icon: '🏛️', title: 'Chorus Pro', desc: 'Facturation électronique intégrée vers les établissements publics.' },
-              { icon: '🎓', title: 'Agréments vérifiés', desc: 'Tous les centres sont vérifiés et agréés par l\'Éducation Nationale.' },
-              { icon: '📱', title: 'Zéro installation', desc: 'Accessible depuis n\'importe quel navigateur, ordinateur ou mobile.' },
+              { title: 'Données sécurisées', desc: 'Hébergement sur sol français. Conformité RGPD complète. Chaque donnée d\'élève est protégée selon les exigences de l\'Éducation Nationale.' },
+              { title: 'Chorus Pro intégré', desc: 'Facturation électronique vers les établissements publics, sans démarche supplémentaire pour l\'hébergeur.' },
+              { title: 'Traçabilité complète', desc: 'Chaque validation, chaque document, chaque autorisation est horodaté et archivé. En cas de contrôle, l\'historique complet est disponible en un clic.' },
             ].map((card, i) => (
-              <FadeIn key={i}>
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm text-center h-full">
-                  <div className="text-3xl mb-4">{card.icon}</div>
-                  <h3 className="text-sm font-bold text-[var(--color-primary)] uppercase tracking-wider mb-2">{card.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{card.desc}</p>
-                </div>
-              </FadeIn>
+              <div key={i} style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '0.5px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 28,
+              }}>
+                <div style={{
+                  width: 32, height: 2,
+                  backgroundColor: 'var(--color-accent)',
+                  marginBottom: 16, borderRadius: 1,
+                }} />
+                <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 8 }}>
+                  {card.title}
+                </h3>
+                <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)', margin: 0 }}>
+                  {card.desc}
+                </p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 7 — CTA FINAL
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 sm:py-28 bg-[var(--color-primary)]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <FadeIn>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Prêt à simplifier vos prochains séjours ?
-            </h2>
-            <p className="text-lg text-white/60 mb-10 max-w-xl mx-auto">
-              Rejoignez les établissements et hébergeurs qui ont déjà digitalisé leur organisation.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-[var(--color-primary)] shadow-lg hover:bg-white/90 transition-colors">
-                Créer un compte établissement
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Link>
-              <Link href="/register/venue" className="inline-flex items-center gap-2 rounded-xl border-2 border-white px-8 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors">
-                Référencer mon centre
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Link>
-            </div>
-          </FadeIn>
+      {/* ── SECTION 7 — CTA FINAL ───────────────────────────────────────────── */}
+      <section style={{
+        padding: '80px 24px',
+        backgroundColor: 'var(--color-primary-light)',
+      }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', marginBottom: 16,
+          }}>
+            Prêt à coordonner votre prochain séjour ?
+          </h2>
+          <p style={{
+            fontSize: 15, lineHeight: 1.7,
+            color: 'var(--color-text-muted)',
+            maxWidth: 520, margin: '0 auto 32px',
+          }}>
+            649 centres référencés depuis la base officielle de l&apos;Éducation Nationale. Rejoignez les établissements qui ont déjà rejoint LIAVO.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
+            <Link href="/register?type=teacher" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 500, padding: '12px 24px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-primary)',
+              color: '#FFFFFF', textDecoration: 'none',
+            }}>
+              Créer un compte établissement
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+            <Link href="/register?type=venue" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 500, padding: '12px 24px',
+              borderRadius: 'var(--radius-md)',
+              border: '0.5px solid var(--color-border-strong)',
+              color: 'var(--color-primary)', textDecoration: 'none',
+              backgroundColor: 'transparent',
+            }}>
+              Référencer mon centre
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════════════════════════════════ */}
-      <footer className="bg-[var(--color-primary)] py-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
-            {/* Logo */}
-            <Logo size="md" variant="dark" showTagline={true} />
-            {/* Liens */}
-            <div className="flex items-center gap-6 text-sm text-white/50">
-              <a href="#" className="hover:text-white transition-colors">CGU</a>
-              <a href="#" className="hover:text-white transition-colors">Politique de confidentialité</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
-            </div>
+      {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
+      <footer style={{
+        backgroundColor: 'var(--color-bg)',
+        borderTop: '0.5px solid var(--color-border)',
+        padding: '40px 24px',
+      }}>
+        <div style={{
+          maxWidth: 960, margin: '0 auto',
+          display: 'flex', flexWrap: 'wrap',
+          alignItems: 'center', justifyContent: 'space-between',
+          gap: 24,
+        }}>
+          <Logo size="sm" variant="light" showTagline={true} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 13, color: 'var(--color-text-muted)' }}>
+            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>CGU</a>
+            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Politique de confidentialité</a>
+            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
           </div>
-          <div className="border-t border-white/10 pt-6 text-center">
-            <p className="text-xs text-white/30">
-              © 2026 Liavo — Plateforme agréée Éducation Nationale
-            </p>
-          </div>
+        </div>
+        <div style={{
+          maxWidth: 960, margin: '16px auto 0',
+          borderTop: '0.5px solid var(--color-border)',
+          paddingTop: 16, textAlign: 'center',
+          fontSize: 13, color: 'var(--color-text-muted)',
+        }}>
+          © 2026 LIAVO · liavo.fr
         </div>
       </footer>
     </div>
