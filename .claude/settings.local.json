@@ -34,7 +34,9 @@
       "Bash(PGPASSWORD=fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe psql -h shortline.proxy.rlwy.net -p 45326 -U postgres -d railway -c \"SELECT email, role, etablissement_uai, etablissement_nom FROM utilisateurs WHERE role IN \\('TEACHER', 'DIRECTOR'\\);\")",
       "Bash(node:*)",
       "Bash(npx next:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git commit:*)",
+      "Bash(railway login:*)"
     ]
   }
 }

@@ -33,7 +33,8 @@ export class StorageService {
         ContentType: file.mimetype,
       }));
     } catch (e) {
-      throw new InternalServerErrorException('Erreur upload fichier');
+      console.error('R2 upload error:', JSON.stringify(e, null, 2));
+      throw new InternalServerErrorException(`Erreur upload fichier: ${(e as any)?.message ?? 'unknown'}`);
     }
     return `${this.endpoint}/${this.bucket}/${key}`;
   }
