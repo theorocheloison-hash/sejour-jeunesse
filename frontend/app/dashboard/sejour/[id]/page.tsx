@@ -31,10 +31,12 @@ import {
   getAccompagnateursBySejour,
   type AccompagnateurMission,
 } from '@/src/lib/accompagnateur';
+import { getDossierPedagogique } from '@/src/lib/sejour';
+import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'messages' | 'planning' | 'participants' | 'documents' | 'budget';
+type Tab = 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'messages', label: 'Messages' },
@@ -42,6 +44,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'participants', label: 'Participants' },
   { key: 'documents', label: 'Documents' },
   { key: 'budget', label: 'Budget prévisionnel' },
+  { key: 'projet', label: 'Projet pédagogique' },
 ];
 
 const CATEGORIES_COMPL = ['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
@@ -115,6 +118,12 @@ export default function CollaborationPage() {
   const [recettes, setRecettes] = useState<{ id: string; source: string; montant: number }[]>([]);
   const [recetteForm, setRecetteForm] = useState({ source: 'Participation familles', montant: '' });
 
+  // Projet pédagogique
+  const [dossier, setDossier] = useState<DossierPedagogiqueData | null>(null);
+  const [dossierLoading, setDossierLoading] = useState(false);
+  const [objectifsPedago, setObjectifsPedago] = useState('');
+  const [lienProgrammes, setLienProgrammes] = useState('');
+
   // ── Auth guard ──
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE'))) {
@@ -168,13 +177,27 @@ export default function CollaborationPage() {
     finally { setBudgetLoading(false); }
   }, [id]);
 
+  const loadDossier = useCallback(async () => {
+    if (!id) return;
+    setDossierLoading(true);
+    try {
+      const data = await getDossierPedagogique(id);
+      setDossier(data);
+      if (!lienProgrammes && data.thematiquesPedagogiques?.length > 0) {
+        setLienProgrammes(data.thematiquesPedagogiques.join(', '));
+      }
+    } catch { /* ignore */ }
+    finally { setDossierLoading(false); }
+  }, [id]);
+
   useEffect(() => {
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
     if (tab === 'budget') loadBudget();
-  }, [tab, loadMessages, loadPlanning, loadDocs, loadDocsCentre, loadParticipants, loadBudget]);
+    if (tab === 'projet') loadDossier();
+  }, [tab, loadMessages, loadPlanning, loadDocs, loadDocsCentre, loadParticipants, loadBudget, loadDossier]);
 
   // ── Polling messages 10s ──
   useEffect(() => {
@@ -354,7 +377,7 @@ export default function CollaborationPage() {
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
-            {TABS.map((t) => (
+            {TABS.filter((t) => t.key !== 'projet' || user.role === 'TEACHER').map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
@@ -1024,6 +1047,282 @@ export default function CollaborationPage() {
                       </div>
                     </div>
                   </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+        {/* ── Projet pédagogique ─── */}
+        {tab === 'projet' && user.role === 'TEACHER' && (
+          <div className="space-y-6">
+            <style>{`@media print { [data-print-hide] { display: none !important; } [data-print-show] { display: block !important; } }`}</style>
+
+            {dossierLoading && (
+              <div className="flex justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              </div>
+            )}
+
+            {!dossierLoading && dossier && (() => {
+              const d = dossier;
+              const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+              const signedAuto = d.autorisations.filter((a) => a.signeeAt).length;
+              const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
+
+              const planByDay = d.planningActivites.reduce<Record<string, typeof d.planningActivites>>((acc, p) => {
+                const day = p.date.slice(0, 10);
+                (acc[day] ??= []).push(p);
+                return acc;
+              }, {});
+
+              return (
+                <>
+                  {/* Bouton impression */}
+                  <div className="flex justify-end" data-print-hide>
+                    <button
+                      onClick={() => window.print()}
+                      className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
+                    >
+                      Imprimer / Exporter PDF
+                    </button>
+                  </div>
+
+                  {/* En-tête impression */}
+                  <div className="hidden print:block text-center mb-8" data-print-show style={{ display: 'none' }}>
+                    <h1 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">Projet pédagogique</h1>
+                    <p className="text-lg text-gray-700 mt-1">{d.titre}</p>
+                    <p className="text-xs text-gray-400 mt-2">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
+                  </div>
+
+                  {/* Section 2 — Établissement */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Établissement scolaire</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Établissement</span>
+                        <p className="font-medium text-gray-900">{d.createur?.etablissementNom ?? '—'}</p>
+                        {d.createur?.etablissementUai && <p className="text-xs text-gray-400">UAI : {d.createur.etablissementUai}</p>}
+                        {d.createur?.etablissementAdresse && <p className="text-xs text-gray-500">{d.createur.etablissementAdresse}{d.createur.etablissementVille ? `, ${d.createur.etablissementVille}` : ''}</p>}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Enseignant responsable</span>
+                        <p className="font-medium text-gray-900">{d.createur?.prenom} {d.createur?.nom}</p>
+                        {d.createur?.email && <p className="text-xs text-gray-500">{d.createur.email}</p>}
+                        {d.createur?.telephone && <p className="text-xs text-gray-500">{d.createur.telephone}</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3 — Informations séjour */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Informations du séjour</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Dates</span>
+                        <p className="font-medium text-gray-900">Du {fmtDate(d.dateDebut)} au {fmtDate(d.dateFin)}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Destination</span>
+                        <p className="font-medium text-gray-900">{d.lieu}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Nombre d&apos;élèves</span>
+                        <p className="font-medium text-gray-900">{d.placesTotales}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Niveau de classe</span>
+                        <p className="font-medium text-gray-900">{d.niveauClasse ?? '—'}</p>
+                      </div>
+                      {d.hebergementSelectionne && (
+                        <div className="sm:col-span-2">
+                          <span className="text-gray-500">Hébergement</span>
+                          <p className="font-medium text-gray-900">{d.hebergementSelectionne.nom}</p>
+                          <p className="text-xs text-gray-500">{d.hebergementSelectionne.adresse}, {d.hebergementSelectionne.ville}{d.hebergementSelectionne.telephone ? ` — ${d.hebergementSelectionne.telephone}` : ''}</p>
+                        </div>
+                      )}
+                    </div>
+                    {d.description && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <span className="text-sm text-gray-500">Informations complémentaires</span>
+                        <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{d.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 4 — Objectifs pédagogiques */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Objectifs pédagogiques du séjour</h3>
+                    <textarea
+                      value={objectifsPedago}
+                      onChange={(e) => setObjectifsPedago(e.target.value)}
+                      rows={4}
+                      placeholder="Décrivez les objectifs pédagogiques de ce séjour..."
+                      className={inputCls}
+                      data-print-hide
+                    />
+                    {objectifsPedago && (
+                      <div className="hidden print:block text-sm text-gray-900 whitespace-pre-wrap" data-print-show style={{ display: 'none' }}>
+                        {objectifsPedago}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 5 — Lien avec les programmes */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Lien avec les programmes scolaires</h3>
+                    <textarea
+                      value={lienProgrammes}
+                      onChange={(e) => setLienProgrammes(e.target.value)}
+                      rows={3}
+                      placeholder="Expliquez le lien entre ce séjour et les programmes scolaires..."
+                      className={inputCls}
+                      data-print-hide
+                    />
+                    {lienProgrammes && (
+                      <div className="hidden print:block text-sm text-gray-900 whitespace-pre-wrap" data-print-show style={{ display: 'none' }}>
+                        {lienProgrammes}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 6 — Encadrement */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Encadrement ({d.accompagnateurs.length} accompagnateur{d.accompagnateurs.length > 1 ? 's' : ''})</h3>
+                    {d.accompagnateurs.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">Aucun accompagnateur enregistré.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Nom</th>
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Email</th>
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Transport</th>
+                              <th className="text-center py-2 px-3 font-semibold text-gray-700">Ordre de mission</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.accompagnateurs.map((a) => (
+                              <tr key={a.id} className="border-b border-gray-100">
+                                <td className="py-2 px-3 text-gray-900">{a.prenom} {a.nom}</td>
+                                <td className="py-2 px-3 text-gray-600">{a.email}</td>
+                                <td className="py-2 px-3 text-gray-600">{a.moyenTransport ?? '—'}</td>
+                                <td className="py-2 px-3 text-center">
+                                  {a.signeeAt ? (
+                                    <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium">Signé</span>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium">En attente</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 7 — Élèves participants */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">Élèves participants</h3>
+                    <p className="text-sm text-gray-500 mb-4">{signedAuto}/{d.autorisations.length} autorisations signées</p>
+                    {d.autorisations.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">Aucun élève enregistré.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Nom</th>
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Prénom</th>
+                              <th className="text-center py-2 px-3 font-semibold text-gray-700">Autorisation</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.autorisations.map((a, i) => (
+                              <tr key={i} className={`border-b border-gray-100 ${i >= 20 ? 'hidden print:table-row' : ''}`}>
+                                <td className="py-2 px-3 text-gray-900">{a.eleveNom}</td>
+                                <td className="py-2 px-3 text-gray-900">{a.elevePrenom}</td>
+                                <td className="py-2 px-3 text-center">
+                                  {a.signeeAt ? (
+                                    <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium">Signée</span>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-xs font-medium">En attente</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {d.autorisations.length > 20 && (
+                          <p className="mt-2 text-xs text-gray-400 text-center print:hidden" data-print-hide>
+                            {d.autorisations.length - 20} élève{d.autorisations.length - 20 > 1 ? 's' : ''} supplémentaire{d.autorisations.length - 20 > 1 ? 's' : ''} (visible{d.autorisations.length - 20 > 1 ? 's' : ''} à l&apos;impression)
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 8 — Programme prévisionnel */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Programme prévisionnel</h3>
+                    {d.planningActivites.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">Planning non encore renseigné.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.entries(planByDay).sort(([a], [b]) => a.localeCompare(b)).map(([day, items]) => (
+                          <div key={day}>
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                              {new Date(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </h4>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
+                                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Horaire</th>
+                                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Activité</th>
+                                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Responsable</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {items.map((p) => (
+                                    <tr key={p.id} className="border-b border-gray-100">
+                                      <td className="py-1.5 px-3 text-[var(--color-primary)] font-mono text-xs">{p.heureDebut} - {p.heureFin}</td>
+                                      <td className="py-1.5 px-3 text-gray-900">{p.titre}{p.description ? ` — ${p.description}` : ''}</td>
+                                      <td className="py-1.5 px-3 text-gray-600">{p.responsable ?? '—'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section 9 — Hébergement */}
+                  {d.hebergementSelectionne && (
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                      <h3 className="text-base font-semibold text-gray-900 mb-4">Centre d&apos;hébergement</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Nom</span>
+                          <p className="font-medium text-gray-900">{d.hebergementSelectionne.nom}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Adresse</span>
+                          <p className="font-medium text-gray-900">{d.hebergementSelectionne.adresse}, {d.hebergementSelectionne.ville}</p>
+                        </div>
+                        {d.hebergementSelectionne.telephone && (
+                          <div>
+                            <span className="text-gray-500">Téléphone</span>
+                            <p className="font-medium text-gray-900">{d.hebergementSelectionne.telephone}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               );
             })()}

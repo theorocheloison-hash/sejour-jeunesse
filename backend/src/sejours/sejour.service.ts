@@ -149,8 +149,25 @@ export class SejourService {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },
       include: {
-        createur: { select: { prenom: true, nom: true, email: true, telephone: true } },
+        createur: {
+          select: {
+            prenom: true, nom: true, email: true, telephone: true,
+            etablissementNom: true, etablissementAdresse: true,
+            etablissementVille: true, etablissementUai: true,
+            etablissementEmail: true, etablissementTelephone: true,
+          },
+        },
         hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true } },
+        accompagnateurs: {
+          select: {
+            id: true, prenom: true, nom: true, email: true,
+            telephone: true, signeeAt: true, moyenTransport: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        planningActivites: {
+          orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
+        },
         autorisations: {
           select: { eleveNom: true, elevePrenom: true, parentEmail: true, signeeAt: true },
           orderBy: { eleveNom: 'asc' },

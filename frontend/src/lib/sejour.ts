@@ -151,3 +151,65 @@ export async function updateSejour(
   const { data } = await api.patch<Sejour>(`/sejours/${id}`, dto);
   return data;
 }
+
+// ── Dossier pédagogique ──────────────────────────────────────────────────────
+
+export interface DossierPedagogiqueData {
+  id: string;
+  titre: string;
+  description: string | null;
+  lieu: string;
+  dateDebut: string;
+  dateFin: string;
+  placesTotales: number;
+  niveauClasse: string | null;
+  thematiquesPedagogiques: string[];
+  createur: {
+    prenom: string;
+    nom: string;
+    email: string;
+    telephone: string | null;
+    etablissementNom: string | null;
+    etablissementAdresse: string | null;
+    etablissementVille: string | null;
+    etablissementUai: string | null;
+    etablissementEmail: string | null;
+    etablissementTelephone: string | null;
+  } | null;
+  hebergementSelectionne: {
+    nom: string;
+    ville: string;
+    adresse: string;
+    telephone: string | null;
+  } | null;
+  accompagnateurs: {
+    id: string;
+    prenom: string;
+    nom: string;
+    email: string;
+    telephone: string | null;
+    signeeAt: string | null;
+    moyenTransport: string | null;
+  }[];
+  planningActivites: {
+    id: string;
+    date: string;
+    heureDebut: string;
+    heureFin: string;
+    titre: string;
+    description: string | null;
+    responsable: string | null;
+  }[];
+  autorisations: {
+    eleveNom: string;
+    elevePrenom: string;
+    parentEmail: string;
+    signeeAt: string | null;
+  }[];
+  _count: { inscriptions: number; autorisations: number };
+}
+
+export async function getDossierPedagogique(sejourId: string): Promise<DossierPedagogiqueData> {
+  const { data } = await api.get<DossierPedagogiqueData>(`/sejours/${sejourId}/dossier-pedagogique`);
+  return data;
+}
