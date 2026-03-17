@@ -176,6 +176,46 @@ export class CollaborationService {
     });
   }
 
+  // ── Budget prévisionnel ──────────────────────────────────────
+
+  async getBudgetData(sejourId: string, userId: string) {
+    await this.verifyAccess(sejourId, userId);
+
+    const demande = await this.prisma.demandeDevis.findFirst({
+      where: { sejourId },
+      include: {
+        devis: {
+          where: { statut: 'SELECTIONNE' },
+          include: { lignes: true, centre: { select: { nom: true, ville: true, adresse: true, siret: true } } },
+          take: 1,
+        },
+      },
+    });
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: {
+        titre: true,
+        dateDebut: true,
+        dateFin: true,
+        placesTotales: true,
+        createur: {
+          select: {
+            prenom: true,
+            nom: true,
+            etablissementNom: true,
+            etablissementVille: true,
+            etablissementUai: true,
+          },
+        },
+      },
+    });
+
+    const devis = demande?.devis?.[0] ?? null;
+
+    return { sejour, devis };
+  }
+
   // ── Vue hébergeur : mes séjours en convention ─────────────────
 
   async getMesSejoursConvention(userId: string) {

@@ -14,6 +14,7 @@ import {
   getDocuments,
   createDocument,
   getParticipants,
+  getBudgetData,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -22,6 +23,7 @@ import type {
   DocumentSejour,
   TypeDocumentSejour,
   Participant,
+  BudgetData,
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
@@ -30,14 +32,18 @@ import {
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'messages' | 'planning' | 'participants' | 'documents';
+type Tab = 'messages' | 'planning' | 'participants' | 'documents' | 'budget';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'messages', label: 'Messages' },
   { key: 'planning', label: 'Planning' },
   { key: 'participants', label: 'Participants' },
   { key: 'documents', label: 'Documents' },
+  { key: 'budget', label: 'Budget prévisionnel' },
 ];
+
+const CATEGORIES_COMPL = ['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
+const SOURCES_RECETTES = ['Participation familles', 'Subvention collectivité', 'FSE / MDL', 'Ressources établissement', 'Don association', 'Autre'];
 
 const TYPE_DOC_OPTIONS: { value: TypeDocumentSejour; label: string }[] = [
   { value: 'PROGRAMME', label: 'Programme' },
@@ -98,6 +104,14 @@ export default function CollaborationPage() {
   // Accompagnateurs
   const [accompagnateurs, setAccompagnateurs] = useState<AccompagnateurMission[]>([]);
 
+  // Budget
+  const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [lignesCompl, setLignesCompl] = useState<{ id: string; categorie: string; description: string; montant: number }[]>([]);
+  const [ligneComplForm, setLigneComplForm] = useState({ categorie: 'Transport', description: '', montant: '' });
+  const [recettes, setRecettes] = useState<{ id: string; source: string; montant: number }[]>([]);
+  const [recetteForm, setRecetteForm] = useState({ source: 'Participation familles', montant: '' });
+
   // ── Auth guard ──
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE'))) {
@@ -139,12 +153,20 @@ export default function CollaborationPage() {
     } catch { /* ignore */ }
   }, [id]);
 
+  const loadBudget = useCallback(async () => {
+    if (!id) return;
+    setBudgetLoading(true);
+    try { setBudgetData(await getBudgetData(id)); } catch { /* ignore */ }
+    finally { setBudgetLoading(false); }
+  }, [id]);
+
   useEffect(() => {
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
     if (tab === 'documents') loadDocs();
     if (tab === 'participants') loadParticipants();
-  }, [tab, loadMessages, loadPlanning, loadDocs, loadParticipants]);
+    if (tab === 'budget') loadBudget();
+  }, [tab, loadMessages, loadPlanning, loadDocs, loadParticipants, loadBudget]);
 
   // ── Polling messages 10s ──
   useEffect(() => {
@@ -294,7 +316,7 @@ export default function CollaborationPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <nav className="bg-white border-b border-gray-200">
+      <nav className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
@@ -321,7 +343,7 @@ export default function CollaborationPage() {
       </nav>
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
             {TABS.map((t) => (
@@ -720,6 +742,258 @@ export default function CollaborationPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {/* ── Budget prévisionnel ─── */}
+        {tab === 'budget' && (
+          <div className="space-y-6">
+            {budgetLoading && (
+              <div className="flex justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              </div>
+            )}
+
+            {!budgetLoading && budgetData && (() => {
+              const s = budgetData.sejour;
+              const d = budgetData.devis;
+              const isTeacher = user.role === 'TEACHER';
+
+              const totalHebergeur = d?.montantTTC ?? 0;
+              const totalCompl = lignesCompl.reduce((sum, l) => sum + l.montant, 0);
+              const totalDepenses = totalHebergeur + totalCompl;
+              const totalRecettes = recettes.reduce((sum, r) => sum + r.montant, 0);
+              const solde = totalRecettes - totalDepenses;
+
+              const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+              const handleAddLigneCompl = () => {
+                const montant = parseFloat(ligneComplForm.montant);
+                if (!ligneComplForm.description.trim() || isNaN(montant) || montant <= 0) return;
+                setLignesCompl((prev) => [...prev, { id: crypto.randomUUID(), categorie: ligneComplForm.categorie, description: ligneComplForm.description.trim(), montant }]);
+                setLigneComplForm((f) => ({ ...f, description: '', montant: '' }));
+              };
+
+              const handleAddRecette = () => {
+                const montant = parseFloat(recetteForm.montant);
+                if (isNaN(montant) || montant <= 0) return;
+                setRecettes((prev) => [...prev, { id: crypto.randomUUID(), source: recetteForm.source, montant }]);
+                setRecetteForm((f) => ({ ...f, montant: '' }));
+              };
+
+              const inputCls = 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
+
+              return (
+                <>
+                  {/* SECTION 1 — En-tête */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900">Budget prévisionnel — {s?.titre}</h2>
+                        {s?.createur && (
+                          <div className="mt-2 text-sm text-gray-600 space-y-0.5">
+                            {s.createur.etablissementNom && (
+                              <p>{s.createur.etablissementNom}{s.createur.etablissementUai ? ` (UAI : ${s.createur.etablissementUai})` : ''}</p>
+                            )}
+                            <p>Enseignant : {s.createur.prenom} {s.createur.nom}</p>
+                          </div>
+                        )}
+                        {s && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            Du {fmtDate(s.dateDebut)} au {fmtDate(s.dateFin)} — {s.placesTotales} élèves
+                          </p>
+                        )}
+                      </div>
+                      {isTeacher && (
+                        <button
+                          onClick={() => window.print()}
+                          className="print:hidden rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors"
+                        >
+                          Imprimer / Exporter PDF
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SECTION 2 — Prestations hébergeur */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">
+                      Prestations hébergeur{d?.centre ? ` — ${d.centre.nom}` : ''}
+                    </h3>
+                    {!d ? (
+                      <p className="text-sm text-gray-400 py-4 text-center">Aucun devis sélectionné pour ce séjour.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Description</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Qté</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Prix unit. HT</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">TVA</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Total TTC</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.lignes.map((l) => (
+                              <tr key={l.id} className="border-b border-gray-100">
+                                <td className="py-2 px-3 text-gray-900">{l.description}</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{l.quantite}</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{l.tva} %</td>
+                                <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(l.totalTTC)} &euro;</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-gray-300">
+                              <td colSpan={4} className="py-3 px-3 text-right font-semibold text-gray-900">Total prestations hébergeur</td>
+                              <td className="py-3 px-3 text-right font-bold text-gray-900">{fmt(totalHebergeur)} &euro;</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SECTION 3 — Dépenses complémentaires */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Dépenses complémentaires</h3>
+
+                    {lignesCompl.length > 0 && (
+                      <div className="overflow-x-auto mb-4">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Catégorie</th>
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Description</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Montant</th>
+                              {isTeacher && <th className="w-10" />}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {lignesCompl.map((l) => (
+                              <tr key={l.id} className="border-b border-gray-100">
+                                <td className="py-2 px-3 text-gray-600">{l.categorie}</td>
+                                <td className="py-2 px-3 text-gray-900">{l.description}</td>
+                                <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(l.montant)} &euro;</td>
+                                {isTeacher && (
+                                  <td className="py-2 px-1">
+                                    <button onClick={() => setLignesCompl((prev) => prev.filter((x) => x.id !== l.id))} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-gray-300">
+                              <td colSpan={2} className="py-3 px-3 text-right font-semibold text-gray-900">Total complémentaires</td>
+                              <td className="py-3 px-3 text-right font-bold text-gray-900">{fmt(totalCompl)} &euro;</td>
+                              {isTeacher && <td />}
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+
+                    {lignesCompl.length === 0 && (
+                      <p className="text-sm text-gray-400 text-center py-3 mb-4">Aucune dépense complémentaire.</p>
+                    )}
+
+                    {isTeacher && (
+                      <div className="print:hidden flex flex-col sm:flex-row gap-3">
+                        <select value={ligneComplForm.categorie} onChange={(e) => setLigneComplForm((f) => ({ ...f, categorie: e.target.value }))} className={inputCls}>
+                          {CATEGORIES_COMPL.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="text" value={ligneComplForm.description} onChange={(e) => setLigneComplForm((f) => ({ ...f, description: e.target.value }))}
+                          placeholder="Description" className={`flex-1 ${inputCls}`} />
+                        <input type="number" value={ligneComplForm.montant} onChange={(e) => setLigneComplForm((f) => ({ ...f, montant: e.target.value }))}
+                          placeholder="Montant" min={0} step={0.01} className={`w-32 ${inputCls}`} />
+                        <button onClick={handleAddLigneCompl}
+                          disabled={!ligneComplForm.description.trim() || !ligneComplForm.montant}
+                          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          Ajouter
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Total général dépenses</p>
+                        <p className="text-xl font-bold text-gray-900">{fmt(totalDepenses)} &euro;</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4 — Recettes */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Recettes</h3>
+
+                    {recettes.length > 0 && (
+                      <div className="overflow-x-auto mb-4">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Source</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Montant</th>
+                              {isTeacher && <th className="w-10" />}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recettes.map((r) => (
+                              <tr key={r.id} className="border-b border-gray-100">
+                                <td className="py-2 px-3 text-gray-900">{r.source}</td>
+                                <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(r.montant)} &euro;</td>
+                                {isTeacher && (
+                                  <td className="py-2 px-1">
+                                    <button onClick={() => setRecettes((prev) => prev.filter((x) => x.id !== r.id))} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-gray-300">
+                              <td className="py-3 px-3 text-right font-semibold text-gray-900">Total recettes</td>
+                              <td className="py-3 px-3 text-right font-bold text-gray-900">{fmt(totalRecettes)} &euro;</td>
+                              {isTeacher && <td />}
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+
+                    {recettes.length === 0 && (
+                      <p className="text-sm text-gray-400 text-center py-3 mb-4">Aucune recette saisie.</p>
+                    )}
+
+                    {isTeacher && (
+                      <div className="print:hidden flex flex-col sm:flex-row gap-3">
+                        <select value={recetteForm.source} onChange={(e) => setRecetteForm((f) => ({ ...f, source: e.target.value }))} className={inputCls}>
+                          {SOURCES_RECETTES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <input type="number" value={recetteForm.montant} onChange={(e) => setRecetteForm((f) => ({ ...f, montant: e.target.value }))}
+                          placeholder="Montant" min={0} step={0.01} className={`w-40 ${inputCls}`} />
+                        <button onClick={handleAddRecette}
+                          disabled={!recetteForm.montant}
+                          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          Ajouter
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Solde (Recettes - Dépenses)</p>
+                        <p className={`text-xl font-bold ${solde >= 0 ? 'text-[var(--color-success)]' : 'text-red-600'}`}>
+                          {solde >= 0 ? '+' : ''}{fmt(solde)} &euro;
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </main>

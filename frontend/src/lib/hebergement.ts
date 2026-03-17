@@ -25,10 +25,10 @@ export interface Hebergement {
 }
 
 export interface SearchHebergementParams {
+  nom?: string;
   ville?: string;
+  departement?: string;
   region?: string;
-  capaciteMin?: number;
-  capaciteMax?: number;
 }
 
 export interface SearchHebergementResponse {

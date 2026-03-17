@@ -1,8 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { SearchHebergementDto } from './dto/search-hebergement.dto.js';
 
 const API_BASE =
   'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ApiRecord {
   identifiant: string;
@@ -55,22 +58,49 @@ function mapRecord(r: ApiRecord) {
   };
 }
 
+function mapCentre(c: any) {
+  return {
+    id: c.id,
+    nom: c.nom,
+    ville: c.ville,
+    departement: c.departement ?? '',
+    region: '',
+    codePostal: c.codePostal,
+    latitude: null,
+    longitude: null,
+    capaciteEleves: c.capacite,
+    capaciteAdultes: null,
+    description: c.description,
+    image: null,
+    permalien: null,
+    contact: c.telephone ?? c.email ?? null,
+    thematiques: c.typeSejours ?? [],
+    activites: [],
+    accessible: false,
+    avisSecurite: c.agrementEducationNationale ?? null,
+    periodeOuverture: null,
+  };
+}
+
 @Injectable()
 export class HebergementService {
+  constructor(private prisma: PrismaService) {}
+
   async search(dto: SearchHebergementDto) {
+    // ── Requête API Éducation Nationale ──────────────────────────────────
     const clauses: string[] = [];
 
+    if (dto.nom) {
+      clauses.push(`search(nom_de_la_structure_d_accueil_et_d_hebergement_fr,"${dto.nom}")`);
+    }
     if (dto.ville) {
       clauses.push(`search(nom_du_lieu_d_accueil_ville,"${dto.ville}")`);
     }
+    if (dto.departement) {
+      clauses.push(`search(nom_du_lieu_d_accueil_departement,"${dto.departement}")`);
+    }
     if (dto.region) {
       clauses.push(`search(nom_du_lieu_d_accueil_region,"${dto.region}")`);
-    }
-    if (dto.capaciteMin != null) {
-      clauses.push(`nombre_de_lits_pour_les_eleves>=${dto.capaciteMin}`);
-    }
-    if (dto.capaciteMax != null) {
-      clauses.push(`nombre_de_lits_pour_les_eleves<=${dto.capaciteMax}`);
     }
 
     const params = new URLSearchParams({ limit: '50' });
@@ -78,16 +108,63 @@ export class HebergementService {
       params.set('where', clauses.join(' AND '));
     }
 
-    const res = await fetch(`${API_BASE}?${params}`);
-    const data: ApiResponse = await res.json();
+    const apiPromise = fetch(`${API_BASE}?${params}`).then((r) => r.json()) as Promise<ApiResponse>;
+
+    // ── Requête Prisma (centres Liavo ACTIVE) ───────────────────────────
+    const where: any = { statut: 'ACTIVE' };
+    const andClauses: any[] = [];
+
+    if (dto.nom) {
+      andClauses.push({
+        OR: [
+          { nom: { contains: dto.nom, mode: 'insensitive' } },
+          { ville: { contains: dto.nom, mode: 'insensitive' } },
+        ],
+      });
+    }
+    if (dto.ville) {
+      andClauses.push({
+        OR: [
+          { ville: { contains: dto.ville, mode: 'insensitive' } },
+          { nom: { contains: dto.ville, mode: 'insensitive' } },
+        ],
+      });
+    }
+    if (dto.departement) {
+      andClauses.push({ departement: { contains: dto.departement, mode: 'insensitive' } });
+    }
+    if (andClauses.length > 0) {
+      where.AND = andClauses;
+    }
+
+    const prismaPromise = this.prisma.centreHebergement.findMany({ where, take: 50 });
+    const prismaCountPromise = this.prisma.centreHebergement.count({ where });
+
+    // ── Exécution parallèle ─────────────────────────────────────────────
+    const [apiData, centres, centresCount] = await Promise.all([
+      apiPromise,
+      prismaPromise,
+      prismaCountPromise,
+    ]);
+
+    const liavoResults = centres.map(mapCentre);
+    const enResults = apiData.results.map(mapRecord);
 
     return {
-      total: data.total_count,
-      results: data.results.map(mapRecord),
+      total: centresCount + apiData.total_count,
+      results: [...liavoResults, ...enResults],
     };
   }
 
   async findById(id: string) {
+    if (UUID_RE.test(id)) {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { id, statut: 'ACTIVE' },
+      });
+      if (centre) return mapCentre(centre);
+      throw new NotFoundException('Hébergement introuvable');
+    }
+
     const params = new URLSearchParams({
       limit: '1',
       where: `identifiant="${id}"`,

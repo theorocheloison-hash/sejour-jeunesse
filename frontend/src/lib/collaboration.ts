@@ -141,3 +141,48 @@ export async function getMesSejoursConvention(): Promise<SejourConventionVenue[]
   const { data } = await api.get<SejourConventionVenue[]>('/collaboration/mes-sejours');
   return data;
 }
+
+// ── Budget prévisionnel ──────────────────────────────────────────────────────
+
+export interface LigneDevisBudget {
+  id: string;
+  description: string;
+  quantite: number;
+  prixUnitaire: number;
+  tva: number;
+  totalHT: number;
+  totalTTC: number;
+}
+
+export interface DevisBudget {
+  id: string;
+  montantTTC: number | null;
+  montantHT: number | null;
+  montantTVA: number | null;
+  tauxTva: number | null;
+  nomEntreprise: string | null;
+  centre: { nom: string; ville: string; adresse: string; siret: string | null } | null;
+  lignes: LigneDevisBudget[];
+}
+
+export interface BudgetData {
+  sejour: {
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    placesTotales: number;
+    createur?: {
+      prenom: string;
+      nom: string;
+      etablissementNom: string | null;
+      etablissementVille: string | null;
+      etablissementUai: string | null;
+    };
+  } | null;
+  devis: DevisBudget | null;
+}
+
+export async function getBudgetData(sejourId: string): Promise<BudgetData> {
+  const { data } = await api.get<BudgetData>(`/collaboration/${sejourId}/budget`);
+  return data;
+}

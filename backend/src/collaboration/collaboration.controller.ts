@@ -54,6 +54,16 @@ export class CollaborationController {
     return this.service.getParticipants(sejourId, user.id);
   }
 
+  // ── Budget ───────────────────────────────────────────────────
+
+  @Get(':sejourId/budget')
+  getBudgetData(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.getBudgetData(sejourId, user.id);
+  }
+
   // ── Messages ──────────────────────────────────────────────────
 
   @Get(':sejourId/messages')

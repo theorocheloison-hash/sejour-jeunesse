@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import { Logo } from '@/app/components/Logo';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { getInvitation, accepterInvitation } from '@/src/lib/invitation-collaboration';
 import type { InvitationCollaboration } from '@/src/lib/invitation-collaboration';
 
@@ -19,7 +19,7 @@ export default function RejoindreInvitationPage() {
   const [invitation, setInvitation] = useState<InvitationCollaboration | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isLoggedIn = !!Cookies.get('token');
+  const { user } = useAuth();
 
   const loadInvitation = useCallback(async () => {
     try {
@@ -51,10 +51,10 @@ export default function RejoindreInvitationPage() {
 
   // Auto-accept if logged in as teacher
   useEffect(() => {
-    if (status === 'ready' && isLoggedIn) {
+    if (status === 'ready' && user?.role === 'TEACHER') {
       handleAccept();
     }
-  }, [status, isLoggedIn, handleAccept]);
+  }, [status, user, handleAccept]);
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });

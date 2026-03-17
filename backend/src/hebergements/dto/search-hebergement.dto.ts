@@ -1,24 +1,19 @@
-import { IsOptional, IsString, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
 
 export class SearchHebergementDto {
+  @IsOptional()
+  @IsString()
+  nom?: string;
+
   @IsOptional()
   @IsString()
   ville?: string;
 
   @IsOptional()
   @IsString()
+  departement?: string;
+
+  @IsOptional()
+  @IsString()
   region?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  capaciteMin?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  capaciteMax?: number;
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import api from '@/src/lib/api';
 import { searchHebergements } from '@/src/lib/hebergement';
 import type { Hebergement, SearchHebergementParams } from '@/src/lib/hebergement';
 
@@ -129,6 +130,26 @@ async function fetchVilleSuggestions(query: string): Promise<Suggestion[]> {
   }
 }
 
+async function fetchNomSuggestions(query: string): Promise<Suggestion[]> {
+  try {
+    const { data } = await api.get<{ id: string; nom: string; ville: string }[]>('/centres/search-public', { params: { search: query } });
+    return data.map((c) => ({ label: c.nom, sub: c.ville }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchDepartementSuggestions(query: string): Promise<Suggestion[]> {
+  try {
+    const params = new URLSearchParams({ nom: query, limit: '8', fields: 'nom,code' });
+    const res = await fetch(`https://geo.api.gouv.fr/departements?${params}`);
+    const data: { nom: string; code: string }[] = await res.json();
+    return data.map((d) => ({ label: d.nom, sub: `Dép. ${d.code}` }));
+  } catch {
+    return [];
+  }
+}
+
 async function fetchRegionSuggestions(query: string): Promise<Suggestion[]> {
   const q = query.toLowerCase();
   return REGIONS
@@ -148,10 +169,10 @@ export default function HebergementsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Filtres
+  const [nom, setNom] = useState('');
   const [ville, setVille] = useState('');
+  const [departement, setDepartement] = useState('');
   const [region, setRegion] = useState('');
-  const [capaciteMin, setCapaciteMin] = useState('');
-  const [capaciteMax, setCapaciteMax] = useState('');
 
   const fetchHebergements = useCallback(async (params?: SearchHebergementParams) => {
     setLoading(true);
@@ -182,18 +203,18 @@ export default function HebergementsPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params: SearchHebergementParams = {};
+    if (nom.trim()) params.nom = nom.trim();
     if (ville.trim()) params.ville = ville.trim();
+    if (departement.trim()) params.departement = departement.trim();
     if (region.trim()) params.region = region.trim();
-    if (capaciteMin) params.capaciteMin = parseInt(capaciteMin, 10);
-    if (capaciteMax) params.capaciteMax = parseInt(capaciteMax, 10);
     fetchHebergements(params);
   };
 
   const handleReset = () => {
+    setNom('');
     setVille('');
+    setDepartement('');
     setRegion('');
-    setCapaciteMin('');
-    setCapaciteMax('');
     fetchHebergements();
   };
 
@@ -226,13 +247,23 @@ export default function HebergementsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Source */}
         <p className="text-xs text-gray-400 mb-4">
-          Source : catalogue officiel Éducation nationale — data.education.gouv.fr
+          Sources : catalogue officiel Éducation nationale — data.education.gouv.fr + centres partenaires Liavo
         </p>
 
         {/* Filtres */}
         <form onSubmit={handleSearch} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Rechercher un hébergement</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Nom</label>
+              <Autocomplete
+                value={nom}
+                onChange={setNom}
+                placeholder="Ex : Centre des Alpes"
+                fetchSuggestions={fetchNomSuggestions}
+                inputCls={inputCls}
+              />
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Ville</label>
               <Autocomplete
@@ -244,6 +275,16 @@ export default function HebergementsPage() {
               />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Département</label>
+              <Autocomplete
+                value={departement}
+                onChange={setDepartement}
+                placeholder="Ex : Haute-Savoie"
+                fetchSuggestions={fetchDepartementSuggestions}
+                inputCls={inputCls}
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Région</label>
               <Autocomplete
                 value={region}
@@ -251,28 +292,6 @@ export default function HebergementsPage() {
                 placeholder="Ex : Bretagne"
                 fetchSuggestions={fetchRegionSuggestions}
                 inputCls={inputCls}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Capacité min (lits élèves)</label>
-              <input
-                type="number"
-                value={capaciteMin}
-                onChange={(e) => setCapaciteMin(e.target.value)}
-                min={1}
-                placeholder="20"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Capacité max (lits élèves)</label>
-              <input
-                type="number"
-                value={capaciteMax}
-                onChange={(e) => setCapaciteMax(e.target.value)}
-                min={1}
-                placeholder="100"
-                className={inputCls}
               />
             </div>
           </div>
