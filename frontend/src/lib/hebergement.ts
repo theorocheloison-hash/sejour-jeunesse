@@ -47,3 +47,15 @@ export async function getHebergement(id: string): Promise<Hebergement> {
   const { data } = await api.get<Hebergement>(`/hebergements/${id}`);
   return data;
 }
+
+export async function creerSejourDepuisCatalogue(dto: {
+  centreId: string;
+  titre: string;
+  dateDebut: string;
+  dateFin: string;
+  nombreEleves: number;
+  message?: string;
+}): Promise<{ sejourId: string }> {
+  const { data } = await api.post<{ sejourId: string }>('/sejours/depuis-catalogue', dto);
+  return data;
+}

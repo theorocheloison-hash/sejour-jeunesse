@@ -32,6 +32,16 @@ export class SejourController {
     return this.sejourService.create(dto, user.id);
   }
 
+  /** POST /sejours/depuis-catalogue — Créer séjour depuis fiche hébergeur */
+  @Post('depuis-catalogue')
+  @Roles(Role.TEACHER)
+  creerDepuisCatalogue(
+    @Body() dto: { centreId: string; titre: string; dateDebut: string; dateFin: string; nombreEleves: number; message?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.creerDepuisCatalogue(dto, user.id);
+  }
+
   /** GET /sejours/me — Séjours de l'enseignant connecté */
   @Get('me')
   @Roles(Role.TEACHER)

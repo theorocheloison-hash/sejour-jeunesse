@@ -32,6 +32,76 @@ export class SejourService {
     });
   }
 
+  async creerDepuisCatalogue(dto: {
+    centreId: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    nombreEleves: number;
+    message?: string;
+  }, enseignantId: string) {
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: dto.centreId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.statut !== 'ACTIVE') throw new ForbiddenException('Ce centre n\'est pas disponible');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const sejour = await tx.sejour.create({
+        data: {
+          titre: dto.titre,
+          lieu: centre.ville,
+          dateDebut: new Date(dto.dateDebut),
+          dateFin: new Date(dto.dateFin),
+          placesTotales: dto.nombreEleves,
+          placesRestantes: dto.nombreEleves,
+          statut: 'CONVENTION',
+          createurId: enseignantId,
+          hebergementSelectionneId: centre.id,
+          regionSouhaitee: `VILLE:${centre.ville}`,
+        },
+      });
+
+      await tx.demandeDevis.create({
+        data: {
+          sejourId: sejour.id,
+          enseignantId,
+          titre: dto.titre,
+          dateDebut: new Date(dto.dateDebut),
+          dateFin: new Date(dto.dateFin),
+          nombreEleves: dto.nombreEleves,
+          villeHebergement: centre.ville,
+          statut: 'OUVERTE',
+        },
+      });
+
+      return { sejourId: sejour.id };
+    });
+
+    // Notifier l'hébergeur
+    const centreUser = await this.prisma.user.findFirst({
+      where: { centres: { some: { id: dto.centreId } } },
+      select: { email: true, prenom: true },
+    });
+    if (centreUser) {
+      const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
+      const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');
+      const lien = `https://precious-comfort-production-52c6.up.railway.app/dashboard/sejour/${result.sejourId}`;
+      await this.email.sendGenericNotification(
+        centreUser.email,
+        `Nouvelle demande de séjour — ${dto.titre}`,
+        `<p>Un enseignant souhaite organiser un séjour avec votre centre.</p>
+         <p><strong>Séjour :</strong> ${dto.titre}<br>
+         <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+         <strong>Nombre d'élèves :</strong> ${dto.nombreEleves}</p>
+         ${dto.message ? `<p style="padding:12px;background:#f5f4f1;border-radius:8px;font-style:italic">${dto.message}</p>` : ''}
+         <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à l'espace collaboratif</a></p>`,
+      );
+    }
+
+    return result;
+  }
+
   async getMesSejours(createurId: string) {
     return this.prisma.sejour.findMany({
       where:   { createurId },
