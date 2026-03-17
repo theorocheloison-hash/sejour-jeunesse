@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
@@ -18,6 +19,7 @@ export class CentreService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private storage: StorageService,
   ) {}
 
   async searchPublic(search: string) {
@@ -117,6 +119,51 @@ export class CentreService {
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: dto,
+    });
+  }
+
+  async uploadImage(userId: string, file: Express.Multer.File) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new ForbiddenException('Format non supporté. Utilisez JPG, PNG ou WebP.');
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new ForbiddenException('Fichier trop lourd. Maximum 5MB.');
+    }
+
+    if (centre.imageUrl) {
+      await this.storage.delete(centre.imageUrl);
+    }
+
+    const imageUrl = await this.storage.upload(file, 'centres');
+
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { imageUrl },
+    });
+  }
+
+  async uploadDocument(userId: string, file: Express.Multer.File, dto: CreateDocumentDto) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const url = await this.storage.upload(file, 'documents-centre');
+
+    return this.prisma.document.create({
+      data: {
+        centreId: centre.id,
+        type: dto.type,
+        nom: dto.nom,
+        url,
+        dateExpiration: dto.dateExpiration ? new Date(dto.dateExpiration) : null,
+      },
     });
   }
 

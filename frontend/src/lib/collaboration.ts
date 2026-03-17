@@ -142,6 +142,22 @@ export async function getMesSejoursConvention(): Promise<SejourConventionVenue[]
   return data;
 }
 
+// ── Documents centre (conformité) ────────────────────────────────────────────
+
+export interface DocumentCentreFiche {
+  id: string;
+  type: string;
+  nom: string;
+  url: string | null;
+  dateExpiration: string | null;
+  createdAt: string;
+}
+
+export async function getDocumentsCentre(sejourId: string): Promise<DocumentCentreFiche[]> {
+  const { data } = await api.get<DocumentCentreFiche[]>(`/collaboration/${sejourId}/documents-centre`);
+  return data;
+}
+
 // ── Budget prévisionnel ──────────────────────────────────────────────────────
 
 export interface LigneDevisBudget {

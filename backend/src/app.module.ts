@@ -19,11 +19,13 @@ import { UsersModule } from './users/users.module.js';
 import { AccompagnateurModule } from './accompagnateurs/accompagnateur.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { InvitationCollaborationModule } from './invitation-collaboration/invitation-collaboration.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    StorageModule,
     EmailModule,
     AuthModule,
     SejourModule,

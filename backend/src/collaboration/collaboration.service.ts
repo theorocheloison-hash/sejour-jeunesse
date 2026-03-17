@@ -1,15 +1,16 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 
 @Injectable()
 export class CollaborationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storage: StorageService,
+  ) {}
 
   /** Vérifie que le séjour est en CONVENTION et que l'utilisateur y a accès */
   async verifyAccess(sejourId: string, userId: string) {
@@ -130,12 +131,7 @@ export class CollaborationService {
 
     let url = dto.url ?? '';
     if (file) {
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'documents');
-      fs.mkdirSync(uploadsDir, { recursive: true });
-      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${randomUUID()}-${safeName}`;
-      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-      url = `/uploads/documents/${filename}`;
+      url = await this.storage.upload(file, 'documents');
     }
 
     return this.prisma.documentSejour.create({
@@ -149,6 +145,17 @@ export class CollaborationService {
       include: {
         uploader: { select: { id: true, prenom: true, nom: true } },
       },
+    });
+  }
+
+  async getDocumentsCentre(sejourId: string, userId: string) {
+    const sejour = await this.verifyAccess(sejourId, userId);
+
+    if (!sejour.hebergementSelectionneId) return [];
+
+    return this.prisma.document.findMany({
+      where: { centreId: sejour.hebergementSelectionneId },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

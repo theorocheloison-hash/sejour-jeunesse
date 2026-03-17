@@ -15,6 +15,7 @@ import {
   createDocument,
   getParticipants,
   getBudgetData,
+  getDocumentsCentre,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -24,6 +25,7 @@ import type {
   TypeDocumentSejour,
   Participant,
   BudgetData,
+  DocumentCentreFiche,
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
@@ -91,6 +93,7 @@ export default function CollaborationPage() {
 
   // Documents
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
+  const [docsCentre, setDocsCentre] = useState<DocumentCentreFiche[]>([]);
   const [docForm, setDocForm] = useState({ nom: '', type: 'AUTRE' as TypeDocumentSejour });
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docDragging, setDocDragging] = useState(false);
@@ -141,6 +144,11 @@ export default function CollaborationPage() {
     try { setDocs(await getDocuments(id)); } catch { /* ignore */ }
   }, [id]);
 
+  const loadDocsCentre = useCallback(async () => {
+    if (!id) return;
+    try { setDocsCentre(await getDocumentsCentre(id)); } catch { /* ignore */ }
+  }, [id]);
+
   const loadParticipants = useCallback(async () => {
     if (!id) return;
     try {
@@ -163,10 +171,10 @@ export default function CollaborationPage() {
   useEffect(() => {
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
-    if (tab === 'documents') loadDocs();
+    if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
     if (tab === 'budget') loadBudget();
-  }, [tab, loadMessages, loadPlanning, loadDocs, loadParticipants, loadBudget]);
+  }, [tab, loadMessages, loadPlanning, loadDocs, loadDocsCentre, loadParticipants, loadBudget]);
 
   // ── Polling messages 10s ──
   useEffect(() => {
@@ -636,6 +644,31 @@ export default function CollaborationPage() {
         {/* ── Documents ─── */}
         {tab === 'documents' && (
           <div className="space-y-6">
+            {docsCentre.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Documents du centre partenaire</h3>
+                <div className="space-y-2">
+                  {docsCentre.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{d.nom}</p>
+                        <p className="text-xs text-gray-500">
+                          {d.type}
+                          {d.dateExpiration && ` — Expire le ${new Date(d.dateExpiration).toLocaleDateString('fr-FR')}`}
+                        </p>
+                      </div>
+                      {d.url && (
+                        <a href={d.url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-medium text-[var(--color-primary)] hover:underline shrink-0">
+                          Télécharger
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">

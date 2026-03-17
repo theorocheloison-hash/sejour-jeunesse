@@ -4,11 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
-import * as fs from 'fs';
-import * as path from 'path';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 
 @Injectable()
@@ -16,6 +14,7 @@ export class DevisService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private storage: StorageService,
   ) {}
 
   async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File) {
@@ -44,11 +43,7 @@ export class DevisService {
     // Save uploaded PDF file if present
     let documentUrl: string | null = null;
     if (file && file.mimetype === 'application/pdf') {
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'devis');
-      fs.mkdirSync(uploadsDir, { recursive: true });
-      const filename = `${randomUUID()}.pdf`;
-      fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-      documentUrl = `/uploads/devis/${filename}`;
+      documentUrl = await this.storage.upload(file, 'devis');
     }
 
     const devis = await this.prisma.devis.create({

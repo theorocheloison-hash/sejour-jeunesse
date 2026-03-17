@@ -349,6 +349,7 @@ model CentreHebergement {
   departement         String?           @map("departement") @db.VarChar(100)
   agrementEducationNationale String?    @map("agrement_education_nationale") @db.VarChar(50)
   typeSejours         String[]          @default([]) @map("type_sejours")
+  imageUrl            String?           @map("image_url") @db.VarChar(500)
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 

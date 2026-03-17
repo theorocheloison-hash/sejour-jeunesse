@@ -8,7 +8,10 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -47,6 +50,29 @@ export class CentreController {
   @Roles(Role.VENUE)
   updateMonProfil(@CurrentUser() user: JwtUser, @Body() dto: UpdateCentreDto) {
     return this.centreService.updateMonProfil(user.id, dto);
+  }
+
+  @Post('image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadImage(
+    @CurrentUser() user: JwtUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.centreService.uploadImage(user.id, file);
+  }
+
+  @Post('documents-upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadDocument(
+    @CurrentUser() user: JwtUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: CreateDocumentDto,
+  ) {
+    return this.centreService.uploadDocument(user.id, file, dto);
   }
 
   @Get('disponibilites')

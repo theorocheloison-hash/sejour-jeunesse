@@ -20,6 +20,7 @@ export interface Centre {
   email: string | null;
   capacite: number;
   description: string | null;
+  imageUrl: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }
 
@@ -37,6 +38,7 @@ export interface DocumentCentre {
   nom: string;
   dateExpiration: string | null;
   createdAt: string;
+  url: string | null;
 }
 
 export interface RegisterCentreDto {
@@ -103,5 +105,30 @@ export async function createDocument(dto: {
   dateExpiration?: string;
 }): Promise<DocumentCentre> {
   const { data } = await api.post<DocumentCentre>('/centres/documents', dto);
+  return data;
+}
+
+export async function uploadCentreImage(file: File): Promise<Centre> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<Centre>('/centres/image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function uploadCentreDocument(dto: {
+  type: 'AGREMENT' | 'ASSURANCE' | 'AUTRE';
+  nom: string;
+  dateExpiration?: string;
+}, file: File): Promise<DocumentCentre> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', dto.type);
+  formData.append('nom', dto.nom);
+  if (dto.dateExpiration) formData.append('dateExpiration', dto.dateExpiration);
+  const { data } = await api.post<DocumentCentre>('/centres/documents-upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }

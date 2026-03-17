@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useNotifications } from '@/src/hooks/useNotifications';
-import { getMonProfil } from '@/src/lib/centre';
+import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import { getAbonnementStatut } from '@/src/lib/abonnement';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import type { Centre } from '@/src/lib/centre';
@@ -67,6 +67,8 @@ export default function VenueDashboard() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
   const [centre, setCentre] = useState<Centre | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
   const [sejoursConvention, setSejoursConvention] = useState<SejourConventionVenue[]>([]);
   const notifs = useNotifications(user?.role === 'VENUE');
@@ -89,6 +91,21 @@ export default function VenueDashboard() {
       getMesSejoursConvention().then(setSejoursConvention).catch(() => {});
     }
   }, [user]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const updated = await uploadCentreImage(file);
+      setCentre(updated);
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (isLoading || !user) return null;
 
@@ -123,6 +140,20 @@ export default function VenueDashboard() {
 
         {centre && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-8">
+            {centre.imageUrl ? (
+              <img src={centre.imageUrl} alt={centre.nom} className="w-full h-48 object-cover rounded-xl mb-4" />
+            ) : (
+              <div className="h-48 bg-gray-100 rounded-xl mb-4 flex items-center justify-center">
+                <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/jpeg,image/png,image/webp" className="hidden" />
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+              className="mb-4 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
+              {uploading ? 'Upload...' : centre.imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+            </button>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div><span className="text-gray-500">Ville</span><p className="font-medium text-gray-900">{centre.ville}</p></div>
               <div><span className="text-gray-500">Capacité</span><p className="font-medium text-gray-900">{centre.capacite} lits</p></div>

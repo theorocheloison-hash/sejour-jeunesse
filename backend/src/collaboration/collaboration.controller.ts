@@ -121,6 +121,14 @@ export class CollaborationController {
     return this.service.getDocuments(sejourId, user.id);
   }
 
+  @Get(':sejourId/documents-centre')
+  getDocumentsCentre(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.getDocumentsCentre(sejourId, user.id);
+  }
+
   @Post(':sejourId/documents')
   @UseInterceptors(FileInterceptor('file'))
   createDocument(

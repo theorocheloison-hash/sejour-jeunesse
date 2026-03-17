@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getDocuments, createDocument } from '@/src/lib/centre';
+import { getDocuments, uploadCentreDocument } from '@/src/lib/centre';
 import type { DocumentCentre } from '@/src/lib/centre';
 
 const inputCls =
@@ -40,6 +40,8 @@ export default function DocumentsPage() {
   const [nom, setNom] = useState('');
   const [dateExpiration, setDateExpiration] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.push('/login');
@@ -59,12 +61,11 @@ export default function DocumentsPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await createDocument({
-        type,
-        nom,
-        dateExpiration: dateExpiration || undefined,
-      });
+      if (!file) { setError('Veuillez sélectionner un fichier.'); setSubmitting(false); return; }
+      await uploadCentreDocument({ type, nom, dateExpiration: dateExpiration || undefined }, file);
       setNom(''); setDateExpiration(''); setType('AGREMENT');
+      setFile(null);
+      if (fileRef.current) fileRef.current.value = '';
       await fetchDocs();
     } catch { setError('Erreur lors de l\'ajout.'); }
     finally { setSubmitting(false); }
@@ -89,7 +90,7 @@ export default function DocumentsPage() {
         {/* Formulaire */}
         <form onSubmit={handleAdd} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Ajouter un document</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Type *</label>
               <select value={type} onChange={(e) => setType(e.target.value as typeof type)} className={inputCls}>
@@ -103,7 +104,19 @@ export default function DocumentsPage() {
               <input type="text" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex : Agrément DSDEN 2025" className={inputCls} required />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Date d'expiration</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Fichier *</label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className={inputCls}
+                required
+              />
+              {file && <p className="mt-1 text-xs text-gray-500">{file.name}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Date d&apos;expiration</label>
               <input type="date" value={dateExpiration} onChange={(e) => setDateExpiration(e.target.value)} className={inputCls} />
             </div>
           </div>
@@ -133,7 +146,14 @@ export default function DocumentsPage() {
                       </p>
                     </div>
                   </div>
-                  {expirationBadge(d.dateExpiration)}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {d.url && (
+                      <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
+                        Télécharger
+                      </a>
+                    )}
+                    {expirationBadge(d.dateExpiration)}
+                  </div>
                 </div>
               );
             })}
