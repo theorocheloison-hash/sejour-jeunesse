@@ -213,3 +213,18 @@ export async function getDossierPedagogique(sejourId: string): Promise<DossierPe
   const { data } = await api.get<DossierPedagogiqueData>(`/sejours/${sejourId}/dossier-pedagogique`);
   return data;
 }
+
+// ── Checklist & soumission directeur ─────────────────────────────────────────
+
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  checked: boolean;
+  auto: boolean;
+  description?: string;
+}
+
+export async function soumettreAuDirecteur(sejourId: string): Promise<{ success: boolean; message: string }> {
+  const { data } = await api.post<{ success: boolean; message: string }>(`/sejours/${sejourId}/soumettre-directeur`);
+  return data;
+}

@@ -255,6 +255,55 @@ export class SejourService {
     return sejour;
   }
 
+  async soumettreAuDirecteur(sejourId: string, enseignantId: string) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      include: {
+        createur: {
+          select: {
+            prenom: true, nom: true,
+            etablissementNom: true, etablissementUai: true,
+          },
+        },
+      },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== enseignantId) throw new ForbiddenException('Accès refusé');
+
+    const directeur = await this.prisma.user.findFirst({
+      where: {
+        role: 'DIRECTOR',
+        etablissementUai: sejour.createur?.etablissementUai ?? undefined,
+        compteValide: true,
+      },
+      select: { email: true, prenom: true, nom: true },
+    });
+
+    if (!directeur) {
+      return { success: false, message: 'Aucun directeur trouvé pour cet établissement sur Liavo.' };
+    }
+
+    const lien = 'https://precious-comfort-production-52c6.up.railway.app/dashboard/director';
+    const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
+    const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+    const etablissement = sejour.createur?.etablissementNom ?? 'l\'établissement';
+    const enseignant = `${sejour.createur?.prenom ?? ''} ${sejour.createur?.nom ?? ''}`.trim();
+
+    await this.email.sendGenericNotification(
+      directeur.email,
+      `Dossier séjour à examiner — ${sejour.titre}`,
+      `<p>Bonjour ${directeur.prenom},</p>
+       <p>L'enseignant <strong>${enseignant}</strong> de ${etablissement} vous a transmis le dossier du séjour suivant pour examen :</p>
+       <p><strong>Séjour :</strong> ${sejour.titre}<br>
+       <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+       <strong>Élèves :</strong> ${sejour.placesTotales}</p>
+       <p>Vous pouvez consulter le dossier complet depuis votre tableau de bord.</p>
+       <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mon tableau de bord</a></p>`,
+    );
+
+    return { success: true, message: `Dossier transmis à ${directeur.prenom} ${directeur.nom} (${directeur.email})` };
+  }
+
   async getAccompagnateurs(id: string, user: JwtUser) {
     const sejour = await this.prisma.sejour.findUnique({ where: { id } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');

@@ -76,6 +76,16 @@ export class SejourController {
     return this.sejourService.getDossierPedagogique(id, user);
   }
 
+  /** POST /sejours/:id/soumettre-directeur — Transmettre au directeur */
+  @Post(':id/soumettre-directeur')
+  @Roles(Role.TEACHER)
+  soumettreAuDirecteur(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.soumettreAuDirecteur(id, user.id);
+  }
+
   /** GET /sejours/:id/accompagnateurs — Liste accompagnateurs */
   @Get(':id/accompagnateurs')
   @Roles(Role.TEACHER)
