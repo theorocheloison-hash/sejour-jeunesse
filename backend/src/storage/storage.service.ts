@@ -47,7 +47,7 @@ export class StorageService {
         ContentType: mimeToExt[file.mimetype] ? file.mimetype : 'application/octet-stream',
       }));
     } catch (e) {
-      console.error('R2 upload error:', JSON.stringify(e, null, 2));
+      console.error('R2 upload error full:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
       throw new InternalServerErrorException(`Erreur upload fichier: ${(e as any)?.message ?? 'unknown'}`);
     }
     return `${this.publicUrl}/${key}`;
