@@ -29,8 +29,9 @@ export class StorageService {
   }
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
-    const ext = file.originalname.split('.').pop() ?? 'bin';
-    const key = `${folder}/${randomUUID()}.${ext}`;
+    console.log('R2 upload file:', JSON.stringify({ originalname: file.originalname, mimetype: file.mimetype, size: file.size }));
+    const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = `${folder}/${randomUUID()}.${ext || 'bin'}`;
     try {
       await this.client.send(new PutObjectCommand({
         Bucket: this.bucket,
