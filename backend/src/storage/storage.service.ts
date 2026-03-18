@@ -30,14 +30,21 @@ export class StorageService {
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
     console.log('R2 upload file:', JSON.stringify({ originalname: file.originalname, mimetype: file.mimetype, size: file.size }));
-    const ext = (file.originalname.split('.').pop() ?? 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const key = `${folder}/${randomUUID()}.${ext || 'bin'}`;
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+      'application/pdf': 'pdf',
+    };
+    const ext = mimeToExt[file.mimetype] ?? 'bin';
+    const key = `${folder}/${randomUUID()}.${ext}`;
     try {
       await this.client.send(new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: mimeToExt[file.mimetype] ? file.mimetype : 'application/octet-stream',
       }));
     } catch (e) {
       console.error('R2 upload error:', JSON.stringify(e, null, 2));
