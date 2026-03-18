@@ -17,6 +17,7 @@ export class StorageService {
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,
+      forcePathStyle: true,
       credentials: {
         accessKeyId: this.config.get<string>('R2_ACCESS_KEY_ID')!,
         secretAccessKey: this.config.get<string>('R2_SECRET_ACCESS_KEY')!,
