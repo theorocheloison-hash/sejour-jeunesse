@@ -140,26 +140,37 @@ export default function VenueDashboard() {
         <p className="text-sm text-gray-500 mb-8">Gérez votre centre d'hébergement</p>
 
         {centre && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-8">
-            {centre.imageUrl ? (
-              <img src={centre.imageUrl} alt={centre.nom} className="w-full h-48 object-cover rounded-xl mb-4" />
-            ) : (
-              <div className="h-48 bg-gray-100 rounded-xl mb-4 flex items-center justify-center">
-                <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+          <div style={{ display: 'flex', gap: 20, padding: 20, borderRadius: 16, border: '1px solid #e5e7eb', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} className="mb-8 max-sm:flex-col">
+            {/* Colonne gauche — photo */}
+            <div style={{ width: '40%', minWidth: 0, flexShrink: 0 }} className="max-sm:!w-full">
+              {centre.imageUrl ? (
+                <img src={centre.imageUrl} alt={centre.nom} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8 }} />
+              ) : (
+                <div style={{ width: '100%', height: 160, borderRadius: 8, backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            {/* Colonne droite — infos */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">{centre.nom}</h2>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-gray-500">Ville</span><p className="font-medium text-gray-900">{centre.ville}</p></div>
+                  <div><span className="text-gray-500">Capacité</span><p className="font-medium text-gray-900">{centre.capacite} lits</p></div>
+                  <div><span className="text-gray-500">Adresse</span><p className="font-medium text-gray-900">{centre.adresse}</p></div>
+                  <div><span className="text-gray-500">Téléphone</span><p className="font-medium text-gray-900">{centre.telephone ?? '—'}</p></div>
+                </div>
               </div>
-            )}
-            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/jpeg,image/png,image/webp" className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="mb-4 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
-              {uploading ? 'Upload...' : centre.imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
-            </button>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div><span className="text-gray-500">Ville</span><p className="font-medium text-gray-900">{centre.ville}</p></div>
-              <div><span className="text-gray-500">Capacité</span><p className="font-medium text-gray-900">{centre.capacite} lits</p></div>
-              <div><span className="text-gray-500">Adresse</span><p className="font-medium text-gray-900">{centre.adresse}</p></div>
-              <div><span className="text-gray-500">Téléphone</span><p className="font-medium text-gray-900">{centre.telephone ?? '—'}</p></div>
+              <div style={{ marginTop: 12 }}>
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/jpeg,image/png,image/webp" className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60">
+                  {uploading ? 'Upload...' : centre.imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                </button>
+              </div>
             </div>
           </div>
         )}
