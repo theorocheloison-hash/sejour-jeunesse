@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1584">
+<title>Liavo — Bannière LinkedIn</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1B4060; font-family: system-ui, -apple-system, sans-serif; }
+  .banner {
+    position: relative;
+    width: 1584px;
+    height: 396px;
+    background: #1B4060;
+    overflow: hidden;
+  }
+  .bar-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 5px;
+    background: #C87D2E;
+  }
+  .separator {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 700px;
+    width: 1px;
+    background: rgba(255,255,255,0.12);
+  }
+
+  /* ── BLOC GAUCHE ── */
+  .left {
+    position: absolute;
+    top: 0; left: 0;
+    width: 700px;
+    height: 100%;
+    padding: 48px 48px 48px 320px;
+    display: flex;
+    flex-direction: column;
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: -8px;
+  }
+  .logo-box {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.10);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-box svg {
+    width: 22px; height: 22px;
+  }
+  .wordmark {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .tagline {
+    margin-top: 24px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.60);
+  }
+  .baseline {
+    margin-top: 8px;
+    font-size: 30px;
+    font-weight: 300;
+    color: #fff;
+    line-height: 1.2;
+  }
+  .url {
+    position: absolute;
+    bottom: 48px; left: 320px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #C87D2E;
+    letter-spacing: 2px;
+  }
+
+  /* ── BLOC DROIT ── */
+  .right {
+    position: absolute;
+    top: 0; left: 700px; right: 0;
+    height: 100%;
+    padding: 48px 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .point {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 0;
+  }
+  .point-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+  .dot {
+    width: 6px; height: 6px;
+    min-width: 6px;
+    border-radius: 50%;
+    background: #C87D2E;
+    margin-top: 7px;
+  }
+  .point-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+  }
+  .point-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.50);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+<div class="banner">
+  <!-- Barre ocre bas -->
+  <div class="bar-bottom"></div>
+  <!-- Séparateur vertical -->
+  <div class="separator"></div>
+
+  <!-- BLOC GAUCHE -->
+  <div class="left">
+    <div class="logo-row">
+      <div class="logo-box">
+        <svg width="22" height="28" viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="11,1 21,11 11,21 1,11" stroke="white" stroke-width="1.5" fill="none"/>
+          <circle cx="11" cy="11" r="2.5" fill="#C87D2E"/>
+          <line x1="11" y1="21" x2="11" y2="26" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="7" y1="26" x2="15" y2="26" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="wordmark">Liavo</span>
+    </div>
+    <div class="tagline">Coordonnez vos séjours</div>
+    <div class="baseline">Du projet pédagogique<br>· à la facturation finale.</div>
+    <div class="url">LIAVO.FR</div>
+  </div>
+
+  <!-- BLOC DROIT -->
+  <div class="right">
+    <div class="point">
+      <div class="dot"></div>
+      <div>
+        <div class="point-title">Cinq acteurs. Un seul endroit.</div>
+        <div class="point-sub">Enseignant · Hébergeur · Direction · Rectorat · Famille</div>
+      </div>
+    </div>
+    <div class="point-divider"></div>
+    <div class="point">
+      <div class="dot"></div>
+      <div>
+        <div class="point-title">Une coordination complète et traçable.</div>
+        <div class="point-sub">Devis, autorisations, paiements, planning — automatisés &amp; centralisés.</div>
+      </div>
+    </div>
+    <div class="point-divider"></div>
+    <div class="point">
+      <div class="dot"></div>
+      <div>
+        <div class="point-title">Un départ serein, à chaque fois.</div>
+        <div class="point-sub">Chaque validation horodatée. Aucun document oublié.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
