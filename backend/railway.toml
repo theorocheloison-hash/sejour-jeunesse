@@ -2,5 +2,5 @@
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npx prisma migrate deploy && node /app/dist/src/main"
+startCommand = "sh /app/start.sh"
 

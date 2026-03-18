@@ -7,4 +7,6 @@ RUN npx prisma generate
 RUN npm run build
 EXPOSE 4000
 ENV NODE_ENV=production
-CMD ["sh", "-c", "node /app/dist/src/main"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+CMD ["sh", "/app/start.sh"]
