@@ -99,8 +99,9 @@ export default function VenueDashboard() {
     try {
       const updated = await uploadCentreImage(file);
       setCentre(updated);
-    } catch {
-      // ignore
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Erreur lors de l\'upload';
+      alert(msg);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

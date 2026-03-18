@@ -132,8 +132,8 @@ export class CentreService {
     if (!allowed.includes(file.mimetype)) {
       throw new ForbiddenException('Format non supporté. Utilisez JPG, PNG ou WebP.');
     }
-    if (file.size > 5 * 1024 * 1024) {
-      throw new ForbiddenException('Fichier trop lourd. Maximum 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      throw new ForbiddenException('Fichier trop lourd. Maximum 10MB.');
     }
 
     if (centre.imageUrl) {
