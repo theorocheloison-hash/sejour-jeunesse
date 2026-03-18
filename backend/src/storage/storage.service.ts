@@ -8,10 +8,12 @@ export class StorageService {
   private client: S3Client;
   private bucket: string;
   private endpoint: string;
+  private publicUrl: string;
 
   constructor(private config: ConfigService) {
     this.endpoint = this.config.get<string>('R2_ENDPOINT')!;
     this.bucket = this.config.get<string>('R2_BUCKET_NAME')!;
+    this.publicUrl = this.config.get<string>('R2_PUBLIC_URL')!;
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,
@@ -36,12 +38,13 @@ export class StorageService {
       console.error('R2 upload error:', JSON.stringify(e, null, 2));
       throw new InternalServerErrorException(`Erreur upload fichier: ${(e as any)?.message ?? 'unknown'}`);
     }
-    return `${this.endpoint}/${this.bucket}/${key}`;
+    return `${this.publicUrl}/${key}`;
   }
 
   async delete(url: string): Promise<void> {
     try {
-      const key = url.split(`/${this.bucket}/`)[1];
+      const publicBase = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`;
+      const key = url.startsWith(publicBase) ? url.slice(publicBase.length) : url.split(`/${this.bucket}/`)[1];
       if (!key) return;
       await this.client.send(new DeleteObjectCommand({
         Bucket: this.bucket,
