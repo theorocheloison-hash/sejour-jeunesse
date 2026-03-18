@@ -60,6 +60,7 @@ export class CentreController {
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     return this.centreService.uploadImage(user.id, file);
   }
 
@@ -72,6 +73,7 @@ export class CentreController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateDocumentDto,
   ) {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     return this.centreService.uploadDocument(user.id, file, dto);
   }
 
