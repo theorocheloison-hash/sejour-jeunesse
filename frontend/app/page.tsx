@@ -11,9 +11,10 @@ export default function Home() {
       {/* ── NAV FIXE ────────────────────────────────────────────────────────── */}
       <header style={{
         position: 'fixed', inset: '0 0 auto 0', zIndex: 50,
-        backgroundColor: 'var(--color-surface)',
+        backgroundColor: 'rgba(255,255,255,0.85)',
         borderBottom: '0.5px solid var(--color-border)',
-        backdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(16px)',
+        boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
       }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
@@ -39,7 +40,7 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Link href="/login" className="hidden sm:inline-flex" style={{
               fontSize: 13, fontWeight: 500, padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 10,
               border: '0.5px solid var(--color-border)',
               color: 'var(--color-primary)', textDecoration: 'none',
               backgroundColor: 'transparent',
@@ -48,7 +49,7 @@ export default function Home() {
             </Link>
             <Link href="/register" style={{
               fontSize: 13, fontWeight: 500, padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 10,
               backgroundColor: 'var(--color-accent)',
               color: '#FFFFFF', textDecoration: 'none',
             }}>
@@ -59,23 +60,26 @@ export default function Home() {
       </header>
 
       {/* ── SECTION 1 — HERO ────────────────────────────────────────────────── */}
-      <section style={{ paddingTop: 140, paddingBottom: 0 }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
+      <section style={{
+        paddingTop: 180, paddingBottom: 0,
+        background: 'linear-gradient(135deg, var(--color-primary) 0%, #1a365d 40%, #2b4c7e 100%)',
+      }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px 80px', textAlign: 'center' }}>
           <h1 style={{
             fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 500,
             lineHeight: 1.15, letterSpacing: '-0.01em',
-            color: 'var(--color-primary)',
+            color: '#FFFFFF',
           }}>
             Du projet pédagogique à la facturation finale.
             <br />
-            <span style={{ color: 'var(--color-text-muted)' }}>
+            <span style={{ color: 'rgba(255,255,255,0.7)' }}>
               Chaque étape coordonnée. Chaque validation tracée.
             </span>
           </h1>
 
           <p style={{
             marginTop: 24, fontSize: 15, lineHeight: 1.7,
-            color: 'var(--color-text-muted)', maxWidth: 600,
+            color: 'rgba(255,255,255,0.75)', maxWidth: 600,
             marginLeft: 'auto', marginRight: 'auto',
           }}>
             LIAVO digitalise l&apos;intégralité de la démarche administrative d&apos;un séjour scolaire — appel d&apos;offres hébergeurs, validations directeur et rectorat, autorisations parentales, paiements échelonnés, Chorus Pro. Cinq acteurs. Un seul workflow.
@@ -87,21 +91,22 @@ export default function Home() {
           }}>
             <Link href="/register?type=teacher" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 500, padding: '12px 24px',
-              borderRadius: 'var(--radius-md)',
+              fontSize: 15, fontWeight: 600, padding: '14px 28px',
+              borderRadius: 12,
               backgroundColor: 'var(--color-accent)',
               color: '#FFFFFF', textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
             }}>
               Je suis un établissement scolaire
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
             <Link href="/register?type=venue" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 500, padding: '12px 24px',
-              borderRadius: 'var(--radius-md)',
-              border: '0.5px solid var(--color-border-strong)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              backgroundColor: 'transparent',
+              fontSize: 15, fontWeight: 600, padding: '14px 28px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.4)',
+              color: '#FFFFFF', textDecoration: 'none',
+              backgroundColor: 'rgba(255,255,255,0.1)',
             }}>
               Je suis un hébergeur
             </Link>
@@ -110,13 +115,11 @@ export default function Home() {
 
         {/* Bandeau preuves */}
         <div style={{
-          marginTop: 64,
-          backgroundColor: 'var(--color-surface)',
-          borderTop: '0.5px solid var(--color-border)',
-          borderBottom: '0.5px solid var(--color-border)',
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          borderTop: '0.5px solid rgba(255,255,255,0.15)',
           padding: '16px 24px',
           textAlign: 'center',
-          fontSize: 13, color: 'var(--color-text-muted)',
+          fontSize: 13, color: 'rgba(255,255,255,0.7)',
         }}>
           649 centres référencés depuis la base officielle de l&apos;Éducation Nationale · Conforme RGPD, hébergé en France · Chorus Pro intégré
         </div>
@@ -156,10 +159,11 @@ export default function Home() {
                   <div key={i} style={{
                     backgroundColor: 'var(--color-surface)',
                     borderLeft: '3px solid var(--color-danger)',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 10,
                     padding: '16px 20px',
                     fontSize: 14, lineHeight: 1.6,
                     color: 'var(--color-text-muted)',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                   }}>
                     {t}
                   </div>
@@ -179,8 +183,8 @@ export default function Home() {
             <div>
               <div style={{
                 display: 'inline-flex', alignItems: 'center',
-                backgroundColor: 'var(--color-success-light)',
-                color: 'var(--color-success)',
+                backgroundColor: 'var(--color-accent)',
+                color: '#FFFFFF',
                 fontSize: 12, fontWeight: 500,
                 padding: '4px 12px', borderRadius: 'var(--radius-pill)',
                 marginBottom: 16,
@@ -195,12 +199,13 @@ export default function Home() {
                   'Chaque validation horodatée, archivée, traçable',
                 ].map((t, i) => (
                   <div key={i} style={{
-                    backgroundColor: 'var(--color-surface)',
-                    borderLeft: '3px solid var(--color-accent)',
-                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-accent)',
+                    borderLeft: '3px solid rgba(255,255,255,0.4)',
+                    borderRadius: 10,
                     padding: '16px 20px',
                     fontSize: 14, lineHeight: 1.6,
-                    color: 'var(--color-text)',
+                    color: '#FFFFFF',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                   }}>
                     {t}
                   </div>
@@ -246,12 +251,13 @@ export default function Home() {
         }}>
           {/* Bloc établissements */}
           <div style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '0.5px solid var(--color-border)',
-            borderRadius: 'var(--radius-lg)', padding: 32,
+            backgroundColor: 'var(--color-primary)',
+            border: 'none',
+            borderRadius: 16, padding: 32,
             display: 'flex', flexDirection: 'column',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           }}>
-            <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500, color: '#FFFFFF', marginBottom: 20 }}>
               Pour les enseignants et les directeurs
             </h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
@@ -263,7 +269,7 @@ export default function Home() {
                 'Paiement échelonné jusqu\'à 10 fois sans frais pour les familles',
                 'Ordres de mission accompagnateurs générés automatiquement',
               ].map((t, i) => (
-                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
                   — {t}
                 </li>
               ))}
@@ -271,9 +277,9 @@ export default function Home() {
             <Link href="/register?type=teacher" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               marginTop: 24, fontSize: 14, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
-              color: '#FFFFFF', textDecoration: 'none',
+              padding: '10px 20px', borderRadius: 10,
+              backgroundColor: '#FFFFFF',
+              color: 'var(--color-primary)', textDecoration: 'none',
               alignSelf: 'flex-start',
             }}>
               Créer un compte établissement
@@ -283,12 +289,13 @@ export default function Home() {
 
           {/* Bloc hébergeurs */}
           <div style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '0.5px solid var(--color-border)',
-            borderRadius: 'var(--radius-lg)', padding: 32,
+            backgroundColor: 'var(--color-accent)',
+            border: 'none',
+            borderRadius: 16, padding: 32,
             display: 'flex', flexDirection: 'column',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           }}>
-            <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 20 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 500, color: '#FFFFFF', marginBottom: 20 }}>
               Pour les centres d&apos;hébergement
             </h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
@@ -299,7 +306,7 @@ export default function Home() {
                 'Facturation Chorus Pro intégrée pour les établissements publics',
                 'Espace collaboratif avec l\'enseignant organisateur',
               ].map((t, i) => (
-                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
+                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
                   — {t}
                 </li>
               ))}
@@ -307,10 +314,11 @@ export default function Home() {
             <Link href="/register?type=venue" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               marginTop: 24, fontSize: 14, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 'var(--radius-md)',
-              border: '0.5px solid var(--color-border-strong)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              backgroundColor: 'transparent', alignSelf: 'flex-start',
+              padding: '10px 20px', borderRadius: 10,
+              border: 'none',
+              backgroundColor: '#FFFFFF',
+              color: 'var(--color-accent)', textDecoration: 'none',
+              alignSelf: 'flex-start',
             }}>
               Référencer mon centre
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
@@ -322,7 +330,7 @@ export default function Home() {
       {/* ── SECTION 5 — WORKFLOW ─────────────────────────────────────────────── */}
       <section id="workflow" style={{
         padding: '80px 24px',
-        backgroundColor: 'var(--color-surface)',
+        backgroundColor: 'var(--color-primary-light)',
         borderTop: '0.5px solid var(--color-border)',
         borderBottom: '0.5px solid var(--color-border)',
       }}>
@@ -359,12 +367,13 @@ export default function Home() {
                 display: 'flex', gap: 16, alignItems: 'flex-start',
               }}>
                 <div style={{
-                  width: 48, height: 48, minWidth: 48,
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent-light)',
+                  width: 64, height: 64, minWidth: 64,
+                  borderRadius: 14,
+                  backgroundColor: '#FFFFFF',
                   color: 'var(--color-accent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20, fontWeight: 500,
+                  fontSize: 28, fontWeight: 700,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                 }}>
                   {step.num}
                 </div>
@@ -399,22 +408,26 @@ export default function Home() {
             gap: 24,
           }}>
             {[
-              { title: 'Données sécurisées', desc: 'Hébergement sur sol français. Conformité RGPD complète. Chaque donnée d\'élève est protégée selon les exigences de l\'Éducation Nationale.' },
-              { title: 'Chorus Pro intégré', desc: 'Facturation électronique vers les établissements publics, sans démarche supplémentaire pour l\'hébergeur.' },
-              { title: 'Traçabilité complète', desc: 'Chaque validation, chaque document, chaque autorisation est horodaté et archivé. En cas de contrôle, l\'historique complet est disponible en un clic.' },
+              { title: 'Données sécurisées', desc: 'Hébergement sur sol français. Conformité RGPD complète. Chaque donnée d\'élève est protégée selon les exigences de l\'Éducation Nationale.', barColor: 'var(--color-accent)' },
+              { title: 'Chorus Pro intégré', desc: 'Facturation électronique vers les établissements publics, sans démarche supplémentaire pour l\'hébergeur.', barColor: 'var(--color-primary)' },
+              { title: 'Traçabilité complète', desc: 'Chaque validation, chaque document, chaque autorisation est horodaté et archivé. En cas de contrôle, l\'historique complet est disponible en un clic.', barColor: 'var(--color-success)' },
             ].map((card, i) => (
               <div key={i} style={{
                 backgroundColor: 'var(--color-surface)',
                 border: '0.5px solid var(--color-border)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 14,
                 padding: 28,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
+                position: 'relative' as const,
               }}>
                 <div style={{
-                  width: 32, height: 2,
-                  backgroundColor: 'var(--color-accent)',
-                  marginBottom: 16, borderRadius: 1,
+                  position: 'absolute' as const,
+                  top: 0, left: 0, right: 0,
+                  height: 3,
+                  backgroundColor: card.barColor,
                 }} />
-                <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 8 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 8, marginTop: 4 }}>
                   {card.title}
                 </h3>
                 <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)', margin: 0 }}>
@@ -429,18 +442,18 @@ export default function Home() {
       {/* ── SECTION 7 — CTA FINAL ───────────────────────────────────────────── */}
       <section style={{
         padding: '80px 24px',
-        backgroundColor: 'var(--color-primary-light)',
+        backgroundColor: 'var(--color-primary)',
       }}>
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', marginBottom: 16,
+            color: '#FFFFFF', marginBottom: 16,
           }}>
             Prêt à coordonner votre prochain séjour ?
           </h2>
           <p style={{
             fontSize: 15, lineHeight: 1.7,
-            color: 'var(--color-text-muted)',
+            color: 'rgba(255,255,255,0.75)',
             maxWidth: 520, margin: '0 auto 32px',
           }}>
             649 centres référencés depuis la base officielle de l&apos;Éducation Nationale. Rejoignez les établissements qui ont déjà rejoint LIAVO.
@@ -448,21 +461,22 @@ export default function Home() {
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
             <Link href="/register?type=teacher" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 500, padding: '12px 24px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
+              fontSize: 15, fontWeight: 600, padding: '14px 28px',
+              borderRadius: 12,
+              backgroundColor: 'var(--color-accent)',
               color: '#FFFFFF', textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
             }}>
               Créer un compte établissement
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
             <Link href="/register?type=venue" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 500, padding: '12px 24px',
-              borderRadius: 'var(--radius-md)',
-              border: '0.5px solid var(--color-border-strong)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              backgroundColor: 'transparent',
+              fontSize: 15, fontWeight: 600, padding: '14px 28px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.4)',
+              color: '#FFFFFF', textDecoration: 'none',
+              backgroundColor: 'rgba(255,255,255,0.1)',
             }}>
               Référencer mon centre
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
