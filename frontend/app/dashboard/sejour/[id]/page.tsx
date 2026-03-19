@@ -254,6 +254,7 @@ export default function CollaborationPage() {
 
   // Accompagnateurs
   const [accompagnateurs, setAccompagnateurs] = useState<AccompagnateurMission[]>([]);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   // Budget
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
@@ -1113,7 +1114,7 @@ export default function CollaborationPage() {
                   </thead>
                   <tbody>
                     {filteredParticipants.map((p) => (
-                      <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={p.id} onClick={() => p.signeeAt ? setSelectedParticipant(p) : null} className={`border-b border-gray-100 transition-colors ${p.signeeAt ? 'cursor-pointer hover:bg-blue-50' : 'opacity-60'}`}>
                         <td className="py-3 px-3">
                           <p className="font-medium text-gray-900">{p.elevePrenom} {p.eleveNom}</p>
                         </td>
@@ -1200,6 +1201,92 @@ export default function CollaborationPage() {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modale fiche élève */}
+            {selectedParticipant && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                onClick={() => setSelectedParticipant(null)}>
+                <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4"
+                  onClick={(e) => e.stopPropagation()}>
+
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {selectedParticipant.elevePrenom} {selectedParticipant.eleveNom}
+                    </h3>
+                    <button onClick={() => setSelectedParticipant(null)}
+                      className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+                  </div>
+
+                  {/* Infos parent */}
+                  <div className="bg-blue-50 rounded-xl p-4 space-y-1">
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Contact urgence</p>
+                    <p className="text-sm text-gray-700">{selectedParticipant.parentEmail}</p>
+                  </div>
+
+                  {/* Infos physiques */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {selectedParticipant.taille && (
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500">Taille</p>
+                        <p className="text-sm font-semibold text-gray-900">{selectedParticipant.taille} cm</p>
+                      </div>
+                    )}
+                    {selectedParticipant.poids && (
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500">Poids</p>
+                        <p className="text-sm font-semibold text-gray-900">{selectedParticipant.poids} kg</p>
+                      </div>
+                    )}
+                    {selectedParticipant.pointure && (
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500">Pointure</p>
+                        <p className="text-sm font-semibold text-gray-900">{selectedParticipant.pointure}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Régime alimentaire */}
+                  {selectedParticipant.regimeAlimentaire && (
+                    <div className="bg-amber-50 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Régime alimentaire</p>
+                      <p className="text-sm text-gray-700">{selectedParticipant.regimeAlimentaire}</p>
+                    </div>
+                  )}
+
+                  {/* Niveau ski */}
+                  {selectedParticipant.niveauSki && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Niveau ski</p>
+                      <p className="text-sm text-gray-700">{NIVEAU_SKI_LABEL[selectedParticipant.niveauSki] ?? selectedParticipant.niveauSki}</p>
+                    </div>
+                  )}
+
+                  {/* Infos médicales */}
+                  {selectedParticipant.infosMedicales && (
+                    <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+                      <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Infos médicales</p>
+                      <p className="text-sm text-gray-700">{selectedParticipant.infosMedicales}</p>
+                    </div>
+                  )}
+
+                  {/* Document médical */}
+                  {(selectedParticipant as Record<string, unknown>).documentMedicalUrl && (
+                    <a href={(selectedParticipant as Record<string, unknown>).documentMedicalUrl as string} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
+                      Voir le document médical
+                    </a>
+                  )}
+
+                  {/* Signé le */}
+                  {selectedParticipant.signeeAt && (
+                    <p className="text-xs text-gray-400 text-center">
+                      Autorisation signée le {new Date(selectedParticipant.signeeAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
