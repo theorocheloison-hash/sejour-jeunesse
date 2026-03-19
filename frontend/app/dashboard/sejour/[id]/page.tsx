@@ -93,7 +93,15 @@ export default function CollaborationPage() {
 
   // Planning
   const [planning, setPlanning] = useState<PlanningActivite[]>([]);
-  const [planForm, setPlanForm] = useState({ date: '', heureDebut: '', heureFin: '', titre: '', description: '', responsable: '' });
+  const [planModal, setPlanModal] = useState<{
+    open: boolean;
+    date: string;
+    heureDebut: string;
+    heureFin: string;
+    titre: string;
+    description: string;
+    responsable: string;
+  } | null>(null);
 
   // Documents
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
@@ -226,18 +234,18 @@ export default function CollaborationPage() {
   };
 
   const handleAddPlanning = async () => {
-    if (!id || !planForm.date || !planForm.heureDebut || !planForm.heureFin || !planForm.titre) return;
+    if (!planModal || !id) return;
     try {
-      const item = await createPlanning(id, {
-        date: planForm.date,
-        heureDebut: planForm.heureDebut,
-        heureFin: planForm.heureFin,
-        titre: planForm.titre,
-        description: planForm.description || undefined,
-        responsable: planForm.responsable || undefined,
+      const newItem = await createPlanning(id, {
+        date: planModal.date,
+        heureDebut: planModal.heureDebut,
+        heureFin: planModal.heureFin,
+        titre: planModal.titre,
+        description: planModal.description || undefined,
+        responsable: planModal.responsable || undefined,
       });
-      setPlanning((prev) => [...prev, item].sort((a, b) => a.date.localeCompare(b.date) || a.heureDebut.localeCompare(b.heureDebut)));
-      setPlanForm({ date: '', heureDebut: '', heureFin: '', titre: '', description: '', responsable: '' });
+      setPlanning((prev) => [...prev, newItem]);
+      setPlanModal(null);
     } catch { /* ignore */ }
   };
 
@@ -338,13 +346,6 @@ export default function CollaborationPage() {
   }
 
   const retourHref = user.role === 'TEACHER' ? '/dashboard/teacher' : '/dashboard/venue';
-
-  // ── Group planning by day ──
-  const planningByDay = planning.reduce<Record<string, PlanningActivite[]>>((acc, p) => {
-    const day = p.date.slice(0, 10);
-    (acc[day] ??= []).push(p);
-    return acc;
-  }, {});
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -627,60 +628,190 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Planning ─── */}
-        {tab === 'planning' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter une activité</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input type="date" value={planForm.date} onChange={(e) => setPlanForm((f) => ({ ...f, date: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" placeholder="Date" />
-                <input type="time" value={planForm.heureDebut} onChange={(e) => setPlanForm((f) => ({ ...f, heureDebut: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                <input type="time" value={planForm.heureFin} onChange={(e) => setPlanForm((f) => ({ ...f, heureFin: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                <input type="text" value={planForm.titre} onChange={(e) => setPlanForm((f) => ({ ...f, titre: e.target.value }))}
-                  placeholder="Titre de l'activité" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                <input type="text" value={planForm.description} onChange={(e) => setPlanForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Description (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                <input type="text" value={planForm.responsable} onChange={(e) => setPlanForm((f) => ({ ...f, responsable: e.target.value }))}
-                  placeholder="Responsable (optionnel)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
-              <button onClick={handleAddPlanning}
-                disabled={!planForm.date || !planForm.heureDebut || !planForm.heureFin || !planForm.titre}
-                className="mt-3 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                Ajouter
-              </button>
-            </div>
+        {tab === 'planning' && sejour && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
-            {Object.keys(planningByDay).length === 0 && (
-              <p className="text-center text-sm text-gray-400 py-8">Aucune activité planifiée.</p>
+            {/* Header : badge lecture seule si pas VENUE */}
+            {user?.role !== 'VENUE' && (
+              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
+                Lecture seule — seul l&apos;hébergeur peut modifier le planning
+              </div>
             )}
-            {Object.entries(planningByDay)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([day, items]) => (
-                <div key={day}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                    {new Date(day).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </h3>
-                  <div className="space-y-2">
-                    {items.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
-                        <div>
-                          <span className="text-xs font-mono text-[var(--color-primary)]">{p.heureDebut} - {p.heureFin}</span>
-                          <span className="ml-3 text-sm font-medium text-gray-900">{p.titre}</span>
-                          {p.description && <span className="ml-2 text-xs text-gray-500">— {p.description}</span>}
-                          {p.responsable && <span className="ml-2 text-xs text-gray-400">({p.responsable})</span>}
-                        </div>
-                        <button onClick={() => handleDeletePlanning(p.id)} className="text-red-400 hover:text-red-600 text-xs">
-                          Supprimer
-                        </button>
+
+            {/* Grille calendrier */}
+            {(() => {
+              const isVenue = user?.role === 'VENUE';
+              const HOUR_START = 7;
+              const HOUR_END = 22;
+              const SLOT_HEIGHT = 40;
+              const SLOTS = (HOUR_END - HOUR_START) * 2;
+
+              const days: Date[] = [];
+              const start = new Date(sejour.dateDebut);
+              const end = new Date(sejour.dateFin);
+              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                days.push(new Date(d));
+              }
+
+              const DAY_LABELS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
+              const today = new Date();
+
+              const timeToMinutes = (t: string) => {
+                const [h, m] = t.split(':').map(Number);
+                return (h - HOUR_START) * 60 + m;
+              };
+
+              const handleCellClick = (date: Date, slotIndex: number) => {
+                if (!isVenue) return;
+                const h = Math.floor(slotIndex / 2) + HOUR_START;
+                const m = slotIndex % 2 === 0 ? '00' : '30';
+                const hEnd = slotIndex % 2 === 0 ? h : h + 1;
+                const mEnd = slotIndex % 2 === 0 ? '30' : '00';
+                const dateStr = date.toISOString().split('T')[0];
+                setPlanModal({
+                  open: true,
+                  date: dateStr,
+                  heureDebut: `${String(h).padStart(2, '0')}:${m}`,
+                  heureFin: `${String(hEnd).padStart(2, '0')}:${mEnd}`,
+                  titre: '',
+                  description: '',
+                  responsable: '',
+                });
+              };
+
+              return (
+                <div className="overflow-x-auto">
+                  <div style={{ minWidth: `${60 + days.length * 120}px` }}>
+
+                    {/* Header jours */}
+                    <div className="flex border-b border-gray-200 bg-gray-50">
+                      <div className="w-14 shrink-0" />
+                      {days.map((day, i) => {
+                        const isToday = day.toDateString() === today.toDateString();
+                        return (
+                          <div key={i} className="flex-1 text-center py-3 border-l border-gray-200">
+                            <div className="text-xs font-medium text-gray-500">{DAY_LABELS[day.getDay()]}</div>
+                            <div className={`text-xl font-semibold mt-0.5 w-9 h-9 flex items-center justify-center mx-auto rounded-full ${isToday ? 'bg-blue-600 text-white' : 'text-gray-900'}`}>
+                              {day.getDate()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Corps : heures + colonnes */}
+                    <div className="flex relative" style={{ height: `${SLOTS * SLOT_HEIGHT}px` }}>
+
+                      {/* Colonne heures */}
+                      <div className="w-14 shrink-0 relative">
+                        {Array.from({ length: HOUR_END - HOUR_START }).map((_, i) => (
+                          <div key={i} style={{ top: `${i * 2 * SLOT_HEIGHT}px`, height: `${SLOT_HEIGHT * 2}px` }}
+                            className="absolute w-full flex items-start justify-end pr-2 pt-1">
+                            <span className="text-xs text-gray-400">{String(HOUR_START + i).padStart(2, '0')}:00</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+
+                      {/* Colonnes jours */}
+                      {days.map((day, dayIdx) => {
+                        const dateStr = day.toISOString().split('T')[0];
+                        const dayActivities = planning.filter(p => p.date.startsWith(dateStr));
+
+                        return (
+                          <div key={dayIdx} className="flex-1 border-l border-gray-200 relative">
+
+                            {/* Cellules cliquables */}
+                            {Array.from({ length: SLOTS }).map((_, slotIdx) => (
+                              <div
+                                key={slotIdx}
+                                style={{ height: `${SLOT_HEIGHT}px`, top: `${slotIdx * SLOT_HEIGHT}px` }}
+                                className={`absolute w-full border-b ${slotIdx % 2 === 0 ? 'border-gray-100' : 'border-gray-50'} ${isVenue ? 'cursor-pointer hover:bg-blue-50/30' : ''}`}
+                                onClick={() => handleCellClick(day, slotIdx)}
+                              />
+                            ))}
+
+                            {/* Activités positionnées */}
+                            {dayActivities.map((act) => {
+                              const topMin = timeToMinutes(act.heureDebut);
+                              const botMin = timeToMinutes(act.heureFin);
+                              const duration = botMin - topMin;
+                              if (duration <= 0 || topMin < 0) return null;
+                              const topPx = (topMin / 30) * SLOT_HEIGHT;
+                              const heightPx = (duration / 30) * SLOT_HEIGHT;
+                              return (
+                                <div
+                                  key={act.id}
+                                  style={{ top: `${topPx}px`, height: `${Math.max(heightPx, SLOT_HEIGHT)}px`, left: '2px', right: '2px' }}
+                                  className="absolute rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden z-10 shadow-sm"
+                                >
+                                  <div className="font-semibold truncate">{act.titre}</div>
+                                  <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
+                                  {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
+                                  {isVenue && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeletePlanning(act.id); }}
+                                      className="absolute top-1 right-1 opacity-60 hover:opacity-100 text-white text-[10px] font-bold"
+                                    >
+                                      &times;
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              ))}
+              );
+            })()}
+
+            {/* Modale création créneau (VENUE uniquement) */}
+            {planModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                onClick={() => setPlanModal(null)}>
+                <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
+                  onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">Nouveau créneau</h3>
+                  <div className="space-y-3">
+                    <input type="text" placeholder="Titre *" value={planModal.titre}
+                      onChange={(e) => setPlanModal(m => m ? {...m, titre: e.target.value} : m)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Début</label>
+                        <input type="time" value={planModal.heureDebut}
+                          onChange={(e) => setPlanModal(m => m ? {...m, heureDebut: e.target.value} : m)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Fin</label>
+                        <input type="time" value={planModal.heureFin}
+                          onChange={(e) => setPlanModal(m => m ? {...m, heureFin: e.target.value} : m)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                      </div>
+                    </div>
+                    <input type="text" placeholder="Description (optionnel)" value={planModal.description}
+                      onChange={(e) => setPlanModal(m => m ? {...m, description: e.target.value} : m)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                    <input type="text" placeholder="Responsable (optionnel)" value={planModal.responsable}
+                      onChange={(e) => setPlanModal(m => m ? {...m, responsable: e.target.value} : m)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div className="flex gap-3 mt-5">
+                    <button onClick={() => setPlanModal(null)}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                      Annuler
+                    </button>
+                    <button onClick={handleAddPlanning} disabled={!planModal.titre}
+                      className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

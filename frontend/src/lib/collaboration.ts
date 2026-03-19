@@ -22,6 +22,7 @@ export interface PlanningActivite {
   titre: string;
   description?: string;
   responsable?: string;
+  couleur?: string;
   createdAt: string;
 }
 
