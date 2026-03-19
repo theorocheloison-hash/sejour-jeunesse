@@ -164,7 +164,37 @@ export class DevisService {
       where: { demandeId },
       include: {
         lignes: true,
-        centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
+        centre: {
+          select: {
+            id: true,
+            nom: true,
+            ville: true,
+            adresse: true,
+            codePostal: true,
+            telephone: true,
+            email: true,
+            siret: true,
+            capacite: true,
+          },
+        },
+        demande: {
+          include: {
+            enseignant: {
+              select: {
+                prenom: true,
+                nom: true,
+                email: true,
+                telephone: true,
+                etablissementNom: true,
+                etablissementAdresse: true,
+                etablissementVille: true,
+                etablissementUai: true,
+                etablissementEmail: true,
+                etablissementTelephone: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

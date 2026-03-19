@@ -220,86 +220,159 @@ export default function TeacherDemandesPage() {
       `}</style>
 
       {/* ── Modale détail devis ─── */}
-      {selectedDevis && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center print:static print:block">
-          <div className="absolute inset-0 bg-black/50 print:hidden" onClick={() => setSelectedDevis(null)} />
-          <div id="devis-print-zone" className="relative z-10 bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">{selectedDevis.centre?.nom ?? 'Centre'}</h2>
-                {selectedDevis.centre?.ville && <p className="text-sm text-gray-500">{selectedDevis.centre.ville}</p>}
-              </div>
-              <button onClick={() => setSelectedDevis(null)} className="print:hidden text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+      {selectedDevis && (() => {
+        const dv = selectedDevis;
+        const c = dv.centre;
+        const ens = dv.demande?.enseignant;
+        const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const dateDevis = new Date(dv.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const lignes = dv.lignes ?? [];
 
-            {selectedDevis.lignes && selectedDevis.lignes.length > 0 ? (
-              <div className="overflow-x-auto mb-6">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-3 font-semibold text-gray-700">Description</th>
-                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Qté</th>
-                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Prix unit. HT</th>
-                      <th className="text-right py-2 px-3 font-semibold text-gray-700">TVA %</th>
-                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Total HT</th>
-                      <th className="text-right py-2 px-3 font-semibold text-gray-700">Total TTC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedDevis.lignes.map((l, i) => (
-                      <tr key={l.id ?? i} className="border-b border-gray-100">
-                        <td className="py-2 px-3 text-gray-900">{l.description}</td>
-                        <td className="py-2 px-3 text-right text-gray-600">{l.quantite}</td>
-                        <td className="py-2 px-3 text-right text-gray-600">{l.prixUnitaire.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</td>
-                        <td className="py-2 px-3 text-right text-gray-600">{l.tva} %</td>
-                        <td className="py-2 px-3 text-right text-gray-600">{l.totalHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</td>
-                        <td className="py-2 px-3 text-right font-medium text-gray-900">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</td>
+        const tvaByRate = lignes.reduce<Record<number, { ht: number; tva: number }>>((acc, l) => {
+          if (!acc[l.tva]) acc[l.tva] = { ht: 0, tva: 0 };
+          acc[l.tva].ht += l.totalHT;
+          acc[l.tva].tva += l.totalTTC - l.totalHT;
+          return acc;
+        }, {});
+        const totalHT = lignes.reduce((sum, l) => sum + l.totalHT, 0);
+        const totalTTC = lignes.reduce((sum, l) => sum + l.totalTTC, 0);
+        const totalTVA = totalTTC - totalHT;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center print:static print:block">
+            <div className="absolute inset-0 bg-black/50 print:hidden" onClick={() => setSelectedDevis(null)} />
+            <div id="devis-print-zone" className="relative z-10 bg-white rounded-2xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto p-8 space-y-8">
+
+              {/* Boutons haut */}
+              <div className="flex justify-end gap-3 print:hidden">
+                <button
+                  onClick={() => window.print()}
+                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                >
+                  Imprimer
+                </button>
+                <button
+                  onClick={() => setSelectedDevis(null)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+
+              {/* En-tête : émetteur + destinataire */}
+              <div className="grid grid-cols-2 gap-8">
+                {/* Émetteur (hébergeur) */}
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p className="font-bold text-gray-900 text-base">{dv.nomEntreprise ?? c?.nom ?? '—'}</p>
+                  {(dv.adresseEntreprise ?? c?.adresse) && <p>{dv.adresseEntreprise ?? c?.adresse}</p>}
+                  {c && <p>{c.codePostal} {c.ville}</p>}
+                  {(dv.telEntreprise ?? c?.telephone) && <p>Tél. : {dv.telEntreprise ?? c?.telephone}</p>}
+                  {(dv.emailEntreprise ?? c?.email) && <p>Email : {dv.emailEntreprise ?? c?.email}</p>}
+                  {(dv.siretEntreprise ?? c?.siret) && <p>N° SIRET : {dv.siretEntreprise ?? c?.siret}</p>}
+                </div>
+
+                {/* Destinataire (établissement) */}
+                <div className="text-sm text-gray-700 space-y-1">
+                  {ens?.etablissementNom && <p className="font-bold text-gray-900 text-base">{ens.etablissementNom}</p>}
+                  {ens?.prenom && <p>{ens.prenom} {ens.nom}</p>}
+                  {ens?.etablissementAdresse && <p>{ens.etablissementAdresse}</p>}
+                  {ens?.etablissementVille && <p>{ens.etablissementVille}</p>}
+                  {(ens?.etablissementTelephone ?? ens?.telephone) && <p>Tél. : {ens?.etablissementTelephone ?? ens?.telephone}</p>}
+                  {(ens?.etablissementEmail ?? ens?.email) && <p>Email : {ens?.etablissementEmail ?? ens?.email}</p>}
+                </div>
+              </div>
+
+              {/* Titre central */}
+              <div className="text-center border-y border-gray-200 py-4 space-y-1">
+                {dv.demande?.titre && <p className="text-lg font-bold text-gray-900 uppercase">{dv.demande.titre}</p>}
+                {dv.numeroDevis && <p className="text-base font-semibold text-gray-700">DEVIS N° {dv.numeroDevis}</p>}
+                <p className="text-sm text-gray-500">Le {dateDevis}</p>
+              </div>
+
+              {/* Tableau des lignes */}
+              {lignes.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-gray-300">
+                        <th className="text-left py-2 pr-4 font-semibold text-gray-700">Désignation</th>
+                        <th className="text-right py-2 px-2 font-semibold text-gray-700">Qté</th>
+                        <th className="text-right py-2 px-2 font-semibold text-gray-700">PU HT</th>
+                        <th className="text-right py-2 px-2 font-semibold text-gray-700">TVA %</th>
+                        <th className="text-right py-2 px-2 font-semibold text-gray-700">Total HT</th>
+                        <th className="text-right py-2 pl-2 font-semibold text-gray-700">Total TTC</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-4 mb-6">Aucune ligne détaillée.</p>
-            )}
+                    </thead>
+                    <tbody>
+                      {lignes.map((l, i) => (
+                        <tr key={l.id ?? i} className="border-b border-gray-100">
+                          <td className="py-2 pr-4 text-gray-900">{l.description}</td>
+                          <td className="py-2 px-2 text-right text-gray-600">{l.quantite}</td>
+                          <td className="py-2 px-2 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
+                          <td className="py-2 px-2 text-right text-gray-600">{l.tva} %</td>
+                          <td className="py-2 px-2 text-right text-gray-600">{fmt(l.totalHT)} &euro;</td>
+                          <td className="py-2 pl-2 text-right font-semibold text-gray-900">{fmt(l.totalTTC)} &euro;</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">Aucune ligne de devis.</p>
+              )}
 
-            {/* Récapitulatif */}
-            <div className="space-y-2 max-w-xs ml-auto text-sm mb-6">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Montant HT</span>
-                <span className="font-medium text-gray-900">{(selectedDevis.montantHT ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">TVA ({selectedDevis.tauxTva ?? 0} %)</span>
-                <span className="font-medium text-gray-900">{(selectedDevis.montantTVA ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-gray-200">
-                <span className="font-semibold text-gray-900">Montant TTC</span>
-                <span className="font-bold text-gray-900 text-lg">{(selectedDevis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} &euro;</span>
-              </div>
-            </div>
+              {/* Récapitulatif TVA + totaux */}
+              <div className="flex justify-end">
+                <div className="w-80 space-y-1 text-sm">
+                  {Object.entries(tvaByRate).map(([taux, vals]) => (
+                    <div key={taux} className="flex justify-between text-gray-600">
+                      <span>TVA {taux} % — Base HT</span>
+                      <span>{fmt(vals.ht)} &euro;</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Total HT</span>
+                      <span>{fmt(totalHT)} &euro;</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>TVA</span>
+                      <span>{fmt(totalTVA)} &euro;</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-gray-900 text-base border-t border-gray-300 pt-2">
+                      <span>Total TTC</span>
+                      <span>{fmt(totalTTC)} &euro;</span>
+                    </div>
+                  </div>
 
-            <div className="flex gap-3 justify-end print:hidden">
-              <button
-                onClick={() => window.print()}
-                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
-              >
-                Imprimer
-              </button>
-              <button
-                onClick={() => setSelectedDevis(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Fermer
-              </button>
+                  {/* Conditions de paiement */}
+                  {dv.pourcentageAcompte && dv.montantAcompte && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600 space-y-1">
+                      <p className="font-semibold text-gray-700">Conditions de paiement :</p>
+                      <p>• {dv.pourcentageAcompte} % soit {fmt(dv.montantAcompte)} &euro; — Acompte</p>
+                      <p>• {100 - dv.pourcentageAcompte} % soit {fmt(totalTTC - dv.montantAcompte)} &euro; — Solde</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Conditions annulation */}
+              {dv.conditionsAnnulation && (
+                <div className="text-xs text-gray-500 border-t border-gray-100 pt-4">
+                  <p className="font-semibold text-gray-700 mb-1">Conditions d&apos;annulation :</p>
+                  <p>{dv.conditionsAnnulation}</p>
+                </div>
+              )}
+
+              {/* Bon pour accord */}
+              <div className="border-t border-gray-200 pt-6 text-sm text-gray-600">
+                <p>Bon pour accord</p>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
