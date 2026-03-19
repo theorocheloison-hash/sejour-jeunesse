@@ -172,12 +172,31 @@ export interface LigneDevisBudget {
 
 export interface DevisBudget {
   id: string;
+  montantTotal: number | null;
   montantTTC: number | null;
   montantHT: number | null;
   montantTVA: number | null;
   tauxTva: number | null;
   nomEntreprise: string | null;
-  centre: { nom: string; ville: string; adresse: string; siret: string | null } | null;
+  adresseEntreprise: string | null;
+  siretEntreprise: string | null;
+  emailEntreprise: string | null;
+  telEntreprise: string | null;
+  numeroDevis: string | null;
+  pourcentageAcompte: number | null;
+  montantAcompte: number | null;
+  conditionsAnnulation: string | null;
+  description: string | null;
+  createdAt: string;
+  centre: {
+    nom: string;
+    ville: string;
+    adresse: string;
+    codePostal: string | null;
+    siret: string | null;
+    telephone: string | null;
+    email: string | null;
+  } | null;
   lignes: LigneDevisBudget[];
 }
 
@@ -190,9 +209,14 @@ export interface BudgetData {
     createur?: {
       prenom: string;
       nom: string;
+      email: string | null;
+      telephone: string | null;
       etablissementNom: string | null;
+      etablissementAdresse: string | null;
       etablissementVille: string | null;
       etablissementUai: string | null;
+      etablissementEmail: string | null;
+      etablissementTelephone: string | null;
     };
   } | null;
   devis: DevisBudget | null;

@@ -193,7 +193,20 @@ export class CollaborationService {
       include: {
         devis: {
           where: { statut: 'SELECTIONNE' },
-          include: { lignes: true, centre: { select: { nom: true, ville: true, adresse: true, siret: true } } },
+          include: {
+            lignes: true,
+            centre: {
+              select: {
+                nom: true,
+                ville: true,
+                adresse: true,
+                codePostal: true,
+                siret: true,
+                telephone: true,
+                email: true,
+              },
+            },
+          },
           take: 1,
         },
       },
@@ -210,9 +223,14 @@ export class CollaborationService {
           select: {
             prenom: true,
             nom: true,
+            email: true,
+            telephone: true,
             etablissementNom: true,
+            etablissementAdresse: true,
             etablissementVille: true,
             etablissementUai: true,
+            etablissementEmail: true,
+            etablissementTelephone: true,
           },
         },
       },

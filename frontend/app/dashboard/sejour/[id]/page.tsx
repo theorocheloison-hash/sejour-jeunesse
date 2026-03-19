@@ -423,84 +423,151 @@ export default function CollaborationPage() {
             )}
 
             {!budgetLoading && budgetData?.devis && (() => {
-              const d = budgetData.devis;
+              const d = budgetData.devis!;
+              const s = budgetData.sejour;
+              const c = d.centre;
+              const createur = s?.createur;
               const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const dateDevis = new Date(d.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+              // Récapitulatif TVA par taux
+              const tvaByRate = d.lignes.reduce<Record<number, { ht: number; tva: number }>>((acc, l) => {
+                if (!acc[l.tva]) acc[l.tva] = { ht: 0, tva: 0 };
+                acc[l.tva].ht += l.totalHT;
+                acc[l.tva].tva += l.totalTTC - l.totalHT;
+                return acc;
+              }, {});
+
+              const totalHT = d.lignes.reduce((sum, l) => sum + l.totalHT, 0);
+              const totalTTC = d.lignes.reduce((sum, l) => sum + l.totalTTC, 0);
+              const totalTVA = totalTTC - totalHT;
 
               return (
-                <div className="space-y-6">
-                  {/* En-tête centre */}
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900">{d.centre?.nom ?? 'Centre'}</h2>
-                        <div className="mt-1 text-sm text-gray-500 space-y-0.5">
-                          {d.centre?.adresse && <p>{d.centre.adresse}, {d.centre.ville}</p>}
-                          {d.centre?.siret && <p>SIRET : {d.centre.siret}</p>}
-                          {d.nomEntreprise && d.nomEntreprise !== d.centre?.nom && <p>Raison sociale : {d.nomEntreprise}</p>}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => window.print()}
-                        className="print:hidden rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
-                      >
-                        Imprimer le devis
-                      </button>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 space-y-8">
+
+                  {/* Bouton impression */}
+                  <div className="flex justify-end print:hidden">
+                    <button
+                      onClick={() => window.print()}
+                      className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                    >
+                      Imprimer le devis
+                    </button>
+                  </div>
+
+                  {/* En-tête : émetteur + destinataire */}
+                  <div className="grid grid-cols-2 gap-8">
+                    {/* Émetteur (hébergeur) */}
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <p className="font-bold text-gray-900 text-base">{d.nomEntreprise ?? c?.nom ?? '—'}</p>
+                      {(d.adresseEntreprise ?? c?.adresse) && <p>{d.adresseEntreprise ?? c?.adresse}</p>}
+                      {c && <p>{c.codePostal} {c.ville}</p>}
+                      {(d.telEntreprise ?? c?.telephone) && <p>Tél. : {d.telEntreprise ?? c?.telephone}</p>}
+                      {(d.emailEntreprise ?? c?.email) && <p>Email : {d.emailEntreprise ?? c?.email}</p>}
+                      {(d.siretEntreprise ?? c?.siret) && <p>N° SIRET : {d.siretEntreprise ?? c?.siret}</p>}
+                    </div>
+
+                    {/* Destinataire (établissement) */}
+                    <div className="text-sm text-gray-700 space-y-1">
+                      {createur?.etablissementNom && <p className="font-bold text-gray-900 text-base">{createur.etablissementNom}</p>}
+                      {createur?.prenom && <p>{createur.prenom} {createur.nom}</p>}
+                      {createur?.etablissementAdresse && <p>{createur.etablissementAdresse}</p>}
+                      {createur?.etablissementVille && <p>{createur.etablissementVille}</p>}
+                      {(createur?.etablissementTelephone ?? createur?.telephone) && <p>Tél. : {createur?.etablissementTelephone ?? createur?.telephone}</p>}
+                      {(createur?.etablissementEmail ?? createur?.email) && <p>Email : {createur?.etablissementEmail ?? createur?.email}</p>}
                     </div>
                   </div>
 
-                  {/* Tableau des lignes */}
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">Détail des prestations</h3>
-                    {d.lignes.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-4">Aucune ligne de devis.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Description</th>
-                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Qté</th>
-                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Prix unit. HT</th>
-                              <th className="text-right py-2 px-3 font-semibold text-gray-700">TVA %</th>
-                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Total HT</th>
-                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Total TTC</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {d.lignes.map((l) => (
-                              <tr key={l.id} className="border-b border-gray-100">
-                                <td className="py-2 px-3 text-gray-900">{l.description}</td>
-                                <td className="py-2 px-3 text-right text-gray-600">{l.quantite}</td>
-                                <td className="py-2 px-3 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
-                                <td className="py-2 px-3 text-right text-gray-600">{l.tva} %</td>
-                                <td className="py-2 px-3 text-right text-gray-600">{fmt(l.totalHT)} &euro;</td>
-                                <td className="py-2 px-3 text-right font-medium text-gray-900">{fmt(l.totalTTC)} &euro;</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                  {/* Numéro devis + titre séjour + date */}
+                  <div className="text-center border-y border-gray-200 py-4 space-y-1">
+                    {s?.titre && <p className="text-lg font-bold text-gray-900 uppercase">{s.titre}</p>}
+                    {d.numeroDevis && <p className="text-base font-semibold text-gray-700">DEVIS N° {d.numeroDevis}</p>}
+                    <p className="text-sm text-gray-500">Le {dateDevis}</p>
+                    {s?.dateDebut && s?.dateFin && (
+                      <p className="text-sm text-gray-500">
+                        Du {new Date(s.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} au {new Date(s.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      </p>
                     )}
                   </div>
 
-                  {/* Récapitulatif financier */}
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">Récapitulatif</h3>
-                    <div className="space-y-2 max-w-xs ml-auto text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Montant HT</span>
-                        <span className="font-medium text-gray-900">{fmt(d.montantHT ?? 0)} &euro;</span>
+                  {/* Tableau des lignes */}
+                  {d.lignes.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-gray-300">
+                            <th className="text-left py-2 pr-4 font-semibold text-gray-700">Désignation</th>
+                            <th className="text-right py-2 px-2 font-semibold text-gray-700">Qté</th>
+                            <th className="text-right py-2 px-2 font-semibold text-gray-700">PU HT</th>
+                            <th className="text-right py-2 px-2 font-semibold text-gray-700">TVA %</th>
+                            <th className="text-right py-2 px-2 font-semibold text-gray-700">Total HT</th>
+                            <th className="text-right py-2 pl-2 font-semibold text-gray-700">Total TTC</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.lignes.map((l) => (
+                            <tr key={l.id} className="border-b border-gray-100">
+                              <td className="py-2 pr-4 text-gray-900">{l.description}</td>
+                              <td className="py-2 px-2 text-right text-gray-600">{l.quantite}</td>
+                              <td className="py-2 px-2 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
+                              <td className="py-2 px-2 text-right text-gray-600">{l.tva} %</td>
+                              <td className="py-2 px-2 text-right text-gray-600">{fmt(l.totalHT)} &euro;</td>
+                              <td className="py-2 pl-2 text-right font-semibold text-gray-900">{fmt(l.totalTTC)} &euro;</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Récapitulatif TVA + totaux */}
+                  <div className="flex justify-end">
+                    <div className="w-80 space-y-1 text-sm">
+                      {Object.entries(tvaByRate).map(([taux, vals]) => (
+                        <div key={taux} className="flex justify-between text-gray-600">
+                          <span>TVA {taux} % — Base HT</span>
+                          <span>{fmt(vals.ht)} &euro;</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                        <div className="flex justify-between text-gray-600">
+                          <span>Total HT</span>
+                          <span>{fmt(totalHT)} &euro;</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>TVA</span>
+                          <span>{fmt(totalTVA)} &euro;</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-gray-900 text-base border-t border-gray-300 pt-2">
+                          <span>Total TTC</span>
+                          <span>{fmt(totalTTC)} &euro;</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">TVA ({d.tauxTva ?? 0} %)</span>
-                        <span className="font-medium text-gray-900">{fmt(d.montantTVA ?? 0)} &euro;</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-gray-200">
-                        <span className="font-semibold text-gray-900">Montant TTC</span>
-                        <span className="font-bold text-gray-900 text-lg">{fmt(d.montantTTC ?? 0)} &euro;</span>
-                      </div>
+
+                      {/* Conditions de paiement */}
+                      {d.pourcentageAcompte && d.montantAcompte && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600 space-y-1">
+                          <p className="font-semibold text-gray-700">Conditions de paiement :</p>
+                          <p>• {d.pourcentageAcompte} % soit {fmt(d.montantAcompte)} &euro; — Acompte</p>
+                          <p>• {100 - d.pourcentageAcompte} % soit {fmt(totalTTC - d.montantAcompte)} &euro; — Solde</p>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Conditions annulation */}
+                  {d.conditionsAnnulation && (
+                    <div className="text-xs text-gray-500 border-t border-gray-100 pt-4">
+                      <p className="font-semibold text-gray-700 mb-1">Conditions d&apos;annulation :</p>
+                      <p>{d.conditionsAnnulation}</p>
+                    </div>
+                  )}
+
+                  {/* Bon pour accord */}
+                  <div className="border-t border-gray-200 pt-6 text-sm text-gray-600">
+                    <p>Bon pour accord</p>
+                  </div>
+
                 </div>
               );
             })()}
