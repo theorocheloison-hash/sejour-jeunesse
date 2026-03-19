@@ -132,6 +132,7 @@ function DraggableActivity({
   });
 
   const [resizing, setResizing] = React.useState(false);
+  const justResized = React.useRef(false);
   const resizeStartY = React.useRef(0);
   const resizeStartHeight = React.useRef(0);
   const [currentHeight, setCurrentHeight] = React.useState(heightPx);
@@ -157,6 +158,8 @@ function DraggableActivity({
       const newSlots = Math.round(newH / slotHeight);
       onResize(newSlots);
       setResizing(false);
+      justResized.current = true;
+      setTimeout(() => { justResized.current = false; }, 100);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -181,7 +184,7 @@ function DraggableActivity({
     <div
       ref={setNodeRef}
       style={style}
-      onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing) onEdit(); }}
+      onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing && !justResized.current) onEdit(); }}
     >
       <div
         className="h-full rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
