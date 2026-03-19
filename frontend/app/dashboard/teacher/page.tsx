@@ -15,7 +15,8 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
   APPROVED:   { label: 'Approuvé',    cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REJECTED:   { label: 'Refusé',      cls: 'bg-red-100 text-red-700' },
-  CONVENTION: { label: 'Convention',   cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {

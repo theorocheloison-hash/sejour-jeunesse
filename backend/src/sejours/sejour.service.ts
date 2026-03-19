@@ -308,8 +308,8 @@ export class SejourService {
     });
 
     await this.email.sendDossierRectorat(
-      sejour.createur.email,
-      `${sejour.createur.prenom} ${sejour.createur.nom}`,
+      sejour.createur?.email ?? '',
+      `${sejour.createur?.prenom ?? ''} ${sejour.createur?.nom ?? ''}`,
       sejour.titre,
       html,
     );
