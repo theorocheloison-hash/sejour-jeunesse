@@ -101,6 +101,7 @@ export default function CollaborationPage() {
     titre: string;
     description: string;
     responsable: string;
+    editId?: string;
   } | null>(null);
 
   // Documents
@@ -236,6 +237,10 @@ export default function CollaborationPage() {
   const handleAddPlanning = async () => {
     if (!planModal || !id) return;
     try {
+      if (planModal.editId) {
+        await deletePlanning(id, planModal.editId);
+        setPlanning(prev => prev.filter(p => p.id !== planModal.editId));
+      }
       const newItem = await createPlanning(id, {
         date: planModal.date,
         heureDebut: planModal.heureDebut,
@@ -244,7 +249,7 @@ export default function CollaborationPage() {
         description: planModal.description || undefined,
         responsable: planModal.responsable || undefined,
       });
-      setPlanning((prev) => [...prev, newItem]);
+      setPlanning(prev => [...prev, newItem]);
       setPlanModal(null);
     } catch { /* ignore */ }
   };
@@ -643,7 +648,7 @@ export default function CollaborationPage() {
               const isVenue = user?.role === 'VENUE';
               const HOUR_START = 7;
               const HOUR_END = 22;
-              const SLOT_HEIGHT = 40;
+              const SLOT_HEIGHT = 48;
               const SLOTS = (HOUR_END - HOUR_START) * 2;
 
               const days: Date[] = [];
@@ -700,6 +705,7 @@ export default function CollaborationPage() {
                     </div>
 
                     {/* Corps : heures + colonnes */}
+                    <div style={{ height: '600px', overflowY: 'auto' }}>
                     <div className="flex relative" style={{ height: `${SLOTS * SLOT_HEIGHT}px` }}>
 
                       {/* Colonne heures */}
@@ -742,7 +748,21 @@ export default function CollaborationPage() {
                                 <div
                                   key={act.id}
                                   style={{ top: `${topPx}px`, height: `${Math.max(heightPx, SLOT_HEIGHT)}px`, left: '2px', right: '2px' }}
-                                  className="absolute rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden z-10 shadow-sm"
+                                  className={`absolute rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden z-10 shadow-sm ${isVenue ? 'cursor-pointer' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isVenue) return;
+                                    setPlanModal({
+                                      open: true,
+                                      date: act.date.split('T')[0],
+                                      heureDebut: act.heureDebut,
+                                      heureFin: act.heureFin,
+                                      titre: act.titre,
+                                      description: act.description ?? '',
+                                      responsable: act.responsable ?? '',
+                                      editId: act.id,
+                                    });
+                                  }}
                                 >
                                   <div className="font-semibold truncate">{act.titre}</div>
                                   <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
@@ -762,6 +782,7 @@ export default function CollaborationPage() {
                         );
                       })}
                     </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -773,7 +794,7 @@ export default function CollaborationPage() {
                 onClick={() => setPlanModal(null)}>
                 <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
                   onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-base font-semibold text-gray-900 mb-4">Nouveau créneau</h3>
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">{planModal.editId ? 'Modifier le créneau' : 'Nouveau créneau'}</h3>
                   <div className="space-y-3">
                     <input type="text" placeholder="Titre *" value={planModal.titre}
                       onChange={(e) => setPlanModal(m => m ? {...m, titre: e.target.value} : m)}
@@ -806,7 +827,7 @@ export default function CollaborationPage() {
                     </button>
                     <button onClick={handleAddPlanning} disabled={!planModal.titre}
                       className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                      Ajouter
+                      {planModal.editId ? 'Modifier' : 'Ajouter'}
                     </button>
                   </div>
                 </div>
