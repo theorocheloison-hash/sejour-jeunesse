@@ -72,6 +72,7 @@ export interface Participant {
   regimeAlimentaire: string | null;
   niveauSki: string | null;
   infosMedicales: string | null;
+  documentMedicalUrl?: string | null;
   createdAt: string;
 }
 

@@ -1274,8 +1274,8 @@ export default function CollaborationPage() {
                   )}
 
                   {/* Document médical */}
-                  {(selectedParticipant as Record<string, unknown>).documentMedicalUrl && (
-                    <a href={(selectedParticipant as Record<string, unknown>).documentMedicalUrl as string} target="_blank" rel="noopener noreferrer"
+                  {selectedParticipant.documentMedicalUrl && (
+                    <a href={selectedParticipant.documentMedicalUrl} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
                       Voir le document médical
                     </a>
