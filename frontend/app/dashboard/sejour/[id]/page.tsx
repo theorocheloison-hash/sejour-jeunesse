@@ -821,6 +821,21 @@ export default function CollaborationPage() {
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                   </div>
                   <div className="flex gap-3 mt-5">
+                    {planModal.editId && (
+                      <button
+                        onClick={async () => {
+                          if (!id || !planModal.editId) return;
+                          try {
+                            await deletePlanning(id, planModal.editId);
+                            setPlanning(prev => prev.filter(p => p.id !== planModal.editId));
+                            setPlanModal(null);
+                          } catch { /* ignore */ }
+                        }}
+                        className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        Supprimer
+                      </button>
+                    )}
                     <button onClick={() => setPlanModal(null)}
                       className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                       Annuler
