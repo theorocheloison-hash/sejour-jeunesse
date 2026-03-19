@@ -239,7 +239,15 @@ export class SejourService {
           orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
         },
         autorisations: {
-          select: { eleveNom: true, elevePrenom: true, parentEmail: true, signeeAt: true },
+          select: {
+            eleveNom: true,
+            elevePrenom: true,
+            eleveDateNaissance: true,
+            parentEmail: true,
+            nomParent: true,
+            telephoneUrgence: true,
+            signeeAt: true,
+          },
           orderBy: { eleveNom: 'asc' },
         },
         _count: { select: { inscriptions: true, autorisations: true } },
@@ -253,6 +261,177 @@ export class SejourService {
     }
 
     return sejour;
+  }
+
+  async soumettreAuRectorat(sejourId: string, userId: string) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      include: {
+        createur: {
+          select: {
+            prenom: true, nom: true, email: true, telephone: true,
+            etablissementNom: true, etablissementAdresse: true,
+            etablissementVille: true, etablissementUai: true,
+            etablissementEmail: true, etablissementTelephone: true,
+          },
+        },
+        hebergementSelectionne: {
+          select: { nom: true, ville: true, adresse: true, codePostal: true, telephone: true, email: true }
+        },
+        accompagnateurs: {
+          select: { id: true, prenom: true, nom: true, email: true, telephone: true, signeeAt: true, moyenTransport: true, contactUrgenceNom: true, contactUrgenceTel: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        planningActivites: {
+          orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
+        },
+        autorisations: {
+          select: {
+            eleveNom: true, elevePrenom: true, eleveDateNaissance: true,
+            parentEmail: true, nomParent: true, telephoneUrgence: true, signeeAt: true,
+          },
+          orderBy: { eleveNom: 'asc' },
+        },
+      },
+    });
+
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId && sejour.statut !== 'CONVENTION') {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    const html = this.genererDossierRectoratHtml(sejour);
+
+    await this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { statut: 'SOUMIS_RECTORAT' as any },
+    });
+
+    await this.email.sendDossierRectorat(
+      sejour.createur.email,
+      `${sejour.createur.prenom} ${sejour.createur.nom}`,
+      sejour.titre,
+      html,
+    );
+
+    return { message: 'Dossier soumis au rectorat avec succès.' };
+  }
+
+  private genererDossierRectoratHtml(sejour: any): string {
+    const fmt = (d: string | Date | null) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+    const fmtDate = (d: string | Date | null) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    const autorisationsSignees = sejour.autorisations.filter((a: any) => a.signeeAt);
+
+    return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Dossier voyage scolaire — ${sejour.titre}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; max-width: 800px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 18px; color: #1B4060; border-bottom: 2px solid #1B4060; padding-bottom: 8px; }
+  h2 { font-size: 14px; color: #1B4060; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  .header { display: flex; justify-content: space-between; margin-bottom: 24px; }
+  .header-left { font-size: 11px; color: #666; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { background: #1B4060; color: white; padding: 6px 8px; text-align: left; font-size: 11px; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 11px; }
+  tr:nth-child(even) { background: #f9f9f9; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+  .info-block { background: #f5f7fa; border: 1px solid #e0e5ec; border-radius: 6px; padding: 12px; }
+  .info-block p { margin: 3px 0; }
+  .info-block strong { color: #1B4060; }
+  .badge { display: inline-block; background: #1B4060; color: white; border-radius: 4px; padding: 2px 8px; font-size: 10px; }
+  .footer { margin-top: 40px; border-top: 1px solid #ccc; padding-top: 16px; font-size: 10px; color: #999; text-align: center; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <p>République Française — Ministère de l'Éducation Nationale</p>
+    <p>Dossier de voyage scolaire — Circulaire du 16 juillet 2024</p>
+    <p>Généré le ${fmtDate(new Date().toISOString())} via LIAVO</p>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#1B4060; font-weight:bold;">
+    <p>LIAVO</p>
+    <p>Plateforme de coordination des séjours scolaires</p>
+  </div>
+</div>
+
+<h1>Dossier de voyage scolaire — ${sejour.titre}</h1>
+
+<h2>1. Informations générales du séjour</h2>
+<div class="grid">
+  <div class="info-block">
+    <p><strong>Titre :</strong> ${sejour.titre}</p>
+    <p><strong>Lieu :</strong> ${sejour.lieu ?? '—'}</p>
+    <p><strong>Dates :</strong> Du ${fmtDate(sejour.dateDebut)} au ${fmtDate(sejour.dateFin)}</p>
+    <p><strong>Nombre d'élèves :</strong> ${sejour.placesTotales}</p>
+    <p><strong>Niveau :</strong> ${sejour.niveauClasse ?? '—'}</p>
+  </div>
+  <div class="info-block">
+    <p><strong>Établissement :</strong> ${sejour.createur.etablissementNom ?? '—'}</p>
+    <p><strong>UAI :</strong> ${sejour.createur.etablissementUai ?? '—'}</p>
+    <p><strong>Adresse :</strong> ${sejour.createur.etablissementAdresse ?? '—'}</p>
+    <p><strong>Ville :</strong> ${sejour.createur.etablissementVille ?? '—'}</p>
+    <p><strong>Tél. établissement :</strong> ${sejour.createur.etablissementTelephone ?? '—'}</p>
+  </div>
+</div>
+
+<h2>2. Enseignant organisateur</h2>
+<div class="info-block">
+  <p><strong>Nom :</strong> ${sejour.createur.prenom} ${sejour.createur.nom}</p>
+  <p><strong>Email :</strong> ${sejour.createur.email}</p>
+  <p><strong>Téléphone :</strong> ${sejour.createur.telephone ?? '—'}</p>
+</div>
+
+<h2>3. Hébergement</h2>
+<div class="info-block">
+  <p><strong>Nom :</strong> ${sejour.hebergementSelectionne?.nom ?? '—'}</p>
+  <p><strong>Adresse :</strong> ${sejour.hebergementSelectionne?.adresse ?? '—'}, ${sejour.hebergementSelectionne?.ville ?? '—'}</p>
+  <p><strong>Téléphone :</strong> ${sejour.hebergementSelectionne?.telephone ?? '—'}</p>
+  <p><strong>Email :</strong> ${sejour.hebergementSelectionne?.email ?? '—'}</p>
+</div>
+
+<h2>4. Accompagnateurs (${sejour.accompagnateurs.length})</h2>
+<table>
+  <thead>
+    <tr><th>Nom</th><th>Prénom</th><th>Email</th><th>Téléphone</th><th>Transport</th><th>Contact urgence</th><th>Ordre de mission</th></tr>
+  </thead>
+  <tbody>
+    ${sejour.accompagnateurs.map((a: any) => `<tr><td>${a.nom}</td><td>${a.prenom}</td><td>${a.email}</td><td>${a.telephone ?? '—'}</td><td>${a.moyenTransport ?? '—'}</td><td>${a.contactUrgenceNom ?? '—'} ${a.contactUrgenceTel ? `(${a.contactUrgenceTel})` : ''}</td><td>${a.signeeAt ? '<span class="badge">Signé</span>' : '—'}</td></tr>`).join('')}
+  </tbody>
+</table>
+
+<h2>5. Liste des élèves participants (${autorisationsSignees.length} autorisations signées / ${sejour.autorisations.length})</h2>
+<table>
+  <thead>
+    <tr><th>Nom</th><th>Prénom</th><th>Date de naissance</th><th>Responsable légal</th><th>Téléphone urgence</th><th>Autorisation</th></tr>
+  </thead>
+  <tbody>
+    ${sejour.autorisations.map((a: any) => `<tr><td>${a.eleveNom}</td><td>${a.elevePrenom}</td><td>${fmt(a.eleveDateNaissance)}</td><td>${a.nomParent ?? '—'}</td><td>${a.telephoneUrgence ?? '—'}</td><td>${a.signeeAt ? '<span class="badge">Signée</span>' : '—'}</td></tr>`).join('')}
+  </tbody>
+</table>
+
+<h2>6. Programme du séjour</h2>
+<table>
+  <thead>
+    <tr><th>Date</th><th>Heure début</th><th>Heure fin</th><th>Activité</th><th>Responsable</th></tr>
+  </thead>
+  <tbody>
+    ${sejour.planningActivites.length > 0 ? sejour.planningActivites.map((p: any) => `<tr><td>${fmt(p.date)}</td><td>${p.heureDebut}</td><td>${p.heureFin}</td><td>${p.titre}</td><td>${p.responsable ?? '—'}</td></tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;">Aucune activité planifiée</td></tr>'}
+  </tbody>
+</table>
+
+<div class="footer">
+  <p>Document généré automatiquement par LIAVO — Plateforme de coordination des séjours scolaires</p>
+  <p>Référence réglementaire : Circulaire du 16 juillet 2024 relative à l'organisation des sorties et voyages scolaires</p>
+</div>
+
+</body>
+</html>`;
   }
 
   async soumettreAuDirecteur(sejourId: string, enseignantId: string) {

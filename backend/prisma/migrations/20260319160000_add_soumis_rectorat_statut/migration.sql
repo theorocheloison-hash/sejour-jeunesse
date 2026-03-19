@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "StatutSejour" ADD VALUE 'SOUMIS_RECTORAT';

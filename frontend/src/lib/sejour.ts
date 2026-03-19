@@ -2,7 +2,7 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CONVENTION';
+export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CONVENTION' | 'SOUMIS_RECTORAT';
 export type AppelOffreStatut = 'BROUILLON' | 'OUVERT' | 'FERME';
 export type TypeZone = 'FRANCE' | 'REGION' | 'DEPARTEMENT' | 'VILLE';
 
@@ -227,4 +227,8 @@ export interface ChecklistItem {
 export async function soumettreAuDirecteur(sejourId: string): Promise<{ success: boolean; message: string }> {
   const { data } = await api.post<{ success: boolean; message: string }>(`/sejours/${sejourId}/soumettre-directeur`);
   return data;
+}
+
+export async function soumettreAuRectorat(sejourId: string): Promise<void> {
+  await api.post(`/sejours/${sejourId}/soumettre-rectorat`);
 }

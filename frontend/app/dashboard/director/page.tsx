@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAllSejours, updateSejourStatus, getSejourDetail } from '@/src/lib/sejour';
+import { getAllSejours, updateSejourStatus, getSejourDetail, soumettreAuRectorat } from '@/src/lib/sejour';
 import {
   getDevisAValider,
   updateDevisStatut,
@@ -22,7 +22,8 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   SUBMITTED:  { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
   APPROVED:   { label: 'Approuvé',   cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   REJECTED:   { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
-  CONVENTION: { label: 'Convention',  cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  CONVENTION:      { label: 'Convention',       cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  SOUMIS_RECTORAT: { label: 'Soumis rectorat', cls: 'bg-purple-100 text-purple-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {
@@ -88,12 +89,14 @@ function SejourDetailModal({
   onClose,
   onApprove,
   onReject,
+  onSoumettreRectorat,
   isActing,
 }: {
   detail: SejourDetail;
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string, motif: string) => void;
+  onSoumettreRectorat: (id: string) => void;
   isActing: boolean;
 }) {
   const [refusMode, setRefusMode] = useState(false);
@@ -278,6 +281,21 @@ function SejourDetailModal({
                 Approuver
               </button>
             </>
+          )}
+          {(detail.statut === 'CONVENTION' || detail.statut === 'APPROVED') && (
+            <button
+              type="button"
+              onClick={() => onSoumettreRectorat(detail.id)}
+              disabled={isActing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50"
+            >
+              {isActing ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+              )}
+              Soumettre au rectorat
+            </button>
           )}
           <button onClick={onClose} className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Fermer</button>
         </div>
@@ -592,6 +610,25 @@ export default function DirectorDashboard() {
     }
   };
 
+  const [rectoratSuccess, setRectoratSuccess] = useState<string | null>(null);
+
+  const handleSoumettreRectorat = async (id: string) => {
+    setActingId(id);
+    try {
+      await soumettreAuRectorat(id);
+      setSejours(prev => prev.map(s => s.id === id ? { ...s, statut: 'SOUMIS_RECTORAT' as StatutSejour } : s));
+      if (sejourDetail?.id === id) {
+        setSejourDetail({ ...sejourDetail, statut: 'SOUMIS_RECTORAT' as StatutSejour });
+      }
+      setRectoratSuccess('Dossier soumis — email envoyé');
+      setTimeout(() => setRectoratSuccess(null), 4000);
+    } catch {
+      // no-op
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const handleDevisAction = async (devisId: string, statut: 'SELECTIONNE' | 'NON_RETENU') => {
     setDevisActingId(devisId);
     try {
@@ -644,6 +681,11 @@ export default function DirectorDashboard() {
     <div className="min-h-screen bg-gray-50">
 
       {/* Modals */}
+      {rectoratSuccess && (
+        <div className="fixed top-4 right-4 z-50 rounded-lg bg-purple-600 text-white px-5 py-3 text-sm font-semibold shadow-lg animate-in fade-in">
+          {rectoratSuccess}
+        </div>
+      )}
       {chorusXml && <ChorusModal xml={chorusXml} onClose={() => setChorusXml(null)} />}
       {sejourDetail && (
         <SejourDetailModal
@@ -651,6 +693,7 @@ export default function DirectorDashboard() {
           onClose={() => setSejourDetail(null)}
           onApprove={handleApprove}
           onReject={handleReject}
+          onSoumettreRectorat={handleSoumettreRectorat}
           isActing={actingId === sejourDetail.id}
         />
       )}
@@ -710,6 +753,7 @@ export default function DirectorDashboard() {
             ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-[var(--color-success-light)] text-[var(--color-success)] ring-[var(--color-success)]'],
             ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
             ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
+            ['SOUMIS_RECTORAT','Rectorat', countByStatut('SOUMIS_RECTORAT'),'bg-purple-50 text-purple-700 ring-purple-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
               key={val}
