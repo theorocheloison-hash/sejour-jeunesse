@@ -208,6 +208,7 @@ export default function CollaborationPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const [tab, setTab] = useState<Tab>('devis');
@@ -867,7 +868,7 @@ export default function CollaborationPage() {
                 </div>
               )}
 
-              <DndContext sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))} onDragEnd={handleDragEnd}>
+              <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
                 <div className="overflow-x-auto">
                   <div style={{ minWidth: `${56 + days.length * 120}px` }}>
 
