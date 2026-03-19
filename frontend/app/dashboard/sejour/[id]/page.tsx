@@ -36,9 +36,10 @@ import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
+type Tab = 'devis' | 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'devis', label: 'Devis' },
   { key: 'messages', label: 'Messages' },
   { key: 'planning', label: 'Planning' },
   { key: 'participants', label: 'Participants' },
@@ -81,7 +82,7 @@ export default function CollaborationPage() {
   const { user, isLoading } = useAuth();
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
-  const [tab, setTab] = useState<Tab>('messages');
+  const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
 
   // Messages
@@ -191,6 +192,7 @@ export default function CollaborationPage() {
   }, [id]);
 
   useEffect(() => {
+    if (tab === 'devis') loadBudget();
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
@@ -396,6 +398,114 @@ export default function CollaborationPage() {
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* ── Print CSS ─── */}
+        <style>{`
+          @media print {
+            body > * { display: none !important; }
+            #devis-print-zone { display: block !important; }
+          }
+        `}</style>
+
+        {/* ── Devis ─── */}
+        {tab === 'devis' && (
+          <div id="devis-print-zone">
+            {budgetLoading && (
+              <div className="flex justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              </div>
+            )}
+
+            {!budgetLoading && !budgetData?.devis && (
+              <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+                <p className="text-sm text-gray-500">Aucun devis sélectionné pour ce séjour.</p>
+              </div>
+            )}
+
+            {!budgetLoading && budgetData?.devis && (() => {
+              const d = budgetData.devis;
+              const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+              return (
+                <div className="space-y-6">
+                  {/* En-tête centre */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900">{d.centre?.nom ?? 'Centre'}</h2>
+                        <div className="mt-1 text-sm text-gray-500 space-y-0.5">
+                          {d.centre?.adresse && <p>{d.centre.adresse}, {d.centre.ville}</p>}
+                          {d.centre?.siret && <p>SIRET : {d.centre.siret}</p>}
+                          {d.nomEntreprise && d.nomEntreprise !== d.centre?.nom && <p>Raison sociale : {d.nomEntreprise}</p>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.print()}
+                        className="print:hidden rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                      >
+                        Imprimer le devis
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tableau des lignes */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Détail des prestations</h3>
+                    {d.lignes.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">Aucune ligne de devis.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Description</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Qté</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Prix unit. HT</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">TVA %</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Total HT</th>
+                              <th className="text-right py-2 px-3 font-semibold text-gray-700">Total TTC</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.lignes.map((l) => (
+                              <tr key={l.id} className="border-b border-gray-100">
+                                <td className="py-2 px-3 text-gray-900">{l.description}</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{l.quantite}</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{l.tva} %</td>
+                                <td className="py-2 px-3 text-right text-gray-600">{fmt(l.totalHT)} &euro;</td>
+                                <td className="py-2 px-3 text-right font-medium text-gray-900">{fmt(l.totalTTC)} &euro;</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Récapitulatif financier */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Récapitulatif</h3>
+                    <div className="space-y-2 max-w-xs ml-auto text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Montant HT</span>
+                        <span className="font-medium text-gray-900">{fmt(d.montantHT ?? 0)} &euro;</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">TVA ({d.tauxTva ?? 0} %)</span>
+                        <span className="font-medium text-gray-900">{fmt(d.montantTVA ?? 0)} &euro;</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-gray-200">
+                        <span className="font-semibold text-gray-900">Montant TTC</span>
+                        <span className="font-bold text-gray-900 text-lg">{fmt(d.montantTTC ?? 0)} &euro;</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* ── Messages ─── */}
         {tab === 'messages' && (
           <div className="flex flex-col h-[calc(100vh-220px)]">
