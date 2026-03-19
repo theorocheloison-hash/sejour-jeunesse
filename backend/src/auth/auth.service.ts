@@ -211,14 +211,23 @@ export class AuthService {
       if (!results || results.length === 0) return { found: false };
 
       const etab = results[0];
+      const siege = etab.siege;
+      const match = etab.matching_etablissements?.[0];
+
+      const codePostal = siege?.code_postal ?? match?.code_postal ?? '';
+      const dept = codePostal.startsWith('97') || codePostal.startsWith('98')
+        ? codePostal.slice(0, 3)
+        : codePostal.slice(0, 2);
+
       return {
         found: true,
         raisonSociale: etab.nom_raison_sociale ?? etab.nom_complet ?? '',
-        adresse: etab.geo_adresse ?? etab.adresse_complete ?? '',
-        ville: etab.commune ?? '',
-        codePostal: etab.code_postal ?? '',
-        siret: etab.siret ?? cleaned,
+        adresse: siege?.geo_adresse ?? siege?.adresse ?? match?.geo_adresse ?? '',
+        ville: siege?.libelle_commune ?? match?.libelle_commune ?? '',
+        codePostal,
+        siret: siege?.siret ?? cleaned,
         siren: cleaned.slice(0, 9),
+        departement: dept,
       };
     } catch {
       return { found: false };

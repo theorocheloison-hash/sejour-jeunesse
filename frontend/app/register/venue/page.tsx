@@ -141,6 +141,7 @@ export default function RegisterVenuePage() {
         adresse: f.adresse || data.adresse,
         ville: f.ville || data.ville,
         codePostal: f.codePostal || data.codePostal,
+        departement: f.departement || data.departement,
         siret: data.siret,
       }));
       setCentreFromSiret(true);
