@@ -28,4 +28,14 @@ export class UsersController {
   ) {
     return this.usersService.updateEtablissement(user.id, dto);
   }
+
+  /** PATCH /users/mon-profil — Mettre à jour le profil (DIRECTOR) */
+  @Patch('mon-profil')
+  @Roles(Role.DIRECTOR)
+  updateProfil(
+    @Body() dto: { emailRectorat?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.usersService.updateProfil(user.id, dto);
+  }
 }

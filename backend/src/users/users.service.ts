@@ -22,10 +22,22 @@ export class UsersService {
         etablissementVille: true,
         etablissementEmail: true,
         etablissementTelephone: true,
+        emailRectorat: true,
       },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     return user;
+  }
+
+  async updateProfil(userId: string, data: { emailRectorat?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { emailRectorat: data.emailRectorat ?? null },
+      select: {
+        id: true,
+        emailRectorat: true,
+      },
+    });
   }
 
   async updateEtablissement(userId: string, dto: UpdateEtablissementDto) {

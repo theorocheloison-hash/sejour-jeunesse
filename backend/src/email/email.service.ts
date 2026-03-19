@@ -292,6 +292,7 @@ export class EmailService {
     nomEnseignant: string,
     titreSejour: string,
     htmlDossier: string,
+    cc?: string,
   ): Promise<void> {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <div style="max-width:560px;margin:0 auto;padding:32px">
@@ -300,15 +301,34 @@ export class EmailService {
         </div>
         <div style="padding:24px 32px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px">
           <h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">Dossier voyage scolaire prêt</h2>
-          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Bonjour ${nomEnseignant},</p>
-          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Le dossier de voyage scolaire "<strong>${titreSejour}</strong>" a été validé par la direction et est prêt à être soumis au rectorat.</p>
-          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Vous trouverez ci-dessous le dossier complet conforme à la circulaire du 16 juillet 2024. Vous pouvez l'imprimer ou le transmettre à votre DSDEN.</p>
+          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Bonjour,</p>
+          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Le dossier de voyage scolaire "<strong>${titreSejour}</strong>" (enseignant organisateur : ${nomEnseignant}) a été validé par la direction et est prêt à être examiné.</p>
+          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Vous trouverez ci-dessous le dossier complet conforme à la circulaire du 16 juillet 2024.</p>
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
           ${htmlDossier}
         </div>
       </div>
     </body></html>`;
-    await this.send(to, `Dossier voyage scolaire à soumettre au rectorat — ${titreSejour}`, html);
+    const subject = `Dossier voyage scolaire à soumettre au rectorat — ${titreSejour}`;
+    if (!BREVO_API_KEY) {
+      console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
+      return;
+    }
+    console.log(`[EMAIL] Envoi dossier rectorat — to: ${to}${cc ? ` cc: ${cc}` : ''}`);
+    try {
+      await this.api.sendTransacEmail({
+        sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+        to: [{ email: to }],
+        ...(cc ? { cc: [{ email: cc }] } : {}),
+        subject,
+        htmlContent: html,
+      });
+      console.log(`[EMAIL OK] ${subject} → ${to}`);
+    } catch (err: any) {
+      const body = err?.response?.body ?? err?.body ?? err?.message ?? err;
+      console.error(`[EMAIL FAIL] ${subject} → ${to}`, JSON.stringify(body, null, 2));
+      throw err;
+    }
   }
 
   // ── k) Dossier soumis au rectorat (notification) ────────────────────

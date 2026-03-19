@@ -302,16 +302,23 @@ export class SejourService {
 
     const html = this.genererDossierRectoratHtml(sejour);
 
+    const directeur = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { emailRectorat: true, prenom: true, nom: true },
+    });
+
     await this.prisma.sejour.update({
       where: { id: sejourId },
       data: { statut: 'SOUMIS_RECTORAT' as any },
     });
 
+    const destinataire = directeur?.emailRectorat ?? sejour.createur?.email ?? '';
     await this.email.sendDossierRectorat(
-      sejour.createur?.email ?? '',
+      destinataire,
       `${sejour.createur?.prenom ?? ''} ${sejour.createur?.nom ?? ''}`,
       sejour.titre,
       html,
+      directeur?.emailRectorat ? sejour.createur?.email : undefined,
     );
 
     return { message: 'Dossier soumis au rectorat avec succès.' };
