@@ -24,7 +24,12 @@ export class CentreService {
 
   async searchPublic(search: string) {
     if (!search || search.length < 2) return [];
-    return this.prisma.centreHebergement.findMany({
+
+    const EN_API =
+      'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
+
+    // ── Requête Prisma (sans filtre de statut) ────────────────────────
+    const prismaPromise = this.prisma.centreHebergement.findMany({
       where: {
         OR: [
           { nom: { contains: search, mode: 'insensitive' } },
@@ -49,6 +54,46 @@ export class CentreService {
       take: 10,
       orderBy: { nom: 'asc' },
     });
+
+    // ── Requête API Éducation Nationale ───────────────────────────────
+    const whereClause = [
+      `search(nom_de_la_structure_d_accueil_et_d_hebergement_fr,"${search}")`,
+      `search(nom_du_lieu_d_accueil_ville,"${search}")`,
+    ].join(' OR ');
+
+    const params = new URLSearchParams({ limit: '10', where: whereClause });
+
+    const enPromise = fetch(`${EN_API}?${params}`)
+      .then((res) => res.json())
+      .then((data: { results: Array<Record<string, any>> }) =>
+        (data.results ?? []).map((r) => ({
+          id: r.identifiant as string,
+          nom: r.nom_de_la_structure_d_accueil_et_d_hebergement_fr as string,
+          adresse: '',
+          ville: r.nom_du_lieu_d_accueil_ville as string,
+          codePostal: r.nom_du_lieu_d_accueil_code_postal as string,
+          telephone: null,
+          email: null,
+          capacite: (r.nombre_de_lits_pour_les_eleves as number) ?? 0,
+          description: (r.description_longue as string) ?? null,
+          departement: r.nom_du_lieu_d_accueil_departement as string,
+          siret: null,
+          agrementEducationNationale: null,
+          typeSejours: [] as string[],
+        })),
+      )
+      .catch(() => [] as Array<{
+        id: string; nom: string; adresse: string; ville: string;
+        codePostal: string; telephone: string | null; email: string | null;
+        capacite: number; description: string | null; departement: string | null;
+        siret: string | null; agrementEducationNationale: string | null;
+        typeSejours: string[];
+      }>);
+
+    // ── Exécution parallèle — Prisma en premier, puis EN ─────────────
+    const [prismaResults, enResults] = await Promise.all([prismaPromise, enPromise]);
+
+    return [...prismaResults, ...enResults];
   }
 
   async register(dto: RegisterCentreDto) {
