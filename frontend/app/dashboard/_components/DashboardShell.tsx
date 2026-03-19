@@ -5,7 +5,7 @@ import { Logo } from '@/app/components/Logo';
 
 const ROLE_LABELS: Record<string, string> = {
   TEACHER:  'Enseignant',
-  DIRECTOR: 'Directeur',
+  DIRECTOR: 'Direction',
   RECTOR:   'Recteur',
   PARENT:   'Parent',
   VENUE:    'Hébergement',

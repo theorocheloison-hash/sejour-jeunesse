@@ -30,7 +30,7 @@ const TABS: { value: Tab; label: string }[] = [
 
 const ROLE_LABELS: Record<string, string> = {
   TEACHER: 'Enseignant',
-  DIRECTOR: 'Directeur',
+  DIRECTOR: 'Direction',
   RECTOR: 'Rectorat',
   PARENT: 'Parent',
   VENUE: 'Hébergeur',

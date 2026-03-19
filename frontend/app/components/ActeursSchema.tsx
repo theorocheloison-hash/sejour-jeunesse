@@ -2,7 +2,7 @@
 export function ActeursSchema() {
   const acteurs = [
     { id: 'rectorat',   label: 'Rectorat',   role: 'Valide réglementairement le dossier complet',         x: '50%', y: '8%'  },
-    { id: 'directeur',  label: 'Directeur',  role: "Approuve le séjour et le choix de l'hébergeur",       x: '12%', y: '42%' },
+    { id: 'directeur',  label: 'Direction',  role: "Approuve le séjour et le choix de l'hébergeur",       x: '12%', y: '42%' },
     { id: 'hebergeur',  label: 'Hébergeur',  role: "Répond aux appels d'offres, émet devis et factures",  x: '88%', y: '42%' },
     { id: 'enseignant', label: 'Enseignant', role: "Crée le séjour, lance l'appel d'offres",              x: '20%', y: '88%' },
     { id: 'parents',    label: 'Parents',    role: 'Signent l\'autorisation, règlent en 1 à 10 fois',     x: '80%', y: '88%' },
