@@ -64,6 +64,9 @@ export default function RegisterVenuePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [centrePreFilled, setCentrePreFilled] = useState(false);
+  const [siretLoading, setSiretLoading] = useState(false);
+  const [siretError, setSiretError] = useState<string | null>(null);
+  const [centreFromSiret, setCentreFromSiret] = useState(false);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -118,6 +121,36 @@ export default function RegisterVenuePage() {
     setStep(2);
   };
 
+  const handleSiretSearch = async () => {
+    setSiretError(null);
+    const cleaned = form.siret.replace(/[\s\-]/g, '');
+    if (cleaned.length !== 14 || !/^\d{14}$/.test(cleaned)) {
+      setSiretError('Le SIRET doit contenir exactement 14 chiffres');
+      return;
+    }
+    setSiretLoading(true);
+    try {
+      const { data } = await api.get(`/auth/sirene/${cleaned}`);
+      if (!data.found) {
+        setSiretError('SIRET introuvable. Vérifiez le numéro ou renseignez les informations manuellement.');
+        return;
+      }
+      setForm(f => ({
+        ...f,
+        nomCentre: f.nomCentre || data.raisonSociale,
+        adresse: f.adresse || data.adresse,
+        ville: f.ville || data.ville,
+        codePostal: f.codePostal || data.codePostal,
+        siret: data.siret,
+      }));
+      setCentreFromSiret(true);
+    } catch {
+      setSiretError('Erreur lors de la recherche. Renseignez les informations manuellement.');
+    } finally {
+      setSiretLoading(false);
+    }
+  };
+
   const goStep15 = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -140,6 +173,11 @@ export default function RegisterVenuePage() {
   const goStep3 = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    const siretCleaned = form.siret.replace(/[\s\-]/g, '');
+    if (!centrePreFilled && (!form.siret || siretCleaned.length !== 14)) {
+      setError('Le SIRET est obligatoire. Recherchez votre structure pour continuer.');
+      return;
+    }
     if (!form.nomCentre || !form.adresse || !form.ville || !form.codePostal || !form.capacite) {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
@@ -404,13 +442,59 @@ export default function RegisterVenuePage() {
                 <input id="nomCentre" type="text" required value={form.nomCentre} onChange={set('nomCentre')}
                   placeholder="Centre de vacances Les Pins" className={inputCls} />
               </div>
-              <div>
-                <label htmlFor="siret" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  SIRET <span className="text-gray-400 font-normal">(optionnel)</span>
-                </label>
-                <input id="siret" type="text" value={form.siret} onChange={set('siret')}
-                  placeholder="123 456 789 00012" maxLength={14} className={inputCls} />
-              </div>
+              {!centrePreFilled && (
+                <div>
+                  <label htmlFor="siret" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    SIRET <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="siret"
+                      type="text"
+                      value={form.siret}
+                      onChange={(e) => { set('siret')(e); setSiretError(null); setCentreFromSiret(false); }}
+                      placeholder="123 456 789 00012"
+                      maxLength={17}
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSiretSearch}
+                      disabled={siretLoading}
+                      className="shrink-0 flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {siretLoading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        </svg>
+                      )}
+                      Rechercher
+                    </button>
+                  </div>
+                  {siretError && (
+                    <p className="mt-1.5 text-xs text-red-600">{siretError}</p>
+                  )}
+                  {centreFromSiret && (
+                    <p className="mt-1.5 text-xs text-green-600">Informations récupérées — vérifiez et complétez si nécessaire</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    Entrez votre SIRET à 14 chiffres pour pré-remplir automatiquement les informations de votre structure
+                  </p>
+                </div>
+              )}
+
+              {centrePreFilled && (
+                <div>
+                  <label htmlFor="siret" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    SIRET <span className="text-gray-400 font-normal">(optionnel)</span>
+                  </label>
+                  <input id="siret" type="text" value={form.siret} onChange={set('siret')}
+                    placeholder="123 456 789 00012" maxLength={17} className={inputCls} />
+                </div>
+              )}
+
               <div>
                 <label htmlFor="adresse" className="block text-sm font-medium text-gray-700 mb-1.5">Adresse</label>
                 <input id="adresse" type="text" required value={form.adresse} onChange={set('adresse')}

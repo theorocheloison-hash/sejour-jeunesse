@@ -195,6 +195,36 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  // ── Recherche SIRENE ────────────────────────────────────────────────
+
+  async searchSirene(siret: string) {
+    try {
+      const cleaned = siret.replace(/[\s\-]/g, '');
+      if (!/^\d{14}$/.test(cleaned)) return { found: false };
+
+      const url = `https://recherche-entreprises.api.gouv.fr/search?q=${cleaned}&mtypes=etablissement&nombre=1`;
+      const res = await fetch(url);
+      if (!res.ok) return { found: false };
+
+      const data = await res.json();
+      const results = data?.results;
+      if (!results || results.length === 0) return { found: false };
+
+      const etab = results[0];
+      return {
+        found: true,
+        raisonSociale: etab.nom_raison_sociale ?? etab.nom_complet ?? '',
+        adresse: etab.geo_adresse ?? etab.adresse_complete ?? '',
+        ville: etab.commune ?? '',
+        codePostal: etab.code_postal ?? '',
+        siret: etab.siret ?? cleaned,
+        siren: cleaned.slice(0, 9),
+      };
+    } catch {
+      return { found: false };
+    }
+  }
+
   private buildAuthResponse(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
