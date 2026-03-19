@@ -181,16 +181,19 @@ function DraggableActivity({
     <div
       ref={setNodeRef}
       style={style}
-      {...(isVenue ? { ...attributes, ...listeners } : {})}
       onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing) onEdit(); }}
     >
-      <div className="h-full rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden shadow-sm select-none">
+      <div
+        className="h-full rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
+        {...(isVenue ? { ...attributes, ...listeners } : {})}
+      >
         <div className="font-semibold truncate">{act.titre}</div>
         <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
         {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
         {isVenue && (
           <div
-            onMouseDown={handleResizeStart}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => { e.stopPropagation(); handleResizeStart(e); }}
             className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize flex items-center justify-center"
             style={{ zIndex: 20 }}
           >
