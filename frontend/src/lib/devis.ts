@@ -58,6 +58,9 @@ export interface Devis {
     id: string;
     nom: string;
     ville: string;
+    adresse?: string | null;
+    codePostal?: string | null;
+    siret?: string | null;
     telephone?: string | null;
     email?: string | null;
     capacite?: number;
