@@ -39,6 +39,7 @@ import type {
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
+  getOrdreMissionHtml,
   type AccompagnateurMission,
 } from '@/src/lib/accompagnateur';
 import { getDossierPedagogique } from '@/src/lib/sejour';
@@ -1182,9 +1183,26 @@ export default function CollaborationPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{a.prenom} {a.nom}</span>
                           {a.signeeAt ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
-                              Signé
-                            </span>
+                            <>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+                                Signé
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const { html } = await getOrdreMissionHtml(a.id);
+                                    const win = window.open('', '_blank');
+                                    if (win) {
+                                      win.document.write(html);
+                                      win.document.close();
+                                    }
+                                  } catch { /* ignore */ }
+                                }}
+                                className="rounded-lg border border-[var(--color-primary)] px-3 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors print:hidden"
+                              >
+                                Ordre de mission
+                              </button>
+                            </>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
                               En attente
