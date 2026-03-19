@@ -213,8 +213,9 @@ export default function TeacherDemandesPage() {
       {/* ── Print CSS ─── */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #devis-print-zone { display: block !important; }
+          body * { visibility: hidden; }
+          #devis-print-zone, #devis-print-zone * { visibility: visible; }
+          #devis-print-zone { position: absolute; left: 0; top: 0; width: 100%; }
         }
       `}</style>
 
