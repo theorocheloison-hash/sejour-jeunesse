@@ -60,6 +60,7 @@ export interface SignerAutorisationDto {
   infosMedicales?: string;
   nomParent?: string;
   telephoneUrgence?: string;
+  eleveDateNaissance?: string;
   rgpdAccepte: boolean;
   nombreMensualites?: number;
 }

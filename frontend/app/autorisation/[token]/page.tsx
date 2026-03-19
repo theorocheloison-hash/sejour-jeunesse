@@ -93,6 +93,7 @@ export default function SignerAutorisationPage() {
   const [infosMedicales, setInfosMedicales] = useState('');
   const [nomParent, setNomParent] = useState('');
   const [telephoneUrgence, setTelephoneUrgence] = useState('');
+  const [eleveDateNaissance, setEleveDateNaissance] = useState('');
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
 
@@ -131,7 +132,7 @@ export default function SignerAutorisationPage() {
   const mensualite = montantParEleve ? montantParEleve / nombreMensualites : null;
 
   const handleSign = async () => {
-    if (!token || !taille || !poids || !pointure || !rgpdAccepte || !nomParent.trim() || !telephoneUrgence.trim()) return;
+    if (!token || !taille || !poids || !pointure || !rgpdAccepte || !nomParent.trim() || !telephoneUrgence.trim() || !eleveDateNaissance) return;
     setSigning(true);
     try {
       const regimeVal = regime === 'Autre' ? regimeAutre.trim() : regime === 'Aucun régime particulier' ? undefined : regime;
@@ -144,6 +145,7 @@ export default function SignerAutorisationPage() {
         infosMedicales: infosMedicales.trim() || undefined,
         nomParent: nomParent.trim(),
         telephoneUrgence: telephoneUrgence.trim(),
+        eleveDateNaissance,
         rgpdAccepte: true,
         nombreMensualites,
       });
@@ -214,7 +216,7 @@ export default function SignerAutorisationPage() {
       year: 'numeric',
     });
 
-  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim();
+  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
@@ -566,6 +568,18 @@ export default function SignerAutorisationPage() {
                     value={telephoneUrgence}
                     onChange={(e) => setTelephoneUrgence(e.target.value)}
                     placeholder="06 12 34 56 78"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Date de naissance de l&apos;élève <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={eleveDateNaissance}
+                    onChange={(e) => setEleveDateNaissance(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     required
                   />

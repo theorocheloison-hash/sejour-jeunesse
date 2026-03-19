@@ -147,6 +147,7 @@ export class AutorisationService {
         infosMedicales: dto.infosMedicales ?? null,
         nomParent: dto.nomParent ?? null,
         telephoneUrgence: dto.telephoneUrgence ?? null,
+        eleveDateNaissance: dto.eleveDateNaissance ? new Date(dto.eleveDateNaissance) : null,
         rgpdAccepte: true,
         nombreMensualites: dto.nombreMensualites ?? 1,
       },

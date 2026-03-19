@@ -76,6 +76,7 @@ export interface Participant {
   nomParent?: string | null;
   telephoneUrgence?: string | null;
   attestationAssuranceUrl?: string | null;
+  eleveDateNaissance?: string | null;
   createdAt: string;
 }
 

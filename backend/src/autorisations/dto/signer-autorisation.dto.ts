@@ -36,6 +36,10 @@ export class SignerAutorisationDto {
   @IsString()
   telephoneUrgence?: string;
 
+  @IsOptional()
+  @IsString()
+  eleveDateNaissance?: string;
+
   @IsBoolean()
   rgpdAccepte!: boolean;
 

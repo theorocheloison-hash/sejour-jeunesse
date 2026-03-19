@@ -175,6 +175,7 @@ model AutorisationParentale {
   nomParent              String?   @map("nom_parent") @db.VarChar(255)
   telephoneUrgence       String?   @map("telephone_urgence") @db.VarChar(20)
   attestationAssuranceUrl String?  @map("attestation_assurance_url") @db.VarChar(500)
+  eleveDateNaissance DateTime? @map("eleve_date_naissance") @db.Date
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)

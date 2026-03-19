@@ -181,6 +181,7 @@ export class CollaborationService {
         nomParent: true,
         telephoneUrgence: true,
         attestationAssuranceUrl: true,
+        eleveDateNaissance: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
