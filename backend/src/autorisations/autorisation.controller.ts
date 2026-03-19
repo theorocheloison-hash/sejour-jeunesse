@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -67,8 +68,9 @@ export class AutorisationController {
   uploadDocument(
     @Param('token') token: string,
     @UploadedFile() file: Express.Multer.File,
+    @Query('type') type?: string,
   ) {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    return this.autorisationService.uploadDocumentMedical(token, file);
+    return this.autorisationService.uploadDocumentMedical(token, file, type);
   }
 }

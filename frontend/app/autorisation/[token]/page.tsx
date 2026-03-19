@@ -91,6 +91,8 @@ export default function SignerAutorisationPage() {
   const [regimeAutre, setRegimeAutre] = useState('');
   const [niveauSki, setNiveauSki] = useState('');
   const [infosMedicales, setInfosMedicales] = useState('');
+  const [nomParent, setNomParent] = useState('');
+  const [telephoneUrgence, setTelephoneUrgence] = useState('');
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
 
@@ -129,7 +131,7 @@ export default function SignerAutorisationPage() {
   const mensualite = montantParEleve ? montantParEleve / nombreMensualites : null;
 
   const handleSign = async () => {
-    if (!token || !taille || !poids || !pointure || !rgpdAccepte) return;
+    if (!token || !taille || !poids || !pointure || !rgpdAccepte || !nomParent.trim() || !telephoneUrgence.trim()) return;
     setSigning(true);
     try {
       const regimeVal = regime === 'Autre' ? regimeAutre.trim() : regime === 'Aucun régime particulier' ? undefined : regime;
@@ -140,6 +142,8 @@ export default function SignerAutorisationPage() {
         regimeAlimentaire: regimeVal || undefined,
         niveauSki: niveauSki || undefined,
         infosMedicales: infosMedicales.trim() || undefined,
+        nomParent: nomParent.trim(),
+        telephoneUrgence: telephoneUrgence.trim(),
         rgpdAccepte: true,
         nombreMensualites,
       });
@@ -210,7 +214,7 @@ export default function SignerAutorisationPage() {
       year: 'numeric',
     });
 
-  const formValid = taille && poids && pointure && rgpdAccepte;
+  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
@@ -537,6 +541,37 @@ export default function SignerAutorisationPage() {
                 </div>
               )}
 
+              {/* Informations parent */}
+              <div className="mb-6 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <h3 className="text-base font-semibold text-gray-900">Informations parent</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Nom et prénom du parent signataire <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={nomParent}
+                    onChange={(e) => setNomParent(e.target.value)}
+                    placeholder="ex : Marie Dupont"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Téléphone d&apos;urgence <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={telephoneUrgence}
+                    onChange={(e) => setTelephoneUrgence(e.target.value)}
+                    placeholder="06 12 34 56 78"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    required
+                  />
+                </div>
+              </div>
+
               {/* Informations pratiques */}
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -828,6 +863,60 @@ export default function SignerAutorisationPage() {
                     </div>
                   )}
                 </>
+              )}
+            </section>
+
+            {/* ── SECTION ATTESTATION ASSURANCE ─────────────────────────────── */}
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 space-y-4">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)]">
+                <ShieldCheck className="h-5 w-5" />
+                Attestation d&apos;assurance <span className="text-gray-400 font-normal text-sm">(optionnel)</span>
+              </h2>
+              <p className="text-sm text-gray-500">
+                Responsabilité civile + individuelle accidents. Recommandée pour les séjours avec nuitées.
+              </p>
+              {autorisation.attestationAssuranceUrl ? (
+                <div className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3">
+                  <svg className="h-5 w-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-green-800">Attestation déposée</p>
+                    <a href={autorisation.attestationAssuranceUrl as string} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-green-700 hover:underline truncate block">
+                      Voir le document
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 p-6 cursor-pointer hover:border-[var(--color-primary)] transition-colors">
+                  <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="text-sm text-gray-500">Cliquez pour uploader votre attestation</span>
+                  <span className="text-xs text-gray-400">PDF, JPG, PNG — max 5MB</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !token) return;
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      try {
+                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/autorisations/${token}/document?type=assurance`, {
+                          method: 'POST',
+                          body: fd,
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setAutorisation(prev => prev ? { ...prev, attestationAssuranceUrl: data.attestationAssuranceUrl } : prev);
+                        }
+                      } catch { /* ignore */ }
+                    }}
+                  />
+                </label>
               )}
             </section>
 

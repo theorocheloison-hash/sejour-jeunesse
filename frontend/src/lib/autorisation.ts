@@ -23,6 +23,7 @@ export interface AutorisationPublique {
   eleveNom: string;
   elevePrenom: string;
   signeeAt: string | null;
+  attestationAssuranceUrl?: string | null;
   sejour: {
     titre: string;
     lieu: string;
@@ -57,6 +58,8 @@ export interface SignerAutorisationDto {
   regimeAlimentaire?: string;
   niveauSki?: string;
   infosMedicales?: string;
+  nomParent?: string;
+  telephoneUrgence?: string;
   rgpdAccepte: boolean;
   nombreMensualites?: number;
 }

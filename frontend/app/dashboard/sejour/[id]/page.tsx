@@ -1224,7 +1224,13 @@ export default function CollaborationPage() {
                   {/* Infos parent */}
                   <div className="bg-blue-50 rounded-xl p-4 space-y-1">
                     <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Contact urgence</p>
+                    {selectedParticipant.nomParent && (
+                      <p className="text-sm font-medium text-gray-900">{selectedParticipant.nomParent}</p>
+                    )}
                     <p className="text-sm text-gray-700">{selectedParticipant.parentEmail}</p>
+                    {selectedParticipant.telephoneUrgence && (
+                      <p className="text-sm text-gray-700 font-semibold">{selectedParticipant.telephoneUrgence}</p>
+                    )}
                   </div>
 
                   {/* Infos physiques */}
@@ -1278,6 +1284,14 @@ export default function CollaborationPage() {
                     <a href={selectedParticipant.documentMedicalUrl} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
                       Voir le document médical
+                    </a>
+                  )}
+
+                  {/* Attestation assurance */}
+                  {selectedParticipant.attestationAssuranceUrl && (
+                    <a href={selectedParticipant.attestationAssuranceUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
+                      Voir l&apos;attestation d&apos;assurance
                     </a>
                   )}
 

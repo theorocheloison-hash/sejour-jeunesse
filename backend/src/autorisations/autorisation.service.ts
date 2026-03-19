@@ -105,6 +105,7 @@ export class AutorisationService {
       eleveNom: autorisation.eleveNom,
       elevePrenom: autorisation.elevePrenom,
       signeeAt: autorisation.signeeAt,
+      attestationAssuranceUrl: autorisation.attestationAssuranceUrl,
       sejour: {
         titre: sejour.titre,
         lieu: sejour.lieu,
@@ -144,28 +145,32 @@ export class AutorisationService {
         regimeAlimentaire: dto.regimeAlimentaire ?? null,
         niveauSki: dto.niveauSki ?? null,
         infosMedicales: dto.infosMedicales ?? null,
+        nomParent: dto.nomParent ?? null,
+        telephoneUrgence: dto.telephoneUrgence ?? null,
         rgpdAccepte: true,
         nombreMensualites: dto.nombreMensualites ?? 1,
       },
     });
   }
 
-  async uploadDocumentMedical(token: string, file: Express.Multer.File) {
+  async uploadDocumentMedical(token: string, file: Express.Multer.File, type?: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { tokenAcces: token },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
 
-    const uploadsDir = path.join(process.cwd(), 'uploads', 'documents-medicaux');
+    const isAssurance = type === 'assurance';
+    const folder = isAssurance ? 'attestations-assurance' : 'documents-medicaux';
+    const uploadsDir = path.join(process.cwd(), 'uploads', folder);
     fs.mkdirSync(uploadsDir, { recursive: true });
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     const filename = `${randomUUID()}-${safeName}`;
     fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-    const url = `/uploads/documents-medicaux/${filename}`;
+    const url = `/uploads/${folder}/${filename}`;
 
     return this.prisma.autorisationParentale.update({
       where: { tokenAcces: token },
-      data: { documentMedicalUrl: url },
+      data: isAssurance ? { attestationAssuranceUrl: url } : { documentMedicalUrl: url },
     });
   }
 

@@ -28,6 +28,14 @@ export class SignerAutorisationDto {
   @IsString()
   infosMedicales?: string;
 
+  @IsOptional()
+  @IsString()
+  nomParent?: string;
+
+  @IsOptional()
+  @IsString()
+  telephoneUrgence?: string;
+
   @IsBoolean()
   rgpdAccepte!: boolean;
 

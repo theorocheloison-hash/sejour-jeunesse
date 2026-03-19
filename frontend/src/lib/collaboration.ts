@@ -73,6 +73,9 @@ export interface Participant {
   niveauSki: string | null;
   infosMedicales: string | null;
   documentMedicalUrl?: string | null;
+  nomParent?: string | null;
+  telephoneUrgence?: string | null;
+  attestationAssuranceUrl?: string | null;
   createdAt: string;
 }
 
