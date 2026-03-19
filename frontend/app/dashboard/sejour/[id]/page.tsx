@@ -1,8 +1,18 @@
 'use client';
 
+import React from 'react';
 import { useEffect, useState, useRef, useCallback, type DragEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  DndContext,
+  useDraggable,
+  useDroppable,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getSejourCollabInfo,
@@ -73,6 +83,124 @@ const NIVEAU_SKI_LABEL: Record<string, string> = {
   CONFIRME: 'Confirmé',
   HORS_PISTE: 'Hors-piste',
 };
+
+// ─── DroppableDay ────────────────────────────────────────────────────────────
+function DroppableDay({
+  dayIdx, dateStr, isVenue, slots, slotHeight, onCellClick, children
+}: {
+  dayIdx: number;
+  dateStr: string;
+  isVenue: boolean;
+  slots: number;
+  slotHeight: number;
+  onCellClick: (slotIdx: number) => void;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: `day-${dateStr}` });
+  return (
+    <div ref={setNodeRef} className="flex-1 border-l border-gray-200 relative" style={{ minWidth: 120 }}>
+      {Array.from({ length: slots }).map((_, slotIdx) => (
+        <div
+          key={slotIdx}
+          style={{ height: `${slotHeight}px`, top: `${slotIdx * slotHeight}px` }}
+          className={`absolute w-full border-b ${slotIdx % 2 === 0 ? 'border-gray-100' : 'border-gray-50'} ${isVenue ? 'cursor-pointer hover:bg-blue-50/30' : ''}`}
+          onClick={() => isVenue && onCellClick(slotIdx)}
+        />
+      ))}
+      {children}
+    </div>
+  );
+}
+
+// ─── DraggableActivity ───────────────────────────────────────────────────────
+function DraggableActivity({
+  act, topPx, heightPx, isVenue, colWidth, slotHeight, onEdit, onResize
+}: {
+  act: PlanningActivite;
+  topPx: number;
+  heightPx: number;
+  isVenue: boolean;
+  colWidth: number;
+  slotHeight: number;
+  onEdit: () => void;
+  onResize: (newDurationSlots: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: act.id,
+    data: { colWidth },
+    disabled: !isVenue,
+  });
+
+  const [resizing, setResizing] = React.useState(false);
+  const resizeStartY = React.useRef(0);
+  const resizeStartHeight = React.useRef(0);
+  const [currentHeight, setCurrentHeight] = React.useState(heightPx);
+
+  React.useEffect(() => { setCurrentHeight(heightPx); }, [heightPx]);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    if (!isVenue) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = currentHeight;
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientY - resizeStartY.current;
+      const newH = Math.max(slotHeight, resizeStartHeight.current + delta);
+      setCurrentHeight(newH);
+    };
+    const onUp = (ev: MouseEvent) => {
+      const delta = ev.clientY - resizeStartY.current;
+      const newH = Math.max(slotHeight, resizeStartHeight.current + delta);
+      const newSlots = Math.round(newH / slotHeight);
+      onResize(newSlots);
+      setResizing(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    top: `${topPx}px`,
+    height: `${resizing ? currentHeight : heightPx}px`,
+    left: '2px',
+    right: '2px',
+    zIndex: isDragging ? 50 : 10,
+    opacity: isDragging ? 0.7 : 1,
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+    cursor: isVenue ? (isDragging ? 'grabbing' : 'grab') : 'default',
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...(isVenue ? { ...attributes, ...listeners } : {})}
+      onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing) onEdit(); }}
+    >
+      <div className="h-full rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden shadow-sm select-none">
+        <div className="font-semibold truncate">{act.titre}</div>
+        <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
+        {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
+        {isVenue && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize flex items-center justify-center"
+            style={{ zIndex: 20 }}
+          >
+            <div className="w-6 h-0.5 bg-white opacity-50 rounded" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -633,70 +761,125 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Planning ─── */}
-        {tab === 'planning' && sejour && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {tab === 'planning' && sejour && (() => {
+          const isVenue = user?.role === 'VENUE';
+          const HOUR_START = 7;
+          const HOUR_END = 22;
+          const SLOT_HEIGHT = 24;
+          const SLOTS = (HOUR_END - HOUR_START) * 2;
 
-            {/* Header : badge lecture seule si pas VENUE */}
-            {user?.role !== 'VENUE' && (
-              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
-                Lecture seule — seul l&apos;hébergeur peut modifier le planning
-              </div>
-            )}
+          const days: Date[] = [];
+          const start = new Date(sejour.dateDebut);
+          const end = new Date(sejour.dateFin);
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            days.push(new Date(d));
+          }
 
-            {/* Grille calendrier */}
-            {(() => {
-              const isVenue = user?.role === 'VENUE';
-              const HOUR_START = 7;
-              const HOUR_END = 22;
-              const SLOT_HEIGHT = 48;
-              const SLOTS = (HOUR_END - HOUR_START) * 2;
+          const DAY_LABELS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
+          const today = new Date();
 
-              const days: Date[] = [];
-              const start = new Date(sejour.dateDebut);
-              const end = new Date(sejour.dateFin);
-              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                days.push(new Date(d));
-              }
+          const timeToMinutes = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            return (h - HOUR_START) * 60 + m;
+          };
 
-              const DAY_LABELS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
-              const today = new Date();
+          const minutesToTime = (mins: number) => {
+            const totalMins = mins + HOUR_START * 60;
+            const h = Math.floor(totalMins / 60);
+            const m = totalMins % 60;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+          };
 
-              const timeToMinutes = (t: string) => {
-                const [h, m] = t.split(':').map(Number);
-                return (h - HOUR_START) * 60 + m;
-              };
+          const handleCellClick = (date: Date, slotIndex: number) => {
+            if (!isVenue) return;
+            const h = Math.floor(slotIndex / 2) + HOUR_START;
+            const m = slotIndex % 2 === 0 ? '00' : '30';
+            const hEnd = slotIndex % 2 === 0 ? h : h + 1;
+            const mEnd = slotIndex % 2 === 0 ? '30' : '00';
+            const dateStr = date.toISOString().split('T')[0];
+            setPlanModal({
+              open: true,
+              date: dateStr,
+              heureDebut: `${String(h).padStart(2,'0')}:${m}`,
+              heureFin: `${String(hEnd).padStart(2,'0')}:${mEnd}`,
+              titre: '',
+              description: '',
+              responsable: '',
+            });
+          };
 
-              const handleCellClick = (date: Date, slotIndex: number) => {
-                if (!isVenue) return;
-                const h = Math.floor(slotIndex / 2) + HOUR_START;
-                const m = slotIndex % 2 === 0 ? '00' : '30';
-                const hEnd = slotIndex % 2 === 0 ? h : h + 1;
-                const mEnd = slotIndex % 2 === 0 ? '30' : '00';
-                const dateStr = date.toISOString().split('T')[0];
-                setPlanModal({
-                  open: true,
-                  date: dateStr,
-                  heureDebut: `${String(h).padStart(2, '0')}:${m}`,
-                  heureFin: `${String(hEnd).padStart(2, '0')}:${mEnd}`,
-                  titre: '',
-                  description: '',
-                  responsable: '',
-                });
-              };
+          const handleDragEnd = async (event: DragEndEvent) => {
+            if (!isVenue) return;
+            const { active, delta } = event;
+            const actId = active.id as string;
+            const act = planning.find(p => p.id === actId);
+            if (!act) return;
 
-              return (
+            const deltaSlots = Math.round(delta.y / SLOT_HEIGHT);
+            const deltaDays = Math.round(delta.x / (active.data.current?.colWidth ?? 120));
+
+            const startMins = timeToMinutes(act.heureDebut);
+            const endMins = timeToMinutes(act.heureFin);
+            const duration = endMins - startMins;
+
+            let newStartMins = startMins + deltaSlots * 30;
+            newStartMins = Math.max(0, Math.min(newStartMins, (HOUR_END - HOUR_START) * 60 - duration));
+
+            const oldDate = new Date(act.date);
+            oldDate.setDate(oldDate.getDate() + deltaDays);
+            const sejourStart = new Date(sejour.dateDebut);
+            const sejourEnd = new Date(sejour.dateFin);
+            const newDate = oldDate < sejourStart ? sejourStart : oldDate > sejourEnd ? sejourEnd : oldDate;
+            const newDateStr = newDate.toISOString().split('T')[0];
+
+            const newHeureDebut = minutesToTime(newStartMins);
+            const newHeureFin = minutesToTime(newStartMins + duration);
+
+            setPlanning(prev => prev.map(p => p.id === actId ? {
+              ...p,
+              date: newDateStr + 'T00:00:00.000Z',
+              heureDebut: newHeureDebut,
+              heureFin: newHeureFin,
+            } : p));
+
+            try {
+              if (!id) return;
+              await deletePlanning(id, actId);
+              const newItem = await createPlanning(id, {
+                date: newDateStr,
+                heureDebut: newHeureDebut,
+                heureFin: newHeureFin,
+                titre: act.titre,
+                description: act.description,
+                responsable: act.responsable,
+              });
+              setPlanning(prev => prev.map(p => p.id === actId ? newItem : p));
+            } catch {
+              setPlanning(prev => prev.map(p => p.id === actId ? act : p));
+            }
+          };
+
+          return (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              {!isVenue && (
+                <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
+                  Lecture seule — seul l&apos;hébergeur peut modifier le planning
+                </div>
+              )}
+
+              <DndContext sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))} onDragEnd={handleDragEnd}>
                 <div className="overflow-x-auto">
-                  <div style={{ minWidth: `${60 + days.length * 120}px` }}>
+                  <div style={{ minWidth: `${56 + days.length * 120}px` }}>
 
                     {/* Header jours */}
-                    <div className="flex border-b border-gray-200 bg-gray-50">
+                    <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
                       <div className="w-14 shrink-0" />
                       {days.map((day, i) => {
                         const isToday = day.toDateString() === today.toDateString();
                         return (
-                          <div key={i} className="flex-1 text-center py-3 border-l border-gray-200">
+                          <div key={i} className="flex-1 text-center py-2 border-l border-gray-200" style={{ minWidth: 120 }}>
                             <div className="text-xs font-medium text-gray-500">{DAY_LABELS[day.getDay()]}</div>
-                            <div className={`text-xl font-semibold mt-0.5 w-9 h-9 flex items-center justify-center mx-auto rounded-full ${isToday ? 'bg-blue-600 text-white' : 'text-gray-900'}`}>
+                            <div className={`text-lg font-semibold mt-0.5 w-8 h-8 flex items-center justify-center mx-auto rounded-full ${isToday ? 'bg-blue-600 text-white' : 'text-gray-900'}`}>
                               {day.getDate()}
                             </div>
                           </div>
@@ -704,55 +887,54 @@ export default function CollaborationPage() {
                       })}
                     </div>
 
-                    {/* Corps : heures + colonnes */}
+                    {/* Corps scrollable */}
                     <div style={{ height: '600px', overflowY: 'auto' }}>
-                    <div className="flex relative" style={{ height: `${SLOTS * SLOT_HEIGHT}px` }}>
+                      <div className="flex relative" style={{ height: `${SLOTS * SLOT_HEIGHT}px` }}>
 
-                      {/* Colonne heures */}
-                      <div className="w-14 shrink-0 relative">
-                        {Array.from({ length: HOUR_END - HOUR_START }).map((_, i) => (
-                          <div key={i} style={{ top: `${i * 2 * SLOT_HEIGHT}px`, height: `${SLOT_HEIGHT * 2}px` }}
-                            className="absolute w-full flex items-start justify-end pr-2 pt-1">
-                            <span className="text-xs text-gray-400">{String(HOUR_START + i).padStart(2, '0')}:00</span>
-                          </div>
-                        ))}
-                      </div>
+                        {/* Colonne heures */}
+                        <div className="w-14 shrink-0 relative">
+                          {Array.from({ length: HOUR_END - HOUR_START }).map((_, i) => (
+                            <div key={i}
+                              style={{ top: `${i * 2 * SLOT_HEIGHT}px`, height: `${SLOT_HEIGHT * 2}px` }}
+                              className="absolute w-full flex items-start justify-end pr-2 pt-0.5">
+                              <span className="text-[10px] text-gray-400">{String(HOUR_START + i).padStart(2,'0')}:00</span>
+                            </div>
+                          ))}
+                        </div>
 
-                      {/* Colonnes jours */}
-                      {days.map((day, dayIdx) => {
-                        const dateStr = day.toISOString().split('T')[0];
-                        const dayActivities = planning.filter(p => p.date.startsWith(dateStr));
+                        {/* Colonnes jours */}
+                        {days.map((day, dayIdx) => {
+                          const dateStr = day.toISOString().split('T')[0];
+                          const dayActivities = planning.filter(p => p.date.startsWith(dateStr));
+                          const colWidth = 120;
 
-                        return (
-                          <div key={dayIdx} className="flex-1 border-l border-gray-200 relative">
-
-                            {/* Cellules cliquables */}
-                            {Array.from({ length: SLOTS }).map((_, slotIdx) => (
-                              <div
-                                key={slotIdx}
-                                style={{ height: `${SLOT_HEIGHT}px`, top: `${slotIdx * SLOT_HEIGHT}px` }}
-                                className={`absolute w-full border-b ${slotIdx % 2 === 0 ? 'border-gray-100' : 'border-gray-50'} ${isVenue ? 'cursor-pointer hover:bg-blue-50/30' : ''}`}
-                                onClick={() => handleCellClick(day, slotIdx)}
-                              />
-                            ))}
-
-                            {/* Activités positionnées */}
-                            {dayActivities.map((act) => {
-                              const topMin = timeToMinutes(act.heureDebut);
-                              const botMin = timeToMinutes(act.heureFin);
-                              const duration = botMin - topMin;
-                              if (duration <= 0 || topMin < 0) return null;
-                              const topPx = (topMin / 30) * SLOT_HEIGHT;
-                              const heightPx = (duration / 30) * SLOT_HEIGHT;
-                              return (
-                                <div
-                                  key={act.id}
-                                  style={{ top: `${topPx}px`, height: `${Math.max(heightPx, SLOT_HEIGHT)}px`, left: '2px', right: '2px' }}
-                                  className={`absolute rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden z-10 shadow-sm ${isVenue ? 'cursor-pointer' : ''}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isVenue) return;
-                                    setPlanModal({
+                          return (
+                            <DroppableDay
+                              key={dayIdx}
+                              dayIdx={dayIdx}
+                              dateStr={dateStr}
+                              isVenue={isVenue}
+                              slots={SLOTS}
+                              slotHeight={SLOT_HEIGHT}
+                              onCellClick={(slotIdx) => handleCellClick(day, slotIdx)}
+                            >
+                              {dayActivities.map((act) => {
+                                const topMin = timeToMinutes(act.heureDebut);
+                                const botMin = timeToMinutes(act.heureFin);
+                                const duration = botMin - topMin;
+                                if (duration <= 0 || topMin < 0) return null;
+                                const topPx = (topMin / 30) * SLOT_HEIGHT;
+                                const heightPx = Math.max((duration / 30) * SLOT_HEIGHT, SLOT_HEIGHT);
+                                return (
+                                  <DraggableActivity
+                                    key={act.id}
+                                    act={act}
+                                    topPx={topPx}
+                                    heightPx={heightPx}
+                                    isVenue={isVenue}
+                                    colWidth={colWidth}
+                                    slotHeight={SLOT_HEIGHT}
+                                    onEdit={() => setPlanModal({
                                       open: true,
                                       date: act.date.split('T')[0],
                                       heureDebut: act.heureDebut,
@@ -761,95 +943,103 @@ export default function CollaborationPage() {
                                       description: act.description ?? '',
                                       responsable: act.responsable ?? '',
                                       editId: act.id,
-                                    });
-                                  }}
-                                >
-                                  <div className="font-semibold truncate">{act.titre}</div>
-                                  <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
-                                  {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
-                                  {isVenue && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeletePlanning(act.id); }}
-                                      className="absolute top-1 right-1 opacity-60 hover:opacity-100 text-white text-[10px] font-bold"
-                                    >
-                                      &times;
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
+                                    })}
+                                    onResize={async (newDurationSlots) => {
+                                      if (!isVenue || !id) return;
+                                      const startMins = timeToMinutes(act.heureDebut);
+                                      const newEndMins = startMins + newDurationSlots * 30;
+                                      if (newEndMins <= startMins) return;
+                                      const newHeureFin = minutesToTime(newEndMins);
+                                      setPlanning(prev => prev.map(p => p.id === act.id ? { ...p, heureFin: newHeureFin } : p));
+                                      try {
+                                        await deletePlanning(id, act.id);
+                                        const newItem = await createPlanning(id, {
+                                          date: act.date.split('T')[0],
+                                          heureDebut: act.heureDebut,
+                                          heureFin: newHeureFin,
+                                          titre: act.titre,
+                                          description: act.description,
+                                          responsable: act.responsable,
+                                        });
+                                        setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
+                                      } catch {
+                                        setPlanning(prev => prev.map(p => p.id === act.id ? act : p));
+                                      }
+                                    }}
+                                  />
+                                );
+                              })}
+                            </DroppableDay>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })()}
+              </DndContext>
 
-            {/* Modale création créneau (VENUE uniquement) */}
-            {planModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-                onClick={() => setPlanModal(null)}>
-                <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
-                  onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-base font-semibold text-gray-900 mb-4">{planModal.editId ? 'Modifier le créneau' : 'Nouveau créneau'}</h3>
-                  <div className="space-y-3">
-                    <input type="text" placeholder="Titre *" value={planModal.titre}
-                      onChange={(e) => setPlanModal(m => m ? {...m, titre: e.target.value} : m)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Début</label>
-                        <input type="time" value={planModal.heureDebut}
-                          onChange={(e) => setPlanModal(m => m ? {...m, heureDebut: e.target.value} : m)}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              {/* Modale création/édition */}
+              {planModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                  onClick={() => setPlanModal(null)}>
+                  <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
+                    onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">
+                      {planModal.editId ? 'Modifier le créneau' : 'Nouveau créneau'}
+                    </h3>
+                    <div className="space-y-3">
+                      <input type="text" placeholder="Titre *" value={planModal.titre}
+                        onChange={(e) => setPlanModal(m => m ? {...m, titre: e.target.value} : m)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Début</label>
+                          <input type="time" value={planModal.heureDebut}
+                            onChange={(e) => setPlanModal(m => m ? {...m, heureDebut: e.target.value} : m)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 mb-1 block">Fin</label>
+                          <input type="time" value={planModal.heureFin}
+                            onChange={(e) => setPlanModal(m => m ? {...m, heureFin: e.target.value} : m)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Fin</label>
-                        <input type="time" value={planModal.heureFin}
-                          onChange={(e) => setPlanModal(m => m ? {...m, heureFin: e.target.value} : m)}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                      </div>
+                      <input type="text" placeholder="Description (optionnel)" value={planModal.description}
+                        onChange={(e) => setPlanModal(m => m ? {...m, description: e.target.value} : m)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                      <input type="text" placeholder="Responsable (optionnel)" value={planModal.responsable}
+                        onChange={(e) => setPlanModal(m => m ? {...m, responsable: e.target.value} : m)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                     </div>
-                    <input type="text" placeholder="Description (optionnel)" value={planModal.description}
-                      onChange={(e) => setPlanModal(m => m ? {...m, description: e.target.value} : m)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                    <input type="text" placeholder="Responsable (optionnel)" value={planModal.responsable}
-                      onChange={(e) => setPlanModal(m => m ? {...m, responsable: e.target.value} : m)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                  </div>
-                  <div className="flex gap-3 mt-5">
-                    {planModal.editId && (
-                      <button
-                        onClick={async () => {
+                    <div className="flex gap-3 mt-5">
+                      {planModal.editId && (
+                        <button onClick={async () => {
                           if (!id || !planModal.editId) return;
                           try {
                             await deletePlanning(id, planModal.editId);
                             setPlanning(prev => prev.filter(p => p.id !== planModal.editId));
                             setPlanModal(null);
                           } catch { /* ignore */ }
-                        }}
-                        className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                      >
-                        Supprimer
+                        }} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                          Supprimer
+                        </button>
+                      )}
+                      <button onClick={() => setPlanModal(null)}
+                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Annuler
                       </button>
-                    )}
-                    <button onClick={() => setPlanModal(null)}
-                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                      Annuler
-                    </button>
-                    <button onClick={handleAddPlanning} disabled={!planModal.titre}
-                      className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                      {planModal.editId ? 'Modifier' : 'Ajouter'}
-                    </button>
+                      <button onClick={handleAddPlanning} disabled={!planModal.titre}
+                        className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                        {planModal.editId ? 'Modifier' : 'Ajouter'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Participants ─── */}
         {tab === 'participants' && (
