@@ -51,7 +51,7 @@ export interface Devis {
     titre: string;
     villeHebergement: string;
     nombreEleves: number;
-    enseignant?: { prenom: string; nom: string; email?: string; telephone?: string | null; etablissementNom?: string | null; etablissementVille?: string | null };
+    enseignant?: { prenom: string; nom: string; email?: string; telephone?: string | null; etablissementNom?: string | null; etablissementAdresse?: string | null; etablissementVille?: string | null; etablissementUai?: string | null; etablissementEmail?: string | null; etablissementTelephone?: string | null };
     sejour?: { id: string; titre: string; createur?: { prenom: string; nom: string; etablissementNom?: string | null; etablissementVille?: string | null } | null } | null;
   };
   centre?: {
