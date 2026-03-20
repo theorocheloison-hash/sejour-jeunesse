@@ -61,6 +61,7 @@ export interface Sejour {
 
 export interface SejourDirecteur extends Sejour {
   createur: { prenom: string; nom: string } | null;
+  _count?: { autorisations: number; accompagnateurs: number; planningActivites: number };
 }
 
 export interface AccompagnateurResume {
