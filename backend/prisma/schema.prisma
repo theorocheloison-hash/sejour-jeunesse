@@ -398,8 +398,29 @@ model CentreHebergement {
   devis             Devis[]
   sejoursSelectionne Sejour[]       @relation("SejourCentreSelectionne")
   invitationsCollaboration InvitationCollaboration[]
+  produitsCatalogue ProduitCatalogue[]
 
   @@map("centres_hebergement")
+}
+
+// ============================================================
+// MODEL : ProduitCatalogue (catalogue produits d'un centre)
+// ============================================================
+model ProduitCatalogue {
+  id              String   @id @default(uuid()) @db.Uuid
+  centreId        String   @map("centre_id") @db.Uuid
+  nom             String   @db.VarChar(255)
+  description     String?  @db.Text
+  type            String   @db.VarChar(50)
+  prixUnitaireHT  Float    @map("prix_unitaire_ht")
+  tva             Float    @default(10)
+  unite           String   @db.VarChar(50)
+  actif           Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@map("produits_catalogue")
 }
 
 // ============================================================

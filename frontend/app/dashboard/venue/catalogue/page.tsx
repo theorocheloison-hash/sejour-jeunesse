@@ -1,0 +1,256 @@
+'use client';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getCatalogue, createProduit, updateProduit, archiveProduit } from '@/src/lib/centre';
+import type { ProduitCatalogue } from '@/src/lib/centre';
+
+const TYPE_OPTIONS = [
+  { value: 'HEBERGEMENT', label: 'Hébergement', color: 'bg-blue-100 text-blue-700' },
+  { value: 'REPAS', label: 'Repas', color: 'bg-orange-100 text-orange-700' },
+  { value: 'TRANSPORT', label: 'Transport', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'ACTIVITE', label: 'Activité', color: 'bg-green-100 text-green-700' },
+  { value: 'AUTRE', label: 'Autre', color: 'bg-gray-100 text-gray-700' },
+];
+
+const UNITE_OPTIONS = [
+  { value: 'PAR_ELEVE', label: 'Par élève' },
+  { value: 'PAR_NUIT', label: 'Par nuit' },
+  { value: 'PAR_JOUR', label: 'Par jour' },
+  { value: 'FORFAIT', label: 'Forfait' },
+];
+
+const TVA_OPTIONS = [
+  { value: 0, label: '0%' },
+  { value: 5.5, label: '5.5%' },
+  { value: 10, label: '10%' },
+  { value: 20, label: '20%' },
+];
+
+const EMPTY_FORM = { nom: '', description: '', type: 'HEBERGEMENT', prixUnitaireHT: '', tva: 10, unite: 'PAR_ELEVE' };
+
+export default function CataloguePage() {
+  const { user, isLoading } = useAuth();
+  const [produits, setProduits] = useState<ProduitCatalogue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [filterType, setFilterType] = useState<string>('TOUS');
+
+  useEffect(() => {
+    if (!isLoading && user?.role === 'VENUE') {
+      getCatalogue().then(setProduits).finally(() => setLoading(false));
+    }
+  }, [isLoading, user]);
+
+  const handleSubmit = async () => {
+    if (!form.nom || !form.prixUnitaireHT) return;
+    setSaving(true);
+    try {
+      const dto = {
+        nom: form.nom,
+        description: form.description || undefined,
+        type: form.type,
+        prixUnitaireHT: Number(form.prixUnitaireHT),
+        tva: Number(form.tva),
+        unite: form.unite,
+      };
+      if (editingId) {
+        const updated = await updateProduit(editingId, dto);
+        setProduits(prev => prev.map(p => p.id === editingId ? updated : p));
+      } else {
+        const created = await createProduit(dto);
+        setProduits(prev => [...prev, created]);
+      }
+      setShowForm(false);
+      setEditingId(null);
+      setForm(EMPTY_FORM);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (p: ProduitCatalogue) => {
+    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), tva: p.tva, unite: p.unite });
+    setEditingId(p.id);
+    setShowForm(true);
+  };
+
+  const handleArchive = async (id: string) => {
+    await archiveProduit(id);
+    setProduits(prev => prev.filter(p => p.id !== id));
+  };
+
+  const filtered = filterType === 'TOUS' ? produits : produits.filter(p => p.type === filterType);
+  const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+
+  if (isLoading || !user) return null;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-bg)]">
+      {/* Nav */}
+      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <Link href="/dashboard/venue" className="text-sm text-[var(--color-primary)] hover:underline">&larr; Tableau de bord</Link>
+        <h1 className="text-base font-semibold text-gray-900">Catalogue produits</h1>
+      </nav>
+
+      <main className="max-w-4xl mx-auto px-6 py-8">
+
+        {/* Header actions */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2">
+            {['TOUS', ...TYPE_OPTIONS.map(t => t.value)].map(type => (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterType === type ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-[var(--color-primary)]'}`}
+              >
+                {type === 'TOUS' ? 'Tous' : TYPE_OPTIONS.find(t => t.value === type)?.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => { setShowForm(true); setEditingId(null); setForm(EMPTY_FORM); }}
+            className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Ajouter un produit
+          </button>
+        </div>
+
+        {/* Formulaire */}
+        {showForm && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-4">{editingId ? 'Modifier le produit' : 'Nouveau produit'}</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Nom du produit *</label>
+                <input
+                  value={form.nom}
+                  onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
+                  placeholder="ex: Forfait ski J1, Hébergement nuit..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Unité *</label>
+                <select
+                  value={form.unite}
+                  onChange={e => setForm(f => ({ ...f, unite: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  {UNITE_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Prix unitaire HT (&euro;) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.prixUnitaireHT}
+                  onChange={e => setForm(f => ({ ...f, prixUnitaireHT: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">TVA *</label>
+                <select
+                  value={form.tva}
+                  onChange={e => setForm(f => ({ ...f, tva: Number(e.target.value) }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  {TVA_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Description (optionnel)</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  rows={2}
+                  placeholder="Détails du produit..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button onClick={handleSubmit} disabled={saving} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                {saving ? 'Enregistrement...' : editingId ? 'Mettre à jour' : 'Ajouter au catalogue'}
+              </button>
+              <button onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Liste produits */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <p className="text-sm">Aucun produit dans votre catalogue.</p>
+            <p className="text-xs mt-1">Ajoutez vos prestations pour les réutiliser dans vos devis.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(p => {
+              const typeOpt = TYPE_OPTIONS.find(t => t.value === p.type);
+              const uniteOpt = UNITE_OPTIONS.find(u => u.value === p.unite);
+              const prixTTC = p.prixUnitaireHT * (1 + p.tva / 100);
+              return (
+                <div key={p.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${typeOpt?.color}`}>
+                      {typeOpt?.label}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{p.nom}</p>
+                      {p.description && <p className="text-xs text-gray-500 truncate">{p.description}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 shrink-0">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">{fmt(p.prixUnitaireHT)} &euro; HT</p>
+                      <p className="text-xs text-gray-500">{fmt(prixTTC)} &euro; TTC &middot; TVA {p.tva}% &middot; {uniteOpt?.label}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(p)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                        </svg>
+                      </button>
+                      <button onClick={() => handleArchive(p.id)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 hover:text-red-500 hover:border-red-300">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

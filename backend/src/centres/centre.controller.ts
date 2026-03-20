@@ -111,4 +111,42 @@ export class CentreController {
   createDocument(@CurrentUser() user: JwtUser, @Body() dto: CreateDocumentDto) {
     return this.centreService.createDocument(user.id, dto);
   }
+
+  @Get('catalogue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  getCatalogue(@CurrentUser() user: JwtUser) {
+    return this.centreService.getProduitsCatalogue(user.id);
+  }
+
+  @Post('catalogue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  createProduit(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; tva: number; unite: string },
+  ) {
+    return this.centreService.createProduit(user.id, dto);
+  }
+
+  @Patch('catalogue/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  updateProduit(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() dto: { nom?: string; description?: string; type?: string; prixUnitaireHT?: number; tva?: number; unite?: string },
+  ) {
+    return this.centreService.updateProduit(user.id, id, dto);
+  }
+
+  @Delete('catalogue/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  archiveProduit(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+  ) {
+    return this.centreService.archiveProduit(user.id, id);
+  }
 }

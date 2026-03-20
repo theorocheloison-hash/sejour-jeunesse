@@ -261,4 +261,65 @@ export class CentreService {
       },
     });
   }
+
+  async getProduitsCatalogue(userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    return this.prisma.produitCatalogue.findMany({
+      where: { centreId: centre.id, actif: true },
+      orderBy: [{ type: 'asc' }, { nom: 'asc' }],
+    });
+  }
+
+  async createProduit(userId: string, dto: {
+    nom: string;
+    description?: string;
+    type: string;
+    prixUnitaireHT: number;
+    tva: number;
+    unite: string;
+  }) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    return this.prisma.produitCatalogue.create({
+      data: { centreId: centre.id, ...dto },
+    });
+  }
+
+  async updateProduit(userId: string, produitId: string, dto: {
+    nom?: string;
+    description?: string;
+    type?: string;
+    prixUnitaireHT?: number;
+    tva?: number;
+    unite?: string;
+  }) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    const produit = await this.prisma.produitCatalogue.findUnique({ where: { id: produitId } });
+    if (!produit || produit.centreId !== centre.id) throw new ForbiddenException('Produit introuvable');
+    return this.prisma.produitCatalogue.update({
+      where: { id: produitId },
+      data: dto,
+    });
+  }
+
+  async archiveProduit(userId: string, produitId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    const produit = await this.prisma.produitCatalogue.findUnique({ where: { id: produitId } });
+    if (!produit || produit.centreId !== centre.id) throw new ForbiddenException('Produit introuvable');
+    return this.prisma.produitCatalogue.update({
+      where: { id: produitId },
+      data: { actif: false },
+    });
+  }
 }

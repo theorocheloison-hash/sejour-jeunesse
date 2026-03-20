@@ -117,6 +117,41 @@ export async function uploadCentreImage(file: File): Promise<Centre> {
   return data;
 }
 
+// ─── Catalogue produits ─────────────────────────────────────────────────────
+
+export interface ProduitCatalogue {
+  id: string;
+  nom: string;
+  description?: string | null;
+  type: 'HEBERGEMENT' | 'REPAS' | 'TRANSPORT' | 'ACTIVITE' | 'AUTRE';
+  prixUnitaireHT: number;
+  tva: number;
+  unite: 'PAR_ELEVE' | 'PAR_NUIT' | 'PAR_JOUR' | 'FORFAIT';
+  actif: boolean;
+  createdAt: string;
+}
+
+export async function getCatalogue(): Promise<ProduitCatalogue[]> {
+  const { data } = await api.get<ProduitCatalogue[]>('/centres/catalogue');
+  return data;
+}
+
+export async function createProduit(dto: Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>): Promise<ProduitCatalogue> {
+  const { data } = await api.post<ProduitCatalogue>('/centres/catalogue', dto);
+  return data;
+}
+
+export async function updateProduit(id: string, dto: Partial<Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>>): Promise<ProduitCatalogue> {
+  const { data } = await api.patch<ProduitCatalogue>(`/centres/catalogue/${id}`, dto);
+  return data;
+}
+
+export async function archiveProduit(id: string): Promise<void> {
+  await api.delete(`/centres/catalogue/${id}`);
+}
+
+// ─── Upload documents ───────────────────────────────────────────────────────
+
 export async function uploadCentreDocument(dto: {
   type: 'AGREMENT' | 'ASSURANCE' | 'AUTRE';
   nom: string;
