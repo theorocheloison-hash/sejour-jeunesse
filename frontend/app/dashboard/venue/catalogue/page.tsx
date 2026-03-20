@@ -52,10 +52,10 @@ export default function CataloguePage() {
       const dto = {
         nom: form.nom,
         description: form.description || undefined,
-        type: form.type,
+        type: form.type as ProduitCatalogue['type'],
         prixUnitaireHT: Number(form.prixUnitaireHT),
         tva: Number(form.tva),
-        unite: form.unite,
+        unite: form.unite as ProduitCatalogue['unite'],
       };
       if (editingId) {
         const updated = await updateProduit(editingId, dto);
