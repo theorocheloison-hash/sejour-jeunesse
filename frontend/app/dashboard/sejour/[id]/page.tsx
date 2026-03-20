@@ -1813,9 +1813,20 @@ export default function CollaborationPage() {
                       </div>
                       {d.hebergementSelectionne && (
                         <div className="sm:col-span-2">
-                          <span className="text-gray-500">Hébergement</span>
-                          <p className="font-medium text-gray-900">{d.hebergementSelectionne.nom}</p>
-                          <p className="text-xs text-gray-500">{d.hebergementSelectionne.adresse}, {d.hebergementSelectionne.ville}{d.hebergementSelectionne.telephone ? ` — ${d.hebergementSelectionne.telephone}` : ''}</p>
+                          <p className="text-xs text-gray-500 mb-1">Hébergement</p>
+                          <div className="flex items-start gap-3">
+                            {d.hebergementSelectionne?.imageUrl && (
+                              <img
+                                src={d.hebergementSelectionne.imageUrl}
+                                alt={d.hebergementSelectionne.nom}
+                                className="w-16 h-16 rounded-lg object-cover shrink-0"
+                              />
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{d.hebergementSelectionne.nom}</p>
+                              <p className="text-xs text-gray-500">{d.hebergementSelectionne.adresse}, {d.hebergementSelectionne.ville}</p>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1983,13 +1994,6 @@ export default function CollaborationPage() {
                   {d.hebergementSelectionne && (
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                       <h3 className="text-base font-semibold text-gray-900 mb-4">Centre d&apos;hébergement</h3>
-                      {d.hebergementSelectionne?.imageUrl && (
-                        <img
-                          src={d.hebergementSelectionne.imageUrl}
-                          alt={d.hebergementSelectionne.nom}
-                          style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 12 }}
-                        />
-                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-500">Nom</span>
