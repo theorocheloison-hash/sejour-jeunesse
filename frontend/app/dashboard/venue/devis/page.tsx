@@ -248,6 +248,17 @@ export default function VenueDevisPage() {
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
+                    {(d.statut === 'EN_ATTENTE' || d.statut === 'SELECTIONNE') && (
+                      <Link
+                        href={`/dashboard/venue/devis/${d.id}/modifier`}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                        </svg>
+                        Modifier
+                      </Link>
+                    )}
                     {d.statut === 'SELECTIONNE' && (
                       <div className="shrink-0 flex flex-col gap-2 items-end">
                         {d.demande?.enseignant && (

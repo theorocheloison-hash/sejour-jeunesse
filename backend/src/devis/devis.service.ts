@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
+import { UpdateDevisDto } from './dto/update-devis.dto.js';
 
 @Injectable()
 export class DevisService {
@@ -147,6 +148,135 @@ export class DevisService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getDevisById(id: string, userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+      include: {
+        lignes: true,
+        demande: {
+          include: {
+            enseignant: {
+              select: {
+                prenom: true, nom: true, email: true, telephone: true,
+                etablissementNom: true, etablissementAdresse: true,
+                etablissementVille: true, etablissementEmail: true, etablissementTelephone: true,
+              },
+            },
+            sejour: {
+              select: {
+                titre: true, lieu: true, dateDebut: true, dateFin: true,
+                placesTotales: true, niveauClasse: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+
+    return { devis, centre };
+  }
+
+  async updateDevis(id: string, dto: UpdateDevisDto, userId: string, file?: Express.Multer.File) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+    if (devis.statut !== 'EN_ATTENTE' && devis.statut !== 'SELECTIONNE') {
+      throw new ForbiddenException('Seul un devis en attente ou sélectionné peut être modifié');
+    }
+
+    // Upload nouveau PDF si fourni
+    let documentUrl = devis.documentUrl;
+    if (file && file.mimetype === 'application/pdf') {
+      documentUrl = await this.storage.upload(file, 'devis');
+    }
+
+    // Supprimer les anciennes lignes
+    await this.prisma.ligneDevis.deleteMany({
+      where: { devisId: id },
+    });
+
+    // Mettre à jour le devis
+    const updated = await this.prisma.devis.update({
+      where: { id },
+      data: {
+        montantTotal: dto.montantTotal ?? devis.montantTotal,
+        montantParEleve: dto.montantParEleve ?? devis.montantParEleve,
+        description: dto.description ?? devis.description,
+        conditionsAnnulation: dto.conditionsAnnulation ?? devis.conditionsAnnulation,
+        documentUrl,
+        nomEntreprise: dto.nomEntreprise ?? devis.nomEntreprise,
+        adresseEntreprise: dto.adresseEntreprise ?? devis.adresseEntreprise,
+        siretEntreprise: dto.siretEntreprise ?? devis.siretEntreprise,
+        emailEntreprise: dto.emailEntreprise ?? devis.emailEntreprise,
+        telEntreprise: dto.telEntreprise ?? devis.telEntreprise,
+        tauxTva: dto.tauxTva ?? devis.tauxTva,
+        montantHT: dto.montantHT ?? devis.montantHT,
+        montantTVA: dto.montantTVA ?? devis.montantTVA,
+        montantTTC: dto.montantTTC ?? devis.montantTTC,
+        pourcentageAcompte: dto.pourcentageAcompte ?? devis.pourcentageAcompte,
+        montantAcompte: dto.montantAcompte ?? devis.montantAcompte,
+        numeroDevis: dto.numeroDevis ?? devis.numeroDevis,
+        typeDevis: dto.typeDevis ?? devis.typeDevis,
+      },
+    });
+
+    // Recréer les nouvelles lignes
+    if (dto.lignes && dto.lignes.length > 0) {
+      await this.prisma.ligneDevis.createMany({
+        data: dto.lignes.map((l) => ({
+          devisId: id,
+          description: l.description,
+          quantite: l.quantite,
+          prixUnitaire: l.prixUnitaire,
+          tva: l.tva ?? 0,
+          totalHT: l.totalHT,
+          totalTTC: l.totalTTC,
+        })),
+      });
+    }
+
+    // Notifier l'enseignant si le devis était SELECTIONNE
+    if (devis.statut === 'SELECTIONNE') {
+      const demande = await this.prisma.demandeDevis.findUnique({
+        where: { id: devis.demandeId },
+        include: {
+          enseignant: { select: { email: true, prenom: true, nom: true } },
+          sejour: { select: { titre: true } },
+        },
+      });
+      if (demande?.enseignant && demande?.sejour) {
+        await this.email.sendGenericNotification(
+          demande.enseignant.email,
+          'Devis modifié par l\'hébergeur',
+          `Bonjour ${demande.enseignant.prenom},\n\nL'hébergeur a apporté des modifications au devis pour le séjour "${demande.sejour.titre}". Connectez-vous à LIAVO pour consulter les changements.\n\nCordialement,\nL'équipe LIAVO`,
+        );
+      }
+    }
+
+    return this.prisma.devis.findUnique({
+      where: { id },
+      include: { lignes: true },
     });
   }
 

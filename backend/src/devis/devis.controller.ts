@@ -8,6 +8,7 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { DevisService } from './devis.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
+import { UpdateDevisDto } from './dto/update-devis.dto.js';
 
 @Controller('devis')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -59,6 +60,27 @@ export class DevisController {
   @Roles(Role.VENUE)
   getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
     return this.devisService.getDemandeInfo(demandeId, user.id);
+  }
+
+  @Get(':id/detail')
+  @Roles(Role.VENUE)
+  getDevisById(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+  ) {
+    return this.devisService.getDevisById(id, user.id);
+  }
+
+  @Patch(':id')
+  @Roles(Role.VENUE)
+  @UseInterceptors(FileInterceptor('file'))
+  updateDevis(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateDevisDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.devisService.updateDevis(id, dto, user.id, file);
   }
 
   @Patch(':id/statut')

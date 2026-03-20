@@ -183,6 +183,16 @@ export async function getChorusXml(id: string): Promise<{ xml: string }> {
   return data;
 }
 
+export async function getDevisDetail(id: string): Promise<{ devis: Devis; centre: DemandeInfo['centre'] }> {
+  const { data } = await api.get<{ devis: Devis; centre: DemandeInfo['centre'] }>(`/devis/${id}/detail`);
+  return data;
+}
+
+export async function updateDevis(id: string, dto: Omit<CreateDevisDto, 'demandeId'>): Promise<Devis> {
+  const { data } = await api.patch<Devis>(`/devis/${id}`, dto);
+  return data;
+}
+
 export async function facturerAcompte(id: string): Promise<Devis> {
   const { data } = await api.patch<Devis>(`/devis/${id}/facturer-acompte`);
   return data;
