@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { createDevis, getNextNumeroDevis, getDemandeInfo } from '@/src/lib/devis';
 import type { DemandeInfo, LigneDevis } from '@/src/lib/devis';
+import { getCatalogue } from '@/src/lib/centre';
+import type { ProduitCatalogue } from '@/src/lib/centre';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -14,14 +16,6 @@ const TVA_OPTIONS = [
   { value: 5.5, label: '5,5 %' },
   { value: 10, label: '10 %' },
   { value: 20, label: '20 %' },
-];
-
-const LIGNES_SUGGEREES: Omit<LigneDevis, 'id' | 'totalHT' | 'totalTTC'>[] = [
-  { description: 'Hébergement (nuit/élève)', quantite: 0, prixUnitaire: 0, tva: 0 },
-  { description: 'Restauration (repas/élève)', quantite: 0, prixUnitaire: 0, tva: 0 },
-  { description: 'Activités (forfait)', quantite: 1, prixUnitaire: 0, tva: 0 },
-  { description: 'Encadrement (jour)', quantite: 0, prixUnitaire: 0, tva: 0 },
-  { description: 'Transport (forfait)', quantite: 1, prixUnitaire: 0, tva: 0 },
 ];
 
 type LigneForm = {
@@ -35,8 +29,8 @@ type LigneForm = {
 let keyCounter = 0;
 function newKey() { return `l-${++keyCounter}`; }
 
-function makeLigneForm(desc = '', qte = '', prix = '', tva = '0'): LigneForm {
-  return { key: newKey(), description: desc, quantite: qte, prixUnitaire: prix, tva };
+function makeLigneForm(opts?: { description?: string; quantite?: string; prixUnitaire?: string; tva?: string }): LigneForm {
+  return { key: newKey(), description: opts?.description ?? '', quantite: opts?.quantite ?? '', prixUnitaire: opts?.prixUnitaire ?? '', tva: opts?.tva ?? '0' };
 }
 
 // ─── Page (Suspense wrapper) ────────────────────────────────────────────────
@@ -74,13 +68,11 @@ function NouveauDevisContent() {
   const [telEntreprise, setTelEntreprise] = useState('');
 
   // Lines
-  const [lignes, setLignes] = useState<LigneForm[]>([
-    makeLigneForm('Hébergement (nuit/élève)'),
-    makeLigneForm('Restauration (repas/élève)'),
-    makeLigneForm('Activités (forfait)', '1'),
-    makeLigneForm('Encadrement (jour)'),
-    makeLigneForm('Transport (forfait)', '1'),
-  ]);
+  const [lignes, setLignes] = useState<LigneForm[]>([makeLigneForm()]);
+
+  // Catalogue
+  const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
+  const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
 
   // Global TVA + acompte
   const [tauxTva, setTauxTva] = useState(0);
@@ -109,18 +101,39 @@ function NouveauDevisContent() {
     Promise.all([
       getDemandeInfo(demandeId),
       getNextNumeroDevis(),
+      getCatalogue().catch(() => [] as ProduitCatalogue[]),
     ])
-      .then(([infoData, numData]) => {
+      .then(([infoData, numData, cat]) => {
         setInfo(infoData);
         setNumeroDevis(numData.numero);
+        setCatalogue(cat);
         // Pre-fill company info from centre
         setNomEntreprise(infoData.centre.nom);
         setAdresseEntreprise(`${infoData.centre.adresse}, ${infoData.centre.codePostal} ${infoData.centre.ville}`);
         setEmailEntreprise(infoData.centre.email ?? '');
         setTelEntreprise(infoData.centre.telephone ?? '');
+        // Init lines from catalogue
+        if (cat.length > 0) {
+          setLignes(cat.map(p => makeLigneForm({
+            description: p.nom,
+            quantite: String(infoData.demande.nombreEleves ?? 1),
+            prixUnitaire: String(p.prixUnitaireHT),
+            tva: String(p.tva),
+          })));
+        } else {
+          setLignes([makeLigneForm()]);
+        }
       })
       .catch(() => setLoadError('Impossible de charger les informations de la demande.'));
   }, [user, demandeId]);
+
+  // ── Close catalogue dropdown on outside click ──
+  useEffect(() => {
+    if (!showCatalogueDropdown) return;
+    const handler = () => setShowCatalogueDropdown(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showCatalogueDropdown]);
 
   // ── Calculations ──
   const calculs = useMemo(() => {
@@ -147,10 +160,6 @@ function NouveauDevisContent() {
   // ── Line handlers ──
   const updateLigne = useCallback((key: string, field: keyof LigneForm, value: string) => {
     setLignes((prev) => prev.map((l) => (l.key === key ? { ...l, [field]: value } : l)));
-  }, []);
-
-  const addLigne = useCallback(() => {
-    setLignes((prev) => [...prev, makeLigneForm()]);
   }, []);
 
   const removeLigne = useCallback((key: string) => {
@@ -398,13 +407,68 @@ function NouveauDevisContent() {
               );
             })}
 
-            <button onClick={addLigne}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Ajouter une ligne
-            </button>
+            <div className="mt-3 flex items-center gap-3">
+              {/* Bouton catalogue */}
+              {catalogue.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowCatalogueDropdown(v => !v); }}
+                    className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                    </svg>
+                    Depuis le catalogue
+                  </button>
+                  {showCatalogueDropdown && (
+                    <div className="absolute left-0 top-8 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                      {['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].map(type => {
+                        const items = catalogue.filter(p => p.type === type);
+                        if (items.length === 0) return null;
+                        const labels: Record<string, string> = { HEBERGEMENT: 'Hébergement', REPAS: 'Repas', TRANSPORT: 'Transport', ACTIVITE: 'Activité', AUTRE: 'Autre' };
+                        return (
+                          <div key={type}>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">{labels[type]}</p>
+                            {items.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setLignes(prev => [...prev, makeLigneForm({
+                                    description: p.nom,
+                                    quantite: String(info?.demande.nombreEleves ?? 1),
+                                    prixUnitaire: String(p.prixUnitaireHT),
+                                    tva: String(p.tva),
+                                  })]);
+                                  setShowCatalogueDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                              >
+                                <span className="text-sm text-gray-900">{p.nom}</span>
+                                <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} &euro; HT</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bouton ligne vide */}
+              <button
+                type="button"
+                onClick={() => setLignes(prev => [...prev, makeLigneForm()])}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ligne libre
+              </button>
+            </div>
           </div>
 
           {/* ── Section 5 : Totaux ────────────────────────────────────────── */}
