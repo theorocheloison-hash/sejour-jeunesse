@@ -56,3 +56,7 @@ export async function getDemande(id: string): Promise<Demande> {
   const { data } = await api.get<Demande>(`/demandes/${id}`);
   return data;
 }
+
+export async function ignorerDemande(id: string): Promise<void> {
+  await api.delete(`/demandes/${id}/ignorer`);
+}

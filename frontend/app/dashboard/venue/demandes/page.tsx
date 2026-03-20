@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getDemandesOuvertes } from '@/src/lib/demande';
+import { getDemandesOuvertes, ignorerDemande } from '@/src/lib/demande';
 import { uploadDevisPdf } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
 
@@ -72,6 +72,11 @@ export default function VenueDemandesPage() {
     }
   };
 
+  const handleIgnorer = async (demandeId: string) => {
+    await ignorerDemande(demandeId);
+    setDemandes(prev => prev.filter(d => d.id !== demandeId));
+  };
+
   if (isLoading || !user) return null;
 
   return (
@@ -137,6 +142,15 @@ export default function VenueDemandesPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                             </svg>
                             {openUpload === d.id ? 'Annuler' : 'Charger un PDF'}
+                          </button>
+                          <button
+                            onClick={() => handleIgnorer(d.id)}
+                            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Ne pas répondre
                           </button>
                         </>
                       )}

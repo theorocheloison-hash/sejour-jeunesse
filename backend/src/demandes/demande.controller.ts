@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -28,6 +28,15 @@ export class DemandeController {
   @Roles(Role.TEACHER)
   getMesDemandes(@CurrentUser() user: JwtUser) {
     return this.demandeService.getMesDemandes(user.id);
+  }
+
+  @Delete(':id/ignorer')
+  @Roles(Role.VENUE)
+  ignorerDemande(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+  ) {
+    return this.demandeService.ignorerDemande(user.id, id);
   }
 
   @Get(':id')

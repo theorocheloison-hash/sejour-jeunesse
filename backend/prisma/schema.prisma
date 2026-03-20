@@ -399,6 +399,7 @@ model CentreHebergement {
   sejoursSelectionne Sejour[]       @relation("SejourCentreSelectionne")
   invitationsCollaboration InvitationCollaboration[]
   produitsCatalogue ProduitCatalogue[]
+  demandesIgnorees DemandeIgnoree[]
 
   @@map("centres_hebergement")
 }
@@ -494,8 +495,25 @@ model DemandeDevis {
   enseignant User     @relation("DemandesCreer", fields: [enseignantId], references: [id], onDelete: Cascade)
   sejour     Sejour   @relation(fields: [sejourId], references: [id], onDelete: Cascade)
   devis      Devis[]
+  demandesIgnorees DemandeIgnoree[]
 
   @@map("demandes_devis")
+}
+
+// ============================================================
+// MODEL : DemandeIgnoree (demande ignorée par un centre)
+// ============================================================
+model DemandeIgnoree {
+  id         String   @id @default(uuid()) @db.Uuid
+  demandeId  String   @map("demande_id") @db.Uuid
+  centreId   String   @map("centre_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@unique([demandeId, centreId])
+  @@map("demandes_ignorees")
 }
 
 // ============================================================

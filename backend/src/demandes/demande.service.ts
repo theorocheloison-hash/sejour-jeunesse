@@ -98,13 +98,21 @@ export class DemandeService {
   async findOpen(userId: string) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
+      select: { id: true, ville: true, codePostal: true },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
     // TODO: ABONNEMENT — réactiver la vérification d'abonnement
 
+    const ignorees = await this.prisma.demandeIgnoree.findMany({
+      where: { centreId: centre.id },
+      select: { demandeId: true },
+    });
+    const ignoreeIds = ignorees.map(i => i.demandeId);
+
     const demandes = await this.prisma.demandeDevis.findMany({
       where: {
         statut: 'OUVERTE',
+        id: { notIn: ignoreeIds },
         OR: [
           { dateButoireReponse: null },
           { dateButoireReponse: { gte: new Date() } },
@@ -165,6 +173,19 @@ export class DemandeService {
         },
       },
       orderBy: { montantTotal: 'asc' },
+    });
+  }
+
+  async ignorerDemande(userId: string, demandeId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    return this.prisma.demandeIgnoree.upsert({
+      where: { demandeId_centreId: { demandeId, centreId: centre.id } },
+      create: { demandeId, centreId: centre.id },
+      update: {},
     });
   }
 }

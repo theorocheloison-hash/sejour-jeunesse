@@ -6,6 +6,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import { getMesDevis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
+import { getDemandesOuvertes } from '@/src/lib/demande';
 
 export default function VenueDashboard() {
   const { user, isLoading, logout } = useAuth();
@@ -15,6 +16,7 @@ export default function VenueDashboard() {
   const [centre, setCentre] = useState<any>(null);
   const [devis, setDevis] = useState<any[]>([]);
   const [sejoursConvention, setSejoursConvention] = useState<any[]>([]);
+  const [demandes, setDemandes] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -23,14 +25,16 @@ export default function VenueDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [profil, mesDevis, sejours] = await Promise.all([
+      const [profil, mesDevis, sejours, mesDemandes] = await Promise.all([
         getMonProfil(),
         getMesDevis(),
         getMesSejoursConvention(),
+        getDemandesOuvertes().catch(() => []),
       ]);
       setCentre(profil);
       setDevis(mesDevis);
       setSejoursConvention(sejours);
+      setDemandes(mesDemandes);
     } catch {}
   }, []);
 
@@ -53,7 +57,7 @@ export default function VenueDashboard() {
   if (isLoading || !user) return null;
 
   // Métriques
-  const demandesNonLues = devis.filter(d => d.statut === 'EN_ATTENTE' && !d.estFacture).length;
+  const demandesNonLues = demandes.length;
   const devisEnAttente = devis.filter(d => d.statut === 'EN_ATTENTE').length;
   const devisSelectionnes = devis.filter(d => d.statut === 'SELECTIONNE').length;
   const caPrevi = devis
