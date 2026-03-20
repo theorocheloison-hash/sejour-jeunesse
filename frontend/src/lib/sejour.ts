@@ -181,6 +181,7 @@ export interface DossierPedagogiqueData {
     ville: string;
     adresse: string;
     telephone: string | null;
+    imageUrl?: string | null;
   } | null;
   accompagnateurs: {
     id: string;
