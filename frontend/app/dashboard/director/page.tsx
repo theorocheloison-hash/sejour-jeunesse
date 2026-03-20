@@ -107,6 +107,8 @@ function SejourDetailModal({
   const [motif, setMotif] = useState('');
   const [dossier, setDossier] = useState<DossierPedagogiqueData | null>(null);
   const [dossierLoading, setDossierLoading] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['infos']));
+  const toggleSection = (key: string) => setOpenSections(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const c = detail.createur;
   const signees = detail.autorisations.filter((a) => a.signeeAt).length;
@@ -140,110 +142,197 @@ function SejourDetailModal({
         <div className="flex-1 overflow-auto px-6 py-4 space-y-1">
 
           {/* Infos séjour */}
-          <SectionLabel>Informations du séjour</SectionLabel>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div><span className="text-gray-500">Élèves</span><p className="font-medium">{detail.placesTotales}</p></div>
-            {detail.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{detail.niveauClasse}</p></div>}
-            {detail.prix > 0 && <div><span className="text-gray-500">Prix / élève</span><p className="font-medium">{detail.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p></div>}
-            {detail.hebergements?.[0] && (
-              <div className="col-span-2"><span className="text-gray-500">Hébergement</span><p className="font-medium">{detail.hebergements[0].nom}{detail.hebergements[0].ville ? `, ${detail.hebergements[0].ville}` : ''}</p></div>
-            )}
-          </div>
+          <button
+            onClick={() => toggleSection('infos')}
+            className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+          >
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Informations du séjour</span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('infos') ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {openSections.has('infos') && (
+            <div className="py-3">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div><span className="text-gray-500">Élèves</span><p className="font-medium">{detail.placesTotales}</p></div>
+                {detail.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{detail.niveauClasse}</p></div>}
+                {detail.prix > 0 && <div><span className="text-gray-500">Prix / élève</span><p className="font-medium">{detail.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p></div>}
+                {detail.hebergements?.[0] && (
+                  <div className="col-span-2"><span className="text-gray-500">Hébergement</span><p className="font-medium">{detail.hebergements[0].nom}{detail.hebergements[0].ville ? `, ${detail.hebergements[0].ville}` : ''}</p></div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Enseignant / Établissement */}
           {c && (
             <>
-              <SectionLabel>Enseignant & Établissement</SectionLabel>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <div><span className="text-gray-500">Enseignant</span><p className="font-medium">{c.prenom} {c.nom}</p></div>
-                <div><span className="text-gray-500">Email</span><p className="font-medium">{c.email}</p></div>
-                {c.telephone && <div><span className="text-gray-500">Téléphone</span><p className="font-medium">{c.telephone}</p></div>}
-                {c.etablissementNom && <div><span className="text-gray-500">Établissement</span><p className="font-medium">{c.etablissementNom}</p></div>}
-                {c.etablissementAdresse && <div><span className="text-gray-500">Adresse</span><p className="font-medium">{c.etablissementAdresse}{c.etablissementVille ? `, ${c.etablissementVille}` : ''}</p></div>}
-                {c.etablissementUai && <div><span className="text-gray-500">UAI</span><p className="font-medium">{c.etablissementUai}</p></div>}
-              </div>
+              <button
+                onClick={() => toggleSection('enseignant')}
+                className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+              >
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Enseignant & Établissement</span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('enseignant') ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              {openSections.has('enseignant') && (
+                <div className="py-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <div><span className="text-gray-500">Enseignant</span><p className="font-medium">{c.prenom} {c.nom}</p></div>
+                    <div><span className="text-gray-500">Email</span><p className="font-medium">{c.email}</p></div>
+                    {c.telephone && <div><span className="text-gray-500">Téléphone</span><p className="font-medium">{c.telephone}</p></div>}
+                    {c.etablissementNom && <div><span className="text-gray-500">Établissement</span><p className="font-medium">{c.etablissementNom}</p></div>}
+                    {c.etablissementAdresse && <div><span className="text-gray-500">Adresse</span><p className="font-medium">{c.etablissementAdresse}{c.etablissementVille ? `, ${c.etablissementVille}` : ''}</p></div>}
+                    {c.etablissementUai && <div><span className="text-gray-500">UAI</span><p className="font-medium">{c.etablissementUai}</p></div>}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
           {/* Accompagnateurs */}
-          <SectionLabel>Accompagnateurs ({detail.accompagnateurs.length})</SectionLabel>
-          {detail.accompagnateurs.length > 0 ? (
-            <div className="space-y-2">
-              {detail.accompagnateurs.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{a.prenom} {a.nom}</p>
-                    <p className="text-xs text-gray-500">{a.email}{a.telephone ? ` — ${a.telephone}` : ''}</p>
-                  </div>
-                  {a.signeeAt ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      Signé
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
-                  )}
+          <button
+            onClick={() => toggleSection('accompagnateurs')}
+            className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+          >
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Accompagnateurs ({detail.accompagnateurs.length})</span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('accompagnateurs') ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {openSections.has('accompagnateurs') && (
+            <div className="py-3">
+              {detail.accompagnateurs.length > 0 ? (
+                <div className="space-y-2">
+                  {detail.accompagnateurs.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{a.prenom} {a.nom}</p>
+                        <p className="text-xs text-gray-500">{a.email}{a.telephone ? ` — ${a.telephone}` : ''}</p>
+                      </div>
+                      {a.signeeAt ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          Signé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="text-xs text-gray-400 italic">Aucun accompagnateur ajouté</p>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-gray-400 italic">Aucun accompagnateur ajouté</p>
           )}
 
           {/* Autorisations parentales */}
-          <SectionLabel>Autorisations parentales ({signees}/{detail.autorisations.length})</SectionLabel>
-          {detail.autorisations.length > 0 ? (
-            <div className="space-y-1.5">
-              {detail.autorisations.map((a) => (
-                <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{a.elevePrenom} {a.eleveNom}</p>
-                    <p className="text-xs text-gray-500">{a.parentEmail}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {a.signeeAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        Signée
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
-                    )}
-                  </div>
+          <button
+            onClick={() => toggleSection('autorisations')}
+            className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+          >
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Autorisations parentales ({signees}/{detail.autorisations.length})</span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('autorisations') ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {openSections.has('autorisations') && (
+            <div className="py-3">
+              {detail.autorisations.length > 0 ? (
+                <div className="space-y-1.5">
+                  {detail.autorisations.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{a.elevePrenom} {a.eleveNom}</p>
+                        <p className="text-xs text-gray-500">{a.parentEmail}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {a.signeeAt ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Signée
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">En attente</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="text-xs text-gray-400 italic">Aucune autorisation parentale</p>
+              )}
             </div>
-          ) : (
-            <p className="text-xs text-gray-400 italic">Aucune autorisation parentale</p>
           )}
 
           {/* Devis associés */}
           {detail.demandes && detail.demandes.length > 0 && detail.demandes.some((d) => d.devis.length > 0) && (
             <>
-              <SectionLabel>Devis reçus</SectionLabel>
-              <div className="space-y-2">
-                {detail.demandes.flatMap((d) => d.devis).map((dv) => (
-                  <div key={dv.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{dv.centre?.nom ?? 'Centre'}</p>
-                      <p className="text-xs text-gray-500">{dv.montantTotal} € total — {dv.montantParEleve} € / élève</p>
-                    </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      dv.statut === 'SELECTIONNE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' :
-                      dv.statut === 'NON_RETENU' ? 'bg-red-100 text-red-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {dv.statut === 'SELECTIONNE' ? 'Sélectionné' : dv.statut === 'NON_RETENU' ? 'Non retenu' : 'En attente'}
-                    </span>
+              <button
+                onClick={() => toggleSection('devis')}
+                className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+              >
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Devis reçus</span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('devis') ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              {openSections.has('devis') && (
+                <div className="py-3">
+                  <div className="space-y-2">
+                    {detail.demandes.flatMap((d) => d.devis).map((dv) => (
+                      <div key={dv.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{dv.centre?.nom ?? 'Centre'}</p>
+                          <p className="text-xs text-gray-500">{dv.montantTotal} € total — {dv.montantParEleve} € / élève</p>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          dv.statut === 'SELECTIONNE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' :
+                          dv.statut === 'NON_RETENU' ? 'bg-red-100 text-red-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {dv.statut === 'SELECTIONNE' ? 'Sélectionné' : dv.statut === 'NON_RETENU' ? 'Non retenu' : 'En attente'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </>
           )}
 
           {/* ── Projet pédagogique ── */}
-          <div className="border-t border-gray-200 pt-4 mt-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Projet pédagogique</h3>
+          <button
+            onClick={() => toggleSection('projet')}
+            className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+          >
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Projet pédagogique</span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('projet') ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {openSections.has('projet') && (
+          <div className="py-3">
 
             {dossierLoading && (
               <div className="flex justify-center py-4">
@@ -328,6 +417,7 @@ function SejourDetailModal({
               );
             })()}
           </div>
+          )}
 
           {/* Refus motif */}
           {refusMode && (
