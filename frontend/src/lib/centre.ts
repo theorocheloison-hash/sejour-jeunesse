@@ -150,6 +150,38 @@ export async function archiveProduit(id: string): Promise<void> {
   await api.delete(`/centres/catalogue/${id}`);
 }
 
+export function downloadTemplateCatalogue(): void {
+  const header = ['Nom', 'Type', 'Prix HT (€)', 'TVA (%)', 'Unité', 'Description'];
+  const exemples = [
+    ['Hébergement nuit', 'HEBERGEMENT', '45', '10', 'PAR_ELEVE', 'Nuitée en chambre partagée'],
+    ['Forfait ski J1', 'ACTIVITE', '38', '10', 'PAR_ELEVE', 'Location matériel + remontées J1'],
+    ['Repas midi', 'REPAS', '12', '10', 'PAR_ELEVE', ''],
+    ['Transport aller', 'TRANSPORT', '15', '10', 'PAR_ELEVE', ''],
+  ];
+  const notice = [
+    ['--- VALEURS ACCEPTÉES ---', '', '', '', '', ''],
+    ['Type:', 'HEBERGEMENT | REPAS | TRANSPORT | ACTIVITE | AUTRE', '', '', '', ''],
+    ['Unité:', 'PAR_ELEVE | PAR_NUIT | PAR_JOUR | FORFAIT', '', '', '', ''],
+    ['TVA (%):', '0 | 5.5 | 10 | 20', '', '', '', ''],
+  ];
+  const rows = [header, ...exemples, [''], ...notice];
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'liavo_catalogue_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importProduitsCatalogue(
+  produits: Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>[]
+): Promise<{ imported: number; total: number }> {
+  const { data } = await api.post<{ imported: number; total: number }>('/centres/catalogue/import', { produits });
+  return data;
+}
+
 // ─── Upload documents ───────────────────────────────────────────────────────
 
 export async function uploadCentreDocument(dto: {

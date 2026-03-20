@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
@@ -288,6 +289,46 @@ export class CentreService {
     return this.prisma.produitCatalogue.create({
       data: { centreId: centre.id, ...dto },
     });
+  }
+
+  async importProduits(userId: string, produits: {
+    nom: string;
+    description?: string;
+    type: string;
+    prixUnitaireHT: number;
+    tva: number;
+    unite: string;
+  }[]) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const valides = produits.filter(p =>
+      p.nom &&
+      ['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].includes(p.type) &&
+      ['PAR_ELEVE', 'PAR_NUIT', 'PAR_JOUR', 'FORFAIT'].includes(p.unite) &&
+      !isNaN(p.prixUnitaireHT) &&
+      p.prixUnitaireHT >= 0 &&
+      [0, 5.5, 10, 20].includes(p.tva)
+    );
+
+    if (valides.length === 0) throw new BadRequestException('Aucun produit valide trouvé dans le fichier');
+
+    await this.prisma.produitCatalogue.createMany({
+      data: valides.map(p => ({
+        centreId: centre.id,
+        nom: p.nom,
+        description: p.description ?? null,
+        type: p.type,
+        prixUnitaireHT: p.prixUnitaireHT,
+        tva: p.tva,
+        unite: p.unite,
+        actif: true,
+      })),
+    });
+
+    return { imported: valides.length, total: produits.length };
   }
 
   async updateProduit(userId: string, produitId: string, dto: {

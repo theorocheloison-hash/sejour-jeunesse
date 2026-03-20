@@ -129,6 +129,16 @@ export class CentreController {
     return this.centreService.createProduit(user.id, dto);
   }
 
+  @Post('catalogue/import')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  importProduits(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; tva: number; unite: string }[] },
+  ) {
+    return this.centreService.importProduits(user.id, body.produits);
+  }
+
   @Patch('catalogue/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENUE)
