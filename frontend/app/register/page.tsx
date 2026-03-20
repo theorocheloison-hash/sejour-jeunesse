@@ -106,6 +106,12 @@ function RegisterContent() {
           </Link>
         </p>
       </div>
+      <p className="mt-4 text-center text-sm text-gray-500">
+        Besoin d&apos;aide ?{' '}
+        <a href="mailto:contact@liavo.fr" className="font-medium text-[var(--color-primary)] hover:underline">
+          contact@liavo.fr
+        </a>
+      </p>
     </main>
   );
 }
