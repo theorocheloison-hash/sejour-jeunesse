@@ -379,7 +379,7 @@ export default function Home() {
           }}>
             {[
               { num: '1', title: 'Création du projet', desc: 'L\'enseignant définit la destination, les dates et les objectifs pédagogiques. Le dossier s\'ouvre automatiquement.' },
-              { num: '2', title: 'Appel d\'offres hébergeurs', desc: 'Les 649 centres référencés de la région reçoivent la demande. Les devis arrivent directement dans la plateforme sous 48h.' },
+              { num: '2', title: 'Appel d\'offres hébergeurs', desc: 'Les centres référencés sur le périmètre géographique choisi reçoivent votre demande. Les devis arrivent directement dans la plateforme sous 48h.' },
               { num: '3', title: 'Validation directeur', desc: 'Le directeur compare les offres, sélectionne le centre et approuve le séjour. Tout est horodaté.' },
               { num: '4', title: 'Dossier rectorat', desc: 'Le dossier réglementaire complet est généré automatiquement et transmis au rectorat pour validation.' },
               { num: '5', title: 'Autorisations et paiements', desc: 'Les parents reçoivent l\'autorisation à signer en ligne. Le paiement s\'échelonne jusqu\'à 10 fois sans frais.' },
