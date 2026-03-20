@@ -283,18 +283,18 @@ function SejourDetailModal({
           {detail.demandes && detail.demandes.length > 0 && detail.demandes.some((d) => d.devis.length > 0) && (
             <>
               <button
-                onClick={() => toggleSection('devis')}
+                onClick={() => toggleSection('budget')}
                 className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
               >
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Devis reçus</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Budget prévisionnel</span>
                 <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('devis') ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('budget') ? 'rotate-180' : ''}`}
                   fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>
               </button>
-              {openSections.has('devis') && (
+              {openSections.has('budget') && (
                 <div className="py-3">
                   <div className="space-y-2">
                     {detail.demandes.flatMap((d) => d.devis).map((dv) => (
