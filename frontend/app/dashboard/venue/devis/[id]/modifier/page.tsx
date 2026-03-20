@@ -296,12 +296,8 @@ export default function ModifierDevisPage() {
             {sejour ? (
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-gray-900">
-                  Séjour scolaire — {sejour.lieu} — du {new Date(sejour.dateDebut).toLocaleDateString('fr-FR')} au {new Date(sejour.dateFin).toLocaleDateString('fr-FR')}
+                  Séjour scolaire — {sejour.titre}
                 </p>
-                <div className="flex gap-4 text-xs text-gray-500">
-                  <span>{sejour.placesTotales} élève{sejour.placesTotales > 1 ? 's' : ''}</span>
-                  {sejour.niveauClasse && <span>Niveau : {sejour.niveauClasse}</span>}
-                </div>
               </div>
             ) : demande ? (
               <p className="text-sm font-semibold text-gray-900">
