@@ -118,7 +118,7 @@ export class DevisController {
   }
 
   @Get(':id/chorus-xml')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.DIRECTOR, Role.VENUE)
   getChorusXml(@Param('id') id: string) {
     return this.devisService.getChorusXml(id);
   }

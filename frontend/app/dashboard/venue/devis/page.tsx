@@ -131,7 +131,10 @@ export default function VenueDevisPage() {
       a.download = `chorus-pro-${id.substring(0, 8)}.xml`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      console.error('Chorus XML error:', err);
+      alert('Erreur lors de la génération du XML. Vérifiez que la facture existe bien.');
+    }
   };
 
   const handleFacturerSolde = async (devisId: string) => {
