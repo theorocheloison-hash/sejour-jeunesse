@@ -268,6 +268,63 @@ export class CentreService {
       where: { userId },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const existants = await this.prisma.produitCatalogue.findMany({
+      where: { centreId: centre.id },
+    });
+
+    if (existants.length === 0) {
+      await this.prisma.produitCatalogue.createMany({
+        data: [
+          {
+            centreId: centre.id,
+            nom: 'Pension complète',
+            description: 'Repas du soir, nuitée, petit-déjeuner, repas du midi (panier repas ou sur place) et goûter',
+            type: 'HEBERGEMENT',
+            prixUnitaireHT: 0,
+            tva: 10,
+            unite: 'PAR_ELEVE',
+            actif: true,
+          },
+          {
+            centreId: centre.id,
+            nom: 'Location matériel ski',
+            description: null,
+            type: 'ACTIVITE',
+            prixUnitaireHT: 0,
+            tva: 10,
+            unite: 'PAR_ELEVE',
+            actif: true,
+          },
+          {
+            centreId: centre.id,
+            nom: 'Cours ESF',
+            description: null,
+            type: 'ACTIVITE',
+            prixUnitaireHT: 0,
+            tva: 10,
+            unite: 'PAR_ELEVE',
+            actif: true,
+          },
+          {
+            centreId: centre.id,
+            nom: 'Transport aller-retour',
+            description: null,
+            type: 'TRANSPORT',
+            prixUnitaireHT: 0,
+            tva: 10,
+            unite: 'PAR_ELEVE',
+            actif: true,
+          },
+        ],
+      });
+
+      return this.prisma.produitCatalogue.findMany({
+        where: { centreId: centre.id, actif: true },
+        orderBy: [{ type: 'asc' }, { nom: 'asc' }],
+      });
+    }
+
     return this.prisma.produitCatalogue.findMany({
       where: { centreId: centre.id, actif: true },
       orderBy: [{ type: 'asc' }, { nom: 'asc' }],
