@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesDevis, facturerAcompte } from '@/src/lib/devis';
+import { getMesDevis, facturerAcompte, facturerSolde, getChorusXml } from '@/src/lib/devis';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 
 // ─── Statut badges ──────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ export default function VenueDevisPage() {
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [facturantId, setFacturantId] = useState<string | null>(null);
+  const [chorusXml, setChorusXml] = useState<string | null>(null);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,6 +119,26 @@ export default function VenueDevisPage() {
     } finally {
       setFacturantId(null);
     }
+  };
+
+  const handleChorusXml = async (id: string) => {
+    try {
+      const { xml } = await getChorusXml(id);
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chorus-pro-${id.substring(0, 8)}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+  };
+
+  const handleFacturerSolde = async (devisId: string) => {
+    try {
+      const updated = await facturerSolde(devisId);
+      setDevisList(prev => prev.map(d => d.id === devisId ? { ...d, ...updated } : d));
+    } catch { /* ignore */ }
   };
 
   if (isLoading || !user) return null;
@@ -294,6 +315,36 @@ export default function VenueDevisPage() {
                               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                             ) : null}
                             Convertir en facture d&apos;acompte
+                          </button>
+                        )}
+
+                        {/* Facture solde */}
+                        {d.statut === 'SELECTIONNE' && d.typeDocument === 'FACTURE_ACOMPTE' && d.acompteVerse && (
+                          <button
+                            onClick={() => handleFacturerSolde(d.id)}
+                            className="mt-2 w-full rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                          >
+                            Générer la facture de solde
+                          </button>
+                        )}
+
+                        {d.typeDocument === 'FACTURE_SOLDE' && (
+                          <div className="mt-2 flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2">
+                            <span className="text-xs font-semibold text-purple-700">Facture solde émise</span>
+                            <span className="text-xs text-purple-500">{d.numeroFacture}</span>
+                          </div>
+                        )}
+
+                        {/* Boutons Chorus Pro */}
+                        {(d.typeDocument === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_SOLDE') && (
+                          <button
+                            onClick={() => handleChorusXml(d.id)}
+                            className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Télécharger XML Chorus Pro
                           </button>
                         )}
                       </div>

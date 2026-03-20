@@ -198,6 +198,11 @@ export async function facturerAcompte(id: string): Promise<Devis> {
   return data;
 }
 
+export async function facturerSolde(id: string): Promise<Devis> {
+  const { data } = await api.patch<Devis>(`/devis/${id}/facturer-solde`);
+  return data;
+}
+
 export async function uploadDevisPdf(demandeId: string, file: File): Promise<Devis> {
   const formData = new FormData();
   formData.append('file', file);

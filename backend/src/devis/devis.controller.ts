@@ -102,6 +102,15 @@ export class DevisController {
     return this.devisService.facturerAcompte(id, user.id);
   }
 
+  @Patch(':id/facturer-solde')
+  @Roles(Role.VENUE)
+  facturerSolde(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+  ) {
+    return this.devisService.facturerSolde(id, user.id);
+  }
+
   @Patch(':id/valider-acompte')
   @Roles(Role.DIRECTOR)
   validerAcompte(@Param('id') id: string) {

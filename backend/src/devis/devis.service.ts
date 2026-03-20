@@ -502,6 +502,40 @@ export class DevisService {
     });
   }
 
+  async facturerSolde(id: string, userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id },
+      include: { lignes: true },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.statut !== 'SELECTIONNE') throw new ForbiddenException('Seul un devis sélectionné peut être facturé');
+    if (devis.typeDocument !== 'FACTURE_ACOMPTE') throw new ForbiddenException('La facture d\'acompte doit être générée en premier');
+    if (!devis.acompteVerse) throw new ForbiddenException('L\'acompte doit être validé avant de générer la facture de solde');
+
+    const year = new Date().getFullYear();
+    const numeroFacture = `FS-${year}-${id.substring(0, 4).toUpperCase()}`;
+    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+    const montantAcompte = devis.montantAcompte ?? 0;
+    const montantSolde = montantTTC - montantAcompte;
+
+    return this.prisma.devis.update({
+      where: { id },
+      data: {
+        typeDocument: 'FACTURE_SOLDE',
+        numeroFacture,
+        montantAcompte: montantSolde,
+        dateFacture: new Date(),
+      },
+      include: { lignes: true },
+    });
+  }
+
   async getFacturesAcompte() {
     return this.prisma.devis.findMany({
       where: {
@@ -593,7 +627,7 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.typeDocument !== 'FACTURE_ACOMPTE') {
+    if (devis.typeDocument !== 'FACTURE_ACOMPTE' && devis.typeDocument !== 'FACTURE_SOLDE') {
       throw new ForbiddenException('Seule une facture d\'acompte peut être exportée');
     }
 
@@ -629,8 +663,8 @@ export class DevisService {
   <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
   <cbc:ID>${this.escapeXml(devis.numeroFacture ?? '')}</cbc:ID>
   <cbc:IssueDate>${dateFacture}</cbc:IssueDate>
-  <cbc:InvoiceTypeCode>381</cbc:InvoiceTypeCode>
-  <cbc:Note>Facture d'acompte - ${this.escapeXml(sejour?.titre ?? '')}</cbc:Note>
+  <cbc:InvoiceTypeCode>${devis.typeDocument === 'FACTURE_SOLDE' ? '380' : '381'}</cbc:InvoiceTypeCode>
+  <cbc:Note>${devis.typeDocument === 'FACTURE_SOLDE' ? 'Facture de solde' : 'Facture d\'acompte'} - ${this.escapeXml(sejour?.titre ?? '')}</cbc:Note>
   <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
 
   <!-- Émetteur (hébergeur) -->
@@ -691,8 +725,8 @@ export class DevisService {
     <cbc:LineExtensionAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:LineExtensionAmount>
     <cbc:TaxExclusiveAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxExclusiveAmount>
     <cbc:TaxInclusiveAmount currencyID="EUR">${(devis.montantTTC ?? 0).toFixed(2)}</cbc:TaxInclusiveAmount>
-    <cbc:PrepaidAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
-    <cbc:PayableAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
+    <cbc:PrepaidAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0)).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
+    <cbc:PayableAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0)).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
 
   <!-- Lignes -->${lignesXml}
