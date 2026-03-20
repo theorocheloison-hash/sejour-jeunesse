@@ -227,7 +227,7 @@ export class SejourService {
             etablissementEmail: true, etablissementTelephone: true,
           },
         },
-        hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true } },
+        hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true, imageUrl: true } },
         accompagnateurs: {
           select: {
             id: true, prenom: true, nom: true, email: true,
