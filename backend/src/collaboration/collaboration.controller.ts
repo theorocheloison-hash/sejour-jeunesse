@@ -64,6 +64,42 @@ export class CollaborationController {
     return this.service.getBudgetData(sejourId, user.id);
   }
 
+  @Post(':sejourId/budget/lignes-compl')
+  addLigneCompl(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() body: { categorie: string; description: string; montant: number },
+  ) {
+    return this.service.addLigneCompl(sejourId, user.id, body);
+  }
+
+  @Delete(':sejourId/budget/lignes-compl/:ligneId')
+  deleteLigneCompl(
+    @Param('sejourId') sejourId: string,
+    @Param('ligneId') ligneId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteLigneCompl(sejourId, user.id, ligneId);
+  }
+
+  @Post(':sejourId/budget/recettes')
+  addRecette(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() body: { source: string; montant: number },
+  ) {
+    return this.service.addRecette(sejourId, user.id, body);
+  }
+
+  @Delete(':sejourId/budget/recettes/:recetteId')
+  deleteRecette(
+    @Param('sejourId') sejourId: string,
+    @Param('recetteId') recetteId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteRecette(sejourId, user.id, recetteId);
+  }
+
   // ── Messages ──────────────────────────────────────────────────
 
   @Get(':sejourId/messages')

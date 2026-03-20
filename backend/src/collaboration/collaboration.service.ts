@@ -243,7 +243,40 @@ export class CollaborationService {
 
     const devis = demande?.devis?.[0] ?? null;
 
-    return { sejour, devis };
+    const lignesCompl = await this.prisma.ligneBudgetComplementaire.findMany({
+      where: { sejourId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const recettes = await this.prisma.recetteBudget.findMany({
+      where: { sejourId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { sejour, devis, lignesCompl, recettes };
+  }
+
+  async addLigneCompl(sejourId: string, userId: string, data: { categorie: string; description: string; montant: number }) {
+    await this.verifyAccess(sejourId, userId);
+    return this.prisma.ligneBudgetComplementaire.create({
+      data: { sejourId, ...data },
+    });
+  }
+
+  async deleteLigneCompl(sejourId: string, userId: string, ligneId: string) {
+    await this.verifyAccess(sejourId, userId);
+    return this.prisma.ligneBudgetComplementaire.delete({ where: { id: ligneId } });
+  }
+
+  async addRecette(sejourId: string, userId: string, data: { source: string; montant: number }) {
+    await this.verifyAccess(sejourId, userId);
+    return this.prisma.recetteBudget.create({
+      data: { sejourId, ...data },
+    });
+  }
+
+  async deleteRecette(sejourId: string, userId: string, recetteId: string) {
+    await this.verifyAccess(sejourId, userId);
+    return this.prisma.recetteBudget.delete({ where: { id: recetteId } });
   }
 
   // ── Vue hébergeur : mes séjours en convention ─────────────────

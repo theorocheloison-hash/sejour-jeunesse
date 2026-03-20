@@ -26,6 +26,10 @@ import {
   getParticipants,
   getBudgetData,
   getDocumentsCentre,
+  addLigneCompl,
+  deleteLigneCompl,
+  addRecetteBudget,
+  deleteRecetteBudget,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -36,6 +40,8 @@ import type {
   Participant,
   BudgetData,
   DocumentCentreFiche,
+  LigneCompl,
+  RecetteBudget,
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
@@ -260,9 +266,9 @@ export default function CollaborationPage() {
   // Budget
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [budgetLoading, setBudgetLoading] = useState(false);
-  const [lignesCompl, setLignesCompl] = useState<{ id: string; categorie: string; description: string; montant: number }[]>([]);
+  const [lignesCompl, setLignesCompl] = useState<LigneCompl[]>([]);
   const [ligneComplForm, setLigneComplForm] = useState({ categorie: 'Transport', description: '', montant: '' });
-  const [recettes, setRecettes] = useState<{ id: string; source: string; montant: number }[]>([]);
+  const [recettes, setRecettes] = useState<RecetteBudget[]>([]);
   const [recetteForm, setRecetteForm] = useState({ source: 'Participation familles', montant: '' });
 
   // Projet pédagogique
@@ -320,7 +326,12 @@ export default function CollaborationPage() {
   const loadBudget = useCallback(async () => {
     if (!id) return;
     setBudgetLoading(true);
-    try { setBudgetData(await getBudgetData(id)); } catch { /* ignore */ }
+    try {
+      const data = await getBudgetData(id);
+      setBudgetData(data);
+      if (data.lignesCompl) setLignesCompl(data.lignesCompl);
+      if (data.recettes) setRecettes(data.recettes);
+    } catch { /* ignore */ }
     finally { setBudgetLoading(false); }
   }, [id]);
 
@@ -1484,18 +1495,24 @@ export default function CollaborationPage() {
               const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-              const handleAddLigneCompl = () => {
+              const handleAddLigneCompl = async () => {
                 const montant = parseFloat(ligneComplForm.montant);
-                if (!ligneComplForm.description.trim() || isNaN(montant) || montant <= 0) return;
-                setLignesCompl((prev) => [...prev, { id: crypto.randomUUID(), categorie: ligneComplForm.categorie, description: ligneComplForm.description.trim(), montant }]);
-                setLigneComplForm((f) => ({ ...f, description: '', montant: '' }));
+                if (!ligneComplForm.description.trim() || isNaN(montant) || montant <= 0 || !id) return;
+                try {
+                  const newLigne = await addLigneCompl(id, { categorie: ligneComplForm.categorie, description: ligneComplForm.description.trim(), montant });
+                  setLignesCompl((prev) => [...prev, newLigne]);
+                  setLigneComplForm({ categorie: 'Transport', description: '', montant: '' });
+                } catch { /* ignore */ }
               };
 
-              const handleAddRecette = () => {
+              const handleAddRecette = async () => {
                 const montant = parseFloat(recetteForm.montant);
-                if (isNaN(montant) || montant <= 0) return;
-                setRecettes((prev) => [...prev, { id: crypto.randomUUID(), source: recetteForm.source, montant }]);
-                setRecetteForm((f) => ({ ...f, montant: '' }));
+                if (isNaN(montant) || montant <= 0 || !id) return;
+                try {
+                  const newRecette = await addRecetteBudget(id, { source: recetteForm.source, montant });
+                  setRecettes((prev) => [...prev, newRecette]);
+                  setRecetteForm((f) => ({ ...f, montant: '' }));
+                } catch { /* ignore */ }
               };
 
               const inputCls = 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
@@ -1596,7 +1613,7 @@ export default function CollaborationPage() {
                                 <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(l.montant)} &euro;</td>
                                 {isTeacher && (
                                   <td className="py-2 px-1">
-                                    <button onClick={() => setLignesCompl((prev) => prev.filter((x) => x.id !== l.id))} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                    <button onClick={async () => { if (!id) return; try { await deleteLigneCompl(id, l.id); setLignesCompl((prev) => prev.filter((x) => x.id !== l.id)); } catch { /* ignore */ } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
                                   </td>
                                 )}
                               </tr>
@@ -1663,7 +1680,7 @@ export default function CollaborationPage() {
                                 <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(r.montant)} &euro;</td>
                                 {isTeacher && (
                                   <td className="py-2 px-1">
-                                    <button onClick={() => setRecettes((prev) => prev.filter((x) => x.id !== r.id))} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                    <button onClick={async () => { if (!id) return; try { await deleteRecetteBudget(id, r.id); setRecettes((prev) => prev.filter((x) => x.id !== r.id)); } catch { /* ignore */ } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
                                   </td>
                                 )}
                               </tr>

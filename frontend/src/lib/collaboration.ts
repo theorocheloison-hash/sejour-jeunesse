@@ -206,6 +206,21 @@ export interface DevisBudget {
   lignes: LigneDevisBudget[];
 }
 
+export interface LigneCompl {
+  id: string;
+  categorie: string;
+  description: string;
+  montant: number;
+  createdAt: string;
+}
+
+export interface RecetteBudget {
+  id: string;
+  source: string;
+  montant: number;
+  createdAt: string;
+}
+
 export interface BudgetData {
   sejour: {
     titre: string;
@@ -226,9 +241,29 @@ export interface BudgetData {
     };
   } | null;
   devis: DevisBudget | null;
+  lignesCompl: LigneCompl[];
+  recettes: RecetteBudget[];
 }
 
 export async function getBudgetData(sejourId: string): Promise<BudgetData> {
   const { data } = await api.get<BudgetData>(`/collaboration/${sejourId}/budget`);
   return data;
+}
+
+export async function addLigneCompl(sejourId: string, data: { categorie: string; description: string; montant: number }): Promise<LigneCompl> {
+  const { data: res } = await api.post<LigneCompl>(`/collaboration/${sejourId}/budget/lignes-compl`, data);
+  return res;
+}
+
+export async function deleteLigneCompl(sejourId: string, ligneId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/budget/lignes-compl/${ligneId}`);
+}
+
+export async function addRecetteBudget(sejourId: string, data: { source: string; montant: number }): Promise<RecetteBudget> {
+  const { data: res } = await api.post<RecetteBudget>(`/collaboration/${sejourId}/budget/recettes`, data);
+  return res;
+}
+
+export async function deleteRecetteBudget(sejourId: string, recetteId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/budget/recettes/${recetteId}`);
 }

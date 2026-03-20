@@ -150,8 +150,41 @@ model Sejour {
   messages               Message[]
   planningActivites      PlanningActivite[]
   documentsSejour        DocumentSejour[]
+  lignesBudget           LigneBudgetComplementaire[]
+  recettesBudget         RecetteBudget[]
 
   @@map("sejours")
+}
+
+// ============================================================
+// MODEL : LigneBudgetComplementaire
+// ============================================================
+model LigneBudgetComplementaire {
+  id          String   @id @default(uuid()) @db.Uuid
+  sejourId    String   @map("sejour_id") @db.Uuid
+  categorie   String   @db.VarChar(100)
+  description String   @db.VarChar(255)
+  montant     Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_budget_complementaires")
+}
+
+// ============================================================
+// MODEL : RecetteBudget
+// ============================================================
+model RecetteBudget {
+  id        String   @id @default(uuid()) @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  source    String   @db.VarChar(100)
+  montant   Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@map("recettes_budget")
 }
 
 // ============================================================
