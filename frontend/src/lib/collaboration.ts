@@ -58,6 +58,16 @@ export interface SejourConventionVenue {
   placesTotales: number;
   createur?: { prenom: string; nom: string };
   hebergementSelectionne?: { nom: string };
+  planningActivites: {
+    id: string;
+    date: string;
+    heureDebut: string;
+    heureFin: string;
+    titre: string;
+    description: string | null;
+    responsable: string | null;
+    couleur: string | null;
+  }[];
 }
 
 export interface Participant {

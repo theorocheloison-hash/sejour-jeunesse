@@ -298,6 +298,9 @@ export class CollaborationService {
       include: {
         createur: { select: { prenom: true, nom: true } },
         hebergementSelectionne: { select: { nom: true } },
+        planningActivites: {
+          orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
+        },
       },
       orderBy: { dateDebut: 'asc' },
     });
