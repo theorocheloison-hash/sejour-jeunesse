@@ -16,6 +16,8 @@ import {
 import type { SejourDirecteur, StatutSejour, SejourDetail } from '@/src/lib/sejour';
 import { Logo } from '@/app/components/Logo';
 import type { Devis, LigneDevis } from '@/src/lib/devis';
+import { getBudgetData } from '@/src/lib/collaboration';
+import type { BudgetData } from '@/src/lib/collaboration';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -107,6 +109,8 @@ function SejourDetailModal({
   const [motif, setMotif] = useState('');
   const [dossier, setDossier] = useState<DossierPedagogiqueData | null>(null);
   const [dossierLoading, setDossierLoading] = useState(false);
+  const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
+  const [budgetLoading, setBudgetLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['infos']));
   const toggleSection = (key: string) => setOpenSections(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -119,6 +123,14 @@ function SejourDetailModal({
       .then(setDossier)
       .catch(() => {})
       .finally(() => setDossierLoading(false));
+  }, [detail.id]);
+
+  useEffect(() => {
+    setBudgetLoading(true);
+    getBudgetData(detail.id)
+      .then(setBudgetData)
+      .catch(() => {})
+      .finally(() => setBudgetLoading(false));
   }, [detail.id]);
 
   return (
@@ -279,43 +291,126 @@ function SejourDetailModal({
             </div>
           )}
 
-          {/* Devis associés */}
-          {detail.demandes && detail.demandes.length > 0 && detail.demandes.some((d) => d.devis.length > 0) && (
-            <>
-              <button
-                onClick={() => toggleSection('budget')}
-                className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
-              >
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Budget prévisionnel</span>
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('budget') ? 'rotate-180' : ''}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
-              </button>
-              {openSections.has('budget') && (
-                <div className="py-3">
-                  <div className="space-y-2">
-                    {detail.demandes.flatMap((d) => d.devis).map((dv) => (
-                      <div key={dv.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{dv.centre?.nom ?? 'Centre'}</p>
-                          <p className="text-xs text-gray-500">{dv.montantTotal} € total — {dv.montantParEleve} € / élève</p>
-                        </div>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          dv.statut === 'SELECTIONNE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' :
-                          dv.statut === 'NON_RETENU' ? 'bg-red-100 text-red-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {dv.statut === 'SELECTIONNE' ? 'Sélectionné' : dv.statut === 'NON_RETENU' ? 'Non retenu' : 'En attente'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+          {/* Budget prévisionnel */}
+          <button
+            onClick={() => toggleSection('budget')}
+            className="w-full flex items-center justify-between py-3 text-left border-b border-gray-100 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+          >
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Budget prévisionnel</span>
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${openSections.has('budget') ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {openSections.has('budget') && (
+            <div className="py-3">
+              {budgetLoading && (
+                <div className="flex justify-center py-4">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
                 </div>
               )}
-            </>
+
+              {!budgetLoading && budgetData && (() => {
+                const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const d = budgetData.devis;
+                const totalHebergeur = d?.lignes.reduce((sum, l) => sum + l.totalTTC, 0) ?? 0;
+                const totalCompl = budgetData.lignesCompl.reduce((sum, l) => sum + l.montant, 0);
+                const totalDepenses = totalHebergeur + totalCompl;
+                const totalRecettes = budgetData.recettes.reduce((sum, r) => sum + r.montant, 0);
+                const solde = totalRecettes - totalDepenses;
+
+                return (
+                  <div className="space-y-4 text-sm">
+
+                    {/* Prestations hébergeur */}
+                    {d && d.lignes.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                          Prestations hébergeur — {d.centre?.nom ?? ''}
+                        </p>
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-1 font-medium text-gray-600">Description</th>
+                              <th className="text-right py-1 font-medium text-gray-600">Qté</th>
+                              <th className="text-right py-1 font-medium text-gray-600">PU HT</th>
+                              <th className="text-right py-1 font-medium text-gray-600">Total TTC</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.lignes.map((l, i) => (
+                              <tr key={i} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-700">{l.description}</td>
+                                <td className="py-1 text-right text-gray-500">{l.quantite}</td>
+                                <td className="py-1 text-right text-gray-500">{fmt(l.prixUnitaire)} €</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{fmt(l.totalTTC)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Dépenses complémentaires */}
+                    {budgetData.lignesCompl.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dépenses complémentaires</p>
+                        <table className="w-full text-xs border-collapse">
+                          <tbody>
+                            {budgetData.lignesCompl.map((l) => (
+                              <tr key={l.id} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-500">{l.categorie}</td>
+                                <td className="py-1 text-gray-700">{l.description}</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{fmt(l.montant)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Recettes */}
+                    {budgetData.recettes.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recettes</p>
+                        <table className="w-full text-xs border-collapse">
+                          <tbody>
+                            {budgetData.recettes.map((r) => (
+                              <tr key={r.id} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-700">{r.source}</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{fmt(r.montant)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Récapitulatif */}
+                    <div className="border-t border-gray-200 pt-3 space-y-1">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Total dépenses</span>
+                        <span>{fmt(totalDepenses)} €</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Total recettes</span>
+                        <span>{fmt(totalRecettes)} €</span>
+                      </div>
+                      <div className={`flex justify-between text-sm font-semibold pt-1 border-t border-gray-200 ${solde >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        <span>Solde</span>
+                        <span>{solde >= 0 ? '+' : ''}{fmt(solde)} €</span>
+                      </div>
+                    </div>
+
+                    {!d && budgetData.lignesCompl.length === 0 && budgetData.recettes.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-4">Aucune donnée budget disponible.</p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           )}
 
           {/* ── Projet pédagogique ── */}

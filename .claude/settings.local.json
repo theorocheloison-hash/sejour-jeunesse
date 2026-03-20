@@ -42,7 +42,13 @@
       "Bash(DATABASE_URL='postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway' psql \"$DATABASE_URL\" -c \"SELECT id FROM utilisateurs WHERE email = 'resa@lesauvageon.com';\")",
       "Bash(DATABASE_URL='postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway' node -e \"const { PrismaClient } = require\\(''@prisma/client''\\); const p = new PrismaClient\\({ datasourceUrl: process.env.DATABASE_URL }\\); p.$queryRawUnsafe\\(\"\"SELECT id FROM utilisateurs WHERE email = ''resa@lesauvageon.com''\"\"\\).then\\(r => { console.log\\(r\\); p.$disconnect\\(\\); }\\);\")",
       "Bash(DATABASE_URL='postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway' node -e \"const { PrismaClient } = require\\(''@prisma/client''\\); const p = new PrismaClient\\({ datasourceUrl: process.env.DATABASE_URL }\\); p[''$queryRawUnsafe'']\\(\"\"SELECT id FROM utilisateurs WHERE email = ''resa@lesauvageon.com''\"\"\\).then\\(r => { console.log\\(r\\); p[''$disconnect'']\\(\\); }\\);\")",
-      "Bash(DATABASE_URL='postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway' node query-tmp.js)"
+      "Bash(DATABASE_URL='postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway' node query-tmp.js)",
+      "Bash(python3 -m json.tool)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db execute --stdin --schema=prisma/schema.prisma <<'EOF':*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db execute --stdin <<'EOF':*)",
+      "Bash(export DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\")",
+      "Bash(psql:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" node -e \":*)"
     ]
   }
 }
