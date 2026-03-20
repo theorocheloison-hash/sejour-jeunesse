@@ -238,6 +238,22 @@ export class SejourService {
         planningActivites: {
           orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
         },
+        lignesBudget: {
+          orderBy: { createdAt: 'asc' as const },
+        },
+        recettesBudget: {
+          orderBy: { createdAt: 'asc' as const },
+        },
+        demandes: {
+          include: {
+            devis: {
+              where: { statut: 'SELECTIONNE' },
+              include: { lignes: true },
+              take: 1,
+            },
+          },
+          take: 1,
+        },
         autorisations: {
           select: {
             eleveNom: true,

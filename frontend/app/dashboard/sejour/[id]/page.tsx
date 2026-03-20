@@ -1874,6 +1874,77 @@ export default function CollaborationPage() {
                     )}
                   </div>
 
+                  {/* Section 5b — Budget prévisionnel */}
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 print:shadow-none print:border-gray-300">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Budget prévisionnel</h3>
+
+                    {/* Prestations hébergeur */}
+                    {d.demandes?.[0]?.devis?.[0]?.lignes?.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prestations hébergeur</p>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-1 text-xs font-medium text-gray-600">Description</th>
+                              <th className="text-right py-1 text-xs font-medium text-gray-600">Qté</th>
+                              <th className="text-right py-1 text-xs font-medium text-gray-600">PU HT</th>
+                              <th className="text-right py-1 text-xs font-medium text-gray-600">Total TTC</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {d.demandes[0].devis[0].lignes.map((l, i) => (
+                              <tr key={i} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-700">{l.description}</td>
+                                <td className="py-1 text-right text-gray-600">{l.quantite}</td>
+                                <td className="py-1 text-right text-gray-600">{l.prixUnitaire.toFixed(2)} €</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{l.totalTTC.toFixed(2)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Dépenses complémentaires */}
+                    {d.lignesBudget?.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dépenses complémentaires</p>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {d.lignesBudget.map((l) => (
+                              <tr key={l.id} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-600">{l.categorie}</td>
+                                <td className="py-1 text-gray-700">{l.description}</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{l.montant.toFixed(2)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Recettes */}
+                    {d.recettesBudget?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recettes</p>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {d.recettesBudget.map((r) => (
+                              <tr key={r.id} className="border-b border-gray-50">
+                                <td className="py-1 text-gray-600">{r.source}</td>
+                                <td className="py-1 text-right font-medium text-gray-900">{r.montant.toFixed(2)} €</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {!d.demandes?.[0]?.devis?.[0]?.lignes?.length && !d.lignesBudget?.length && !d.recettesBudget?.length && (
+                      <p className="text-sm text-gray-400 text-center py-4">Aucune donnée budgétaire renseignée.</p>
+                    )}
+                  </div>
+
                   {/* Section 6 — Encadrement */}
                   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h3 className="text-base font-semibold text-gray-900 mb-4">Encadrement ({d.accompagnateurs.length} accompagnateur{d.accompagnateurs.length > 1 ? 's' : ''})</h3>

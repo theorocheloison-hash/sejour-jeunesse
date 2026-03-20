@@ -207,6 +207,32 @@ export interface DossierPedagogiqueData {
     parentEmail: string;
     signeeAt: string | null;
   }[];
+  lignesBudget: {
+    id: string;
+    categorie: string;
+    description: string;
+    montant: number;
+  }[];
+  recettesBudget: {
+    id: string;
+    source: string;
+    montant: number;
+  }[];
+  demandes: {
+    devis: {
+      montantTTC: number | null;
+      montantHT: number | null;
+      montantTVA: number | null;
+      lignes: {
+        description: string;
+        quantite: number;
+        prixUnitaire: number;
+        tva: number;
+        totalHT: number;
+        totalTTC: number;
+      }[];
+    }[];
+  }[];
   _count: { inscriptions: number; autorisations: number };
 }
 

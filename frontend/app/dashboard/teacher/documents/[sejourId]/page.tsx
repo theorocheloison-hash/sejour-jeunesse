@@ -17,9 +17,7 @@ export default function DocumentsOfficielsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [manualChecks, setManualChecks] = useState({
-    projet_peda: false,
     transport: false,
-    budget: false,
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -99,9 +97,11 @@ export default function DocumentsOfficielsPage() {
     {
       id: 'projet_peda',
       label: 'Projet pédagogique',
-      checked: manualChecks.projet_peda,
-      auto: false,
-      description: 'Document à générer depuis l\'espace collaboratif',
+      checked: (dossier.thematiquesPedagogiques?.length ?? 0) > 0,
+      auto: true,
+      description: (dossier.thematiquesPedagogiques?.length ?? 0) > 0
+        ? `${dossier.thematiquesPedagogiques.length} thématique(s) renseignée(s)`
+        : 'Aucune thématique pédagogique renseignée',
     },
     {
       id: 'transport',
@@ -113,9 +113,11 @@ export default function DocumentsOfficielsPage() {
     {
       id: 'budget',
       label: 'Budget prévisionnel',
-      checked: manualChecks.budget,
-      auto: false,
-      description: 'À compléter depuis l\'espace collaboratif',
+      checked: (dossier.lignesBudget?.length ?? 0) > 0 || (dossier.demandes?.[0]?.devis?.[0]?.lignes?.length ?? 0) > 0,
+      auto: true,
+      description: (dossier.lignesBudget?.length ?? 0) > 0 || (dossier.demandes?.[0]?.devis?.[0]?.lignes?.length ?? 0) > 0
+        ? 'Budget renseigné'
+        : 'Aucune donnée budgétaire',
     },
   ] : [];
 
