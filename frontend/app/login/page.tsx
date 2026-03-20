@@ -119,16 +119,17 @@ function LoginForm() {
           </Link>
         </p>
 
+        <p className="mt-6 text-center text-sm text-gray-500 w-full block">
+          Besoin d&apos;aide ?{' '}
+          <a href="mailto:contact@liavo.fr" className="font-medium text-[var(--color-primary)] hover:underline">
+            contact@liavo.fr
+          </a>
+        </p>
+
         <p className="mt-4 text-center text-xs text-gray-400">
           Liavo &copy; {new Date().getFullYear()}
         </p>
       </div>
-      <p className="mt-6 text-center text-sm text-gray-500 w-full block">
-        Besoin d&apos;aide ?{' '}
-        <a href="mailto:contact@liavo.fr" className="font-medium text-[var(--color-primary)] hover:underline">
-          contact@liavo.fr
-        </a>
-      </p>
     </main>
   );
 }
