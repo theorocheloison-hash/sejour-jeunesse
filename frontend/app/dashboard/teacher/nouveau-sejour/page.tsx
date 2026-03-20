@@ -126,6 +126,12 @@ export default function NouveauSejourPage() {
         typeZone:                   form.typeZone as TypeZone,
         zoneGeographique:           form.zoneGeographique,
         dateButoireDevis:           form.dateButoireDevis,
+        nombreAccompagnateurs:      form.nombreAccompagnateurs ? parseInt(form.nombreAccompagnateurs, 10) : undefined,
+        heureArrivee:               form.heureArrivee || undefined,
+        heureDepart:                form.heureDepart || undefined,
+        transportDemande:           form.transportDemande || undefined,
+        activitesSouhaitees:        form.activitesSouhaitees || undefined,
+        budgetMaxParEleve:          form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
       });
       sessionStorage.removeItem(SESSION_KEY);
       router.push('/dashboard/teacher');

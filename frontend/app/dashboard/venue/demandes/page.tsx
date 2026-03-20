@@ -18,6 +18,7 @@ export default function VenueDemandesPage() {
   const [dragging, setDragging] = useState(false);
   const [sending, setSending] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [detailDemande, setDetailDemande] = useState<Demande | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,6 +122,16 @@ export default function VenueDemandesPage() {
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
                     <div className="shrink-0 flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => setDetailDemande(d)}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.641 0-8.574-3.007-9.964-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Voir le détail
+                      </button>
                       {successId === d.id ? (
                         <span className="text-sm font-medium text-[var(--color-success)]">Devis envoyé !</span>
                       ) : (
@@ -248,6 +259,101 @@ export default function VenueDemandesPage() {
           </div>
         )}
       </main>
+
+      {/* Modale détail demande */}
+      {detailDemande && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDetailDemande(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">{detailDemande.titre}</h2>
+              <button onClick={() => setDetailDemande(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-400">Dates</p>
+                  <p className="font-medium">{new Date(detailDemande.dateDebut).toLocaleDateString('fr-FR')} &rarr; {new Date(detailDemande.dateFin).toLocaleDateString('fr-FR')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Destination</p>
+                  <p className="font-medium">{detailDemande.villeHebergement}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Élèves</p>
+                  <p className="font-medium">{detailDemande.nombreEleves}</p>
+                </div>
+                {detailDemande.nombreAccompagnateurs != null && (
+                  <div>
+                    <p className="text-xs text-gray-400">Accompagnateurs</p>
+                    <p className="font-medium">{detailDemande.nombreAccompagnateurs}</p>
+                  </div>
+                )}
+                {detailDemande.heureArrivee && (
+                  <div>
+                    <p className="text-xs text-gray-400">Heure d&apos;arrivée</p>
+                    <p className="font-medium">{detailDemande.heureArrivee}</p>
+                  </div>
+                )}
+                {detailDemande.heureDepart && (
+                  <div>
+                    <p className="text-xs text-gray-400">Heure de départ</p>
+                    <p className="font-medium">{detailDemande.heureDepart}</p>
+                  </div>
+                )}
+                {detailDemande.budgetMaxParEleve != null && (
+                  <div>
+                    <p className="text-xs text-gray-400">Budget max / élève</p>
+                    <p className="font-medium">{detailDemande.budgetMaxParEleve} &euro;</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-400">Transport</p>
+                  <p className="font-medium">{detailDemande.transportDemande ? 'Inclus dans le devis' : 'Non demandé'}</p>
+                </div>
+              </div>
+
+              {detailDemande.activitesSouhaitees && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Activités souhaitées</p>
+                  <p className="text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{detailDemande.activitesSouhaitees}</p>
+                </div>
+              )}
+
+              {detailDemande.description && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Description</p>
+                  <p className="text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{detailDemande.description}</p>
+                </div>
+              )}
+
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs text-gray-400 mb-2">Contact enseignant</p>
+                <p className="font-medium">{detailDemande.enseignant?.prenom} {detailDemande.enseignant?.nom}</p>
+                <p className="text-gray-500">{detailDemande.enseignant?.email}</p>
+              </div>
+
+              {detailDemande.dateButoireReponse && (
+                <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+                  <p className="text-xs font-medium text-orange-700">
+                    Date limite de réponse : {new Date(detailDemande.dateButoireReponse).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+              <Link
+                href={`/dashboard/venue/devis/nouveau?demandeId=${detailDemande.id}`}
+                className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white text-center hover:opacity-90"
+              >
+                Créer un devis
+              </Link>
+              <button onClick={() => setDetailDemande(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

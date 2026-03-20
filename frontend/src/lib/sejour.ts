@@ -17,6 +17,12 @@ export interface CreateSejourDto {
   typeZone: TypeZone;
   zoneGeographique: string;
   dateButoireDevis?: string;
+  nombreAccompagnateurs?: number;
+  heureArrivee?: string;
+  heureDepart?: string;
+  transportDemande?: boolean;
+  activitesSouhaitees?: string;
+  budgetMaxParEleve?: number;
 }
 
 export interface DevisSelectionne {

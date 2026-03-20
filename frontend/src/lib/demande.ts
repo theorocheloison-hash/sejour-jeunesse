@@ -17,6 +17,12 @@ export interface Demande {
   statut: StatutDemande;
   sejourId: string;
   enseignantId: string;
+  nombreAccompagnateurs?: number | null;
+  heureArrivee?: string | null;
+  heureDepart?: string | null;
+  transportDemande?: boolean | null;
+  activitesSouhaitees?: string | null;
+  budgetMaxParEleve?: number | null;
   enseignant?: { id: string; prenom: string; nom: string; email: string };
   sejour?: { niveauClasse: string | null; thematiquesPedagogiques: string[] } | null;
   _count?: { devis: number };
@@ -33,6 +39,12 @@ export interface CreateDemandeDto {
   regionCible?: string;
   dateButoireReponse?: string;
   sejourId: string;
+  nombreAccompagnateurs?: number;
+  heureArrivee?: string;
+  heureDepart?: string;
+  transportDemande?: boolean;
+  activitesSouhaitees?: string;
+  budgetMaxParEleve?: number;
 }
 
 // ─── API calls ──────────────────────────────────────────────────────────────

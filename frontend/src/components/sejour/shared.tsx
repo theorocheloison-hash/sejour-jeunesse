@@ -11,6 +11,12 @@ export interface SejourFormData {
   typeZone: TypeZone | '';
   zoneGeographique: string;
   dateButoireDevis: string;
+  nombreAccompagnateurs: string;
+  heureArrivee: string;
+  heureDepart: string;
+  transportDemande: boolean;
+  activitesSouhaitees: string;
+  budgetMaxParEleve: string;
 }
 
 export const INITIAL_DATA: SejourFormData = {
@@ -24,6 +30,12 @@ export const INITIAL_DATA: SejourFormData = {
   typeZone: '',
   zoneGeographique: '',
   dateButoireDevis: '',
+  nombreAccompagnateurs: '',
+  heureArrivee: '',
+  heureDepart: '',
+  transportDemande: false,
+  activitesSouhaitees: '',
+  budgetMaxParEleve: '',
 };
 
 export const ZONE_OPTIONS: { value: TypeZone; emoji: string; label: string }[] = [

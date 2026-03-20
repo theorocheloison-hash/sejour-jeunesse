@@ -1,8 +1,10 @@
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -55,4 +57,31 @@ export class CreateSejourDto {
   @IsOptional()
   @IsDateString()
   dateButoireDevis?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  nombreAccompagnateurs?: number;
+
+  @IsOptional()
+  @IsString()
+  heureArrivee?: string;
+
+  @IsOptional()
+  @IsString()
+  heureDepart?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  transportDemande?: boolean;
+
+  @IsOptional()
+  @IsString()
+  activitesSouhaitees?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  budgetMaxParEleve?: number;
 }

@@ -89,6 +89,44 @@ export default function EtapeInfos({ form, setForm }: Props) {
       <Field label="Informations compl&eacute;mentaires (optionnel)">
         <textarea value={form.informationsComplementaires} onChange={set('informationsComplementaires')} rows={3} placeholder="Pr&eacute;cisez ici tout &eacute;l&eacute;ment sp&eacute;cifique &agrave; votre projet : contraintes particuli&egrave;res, besoins sp&eacute;ciaux, contexte de classe..." className={`${inputCls} resize-none`} />
       </Field>
+
+      {/* ── Informations complémentaires pour l'hébergeur ── */}
+      <div className="border-t border-gray-200 pt-5 mt-2">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Informations compl&eacute;mentaires (optionnel)</h2>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Nombre d'accompagnateurs">
+            <input type="number" value={form.nombreAccompagnateurs} onChange={set('nombreAccompagnateurs')} min={0} placeholder="Ex : 3" className={inputCls} />
+          </Field>
+          <Field label="Budget max par &eacute;l&egrave;ve (&euro;)">
+            <input type="number" value={form.budgetMaxParEleve} onChange={set('budgetMaxParEleve')} min={0} step="0.01" placeholder="Ex : 350" className={inputCls} />
+          </Field>
+          <Field label="Heure d'arriv&eacute;e souhait&eacute;e">
+            <input type="time" value={form.heureArrivee} onChange={set('heureArrivee')} className={inputCls} />
+          </Field>
+          <Field label="Heure de d&eacute;part souhait&eacute;e">
+            <input type="time" value={form.heureDepart} onChange={set('heureDepart')} className={inputCls} />
+          </Field>
+        </div>
+
+        <div className="mt-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.transportDemande}
+              onChange={(e) => setForm(prev => ({ ...prev, transportDemande: e.target.checked }))}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700">Je souhaite inclure le transport dans le devis</span>
+          </label>
+        </div>
+
+        <div className="mt-4">
+          <Field label="Activit&eacute;s souhait&eacute;es">
+            <textarea value={form.activitesSouhaitees} onChange={set('activitesSouhaitees')} rows={2} placeholder="Ex : ski alpin, raquettes, ESF..." className={`${inputCls} resize-none`} />
+          </Field>
+        </div>
+      </div>
     </div>
   );
 }

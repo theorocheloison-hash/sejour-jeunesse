@@ -484,6 +484,12 @@ model DemandeDevis {
   dateDebut           DateTime      @map("date_debut") @db.Date
   dateFin             DateTime      @map("date_fin") @db.Date
   nombreEleves        Int           @map("nombre_eleves")
+  nombreAccompagnateurs  Int?      @map("nombre_accompagnateurs")
+  heureArrivee           String?   @map("heure_arrivee") @db.VarChar(10)
+  heureDepart            String?   @map("heure_depart") @db.VarChar(10)
+  transportDemande       Boolean?  @default(false) @map("transport_demande")
+  activitesSouhaitees    String?   @map("activites_souhaitees") @db.Text
+  budgetMaxParEleve      Float?    @map("budget_max_par_eleve")
   villeHebergement    String        @map("ville_hebergement") @db.VarChar(255)
   regionCible         String        @default("") @map("region_cible") @db.VarChar(255)
   dateButoireReponse  DateTime?     @map("date_butoire_reponse") @db.Date

@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDemandeDto {
@@ -35,4 +35,31 @@ export class CreateDemandeDto {
 
   @IsUUID()
   sejourId: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  nombreAccompagnateurs?: number;
+
+  @IsOptional()
+  @IsString()
+  heureArrivee?: string;
+
+  @IsOptional()
+  @IsString()
+  heureDepart?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  transportDemande?: boolean;
+
+  @IsOptional()
+  @IsString()
+  activitesSouhaitees?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  budgetMaxParEleve?: number;
 }
