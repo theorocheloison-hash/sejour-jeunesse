@@ -91,6 +91,7 @@ function SejourDetailModal({
   onApprove,
   onReject,
   onSoumettreRectorat,
+  emailRectoratConfigured,
   isActing,
 }: {
   detail: SejourDetail;
