@@ -151,6 +151,12 @@ export default function RegisterTeacherPage() {
           Déjà un compte ?{' '}
           <Link href="/login" className="font-semibold text-[var(--color-primary)] hover:underline">Se connecter</Link>
         </p>
+        <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)' }}>
+          Besoin d&apos;aide ?{' '}
+          <a href="mailto:contact@liavo.fr" style={{ color: 'var(--color-primary)', fontWeight: 500 }}>
+            contact@liavo.fr
+          </a>
+        </p>
       </div>
     </main>
   );

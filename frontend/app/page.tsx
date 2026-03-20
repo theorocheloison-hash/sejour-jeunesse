@@ -1,10 +1,29 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/app/components/Logo';
 import { ActeursSchema } from '@/app/components/ActeursSchema';
 
 export default function Home() {
+  const [contactForm, setContactForm] = useState({ nom: '', email: '', message: '' });
+  const [contactSent, setContactSent] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+
+  const handleContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactLoading(true);
+    try {
+      await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm),
+      });
+      setContactSent(true);
+    } catch { /* ignore */ }
+    finally { setContactLoading(false); }
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}>
 
@@ -34,6 +53,9 @@ export default function Home() {
             </a>
             <a href="#workflow" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
               Comment ça marche
+            </a>
+            <a href="#contact" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Contact
             </a>
           </nav>
 
@@ -482,6 +504,119 @@ export default function Home() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ── SECTION CONTACT ─────────────────────────────────────────────── */}
+      <section id="contact" style={{
+        padding: '80px 24px',
+        backgroundColor: 'var(--color-bg)',
+        borderTop: '0.5px solid var(--color-border)',
+      }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h2 style={{ fontSize: 28, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 12 }}>
+              Une question ? Contactez-nous
+            </h2>
+            <p style={{ fontSize: 15, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+              Nous répondons sous 24h ouvrées.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 16, flexWrap: 'wrap' }}>
+              <a href="mailto:contact@liavo.fr" style={{ fontSize: 14, color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500 }}>
+                ✉️ contact@liavo.fr
+              </a>
+            </div>
+          </div>
+
+          {contactSent ? (
+            <div style={{
+              backgroundColor: 'var(--color-success-light)',
+              border: '1px solid var(--color-success)',
+              borderRadius: 12, padding: '24px',
+              textAlign: 'center',
+            }}>
+              <p style={{ fontSize: 15, color: 'var(--color-success)', fontWeight: 500 }}>
+                ✓ Message envoyé — nous vous répondrons sous 24h.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleContact} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
+                    Nom <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={contactForm.nom}
+                    onChange={(e) => setContactForm(f => ({ ...f, nom: e.target.value }))}
+                    placeholder="Jean Dupont"
+                    style={{
+                      width: '100%', padding: '10px 14px', borderRadius: 10,
+                      border: '1px solid var(--color-border)',
+                      fontSize: 14, color: 'var(--color-text)',
+                      backgroundColor: 'white', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
+                    Email <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="jean@college.fr"
+                    style={{
+                      width: '100%', padding: '10px 14px', borderRadius: 10,
+                      border: '1px solid var(--color-border)',
+                      fontSize: 14, color: 'var(--color-text)',
+                      backgroundColor: 'white', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
+                  Message <span style={{ color: 'red' }}>*</span>
+                </label>
+                <textarea
+                  required
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm(f => ({ ...f, message: e.target.value }))}
+                  placeholder="Décrivez votre besoin ou votre question..."
+                  rows={5}
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: 10,
+                    border: '1px solid var(--color-border)',
+                    fontSize: 14, color: 'var(--color-text)',
+                    backgroundColor: 'white', outline: 'none',
+                    resize: 'vertical', boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={contactLoading}
+                style={{
+                  alignSelf: 'flex-end',
+                  padding: '12px 28px', borderRadius: 10,
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'white', fontWeight: 600, fontSize: 14,
+                  border: 'none', cursor: contactLoading ? 'not-allowed' : 'pointer',
+                  opacity: contactLoading ? 0.7 : 1,
+                }}
+              >
+                {contactLoading ? 'Envoi...' : 'Envoyer le message'}
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
