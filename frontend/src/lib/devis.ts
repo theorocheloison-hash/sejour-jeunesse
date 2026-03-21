@@ -65,6 +65,9 @@ export interface Devis {
     email?: string | null;
     capacite?: number;
     description?: string | null;
+    tvaIntracommunautaire?: string | null;
+    iban?: string | null;
+    conditionsAnnulation?: string | null;
   };
 }
 

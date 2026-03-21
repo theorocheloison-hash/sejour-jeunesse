@@ -127,6 +127,13 @@ const s = StyleSheet.create({
   condBlock: { marginTop: 16 },
   condTitle: { fontSize: 9, fontWeight: 'bold', color: GREY_TEXT, marginBottom: 4 },
   condText: { fontSize: 8, color: '#6B7280', lineHeight: 1.5 },
+  // IBAN
+  ibanBlock: { marginTop: 16, padding: 10, backgroundColor: '#F0F4F8', borderRadius: 4 },
+  ibanTitle: { fontSize: 9, fontWeight: 'bold', color: PRIMARY, marginBottom: 4 },
+  ibanText: { fontSize: 9, color: GREY_TEXT },
+  // Mentions légales
+  mentionsBlock: { marginTop: 12, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: BORDER },
+  mentionsText: { fontSize: 7, color: '#9CA3AF', lineHeight: 1.4 },
   // Footer
   footer: { position: 'absolute', bottom: 30, left: 40, right: 40, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopColor: BORDER, paddingTop: 8 },
   footerText: { fontSize: 7, color: '#9CA3AF' },
@@ -166,6 +173,9 @@ export default function DevisPDF(props: DevisPDFProps) {
             <Text style={s.docInfo}>Date : {fmtDate(dateDocument)}</Text>
             {typeDocument === 'DEVIS' && dateValidite && (
               <Text style={s.docInfo}>Valide jusqu'au : {fmtDate(dateValidite)}</Text>
+            )}
+            {(typeDocument === 'FACTURE_ACOMPTE' || typeDocument === 'FACTURE_SOLDE') && dateValidite && (
+              <Text style={s.docInfo}>Échéance : {fmtDate(dateValidite)}</Text>
             )}
           </View>
         </View>
@@ -244,6 +254,14 @@ export default function DevisPDF(props: DevisPDFProps) {
           )}
         </View>
 
+        {/* Coordonnées bancaires */}
+        {ibanEmetteur && (
+          <View style={s.ibanBlock}>
+            <Text style={s.ibanTitle}>Coordonnées bancaires</Text>
+            <Text style={s.ibanText}>IBAN : {ibanEmetteur}</Text>
+          </View>
+        )}
+
         {/* Validation direction */}
         {validationDirection && (
           <View style={s.validBlock}>
@@ -259,6 +277,15 @@ export default function DevisPDF(props: DevisPDFProps) {
           <View style={s.condBlock}>
             <Text style={s.condTitle}>Conditions d'annulation</Text>
             <Text style={s.condText}>{conditionsAnnulation}</Text>
+          </View>
+        )}
+
+        {/* Mentions légales factures */}
+        {(typeDocument === 'FACTURE_ACOMPTE' || typeDocument === 'FACTURE_SOLDE') && (
+          <View style={s.mentionsBlock}>
+            <Text style={s.mentionsText}>
+              Paiement à réception de facture. Tout retard de paiement entraîne des pénalités au taux légal en vigueur. Indemnité forfaitaire pour frais de recouvrement : 40 euros (art. L441-10 du Code de commerce).
+            </Text>
           </View>
         )}
 

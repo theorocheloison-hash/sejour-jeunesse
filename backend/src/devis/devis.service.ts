@@ -125,6 +125,13 @@ export class DevisService {
       where: { centreId: centre.id },
       include: {
         lignes: true,
+        centre: {
+          select: {
+            id: true, nom: true, ville: true, adresse: true, codePostal: true,
+            siret: true, telephone: true, email: true, capacite: true,
+            tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+          },
+        },
         demande: {
           include: {
             enseignant: {

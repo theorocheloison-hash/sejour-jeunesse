@@ -163,6 +163,8 @@ export default function VenueDevisPage() {
       siretEmetteur: d.siretEntreprise ?? d.centre?.siret ?? undefined,
       emailEmetteur: d.emailEntreprise ?? d.centre?.email ?? undefined,
       telEmetteur: d.telEntreprise ?? d.centre?.telephone ?? undefined,
+      tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
+      ibanEmetteur: d.centre?.iban ?? undefined,
       nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
       etablissementNom: ens?.etablissementNom ?? undefined,
       adresseDestinataire: ens?.etablissementAdresse ?? undefined,
@@ -187,7 +189,10 @@ export default function VenueDevisPage() {
       montantTTC: ttcCalc,
       montantAcompte: d.montantAcompte != null ? Number(d.montantAcompte) : undefined,
       pourcentageAcompte: d.pourcentageAcompte ?? undefined,
-      conditionsAnnulation: d.conditionsAnnulation ?? undefined,
+      conditionsAnnulation: d.conditionsAnnulation ?? d.centre?.conditionsAnnulation ?? undefined,
+      dateValidite: d.dateFacture
+        ? new Date(new Date(d.dateFacture).getTime() + 30 * 86400000).toISOString()
+        : new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
     };
   };
 
