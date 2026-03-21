@@ -22,6 +22,7 @@ export interface Centre {
   description: string | null;
   imageUrl: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  siret?: string | null;
   siteWeb?: string | null;
   tvaIntracommunautaire?: string | null;
   iban?: string | null;

@@ -86,7 +86,7 @@ export default function VenueProfilPage() {
           ville: c.ville ?? '',
           telephone: c.telephone ?? '',
           email: c.email ?? '',
-          siret: (c as Record<string, unknown>).siret as string ?? '',
+          siret: c.siret ?? '',
           tvaIntracommunautaire: c.tvaIntracommunautaire ?? '',
           iban: c.iban ?? '',
           equipements: c.equipements ?? [],
