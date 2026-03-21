@@ -56,7 +56,10 @@ function fmtDate(iso: string | undefined): string {
 }
 
 function fmtMontant(n: number): string {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const num = Number(n) || 0;
+  const parts = num.toFixed(2).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intPart},${parts[1]}`;
 }
 
 function titreDocument(type: DevisPDFProps['typeDocument']): string {
@@ -162,7 +165,7 @@ export default function DevisPDF(props: DevisPDFProps) {
             <Text style={s.docInfo}>N° {numeroDocument}</Text>
             <Text style={s.docInfo}>Date : {fmtDate(dateDocument)}</Text>
             {typeDocument === 'DEVIS' && dateValidite && (
-              <Text style={s.docInfo}>Valide jusqu&apos;au : {fmtDate(dateValidite)}</Text>
+              <Text style={s.docInfo}>Valide jusqu'au : {fmtDate(dateValidite)}</Text>
             )}
           </View>
         </View>
@@ -181,7 +184,7 @@ export default function DevisPDF(props: DevisPDFProps) {
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
           <Text style={s.objetText}>
-            S&eacute;jour scolaire — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
+            Séjour scolaire — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
           </Text>
           <Text style={s.objetSub}>
             {nombreEleves ? `${nombreEleves} élève${nombreEleves > 1 ? 's' : ''}` : ''}
@@ -254,7 +257,7 @@ export default function DevisPDF(props: DevisPDFProps) {
         {/* Conditions */}
         {conditionsAnnulation && (
           <View style={s.condBlock}>
-            <Text style={s.condTitle}>Conditions d&apos;annulation</Text>
+            <Text style={s.condTitle}>Conditions d'annulation</Text>
             <Text style={s.condText}>{conditionsAnnulation}</Text>
           </View>
         )}
