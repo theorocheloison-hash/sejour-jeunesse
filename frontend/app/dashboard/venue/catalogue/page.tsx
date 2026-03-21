@@ -27,7 +27,7 @@ const TVA_OPTIONS = [
   { value: 20, label: '20%' },
 ];
 
-const EMPTY_FORM = { nom: '', description: '', type: 'HEBERGEMENT', prixUnitaireHT: '', tva: 10, unite: 'PAR_ELEVE' };
+const EMPTY_FORM = { nom: '', description: '', type: 'HEBERGEMENT', prixUnitaireHT: '', prixUnitaireTTC: '', tva: 10, unite: 'PAR_ELEVE' };
 
 export default function CataloguePage() {
   const { user, isLoading } = useAuth();
@@ -43,6 +43,7 @@ export default function CataloguePage() {
   const [showImportPreview, setShowImportPreview] = useState(false);
   const [importPreview, setImportPreview] = useState<Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>[]>([]);
   const [filterType, setFilterType] = useState<string>('TOUS');
+  const [dernierChampSaisi, setDernierChampSaisi] = useState<'HT' | 'TTC'>('HT');
 
   useEffect(() => {
     if (!isLoading && user?.role === 'VENUE') {
@@ -78,9 +79,36 @@ export default function CataloguePage() {
   };
 
   const handleEdit = (p: ProduitCatalogue) => {
-    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), tva: p.tva, unite: p.unite });
+    const ttc = p.prixUnitaireHT * (1 + p.tva / 100);
+    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), prixUnitaireTTC: ttc.toFixed(2), tva: p.tva, unite: p.unite });
     setEditingId(p.id);
     setShowForm(true);
+  };
+
+  const handleHTChange = (value: string) => {
+    setDernierChampSaisi('HT');
+    const ht = parseFloat(value) || 0;
+    const ttc = ht * (1 + form.tva / 100);
+    setForm(f => ({ ...f, prixUnitaireHT: value, prixUnitaireTTC: ht > 0 ? ttc.toFixed(2) : '' }));
+  };
+
+  const handleTTCChange = (value: string) => {
+    setDernierChampSaisi('TTC');
+    const ttc = parseFloat(value) || 0;
+    const ht = ttc / (1 + form.tva / 100);
+    setForm(f => ({ ...f, prixUnitaireTTC: value, prixUnitaireHT: ttc > 0 ? ht.toFixed(2) : '' }));
+  };
+
+  const handleTvaChange = (value: number) => {
+    if (dernierChampSaisi === 'TTC') {
+      const ttc = parseFloat(form.prixUnitaireTTC) || 0;
+      const ht = ttc > 0 ? ttc / (1 + value / 100) : 0;
+      setForm(f => ({ ...f, tva: value, prixUnitaireHT: ht > 0 ? ht.toFixed(2) : f.prixUnitaireHT }));
+    } else {
+      const ht = parseFloat(form.prixUnitaireHT) || 0;
+      const ttc = ht > 0 ? ht * (1 + value / 100) : 0;
+      setForm(f => ({ ...f, tva: value, prixUnitaireTTC: ttc > 0 ? ttc.toFixed(2) : f.prixUnitaireTTC }));
+    }
   };
 
   const handleArchive = async (id: string) => {
@@ -240,7 +268,19 @@ export default function CataloguePage() {
                   min="0"
                   step="0.01"
                   value={form.prixUnitaireHT}
-                  onChange={e => setForm(f => ({ ...f, prixUnitaireHT: e.target.value }))}
+                  onChange={e => handleHTChange(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Prix unitaire TTC (&euro;)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.prixUnitaireTTC}
+                  onChange={e => handleTTCChange(e.target.value)}
                   placeholder="0.00"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
@@ -249,7 +289,7 @@ export default function CataloguePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">TVA *</label>
                 <select
                   value={form.tva}
-                  onChange={e => setForm(f => ({ ...f, tva: Number(e.target.value) }))}
+                  onChange={e => handleTvaChange(Number(e.target.value))}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 >
                   {TVA_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
