@@ -72,9 +72,13 @@ export class CreateSejourDto {
   heureDepart?: string;
 
   @IsOptional()
+  @IsString()
+  transportAller?: string;
+
+  @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  transportDemande?: boolean;
+  transportSurPlace?: boolean;
 
   @IsOptional()
   @IsString()

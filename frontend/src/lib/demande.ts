@@ -20,7 +20,8 @@ export interface Demande {
   nombreAccompagnateurs?: number | null;
   heureArrivee?: string | null;
   heureDepart?: string | null;
-  transportDemande?: boolean | null;
+  transportAller?: string | null;
+  transportSurPlace?: boolean | null;
   activitesSouhaitees?: string | null;
   budgetMaxParEleve?: number | null;
   enseignant?: { id: string; prenom: string; nom: string; email: string };
@@ -42,7 +43,8 @@ export interface CreateDemandeDto {
   nombreAccompagnateurs?: number;
   heureArrivee?: string;
   heureDepart?: string;
-  transportDemande?: boolean;
+  transportAller?: string;
+  transportSurPlace?: boolean;
   activitesSouhaitees?: string;
   budgetMaxParEleve?: number;
 }

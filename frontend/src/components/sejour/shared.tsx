@@ -14,7 +14,8 @@ export interface SejourFormData {
   nombreAccompagnateurs: string;
   heureArrivee: string;
   heureDepart: string;
-  transportDemande: boolean;
+  transportAller: string;
+  transportSurPlace: boolean;
   activitesSouhaitees: string;
   budgetMaxParEleve: string;
 }
@@ -33,7 +34,8 @@ export const INITIAL_DATA: SejourFormData = {
   nombreAccompagnateurs: '',
   heureArrivee: '',
   heureDepart: '',
-  transportDemande: false,
+  transportAller: '',
+  transportSurPlace: false,
   activitesSouhaitees: '',
   budgetMaxParEleve: '',
 };

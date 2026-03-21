@@ -27,6 +27,13 @@ export class SejourService {
         thematiquesPedagogiques:  dto.thematiquesPedagogiques,
         regionSouhaitee:          `${dto.typeZone}:${dto.zoneGeographique}`,
         dateButoireDevis:         dto.dateButoireDevis ? new Date(dto.dateButoireDevis) : null,
+        nombreAccompagnateurs:    dto.nombreAccompagnateurs ?? null,
+        heureArrivee:             dto.heureArrivee ?? null,
+        heureDepart:              dto.heureDepart ?? null,
+        transportAller:           dto.transportAller ?? null,
+        transportSurPlace:        dto.transportSurPlace ?? null,
+        activitesSouhaitees:      dto.activitesSouhaitees ?? null,
+        budgetMaxParEleve:        dto.budgetMaxParEleve ?? null,
         createurId,
       },
     });
@@ -39,6 +46,13 @@ export class SejourService {
     dateFin: string;
     nombreEleves: number;
     message?: string;
+    nombreAccompagnateurs?: number;
+    heureArrivee?: string;
+    heureDepart?: string;
+    transportAller?: string;
+    transportSurPlace?: boolean;
+    activitesSouhaitees?: string;
+    budgetMaxParEleve?: number;
   }, enseignantId: string) {
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: dto.centreId },
@@ -72,6 +86,13 @@ export class SejourService {
           nombreEleves: dto.nombreEleves,
           villeHebergement: centre.ville,
           statut: 'OUVERTE',
+          nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
+          heureArrivee:          dto.heureArrivee ?? null,
+          heureDepart:           dto.heureDepart ?? null,
+          transportAller:        dto.transportAller ?? null,
+          transportSurPlace:     dto.transportSurPlace ?? null,
+          activitesSouhaitees:   dto.activitesSouhaitees ?? null,
+          budgetMaxParEleve:     dto.budgetMaxParEleve ?? null,
         },
       });
 
@@ -616,6 +637,13 @@ export class SejourService {
           villeHebergement:   sejour.lieu,
           regionCible:        sejour.regionSouhaitee ?? '',
           dateButoireReponse: sejour.dateButoireDevis,
+          nombreAccompagnateurs: sejour.nombreAccompagnateurs ?? null,
+          heureArrivee:          sejour.heureArrivee ?? null,
+          heureDepart:           sejour.heureDepart ?? null,
+          transportAller:        sejour.transportAller ?? null,
+          transportSurPlace:     sejour.transportSurPlace ?? null,
+          activitesSouhaitees:   sejour.activitesSouhaitees ?? null,
+          budgetMaxParEleve:     sejour.budgetMaxParEleve ?? null,
           enseignantId:       sejour.createurId,
         },
       });

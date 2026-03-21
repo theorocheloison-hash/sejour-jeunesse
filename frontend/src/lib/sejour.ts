@@ -20,7 +20,8 @@ export interface CreateSejourDto {
   nombreAccompagnateurs?: number;
   heureArrivee?: string;
   heureDepart?: string;
-  transportDemande?: boolean;
+  transportAller?: string;
+  transportSurPlace?: boolean;
   activitesSouhaitees?: string;
   budgetMaxParEleve?: number;
 }

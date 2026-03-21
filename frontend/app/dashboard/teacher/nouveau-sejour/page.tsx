@@ -129,7 +129,8 @@ export default function NouveauSejourPage() {
         nombreAccompagnateurs:      form.nombreAccompagnateurs ? parseInt(form.nombreAccompagnateurs, 10) : undefined,
         heureArrivee:               form.heureArrivee || undefined,
         heureDepart:                form.heureDepart || undefined,
-        transportDemande:           form.transportDemande || undefined,
+        transportAller:             form.transportAller || undefined,
+        transportSurPlace:          form.transportSurPlace,
         activitesSouhaitees:        form.activitesSouhaitees || undefined,
         budgetMaxParEleve:          form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
       });

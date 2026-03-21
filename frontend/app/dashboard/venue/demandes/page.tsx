@@ -306,11 +306,19 @@ export default function VenueDemandesPage() {
                     <p className="font-medium">{detailDemande.budgetMaxParEleve} &euro;</p>
                   </div>
                 )}
-                <div>
-                  <p className="text-xs text-gray-400">Transport</p>
-                  <p className="font-medium">{detailDemande.transportDemande ? 'Inclus dans le devis' : 'Non demandé'}</p>
-                </div>
               </div>
+              {detailDemande.transportAller && (
+                <div className="col-span-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                  {detailDemande.transportAller === 'BESOIN_TRANSPORTEUR'
+                    ? 'Transport aller demandé — à inclure dans le devis'
+                    : "Transport aller : déjà prévu par l'enseignant"}
+                </div>
+              )}
+              {detailDemande.transportSurPlace !== null && detailDemande.transportSurPlace !== undefined && (
+                <div className="col-span-2 text-sm text-gray-600">
+                  Transport sur place : {detailDemande.transportSurPlace ? 'Autonome' : 'Non prévu'}
+                </div>
+              )}
 
               {detailDemande.activitesSouhaitees && (
                 <div>
