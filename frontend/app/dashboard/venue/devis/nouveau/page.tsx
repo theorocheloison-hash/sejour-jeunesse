@@ -113,30 +113,16 @@ function NouveauDevisContent() {
         setEmailEntreprise(infoData.centre.email ?? '');
         setTelEntreprise(infoData.centre.telephone ?? '');
         // Init lines from catalogue
-        const initLignes: LigneForm[] = [];
-
-        // Pre-fill pension complète based on demande dates
-        const demande = infoData.demande;
-        const nbPersonnes = demande.nombreEleves + (demande.nombreAccompagnateurs ?? 0);
-        if (nbPersonnes > 0) {
-          initLignes.push(makeLigneForm({
-            description: 'Pension complète',
-            quantite: String(nbPersonnes),
-            prixUnitaire: '0',
-            tva: '10',
-          }));
-        }
-
         if (cat.length > 0) {
-          initLignes.push(...cat.map(p => makeLigneForm({
+          setLignes(cat.map(p => makeLigneForm({
             description: p.nom,
             quantite: String(infoData.demande.nombreEleves ?? 1),
             prixUnitaire: String(p.prixUnitaireHT),
             tva: String(p.tva),
           })));
+        } else {
+          setLignes([makeLigneForm()]);
         }
-
-        setLignes(initLignes.length > 0 ? initLignes : [makeLigneForm()]);
       })
       .catch(() => setLoadError('Impossible de charger les informations de la demande.'));
   }, [user, demandeId]);
