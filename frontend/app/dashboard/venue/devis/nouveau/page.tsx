@@ -117,19 +117,14 @@ function NouveauDevisContent() {
 
         // Pre-fill pension complète based on demande dates
         const demande = infoData.demande;
-        if (demande.dateDebut && demande.dateFin) {
-          const debut = new Date(demande.dateDebut);
-          const fin = new Date(demande.dateFin);
-          const nbJours = Math.round((fin.getTime() - debut.getTime()) / (1000 * 60 * 60 * 24));
-          const nbPersonnes = demande.nombreEleves + (demande.nombreAccompagnateurs ?? 0);
-          if (nbJours > 0 && nbPersonnes > 0) {
-            initLignes.push(makeLigneForm({
-              description: 'Pension complète',
-              quantite: String(nbJours * nbPersonnes),
-              prixUnitaire: '0',
-              tva: '10',
-            }));
-          }
+        const nbPersonnes = demande.nombreEleves + (demande.nombreAccompagnateurs ?? 0);
+        if (nbPersonnes > 0) {
+          initLignes.push(makeLigneForm({
+            description: 'Pension complète',
+            quantite: String(nbPersonnes),
+            prixUnitaire: '0',
+            tva: '10',
+          }));
         }
 
         if (cat.length > 0) {
