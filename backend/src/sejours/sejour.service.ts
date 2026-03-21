@@ -89,10 +89,10 @@ export class SejourService {
           nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
           heureArrivee:          dto.heureArrivee ?? null,
           heureDepart:           dto.heureDepart ?? null,
-          transportAller:        dto.transportAller ?? null,
-          transportSurPlace:     dto.transportSurPlace ?? null,
           activitesSouhaitees:   dto.activitesSouhaitees ?? null,
           budgetMaxParEleve:     dto.budgetMaxParEleve ?? null,
+          transportAller:        dto.transportAller ?? null,
+          transportSurPlace:     dto.transportSurPlace ?? null,
         },
       });
 
@@ -640,10 +640,10 @@ export class SejourService {
           nombreAccompagnateurs: sejour.nombreAccompagnateurs ?? null,
           heureArrivee:          sejour.heureArrivee ?? null,
           heureDepart:           sejour.heureDepart ?? null,
-          transportAller:        sejour.transportAller ?? null,
-          transportSurPlace:     sejour.transportSurPlace ?? null,
           activitesSouhaitees:   sejour.activitesSouhaitees ?? null,
           budgetMaxParEleve:     sejour.budgetMaxParEleve ?? null,
+          transportAller:        sejour.transportAller ?? null,
+          transportSurPlace:     sejour.transportSurPlace ?? null,
           enseignantId:       sejour.createurId,
         },
       });

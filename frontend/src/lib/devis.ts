@@ -99,6 +99,7 @@ export interface DemandeInfo {
     dateDebut: string;
     dateFin: string;
     nombreEleves: number;
+    nombreAccompagnateurs?: number | null;
     villeHebergement: string;
     enseignant?: {
       prenom: string; nom: string; email: string; telephone?: string | null;
