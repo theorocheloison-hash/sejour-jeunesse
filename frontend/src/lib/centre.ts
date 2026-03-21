@@ -22,6 +22,11 @@ export interface Centre {
   description: string | null;
   imageUrl: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  siteWeb?: string | null;
+  tvaIntracommunautaire?: string | null;
+  iban?: string | null;
+  equipements?: string[];
+  conditionsAnnulation?: string | null;
 }
 
 export interface Disponibilite {

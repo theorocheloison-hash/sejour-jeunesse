@@ -268,6 +268,12 @@ export default function VenueDashboard() {
                 <p className="font-medium text-gray-900">{centre?.adresse}</p>
               </div>
             </div>
+            <Link
+              href="/dashboard/venue/profil"
+              className="shrink-0 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+            >
+              Modifier mon profil
+            </Link>
           </div>
         </div>
 

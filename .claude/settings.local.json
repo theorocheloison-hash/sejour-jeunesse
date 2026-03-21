@@ -49,7 +49,8 @@
       "Bash(export DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\")",
       "Bash(psql:*)",
       "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" node -e \":*)",
-      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma migrate status)"
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma migrate status)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db push)"
     ]
   }
 }
