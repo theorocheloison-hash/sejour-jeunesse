@@ -615,6 +615,29 @@ export class SejourService {
           sejour.titre,
         );
       }
+
+      // Notifier l'hébergeur si un centre est sélectionné
+      if (sejour.hebergementSelectionneId) {
+        const centreSelectionne = await this.prisma.centreHebergement.findUnique({
+          where: { id: sejour.hebergementSelectionneId },
+          include: { user: { select: { email: true } } },
+        });
+        if (centreSelectionne) {
+          const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
+          const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+          const lien = 'https://precious-comfort-production-52c6.up.railway.app/dashboard/venue';
+          await this.email.sendGenericNotification(
+            centreSelectionne.user.email,
+            `Séjour approuvé par la direction — ${sejour.titre}`,
+            `<p>Bonne nouvelle ! Le directeur de l'établissement a approuvé le séjour suivant :</p>
+             <p><strong>Séjour :</strong> ${sejour.titre}<br>
+             <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+             <strong>Élèves :</strong> ${sejour.placesTotales}</p>
+             <p>Vous pouvez consulter les détails depuis votre tableau de bord.</p>
+             <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mon tableau de bord</a></p>`,
+          );
+        }
+      }
     }
 
     // Auto-create DemandeDevis when a sejour is SUBMITTED

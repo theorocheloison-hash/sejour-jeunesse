@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesDevis, facturerAcompte, facturerSolde, getChorusXml } from '@/src/lib/devis';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
+import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 // ─── Statut badges ──────────────────────────────────────────────────────────
 
@@ -145,6 +147,43 @@ export default function VenueDevisPage() {
   };
 
   if (isLoading || !user) return null;
+
+  const buildPdfProps = (d: Devis): DevisPDFProps => {
+    const ens = d.demande?.enseignant;
+    const sejour = d.demande?.sejour;
+    return {
+      typeDocument: d.typeDocument === 'FACTURE_ACOMPTE' ? 'FACTURE_ACOMPTE' : d.typeDocument === 'FACTURE_SOLDE' ? 'FACTURE_SOLDE' : 'DEVIS',
+      numeroDocument: d.typeDocument === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_SOLDE' ? (d.numeroFacture ?? '') : (d.numeroDevis ?? ''),
+      dateDocument: d.createdAt,
+      nomEmetteur: d.nomEntreprise ?? d.centre?.nom ?? '',
+      adresseEmetteur: d.adresseEntreprise ?? [d.centre?.adresse, d.centre?.codePostal, d.centre?.ville].filter(Boolean).join(', '),
+      siretEmetteur: d.siretEntreprise ?? d.centre?.siret ?? undefined,
+      emailEmetteur: d.emailEntreprise ?? d.centre?.email ?? undefined,
+      telEmetteur: d.telEntreprise ?? d.centre?.telephone ?? undefined,
+      nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
+      etablissementNom: ens?.etablissementNom ?? undefined,
+      adresseDestinataire: ens?.etablissementAdresse ?? undefined,
+      emailDestinataire: ens?.email ?? undefined,
+      telDestinataire: ens?.telephone ?? undefined,
+      titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
+      lieuSejour: d.demande?.villeHebergement,
+      nombreEleves: d.demande?.nombreEleves,
+      lignes: (d.lignes ?? []).map(l => ({
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva,
+        totalHT: l.totalHT,
+        totalTTC: l.totalTTC,
+      })),
+      montantHT: d.montantHT ?? 0,
+      montantTVA: d.montantTVA ?? 0,
+      montantTTC: d.montantTTC ?? Number(d.montantTotal) ?? 0,
+      montantAcompte: d.montantAcompte ?? undefined,
+      pourcentageAcompte: d.pourcentageAcompte ?? undefined,
+      conditionsAnnulation: d.conditionsAnnulation ?? undefined,
+    };
+  };
 
   const getEnseignantDisplay = (d: Devis): string => {
     const c = d.demande?.sejour?.createur;
@@ -304,6 +343,10 @@ export default function VenueDevisPage() {
                             </div>
                           </div>
                         )}
+                        <DevisPDFButton
+                          data={buildPdfProps(d)}
+                          filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
+                        />
                         {d.typeDocument === 'FACTURE_ACOMPTE' ? (
                           <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-2 text-xs text-[var(--color-success)] font-semibold">
                             Facture acompte envoyée — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
