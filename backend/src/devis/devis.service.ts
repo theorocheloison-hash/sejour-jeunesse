@@ -135,7 +135,7 @@ export class DevisService {
             },
             sejour: {
               select: {
-                id: true, titre: true,
+                id: true, titre: true, dateDebut: true, dateFin: true, niveauClasse: true,
                 createur: {
                   select: {
                     prenom: true, nom: true,

@@ -151,9 +151,12 @@ export default function VenueDevisPage() {
   const buildPdfProps = (d: Devis): DevisPDFProps => {
     const ens = d.demande?.enseignant;
     const sejour = d.demande?.sejour;
+    const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
+    const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
+    const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
     return {
       typeDocument: d.typeDocument === 'FACTURE_ACOMPTE' ? 'FACTURE_ACOMPTE' : d.typeDocument === 'FACTURE_SOLDE' ? 'FACTURE_SOLDE' : 'DEVIS',
-      numeroDocument: d.typeDocument === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_SOLDE' ? (d.numeroFacture ?? '') : (d.numeroDevis ?? ''),
+      numeroDocument: d.numeroDevis ?? d.numeroFacture ?? `DEV-${d.id.substring(0, 8).toUpperCase()}`,
       dateDocument: d.createdAt,
       nomEmetteur: d.nomEntreprise ?? d.centre?.nom ?? '',
       adresseEmetteur: d.adresseEntreprise ?? [d.centre?.adresse, d.centre?.codePostal, d.centre?.ville].filter(Boolean).join(', '),
@@ -179,9 +182,9 @@ export default function VenueDevisPage() {
         totalHT: l.totalHT,
         totalTTC: l.totalTTC,
       })),
-      montantHT: Number(d.montantHT) || 0,
-      montantTVA: Number(d.montantTVA) || 0,
-      montantTTC: Number(d.montantTTC) || Number(d.montantTotal) || 0,
+      montantHT: htCalc,
+      montantTVA: tvaCalc,
+      montantTTC: ttcCalc,
       montantAcompte: d.montantAcompte != null ? Number(d.montantAcompte) : undefined,
       pourcentageAcompte: d.pourcentageAcompte ?? undefined,
       conditionsAnnulation: d.conditionsAnnulation ?? undefined,
