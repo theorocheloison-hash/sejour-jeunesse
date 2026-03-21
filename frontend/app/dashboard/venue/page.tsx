@@ -99,9 +99,9 @@ export default function VenueDashboard() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Séjours en convention', value: sejoursConvention.length, color: 'text-[var(--color-primary)]', icon: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21' },
+            { label: 'Réservations directes', value: sejoursConvention.length, color: 'text-[var(--color-primary)]', icon: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21' },
             { label: 'Devis en attente', value: devisEnAttente, color: 'text-orange-600', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z' },
-            { label: 'Devis sélectionnés', value: devisSelectionnes, color: 'text-green-600', icon: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+            { label: 'Devis retenus', value: devisSelectionnes, color: 'text-green-600', icon: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
             { label: 'CA prévisionnel', value: `${fmt(caPrevi)} €`, color: 'text-[var(--color-primary)]', icon: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z' },
           ].map((kpi, i) => (
             <div key={i} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
@@ -137,7 +137,7 @@ export default function VenueDashboard() {
               <p className="text-xs text-gray-500 mt-0.5">Consultez et répondez aux appels d&apos;offres</p>
             </Link>
 
-            {/* Devis & Facturation */}
+            {/* Facturation */}
             <Link href="/dashboard/venue/devis" className="group bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
@@ -145,14 +145,14 @@ export default function VenueDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
-                {devis.filter(d => d.statut === 'EN_ATTENTE').length > 0 && (
+                {acomptesAttente > 0 && (
                   <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">
-                    {devis.filter(d => d.statut === 'EN_ATTENTE').length}
+                    {acomptesAttente}
                   </span>
                 )}
               </div>
-              <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Devis & Facturation</p>
-              <p className="text-xs text-gray-500 mt-0.5">Devis, acomptes et factures Chorus Pro</p>
+              <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Facturation</p>
+              <p className="text-xs text-gray-500 mt-0.5">Acomptes, soldes et Chorus Pro</p>
             </Link>
 
             {/* Planning */}

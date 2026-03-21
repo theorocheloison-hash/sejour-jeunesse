@@ -254,9 +254,11 @@ export default function VenuePlanningPage() {
                       const isStart = s.dateDebut.split('T')[0] === ds;
                       const isEnd = s.dateFin.split('T')[0] === ds;
                       return (
-                        <div
+                        <Link
                           key={s.id}
-                          className="text-xs px-1.5 py-0.5 truncate"
+                          href={`/dashboard/sejour/${s.id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="block text-xs px-1.5 py-0.5 truncate"
                           style={{
                             backgroundColor: c.bg,
                             color: c.text,
@@ -266,7 +268,7 @@ export default function VenuePlanningPage() {
                           }}
                         >
                           {isStart ? s.titre : ''}
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -409,9 +411,9 @@ export default function VenuePlanningPage() {
                         {sj.map(s => {
                           const c = couleurBySejour[s.id];
                           return (
-                            <div key={s.id} className="text-xs px-1 rounded truncate mb-0.5" style={{ backgroundColor: c.bg, color: c.text }}>
+                            <Link key={s.id} href={`/dashboard/sejour/${s.id}`} onClick={e => e.stopPropagation()} className="block text-xs px-1 rounded truncate mb-0.5" style={{ backgroundColor: c.bg, color: c.text }}>
                               {s.titre}
-                            </div>
+                            </Link>
                           );
                         })}
                       </div>
