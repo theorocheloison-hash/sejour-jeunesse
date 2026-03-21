@@ -336,6 +336,7 @@ export class CentreService {
     description?: string;
     type: string;
     prixUnitaireHT: number;
+    prixUnitaireTTC?: number;
     tva: number;
     unite: string;
   }) {
@@ -353,6 +354,7 @@ export class CentreService {
     description?: string;
     type: string;
     prixUnitaireHT: number;
+    prixUnitaireTTC?: number;
     tva: number;
     unite: string;
   }[]) {
@@ -379,6 +381,7 @@ export class CentreService {
         description: p.description ?? null,
         type: p.type,
         prixUnitaireHT: p.prixUnitaireHT,
+        prixUnitaireTTC: p.prixUnitaireTTC ?? null,
         tva: p.tva,
         unite: p.unite,
         actif: true,
@@ -393,6 +396,7 @@ export class CentreService {
     description?: string;
     type?: string;
     prixUnitaireHT?: number;
+    prixUnitaireTTC?: number;
     tva?: number;
     unite?: string;
   }) {

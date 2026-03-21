@@ -60,6 +60,7 @@ export default function CataloguePage() {
         description: form.description || undefined,
         type: form.type as ProduitCatalogue['type'],
         prixUnitaireHT: Number(form.prixUnitaireHT),
+        prixUnitaireTTC: form.prixUnitaireTTC ? Number(form.prixUnitaireTTC) : undefined,
         tva: Number(form.tva),
         unite: form.unite as ProduitCatalogue['unite'],
       };
@@ -79,8 +80,8 @@ export default function CataloguePage() {
   };
 
   const handleEdit = (p: ProduitCatalogue) => {
-    const ttc = p.prixUnitaireHT * (1 + p.tva / 100);
-    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), prixUnitaireTTC: ttc.toFixed(2), tva: p.tva, unite: p.unite });
+    const ttc = p.prixUnitaireTTC != null ? p.prixUnitaireTTC : Math.round(p.prixUnitaireHT * (1 + p.tva / 100) * 100) / 100;
+    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), prixUnitaireTTC: String(ttc), tva: p.tva, unite: p.unite });
     setEditingId(p.id);
     setShowForm(true);
   };
@@ -398,7 +399,7 @@ export default function CataloguePage() {
             {filtered.map(p => {
               const typeOpt = TYPE_OPTIONS.find(t => t.value === p.type);
               const uniteOpt = UNITE_OPTIONS.find(u => u.value === p.unite);
-              const prixTTC = p.prixUnitaireHT * (1 + p.tva / 100);
+              const prixTTC = p.prixUnitaireTTC ?? Math.round(p.prixUnitaireHT * (1 + p.tva / 100) * 100) / 100;
               return (
                 <div key={p.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">

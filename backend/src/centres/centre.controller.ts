@@ -124,7 +124,7 @@ export class CentreController {
   @Roles(Role.VENUE)
   createProduit(
     @CurrentUser() user: JwtUser,
-    @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; tva: number; unite: string },
+    @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string },
   ) {
     return this.centreService.createProduit(user.id, dto);
   }
@@ -134,7 +134,7 @@ export class CentreController {
   @Roles(Role.VENUE)
   importProduits(
     @CurrentUser() user: JwtUser,
-    @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; tva: number; unite: string }[] },
+    @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string }[] },
   ) {
     return this.centreService.importProduits(user.id, body.produits);
   }
@@ -145,7 +145,7 @@ export class CentreController {
   updateProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body() dto: { nom?: string; description?: string; type?: string; prixUnitaireHT?: number; tva?: number; unite?: string },
+    @Body() dto: { nom?: string; description?: string; type?: string; prixUnitaireHT?: number; prixUnitaireTTC?: number; tva?: number; unite?: string },
   ) {
     return this.centreService.updateProduit(user.id, id, dto);
   }

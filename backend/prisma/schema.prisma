@@ -426,6 +426,7 @@ model ProduitCatalogue {
   description     String?  @db.Text
   type            String   @db.VarChar(50)
   prixUnitaireHT  Float    @map("prix_unitaire_ht")
+  prixUnitaireTTC Float?   @map("prix_unitaire_ttc")
   tva             Float    @default(10)
   unite           String   @db.VarChar(50)
   actif           Boolean  @default(true)

@@ -131,6 +131,7 @@ export interface ProduitCatalogue {
   description?: string | null;
   type: 'HEBERGEMENT' | 'REPAS' | 'TRANSPORT' | 'ACTIVITE' | 'AUTRE';
   prixUnitaireHT: number;
+  prixUnitaireTTC?: number | null;
   tva: number;
   unite: 'PAR_ELEVE' | 'PAR_NUIT' | 'PAR_JOUR' | 'FORFAIT';
   actif: boolean;
