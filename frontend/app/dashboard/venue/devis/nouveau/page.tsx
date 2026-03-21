@@ -11,13 +11,6 @@ import type { ProduitCatalogue } from '@/src/lib/centre';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const TVA_OPTIONS = [
-  { value: 0, label: '0 %' },
-  { value: 5.5, label: '5,5 %' },
-  { value: 10, label: '10 %' },
-  { value: 20, label: '20 %' },
-];
-
 type LigneForm = {
   key: string;
   description: string;
@@ -74,8 +67,7 @@ function NouveauDevisContent() {
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
 
-  // Global TVA + acompte
-  const [tauxTva, setTauxTva] = useState(0);
+  // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
 
   // Conditions
@@ -137,25 +129,22 @@ function NouveauDevisContent() {
 
   // ── Calculations ──
   const calculs = useMemo(() => {
-    let sousTotal = 0;
-    const computed = lignes.map((l) => {
+    let montantHT = 0;
+    let montantTVA = 0;
+    lignes.forEach((l) => {
       const qte = parseFloat(l.quantite) || 0;
       const pu = parseFloat(l.prixUnitaire) || 0;
       const tvaLigne = parseFloat(l.tva) || 0;
       const ht = qte * pu;
-      const ttc = ht * (1 + tvaLigne / 100);
-      sousTotal += ht;
-      return { ht, ttc, tvaLigne };
+      const tva = ht * (tvaLigne / 100);
+      montantHT += ht;
+      montantTVA += tva;
     });
-
-    const montantHT = sousTotal;
-    const montantTVA = sousTotal * (tauxTva / 100);
     const montantTTC = montantHT + montantTVA;
     const montantAcompte = montantTTC * (pourcentageAcompte / 100);
     const resteAPayer = montantTTC - montantAcompte;
-
-    return { computed, montantHT, montantTVA, montantTTC, montantAcompte, resteAPayer };
-  }, [lignes, tauxTva, pourcentageAcompte]);
+    return { montantHT, montantTVA, montantTTC, montantAcompte, resteAPayer };
+  }, [lignes, pourcentageAcompte]);
 
   // ── Line handlers ──
   const updateLigne = useCallback((key: string, field: keyof LigneForm, value: string) => {
@@ -196,7 +185,6 @@ function NouveauDevisContent() {
         siretEntreprise: siretEntreprise || undefined,
         emailEntreprise: emailEntreprise || undefined,
         telEntreprise: telEntreprise || undefined,
-        tauxTva,
         montantHT: calculs.montantHT,
         montantTVA: calculs.montantTVA,
         montantTTC: calculs.montantTTC,
@@ -474,24 +462,8 @@ function NouveauDevisContent() {
           {/* ── Section 5 : Totaux ────────────────────────────────────────── */}
           <div className="px-8 py-6 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row gap-8">
-              {/* TVA selector */}
+              {/* Acompte */}
               <div className="flex-1 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Taux de TVA global</label>
-                  <div className="flex gap-2">
-                    {TVA_OPTIONS.map((opt) => (
-                      <button key={opt.value} onClick={() => setTauxTva(opt.value)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          tauxTva === opt.value
-                            ? 'bg-[var(--color-primary)] text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Acompte demandé : {pourcentageAcompte}%
@@ -512,7 +484,7 @@ function NouveauDevisContent() {
                   <span className="font-medium text-gray-900">{fmt(calculs.montantHT)} €</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">TVA ({tauxTva}%)</span>
+                  <span className="text-gray-500">TVA</span>
                   <span className="font-medium text-gray-900">{fmt(calculs.montantTVA)} €</span>
                 </div>
                 <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">

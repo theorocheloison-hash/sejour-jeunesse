@@ -153,7 +153,7 @@ export default function VenueDevisPage() {
     const sejour = d.demande?.sejour;
     const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
     const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
-    const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
+    const tvaCalc = Number(d.montantTVA) || (d.lignes ?? []).reduce((sum, l) => sum + (Number(l.totalHT) * (Number(l.tva) / 100)), 0) || (ttcCalc - htCalc);
     return {
       typeDocument: d.typeDocument === 'FACTURE_ACOMPTE' ? 'FACTURE_ACOMPTE' : d.typeDocument === 'FACTURE_SOLDE' ? 'FACTURE_SOLDE' : 'DEVIS',
       numeroDocument: d.numeroDevis ?? d.numeroFacture ?? `DEV-${d.id.substring(0, 8).toUpperCase()}`,
