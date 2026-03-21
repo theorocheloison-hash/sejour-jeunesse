@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDossierPedagogique, soumettreAuDirecteur } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData, ChecklistItem } from '@/src/lib/sejour';
+import { validerPaiement } from '@/src/lib/autorisation';
 
 export default function DocumentsOfficielsPage() {
   const { sejourId } = useParams<{ sejourId: string }>();
@@ -22,6 +23,7 @@ export default function DocumentsOfficielsPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [validatingId, setValidatingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'TEACHER')) {
@@ -211,7 +213,49 @@ export default function DocumentsOfficielsPage() {
               </div>
             </div>
 
-            {/* SECTION 2 — Documents à générer */}
+            {/* SECTION 2 — Suivi des paiements */}
+            {dossier.autorisations.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h2 className="text-base font-semibold text-gray-900 mb-4">Suivi des paiements</h2>
+                <div className="space-y-2">
+                  {dossier.autorisations.map((a: { id: string; elevePrenom: string; eleveNom: string; signeeAt: string | null; moyenPaiement?: string | null; paiementValide?: boolean }) => (
+                    <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{a.elevePrenom} {a.eleveNom}</p>
+                        <p className="text-xs text-gray-500">{a.signeeAt ? 'Autorisation signée' : 'Non signée'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {a.paiementValide ? (
+                          <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-success)]">Payé</span>
+                        ) : a.moyenPaiement ? (
+                          <>
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">{a.moyenPaiement}</span>
+                            <button
+                              onClick={async () => {
+                                setValidatingId(a.id);
+                                try {
+                                  await validerPaiement(a.id);
+                                  await loadDossier();
+                                } catch { /* ignore */ }
+                                setValidatingId(null);
+                              }}
+                              disabled={validatingId === a.id}
+                              className="rounded-lg bg-[var(--color-success)] px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                            >
+                              {validatingId === a.id ? '...' : 'Valider'}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">Non renseigné</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 3 — Documents à générer */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Documents à générer</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

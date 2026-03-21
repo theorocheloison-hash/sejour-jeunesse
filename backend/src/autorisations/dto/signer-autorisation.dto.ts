@@ -48,4 +48,8 @@ export class SignerAutorisationDto {
   @Min(1)
   @Max(10)
   nombreMensualites?: number;
+
+  @IsOptional()
+  @IsString()
+  moyenPaiement?: string;
 }

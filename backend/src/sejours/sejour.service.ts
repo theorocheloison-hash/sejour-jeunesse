@@ -277,6 +277,7 @@ export class SejourService {
         },
         autorisations: {
           select: {
+            id: true,
             eleveNom: true,
             elevePrenom: true,
             eleveDateNaissance: true,
@@ -284,6 +285,8 @@ export class SejourService {
             nomParent: true,
             telephoneUrgence: true,
             signeeAt: true,
+            moyenPaiement: true,
+            paiementValide: true,
           },
           orderBy: { eleveNom: 'asc' },
         },

@@ -210,10 +210,13 @@ export interface DossierPedagogiqueData {
     responsable: string | null;
   }[];
   autorisations: {
+    id: string;
     eleveNom: string;
     elevePrenom: string;
     parentEmail: string;
     signeeAt: string | null;
+    moyenPaiement?: string | null;
+    paiementValide?: boolean;
   }[];
   lignesBudget: {
     id: string;

@@ -36,6 +36,17 @@ export class AutorisationController {
     return this.autorisationService.create(dto, user.id);
   }
 
+  /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (TEACHER/DIRECTOR) */
+  @Patch(':id/valider-paiement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.DIRECTOR, Role.TEACHER)
+  validerPaiement(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.validerPaiement(id, user.id);
+  }
+
   /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (TEACHER) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)

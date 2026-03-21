@@ -150,6 +150,7 @@ export class AutorisationService {
         eleveDateNaissance: dto.eleveDateNaissance ? new Date(dto.eleveDateNaissance) : null,
         rgpdAccepte: true,
         nombreMensualites: dto.nombreMensualites ?? 1,
+        moyenPaiement: dto.moyenPaiement ?? null,
       },
     });
   }
@@ -172,6 +173,22 @@ export class AutorisationService {
     return this.prisma.autorisationParentale.update({
       where: { tokenAcces: token },
       data: isAssurance ? { attestationAssuranceUrl: url } : { documentMedicalUrl: url },
+    });
+  }
+
+  async validerPaiement(autorisationId: string, userId: string) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id: autorisationId },
+      include: { sejour: { select: { createurId: true } } },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+
+    return this.prisma.autorisationParentale.update({
+      where: { id: autorisationId },
+      data: {
+        paiementValide: true,
+        datePaiement: new Date(),
+      },
     });
   }
 

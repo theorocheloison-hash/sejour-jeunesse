@@ -99,7 +99,7 @@ export default function SignerAutorisationPage() {
 
   // Payment
   const [nombreMensualites, setNombreMensualites] = useState(1);
-  const [showPaymentMsg, setShowPaymentMsg] = useState(false);
+  const [moyenPaiement, setMoyenPaiement] = useState('');
 
   // Document médical
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -148,6 +148,7 @@ export default function SignerAutorisationPage() {
         eleveDateNaissance,
         rgpdAccepte: true,
         nombreMensualites,
+        moyenPaiement: moyenPaiement || undefined,
       });
       setSigned(true);
     } catch {
@@ -369,26 +370,13 @@ export default function SignerAutorisationPage() {
             </section>
 
             {/* ── SECTION PAIEMENT (retour parent) ───────────────────────── */}
-            {(montantParEleve === null || montantParEleve === 0) ? (
-              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
-                  <CreditCard className="h-5 w-5" />
-                  Règlement du séjour
-                </h2>
-                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 text-center">
-                  <p className="text-sm text-blue-800">
-                    Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
-                  </p>
-                </div>
-              </section>
-            ) : (
-              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
-                  <CreditCard className="h-5 w-5" />
-                  Règlement du séjour
-                </h2>
-
-                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6">
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
+                <CreditCard className="h-5 w-5" />
+                Règlement du séjour
+              </h2>
+              {montantParEleve && montantParEleve > 0 && (
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-4">
                   <p className="text-sm text-blue-800">
                     Montant total par élève :{' '}
                     <span className="text-lg font-bold">
@@ -396,66 +384,25 @@ export default function SignerAutorisationPage() {
                     </span>
                   </p>
                 </div>
-
-                <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Nombre de mensualités
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {MENSUALITES_OPTIONS.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setNombreMensualites(n)}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                          nombreMensualites === n
-                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)] hover:text-[var(--color-primary)]'
-                        }`}
-                      >
-                        {n}x
-                      </button>
-                    ))}
-                  </div>
+              )}
+              {autorisation.paiementValide ? (
+                <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 text-center">
+                  <CheckCircle2 className="h-5 w-5 text-[var(--color-success)] mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-[var(--color-success)]">Paiement validé</p>
                 </div>
-
-                {mensualite !== null && nombreMensualites > 1 && (
-                  <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 mb-6">
-                    <p className="text-sm text-[var(--color-success)]">
-                      {nombreMensualites} mensualités de{' '}
-                      <span className="text-lg font-bold">
-                        {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                      </span>
-                    </p>
-                  </div>
-                )}
-
-                {showPaymentMsg ? (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 text-center">
-                    <Lock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-amber-800">
-                      Paiement sécurisé — intégration Stripe à venir
-                    </p>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentMsg(true)}
-                    className="w-full rounded-xl bg-[var(--color-primary)] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Procéder au paiement
-                    </span>
-                  </button>
-                )}
-
-                <p className="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
-                  <Lock className="h-3 w-3" />
-                  Paiement 100% sécurisé — sans frais
-                </p>
-              </section>
-            )}
+              ) : autorisation.moyenPaiement ? (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 text-center">
+                  <Clock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-amber-800">En attente de validation — {autorisation.moyenPaiement}</p>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 text-center">
+                  <p className="text-sm text-blue-800">
+                    Le moyen de paiement sera communiqué prochainement.
+                  </p>
+                </div>
+              )}
+            </section>
 
             {/* ── SECTION DOCUMENTS MÉDICAUX (retour parent) ─────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
@@ -720,93 +667,98 @@ export default function SignerAutorisationPage() {
             </section>
 
             {/* ── SECTION PAIEMENT ──────────────────────────────────────────── */}
-            {(montantParEleve === null || montantParEleve === 0) ? (
-              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
-                  <CreditCard className="h-5 w-5" />
-                  Règlement du séjour
-                </h2>
-                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 text-center">
+            <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
+                <CreditCard className="h-5 w-5" />
+                Règlement du séjour
+              </h2>
+
+              {montantParEleve && montantParEleve > 0 && (
+                <>
+                  <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6">
+                    <p className="text-sm text-blue-800">
+                      Montant total par élève :{' '}
+                      <span className="text-lg font-bold">
+                        {montantParEleve.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="mb-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Nombre de mensualités
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {MENSUALITES_OPTIONS.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setNombreMensualites(n)}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                            nombreMensualites === n
+                              ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)] hover:text-[var(--color-primary)]'
+                          }`}
+                        >
+                          {n}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {mensualite !== null && nombreMensualites > 1 && (
+                    <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 mb-6">
+                      <p className="text-sm text-[var(--color-success)]">
+                        {nombreMensualites} mensualités de{' '}
+                        <span className="text-lg font-bold">
+                          {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(!montantParEleve || montantParEleve === 0) && (
+                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6 text-center">
                   <p className="text-sm text-blue-800">
                     Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
                   </p>
                 </div>
-              </section>
-            ) : (
-              <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-6">
-                  <CreditCard className="h-5 w-5" />
-                  Règlement du séjour
-                </h2>
+              )}
 
-                <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6">
-                  <p className="text-sm text-blue-800">
-                    Montant total par élève :{' '}
-                    <span className="text-lg font-bold">
-                      {montantParEleve.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                    </span>
-                  </p>
-                </div>
-
-                <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Nombre de mensualités
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {MENSUALITES_OPTIONS.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setNombreMensualites(n)}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                          nombreMensualites === n
-                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)] hover:text-[var(--color-primary)]'
-                        }`}
-                      >
-                        {n}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {mensualite !== null && nombreMensualites > 1 && (
-                  <div className="rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-5 py-4 mb-6">
-                    <p className="text-sm text-[var(--color-success)]">
-                      {nombreMensualites} mensualités de{' '}
-                      <span className="text-lg font-bold">
-                        {mensualite.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                      </span>
-                    </p>
-                  </div>
-                )}
-
-                {showPaymentMsg ? (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 text-center">
-                    <Lock className="h-5 w-5 text-amber-600 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-amber-800">
-                      Paiement sécurisé — intégration Stripe à venir
-                    </p>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentMsg(true)}
-                    className="w-full rounded-xl bg-[var(--color-primary)] px-6 py-3.5 text-sm font-bold text-white shadow-md hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
-                  >
-                    <span className="inline-flex items-center gap-2">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Moyen de paiement <span className="text-gray-400 font-normal">(optionnel)</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { value: 'VIREMENT', label: 'Virement bancaire' },
+                    { value: 'PRELEVEMENT', label: 'Prélèvement automatique' },
+                    { value: 'CB', label: 'Carte bancaire (CB)' },
+                    { value: 'CHEQUE', label: 'Chèque' },
+                    { value: 'ESPECES', label: 'Espèces' },
+                  ].map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setMoyenPaiement(moyenPaiement === m.value ? '' : m.value)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                        moyenPaiement === m.value
+                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)]'
+                      }`}
+                    >
                       <CreditCard className="h-4 w-4" />
-                      Procéder au paiement
-                    </span>
-                  </button>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {moyenPaiement === 'CB' && (
+                  <p className="mt-2 text-xs text-gray-400">Paiement en ligne — intégration à venir</p>
                 )}
-
-                <p className="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
-                  <Lock className="h-3 w-3" />
-                  Paiement 100% sécurisé — sans frais
-                </p>
-              </section>
-            )}
+              </div>
+            </section>
 
             {/* ── SECTION DOCUMENTS MÉDICAUX ────────────────────────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">

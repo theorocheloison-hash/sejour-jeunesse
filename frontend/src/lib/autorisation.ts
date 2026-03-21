@@ -16,6 +16,9 @@ export interface AutorisationParentale {
   regimeAlimentaire: string | null;
   niveauSki: string | null;
   infosMedicales: string | null;
+  moyenPaiement?: string | null;
+  paiementValide?: boolean;
+  datePaiement?: string | null;
   createdAt: string;
 }
 
@@ -24,6 +27,9 @@ export interface AutorisationPublique {
   elevePrenom: string;
   signeeAt: string | null;
   attestationAssuranceUrl?: string | null;
+  moyenPaiement?: string | null;
+  paiementValide?: boolean;
+  datePaiement?: string | null;
   sejour: {
     titre: string;
     lieu: string;
@@ -63,6 +69,7 @@ export interface SignerAutorisationDto {
   eleveDateNaissance?: string;
   rgpdAccepte: boolean;
   nombreMensualites?: number;
+  moyenPaiement?: string;
 }
 
 // ─── Appels protégés (enseignant) ──────────────────────────────────────────
@@ -99,6 +106,10 @@ export async function signerAutorisation(
   dto: SignerAutorisationDto,
 ): Promise<void> {
   await api.patch(`/autorisations/signer/${token}`, dto);
+}
+
+export async function validerPaiement(autorisationId: string): Promise<void> {
+  await api.patch(`/autorisations/${autorisationId}/valider-paiement`);
 }
 
 export async function uploadDocumentMedical(
