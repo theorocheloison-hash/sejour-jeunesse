@@ -14,6 +14,30 @@ import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 export default function ClientsPage() {
   const { user, isLoading } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
@@ -153,9 +177,9 @@ export default function ClientsPage() {
       const text = (ev.target?.result as string).replace(/^\uFEFF/, '');
       const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
       if (lines.length < 2) return;
-      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+      const headers = parseCSVLine(lines[0]);
       const rows = lines.slice(1).map(line => {
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const cols = parseCSVLine(line);
         const obj: Record<string, string> = {};
         headers.forEach((h, i) => { obj[h] = cols[i] ?? ''; });
         return obj;
@@ -195,10 +219,10 @@ export default function ClientsPage() {
       const text = (ev.target?.result as string).replace(/^\uFEFF/, '');
       const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
       if (lines.length < 2) return;
-      const rawHeaders = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+      const rawHeaders = parseCSVLine(lines[0]);
       const normalizedHeaders = rawHeaders.map(h => CONTACT_COL_MAP[h] ?? h.toLowerCase());
       const rows = lines.slice(1).map(line => {
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const cols = parseCSVLine(line);
         const obj: Record<string, string> = {};
         normalizedHeaders.forEach((h, i) => { obj[h] = cols[i] ?? ''; });
         return obj;
