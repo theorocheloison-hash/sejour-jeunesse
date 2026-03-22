@@ -45,6 +45,7 @@ export interface DevisPDFProps {
     dateValidation: string;
     etablissement: string;
   };
+  signatureDirecteur?: string | null;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -263,7 +264,13 @@ export default function DevisPDF(props: DevisPDFProps) {
         )}
 
         {/* Validation direction */}
-        {validationDirection && (
+        {props.signatureDirecteur && (
+          <View style={s.validBlock}>
+            <Text style={s.validTitle}>Signé électroniquement par la direction</Text>
+            <Text style={s.validText}>{props.signatureDirecteur}</Text>
+          </View>
+        )}
+        {!props.signatureDirecteur && validationDirection && (
           <View style={s.validBlock}>
             <Text style={s.validTitle}>Approuvé par la direction</Text>
             <Text style={s.validText}>{validationDirection.nomDirecteur}</Text>

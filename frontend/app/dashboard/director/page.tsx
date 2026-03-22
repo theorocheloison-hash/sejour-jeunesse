@@ -9,6 +9,7 @@ import api from '@/src/lib/api';
 import {
   getDevisAValider,
   updateDevisStatut,
+  signerDevis,
   getFacturesAcompte,
   validerAcompte,
   getChorusXml,
@@ -603,11 +604,13 @@ function DevisDetailModal({
   devis,
   onClose,
   onAction,
+  onSign,
   isActing,
 }: {
   devis: Devis;
   onClose: () => void;
   onAction: (id: string, statut: 'SELECTIONNE' | 'NON_RETENU') => void;
+  onSign: (id: string) => void;
   isActing: boolean;
 }) {
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -736,12 +739,12 @@ function DevisDetailModal({
           </button>
           <button
             type="button"
-            onClick={() => onAction(devis.id, 'SELECTIONNE')}
+            onClick={() => onSign(devis.id)}
             disabled={isActing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-success)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {isActing ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : null}
-            Valider ce devis
+            Signer électroniquement
           </button>
           <button onClick={onClose} className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">Fermer</button>
         </div>
@@ -968,6 +971,16 @@ export default function DirectorDashboard() {
     setDevisActingId(null);
   };
 
+  const handleSignerDevis = async (devisId: string) => {
+    setDevisActingId(devisId);
+    try {
+      await signerDevis(devisId);
+      await loadDevis();
+      setDevisDetail(null);
+    } catch { /* ignore */ }
+    setDevisActingId(null);
+  };
+
   const handleValiderAcompte = async (devisId: string) => {
     setFactureActingId(devisId);
     try {
@@ -1031,6 +1044,7 @@ export default function DirectorDashboard() {
           devis={devisDetail}
           onClose={() => setDevisDetail(null)}
           onAction={handleDevisAction}
+          onSign={handleSignerDevis}
           isActing={devisActingId === devisDetail.id}
         />
       )}
@@ -1137,11 +1151,11 @@ export default function DirectorDashboard() {
           </div>
         )}
 
-        {/* ── Devis à valider ─────────────────────────────────────────── */}
+        {/* ── Devis à signer ─────────────────────────────────────────── */}
         {devisAValider.length > 0 && (
           <div className="mt-10">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Devis à valider
+              Devis à signer
               <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                 {devisAValider.length}
               </span>

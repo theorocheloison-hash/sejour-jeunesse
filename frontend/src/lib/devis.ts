@@ -41,6 +41,9 @@ export interface Devis {
   numeroFacture?: string | null;
   typeDevis?: string;
   typeDocument?: string;
+  signatureDirecteur?: string | null;
+  dateSignatureDirecteur?: string | null;
+  nomSignataireDirecteur?: string | null;
   estFacture?: boolean;
   dateFacture?: string | null;
   acompteVerse?: boolean;
@@ -52,7 +55,7 @@ export interface Devis {
     villeHebergement: string;
     nombreEleves: number;
     enseignant?: { prenom: string; nom: string; email?: string; telephone?: string | null; etablissementNom?: string | null; etablissementAdresse?: string | null; etablissementVille?: string | null; etablissementUai?: string | null; etablissementEmail?: string | null; etablissementTelephone?: string | null };
-    sejour?: { id: string; titre: string; dateDebut?: string; dateFin?: string; niveauClasse?: string | null; createur?: { prenom: string; nom: string; etablissementNom?: string | null; etablissementVille?: string | null } | null } | null;
+    sejour?: { id: string; titre: string; dateDebut?: string; dateFin?: string; niveauClasse?: string | null; statut?: string | null; createur?: { prenom: string; nom: string; etablissementNom?: string | null; etablissementVille?: string | null } | null } | null;
   };
   centre?: {
     id: string;
@@ -159,6 +162,11 @@ export async function getComparatif(demandeId: string): Promise<Devis[]> {
 
 export async function updateDevisStatut(id: string, statut: StatutDevis): Promise<Devis> {
   const { data } = await api.patch<Devis>(`/devis/${id}/statut`, { statut });
+  return data;
+}
+
+export async function signerDevis(id: string): Promise<Devis> {
+  const { data } = await api.patch<Devis>(`/devis/${id}/signer`);
   return data;
 }
 

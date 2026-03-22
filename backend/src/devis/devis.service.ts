@@ -142,7 +142,7 @@ export class DevisService {
             },
             sejour: {
               select: {
-                id: true, titre: true, dateDebut: true, dateFin: true, niveauClasse: true,
+                id: true, titre: true, dateDebut: true, dateFin: true, niveauClasse: true, statut: true,
                 createur: {
                   select: {
                     prenom: true, nom: true,
@@ -412,16 +412,72 @@ export class DevisService {
     return updated;
   }
 
+  async signerDevis(devisId: string, user: { id: string; role: string }) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        demande: { include: { sejour: true } },
+        centre: { include: { user: { select: { email: true } } } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.statut !== 'SELECTIONNE') throw new ForbiddenException('Seul un devis sélectionné peut être signé');
+
+    const directeur = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { prenom: true, nom: true, etablissementNom: true },
+    });
+    const nomSignataire = directeur ? `${directeur.prenom} ${directeur.nom}` : 'Directeur';
+
+    const updated = await this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        signatureDirecteur: `Signé électroniquement par ${nomSignataire} — ${new Date().toLocaleDateString('fr-FR')}`,
+        dateSignatureDirecteur: new Date(),
+        nomSignataireDirecteur: nomSignataire,
+      },
+      include: { lignes: true },
+    });
+
+    if (devis.demande?.sejour) {
+      await this.prisma.sejour.update({
+        where: { id: devis.demande.sejour.id },
+        data: { statut: StatutSejour.SIGNE_DIRECTION },
+      });
+    }
+
+    if (devis.centre?.user?.email) {
+      const sejourTitre = devis.demande?.sejour?.titre ?? 'le séjour';
+      const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/venue/devis`;
+      await this.email.sendGenericNotification(
+        devis.centre.user.email,
+        `Devis signé par la direction — ${sejourTitre}`,
+        `<p>Bonjour,</p>
+         <p>Le directeur de l'établissement a signé électroniquement le devis pour le séjour <strong>${sejourTitre}</strong>.</p>
+         <p><strong>Signataire :</strong> ${nomSignataire}<br>
+         <strong>Date :</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
+         <p>Vous pouvez désormais émettre la facture d'acompte.</p>
+         <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mes devis</a></p>`,
+      );
+    }
+
+    return updated;
+  }
+
   async getDevisAValider() {
     return this.prisma.devis.findMany({
-      where: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
+      where: {
+        statut: StatutDevis.SELECTIONNE,
+        signatureDirecteur: null,
+        typeDocument: 'DEVIS',
+      },
       include: {
         lignes: true,
         centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
         demande: {
           include: {
             enseignant: { select: { prenom: true, nom: true } },
-            sejour: { select: { id: true, titre: true } },
+            sejour: { select: { id: true, titre: true, statut: true } },
           },
         },
       },

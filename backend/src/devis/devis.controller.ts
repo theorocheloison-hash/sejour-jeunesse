@@ -93,6 +93,15 @@ export class DevisController {
     return this.devisService.updateStatut(id, dto.statut, user.id, user.role);
   }
 
+  @Patch(':id/signer')
+  @Roles(Role.DIRECTOR)
+  signerDevis(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+  ) {
+    return this.devisService.signerDevis(id, user);
+  }
+
   @Patch(':id/facturer-acompte')
   @Roles(Role.VENUE)
   facturerAcompte(

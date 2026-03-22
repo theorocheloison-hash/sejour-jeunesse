@@ -33,6 +33,7 @@ enum StatutSejour {
   REJECTED
   CONVENTION
   SOUMIS_RECTORAT
+  SIGNE_DIRECTION
 }
 
 // ============================================================
@@ -585,6 +586,9 @@ model Devis {
 
   // Type de document : DEVIS | FACTURE_ACOMPTE | FACTURE_SOLDE
   typeDocument          String       @default("DEVIS") @map("type_document") @db.VarChar(30)
+  signatureDirecteur      String?   @map("signature_directeur") @db.Text
+  dateSignatureDirecteur  DateTime? @map("date_signature_directeur")
+  nomSignataireDirecteur  String?   @map("nom_signataire_directeur") @db.VarChar(255)
 
   demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)

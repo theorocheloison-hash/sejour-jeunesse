@@ -154,8 +154,8 @@ export default function VenueDashboard() {
                   </span>
                 )}
               </div>
-              <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Facturation</p>
-              <p className="text-xs text-gray-500 mt-0.5">Acomptes, soldes et Chorus Pro</p>
+              <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Devis & Facturation</p>
+              <p className="text-xs text-gray-500 mt-0.5">Devis, acomptes, factures et Chorus Pro</p>
             </Link>
 
             {/* Planning */}

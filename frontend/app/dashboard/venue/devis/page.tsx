@@ -20,14 +20,14 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
 };
 
-type FiltreStatut = 'ALL' | 'EN_ATTENTE' | 'SELECTIONNE' | 'FACTURE_ACOMPTE' | 'NON_RETENU';
+type OngletDevis = 'attente' | 'selectionnes' | 'signes' | 'acompte' | 'solde';
 
-const FILTRE_OPTIONS: { value: FiltreStatut; label: string }[] = [
-  { value: 'ALL',              label: 'Tous' },
-  { value: 'EN_ATTENTE',      label: 'En attente' },
-  { value: 'SELECTIONNE',     label: 'Sélectionné' },
-  { value: 'FACTURE_ACOMPTE', label: 'Facture acompte' },
-  { value: 'NON_RETENU',      label: 'Non retenu' },
+const ONGLETS: { key: OngletDevis; label: string }[] = [
+  { key: 'attente',      label: 'En attente' },
+  { key: 'selectionnes', label: 'Sélectionnés' },
+  { key: 'signes',       label: 'Signé direction' },
+  { key: 'acompte',      label: 'Facture acompte' },
+  { key: 'solde',        label: 'Facture solde' },
 ];
 
 // ─── Normalize for accent-insensitive search ────────────────────────────────
@@ -73,10 +73,14 @@ function matchesSearch(d: Devis, query: string): boolean {
   return fields.some((f) => f && normalize(f).includes(q));
 }
 
-function matchesStatut(d: Devis, filtre: FiltreStatut): boolean {
-  if (filtre === 'ALL') return true;
-  if (filtre === 'FACTURE_ACOMPTE') return d.typeDocument === 'FACTURE_ACOMPTE';
-  return d.statut === filtre;
+function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
+  switch (onglet) {
+    case 'attente': return d.statut === 'EN_ATTENTE';
+    case 'selectionnes': return d.statut === 'SELECTIONNE' && !d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE';
+    case 'signes': return !!d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE';
+    case 'acompte': return d.typeDocument === 'FACTURE_ACOMPTE';
+    case 'solde': return d.typeDocument === 'FACTURE_SOLDE';
+  }
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -91,7 +95,7 @@ export default function VenueDevisPage() {
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [filtreStatut, setFiltreStatut] = useState<FiltreStatut>('ALL');
+  const [onglet, setOnglet] = useState<OngletDevis>('attente');
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.push('/login');
@@ -108,8 +112,18 @@ export default function VenueDevisPage() {
   const filteredDevis = useMemo(() => {
     return devisList
       .filter((d) => matchesSearch(d, searchQuery))
-      .filter((d) => matchesStatut(d, filtreStatut));
-  }, [devisList, searchQuery, filtreStatut]);
+      .filter((d) => matchesOnglet(d, onglet));
+  }, [devisList, searchQuery, onglet]);
+
+  const ongletCounts = useMemo(() => {
+    const counts: Record<OngletDevis, number> = { attente: 0, selectionnes: 0, signes: 0, acompte: 0, solde: 0 };
+    devisList.forEach((d) => {
+      for (const key of ONGLETS.map(o => o.key)) {
+        if (matchesOnglet(d, key)) counts[key]++;
+      }
+    });
+    return counts;
+  }, [devisList]);
 
   const handleFacturerAcompte = async (id: string) => {
     setFacturantId(id);
@@ -193,6 +207,7 @@ export default function VenueDevisPage() {
       dateValidite: d.dateFacture
         ? new Date(new Date(d.dateFacture).getTime() + 30 * 86400000).toISOString()
         : new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
+      signatureDirecteur: d.signatureDirecteur ?? undefined,
     };
   };
 
@@ -242,22 +257,31 @@ export default function VenueDevisPage() {
               className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent"
             />
           </div>
-          <select
-            value={filtreStatut}
-            onChange={(e) => setFiltreStatut(e.target.value as FiltreStatut)}
-            className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent bg-white"
-          >
-            {FILTRE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
         </div>
 
-        {/* Compteur */}
-        <p className="text-xs text-gray-500 mb-4">
-          {filteredDevis.length} devis trouvé{filteredDevis.length > 1 ? 's' : ''}
-          {searchQuery.length >= 2 && ` pour « ${searchQuery} »`}
-        </p>
+        {/* Onglets */}
+        <div className="flex gap-0 border-b border-gray-200 mb-4">
+          {ONGLETS.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => setOnglet(o.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                onglet === o.key
+                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {o.label}
+              {ongletCounts[o.key] > 0 && (
+                <span className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                  onglet === o.key ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {ongletCounts[o.key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
         {/* ── Liste ── */}
         {filteredDevis.length === 0 ? (
@@ -271,7 +295,7 @@ export default function VenueDevisPage() {
               {devisList.length === 0 ? 'Aucun devis envoyé pour le moment.' : 'Aucun devis ne correspond à votre recherche'}
             </p>
             {searchQuery.length >= 2 && (
-              <button onClick={() => { setSearchQuery(''); setFiltreStatut('ALL'); }} className="mt-3 text-sm text-[var(--color-primary)] font-semibold hover:underline">
+              <button onClick={() => { setSearchQuery(''); setOnglet('attente'); }} className="mt-3 text-sm text-[var(--color-primary)] font-semibold hover:underline">
                 Réinitialiser la recherche
               </button>
             )}
@@ -321,6 +345,11 @@ export default function VenueDevisPage() {
                         <span>{new Date(d.createdAt).toLocaleDateString('fr-FR')}</span>
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
+                      {d.signatureDirecteur && (
+                        <div className="mt-2 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2 text-xs text-purple-700">
+                          {d.signatureDirecteur}
+                        </div>
+                      )}
                     </div>
                     {(d.statut === 'EN_ATTENTE' || d.statut === 'SELECTIONNE') && (
                       <Link
