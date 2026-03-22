@@ -156,19 +156,25 @@ export class ClientsService {
       const typeFilter = typesEtablissement.map(t => `type_etablissement="${t}"`).join(' OR ');
       whereParts.push(`(${typeFilter})`);
     }
-    const url = `${API_BASE}?select=${FIELDS}&where=${encodeURIComponent(whereParts.join(' AND '))}&limit=100&order_by=nom_etablissement`;
-
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     let results: Array<Record<string, string | number | null>> = [];
     try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`API EN: ${res.status}`);
-      const data = await res.json() as { results?: Array<Record<string, string | number | null>> };
-      results = data.results ?? [];
+      let offset = 0;
+      const pageSize = 100;
+      while (true) {
+        const pageUrl = `${API_BASE}?select=${FIELDS}&where=${encodeURIComponent(whereParts.join(' AND '))}&limit=${pageSize}&offset=${offset}&order_by=nom_etablissement`;
+        const res = await fetch(pageUrl, { signal: controller.signal });
+        if (!res.ok) throw new Error(`API EN: ${res.status}`);
+        const data = await res.json() as { results?: Array<Record<string, string | number | null>> };
+        const page = data.results ?? [];
+        results.push(...page);
+        if (page.length < pageSize || results.length >= 2000) break;
+        offset += pageSize;
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('Import annulé : l\'API Éducation Nationale n\'a pas répondu dans les 10 secondes');
+        throw new Error('Import annulé : délai dépassé — réessayez avec un filtre de type plus précis');
       }
       throw err;
     } finally {
