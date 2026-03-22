@@ -22,7 +22,7 @@ export class CollaborationService {
     });
 
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.statut !== 'CONVENTION') {
+    if (!['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut)) {
       throw new ForbiddenException('Le séjour n\'est pas en statut CONVENTION');
     }
 
