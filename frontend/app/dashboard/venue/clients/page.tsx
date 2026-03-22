@@ -194,7 +194,28 @@ export default function ClientsPage() {
   const handleConfirmCSVImport = async () => {
     setCSVImporting(true);
     try {
-      const result = await importerClientsCSV(csvPreview);
+      // Normaliser les clés CSV (majuscules) vers les clés backend (minuscules)
+      const COL_MAP: Record<string, string> = {
+        'Nom': 'nom',
+        'Type': 'type',
+        'Statut': 'statut',
+        'Ville': 'ville',
+        'Code postal': 'codePostal',
+        'Téléphone': 'telephone',
+        'Telephone': 'telephone',
+        'Email': 'email',
+        'UAI': 'uai',
+        'Notes': 'notes',
+      };
+      const normalized = csvPreview.map(row => {
+        const obj: Record<string, string> = {};
+        Object.entries(row).forEach(([k, v]) => {
+          const mappedKey = COL_MAP[k] ?? k.toLowerCase();
+          obj[mappedKey] = v;
+        });
+        return obj;
+      });
+      const result = await importerClientsCSV(normalized);
       setCsvResult({ imported: result.imported, skipped: result.skipped });
       setCsvPreview([]);
       await getMesClients().then(setClients);
