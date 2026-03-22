@@ -1093,8 +1093,6 @@ export default function DirectorDashboard() {
         <div className="flex flex-wrap gap-2 mb-6">
           {([
             ['ALL',       'Tous',         sejours.length,             'bg-gray-100 text-gray-700 ring-gray-300'],
-            ['SUBMITTED', 'En attente',   countByStatut('SUBMITTED'), 'bg-orange-50 text-orange-700 ring-orange-300'],
-            ['APPROVED',  'Approuvés',    countByStatut('APPROVED'),  'bg-[var(--color-success-light)] text-[var(--color-success)] ring-[var(--color-success)]'],
             ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
             ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
             ['SOUMIS_RECTORAT','Rectorat', countByStatut('SOUMIS_RECTORAT'),'bg-purple-50 text-purple-700 ring-purple-300'],
