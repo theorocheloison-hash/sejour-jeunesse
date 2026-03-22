@@ -2,7 +2,7 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CONVENTION' | 'SOUMIS_RECTORAT';
+export type StatutSejour = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CONVENTION' | 'SOUMIS_RECTORAT' | 'SIGNE_DIRECTION';
 export type AppelOffreStatut = 'BROUILLON' | 'OUVERT' | 'FERME';
 export type TypeZone = 'FRANCE' | 'REGION' | 'DEPARTEMENT' | 'VILLE';
 

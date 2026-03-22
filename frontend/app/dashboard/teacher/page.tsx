@@ -17,6 +17,7 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   REJECTED:   { label: 'Refusé',      cls: 'bg-red-100 text-red-700' },
   CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
   SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
+  SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {
@@ -46,7 +47,7 @@ function SejourCard({
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
-  const devisSelectionne = sejour.statut === 'CONVENTION'
+  const devisSelectionne = ['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut)
     ? sejour.demandes?.flatMap((d) => d.devis ?? []).find((dv) => dv.statut === 'SELECTIONNE')
     : undefined;
 
@@ -111,7 +112,7 @@ function SejourCard({
           })()}
 
           {/* Bouton autorisations — pour APPROVED et CONVENTION */}
-          {(sejour.statut === 'APPROVED' || sejour.statut === 'CONVENTION') && (
+          {(sejour.statut === 'APPROVED' || ['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut)) && (
             <Link
               href={`/dashboard/teacher/sejours/${sejour.id}/autorisations`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
@@ -124,7 +125,7 @@ function SejourCard({
           )}
 
           {/* Espace collaboratif — uniquement pour CONVENTION */}
-          {sejour.statut === 'CONVENTION' && (
+          {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
             <>
               <Link
                 href={`/dashboard/sejour/${sejour.id}`}

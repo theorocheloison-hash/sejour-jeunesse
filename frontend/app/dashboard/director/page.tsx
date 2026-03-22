@@ -29,6 +29,7 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   REJECTED:   { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
   CONVENTION:      { label: 'Convention',       cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
   SOUMIS_RECTORAT: { label: 'Soumis rectorat', cls: 'bg-purple-100 text-purple-700' },
+  SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {
@@ -1097,6 +1098,7 @@ export default function DirectorDashboard() {
             ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
             ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
             ['SOUMIS_RECTORAT','Rectorat', countByStatut('SOUMIS_RECTORAT'),'bg-purple-50 text-purple-700 ring-purple-300'],
+            ['SIGNE_DIRECTION','Signé direction', countByStatut('SIGNE_DIRECTION'),'bg-purple-50 text-purple-700 ring-purple-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
               key={val}
