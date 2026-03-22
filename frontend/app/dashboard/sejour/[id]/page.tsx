@@ -280,7 +280,7 @@ export default function CollaborationPage() {
 
   // ── Auth guard ──
   useEffect(() => {
-    if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE'))) {
+    if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE' && user.role !== 'DIRECTOR'))) {
       router.replace('/login');
     }
   }, [isLoading, user, router]);
@@ -499,7 +499,8 @@ export default function CollaborationPage() {
     );
   }
 
-  const retourHref = user.role === 'TEACHER' ? '/dashboard/teacher' : '/dashboard/venue';
+  const retourHref = user.role === 'TEACHER' ? '/dashboard/teacher' : user.role === 'DIRECTOR' ? '/dashboard/director' : '/dashboard/venue';
+  const isDirector = user.role === 'DIRECTOR';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -519,6 +520,11 @@ export default function CollaborationPage() {
               <span className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
                 Convention
               </span>
+              {isDirector && (
+                <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                  Vue direction — lecture seule
+                </span>
+              )}
             </div>
             {sejour && (
               <div className="hidden sm:flex items-center gap-4 text-xs text-gray-500">
@@ -534,7 +540,7 @@ export default function CollaborationPage() {
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
-            {TABS.filter((t) => (t.key !== 'projet' || user.role === 'TEACHER') && (t.key !== 'budget' || user.role === 'TEACHER' || user.role === 'DIRECTOR')).map((t) => (
+            {TABS.filter((t) => (t.key !== 'projet' || user.role === 'TEACHER') && (t.key !== 'budget' || user.role === 'TEACHER' || isDirector)).map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
@@ -738,22 +744,26 @@ export default function CollaborationPage() {
               )}
               {messages.map((m) => {
                 const isOwn = m.auteurId === user.id;
+                const msgRole = m.auteur.role;
+                const ROLE_CONFIG: Record<string, { label: string; bubbleCls: string; labelCls: string }> = {
+                  TEACHER:  { label: 'Enseignant', bubbleCls: 'bg-[var(--color-primary)] text-white',  labelCls: 'text-[var(--color-primary)]' },
+                  VENUE:    { label: 'Hébergeur',  bubbleCls: 'bg-[var(--color-success)] text-white',  labelCls: 'text-[var(--color-success)]' },
+                  DIRECTOR: { label: 'Direction',  bubbleCls: 'bg-purple-600 text-white',               labelCls: 'text-purple-600' },
+                };
+                const config = ROLE_CONFIG[msgRole] ?? { label: msgRole, bubbleCls: 'bg-gray-100 text-gray-900', labelCls: 'text-gray-500' };
                 return (
                   <div key={m.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
-                      isOwn
-                        ? 'bg-[var(--color-primary)] text-white rounded-br-md'
-                        : 'bg-gray-100 text-gray-900 rounded-bl-md'
-                    }`}>
-                      {!isOwn && (
-                        <p className="text-xs font-semibold text-gray-500 mb-0.5">
-                          {m.auteur.prenom} {m.auteur.nom}
+                    <div className="max-w-[70%] space-y-1">
+                      <div className={`flex items-center gap-1.5 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-xs font-semibold ${config.labelCls}`}>{config.label}</span>
+                        <span className="text-xs text-gray-400">{m.auteur.prenom} {m.auteur.nom}</span>
+                      </div>
+                      <div className={`rounded-2xl px-4 py-2.5 ${config.bubbleCls} ${isOwn ? 'rounded-br-md' : 'rounded-bl-md'}`}>
+                        <p className="text-sm whitespace-pre-wrap">{m.contenu}</p>
+                        <p className="text-[10px] mt-1 opacity-70">
+                          {new Date(m.createdAt).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
                         </p>
-                      )}
-                      <p className="text-sm whitespace-pre-wrap">{m.contenu}</p>
-                      <p className={`text-[10px] mt-1 ${isOwn ? 'text-[var(--color-primary-light)]' : 'text-gray-400'}`}>
-                        {new Date(m.createdAt).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1397,6 +1407,7 @@ export default function CollaborationPage() {
               </div>
             )}
 
+            {!isDirector && (
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -1482,6 +1493,7 @@ export default function CollaborationPage() {
                 )}
               </button>
             </div>
+            )}
 
             {docs.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-8">Aucun document partagé.</p>

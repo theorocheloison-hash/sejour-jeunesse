@@ -13,7 +13,7 @@ export class CollaborationService {
   ) {}
 
   /** Vérifie que le séjour est en CONVENTION et que l'utilisateur y a accès */
-  async verifyAccess(sejourId: string, userId: string) {
+  async verifyAccess(sejourId: string, userId: string, role?: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
       include: {
@@ -29,7 +29,8 @@ export class CollaborationService {
     const isCreateur = sejour.createurId === userId;
     const isVenue = sejour.hebergementSelectionne?.userId === userId;
 
-    if (!isCreateur && !isVenue) {
+    const isDirector = role === 'DIRECTOR';
+    if (!isCreateur && !isVenue && !isDirector) {
       throw new ForbiddenException('Vous n\'avez pas accès à cet espace collaboratif');
     }
 
@@ -38,8 +39,8 @@ export class CollaborationService {
 
   // ── Infos séjour ──────────────────────────────────────────────
 
-  async getSejourInfo(sejourId: string, userId: string) {
-    const sejour = await this.verifyAccess(sejourId, userId);
+  async getSejourInfo(sejourId: string, userId: string, role?: string) {
+    const sejour = await this.verifyAccess(sejourId, userId, role);
 
     const full = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
@@ -54,8 +55,8 @@ export class CollaborationService {
 
   // ── Messages ──────────────────────────────────────────────────
 
-  async getMessages(sejourId: string, userId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async getMessages(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.message.findMany({
       where: { sejourId },
       include: {
@@ -65,8 +66,8 @@ export class CollaborationService {
     });
   }
 
-  async createMessage(sejourId: string, userId: string, dto: CreateMessageDto) {
-    await this.verifyAccess(sejourId, userId);
+  async createMessage(sejourId: string, userId: string, dto: CreateMessageDto, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.message.create({
       data: {
         sejourId,
@@ -81,16 +82,16 @@ export class CollaborationService {
 
   // ── Planning ──────────────────────────────────────────────────
 
-  async getPlanning(sejourId: string, userId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async getPlanning(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.planningActivite.findMany({
       where: { sejourId },
       orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
     });
   }
 
-  async createPlanning(sejourId: string, userId: string, dto: CreatePlanningDto) {
-    await this.verifyAccess(sejourId, userId);
+  async createPlanning(sejourId: string, userId: string, dto: CreatePlanningDto, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.planningActivite.create({
       data: {
         sejourId,
@@ -104,8 +105,8 @@ export class CollaborationService {
     });
   }
 
-  async deletePlanning(sejourId: string, userId: string, planningId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async deletePlanning(sejourId: string, userId: string, planningId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     const item = await this.prisma.planningActivite.findUnique({ where: { id: planningId } });
     if (!item || item.sejourId !== sejourId) {
       throw new NotFoundException('Activité introuvable');
@@ -115,8 +116,8 @@ export class CollaborationService {
 
   // ── Documents ─────────────────────────────────────────────────
 
-  async getDocuments(sejourId: string, userId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async getDocuments(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.documentSejour.findMany({
       where: { sejourId },
       include: {
@@ -126,8 +127,8 @@ export class CollaborationService {
     });
   }
 
-  async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File) {
-    await this.verifyAccess(sejourId, userId);
+  async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
 
     let url = dto.url ?? '';
     if (file) {
@@ -148,8 +149,8 @@ export class CollaborationService {
     });
   }
 
-  async getDocumentsCentre(sejourId: string, userId: string) {
-    const sejour = await this.verifyAccess(sejourId, userId);
+  async getDocumentsCentre(sejourId: string, userId: string, role?: string) {
+    const sejour = await this.verifyAccess(sejourId, userId, role);
 
     if (!sejour.hebergementSelectionneId) return [];
 
@@ -161,8 +162,8 @@ export class CollaborationService {
 
   // ── Participants (autorisations parentales) ──────────────────
 
-  async getParticipants(sejourId: string, userId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async getParticipants(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.autorisationParentale.findMany({
       where: { sejourId },
       select: {
@@ -193,8 +194,8 @@ export class CollaborationService {
 
   // ── Budget prévisionnel ──────────────────────────────────────
 
-  async getBudgetData(sejourId: string, userId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async getBudgetData(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
 
     const demande = await this.prisma.demandeDevis.findFirst({
       where: { sejourId },
@@ -258,27 +259,27 @@ export class CollaborationService {
     return { sejour, devis, lignesCompl, recettes };
   }
 
-  async addLigneCompl(sejourId: string, userId: string, data: { categorie: string; description: string; montant: number }) {
-    await this.verifyAccess(sejourId, userId);
+  async addLigneCompl(sejourId: string, userId: string, data: { categorie: string; description: string; montant: number }, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.ligneBudgetComplementaire.create({
       data: { sejourId, ...data },
     });
   }
 
-  async deleteLigneCompl(sejourId: string, userId: string, ligneId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async deleteLigneCompl(sejourId: string, userId: string, ligneId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.ligneBudgetComplementaire.delete({ where: { id: ligneId } });
   }
 
-  async addRecette(sejourId: string, userId: string, data: { source: string; montant: number }) {
-    await this.verifyAccess(sejourId, userId);
+  async addRecette(sejourId: string, userId: string, data: { source: string; montant: number }, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.recetteBudget.create({
       data: { sejourId, ...data },
     });
   }
 
-  async deleteRecette(sejourId: string, userId: string, recetteId: string) {
-    await this.verifyAccess(sejourId, userId);
+  async deleteRecette(sejourId: string, userId: string, recetteId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
     return this.prisma.recetteBudget.delete({ where: { id: recetteId } });
   }
 

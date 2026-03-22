@@ -23,7 +23,7 @@ import { CreateDocumentDto } from './dto/create-document.dto.js';
 
 @Controller('collaboration')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.TEACHER, Role.VENUE)
+@Roles(Role.TEACHER, Role.VENUE, Role.DIRECTOR)
 export class CollaborationController {
   constructor(private readonly service: CollaborationService) {}
 
@@ -41,7 +41,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getSejourInfo(sejourId, user.id);
+    return this.service.getSejourInfo(sejourId, user.id, user.role);
   }
 
   // ── Participants ─────────────────────────────────────────────
@@ -51,7 +51,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getParticipants(sejourId, user.id);
+    return this.service.getParticipants(sejourId, user.id, user.role);
   }
 
   // ── Budget ───────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getBudgetData(sejourId, user.id);
+    return this.service.getBudgetData(sejourId, user.id, user.role);
   }
 
   @Post(':sejourId/budget/lignes-compl')
@@ -70,7 +70,7 @@ export class CollaborationController {
     @CurrentUser() user: JwtUser,
     @Body() body: { categorie: string; description: string; montant: number },
   ) {
-    return this.service.addLigneCompl(sejourId, user.id, body);
+    return this.service.addLigneCompl(sejourId, user.id, body, user.role);
   }
 
   @Delete(':sejourId/budget/lignes-compl/:ligneId')
@@ -79,7 +79,7 @@ export class CollaborationController {
     @Param('ligneId') ligneId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.deleteLigneCompl(sejourId, user.id, ligneId);
+    return this.service.deleteLigneCompl(sejourId, user.id, ligneId, user.role);
   }
 
   @Post(':sejourId/budget/recettes')
@@ -88,7 +88,7 @@ export class CollaborationController {
     @CurrentUser() user: JwtUser,
     @Body() body: { source: string; montant: number },
   ) {
-    return this.service.addRecette(sejourId, user.id, body);
+    return this.service.addRecette(sejourId, user.id, body, user.role);
   }
 
   @Delete(':sejourId/budget/recettes/:recetteId')
@@ -97,7 +97,7 @@ export class CollaborationController {
     @Param('recetteId') recetteId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.deleteRecette(sejourId, user.id, recetteId);
+    return this.service.deleteRecette(sejourId, user.id, recetteId, user.role);
   }
 
   // ── Messages ──────────────────────────────────────────────────
@@ -107,7 +107,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getMessages(sejourId, user.id);
+    return this.service.getMessages(sejourId, user.id, user.role);
   }
 
   @Post(':sejourId/messages')
@@ -116,7 +116,7 @@ export class CollaborationController {
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.service.createMessage(sejourId, user.id, dto);
+    return this.service.createMessage(sejourId, user.id, dto, user.role);
   }
 
   // ── Planning ──────────────────────────────────────────────────
@@ -126,7 +126,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getPlanning(sejourId, user.id);
+    return this.service.getPlanning(sejourId, user.id, user.role);
   }
 
   @Post(':sejourId/planning')
@@ -135,7 +135,7 @@ export class CollaborationController {
     @CurrentUser() user: JwtUser,
     @Body() dto: CreatePlanningDto,
   ) {
-    return this.service.createPlanning(sejourId, user.id, dto);
+    return this.service.createPlanning(sejourId, user.id, dto, user.role);
   }
 
   @Delete(':sejourId/planning/:planningId')
@@ -144,7 +144,7 @@ export class CollaborationController {
     @Param('planningId') planningId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.deletePlanning(sejourId, user.id, planningId);
+    return this.service.deletePlanning(sejourId, user.id, planningId, user.role);
   }
 
   // ── Documents ─────────────────────────────────────────────────
@@ -154,7 +154,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getDocuments(sejourId, user.id);
+    return this.service.getDocuments(sejourId, user.id, user.role);
   }
 
   @Get(':sejourId/documents-centre')
@@ -162,7 +162,7 @@ export class CollaborationController {
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getDocumentsCentre(sejourId, user.id);
+    return this.service.getDocumentsCentre(sejourId, user.id, user.role);
   }
 
   @Post(':sejourId/documents')
@@ -173,6 +173,6 @@ export class CollaborationController {
     @Body() dto: CreateDocumentDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.service.createDocument(sejourId, user.id, dto, file);
+    return this.service.createDocument(sejourId, user.id, dto, file, user.role);
   }
 }
