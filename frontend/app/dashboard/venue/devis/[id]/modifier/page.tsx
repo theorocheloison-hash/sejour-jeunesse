@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDevisDetail, updateDevis } from '@/src/lib/devis';
 import type { Devis, LigneDevis } from '@/src/lib/devis';
+import { getCatalogue } from '@/src/lib/centre';
+import type { ProduitCatalogue } from '@/src/lib/centre';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -46,6 +48,8 @@ export default function ModifierDevisPage() {
 
   // Lines
   const [lignes, setLignes] = useState<LigneForm[]>([]);
+  const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
+  const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
 
   // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
@@ -71,6 +75,7 @@ export default function ModifierDevisPage() {
       .then(({ devis, centre: c }) => {
         setDevisOriginal(devis);
         setCentre(c);
+        getCatalogue().then(setCatalogue).catch(() => {});
         // Pre-fill fields
         setNomEntreprise(devis.nomEntreprise ?? c.nom);
         setAdresseEntreprise(devis.adresseEntreprise ?? `${c.adresse}, ${c.codePostal} ${c.ville}`);
@@ -91,6 +96,14 @@ export default function ModifierDevisPage() {
       })
       .catch(() => setLoadError('Impossible de charger le devis.'));
   }, [user, devisId]);
+
+  // ── Close catalogue dropdown on outside click ──
+  useEffect(() => {
+    if (!showCatalogueDropdown) return;
+    const handler = () => setShowCatalogueDropdown(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showCatalogueDropdown]);
 
   // ── Calculations ──
   const calculs = useMemo(() => {
@@ -352,13 +365,69 @@ export default function ModifierDevisPage() {
               );
             })}
 
-            <button onClick={addLigne}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Ajouter une ligne
-            </button>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              {catalogue.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowCatalogueDropdown(v => !v); }}
+                    className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                    </svg>
+                    Depuis le catalogue
+                  </button>
+                  {showCatalogueDropdown && (
+                    <div className="absolute left-0 top-8 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                      {['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].map(type => {
+                        const items = catalogue.filter(p => p.type === type);
+                        if (items.length === 0) return null;
+                        const labels: Record<string, string> = { HEBERGEMENT: 'Hébergement', REPAS: 'Repas', TRANSPORT: 'Transport', ACTIVITE: 'Activité', AUTRE: 'Autre' };
+                        return (
+                          <div key={type}>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">{labels[type]}</p>
+                            {items.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  const nombreEleves = devisOriginal?.demande?.nombreEleves ?? 1;
+                                  setLignes(prev => [...prev, makeLigneForm(p.nom, String(nombreEleves), String(p.prixUnitaireHT), String(p.tva))]);
+                                  setShowCatalogueDropdown(false);
+                                }}
+                                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                              >
+                                <span className="text-sm text-gray-900">{p.nom}</span>
+                                <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} &euro; HT</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={addLigne}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ligne libre
+              </button>
+              <a
+                href="/dashboard/venue/catalogue"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gray-400 hover:text-[var(--color-primary)] underline"
+              >
+                Gérer mon catalogue ↗
+              </a>
+            </div>
           </div>
 
           {/* ── Section 5 : Totaux ────────────────────────────────────────── */}
