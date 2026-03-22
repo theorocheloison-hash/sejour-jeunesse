@@ -7,7 +7,7 @@ import {
   getMesClients, createClient, updateClient, deleteClient,
   addContact, deleteContact,
   addRappel, updateRappelStatut, deleteRappel,
-  importerProspects,
+  importerProspects, downloadTemplateClients, importerClientsCSV,
   STATUT_CLIENT_LABELS, TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
 import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
@@ -44,6 +44,12 @@ export default function ClientsPage() {
   const [rappelForm, setRappelForm] = useState({ type: 'TELEPHONE', dateEcheance: '', description: '' });
 
   const [saving, setSaving] = useState(false);
+
+  // CSV import
+  const [showImportCSV, setShowImportCSV] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<Array<Record<string, string>>>([]);
+  const [csvImporting, setCSVImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ imported: number; skipped: number } | null>(null);
 
   useEffect(() => {
     if (!isLoading && user?.role === 'VENUE') {
@@ -132,6 +138,40 @@ export default function ClientsPage() {
     } finally { setImporting(false); }
   };
 
+  const handleCSVFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
+      if (lines.length < 2) return;
+      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const obj: Record<string, string> = {};
+        headers.forEach((h, i) => { obj[h] = cols[i] ?? ''; });
+        return obj;
+      }).filter(r => r['Nom']?.trim());
+      setCsvPreview(rows);
+      setShowImportCSV(true);
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+  };
+
+  const handleConfirmCSVImport = async () => {
+    setCSVImporting(true);
+    try {
+      const result = await importerClientsCSV(csvPreview);
+      setCsvResult({ imported: result.imported, skipped: result.skipped });
+      setCsvPreview([]);
+      await getMesClients().then(setClients);
+    } catch { /* ignore */ }
+    setCSVImporting(false);
+  };
+
   if (isLoading || !user) return null;
 
   const clientCount = clients.filter(c => c.statut === 'CLIENT').length;
@@ -146,8 +186,21 @@ export default function ClientsPage() {
           <span className="text-xs text-gray-500">{clientCount} clients, {prospectCount} prospects</span>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={downloadTemplateClients} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Modèle CSV
+          </button>
+          <label className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Importer CSV
+            <input type="file" accept=".csv" className="hidden" onChange={handleCSVFileUpload} />
+          </label>
           <button onClick={() => setShowImport(true)} className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
-            Importer des prospects
+            Importer prospects EN
           </button>
           <button onClick={() => setShowNewClient(true)} className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
             + Nouveau client
@@ -384,6 +437,69 @@ export default function ClientsPage() {
       )}
 
       {/* Modale import prospects */}
+      {/* Modale prévisualisation CSV */}
+      {showImportCSV && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImportCSV(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-sm font-semibold text-gray-900">Aperçu import CSV — {csvPreview.length} client{csvPreview.length > 1 ? 's' : ''} détecté{csvPreview.length > 1 ? 's' : ''}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Vérifiez les données avant de confirmer. Les doublons (même nom ou même UAI) seront ignorés.</p>
+            </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-1.5 font-medium text-gray-600">Nom</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Type</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Statut</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Ville</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Email</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">UAI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvPreview.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-50">
+                      <td className="py-1.5 font-medium text-gray-900">{r['Nom']}</td>
+                      <td className="py-1.5 text-gray-600">{TYPE_CLIENT_LABELS[r['Type']] ?? r['Type'] ?? '—'}</td>
+                      <td className="py-1.5">
+                        {r['Statut'] && STATUT_CLIENT_LABELS[r['Statut']] ? (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUT_CLIENT_LABELS[r['Statut']].cls}`}>
+                            {STATUT_CLIENT_LABELS[r['Statut']].label}
+                          </span>
+                        ) : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="py-1.5 text-gray-600">{r['Ville'] || '—'}</td>
+                      <td className="py-1.5 text-gray-600">{r['Email'] || '—'}</td>
+                      <td className="py-1.5 text-gray-500 font-mono">{r['UAI'] || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {csvResult && (
+              <div className="px-6 py-2 bg-[var(--color-success-light)] border-t border-[var(--color-success)]/20">
+                <p className="text-xs text-[var(--color-success)] font-medium">
+                  {csvResult.imported} client{csvResult.imported > 1 ? 's' : ''} importé{csvResult.imported > 1 ? 's' : ''}, {csvResult.skipped} doublon{csvResult.skipped > 1 ? 's' : ''} ignoré{csvResult.skipped > 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={handleConfirmCSVImport}
+                disabled={csvImporting || csvPreview.length === 0}
+                className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {csvImporting ? 'Import en cours...' : `Confirmer l'import (${csvPreview.length} clients)`}
+              </button>
+              <button onClick={() => { setShowImportCSV(false); setCsvPreview([]); setCsvResult(null); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImport(false)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>

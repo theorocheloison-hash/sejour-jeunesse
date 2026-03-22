@@ -92,3 +92,39 @@ export const addRappel = (clientId: string, dto: { type: string; dateEcheance: s
 export const updateRappelStatut = (id: string, statut: string) => api.patch<Rappel>(`/clients/rappels/${id}/statut`, { statut }).then(r => r.data);
 export const deleteRappel = (id: string) => api.delete(`/clients/rappels/${id}`);
 export const importerProspects = (academie: string, types: string[]) => api.post<{ imported: number; skipped: number; total: number }>('/clients/import/prospects', { academie, types }).then(r => r.data);
+
+export function downloadTemplateClients(): void {
+  const header = ['Nom', 'Type', 'Statut', 'Ville', 'Code postal', 'Téléphone', 'Email', 'UAI', 'Notes'];
+  const exemples = [
+    ['Collège Victor Hugo', 'COLLEGE', 'PROSPECT', 'Paris', '75001', '0144556677', 'contact@college-hugo.fr', '0750001A', ''],
+    ['Lycée Jean Moulin', 'LYCEE', 'CONTACTE', 'Lyon', '69003', '0472334455', '', '0690042B', 'Intéressé par séjours ski'],
+    ['École primaire les Lilas', 'ECOLE', 'PROSPECT', 'Bordeaux', '33000', '', '', '', ''],
+    ['CE Airbus', 'CE', 'PROSPECT', 'Toulouse', '31300', '0561001122', 'ce@airbus.fr', '', 'Groupe adultes été'],
+  ];
+  const notice = [
+    [''],
+    ['--- VALEURS ACCEPTÉES ---', '', '', '', '', '', '', '', ''],
+    ['Type:', 'ETABLISSEMENT_SCOLAIRE | COLLEGE | LYCEE | ECOLE | COLONIE | CE | ASSOCIATION | AUTRE', '', '', '', '', '', '', ''],
+    ['Statut:', 'PROSPECT | CONTACTE | INTERESSE | EN_NEGOCIATION | CLIENT | INACTIF | PERDU', '', '', '', '', '', '', ''],
+    ['UAI:', 'Code UAI établissement (ex: 0750001A) — optionnel, évite les doublons', '', '', '', '', '', '', ''],
+  ];
+  const rows = [header, ...exemples, ...notice];
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'liavo_clients_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importerClientsCSV(
+  lignes: Array<Record<string, string>>
+): Promise<{ imported: number; skipped: number; total: number }> {
+  const { data } = await api.post<{ imported: number; skipped: number; total: number }>(
+    '/clients/import/csv',
+    { lignes }
+  );
+  return data;
+}

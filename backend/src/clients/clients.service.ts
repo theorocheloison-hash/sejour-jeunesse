@@ -201,4 +201,42 @@ export class ClientsService {
     }
     return { imported, skipped, total: results.length };
   }
+
+  async importerDepuisCSV(
+    lignes: Array<Record<string, string | undefined>>,
+    userId: string,
+  ) {
+    const centreId = await this.getCentreId(userId);
+    let imported = 0;
+    let skipped = 0;
+
+    for (const ligne of lignes) {
+      const nom = ligne.nom?.trim();
+      if (!nom) continue;
+      const uai = ligne.uai?.trim() || undefined;
+      const existing = uai
+        ? await this.prisma.client.findFirst({ where: { centreId, uai } })
+        : await this.prisma.client.findFirst({ where: { centreId, nom } });
+
+      if (existing) { skipped++; continue; }
+
+      await this.prisma.client.create({
+        data: {
+          centreId,
+          nom,
+          type: ligne.type?.trim() || 'ETABLISSEMENT_SCOLAIRE',
+          statut: ligne.statut?.trim() || 'PROSPECT',
+          ville: ligne.ville?.trim() || undefined,
+          codePostal: ligne.codePostal?.trim() || undefined,
+          telephone: ligne.telephone?.trim() || undefined,
+          email: ligne.email?.trim() || undefined,
+          uai: uai,
+          notes: ligne.notes?.trim() || undefined,
+          source: 'IMPORT_CSV',
+        },
+      });
+      imported++;
+    }
+    return { imported, skipped, total: lignes.length };
+  }
 }
