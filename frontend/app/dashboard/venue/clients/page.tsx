@@ -192,7 +192,7 @@ export default function ClientsPage() {
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 truncate">
-                    {c.ville ?? ''}{c.uai ? ` \u00B7 ${c.uai}` : ''}{c.sejours.length > 0 ? ` \u00B7 ${c.sejours.length} s\u00e9jour${c.sejours.length > 1 ? 's' : ''}` : ''}
+                    {c.ville ?? ''}{c.uai ? ` · ${c.uai}` : ''}{c.sejours.length > 0 ? ` · ${c.sejours.length} séjour${c.sejours.length > 1 ? 's' : ''}` : ''}
                   </p>
                 </div>
               );
@@ -203,7 +203,7 @@ export default function ClientsPage() {
           <div className="flex-1">
             {!selected ? (
               <div className="flex items-center justify-center h-64 bg-white rounded-2xl border border-gray-200">
-                <p className="text-sm text-gray-400">S\u00e9lectionnez un client pour voir le d\u00e9tail</p>
+                <p className="text-sm text-gray-400">Sélectionnez un client pour voir le détail</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -229,7 +229,7 @@ export default function ClientsPage() {
                       <div><label className="block text-xs text-gray-500 mb-1">Statut</label><select value={editForm.statut ?? ''} onChange={e => setEditForm(f => ({ ...f, statut: e.target.value }))} className={inputCls}>{Object.entries(STATUT_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
                       <div><label className="block text-xs text-gray-500 mb-1">Type</label><select value={editForm.type ?? ''} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>{Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
                       <div><label className="block text-xs text-gray-500 mb-1">Ville</label><input value={editForm.ville ?? ''} onChange={e => setEditForm(f => ({ ...f, ville: e.target.value }))} className={inputCls} /></div>
-                      <div><label className="block text-xs text-gray-500 mb-1">T\u00e9l\u00e9phone</label><input value={editForm.telephone ?? ''} onChange={e => setEditForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} /></div>
+                      <div><label className="block text-xs text-gray-500 mb-1">Téléphone</label><input value={editForm.telephone ?? ''} onChange={e => setEditForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} /></div>
                       <div><label className="block text-xs text-gray-500 mb-1">Email</label><input value={editForm.email ?? ''} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} className={inputCls} /></div>
                       <div><label className="block text-xs text-gray-500 mb-1">UAI</label><input value={editForm.uai ?? ''} onChange={e => setEditForm(f => ({ ...f, uai: e.target.value }))} className={inputCls} /></div>
                       <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">Notes</label><textarea value={editForm.notes ?? ''} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} /></div>
@@ -239,10 +239,10 @@ export default function ClientsPage() {
                       <div><p className="text-xs text-gray-400">Type</p><p className="font-medium">{TYPE_CLIENT_LABELS[selected.type] ?? selected.type}</p></div>
                       <div><p className="text-xs text-gray-400">Statut</p><p><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${(STATUT_CLIENT_LABELS[selected.statut] ?? STATUT_CLIENT_LABELS.PROSPECT).cls}`}>{(STATUT_CLIENT_LABELS[selected.statut] ?? STATUT_CLIENT_LABELS.PROSPECT).label}</span></p></div>
                       {selected.ville && <div><p className="text-xs text-gray-400">Ville</p><p className="font-medium">{selected.ville}</p></div>}
-                      {selected.telephone && <div><p className="text-xs text-gray-400">T\u00e9l\u00e9phone</p><p className="font-medium">{selected.telephone}</p></div>}
+                      {selected.telephone && <div><p className="text-xs text-gray-400">Téléphone</p><p className="font-medium">{selected.telephone}</p></div>}
                       {selected.email && <div><p className="text-xs text-gray-400">Email</p><p className="font-medium">{selected.email}</p></div>}
                       {selected.uai && <div><p className="text-xs text-gray-400">UAI</p><p className="font-medium">{selected.uai}</p></div>}
-                      {selected.academie && <div><p className="text-xs text-gray-400">Acad\u00e9mie</p><p className="font-medium">{selected.academie}</p></div>}
+                      {selected.academie && <div><p className="text-xs text-gray-400">Académie</p><p className="font-medium">{selected.academie}</p></div>}
                       {selected.notes && <div className="col-span-2"><p className="text-xs text-gray-400">Notes</p><p className="text-gray-600">{selected.notes}</p></div>}
                     </div>
                   )}
@@ -257,11 +257,11 @@ export default function ClientsPage() {
                   </div>
                   {showContactForm && (
                     <div className="grid grid-cols-2 gap-2 mb-3">
-                      <input placeholder="Pr\u00e9nom *" value={contactForm.prenom} onChange={e => setContactForm(f => ({ ...f, prenom: e.target.value }))} className={inputCls} />
+                      <input placeholder="Prénom *" value={contactForm.prenom} onChange={e => setContactForm(f => ({ ...f, prenom: e.target.value }))} className={inputCls} />
                       <input placeholder="Nom *" value={contactForm.nom} onChange={e => setContactForm(f => ({ ...f, nom: e.target.value }))} className={inputCls} />
                       <input placeholder="Email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
-                      <input placeholder="T\u00e9l\u00e9phone" value={contactForm.telephone} onChange={e => setContactForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
-                      <input placeholder="R\u00f4le (ex: Directeur)" value={contactForm.role} onChange={e => setContactForm(f => ({ ...f, role: e.target.value }))} className={inputCls} />
+                      <input placeholder="Téléphone" value={contactForm.telephone} onChange={e => setContactForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
+                      <input placeholder="Rôle (ex: Directeur)" value={contactForm.role} onChange={e => setContactForm(f => ({ ...f, role: e.target.value }))} className={inputCls} />
                       <button onClick={handleAddContact} className="rounded-lg bg-[var(--color-primary)] text-white text-xs font-semibold py-2 hover:opacity-90">Ajouter</button>
                     </div>
                   )}
@@ -270,8 +270,8 @@ export default function ClientsPage() {
                       {selected.contacts.map(c => (
                         <div key={c.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{c.prenom} {c.nom}{c.role ? ` \u2014 ${c.role}` : ''}</p>
-                            <p className="text-xs text-gray-500">{c.email ?? ''}{c.telephone ? ` \u00B7 ${c.telephone}` : ''}</p>
+                            <p className="text-sm font-medium text-gray-900">{c.prenom} {c.nom}{c.role ? ` — ${c.role}` : ''}</p>
+                            <p className="text-xs text-gray-500">{c.email ?? ''}{c.telephone ? ` · ${c.telephone}` : ''}</p>
                           </div>
                           <button onClick={async () => { await deleteContact(c.id); await reload(); }} className="text-xs text-red-400 hover:text-red-600">&times;</button>
                         </div>
@@ -300,7 +300,7 @@ export default function ClientsPage() {
                       </select>
                       <input type="date" value={rappelForm.dateEcheance} onChange={e => setRappelForm(f => ({ ...f, dateEcheance: e.target.value }))} className={inputCls} />
                       <input placeholder="Description *" value={rappelForm.description} onChange={e => setRappelForm(f => ({ ...f, description: e.target.value }))} className={`col-span-2 ${inputCls}`} />
-                      <button onClick={handleAddRappel} className="col-span-2 rounded-lg bg-[var(--color-primary)] text-white text-xs font-semibold py-2 hover:opacity-90">Cr\u00e9er le rappel</button>
+                      <button onClick={handleAddRappel} className="col-span-2 rounded-lg bg-[var(--color-primary)] text-white text-xs font-semibold py-2 hover:opacity-90">Créer le rappel</button>
                     </div>
                   )}
                   {selected.rappels.length === 0 ? <p className="text-xs text-gray-400">Aucun rappel.</p> : (
@@ -332,12 +332,12 @@ export default function ClientsPage() {
 
                 {/* Section 4 — Séjours */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">S\u00e9jours li\u00e9s ({selected.sejours.length})</h3>
-                  {selected.sejours.length === 0 ? <p className="text-xs text-gray-400">Aucun s\u00e9jour li\u00e9.</p> : (
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Séjours liés ({selected.sejours.length})</h3>
+                  {selected.sejours.length === 0 ? <p className="text-xs text-gray-400">Aucun séjour lié.</p> : (
                     <div className="space-y-2">
                       {selected.sejours.map(sc => (
                         <div key={sc.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                          <p className="text-xs text-gray-600">S\u00e9jour {sc.sejourId.substring(0, 8)}...</p>
+                          <p className="text-xs text-gray-600">Séjour {sc.sejourId.substring(0, 8)}...</p>
                           <Link href={`/dashboard/sejour/${sc.sejourId}`} className="text-xs text-[var(--color-primary)] hover:underline">Espace collab &rarr;</Link>
                         </div>
                       ))}
@@ -370,13 +370,13 @@ export default function ClientsPage() {
                 <input placeholder="UAI" value={newForm.uai} onChange={e => setNewForm(f => ({ ...f, uai: e.target.value }))} className={inputCls} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="T\u00e9l\u00e9phone" value={newForm.telephone} onChange={e => setNewForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
+                <input placeholder="Téléphone" value={newForm.telephone} onChange={e => setNewForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
                 <input placeholder="Email" value={newForm.email} onChange={e => setNewForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
               </div>
               <textarea placeholder="Notes" value={newForm.notes} onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={handleCreateClient} disabled={saving || !newForm.nom} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">Cr\u00e9er</button>
+              <button onClick={handleCreateClient} disabled={saving || !newForm.nom} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">Créer</button>
               <button onClick={() => setShowNewClient(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
           </div>
@@ -388,14 +388,14 @@ export default function ClientsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImport(false)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-gray-900 mb-4">Importer des prospects</h2>
-            <p className="text-sm text-gray-500 mb-4">Import depuis l&apos;annuaire de l&apos;\u00c9ducation Nationale par acad\u00e9mie.</p>
+            <p className="text-sm text-gray-500 mb-4">Import depuis l&apos;annuaire de l&apos;Éducation Nationale par académie.</p>
             <div className="space-y-3">
               <select value={importAcademie} onChange={e => setImportAcademie(e.target.value)} className={inputCls}>
-                <option value="">S\u00e9lectionner une acad\u00e9mie</option>
+                <option value="">Sélectionner une académie</option>
                 {ACADEMIES.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               <div className="flex flex-wrap gap-2">
-                {['Coll\u00e8ge', 'Lyc\u00e9e', '\u00c9cole'].map(t => (
+                {['Collège', 'Lycée', 'École'].map(t => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={importTypes.includes(t)} onChange={e => setImportTypes(prev => e.target.checked ? [...prev, t] : prev.filter(x => x !== t))} className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]" />
                     <span className="text-sm text-gray-700">{t}</span>
@@ -405,7 +405,7 @@ export default function ClientsPage() {
             </div>
             {importResult && (
               <div className="mt-3 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3 text-sm text-[var(--color-success)]">
-                {importResult.imported} \u00e9tablissement{importResult.imported > 1 ? 's' : ''} import\u00e9{importResult.imported > 1 ? 's' : ''}, {importResult.skipped} d\u00e9j\u00e0 pr\u00e9sent{importResult.skipped > 1 ? 's' : ''}
+                {importResult.imported} établissement{importResult.imported > 1 ? 's' : ''} importé{importResult.imported > 1 ? 's' : ''}, {importResult.skipped} déjà présent{importResult.skipped > 1 ? 's' : ''}
               </div>
             )}
             <div className="flex gap-3 mt-4">
