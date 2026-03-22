@@ -339,17 +339,23 @@ export default function VenuePlanningPage() {
                     ))}
 
                     {/* Activités par séjour */}
-                    {sejoursJour.map(s => {
+                    {sejoursJour.map((s, sejourIdx) => {
                       const c = couleurBySejour[s.id];
                       const acts = activitesForDay(s.id, ds);
+                      const total = sejoursJour.length;
+                      const colWidth = 100 / total;
+                      const colLeft = sejourIdx * colWidth;
+
                       return acts.map(a => (
                         <div
                           key={a.id}
-                          className="absolute left-0.5 right-0.5 rounded px-1 py-0.5 overflow-hidden z-20 text-xs leading-tight cursor-pointer hover:opacity-90 transition-opacity"
+                          className="absolute rounded px-1 py-0.5 overflow-hidden z-20 text-xs leading-tight cursor-pointer hover:opacity-90 transition-opacity"
                           title={`Accéder à l'espace collaboratif — ${s.titre}`}
                           style={{
                             top: topPx(a.heureDebut),
                             height: heightPx(a.heureDebut, a.heureFin),
+                            left: `calc(${colLeft}% + 1px)`,
+                            width: `calc(${colWidth}% - 2px)`,
                             backgroundColor: c.bg,
                             color: c.text,
                           }}
