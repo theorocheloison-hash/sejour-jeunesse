@@ -87,6 +87,9 @@ export interface Participant {
   telephoneUrgence?: string | null;
   attestationAssuranceUrl?: string | null;
   eleveDateNaissance?: string | null;
+  moyenPaiement?: string | null;
+  paiementValide?: boolean;
+  datePaiement?: string | null;
   createdAt: string;
 }
 

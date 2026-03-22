@@ -49,6 +49,7 @@ import {
   type AccompagnateurMission,
 } from '@/src/lib/accompagnateur';
 import { getDossierPedagogique } from '@/src/lib/sejour';
+import { validerPaiement } from '@/src/lib/autorisation';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
@@ -1122,6 +1123,7 @@ export default function CollaborationPage() {
                         <th className="text-left py-3 px-3 font-semibold text-gray-700">Ski</th>
                       )}
                       <th className="text-center py-3 px-3 font-semibold text-gray-700">Médical</th>
+                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1169,6 +1171,37 @@ export default function CollaborationPage() {
                             </span>
                           ) : (
                             <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          {p.paiementValide ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+                              Payé
+                            </span>
+                          ) : p.moyenPaiement ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                {p.moyenPaiement === 'VIREMENT' ? 'Virement' :
+                                 p.moyenPaiement === 'PRELEVEMENT' ? 'Prélèvement' :
+                                 p.moyenPaiement === 'CB' ? 'CB' :
+                                 p.moyenPaiement === 'CHEQUE' ? 'Chèque' :
+                                 p.moyenPaiement === 'ESPECES' ? 'Espèces' :
+                                 p.moyenPaiement}
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await validerPaiement(p.id);
+                                    await loadParticipants();
+                                  } catch { /* ignore */ }
+                                }}
+                                className="text-xs text-[var(--color-primary)] hover:underline font-medium"
+                              >
+                                Valider
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
                           )}
                         </td>
                       </tr>
