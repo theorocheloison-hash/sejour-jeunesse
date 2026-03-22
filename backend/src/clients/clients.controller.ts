@@ -15,21 +15,44 @@ import { CreateRappelDto } from './dto/create-rappel.dto.js';
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
-  @Get() getMesClients(@CurrentUser() u: JwtUser) { return this.service.getMesClients(u.id); }
-  @Get(':id') getClient(@Param('id') id: string, @CurrentUser() u: JwtUser) { return this.service.getClient(id, u.id); }
-  @Post() createClient(@Body() dto: CreateClientDto, @CurrentUser() u: JwtUser) { return this.service.createClient(dto, u.id); }
-  @Patch(':id') updateClient(@Param('id') id: string, @Body() dto: Partial<CreateClientDto>, @CurrentUser() u: JwtUser) { return this.service.updateClient(id, dto, u.id); }
-  @Delete(':id') deleteClient(@Param('id') id: string, @CurrentUser() u: JwtUser) { return this.service.deleteClient(id, u.id); }
+  // ── Routes statiques en premier ──────────────────────────────────────────
+  @Get()
+  getMesClients(@CurrentUser() u: JwtUser) { return this.service.getMesClients(u.id); }
 
-  @Post(':id/contacts') addContact(@Param('id') cid: string, @Body() dto: CreateContactDto, @CurrentUser() u: JwtUser) { return this.service.addContact(cid, dto, u.id); }
-  @Patch('contacts/:cid') updateContact(@Param('cid') cid: string, @Body() dto: Partial<CreateContactDto>, @CurrentUser() u: JwtUser) { return this.service.updateContact(cid, dto, u.id); }
-  @Delete('contacts/:cid') deleteContact(@Param('cid') cid: string, @CurrentUser() u: JwtUser) { return this.service.deleteContact(cid, u.id); }
+  @Post()
+  createClient(@Body() dto: CreateClientDto, @CurrentUser() u: JwtUser) { return this.service.createClient(dto, u.id); }
 
-  @Post(':id/rappels') addRappel(@Param('id') cid: string, @Body() dto: CreateRappelDto, @CurrentUser() u: JwtUser) { return this.service.addRappel(cid, dto, u.id); }
-  @Patch('rappels/:rid/statut') updateRappelStatut(@Param('rid') rid: string, @Body() body: { statut: string }, @CurrentUser() u: JwtUser) { return this.service.updateRappelStatut(rid, body.statut, u.id); }
-  @Delete('rappels/:rid') deleteRappel(@Param('rid') rid: string, @CurrentUser() u: JwtUser) { return this.service.deleteRappel(rid, u.id); }
+  @Post('import/prospects')
+  importerProspects(@Body() body: { academie: string; types: string[] }, @CurrentUser() u: JwtUser) { return this.service.importerProspects(body.academie, body.types ?? [], u.id); }
 
-  @Post(':id/sejours/:sejourId') rattacherSejour(@Param('id') cid: string, @Param('sejourId') sid: string, @CurrentUser() u: JwtUser) { return this.service.rattacherSejour(cid, sid, u.id); }
+  @Patch('contacts/:cid')
+  updateContact(@Param('cid') cid: string, @Body() dto: Partial<CreateContactDto>, @CurrentUser() u: JwtUser) { return this.service.updateContact(cid, dto, u.id); }
 
-  @Post('import/prospects') importerProspects(@Body() body: { academie: string; types: string[] }, @CurrentUser() u: JwtUser) { return this.service.importerProspects(body.academie, body.types ?? [], u.id); }
+  @Delete('contacts/:cid')
+  deleteContact(@Param('cid') cid: string, @CurrentUser() u: JwtUser) { return this.service.deleteContact(cid, u.id); }
+
+  @Patch('rappels/:rid/statut')
+  updateRappelStatut(@Param('rid') rid: string, @Body() body: { statut: string }, @CurrentUser() u: JwtUser) { return this.service.updateRappelStatut(rid, body.statut, u.id); }
+
+  @Delete('rappels/:rid')
+  deleteRappel(@Param('rid') rid: string, @CurrentUser() u: JwtUser) { return this.service.deleteRappel(rid, u.id); }
+
+  // ── Routes paramétrées :id en dernier ────────────────────────────────────
+  @Get(':id')
+  getClient(@Param('id') id: string, @CurrentUser() u: JwtUser) { return this.service.getClient(id, u.id); }
+
+  @Patch(':id')
+  updateClient(@Param('id') id: string, @Body() dto: Partial<CreateClientDto>, @CurrentUser() u: JwtUser) { return this.service.updateClient(id, dto, u.id); }
+
+  @Delete(':id')
+  deleteClient(@Param('id') id: string, @CurrentUser() u: JwtUser) { return this.service.deleteClient(id, u.id); }
+
+  @Post(':id/contacts')
+  addContact(@Param('id') cid: string, @Body() dto: CreateContactDto, @CurrentUser() u: JwtUser) { return this.service.addContact(cid, dto, u.id); }
+
+  @Post(':id/rappels')
+  addRappel(@Param('id') cid: string, @Body() dto: CreateRappelDto, @CurrentUser() u: JwtUser) { return this.service.addRappel(cid, dto, u.id); }
+
+  @Post(':id/sejours/:sejourId')
+  rattacherSejour(@Param('id') cid: string, @Param('sejourId') sid: string, @CurrentUser() u: JwtUser) { return this.service.rattacherSejour(cid, sid, u.id); }
 }
