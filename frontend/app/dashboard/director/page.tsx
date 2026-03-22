@@ -1286,13 +1286,15 @@ export default function DirectorDashboard() {
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleChorusXml(f.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                      Voir XML Chorus
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleChorusXml(f.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                      >
+                        Envoyer à Chorus Pro
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
