@@ -8,6 +8,8 @@ import { getMesDemandes } from '@/src/lib/demande';
 import { getComparatif, updateDevisStatut } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
+import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
@@ -58,6 +60,52 @@ export default function OffresPage() {
       }
     } catch { /* ignore */ }
     setUpdatingId(null);
+  };
+
+  const buildPdfProps = (d: Devis): DevisPDFProps => {
+    const ens = d.demande?.enseignant;
+    const sejour = d.demande?.sejour;
+    const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
+    const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
+    const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
+    return {
+      typeDocument: 'DEVIS',
+      numeroDocument: d.numeroDevis ?? `DEV-${d.id.substring(0, 8).toUpperCase()}`,
+      dateDocument: d.createdAt,
+      nomEmetteur: d.nomEntreprise ?? d.centre?.nom ?? '',
+      adresseEmetteur: d.adresseEntreprise ?? [d.centre?.adresse, d.centre?.codePostal, d.centre?.ville].filter(Boolean).join(', '),
+      siretEmetteur: d.siretEntreprise ?? d.centre?.siret ?? undefined,
+      emailEmetteur: d.emailEntreprise ?? d.centre?.email ?? undefined,
+      telEmetteur: d.telEntreprise ?? d.centre?.telephone ?? undefined,
+      tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
+      ibanEmetteur: d.centre?.iban ?? undefined,
+      nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
+      etablissementNom: ens?.etablissementNom ?? undefined,
+      adresseDestinataire: ens?.etablissementAdresse ?? undefined,
+      emailDestinataire: ens?.email ?? undefined,
+      telDestinataire: ens?.telephone ?? undefined,
+      titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
+      lieuSejour: d.demande?.villeHebergement,
+      dateDebutSejour: sejour?.dateDebut ?? undefined,
+      dateFinSejour: sejour?.dateFin ?? undefined,
+      nombreEleves: d.demande?.nombreEleves,
+      niveauClasse: sejour?.niveauClasse ?? undefined,
+      lignes: (d.lignes ?? []).map(l => ({
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva,
+        totalHT: l.totalHT,
+        totalTTC: l.totalTTC,
+      })),
+      montantHT: htCalc,
+      montantTVA: tvaCalc,
+      montantTTC: ttcCalc,
+      montantAcompte: d.montantAcompte != null ? Number(d.montantAcompte) : undefined,
+      pourcentageAcompte: d.pourcentageAcompte ?? undefined,
+      conditionsAnnulation: d.conditionsAnnulation ?? undefined,
+      dateValidite: new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
+    };
   };
 
   if (isLoading || !user) return null;
@@ -232,6 +280,11 @@ export default function OffresPage() {
                 )}
               </div>
               <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
+                <DevisPDFButton
+                  data={buildPdfProps(selectedDevis)}
+                  filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
+                  label="Télécharger le devis PDF"
+                />
                 {selectedDevis.statut === 'EN_ATTENTE' && (
                   <button
                     onClick={async () => {
