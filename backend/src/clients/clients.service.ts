@@ -153,7 +153,14 @@ export class ClientsService {
     const FIELDS = 'identifiant_de_l_etablissement,nom_etablissement,type_etablissement,adresse_1,code_postal,nom_commune,mail,telephone,libelle_academie';
     const whereParts = [`libelle_academie="${academie}"`];
     if (typesEtablissement.length > 0) {
-      const typeFilter = typesEtablissement.map(t => `type_etablissement="${t}"`).join(' OR ');
+      // Normaliser : 'École'/'Ecole élémentaire'/etc. → 'Ecole' (valeur réelle dans l'API)
+      const normalize = (t: string) => {
+        const lower = t.toLowerCase().replace(/[éèê]/g, 'e');
+        if (lower.startsWith('ecole') || lower.startsWith('école')) return 'Ecole';
+        return t;
+      };
+      const normalized = [...new Set(typesEtablissement.map(normalize))];
+      const typeFilter = normalized.map(t => `type_etablissement="${t}"`).join(' OR ');
       whereParts.push(`(${typeFilter})`);
     }
     const controller = new AbortController();
@@ -193,7 +200,7 @@ export class ClientsService {
           nom: r.nom_etablissement as string,
           type: typeEtab === 'Collège' ? 'COLLEGE'
               : typeEtab === 'Lycée' ? 'LYCEE'
-              : (typeEtab === 'Ecole élémentaire' || typeEtab === 'Ecole maternelle' || typeEtab === 'Ecole primaire') ? 'ECOLE'
+              : typeEtab === 'Ecole' ? 'ECOLE'
               : 'ETABLISSEMENT_SCOLAIRE',
           adresse: (r.adresse_1 as string) ?? undefined,
           ville: (r.nom_commune as string) ?? undefined,
