@@ -643,10 +643,23 @@ export default function ClientsPage() {
                 {ACADEMIES.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               <div className="flex flex-wrap gap-2">
-                {['Collège', 'Lycée', 'École'].map(t => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={importTypes.includes(t)} onChange={e => setImportTypes(prev => e.target.checked ? [...prev, t] : prev.filter(x => x !== t))} className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]" />
-                    <span className="text-sm text-gray-700">{t}</span>
+                {[
+                  { label: 'Collège', values: ['Collège'] },
+                  { label: 'Lycée', values: ['Lycée'] },
+                  { label: 'École', values: ['Ecole élémentaire', 'Ecole maternelle', 'Ecole primaire'] },
+                ].map(({ label, values }) => (
+                  <label key={label} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={values.every(v => importTypes.includes(v))}
+                      onChange={e => setImportTypes(prev =>
+                        e.target.checked
+                          ? [...new Set([...prev, ...values])]
+                          : prev.filter(x => !values.includes(x))
+                      )}
+                      className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
+                    />
+                    <span className="text-sm text-gray-700">{label}</span>
                   </label>
                 ))}
               </div>

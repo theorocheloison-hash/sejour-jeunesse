@@ -185,7 +185,10 @@ export class ClientsService {
         data: {
           centreId,
           nom: r.nom_etablissement as string,
-          type: typeEtab === 'Collège' ? 'COLLEGE' : typeEtab === 'Lycée' ? 'LYCEE' : typeEtab === 'École' ? 'ECOLE' : 'ETABLISSEMENT_SCOLAIRE',
+          type: typeEtab === 'Collège' ? 'COLLEGE'
+              : typeEtab === 'Lycée' ? 'LYCEE'
+              : (typeEtab === 'Ecole élémentaire' || typeEtab === 'Ecole maternelle' || typeEtab === 'Ecole primaire') ? 'ECOLE'
+              : 'ETABLISSEMENT_SCOLAIRE',
           adresse: (r.adresse_1 as string) ?? undefined,
           ville: (r.nom_commune as string) ?? undefined,
           codePostal: (r.code_postal as string) ?? undefined,
