@@ -150,7 +150,7 @@ export default function ClientsPage() {
     setCsvResult(null);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+      const text = (ev.target?.result as string).replace(/^\uFEFF/, '');
       const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
       if (lines.length < 2) return;
       const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
