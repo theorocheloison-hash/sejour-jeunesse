@@ -534,7 +534,7 @@ export default function CollaborationPage() {
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
-            {TABS.filter((t) => t.key !== 'projet' || user.role === 'TEACHER').map((t) => (
+            {TABS.filter((t) => (t.key !== 'projet' || user.role === 'TEACHER') && (t.key !== 'budget' || user.role === 'TEACHER' || user.role === 'DIRECTOR')).map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
