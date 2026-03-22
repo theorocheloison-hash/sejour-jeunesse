@@ -158,10 +158,22 @@ export class ClientsService {
     }
     const url = `${API_BASE}?select=${FIELDS}&where=${encodeURIComponent(whereParts.join(' AND '))}&limit=100&order_by=nom_etablissement`;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`API EN: ${res.status}`);
-    const data = await res.json();
-    const results = (data.results ?? []) as Array<Record<string, string | number | null>>;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let results: Array<Record<string, string | number | null>> = [];
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`API EN: ${res.status}`);
+      const data = await res.json() as { results?: Array<Record<string, string | number | null>> };
+      results = data.results ?? [];
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error('Import annulé : l\'API Éducation Nationale n\'a pas répondu dans les 10 secondes');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     let imported = 0;
     let skipped = 0;
