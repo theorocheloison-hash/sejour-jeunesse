@@ -129,3 +129,40 @@ export async function importerClientsCSV(
   );
   return data;
 }
+
+export function downloadTemplateContacts(): void {
+  const header = ['Établissement', 'Prénom', 'Nom', 'Email', 'Téléphone', 'Rôle'];
+  const exemples = [
+    ['Collège Victor Hugo', 'Marie', 'DUPONT', 'marie.dupont@college-hugo.fr', '06 12 34 56 78', 'Enseignante référente'],
+    ['Collège Victor Hugo', 'Jean', 'MARTIN', 'jean.martin@college-hugo.fr', '', 'Directeur'],
+    ['CE Airbus', 'Sophie', 'LAMBERT', 'sophie.lambert@airbus.fr', '06 99 88 77 66', 'Responsable CE'],
+    ['Camilla MURRAY', 'Camilla', 'MURRAY', 'camilla.murray92@gmail.com', '06 11 22 33 44', 'Particulier'],
+  ];
+  const notice = [
+    [''],
+    ['--- IMPORTANT ---', '', '', '', '', ''],
+    ['Établissement:', 'Doit correspondre exactement au nom du client dans LIAVO', '', '', '', ''],
+    ['Prénom + Nom:', 'Au moins l\'un des deux est obligatoire', '', '', '', ''],
+    ['Email:', 'Utilisé pour éviter les doublons', '', '', '', ''],
+    ['Rôle:', 'Libre — ex: Enseignant, Directeur, Responsable CE, Particulier', '', '', '', ''],
+  ];
+  const rows = [header, ...exemples, ...notice];
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'liavo_contacts_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importerContactsCSV(
+  lignes: Array<Record<string, string>>
+): Promise<{ imported: number; skipped: number; clientNotFound: number; total: number }> {
+  const { data } = await api.post<{ imported: number; skipped: number; clientNotFound: number; total: number }>(
+    '/clients/import/contacts',
+    { lignes }
+  );
+  return data;
+}

@@ -28,6 +28,9 @@ export class ClientsController {
   @Post('import/csv')
   importerDepuisCSV(@Body() body: { lignes: Array<Record<string, string>> }, @CurrentUser() u: JwtUser) { return this.service.importerDepuisCSV(body.lignes, u.id); }
 
+  @Post('import/contacts')
+  importerContactsCSV(@Body() body: { lignes: Array<Record<string, string>> }, @CurrentUser() u: JwtUser) { return this.service.importerContactsCSV(body.lignes, u.id); }
+
   @Patch('contacts/:cid')
   updateContact(@Param('cid') cid: string, @Body() dto: Partial<CreateContactDto>, @CurrentUser() u: JwtUser) { return this.service.updateContact(cid, dto, u.id); }
 

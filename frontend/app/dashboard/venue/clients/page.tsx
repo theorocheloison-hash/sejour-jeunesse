@@ -7,7 +7,7 @@ import {
   getMesClients, createClient, updateClient, deleteClient,
   addContact, deleteContact,
   addRappel, updateRappelStatut, deleteRappel,
-  importerProspects, downloadTemplateClients, importerClientsCSV,
+  importerProspects, downloadTemplateClients, importerClientsCSV, downloadTemplateContacts, importerContactsCSV,
   STATUT_CLIENT_LABELS, TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
 import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
@@ -50,6 +50,12 @@ export default function ClientsPage() {
   const [csvPreview, setCsvPreview] = useState<Array<Record<string, string>>>([]);
   const [csvImporting, setCSVImporting] = useState(false);
   const [csvResult, setCsvResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  // Contacts CSV import
+  const [showImportContacts, setShowImportContacts] = useState(false);
+  const [contactsCSVPreview, setContactsCSVPreview] = useState<Array<Record<string, string>>>([]);
+  const [contactsImporting, setContactsImporting] = useState(false);
+  const [contactsResult, setContactsResult] = useState<{ imported: number; skipped: number; clientNotFound: number } | null>(null);
 
   useEffect(() => {
     if (!isLoading && user?.role === 'VENUE') {
@@ -172,6 +178,49 @@ export default function ClientsPage() {
     setCSVImporting(false);
   };
 
+  const CONTACT_COL_MAP: Record<string, string> = {
+    'Établissement': 'etablissement', 'Etablissement': 'etablissement',
+    'Prénom': 'prenom', 'Prenom': 'prenom',
+    'Nom': 'nom', 'Email': 'email',
+    'Téléphone': 'telephone', 'Telephone': 'telephone',
+    'Rôle': 'role', 'Role': 'role',
+  };
+
+  const handleContactsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setContactsResult(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string).replace(/^\uFEFF/, '');
+      const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
+      if (lines.length < 2) return;
+      const rawHeaders = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+      const normalizedHeaders = rawHeaders.map(h => CONTACT_COL_MAP[h] ?? h.toLowerCase());
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const obj: Record<string, string> = {};
+        normalizedHeaders.forEach((h, i) => { obj[h] = cols[i] ?? ''; });
+        return obj;
+      }).filter(r => r['etablissement']?.trim() && (r['prenom']?.trim() || r['nom']?.trim()));
+      setContactsCSVPreview(rows);
+      setShowImportContacts(true);
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+  };
+
+  const handleConfirmContactsImport = async () => {
+    setContactsImporting(true);
+    try {
+      const result = await importerContactsCSV(contactsCSVPreview);
+      setContactsResult({ imported: result.imported, skipped: result.skipped, clientNotFound: result.clientNotFound });
+      setContactsCSVPreview([]);
+      await getMesClients().then(setClients);
+    } catch { /* ignore */ }
+    setContactsImporting(false);
+  };
+
   if (isLoading || !user) return null;
 
   const clientCount = clients.filter(c => c.statut === 'CLIENT').length;
@@ -198,6 +247,19 @@ export default function ClientsPage() {
             </svg>
             Importer CSV
             <input type="file" accept=".csv" className="hidden" onChange={handleCSVFileUpload} />
+          </label>
+          <button onClick={downloadTemplateContacts} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+            </svg>
+            Modèle contacts
+          </button>
+          <label className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Importer contacts
+            <input type="file" accept=".csv" className="hidden" onChange={handleContactsFileUpload} />
           </label>
           <button onClick={() => setShowImport(true)} className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
             Importer prospects EN
@@ -437,6 +499,76 @@ export default function ClientsPage() {
       )}
 
       {/* Modale import prospects */}
+      {/* Modale prévisualisation contacts CSV */}
+      {showImportContacts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImportContacts(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-sm font-semibold text-gray-900">
+                Aperçu import contacts — {contactsCSVPreview.length} contact{contactsCSVPreview.length > 1 ? 's' : ''} détecté{contactsCSVPreview.length > 1 ? 's' : ''}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Les contacts dont l&apos;établissement est introuvable dans LIAVO seront ignorés. Importez d&apos;abord les clients si nécessaire.
+              </p>
+            </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-1.5 font-medium text-gray-600 max-w-[140px]">Établissement</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Prénom</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Nom</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Email</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Téléphone</th>
+                    <th className="text-left py-1.5 font-medium text-gray-600">Rôle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contactsCSVPreview.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-50">
+                      <td className="py-1.5 font-medium text-gray-900 max-w-[140px] truncate">{r['etablissement']}</td>
+                      <td className="py-1.5 text-gray-700">{r['prenom'] || '—'}</td>
+                      <td className="py-1.5 text-gray-700">{r['nom'] || '—'}</td>
+                      <td className="py-1.5 text-gray-500 max-w-[140px] truncate">{r['email'] || '—'}</td>
+                      <td className="py-1.5 text-gray-500">{r['telephone'] || '—'}</td>
+                      <td className="py-1.5 text-gray-400">{r['role'] || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {contactsResult && (
+              <div className="px-6 py-2 border-t border-gray-200 bg-[var(--color-success-light)]">
+                <p className="text-xs font-medium text-[var(--color-success)]">
+                  {contactsResult.imported} contact{contactsResult.imported > 1 ? 's' : ''} importé{contactsResult.imported > 1 ? 's' : ''}
+                  {contactsResult.skipped > 0 && `, ${contactsResult.skipped} doublon${contactsResult.skipped > 1 ? 's' : ''} ignoré${contactsResult.skipped > 1 ? 's' : ''}`}
+                </p>
+                {contactsResult.clientNotFound > 0 && (
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    {contactsResult.clientNotFound} établissement{contactsResult.clientNotFound > 1 ? 's' : ''} introuvable{contactsResult.clientNotFound > 1 ? 's' : ''} — importez d&apos;abord les clients correspondants
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={handleConfirmContactsImport}
+                disabled={contactsImporting || contactsCSVPreview.length === 0}
+                className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {contactsImporting ? 'Import en cours...' : `Confirmer l'import (${contactsCSVPreview.length} contacts)`}
+              </button>
+              <button
+                onClick={() => { setShowImportContacts(false); setContactsCSVPreview([]); setContactsResult(null); }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modale prévisualisation CSV */}
       {showImportCSV && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImportCSV(false)}>

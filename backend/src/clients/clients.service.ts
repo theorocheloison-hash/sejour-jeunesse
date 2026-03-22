@@ -239,4 +239,51 @@ export class ClientsService {
     }
     return { imported, skipped, total: lignes.length };
   }
+
+  async importerContactsCSV(
+    lignes: Array<Record<string, string>>,
+    userId: string,
+  ): Promise<{ imported: number; skipped: number; clientNotFound: number; total: number }> {
+    const centreId = await this.getCentreId(userId);
+    let imported = 0;
+    let skipped = 0;
+    let clientNotFound = 0;
+
+    for (const ligne of lignes) {
+      const etablissement = ligne['etablissement']?.trim();
+      const prenom = ligne['prenom']?.trim() ?? '';
+      const nom = ligne['nom']?.trim() ?? '';
+      const email = ligne['email']?.trim() ?? '';
+      const telephone = ligne['telephone']?.trim() ?? '';
+      const role = ligne['role']?.trim() ?? '';
+
+      if (!etablissement || (!prenom && !nom)) continue;
+
+      const client = await this.prisma.client.findFirst({
+        where: { centreId, nom: etablissement },
+      });
+
+      if (!client) { clientNotFound++; continue; }
+
+      const existing = email
+        ? await this.prisma.contactClient.findFirst({ where: { clientId: client.id, email } })
+        : await this.prisma.contactClient.findFirst({ where: { clientId: client.id, prenom, nom } });
+
+      if (existing) { skipped++; continue; }
+
+      await this.prisma.contactClient.create({
+        data: {
+          clientId: client.id,
+          prenom,
+          nom,
+          email: email || undefined,
+          telephone: telephone || undefined,
+          role: role || undefined,
+        },
+      });
+      imported++;
+    }
+
+    return { imported, skipped, clientNotFound, total: lignes.length };
+  }
 }
