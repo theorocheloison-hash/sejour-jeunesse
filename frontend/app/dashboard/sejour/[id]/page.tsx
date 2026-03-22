@@ -590,6 +590,7 @@ export default function CollaborationPage() {
               const createur = s?.createur;
               const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               const dateDevis = new Date(d.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+              const isPdfDevis = !!d.documentUrl;
 
               // Récapitulatif TVA par taux
               const tvaByRate = d.lignes.reduce<Record<number, { ht: number; tva: number }>>((acc, l) => {
@@ -652,7 +653,27 @@ export default function CollaborationPage() {
                   </div>
 
                   {/* Tableau des lignes */}
-                  {d.lignes.length > 0 && (
+                  {isPdfDevis ? (
+                    <div className="rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <p className="text-sm font-medium text-gray-700">Document PDF original</p>
+                        <a
+                          href={d.documentUrl!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                        >
+                          Ouvrir en plein écran
+                        </a>
+                      </div>
+                      <iframe
+                        src={d.documentUrl!}
+                        className="w-full"
+                        style={{ height: '600px' }}
+                        title="Devis PDF"
+                      />
+                    </div>
+                  ) : d.lignes.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm border-collapse">
                         <thead>
@@ -679,7 +700,7 @@ export default function CollaborationPage() {
                         </tbody>
                       </table>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Récapitulatif TVA + totaux */}
                   <div className="flex justify-end">

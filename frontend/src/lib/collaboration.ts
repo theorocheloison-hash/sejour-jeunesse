@@ -216,6 +216,7 @@ export interface DevisBudget {
     telephone: string | null;
     email: string | null;
   } | null;
+  documentUrl?: string | null;
   lignes: LigneDevisBudget[];
 }
 
