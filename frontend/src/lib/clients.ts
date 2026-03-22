@@ -18,6 +18,7 @@ export const TYPE_CLIENT_LABELS: Record<string, string> = {
   COLONIE: 'Colonie de vacances',
   CE: 'Comit\u00e9 d\'entreprise',
   ASSOCIATION: 'Association',
+  PARTICULIER: 'Particulier',
   AUTRE: 'Autre',
 };
 
