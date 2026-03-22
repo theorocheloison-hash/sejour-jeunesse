@@ -248,7 +248,20 @@ export default function VenueDashboard() {
           );
 
           const hasAny = sejoursLastWeek.length > 0 || sejoursCurrent.length > 0 || sejoursNextWeek.length > 0;
-          if (!hasAny) return null;
+          if (!hasAny) return (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">S&eacute;jours</h2>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Aucun s&eacute;jour cette semaine.
+                  {sejoursConvention.length > 0 && ` ${sejoursConvention.length} s\u00e9jour${sejoursConvention.length > 1 ? 's' : ''} \u00e0 venir.`}
+                </p>
+                <Link href="/dashboard/venue/planning" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
+                  Voir le planning &rarr;
+                </Link>
+              </div>
+            </div>
+          );
 
           return (
             <div>
