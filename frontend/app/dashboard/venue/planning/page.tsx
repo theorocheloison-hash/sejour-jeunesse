@@ -345,14 +345,15 @@ export default function VenuePlanningPage() {
                       return acts.map(a => (
                         <div
                           key={a.id}
-                          className="absolute left-0.5 right-0.5 rounded px-1 py-0.5 overflow-hidden z-20 text-xs leading-tight"
+                          className="absolute left-0.5 right-0.5 rounded px-1 py-0.5 overflow-hidden z-20 text-xs leading-tight cursor-pointer hover:opacity-90 transition-opacity"
+                          title={`Accéder à l'espace collaboratif — ${s.titre}`}
                           style={{
                             top: topPx(a.heureDebut),
                             height: heightPx(a.heureDebut, a.heureFin),
                             backgroundColor: c.bg,
                             color: c.text,
                           }}
-                          onClick={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); window.location.href = `/dashboard/sejour/${s.id}`; }}
                         >
                           <p className="font-semibold truncate">{a.titre}</p>
                           <p className="opacity-80">{a.heureDebut} - {a.heureFin}</p>
