@@ -571,7 +571,7 @@ function SejourDetailModal({
               </button>
             </>
           )}
-          {(detail.statut === 'CONVENTION' || detail.statut === 'APPROVED') && (
+          {(detail.statut === 'CONVENTION' || detail.statut === 'APPROVED' || detail.statut === 'SIGNE_DIRECTION') && (
             emailRectoratConfigured ? (
               <button
                 type="button"
@@ -1092,11 +1092,11 @@ export default function DirectorDashboard() {
         {/* Filtres / compteurs */}
         <div className="flex flex-wrap gap-2 mb-6">
           {([
-            ['ALL',       'Tous',         sejours.length,             'bg-gray-100 text-gray-700 ring-gray-300'],
-            ['REJECTED',  'Refusés',      countByStatut('REJECTED'),  'bg-red-50 text-red-700 ring-red-300'],
-            ['CONVENTION','Convention',    countByStatut('CONVENTION'),'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
-            ['SOUMIS_RECTORAT','Rectorat', countByStatut('SOUMIS_RECTORAT'),'bg-purple-50 text-purple-700 ring-purple-300'],
-            ['SIGNE_DIRECTION','Signé direction', countByStatut('SIGNE_DIRECTION'),'bg-purple-50 text-purple-700 ring-purple-300'],
+            ['ALL',              'Tous',            sejours.length,                      'bg-gray-100 text-gray-700 ring-gray-300'],
+            ['REJECTED',         'Refusés',         countByStatut('REJECTED'),           'bg-red-50 text-red-700 ring-red-300'],
+            ['CONVENTION',       'Convention',      countByStatut('CONVENTION'),         'bg-[var(--color-primary-light)] text-[var(--color-primary)] ring-[var(--color-border-strong)]'],
+            ['SIGNE_DIRECTION',  'Signé direction', countByStatut('SIGNE_DIRECTION'),    'bg-purple-50 text-purple-700 ring-purple-300'],
+            ['SOUMIS_RECTORAT',  'Rectorat',        countByStatut('SOUMIS_RECTORAT'),    'bg-purple-50 text-purple-700 ring-purple-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
               key={val}
