@@ -28,6 +28,7 @@ export default function OffresPage() {
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [selectedDevis, setSelectedDevis] = useState<Devis | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'TEACHER')) router.push('/login');
@@ -103,7 +104,7 @@ export default function OffresPage() {
                 {devisList.map((d) => {
                   const badge = STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE;
                   return (
-                    <tr key={d.id} className="hover:bg-gray-50">
+                    <tr key={d.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedDevis(d)}>
                       <td className="px-4 py-3 font-medium text-gray-900">{d.centre?.nom ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{d.centre?.ville ?? '—'}</td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">{d.montantTotal} €</td>
@@ -137,11 +138,11 @@ export default function OffresPage() {
                         <div className="flex items-center justify-center gap-1.5">
                           {d.statut === 'EN_ATTENTE' && (
                             <button
-                              onClick={() => handleStatut(d.id, 'EN_ATTENTE_VALIDATION')}
+                              onClick={(e) => { e.stopPropagation(); handleStatut(d.id, 'SELECTIONNE'); }}
                               disabled={updatingId === d.id}
-                              className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                              className="rounded-lg bg-[var(--color-success)] px-2 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                             >
-                              Soumettre
+                              Sélectionner
                             </button>
                           )}
                         </div>
@@ -151,6 +152,103 @@ export default function OffresPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Modale détail devis */}
+        {selectedDevis && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedDevis(null)}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">{selectedDevis.centre?.nom ?? 'Devis'}</h2>
+                  <p className="text-xs text-gray-500">{selectedDevis.centre?.ville} — {selectedDevis.numeroDevis}</p>
+                </div>
+                <button onClick={() => setSelectedDevis(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
+                {/* Montants */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-[var(--color-primary-light)] px-4 py-3">
+                    <p className="text-xs text-gray-500">Total TTC</p>
+                    <p className="text-xl font-bold text-[var(--color-primary)]">{selectedDevis.montantTTC != null ? Number(selectedDevis.montantTTC).toLocaleString('fr-FR', {minimumFractionDigits:2}) : selectedDevis.montantTotal} &euro;</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 px-4 py-3">
+                    <p className="text-xs text-gray-500">Par &eacute;l&egrave;ve</p>
+                    <p className="text-xl font-bold text-gray-900">{selectedDevis.montantParEleve} &euro;</p>
+                  </div>
+                </div>
+                {/* Lignes */}
+                {selectedDevis.lignes && selectedDevis.lignes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">D&eacute;tail des prestations</p>
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[var(--color-primary)] text-white">
+                          <th className="text-left px-3 py-2">Description</th>
+                          <th className="text-right px-3 py-2">Qt&eacute;</th>
+                          <th className="text-right px-3 py-2">PU HT</th>
+                          <th className="text-right px-3 py-2">TVA</th>
+                          <th className="text-right px-3 py-2">Total HT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedDevis.lignes.map((l, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-3 py-2 text-gray-900">{l.description}</td>
+                            <td className="px-3 py-2 text-right">{l.quantite}</td>
+                            <td className="px-3 py-2 text-right">{Number(l.prixUnitaire).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</td>
+                            <td className="px-3 py-2 text-right">{l.tva} %</td>
+                            <td className="px-3 py-2 text-right font-medium">{Number(l.totalHT).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {/* Acompte */}
+                {selectedDevis.pourcentageAcompte != null && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+                    <p className="text-xs text-gray-500">Acompte demand&eacute; ({selectedDevis.pourcentageAcompte}%)</p>
+                    <p className="text-base font-semibold text-amber-700">{Number(selectedDevis.montantAcompte ?? 0).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</p>
+                  </div>
+                )}
+                {/* Conditions annulation */}
+                {selectedDevis.conditionsAnnulation && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Conditions d&apos;annulation</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{selectedDevis.conditionsAnnulation}</p>
+                  </div>
+                )}
+                {/* Contact hébergeur */}
+                {(selectedDevis.centre?.telephone || selectedDevis.centre?.email) && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact h&eacute;bergeur</p>
+                    <div className="flex gap-4 text-xs text-gray-600">
+                      {selectedDevis.centre?.telephone && <span>{selectedDevis.centre.telephone}</span>}
+                      {selectedDevis.centre?.email && <span>{selectedDevis.centre.email}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
+                {selectedDevis.statut === 'EN_ATTENTE' && (
+                  <button
+                    onClick={async () => {
+                      await handleStatut(selectedDevis.id, 'SELECTIONNE');
+                      setSelectedDevis(null);
+                    }}
+                    disabled={updatingId === selectedDevis.id}
+                    className="flex-1 rounded-lg bg-[var(--color-success)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    S&eacute;lectionner ce devis
+                  </button>
+                )}
+                <button onClick={() => setSelectedDevis(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                  Fermer
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

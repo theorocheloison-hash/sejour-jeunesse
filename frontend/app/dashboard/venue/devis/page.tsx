@@ -351,6 +351,11 @@ export default function VenueDevisPage() {
                         </div>
                       )}
                     </div>
+                    <DevisPDFButton
+                      data={buildPdfProps(d)}
+                      filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : d.typeDocument === 'FACTURE_SOLDE' ? 'facture-solde' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
+                      label="PDF"
+                    />
                     {(d.statut === 'EN_ATTENTE' || d.statut === 'SELECTIONNE') && (
                       <Link
                         href={`/dashboard/venue/devis/${d.id}/modifier`}
