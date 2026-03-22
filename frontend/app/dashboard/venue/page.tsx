@@ -7,6 +7,8 @@ import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import { getMesDevis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
+import { getMesClients } from '@/src/lib/clients';
+import type { Client } from '@/src/lib/clients';
 
 export default function VenueDashboard() {
   const { user, isLoading, logout } = useAuth();
@@ -18,6 +20,7 @@ export default function VenueDashboard() {
   const [sejoursConvention, setSejoursConvention] = useState<any[]>([]);
   const [demandes, setDemandes] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [rappelsAujourdhui, setRappelsAujourdhui] = useState<Array<{ client: string; type: string; description: string }>>([]);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.replace('/login');
@@ -25,16 +28,24 @@ export default function VenueDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [profil, mesDevis, sejours, mesDemandes] = await Promise.all([
+      const [profil, mesDevis, sejours, mesDemandes, mesClients] = await Promise.all([
         getMonProfil(),
         getMesDevis(),
         getMesSejoursConvention(),
         getDemandesOuvertes().catch(() => []),
+        getMesClients().catch(() => [] as Client[]),
       ]);
       setCentre(profil);
       setDevis(mesDevis);
       setSejoursConvention(sejours);
       setDemandes(mesDemandes);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const rappels = mesClients.flatMap(c =>
+        c.rappels
+          .filter(r => r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] <= todayStr)
+          .map(r => ({ client: c.nom, type: r.type, description: r.description }))
+      );
+      setRappelsAujourdhui(rappels);
     } catch {}
   }, []);
 
@@ -179,6 +190,9 @@ export default function VenueDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                   </svg>
                 </div>
+                {rappelsAujourdhui.length > 0 && (
+                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">{rappelsAujourdhui.length}</span>
+                )}
               </div>
               <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Clients</p>
               <p className="text-xs text-gray-500 mt-0.5">CRM & prospection</p>
@@ -186,6 +200,47 @@ export default function VenueDashboard() {
 
           </div>
         </div>
+
+        {/* Rappels du jour */}
+        {rappelsAujourdhui.length > 0 && (
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Rappels du jour
+              <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+                {rappelsAujourdhui.length}
+              </span>
+            </h2>
+            <div className="space-y-2">
+              {rappelsAujourdhui.slice(0, 5).map((r, i) => (
+                <Link
+                  key={i}
+                  href="/dashboard/venue/clients"
+                  className="flex items-center justify-between bg-white rounded-xl border border-red-100 shadow-sm px-4 py-3 hover:border-red-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.client}</p>
+                      <p className="text-xs text-gray-500 truncate">{r.type} — {r.description}</p>
+                    </div>
+                  </div>
+                  <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </Link>
+              ))}
+              {rappelsAujourdhui.length > 5 && (
+                <Link href="/dashboard/venue/clients" className="block text-center text-xs text-[var(--color-primary)] hover:underline pt-1">
+                  Voir les {rappelsAujourdhui.length - 5} autres rappels &rarr;
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Séjours par période */}
         {sejoursConvention.length > 0 && (() => {
