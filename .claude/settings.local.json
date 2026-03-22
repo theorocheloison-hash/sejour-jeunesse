@@ -50,7 +50,13 @@
       "Bash(psql:*)",
       "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" node -e \":*)",
       "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma migrate status)",
-      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db push)"
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db push)",
+      "Bash(echo \"SELECT d.id, d.statut, d.type_document, d.signature_directeur, s.statut as sejour_statut, s.titre FROM devis d JOIN demandes_devis dd ON d.demande_id = dd.id JOIN sejours s ON dd.sejour_id = s.id WHERE d.statut = ''''SELECTIONNE'''' ORDER BY d.created_at DESC LIMIT 10;\")",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx prisma db execute --stdin)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:fNXIkLXnYLUYZaSnQupJMqlAisPJpCZe@shortline.proxy.rlwy.net:45326/railway\" npx tsx -e \":*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3Y2QzMTNiMy05ZTMwLTRmNzUtOWVmYS0wOWU2YjU2ODE0MGYiLCJlbWFpbCI6ImVuc2VpZ25hbnRAdGVzdC5mciIsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc0MTk0NTgzLCJleHAiOjE3NzQ3OTkzODN9.9Z5N7cYHuIGVZWQXO83XkD1SFWTJq-byA18UXVkwco8\" __NEW_LINE_3524996ab7799db0__ curl -s -X POST https://sejour-jeunesse-production.up.railway.app/sejours -H \"Content-Type: application/json\" -H \"Authorization: Bearer $TOKEN\" -d \"{\"\"titre\"\":\"\"Classe de neige 6ème A Morillon 2026\"\",\"\"dateDebut\"\":\"\"2026-04-13\"\",\"\"dateFin\"\":\"\"2026-04-17\"\",\"\"nombreEleves\"\":28,\"\"nombreAccompagnateurs\"\":3,\"\"niveauClasse\"\":\"\"6ème\"\",\"\"thematiquesPedagogiques\"\":[\"\"Montagne\"\",\"\"Activités sportives\"\"],\"\"typeZone\"\":\"\"VILLE\"\",\"\"zoneGeographique\"\":\"\"Morillon\"\",\"\"dateButoireDevis\"\":\"\"2026-03-31\"\",\"\"heureArrivee\"\":\"\"10:00\"\",\"\"heureDepart\"\":\"\"14:00\"\",\"\"transportAller\"\":\"\"BESOIN_TRANSPORTEUR\"\",\"\"transportSurPlace\"\":false,\"\"budgetMaxParEleve\"\":350,\"\"activitesSouhaitees\"\":\"\"Ski alpin, cours ESF, raquettes\"\"}\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3Y2QzMTNiMy05ZTMwLTRmNzUtOWVmYS0wOWU2YjU2ODE0MGYiLCJlbWFpbCI6ImVuc2VpZ25hbnRAdGVzdC5mciIsInJvbGUiOiJURUFDSEVSIiwiaWF0IjoxNzc0MTk0NTgzLCJleHAiOjE3NzQ3OTkzODN9.9Z5N7cYHuIGVZWQXO83XkD1SFWTJq-byA18UXVkwco8\")",
+      "Bash(echo \"SELECT table_name FROM information_schema.tables WHERE table_schema = ''''public'''' ORDER BY table_name;\")"
     ]
   }
 }

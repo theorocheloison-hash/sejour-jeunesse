@@ -295,7 +295,7 @@ export class CollaborationService {
 
     return this.prisma.sejour.findMany({
       where: {
-        statut: 'CONVENTION',
+        statut: { in: ['CONVENTION', 'SIGNE_DIRECTION'] },
         hebergementSelectionneId: { in: centreIds },
       },
       include: {
