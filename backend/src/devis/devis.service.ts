@@ -9,6 +9,7 @@ import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
+import { ClientsService } from '../clients/clients.service.js';
 
 @Injectable()
 export class DevisService {
@@ -16,6 +17,7 @@ export class DevisService {
     private prisma: PrismaService,
     private email: EmailService,
     private storage: StorageService,
+    private clientsService: ClientsService,
   ) {}
 
   async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File) {
@@ -407,6 +409,23 @@ export class DevisService {
           sejour.titre,
         );
       }
+
+      // Auto-rattacher client CRM
+      try {
+        const createur = await this.prisma.user.findUnique({
+          where: { id: devis.demande.enseignantId ?? '' },
+          select: { etablissementUai: true, etablissementNom: true, etablissementVille: true },
+        });
+        if (createur?.etablissementNom) {
+          await this.clientsService.autoRattacherDepuisDevis(
+            devis.demande.sejourId,
+            devis.centreId,
+            createur.etablissementUai ?? undefined,
+            createur.etablissementNom,
+            createur.etablissementVille ?? undefined,
+          );
+        }
+      } catch { /* ne pas bloquer */ }
     }
 
     return updated;

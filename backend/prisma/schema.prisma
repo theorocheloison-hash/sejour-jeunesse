@@ -416,6 +416,7 @@ model CentreHebergement {
   invitationsCollaboration InvitationCollaboration[]
   produitsCatalogue ProduitCatalogue[]
   demandesIgnorees DemandeIgnoree[]
+  clients          Client[]
 
   @@map("centres_hebergement")
 }
@@ -698,4 +699,75 @@ model InvitationCollaboration {
   createdAt           DateTime           @default(now()) @map("created_at")
 
   @@map("invitations_collaboration")
+}
+
+// ============================================================
+// MODEL : Client (CRM hébergeur)
+// ============================================================
+model Client {
+  id          String   @id @default(uuid()) @db.Uuid
+  centreId    String   @map("centre_id") @db.Uuid
+  nom         String   @db.VarChar(255)
+  type        String   @default("ETABLISSEMENT_SCOLAIRE") @db.VarChar(50)
+  statut      String   @default("PROSPECT") @db.VarChar(30)
+  adresse     String?  @db.VarChar(500)
+  ville       String?  @db.VarChar(255)
+  codePostal  String?  @map("code_postal") @db.VarChar(10)
+  telephone   String?  @db.VarChar(20)
+  email       String?  @db.VarChar(255)
+  uai         String?  @db.VarChar(20)
+  academie    String?  @db.VarChar(100)
+  notes       String?  @db.Text
+  source      String   @default("MANUEL") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  centre   CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  contacts ContactClient[]
+  rappels  Rappel[]
+  sejours  SejourClient[]
+
+  @@map("clients")
+}
+
+model ContactClient {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  prenom    String   @db.VarChar(100)
+  nom       String   @db.VarChar(100)
+  email     String?  @db.VarChar(255)
+  telephone String?  @db.VarChar(20)
+  role      String?  @db.VarChar(100)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("contacts_clients")
+}
+
+model Rappel {
+  id           String   @id @default(uuid()) @db.Uuid
+  clientId     String   @map("client_id") @db.Uuid
+  type         String   @db.VarChar(50)
+  dateEcheance DateTime @map("date_echeance") @db.Date
+  description  String   @db.Text
+  statut       String   @default("A_FAIRE") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("rappels")
+}
+
+model SejourClient {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, sejourId])
+  @@map("sejours_clients")
 }

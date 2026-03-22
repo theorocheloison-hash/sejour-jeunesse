@@ -20,6 +20,7 @@ import { AccompagnateurModule } from './accompagnateurs/accompagnateur.module.js
 import { AdminModule } from './admin/admin.module.js';
 import { InvitationCollaborationModule } from './invitation-collaboration/invitation-collaboration.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { ClientsModule } from './clients/clients.module.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { StorageModule } from './storage/storage.module.js';
     AccompagnateurModule,
     AdminModule,
     InvitationCollaborationModule,
+    ClientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
