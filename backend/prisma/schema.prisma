@@ -161,6 +161,8 @@ model Sejour {
   lignesBudget           LigneBudgetComplementaire[]
   recettesBudget         RecetteBudget[]
 
+  @@index([createurId])
+  @@index([statut])
   @@map("sejours")
 }
 
@@ -522,6 +524,8 @@ model DemandeDevis {
   devis      Devis[]
   demandesIgnorees DemandeIgnoree[]
 
+  @@index([sejourId])
+  @@index([enseignantId])
   @@map("demandes_devis")
 }
 
@@ -595,6 +599,8 @@ model Devis {
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
   lignes  LigneDevis[]
 
+  @@index([centreId])
+  @@index([statut])
   @@map("devis")
 }
 
@@ -727,6 +733,9 @@ model Client {
   rappels  Rappel[]
   sejours  SejourClient[]
 
+  @@index([centreId])
+  @@index([centreId, uai])
+  @@index([centreId, nom])
   @@map("clients")
 }
 
@@ -743,6 +752,8 @@ model ContactClient {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@index([clientId])
+  @@index([clientId, email])
   @@map("contacts_clients")
 }
 
@@ -757,6 +768,7 @@ model Rappel {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@index([clientId])
   @@map("rappels")
 }
 
