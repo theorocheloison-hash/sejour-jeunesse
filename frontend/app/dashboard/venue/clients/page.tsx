@@ -201,6 +201,7 @@ export default function ClientsPage() {
         'Statut': 'statut',
         'Ville': 'ville',
         'Code postal': 'codePostal',
+        'CodePostal': 'codePostal',
         'Téléphone': 'telephone',
         'Telephone': 'telephone',
         'Email': 'email',
