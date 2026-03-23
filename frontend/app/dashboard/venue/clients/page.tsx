@@ -94,7 +94,15 @@ export default function ClientsPage() {
     if (filtreStatut !== 'ALL') list = list.filter(c => c.statut === filtreStatut);
     if (searchQuery.length >= 2) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(c => c.nom.toLowerCase().includes(q) || (c.ville ?? '').toLowerCase().includes(q) || (c.uai ?? '').toLowerCase().includes(q));
+      list = list.filter(c =>
+        c.nom.toLowerCase().includes(q) ||
+        (c.ville ?? '').toLowerCase().includes(q) ||
+        (c.uai ?? '').toLowerCase().includes(q) ||
+        c.contacts.some(ct =>
+          `${ct.prenom} ${ct.nom}`.toLowerCase().includes(q) ||
+          (ct.email ?? '').toLowerCase().includes(q)
+        )
+      );
     }
     return list;
   }, [clients, filtreStatut, searchQuery]);
