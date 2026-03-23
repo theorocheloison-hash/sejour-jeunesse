@@ -112,7 +112,7 @@ export default function EtapeInfos({ form, setForm }: Props) {
 
         <div className="mt-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Transport &eacute;tablissement &rarr; h&eacute;bergement
+            Transport aller-retour &eacute;tablissement &harr; h&eacute;bergement
           </label>
           <div className="space-y-2">
             <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
