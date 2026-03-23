@@ -110,11 +110,13 @@ export default function VenueDevisPage() {
     }
   }, [user]);
 
+  const isSearching = searchQuery.length >= 2;
+
   const filteredDevis = useMemo(() => {
     return devisList
       .filter((d) => matchesSearch(d, searchQuery))
-      .filter((d) => matchesOnglet(d, onglet));
-  }, [devisList, searchQuery, onglet]);
+      .filter((d) => isSearching ? true : matchesOnglet(d, onglet));
+  }, [devisList, searchQuery, onglet, isSearching]);
 
   const actionsUrgentes = useMemo(() => {
     const aFacturer = devisList.filter(d =>
@@ -318,6 +320,14 @@ export default function VenueDevisPage() {
               className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#003189] focus:border-transparent"
             />
           </div>
+          {isSearching && (
+            <p className="mt-1.5 text-xs text-[var(--color-primary)] font-medium">
+              Recherche dans tous les documents —{' '}
+              <button onClick={() => setSearchQuery('')} className="underline hover:no-underline">
+                Effacer
+              </button>
+            </p>
+          )}
         </div>
 
         {/* Onglets */}
@@ -403,7 +413,14 @@ export default function VenueDevisPage() {
                             <Highlight text={etablissement} query={searchQuery} />
                           </span>
                         )}
-                        <span>{new Date(d.createdAt).toLocaleDateString('fr-FR')}</span>
+                        {d.demande?.sejour?.dateDebut && d.demande?.sejour?.dateFin && (
+                          <span className="font-medium text-gray-600">
+                            {new Date(d.demande.sejour.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {' → '}
+                            {new Date(d.demande.sejour.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                        <span className="text-gray-400">Devis du {new Date(d.createdAt).toLocaleDateString('fr-FR')}</span>
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                       {d.signatureDirecteur && (
