@@ -92,6 +92,7 @@ export default function VenueDevisPage() {
   const [error, setError] = useState<string | null>(null);
   const [facturantId, setFacturantId] = useState<string | null>(null);
   const [chorusXml, setChorusXml] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState(false);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,6 +115,20 @@ export default function VenueDevisPage() {
       .filter((d) => matchesSearch(d, searchQuery))
       .filter((d) => matchesOnglet(d, onglet));
   }, [devisList, searchQuery, onglet]);
+
+  const actionsUrgentes = useMemo(() => {
+    const aFacturer = devisList.filter(d =>
+      d.statut === 'SELECTIONNE' &&
+      d.signatureDirecteur &&
+      (!d.typeDocument || d.typeDocument === 'DEVIS')
+    );
+    const aValider = devisList.filter(d =>
+      d.statut === 'SELECTIONNE' &&
+      d.typeDocument === 'FACTURE_ACOMPTE' &&
+      !d.acompteVerse
+    );
+    return { aFacturer, aValider, total: aFacturer.length + aValider.length };
+  }, [devisList]);
 
   const ongletCounts = useMemo(() => {
     const counts: Record<OngletDevis, number> = { attente: 0, selectionnes: 0, signes: 0, acompte: 0, solde: 0 };
@@ -234,6 +249,52 @@ export default function VenueDevisPage() {
           </div>
         </div>
       </nav>
+
+      {!dismissed && actionsUrgentes.total > 0 && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <p className="text-sm font-semibold text-amber-800">
+                  {actionsUrgentes.total} action{actionsUrgentes.total > 1 ? 's' : ''} en attente
+                </p>
+              </div>
+              <button
+                onClick={() => setDismissed(true)}
+                className="text-amber-500 hover:text-amber-700 transition-colors"
+                title="Masquer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {actionsUrgentes.aFacturer.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => { setOnglet('signes'); setSearchQuery(''); setDismissed(true); }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                  {d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Devis'} — convertir en facture acompte
+                </button>
+              ))}
+              {actionsUrgentes.aValider.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => { setOnglet('acompte'); setSearchQuery(''); setDismissed(true); }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  {d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Facture'} — acompte à valider
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Devis envoyés</h1>

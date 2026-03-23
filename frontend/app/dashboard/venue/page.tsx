@@ -80,6 +80,14 @@ export default function VenueDashboard() {
     .filter(d => d.statut === 'SELECTIONNE')
     .reduce((sum: number, d: any) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
   const acomptesAttente = devis.filter(d => d.statut === 'SELECTIONNE' && d.typeDocument === 'FACTURE_ACOMPTE' && !d.acompteVerse).length;
+  // Devis signés par la direction en attente de conversion en facture acompte
+  const devisSignesAFacturer = devis.filter((d: any) =>
+    d.statut === 'SELECTIONNE' &&
+    d.signatureDirecteur &&
+    (!d.typeDocument || d.typeDocument === 'DEVIS')
+  ).length;
+  // Total actions facturation urgentes
+  const actionsFacturationUrgentes = devisSignesAFacturer + acomptesAttente;
   const abonnementActif = centre?.abonnementStatut === 'ACTIF';
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -164,9 +172,9 @@ export default function VenueDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
-                {acomptesAttente > 0 && (
-                  <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">
-                    {acomptesAttente}
+                {actionsFacturationUrgentes > 0 && (
+                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                    {actionsFacturationUrgentes}
                   </span>
                 )}
               </div>
