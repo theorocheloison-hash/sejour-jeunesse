@@ -104,17 +104,7 @@ function NouveauDevisContent() {
         setAdresseEntreprise(`${infoData.centre.adresse}, ${infoData.centre.codePostal} ${infoData.centre.ville}`);
         setEmailEntreprise(infoData.centre.email ?? '');
         setTelEntreprise(infoData.centre.telephone ?? '');
-        // Init lines from catalogue
-        if (cat.length > 0) {
-          setLignes(cat.map(p => makeLigneForm({
-            description: p.nom,
-            quantite: String(infoData.demande.nombreEleves ?? 1),
-            prixUnitaire: String(p.prixUnitaireHT),
-            tva: String(p.tva),
-          })));
-        } else {
-          setLignes([makeLigneForm()]);
-        }
+        setLignes([makeLigneForm({ quantite: String(infoData.demande.nombreEleves ?? 1) })]);
       })
       .catch(() => setLoadError('Impossible de charger les informations de la demande.'));
   }, [user, demandeId]);
