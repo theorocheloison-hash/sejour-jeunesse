@@ -66,6 +66,7 @@ function NouveauDevisContent() {
   // Catalogue
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
+  const [catalogueSearch, setCatalogueSearch] = useState('');
 
   // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
@@ -112,7 +113,7 @@ function NouveauDevisContent() {
   // ── Close catalogue dropdown on outside click ──
   useEffect(() => {
     if (!showCatalogueDropdown) return;
-    const handler = () => setShowCatalogueDropdown(false);
+    const handler = () => { setShowCatalogueDropdown(false); setCatalogueSearch(''); };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [showCatalogueDropdown]);
@@ -400,15 +401,42 @@ function NouveauDevisContent() {
                     Depuis le catalogue
                   </button>
                   {showCatalogueDropdown && (
-                    <div className="absolute left-0 top-8 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-                      {['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].map(type => {
-                        const items = catalogue.filter(p => p.type === type);
-                        if (items.length === 0) return null;
-                        const labels: Record<string, string> = { HEBERGEMENT: 'Hébergement', REPAS: 'Repas', TRANSPORT: 'Transport', ACTIVITE: 'Activité', AUTRE: 'Autre' };
-                        return (
-                          <div key={type}>
-                            <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">{labels[type]}</p>
-                            {items.map(p => (
+                    <div className="absolute left-0 top-8 z-30 w-80 bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col" style={{ maxHeight: '400px' }}>
+                      {/* Champ de recherche fixe en haut */}
+                      <div className="p-2 border-b border-gray-100 shrink-0" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 bg-gray-50">
+                          <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                          </svg>
+                          <input
+                            type="text"
+                            autoFocus
+                            value={catalogueSearch}
+                            onChange={e => setCatalogueSearch(e.target.value)}
+                            placeholder="Rechercher un produit..."
+                            className="flex-1 text-xs bg-transparent border-0 outline-none text-gray-700 placeholder-gray-400"
+                          />
+                          {catalogueSearch && (
+                            <button type="button" onClick={() => setCatalogueSearch('')} className="text-gray-400 hover:text-gray-600">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Liste scrollable */}
+                      <div className="overflow-y-auto flex-1">
+                        {(() => {
+                          const q = catalogueSearch.toLowerCase().trim();
+                          const labels: Record<string, string> = { HEBERGEMENT: 'Hébergement', REPAS: 'Repas', TRANSPORT: 'Transport', ACTIVITE: 'Activité', AUTRE: 'Autre' };
+                          // Mode recherche : affichage à plat sans catégories
+                          if (q) {
+                            const results = catalogue.filter(p => p.nom.toLowerCase().includes(q));
+                            if (results.length === 0) return (
+                              <p className="px-3 py-4 text-xs text-center text-gray-400">Aucun produit trouvé</p>
+                            );
+                            return results.map(p => (
                               <button
                                 key={p.id}
                                 type="button"
@@ -420,16 +448,50 @@ function NouveauDevisContent() {
                                     tva: String(p.tva),
                                   })]);
                                   setShowCatalogueDropdown(false);
+                                  setCatalogueSearch('');
                                 }}
                                 className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                               >
-                                <span className="text-sm text-gray-900">{p.nom}</span>
-                                <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} &euro; HT</span>
+                                <div className="min-w-0">
+                                  <p className="text-sm text-gray-900 truncate">{p.nom}</p>
+                                  <p className="text-xs text-gray-400">{labels[p.type] ?? p.type}</p>
+                                </div>
+                                <span className="text-xs text-gray-500 shrink-0 ml-2">{p.prixUnitaireHT.toFixed(2)} € HT</span>
                               </button>
-                            ))}
-                          </div>
-                        );
-                      })}
+                            ));
+                          }
+                          // Mode normal : affichage par catégorie
+                          return ['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].map(type => {
+                            const items = catalogue.filter(p => p.type === type);
+                            if (items.length === 0) return null;
+                            return (
+                              <div key={type}>
+                                <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100 sticky top-0">{labels[type]}</p>
+                                {items.map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setLignes(prev => [...prev, makeLigneForm({
+                                        description: p.nom,
+                                        quantite: String(info?.demande.nombreEleves ?? 1),
+                                        prixUnitaire: String(p.prixUnitaireHT),
+                                        tva: String(p.tva),
+                                      })]);
+                                      setShowCatalogueDropdown(false);
+                                      setCatalogueSearch('');
+                                    }}
+                                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                                  >
+                                    <span className="text-sm text-gray-900 truncate">{p.nom}</span>
+                                    <span className="text-xs text-gray-500 shrink-0 ml-2">{p.prixUnitaireHT.toFixed(2)} € HT</span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
