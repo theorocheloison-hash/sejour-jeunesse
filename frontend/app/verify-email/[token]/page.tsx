@@ -11,13 +11,22 @@ export default function VerifyEmailPage() {
   const { token } = useParams<{ token: string }>();
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState('');
+  const [loginHref, setLoginHref] = useState('/login');
 
   useEffect(() => {
     if (!token) return;
     api.post(`/auth/verify-email/${token}`)
       .then(({ data }) => {
         setMessage(data.message);
-        setStatus(data.message?.includes('déjà') ? 'already' : 'success');
+        const isSuccess = !data.message?.includes('déjà');
+        setStatus(isSuccess ? 'success' : 'already');
+        if (isSuccess) {
+          const redirect = sessionStorage.getItem('liavo_redirect_after_login');
+          if (redirect) {
+            setLoginHref(`/login?redirect=${encodeURIComponent(redirect)}`);
+            sessionStorage.removeItem('liavo_redirect_after_login');
+          }
+        }
       })
       .catch((err) => {
         setMessage(err?.response?.data?.message ?? 'Lien de vérification invalide ou expiré.');
@@ -84,10 +93,10 @@ export default function VerifyEmailPage() {
 
         {status !== 'loading' && (
           <Link
-            href="/login"
+            href={loginHref}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90"
           >
-            Se connecter
+            {loginHref !== '/login' ? 'Se connecter et rejoindre le séjour' : 'Se connecter'}
           </Link>
         )}
       </div>

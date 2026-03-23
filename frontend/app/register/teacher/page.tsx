@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 
-export default function RegisterTeacherPage() {
+function RegisterTeacherContent() {
   const [form, setForm] = useState({
     prenom: '',
     nom: '',
@@ -17,6 +19,9 @@ export default function RegisterTeacherPage() {
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const searchParams = useSearchParams();
+  const redirectAfterLogin = searchParams.get('redirect');
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -26,6 +31,9 @@ export default function RegisterTeacherPage() {
     setIsPending(true);
     try {
       await api.post('/auth/register/teacher', form);
+      if (redirectAfterLogin) {
+        sessionStorage.setItem('liavo_redirect_after_login', redirectAfterLogin);
+      }
       setSuccess(true);
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -52,7 +60,7 @@ export default function RegisterTeacherPage() {
             Pensez à vérifier vos spams si vous ne trouvez pas l&apos;email.
           </div>
           <Link
-            href="/login"
+            href={redirectAfterLogin ? `/login?redirect=${encodeURIComponent(redirectAfterLogin)}` : '/login'}
             className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -159,5 +167,13 @@ export default function RegisterTeacherPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function RegisterTeacherPage() {
+  return (
+    <Suspense>
+      <RegisterTeacherContent />
+    </Suspense>
   );
 }
