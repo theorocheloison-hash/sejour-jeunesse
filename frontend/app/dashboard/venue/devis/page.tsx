@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesDevis, facturerAcompte, facturerSolde, getChorusXml } from '@/src/lib/devis';
-import type { Devis, StatutDevis } from '@/src/lib/devis';
+import { getMesDevis, facturerAcompte, facturerSolde, getChorusXml, ajouterVersement, getVersements, supprimerVersement } from '@/src/lib/devis';
+import type { Devis, StatutDevis, VersementPaiement } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
@@ -93,6 +93,9 @@ export default function VenueDevisPage() {
   const [facturantId, setFacturantId] = useState<string | null>(null);
   const [chorusXml, setChorusXml] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [modalVersement, setModalVersement] = useState<{ devis: Devis } | null>(null);
+  const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
+  const [versementLoading, setVersementLoading] = useState(false);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,6 +178,23 @@ export default function VenueDevisPage() {
       const updated = await facturerSolde(devisId);
       setDevisList(prev => prev.map(d => d.id === devisId ? { ...d, ...updated } : d));
     } catch { /* ignore */ }
+  };
+
+  const handleAjouterVersement = async () => {
+    if (!modalVersement || !versementForm.montant || !versementForm.datePaiement) return;
+    setVersementLoading(true);
+    try {
+      const updated = await ajouterVersement(
+        modalVersement.devis.id,
+        parseFloat(versementForm.montant),
+        versementForm.datePaiement,
+        versementForm.reference || undefined,
+      );
+      setDevisList(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d));
+      setVersementForm({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
+      setModalVersement(null);
+    } catch { /* ignore */ }
+    finally { setVersementLoading(false); }
   };
 
   if (isLoading || !user) return null;
@@ -471,8 +491,24 @@ export default function VenueDevisPage() {
                           filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
                         />
                         {d.typeDocument === 'FACTURE_ACOMPTE' ? (
-                          <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-2 text-xs text-[var(--color-success)] font-semibold">
-                            Facture acompte envoyée — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                          <div className="flex flex-col gap-2">
+                            <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-2 text-xs text-[var(--color-success)] font-semibold">
+                              Facture acompte — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                              {(d.montantVerseTotal ?? 0) > 0 && (
+                                <span className="ml-2 text-[var(--color-success)]">
+                                  · Reçu : {Number(d.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setModalVersement({ devis: d })}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75" />
+                              </svg>
+                              Suivi paiement
+                            </button>
                           </div>
                         ) : (!d.typeDocument || d.typeDocument === 'DEVIS') && (
                           <button
@@ -498,9 +534,25 @@ export default function VenueDevisPage() {
                         )}
 
                         {d.typeDocument === 'FACTURE_SOLDE' && (
-                          <div className="mt-2 flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2">
-                            <span className="text-xs font-semibold text-purple-700">Facture solde émise</span>
-                            <span className="text-xs text-purple-500">{d.numeroFacture}</span>
+                          <div className="flex flex-col gap-2">
+                            <div className="mt-2 flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2">
+                              <span className="text-xs font-semibold text-purple-700">Facture solde émise</span>
+                              <span className="text-xs text-purple-500">{d.numeroFacture}</span>
+                              {(d.montantVerseTotal ?? 0) > 0 && (
+                                <span className="text-xs text-[var(--color-success)] font-medium">
+                                  · Reçu : {Number(d.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setModalVersement({ devis: d })}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75" />
+                              </svg>
+                              Suivi paiement
+                            </button>
                           </div>
                         )}
 
@@ -525,6 +577,165 @@ export default function VenueDevisPage() {
           </div>
         )}
       </main>
+
+      {/* ── Modale versement paiement ── */}
+      {modalVersement && (() => {
+        const d = modalVersement.devis;
+        const montantAttendu = d.typeDocument === 'FACTURE_ACOMPTE'
+          ? (d.montantAcompte ?? 0)
+          : ((d.montantTTC ?? Number(d.montantTotal)) - (d.montantAcompte ?? 0));
+        const montantVerse = d.montantVerseTotal ?? 0;
+        const resteAPayer = Math.max(0, montantAttendu - montantVerse);
+        const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const versements = d.versements ?? [];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setModalVersement(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]"
+              onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Suivi du paiement</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {d.typeDocument === 'FACTURE_ACOMPTE' ? `Facture acompte — ${d.numeroFacture}` : `Facture solde — ${d.numeroFacture}`}
+                  </p>
+                </div>
+                <button onClick={() => setModalVersement(null)} className="text-gray-400 hover:text-gray-600">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto px-6 py-4 space-y-5">
+
+                {/* Récapitulatif montants */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                    <p className="text-xs text-gray-500 mb-1">Montant attendu</p>
+                    <p className="text-sm font-bold text-gray-900">{fmt(montantAttendu)} €</p>
+                  </div>
+                  <div className="bg-[var(--color-success-light)] rounded-xl p-3 text-center">
+                    <p className="text-xs text-[var(--color-success)] mb-1">Déjà reçu</p>
+                    <p className="text-sm font-bold text-[var(--color-success)]">{fmt(montantVerse)} €</p>
+                  </div>
+                  <div className={`rounded-xl p-3 text-center ${resteAPayer > 0 ? 'bg-amber-50' : 'bg-[var(--color-success-light)]'}`}>
+                    <p className={`text-xs mb-1 ${resteAPayer > 0 ? 'text-amber-600' : 'text-[var(--color-success)]'}`}>Reste à payer</p>
+                    <p className={`text-sm font-bold ${resteAPayer > 0 ? 'text-amber-700' : 'text-[var(--color-success)]'}`}>
+                      {resteAPayer > 0 ? `${fmt(resteAPayer)} €` : 'Soldé ✓'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Historique versements */}
+                {versements.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Versements enregistrés</p>
+                    <div className="space-y-2">
+                      {versements.map(v => (
+                        <div key={v.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900">{fmt(v.montant)} €</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(v.datePaiement).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                              {v.reference && ` — Réf. ${v.reference}`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await supprimerVersement(d.id, v.id);
+                                const updated = await getVersements(d.id);
+                                setDevisList(prev => prev.map(dv =>
+                                  dv.id === d.id
+                                    ? { ...dv, versements: updated, montantVerseTotal: updated.reduce((s, vv) => s + vv.montant, 0) }
+                                    : dv
+                                ));
+                                setModalVersement(prev => prev ? { ...prev, devis: { ...prev.devis, versements: updated, montantVerseTotal: updated.reduce((s, vv) => s + vv.montant, 0) } } : null);
+                              } catch { /* ignore */ }
+                            }}
+                            className="ml-2 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                            title="Supprimer ce versement"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulaire nouveau versement */}
+                {resteAPayer > 0 && (
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Enregistrer un versement</p>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Montant reçu (€) *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={versementForm.montant}
+                            onChange={e => setVersementForm(f => ({ ...f, montant: e.target.value }))}
+                            placeholder={fmt(resteAPayer)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Date du paiement *</label>
+                          <input
+                            type="date"
+                            value={versementForm.datePaiement}
+                            onChange={e => setVersementForm(f => ({ ...f, datePaiement: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Référence virement <span className="font-normal text-gray-400">(optionnel)</span></label>
+                        <input
+                          type="text"
+                          value={versementForm.reference}
+                          onChange={e => setVersementForm(f => ({ ...f, reference: e.target.value }))}
+                          placeholder="Ex : VIR-2026-001"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        />
+                      </div>
+                      <button
+                        onClick={handleAjouterVersement}
+                        disabled={versementLoading || !versementForm.montant || !versementForm.datePaiement}
+                        className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {versementLoading ? (
+                          <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Enregistrement...</>
+                        ) : (
+                          'Enregistrer le versement'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {resteAPayer <= 0 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3">
+                    <svg className="h-5 w-5 text-[var(--color-success)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-semibold text-[var(--color-success)]">Paiement intégralement reçu</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

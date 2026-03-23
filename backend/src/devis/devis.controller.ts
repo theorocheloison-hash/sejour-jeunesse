@@ -126,6 +126,30 @@ export class DevisController {
     return this.devisService.validerAcompte(id);
   }
 
+  @Post(':id/versements')
+  @Roles(Role.DIRECTOR, Role.VENUE)
+  ajouterVersement(
+    @Param('id') id: string,
+    @Body() body: { montant: number; datePaiement: string; reference?: string },
+  ) {
+    return this.devisService.ajouterVersement(id, body.montant, body.datePaiement, body.reference);
+  }
+
+  @Get(':id/versements')
+  @Roles(Role.DIRECTOR, Role.VENUE)
+  getVersements(@Param('id') id: string) {
+    return this.devisService.getVersements(id);
+  }
+
+  @Patch(':id/versements/:versementId/supprimer')
+  @Roles(Role.DIRECTOR)
+  supprimerVersement(
+    @Param('id') id: string,
+    @Param('versementId') versementId: string,
+  ) {
+    return this.devisService.supprimerVersement(versementId, id);
+  }
+
   @Get(':id/chorus-xml')
   @Roles(Role.DIRECTOR, Role.VENUE)
   getChorusXml(@Param('id') id: string) {

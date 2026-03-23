@@ -598,14 +598,32 @@ model Devis {
   nomSignataireDirecteur  String?   @map("nom_signataire_directeur") @db.VarChar(255)
 
   relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
+  montantVerseTotal Float @default(0) @map("montant_verse_total")
 
   demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
   lignes  LigneDevis[]
+  versements VersementPaiement[]
 
   @@index([centreId])
   @@index([statut])
   @@map("devis")
+}
+
+// ============================================================
+// MODEL : VersementPaiement (suivi des paiements reçus)
+// ============================================================
+model VersementPaiement {
+  id            String   @id @default(uuid()) @db.Uuid
+  devisId       String   @map("devis_id") @db.Uuid
+  montant       Float
+  datePaiement  DateTime @map("date_paiement") @db.Date
+  reference     String?  @db.VarChar(255)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  devis Devis @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  @@map("versements_paiement")
 }
 
 // ============================================================

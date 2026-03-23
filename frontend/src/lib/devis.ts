@@ -4,6 +4,15 @@ import api from '@/src/lib/api';
 
 export type StatutDevis = 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'NON_RETENU';
 
+export interface VersementPaiement {
+  id: string;
+  devisId: string;
+  montant: number;
+  datePaiement: string;
+  reference?: string | null;
+  createdAt: string;
+}
+
 export interface LigneDevis {
   id?: string;
   description: string;
@@ -49,6 +58,8 @@ export interface Devis {
   acompteVerse?: boolean;
   dateVersementAcompte?: string | null;
   lignes?: LigneDevis[];
+  versements?: VersementPaiement[];
+  montantVerseTotal?: number;
   demande?: {
     id: string;
     titre: string;
@@ -213,6 +224,20 @@ export async function facturerAcompte(id: string): Promise<Devis> {
 export async function facturerSolde(id: string): Promise<Devis> {
   const { data } = await api.patch<Devis>(`/devis/${id}/facturer-solde`);
   return data;
+}
+
+export async function ajouterVersement(devisId: string, montant: number, datePaiement: string, reference?: string): Promise<Devis> {
+  const { data } = await api.post<Devis>(`/devis/${devisId}/versements`, { montant, datePaiement, reference });
+  return data;
+}
+
+export async function getVersements(devisId: string): Promise<VersementPaiement[]> {
+  const { data } = await api.get<VersementPaiement[]>(`/devis/${devisId}/versements`);
+  return data;
+}
+
+export async function supprimerVersement(devisId: string, versementId: string): Promise<void> {
+  await api.patch(`/devis/${devisId}/versements/${versementId}/supprimer`);
 }
 
 export async function uploadDevisPdf(demandeId: string, file: File): Promise<Devis> {

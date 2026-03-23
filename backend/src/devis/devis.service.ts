@@ -127,6 +127,7 @@ export class DevisService {
       where: { centreId: centre.id },
       include: {
         lignes: true,
+        versements: { orderBy: { datePaiement: 'asc' as const } },
         centre: {
           select: {
             id: true, nom: true, ville: true, adresse: true, codePostal: true,
@@ -626,6 +627,7 @@ export class DevisService {
       },
       include: {
         lignes: true,
+        versements: { orderBy: { datePaiement: 'asc' as const } },
         centre: { select: { id: true, nom: true, ville: true } },
         demande: {
           include: {
@@ -682,6 +684,82 @@ export class DevisService {
     }
 
     return updated;
+  }
+
+  async ajouterVersement(devisId: string, montant: number, datePaiement: string, reference?: string) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: { versements: true },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.typeDocument !== 'FACTURE_ACOMPTE' && devis.typeDocument !== 'FACTURE_SOLDE') {
+      throw new ForbiddenException('Seule une facture peut recevoir un versement');
+    }
+
+    await this.prisma.versementPaiement.create({
+      data: {
+        devisId,
+        montant,
+        datePaiement: new Date(datePaiement),
+        reference: reference ?? null,
+      },
+    });
+
+    const nouveauTotal = (devis.montantVerseTotal ?? 0) + montant;
+    const montantAttendu = devis.typeDocument === 'FACTURE_ACOMPTE'
+      ? (devis.montantAcompte ?? 0)
+      : ((devis.montantTTC ?? Number(devis.montantTotal)) - (devis.montantAcompte ?? 0));
+    const acompteVerse = nouveauTotal >= montantAttendu * 0.99;
+
+    const updated = await this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        montantVerseTotal: nouveauTotal,
+        acompteVerse,
+        ...(acompteVerse && !devis.acompteVerse ? { dateVersementAcompte: new Date() } : {}),
+      },
+      include: {
+        lignes: true,
+        versements: { orderBy: { datePaiement: 'asc' } },
+        centre: { select: { nom: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  async getVersements(devisId: string) {
+    return this.prisma.versementPaiement.findMany({
+      where: { devisId },
+      orderBy: { datePaiement: 'asc' },
+    });
+  }
+
+  async supprimerVersement(versementId: string, devisId: string) {
+    const versement = await this.prisma.versementPaiement.findUnique({
+      where: { id: versementId },
+    });
+    if (!versement || versement.devisId !== devisId) throw new NotFoundException('Versement introuvable');
+
+    await this.prisma.versementPaiement.delete({ where: { id: versementId } });
+
+    const versementsRestants = await this.prisma.versementPaiement.findMany({
+      where: { devisId },
+    });
+    const nouveauTotal = versementsRestants.reduce((sum, v) => sum + v.montant, 0);
+
+    const devis = await this.prisma.devis.findUnique({ where: { id: devisId } });
+    const montantAttendu = devis?.typeDocument === 'FACTURE_ACOMPTE'
+      ? (devis.montantAcompte ?? 0)
+      : ((devis?.montantTTC ?? 0) - (devis?.montantAcompte ?? 0));
+
+    return this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        montantVerseTotal: nouveauTotal,
+        acompteVerse: nouveauTotal >= montantAttendu * 0.99,
+      },
+    });
   }
 
   async getChorusXml(id: string) {
