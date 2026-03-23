@@ -107,6 +107,28 @@ export default function ClientsPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const clientsAvecRappels = useMemo(() => {
+    return clients
+      .filter(c => c.rappels.some(r =>
+        r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] <= today
+      ))
+      .map(c => ({
+        id: c.id,
+        nom: c.nom,
+        rappelsUrgents: c.rappels.filter(r =>
+          r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] <= today
+        ),
+      }))
+      .sort((a, b) => {
+        // En retard (< today) avant aujourd'hui (= today)
+        const aEnRetard = a.rappelsUrgents.some(r => r.dateEcheance.split('T')[0] < today);
+        const bEnRetard = b.rappelsUrgents.some(r => r.dateEcheance.split('T')[0] < today);
+        if (aEnRetard && !bEnRetard) return -1;
+        if (!aEnRetard && bEnRetard) return 1;
+        return 0;
+      });
+  }, [clients, today]);
+
   const reload = async () => {
     const data = await getMesClients();
     setClients(data);
@@ -324,6 +346,46 @@ export default function ClientsPage() {
           </button>
         </div>
       </nav>
+
+      {clientsAvecRappels.length > 0 && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <p className="text-sm font-semibold text-amber-800">
+                  {clientsAvecRappels.length} client{clientsAvecRappels.length > 1 ? 's' : ''} à traiter
+                </p>
+              </div>
+              <span className="text-xs text-amber-600">
+                {clientsAvecRappels.reduce((sum, c) => sum + c.rappelsUrgents.length, 0)} rappel{clientsAvecRappels.reduce((sum, c) => sum + c.rappelsUrgents.length, 0) > 1 ? 's' : ''} en attente
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {clientsAvecRappels.map(c => {
+                const enRetard = c.rappelsUrgents.some(r => r.dateEcheance.split('T')[0] < today);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => { setSelectedId(c.id); setEditMode(false); }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all hover:shadow-sm ${
+                      enRetard
+                        ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                        : 'border-amber-300 bg-white text-amber-700 hover:bg-amber-100'
+                    } ${selectedId === c.id ? 'ring-2 ring-[var(--color-primary)] ring-offset-1' : ''}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${enRetard ? 'bg-red-500' : 'bg-amber-500'}`} />
+                    {c.nom}
+                    <span className="rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold">
+                      {c.rappelsUrgents.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Search + filters */}
