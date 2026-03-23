@@ -702,6 +702,15 @@ model InvitationCollaboration {
   dateFin             DateTime           @map("date_fin") @db.Date
   nbElevesEstime      Int                @map("nb_eleves_estime")
   message             String?            @db.Text
+  niveauClasse              String?   @map("niveau_classe") @db.VarChar(50)
+  nombreAccompagnateurs     Int?      @map("nombre_accompagnateurs")
+  thematiquesPedagogiques   String[]  @default([]) @map("thematiques_pedagogiques")
+  heureArrivee              String?   @map("heure_arrivee") @db.VarChar(10)
+  heureDepart               String?   @map("heure_depart") @db.VarChar(10)
+  transportAller            String?   @map("transport_aller") @db.VarChar(30)
+  transportSurPlace         Boolean?  @map("transport_sur_place")
+  activitesSouhaitees       String?   @map("activites_souhaitees") @db.Text
+  budgetMaxParEleve         Float?    @map("budget_max_par_eleve")
   acceptedAt          DateTime?          @map("accepted_at")
   sejourId            String?            @map("sejour_id") @db.Uuid
   createdAt           DateTime           @default(now()) @map("created_at")

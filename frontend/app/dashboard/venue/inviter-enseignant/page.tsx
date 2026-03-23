@@ -13,6 +13,13 @@ export default function InviterEnseignantPage() {
     dateDebut: '',
     dateFin: '',
     nbElevesEstime: '',
+    nombreAccompagnateurs: '',
+    niveauClasse: '',
+    heureArrivee: '',
+    heureDepart: '',
+    transportAller: '',
+    activitesSouhaitees: '',
+    budgetMaxParEleve: '',
     message: '',
   });
   const [isPending, setIsPending] = useState(false);
@@ -34,6 +41,13 @@ export default function InviterEnseignantPage() {
         dateDebut: form.dateDebut,
         dateFin: form.dateFin,
         nbElevesEstime: parseInt(form.nbElevesEstime, 10),
+        nombreAccompagnateurs: form.nombreAccompagnateurs ? parseInt(form.nombreAccompagnateurs, 10) : undefined,
+        niveauClasse: form.niveauClasse || undefined,
+        heureArrivee: form.heureArrivee || undefined,
+        heureDepart: form.heureDepart || undefined,
+        transportAller: form.transportAller || undefined,
+        activitesSouhaitees: form.activitesSouhaitees || undefined,
+        budgetMaxParEleve: form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
         message: form.message || undefined,
       });
       setSuccess(form.emailEnseignant);
@@ -45,7 +59,7 @@ export default function InviterEnseignantPage() {
   };
 
   const resetForm = () => {
-    setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', message: '' });
+    setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', nombreAccompagnateurs: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', activitesSouhaitees: '', budgetMaxParEleve: '', message: '' });
     setSuccess(null);
     setError(null);
   };
@@ -143,6 +157,46 @@ export default function InviterEnseignantPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre d&apos;élèves estimé *</label>
                 <input type="number" required min={1} value={form.nbElevesEstime} onChange={set('nbElevesEstime')} placeholder="30" className={inputCls} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre d&apos;accompagnateurs</label>
+                  <input type="number" min={0} value={form.nombreAccompagnateurs} onChange={set('nombreAccompagnateurs')} placeholder="3" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau de classe</label>
+                  <input type="text" value={form.niveauClasse} onChange={set('niveauClasse')} placeholder="6ème, CM2..." className={inputCls} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Heure d&apos;arrivée</label>
+                  <input type="time" value={form.heureArrivee} onChange={set('heureArrivee')} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Heure de départ</label>
+                  <input type="time" value={form.heureDepart} onChange={set('heureDepart')} className={inputCls} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Transport aller</label>
+                  <select value={form.transportAller} onChange={(e) => setForm(f => ({ ...f, transportAller: e.target.value }))} className={inputCls}>
+                    <option value="">Non précisé</option>
+                    <option value="CARS">Cars</option>
+                    <option value="TRAIN">Train</option>
+                    <option value="AVION">Avion</option>
+                    <option value="BESOIN_TRANSPORTEUR">Besoin transporteur</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Budget max / élève (€)</label>
+                  <input type="number" min={0} step={10} value={form.budgetMaxParEleve} onChange={set('budgetMaxParEleve')} placeholder="350" className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Activités souhaitées</label>
+                <input type="text" value={form.activitesSouhaitees} onChange={set('activitesSouhaitees')} placeholder="Ski, randonnée, escalade..." className={inputCls} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Message personnalisé <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optionnel)</span></label>

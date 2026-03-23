@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsInt, IsOptional, Min, MinLength, IsDateString } from 'class-validator';
+import { IsEmail, IsString, IsInt, IsOptional, Min, MinLength, IsDateString, IsArray, IsBoolean, IsNumber } from 'class-validator';
 
 export class CreateInvitationCollaborationDto {
   @IsEmail({}, { message: 'Email invalide' })
@@ -17,6 +17,43 @@ export class CreateInvitationCollaborationDto {
   @IsInt()
   @Min(1)
   nbElevesEstime: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  nombreAccompagnateurs?: number;
+
+  @IsOptional()
+  @IsString()
+  niveauClasse?: string;
+
+  @IsOptional()
+  @IsArray()
+  thematiquesPedagogiques?: string[];
+
+  @IsOptional()
+  @IsString()
+  heureArrivee?: string;
+
+  @IsOptional()
+  @IsString()
+  heureDepart?: string;
+
+  @IsOptional()
+  @IsString()
+  transportAller?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  transportSurPlace?: boolean;
+
+  @IsOptional()
+  @IsString()
+  activitesSouhaitees?: string;
+
+  @IsOptional()
+  @IsNumber()
+  budgetMaxParEleve?: number;
 
   @IsOptional()
   @IsString()

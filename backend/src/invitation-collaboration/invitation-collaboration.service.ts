@@ -31,12 +31,21 @@ export class InvitationCollaborationService {
         dateFin: new Date(dto.dateFin),
         nbElevesEstime: dto.nbElevesEstime,
         message: dto.message ?? null,
+        niveauClasse: dto.niveauClasse ?? null,
+        nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
+        thematiquesPedagogiques: dto.thematiquesPedagogiques ?? [],
+        heureArrivee: dto.heureArrivee ?? null,
+        heureDepart: dto.heureDepart ?? null,
+        transportAller: dto.transportAller ?? null,
+        transportSurPlace: dto.transportSurPlace ?? null,
+        activitesSouhaitees: dto.activitesSouhaitees ?? null,
+        budgetMaxParEleve: dto.budgetMaxParEleve ?? null,
       },
     });
 
     const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
     const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');
-    const lien = `https://precious-comfort-production-52c6.up.railway.app/rejoindre/${invitation.token}`;
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/rejoindre/${invitation.token}`;
 
     const msgPart = dto.message
       ? `<p style="margin:12px 0;padding:12px;background:#f5f4f1;border-radius:8px;font-style:italic">${dto.message}</p>`
@@ -63,7 +72,7 @@ export class InvitationCollaborationService {
       where: { token },
       include: {
         centre: {
-          select: { nom: true, ville: true, adresse: true },
+          select: { nom: true, ville: true, adresse: true, userId: true },
         },
       },
     });
@@ -81,6 +90,7 @@ export class InvitationCollaborationService {
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // Séjour en DRAFT sans hébergeur lié — l'enseignant doit choisir via le workflow devis normal
       const sejour = await tx.sejour.create({
         data: {
           titre: invitation.titreSejourSuggere,
@@ -89,14 +99,24 @@ export class InvitationCollaborationService {
           dateFin: invitation.dateFin,
           placesTotales: invitation.nbElevesEstime,
           placesRestantes: invitation.nbElevesEstime,
-          statut: 'CONVENTION',
+          statut: 'DRAFT',
           createurId: user.id,
-          hebergementSelectionneId: invitation.centreId,
+          // Pas de hebergementSelectionneId — l'hébergeur doit soumettre un devis
           regionSouhaitee: `VILLE:${invitation.centre.ville}`,
+          niveauClasse: invitation.niveauClasse ?? null,
+          thematiquesPedagogiques: invitation.thematiquesPedagogiques ?? [],
+          nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
+          heureArrivee: invitation.heureArrivee ?? null,
+          heureDepart: invitation.heureDepart ?? null,
+          transportAller: invitation.transportAller ?? null,
+          transportSurPlace: invitation.transportSurPlace ?? null,
+          activitesSouhaitees: invitation.activitesSouhaitees ?? null,
+          budgetMaxParEleve: invitation.budgetMaxParEleve ?? null,
         },
       });
 
-      const demande = await tx.demandeDevis.create({
+      // Demande de devis OUVERTE — visible dans les demandes reçues de l'hébergeur
+      await tx.demandeDevis.create({
         data: {
           sejourId: sejour.id,
           enseignantId: user.id,
@@ -106,6 +126,13 @@ export class InvitationCollaborationService {
           nombreEleves: invitation.nbElevesEstime,
           villeHebergement: invitation.centre.ville,
           statut: 'OUVERTE',
+          nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
+          heureArrivee: invitation.heureArrivee ?? null,
+          heureDepart: invitation.heureDepart ?? null,
+          activitesSouhaitees: invitation.activitesSouhaitees ?? null,
+          budgetMaxParEleve: invitation.budgetMaxParEleve ?? null,
+          transportAller: invitation.transportAller ?? null,
+          transportSurPlace: invitation.transportSurPlace ?? null,
         },
       });
 
@@ -116,6 +143,25 @@ export class InvitationCollaborationService {
 
       return { sejourId: sejour.id };
     });
+
+    // Notifier l'hébergeur qu'une demande l'attend
+    const centreUser = await this.prisma.user.findUnique({
+      where: { id: invitation.centre.userId },
+      select: { email: true },
+    });
+    if (centreUser) {
+      const dateDebut = new Date(invitation.dateDebut).toLocaleDateString('fr-FR');
+      const dateFin = new Date(invitation.dateFin).toLocaleDateString('fr-FR');
+      await this.email.sendGenericNotification(
+        centreUser.email,
+        `L'enseignant a accepté votre invitation — demande de devis en attente`,
+        `<p>L'enseignant que vous avez invité a accepté votre invitation pour le séjour <strong>${invitation.titreSejourSuggere}</strong>.</p>
+         <p><strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+         <strong>Élèves :</strong> ${invitation.nbElevesEstime}</p>
+         <p>Une demande de devis vous attend dans votre espace. Vous pouvez maintenant soumettre votre devis.</p>
+         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/venue/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
+      );
+    }
 
     return result;
   }
