@@ -51,6 +51,8 @@ import {
 import { getDossierPedagogique } from '@/src/lib/sejour';
 import { validerPaiement } from '@/src/lib/autorisation';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
+import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
+import type { BudgetPDFProps } from '@/src/components/pdf/BudgetPDFButton';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -1417,10 +1419,23 @@ export default function CollaborationPage() {
                         </p>
                       </div>
                       {d.url && (
-                        <a href={d.url} target="_blank" rel="noopener noreferrer"
-                          className="text-xs font-medium text-[var(--color-primary)] hover:underline shrink-0">
-                          Télécharger
-                        </a>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <a href={d.url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors inline-flex items-center gap-1">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Voir
+                          </a>
+                          <a href={d.url} download
+                            className="text-xs font-medium text-[var(--color-primary)] border border-[var(--color-primary)] rounded-lg px-2.5 py-1.5 hover:bg-[var(--color-primary-light)] transition-colors inline-flex items-center gap-1">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Télécharger
+                          </a>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1529,10 +1544,23 @@ export default function CollaborationPage() {
                     <span className="text-sm font-medium text-gray-900 truncate">{d.nom}</span>
                     <span className="text-xs text-gray-400">par {d.uploader.prenom} {d.uploader.nom}</span>
                   </div>
-                  <a href={d.url} target="_blank" rel="noopener noreferrer"
-                    className="shrink-0 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
-                    Télécharger
-                  </a>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <a href={d.url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors inline-flex items-center gap-1">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Voir
+                    </a>
+                    <a href={d.url} download
+                      className="text-xs font-medium text-[var(--color-primary)] border border-[var(--color-primary)] rounded-lg px-2.5 py-1.5 hover:bg-[var(--color-primary-light)] transition-colors inline-flex items-center gap-1">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Télécharger
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1605,12 +1633,25 @@ export default function CollaborationPage() {
                         )}
                       </div>
                       {isTeacher && (
-                        <button
-                          onClick={() => window.print()}
-                          className="print:hidden rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors"
-                        >
-                          Imprimer / Exporter PDF
-                        </button>
+                        <BudgetPDFButton
+                          budgetProps={{
+                            titreSejour: s?.titre ?? '',
+                            dateDebut: s?.dateDebut ?? '',
+                            dateFin: s?.dateFin ?? '',
+                            nombreEleves: s?.placesTotales ?? 0,
+                            enseignantNom: s?.createur ? `${s.createur.prenom} ${s.createur.nom}` : undefined,
+                            etablissementNom: s?.createur?.etablissementNom ?? undefined,
+                            lignesHebergeur: d?.lignes?.map(l => ({ description: l.description, quantite: l.quantite, prixUnitaire: l.prixUnitaire, tva: l.tva, totalTTC: l.totalTTC })) ?? [],
+                            totalHebergeur,
+                            lignesCompl: lignesCompl.map(l => ({ categorie: l.categorie, description: l.description, montant: l.montant })),
+                            totalCompl,
+                            recettes: recettes.map(r => ({ source: r.source, montant: r.montant })),
+                            totalRecettes,
+                            totalDepenses,
+                            solde,
+                          }}
+                          filename={`budget-${s?.titre?.toLowerCase().replace(/\s+/g, '-') ?? 'sejour'}.pdf`}
+                        />
                       )}
                     </div>
                   </div>
@@ -1823,12 +1864,38 @@ export default function CollaborationPage() {
                 <>
                   {/* Bouton impression */}
                   <div className="flex justify-end" data-print-hide>
-                    <button
-                      onClick={() => window.print()}
-                      className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
-                    >
-                      Imprimer / Exporter PDF
-                    </button>
+                    <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                      <button
+                        onClick={() => window.print()}
+                        title="Imprimer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors border-r border-gray-300"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.056 48.056 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                        </svg>
+                        Imprimer
+                      </button>
+                      <button
+                        onClick={() => {
+                          const content = document.getElementById('projet-print-content');
+                          if (!content) return;
+                          const win = window.open('', '_blank');
+                          if (!win) return;
+                          win.document.write('<html><head><title>Projet pédagogique</title><style>body{font-family:Arial,sans-serif;padding:40px;font-size:12px;color:#111;}</style></head><body>');
+                          win.document.write(content.innerHTML);
+                          win.document.write('</body></html>');
+                          win.document.close();
+                          win.print();
+                        }}
+                        title="Exporter"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary-light)] hover:opacity-90 transition-colors"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Exporter
+                      </button>
+                    </div>
                   </div>
 
                   {/* En-tête impression */}
@@ -1839,6 +1906,7 @@ export default function CollaborationPage() {
                   </div>
 
                   {/* Section 2 — Établissement */}
+                  <div id="projet-print-content" className="space-y-6">
                   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h3 className="text-base font-semibold text-gray-900 mb-4">Établissement scolaire</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -2157,6 +2225,7 @@ export default function CollaborationPage() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </>
               );
             })()}

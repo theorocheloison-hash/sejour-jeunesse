@@ -52,7 +52,10 @@ export interface DevisPDFProps {
 
 function fmtDate(iso: string | undefined): string {
   if (!iso) return '';
-  const d = new Date(iso);
+  // Gérer les dates ISO avec ou sans heure, et les dates YYYY-MM-DD
+  const s = iso.includes('T') ? iso : iso + 'T12:00:00';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '';
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
