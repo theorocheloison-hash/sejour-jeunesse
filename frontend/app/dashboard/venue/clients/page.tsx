@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
@@ -8,9 +8,10 @@ import {
   addContact, deleteContact,
   addRappel, updateRappelStatut, deleteRappel,
   importerProspects, downloadTemplateClients, importerClientsCSV, downloadTemplateContacts, importerContactsCSV,
+  searchEtablissement,
   STATUT_CLIENT_LABELS, TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
-import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
+import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -68,6 +69,10 @@ export default function ClientsPage() {
   const [rappelForm, setRappelForm] = useState({ type: 'TELEPHONE', dateEcheance: '', description: '' });
 
   const [saving, setSaving] = useState(false);
+  const [etabSuggestions, setEtabSuggestions] = useState<EtablissementEN[]>([]);
+  const [etabSearching, setEtabSearching] = useState(false);
+  const [etabFromApi, setEtabFromApi] = useState(false);
+  const etabDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // CSV import
   const [showImportCSV, setShowImportCSV] = useState(false);
@@ -151,7 +156,43 @@ export default function ClientsPage() {
       setShowNewClient(false);
       setSelectedId(created.id);
       setNewForm({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '' });
+      setEtabSuggestions([]);
+      setEtabFromApi(false);
     } finally { setSaving(false); }
+  };
+
+  const handleEtabSearch = (value: string) => {
+    setNewForm(f => ({ ...f, nom: value }));
+    setEtabFromApi(false);
+    setEtabSuggestions([]);
+    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+    if (value.trim().length < 2) return;
+    setEtabSearching(true);
+    etabDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchEtablissement(value.trim());
+        setEtabSuggestions(results);
+      } catch { /* ignore */ }
+      finally { setEtabSearching(false); }
+    }, 350);
+  };
+
+  const handleSelectEtab = (etab: EtablissementEN) => {
+    const type = etab.type === 'Collège' ? 'COLLEGE'
+      : etab.type === 'Lycée' ? 'LYCEE'
+      : etab.type === 'Ecole' ? 'ECOLE'
+      : 'ETABLISSEMENT_SCOLAIRE';
+    setNewForm(f => ({
+      ...f,
+      nom: etab.nom,
+      type,
+      ville: etab.ville ?? f.ville,
+      email: etab.email ?? f.email,
+      telephone: etab.telephone ?? f.telephone,
+      uai: etab.uai ?? f.uai,
+    }));
+    setEtabFromApi(true);
+    setEtabSuggestions([]);
   };
 
   const handleSaveEdit = async () => {
@@ -625,11 +666,53 @@ export default function ClientsPage() {
 
       {/* Modale nouveau client */}
       {showNewClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowNewClient(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowNewClient(false); setEtabSuggestions([]); setEtabFromApi(false); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-gray-900 mb-4">Nouveau client</h2>
             <div className="space-y-3">
-              <input placeholder="Nom *" value={newForm.nom} onChange={e => setNewForm(f => ({ ...f, nom: e.target.value }))} className={inputCls} />
+              <div className="relative">
+                <div className="relative">
+                  <input
+                    placeholder="Nom ou code UAI de l'établissement *"
+                    value={newForm.nom}
+                    onChange={e => handleEtabSearch(e.target.value)}
+                    className={inputCls}
+                    autoComplete="off"
+                  />
+                  {etabSearching && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                    </div>
+                  )}
+                </div>
+                {etabSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-64 overflow-y-auto">
+                    {etabSuggestions.map((etab, i) => (
+                      <button
+                        key={etab.uai || i}
+                        type="button"
+                        onClick={() => handleSelectEtab(etab)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-gray-900 truncate">{etab.nom}</p>
+                        <p className="text-xs text-gray-500">
+                          {etab.type && <span className="mr-2">{etab.type}</span>}
+                          {etab.ville && <span className="mr-2">{etab.ville}</span>}
+                          {etab.uai && <span className="font-mono text-gray-400">{etab.uai}</span>}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {etabFromApi && (
+                  <p className="mt-1 text-xs text-[var(--color-success)] flex items-center gap-1">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                    Établissement chargé depuis l&apos;annuaire Éducation Nationale
+                  </p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <select value={newForm.type} onChange={e => setNewForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
                   {Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -640,7 +723,14 @@ export default function ClientsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input placeholder="Ville" value={newForm.ville} onChange={e => setNewForm(f => ({ ...f, ville: e.target.value }))} className={inputCls} />
-                <input placeholder="UAI" value={newForm.uai} onChange={e => setNewForm(f => ({ ...f, uai: e.target.value }))} className={inputCls} />
+                <input
+                  placeholder="UAI"
+                  value={newForm.uai}
+                  onChange={e => !etabFromApi && setNewForm(f => ({ ...f, uai: e.target.value }))}
+                  readOnly={etabFromApi}
+                  className={`${inputCls} ${etabFromApi ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+                  title={etabFromApi ? 'Code UAI chargé automatiquement' : ''}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input placeholder="Téléphone" value={newForm.telephone} onChange={e => setNewForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
@@ -650,7 +740,7 @@ export default function ClientsPage() {
             </div>
             <div className="flex gap-3 mt-4">
               <button onClick={handleCreateClient} disabled={saving || !newForm.nom} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">Créer</button>
-              <button onClick={() => setShowNewClient(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+              <button onClick={() => { setShowNewClient(false); setEtabSuggestions([]); setEtabFromApi(false); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
           </div>
         </div>

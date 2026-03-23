@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -18,6 +18,9 @@ export class ClientsController {
   // ── Routes statiques en premier ──────────────────────────────────────────
   @Get('rappels/today')
   getRappelsToday(@CurrentUser() u: JwtUser) { return this.service.getRappelsToday(u.id); }
+
+  @Get('search-etablissement')
+  searchEtablissement(@Query('q') q: string) { return this.service.searchEtablissement(q ?? ''); }
 
   @Get()
   getMesClients(@CurrentUser() u: JwtUser) { return this.service.getMesClients(u.id); }

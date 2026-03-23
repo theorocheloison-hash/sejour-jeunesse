@@ -95,6 +95,22 @@ export const getMesClients = () => api.get<Client[]>('/clients').then(r => r.dat
 
 export const getRappelsToday = () =>
   api.get<RappelToday[]>('/clients/rappels/today').then(r => r.data);
+
+export interface EtablissementEN {
+  uai: string;
+  nom: string;
+  type: string;
+  adresse: string | null;
+  codePostal: string | null;
+  ville: string | null;
+  email: string | null;
+  telephone: string | null;
+  academie: string | null;
+}
+
+export const searchEtablissement = (q: string) =>
+  api.get<EtablissementEN[]>('/clients/search-etablissement', { params: { q } }).then(r => r.data);
+
 export const getClient = (id: string) => api.get<Client>(`/clients/${id}`).then(r => r.data);
 export const createClient = (dto: Partial<Client>) => api.post<Client>('/clients', dto).then(r => r.data);
 export const updateClient = (id: string, dto: Partial<Client>) => api.patch<Client>(`/clients/${id}`, dto).then(r => r.data);

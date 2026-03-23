@@ -167,6 +167,55 @@ export class ClientsService {
     return client;
   }
 
+  async searchEtablissement(query: string): Promise<Array<{
+    uai: string;
+    nom: string;
+    type: string;
+    adresse: string | null;
+    codePostal: string | null;
+    ville: string | null;
+    email: string | null;
+    telephone: string | null;
+    academie: string | null;
+  }>> {
+    if (!query || query.trim().length < 2) return [];
+
+    const API_BASE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records';
+    const FIELDS = 'identifiant_de_l_etablissement,nom_etablissement,type_etablissement,adresse_1,code_postal,nom_commune,mail,telephone,libelle_academie';
+
+    const q = query.trim();
+    const isUai = /^[0-9A-Za-z]{7,9}$/.test(q.replace(/\s/g, ''));
+    const whereClause = isUai
+      ? `identifiant_de_l_etablissement="${q.toUpperCase()}"`
+      : `nom_etablissement LIKE "${q}%"`;
+
+    const url = `${API_BASE}?select=${FIELDS}&where=${encodeURIComponent(whereClause)}&limit=10&order_by=nom_etablissement`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) return [];
+      const data = await res.json() as { results?: Array<Record<string, string | null>> };
+      return (data.results ?? []).map(r => ({
+        uai: (r.identifiant_de_l_etablissement as string) ?? '',
+        nom: (r.nom_etablissement as string) ?? '',
+        type: (r.type_etablissement as string) ?? '',
+        adresse: (r.adresse_1 as string) ?? null,
+        codePostal: (r.code_postal as string) ?? null,
+        ville: (r.nom_commune as string) ?? null,
+        email: (r.mail as string) ?? null,
+        telephone: (r.telephone as string) ?? null,
+        academie: (r.libelle_academie as string) ?? null,
+      }));
+    } catch {
+      return [];
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async importerProspects(academie: string, typesEtablissement: string[], userId: string) {
     const centreId = await this.getCentreId(userId);
     const API_BASE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records';
