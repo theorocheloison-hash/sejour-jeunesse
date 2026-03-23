@@ -24,6 +24,26 @@ export class ClientsService {
     return centre.id;
   }
 
+  async getRappelsToday(userId: string) {
+    const centreId = await this.getCentreId(userId);
+    const debutAujourdhui = new Date();
+    debutAujourdhui.setHours(0, 0, 0, 0);
+    const finAujourdhui = new Date();
+    finAujourdhui.setHours(23, 59, 59, 999);
+
+    return this.prisma.rappel.findMany({
+      where: {
+        client: { centreId },
+        dateEcheance: { gte: debutAujourdhui, lte: finAujourdhui },
+        statut: 'A_FAIRE',
+      },
+      include: {
+        client: { select: { id: true, nom: true } },
+      },
+      orderBy: { dateEcheance: 'asc' },
+    });
+  }
+
   async getMesClients(userId: string) {
     const centreId = await this.getCentreId(userId);
     return this.prisma.client.findMany({

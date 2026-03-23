@@ -16,6 +16,9 @@ export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
   // ── Routes statiques en premier ──────────────────────────────────────────
+  @Get('rappels/today')
+  getRappelsToday(@CurrentUser() u: JwtUser) { return this.service.getRappelsToday(u.id); }
+
   @Get()
   getMesClients(@CurrentUser() u: JwtUser) { return this.service.getMesClients(u.id); }
 

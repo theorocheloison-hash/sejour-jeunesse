@@ -595,6 +595,8 @@ model Devis {
   dateSignatureDirecteur  DateTime? @map("date_signature_directeur")
   nomSignataireDirecteur  String?   @map("nom_signataire_directeur") @db.VarChar(255)
 
+  relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
+
   demande DemandeDevis      @relation(fields: [demandeId], references: [id], onDelete: Cascade)
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
   lignes  LigneDevis[]
@@ -765,6 +767,7 @@ model Rappel {
   description  String   @db.Text
   statut       String   @default("A_FAIRE") @db.VarChar(20)
   createdAt    DateTime @default(now()) @map("created_at")
+  notifiedAt   DateTime? @map("notified_at")
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
