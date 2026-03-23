@@ -7,8 +7,8 @@ import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import { getMesDevis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
-import { getMesClients } from '@/src/lib/clients';
-import type { Client } from '@/src/lib/clients';
+import { getRappelsToday } from '@/src/lib/clients';
+import type { RappelToday } from '@/src/lib/clients';
 
 export default function VenueDashboard() {
   const { user, isLoading, logout } = useAuth();
@@ -20,7 +20,7 @@ export default function VenueDashboard() {
   const [sejoursConvention, setSejoursConvention] = useState<any[]>([]);
   const [demandes, setDemandes] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [rappelsAujourdhui, setRappelsAujourdhui] = useState<Array<{ client: string; type: string; description: string }>>([]);
+  const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.replace('/login');
@@ -28,23 +28,17 @@ export default function VenueDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [profil, mesDevis, sejours, mesDemandes, mesClients] = await Promise.all([
+      const [profil, mesDevis, sejours, mesDemandes, rappels] = await Promise.all([
         getMonProfil(),
         getMesDevis(),
         getMesSejoursConvention(),
         getDemandesOuvertes().catch(() => []),
-        getMesClients().catch(() => [] as Client[]),
+        getRappelsToday().catch(() => []),
       ]);
       setCentre(profil);
       setDevis(mesDevis);
       setSejoursConvention(sejours);
       setDemandes(mesDemandes);
-      const todayStr = new Date().toISOString().split('T')[0];
-      const rappels = mesClients.flatMap(c =>
-        c.rappels
-          .filter(r => r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] <= todayStr)
-          .map(r => ({ client: c.nom, type: r.type, description: r.description }))
-      );
       setRappelsAujourdhui(rappels);
     } catch {}
   }, []);
@@ -52,6 +46,17 @@ export default function VenueDashboard() {
   useEffect(() => {
     if (user?.role === 'VENUE') loadData();
   }, [user, loadData]);
+
+  useEffect(() => {
+    if (user?.role !== 'VENUE') return;
+    const interval = setInterval(async () => {
+      try {
+        const rappels = await getRappelsToday();
+        setRappelsAujourdhui(rappels);
+      } catch {}
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -224,7 +229,7 @@ export default function VenueDashboard() {
                       </svg>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{r.client}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.client.nom}</p>
                       <p className="text-xs text-gray-500 truncate">{r.type} — {r.description}</p>
                     </div>
                   </div>

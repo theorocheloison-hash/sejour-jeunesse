@@ -82,7 +82,19 @@ export interface Client {
   sejours: SejourClient[];
 }
 
+export interface RappelToday {
+  id: string;
+  type: string;
+  dateEcheance: string;
+  description: string;
+  statut: string;
+  client: { id: string; nom: string };
+}
+
 export const getMesClients = () => api.get<Client[]>('/clients').then(r => r.data);
+
+export const getRappelsToday = () =>
+  api.get<RappelToday[]>('/clients/rappels/today').then(r => r.data);
 export const getClient = (id: string) => api.get<Client>(`/clients/${id}`).then(r => r.data);
 export const createClient = (dto: Partial<Client>) => api.post<Client>('/clients', dto).then(r => r.data);
 export const updateClient = (id: string, dto: Partial<Client>) => api.patch<Client>(`/clients/${id}`, dto).then(r => r.data);
