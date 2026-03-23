@@ -59,6 +59,14 @@ import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePD
 
 type Tab = 'devis' | 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://precious-comfort-production-52c6.up.railway.app';
+
+function resolveFileUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return `${BACKEND_URL}${url}`;
+}
+
 const TABS: { key: Tab; label: string }[] = [
   { key: 'devis', label: 'Devis' },
   { key: 'messages', label: 'Messages' },
@@ -1157,7 +1165,7 @@ export default function CollaborationPage() {
                         <th className="text-left py-3 px-3 font-semibold text-gray-700">Ski</th>
                       )}
                       <th className="text-center py-3 px-3 font-semibold text-gray-700">Médical</th>
-                      <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>
+                      {user.role !== 'VENUE' && <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1207,6 +1215,7 @@ export default function CollaborationPage() {
                             <span className="text-gray-300">—</span>
                           )}
                         </td>
+                        {user.role !== 'VENUE' && (
                         <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                           {p.paiementValide ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
@@ -1222,22 +1231,50 @@ export default function CollaborationPage() {
                                  p.moyenPaiement === 'ESPECES' ? 'Espèces' :
                                  p.moyenPaiement}
                               </span>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await validerPaiement(p.id);
-                                    await loadParticipants();
-                                  } catch { /* ignore */ }
-                                }}
-                                className="text-xs text-[var(--color-primary)] hover:underline font-medium"
-                              >
-                                Valider
-                              </button>
+                              {/* Versements partiels */}
+                              {(p.nombreVersementsEffectues ?? 0) > 0 && (
+                                <span className="text-xs text-gray-500">
+                                  {p.nombreVersementsEffectues}/{p.nombreMensualites ?? 1} versement{(p.nombreMensualites ?? 1) > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {/* Boutons action */}
+                              <div className="flex gap-1 flex-wrap justify-center">
+                                {/* Valider un versement partiel si mensualités > 1 */}
+                                {(p.nombreMensualites ?? 1) > 1 && (p.nombreVersementsEffectues ?? 0) < (p.nombreMensualites ?? 1) && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const { validerPaiementPartiel } = await import('@/src/lib/autorisation');
+                                        await validerPaiementPartiel(p.id, 0);
+                                        await loadParticipants();
+                                      } catch { /* ignore */ }
+                                    }}
+                                    className="text-xs text-blue-600 hover:underline font-medium"
+                                  >
+                                    +1 versement
+                                  </button>
+                                )}
+                                {/* Valider paiement complet */}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await validerPaiement(p.id);
+                                      await loadParticipants();
+                                    } catch { /* ignore */ }
+                                  }}
+                                  className="text-xs text-[var(--color-primary)] hover:underline font-medium"
+                                >
+                                  Tout valider
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <span className="text-gray-300 text-xs">—</span>
                           )}
                         </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1376,20 +1413,48 @@ export default function CollaborationPage() {
                   )}
 
                   {/* Document médical */}
-                  {selectedParticipant.documentMedicalUrl && (
-                    <a href={selectedParticipant.documentMedicalUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
-                      Voir le document médical
-                    </a>
-                  )}
+                  {selectedParticipant.documentMedicalUrl && (() => {
+                    const url = resolveFileUrl(selectedParticipant.documentMedicalUrl);
+                    return url ? (
+                      <div className="flex items-center gap-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Voir le document médical
+                        </a>
+                        <a href={url} download className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                        </a>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Attestation assurance */}
-                  {selectedParticipant.attestationAssuranceUrl && (
-                    <a href={selectedParticipant.attestationAssuranceUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
-                      Voir l&apos;attestation d&apos;assurance
-                    </a>
-                  )}
+                  {selectedParticipant.attestationAssuranceUrl && (() => {
+                    const url = resolveFileUrl(selectedParticipant.attestationAssuranceUrl);
+                    return url ? (
+                      <div className="flex items-center gap-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Voir l&apos;attestation d&apos;assurance
+                        </a>
+                        <a href={url} download className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                        </a>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Signé le */}
                   {selectedParticipant.signeeAt && (

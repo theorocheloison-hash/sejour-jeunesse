@@ -112,6 +112,10 @@ export async function validerPaiement(autorisationId: string): Promise<void> {
   await api.patch(`/autorisations/${autorisationId}/valider-paiement`);
 }
 
+export async function validerPaiementPartiel(autorisationId: string, montant: number): Promise<void> {
+  await api.patch(`/autorisations/${autorisationId}/valider-paiement-partiel`, { montant });
+}
+
 export async function uploadDocumentMedical(
   token: string,
   file: File,

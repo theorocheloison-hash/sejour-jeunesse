@@ -219,6 +219,8 @@ model AutorisationParentale {
   moyenPaiement        String?   @map("moyen_paiement") @db.VarChar(20)
   paiementValide       Boolean   @default(false) @map("paiement_valide")
   datePaiement         DateTime? @map("date_paiement")
+  montantVerseTotal    Float?    @default(0) @map("montant_verse_total")
+  nombreVersementsEffectues Int? @default(0) @map("nombre_versements_effectues")
   documentMedicalUrl String?  @map("document_medical_url") @db.VarChar(500)
   nomParent              String?   @map("nom_parent") @db.VarChar(255)
   telephoneUrgence       String?   @map("telephone_urgence") @db.VarChar(20)

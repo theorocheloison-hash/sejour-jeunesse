@@ -88,8 +88,11 @@ export interface Participant {
   attestationAssuranceUrl?: string | null;
   eleveDateNaissance?: string | null;
   moyenPaiement?: string | null;
+  nombreMensualites?: number | null;
   paiementValide?: boolean;
   datePaiement?: string | null;
+  montantVerseTotal?: number | null;
+  nombreVersementsEffectues?: number | null;
   createdAt: string;
 }
 

@@ -192,6 +192,27 @@ export class AutorisationService {
     });
   }
 
+  async validerPaiementPartiel(autorisationId: string, montant: number) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id: autorisationId },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.paiementValide) {
+      throw new ConflictException('Le paiement est déjà totalement validé');
+    }
+
+    const nouveauMontantVerse = (autorisation.montantVerseTotal ?? 0) + montant;
+    const nouveauNombreVersements = (autorisation.nombreVersementsEffectues ?? 0) + 1;
+
+    return this.prisma.autorisationParentale.update({
+      where: { id: autorisationId },
+      data: {
+        montantVerseTotal: nouveauMontantVerse,
+        nombreVersementsEffectues: nouveauNombreVersements,
+      },
+    });
+  }
+
   async getBySejour(sejourId: string, createurId: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },

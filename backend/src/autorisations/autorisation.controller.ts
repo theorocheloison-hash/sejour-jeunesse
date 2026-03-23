@@ -47,6 +47,17 @@ export class AutorisationController {
     return this.autorisationService.validerPaiement(id, user.id);
   }
 
+  /** PATCH /autorisations/:id/valider-paiement-partiel — Enregistrer un versement partiel */
+  @Patch(':id/valider-paiement-partiel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.DIRECTOR, Role.TEACHER)
+  validerPaiementPartiel(
+    @Param('id') id: string,
+    @Body() body: { montant: number },
+  ) {
+    return this.autorisationService.validerPaiementPartiel(id, body.montant);
+  }
+
   /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (TEACHER) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
