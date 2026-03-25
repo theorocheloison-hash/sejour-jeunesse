@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, Suspense, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
@@ -32,7 +33,13 @@ interface CentrePublic {
   typeSejours: string[];
 }
 
-export default function RegisterVenuePage() {
+function RegisterVenueContent() {
+  const searchParams = useSearchParams();
+  const urlNomCentre = searchParams.get('nomCentre') ?? '';
+  const urlVille = searchParams.get('ville') ?? '';
+  const urlCodePostal = searchParams.get('codePostal') ?? '';
+  const fromInvitation = !!(urlNomCentre || urlVille || urlCodePostal);
+
   // step 1 = personal info, 1.5 = centre search, 2 = centre details, 3 = types séjours
   const [step, setStep] = useState<1 | 1.5 | 2 | 3>(1);
   const [form, setForm] = useState({
@@ -41,11 +48,11 @@ export default function RegisterVenuePage() {
     email: '',
     password: '',
     telephone: '',
-    nomCentre: '',
+    nomCentre: urlNomCentre,
     siret: '',
     adresse: '',
-    ville: '',
-    codePostal: '',
+    ville: urlVille,
+    codePostal: urlCodePostal,
     departement: '',
     telephoneCentre: '',
     emailContact: '',
@@ -63,7 +70,7 @@ export default function RegisterVenuePage() {
   const [searchResults, setSearchResults] = useState<CentrePublic[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [centrePreFilled, setCentrePreFilled] = useState(false);
+  const [centrePreFilled, setCentrePreFilled] = useState(fromInvitation);
   const [siretLoading, setSiretLoading] = useState(false);
   const [siretError, setSiretError] = useState<string | null>(null);
   const [centreFromSiret, setCentreFromSiret] = useState(false);
@@ -163,7 +170,7 @@ export default function RegisterVenuePage() {
       setError('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
-    setStep(1.5);
+    setStep(fromInvitation ? 2 : 1.5);
   };
 
   const goStep2 = () => {
@@ -434,7 +441,7 @@ export default function RegisterVenuePage() {
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  <span>Données récupérées depuis notre base — vérifiez et complétez si nécessaire</span>
+                  <span>{fromInvitation ? 'Informations pré-remplies depuis l\'invitation — vérifiez et complétez si nécessaire' : 'Données récupérées depuis notre base — vérifiez et complétez si nécessaire'}</span>
                 </div>
               )}
 
@@ -650,5 +657,13 @@ export default function RegisterVenuePage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function RegisterVenuePage() {
+  return (
+    <Suspense>
+      <RegisterVenueContent />
+    </Suspense>
   );
 }
