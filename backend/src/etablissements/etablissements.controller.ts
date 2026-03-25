@@ -10,8 +10,9 @@ export class EtablissementsController {
   rechercher(
     @Query('q') query?: string,
     @Query('cp') codePostal?: string,
+    @Query('type') type?: string,
   ) {
-    return this.service.rechercher(query, codePostal);
+    return this.service.rechercher(query, codePostal, type);
   }
 
   /** GET /etablissements/:uai — Public */

@@ -20,16 +20,24 @@ export interface EtablissementResult {
 export class EtablissementsService {
   private readonly logger = new Logger(EtablissementsService.name);
 
-  async rechercher(query?: string, codePostal?: string): Promise<EtablissementResult[]> {
+  async rechercher(query?: string, codePostal?: string, type?: string): Promise<EtablissementResult[]> {
     const whereParts: string[] = [];
 
     if (query && query.length >= 2) {
       const escaped = query.replace(/"/g, '\\"');
-      whereParts.push(`search(nom_etablissement, "${escaped}")`);
+      if (/^\d{5}$/.test(query.trim())) {
+        whereParts.push(`code_postal="${query.trim()}"`);
+      } else {
+        whereParts.push(`(search(nom_etablissement, "${escaped}") OR search(nom_commune, "${escaped}"))`);
+      }
     }
 
     if (codePostal) {
       whereParts.push(`code_postal="${codePostal}"`);
+    }
+
+    if (type) {
+      whereParts.push(`type_etablissement="${type}"`);
     }
 
     if (whereParts.length === 0) return [];
