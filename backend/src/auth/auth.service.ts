@@ -48,7 +48,7 @@ export class AuthService {
 
   // ── Inscription enseignant ───────────────────────────────────────────
 
-  async registerTeacher(dto: RegisterTeacherDto) {
+  async registerTeacher(dto: RegisterTeacherDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -70,6 +70,17 @@ export class AuthService {
       },
     });
 
+    await this.prisma.consentementRgpd.create({
+      data: {
+        userId: user.id,
+        role: Role.TEACHER,
+        versionDpa: process.env.DPA_VERSION ?? '1.0',
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        etablissementUai: null,
+      },
+    });
+
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
 
     return {
@@ -80,7 +91,7 @@ export class AuthService {
 
   // ── Inscription hébergeur ────────────────────────────────────────────
 
-  async registerVenue(dto: RegisterVenueDto) {
+  async registerVenue(dto: RegisterVenueDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -120,6 +131,16 @@ export class AuthService {
         typeSejours: dto.typeSejours ?? [],
         userId: user.id,
         statut: 'PENDING',
+      },
+    });
+
+    await this.prisma.consentementRgpd.create({
+      data: {
+        userId: user.id,
+        role: Role.VENUE,
+        versionDpa: process.env.DPA_VERSION ?? '1.0',
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
       },
     });
 

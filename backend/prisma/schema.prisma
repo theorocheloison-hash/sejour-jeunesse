@@ -115,7 +115,27 @@ model User {
   messages        Message[]        @relation("MessagesAuteur")
   documentsSejour DocumentSejour[] @relation("DocumentsUploader")
 
+  consentementsRgpd ConsentementRgpd[]
+
   @@map("utilisateurs")
+}
+
+// ============================================================
+// MODEL : ConsentementRgpd (traçabilité DPA inscription)
+// ============================================================
+model ConsentementRgpd {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  role             Role
+  versionDpa       String   @db.VarChar(20) @map("version_dpa")
+  accepteAt        DateTime @default(now()) @map("accepte_at")
+  ipAddress        String?  @map("ip_address") @db.VarChar(45)
+  userAgent        String?  @map("user_agent") @db.VarChar(500)
+  etablissementUai String?  @map("etablissement_uai") @db.VarChar(20)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("consentements_rgpd")
 }
 
 // ============================================================
@@ -217,6 +237,10 @@ model AutorisationParentale {
   niveauSki         String?   @map("niveau_ski") @db.VarChar(50)
   infosMedicales    String?   @map("infos_medicales") @db.Text
   rgpdAccepte       Boolean   @default(false) @map("rgpd_accepte")
+  rgpdAccepteAt         DateTime? @map("rgpd_accepte_at")
+  rgpdVersionCgu        String?   @map("rgpd_version_cgu") @db.VarChar(20)
+  consentementMedical   Boolean   @default(false) @map("consentement_medical")
+  consentementMedicalAt DateTime? @map("consentement_medical_at")
   nombreMensualites Int       @default(1) @map("nombre_mensualites")
   moyenPaiement        String?   @map("moyen_paiement") @db.VarChar(20)
   paiementValide       Boolean   @default(false) @map("paiement_valide")

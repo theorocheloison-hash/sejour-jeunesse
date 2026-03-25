@@ -52,4 +52,8 @@ export class SignerAutorisationDto {
   @IsOptional()
   @IsString()
   moyenPaiement?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  consentementMedical?: boolean;
 }

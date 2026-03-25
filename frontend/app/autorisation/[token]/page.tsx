@@ -110,6 +110,7 @@ export default function SignerAutorisationPage() {
 
   // RGPD
   const [rgpdAccepte, setRgpdAccepte] = useState(false);
+  const [consentementMedical, setConsentementMedical] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -147,6 +148,7 @@ export default function SignerAutorisationPage() {
         telephoneUrgence: telephoneUrgence.trim(),
         eleveDateNaissance,
         rgpdAccepte: true,
+        consentementMedical: infosMedicales.trim() ? consentementMedical : false,
         nombreMensualites,
         moyenPaiement: moyenPaiement || undefined,
       });
@@ -217,7 +219,7 @@ export default function SignerAutorisationPage() {
       year: 'numeric',
     });
 
-  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance;
+  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance && (!infosMedicales.trim() || consentementMedical);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
@@ -911,6 +913,22 @@ export default function SignerAutorisationPage() {
                   <span className="text-red-500 ml-0.5">*</span>
                 </span>
               </label>
+
+              {infosMedicales.trim() && (
+                <label className="flex items-start gap-3 cursor-pointer group mt-3">
+                  <input
+                    type="checkbox"
+                    checked={consentementMedical}
+                    onChange={(e) => setConsentementMedical(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)] focus:ring-2 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                    J&apos;accepte explicitement le traitement des données médicales de mon enfant
+                    (données de santé — catégorie spéciale RGPD art. 9)
+                    <span className="text-red-500 ml-0.5">*</span>
+                  </span>
+                </label>
+              )}
             </section>
 
             {/* ── BOUTON SIGNER ─────────────────────────────────────────────── */}

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
@@ -16,13 +17,13 @@ export class AuthController {
   }
 
   @Post('register/teacher')
-  registerTeacher(@Body() dto: RegisterTeacherDto) {
-    return this.authService.registerTeacher(dto);
+  registerTeacher(@Body() dto: RegisterTeacherDto, @Req() req: Request) {
+    return this.authService.registerTeacher(dto, req.ip, req.headers['user-agent']);
   }
 
   @Post('register/venue')
-  registerVenue(@Body() dto: RegisterVenueDto) {
-    return this.authService.registerVenue(dto);
+  registerVenue(@Body() dto: RegisterVenueDto, @Req() req: Request) {
+    return this.authService.registerVenue(dto, req.ip, req.headers['user-agent']);
   }
 
   @Post('verify-email/:token')

@@ -70,6 +70,7 @@ export interface SignerAutorisationDto {
   rgpdAccepte: boolean;
   nombreMensualites?: number;
   moyenPaiement?: string;
+  consentementMedical?: boolean;
 }
 
 // ─── Appels protégés (enseignant) ──────────────────────────────────────────
