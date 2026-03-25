@@ -46,11 +46,59 @@ export class ClientsService {
 
   async getMesClients(userId: string) {
     const centreId = await this.getCentreId(userId);
-    return this.prisma.client.findMany({
+
+    const clients = await this.prisma.client.findMany({
       where: { centreId },
-      include: { contacts: true, rappels: { orderBy: { dateEcheance: 'asc' } }, sejours: true },
+      include: {
+        contacts: true,
+        rappels: { orderBy: { dateEcheance: 'asc' } },
+        sejours: true,
+      },
       orderBy: { nom: 'asc' },
     });
+
+    const sejourIds = clients.flatMap(c => c.sejours.map(s => s.sejourId));
+    if (sejourIds.length === 0) return clients.map(c => ({ ...c, devis: [] }));
+
+    const devis = await this.prisma.devis.findMany({
+      where: {
+        centreId,
+        demande: { sejourId: { in: sejourIds } },
+      },
+      select: {
+        id: true,
+        numeroDevis: true,
+        numeroFacture: true,
+        typeDocument: true,
+        statut: true,
+        montantTotal: true,
+        montantTTC: true,
+        montantAcompte: true,
+        acompteVerse: true,
+        dateFacture: true,
+        createdAt: true,
+        demande: {
+          select: {
+            sejourId: true,
+            sejour: { select: { titre: true, dateDebut: true, dateFin: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const devisBySejourId = new Map<string, typeof devis>();
+    for (const d of devis) {
+      const sid = d.demande?.sejourId;
+      if (!sid) continue;
+      if (!devisBySejourId.has(sid)) devisBySejourId.set(sid, []);
+      devisBySejourId.get(sid)!.push(d);
+    }
+
+    return clients.map(c => ({
+      ...c,
+      devis: c.sejours.flatMap(s => devisBySejourId.get(s.sejourId) ?? []),
+    }));
   }
 
   async getClient(id: string, userId: string) {

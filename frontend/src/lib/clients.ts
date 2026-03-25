@@ -62,6 +62,24 @@ export interface SejourClient {
   sejourId: string;
 }
 
+export interface DevisClient {
+  id: string;
+  numeroDevis?: string | null;
+  numeroFacture?: string | null;
+  typeDocument: string;
+  statut: string;
+  montantTotal: string;
+  montantTTC?: number | null;
+  montantAcompte?: number | null;
+  acompteVerse: boolean;
+  dateFacture?: string | null;
+  createdAt: string;
+  demande?: {
+    sejourId: string;
+    sejour?: { titre: string; dateDebut: string; dateFin: string } | null;
+  } | null;
+}
+
 export interface Client {
   id: string;
   nom: string;
@@ -80,6 +98,7 @@ export interface Client {
   contacts: ContactClient[];
   rappels: Rappel[];
   sejours: SejourClient[];
+  devis: DevisClient[];
 }
 
 export interface RappelToday {

@@ -658,6 +658,69 @@ export default function ClientsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Section 5 — Devis & Factures */}
+                {selected.devis && selected.devis.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                      Devis & Factures ({selected.devis.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selected.devis.map(d => {
+                        const isFacture = d.typeDocument === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_SOLDE';
+                        const montant = d.montantTTC ?? Number(d.montantTotal ?? 0);
+                        const label = d.typeDocument === 'FACTURE_ACOMPTE' ? 'Facture acompte'
+                          : d.typeDocument === 'FACTURE_SOLDE' ? 'Facture solde'
+                          : 'Devis';
+                        const ref = d.numeroFacture ?? d.numeroDevis ?? d.id.substring(0, 8).toUpperCase();
+                        const statutCls = d.statut === 'SELECTIONNE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+                          : d.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700'
+                          : d.statut === 'NON_RETENU' ? 'bg-gray-100 text-gray-500'
+                          : 'bg-gray-100 text-gray-600';
+                        const statutLabel = d.statut === 'SELECTIONNE' ? 'Retenu'
+                          : d.statut === 'EN_ATTENTE' ? 'En attente'
+                          : d.statut === 'NON_RETENU' ? 'Non retenu'
+                          : d.statut;
+                        return (
+                          <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${isFacture ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {label}
+                                </span>
+                                <span className="text-xs font-mono text-gray-500">{ref}</span>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statutCls}`}>
+                                  {statutLabel}
+                                </span>
+                              </div>
+                              {d.demande?.sejour && (
+                                <p className="text-xs text-gray-500 truncate">
+                                  {d.demande.sejour.titre} · {new Date(d.demande.sejour.dateDebut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                              )}
+                              {isFacture && (
+                                <p className="text-xs mt-0.5">
+                                  {d.acompteVerse
+                                    ? <span className="text-[var(--color-success)] font-medium">✓ Paiement reçu</span>
+                                    : <span className="text-amber-600">En attente — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                  }
+                                </p>
+                              )}
+                            </div>
+                            <div className="shrink-0 text-right ml-3">
+                              <p className="text-sm font-semibold text-gray-900">
+                                {montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                              </p>
+                              <Link href="/dashboard/venue/devis" className="text-xs text-[var(--color-primary)] hover:underline">
+                                Voir &rarr;
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

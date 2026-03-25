@@ -94,8 +94,8 @@ export default function VenuePlanningPage() {
   const weekStart = startOfWeek(currentDate);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const prevWeek = () => setCurrentDate(d => addDays(d, -7));
-  const nextWeek = () => setCurrentDate(d => addDays(d, 7));
+  const prevWeek = () => { setCurrentDate(d => addDays(d, -7)); setFilterSejourId(null); };
+  const nextWeek = () => { setCurrentDate(d => addDays(d, 7)); setFilterSejourId(null); };
   const prevMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   const nextMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   const goToday = () => setCurrentDate(new Date());
@@ -173,16 +173,31 @@ export default function VenuePlanningPage() {
         </div>
         <div className="flex items-center gap-2">
           {/* Filtre séjours */}
-          <select
-            value={filterSejourId ?? ''}
-            onChange={e => setFilterSejourId(e.target.value || null)}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-          >
-            <option value="">Tous les séjours</option>
-            {sejours.map(s => (
-              <option key={s.id} value={s.id}>{s.titre}</option>
-            ))}
-          </select>
+          {(() => {
+            const sejoursSemaine = view === 'semaine'
+              ? sejours.filter(s => {
+                  const debut = s.dateDebut.split('T')[0];
+                  const fin = s.dateFin.split('T')[0];
+                  const wStart = dateStr(weekStart);
+                  const wEnd = dateStr(addDays(weekStart, 6));
+                  return debut <= wEnd && fin >= wStart;
+                })
+              : sejours;
+
+            if (sejoursSemaine.length === 0) return null;
+            return (
+              <select
+                value={filterSejourId ?? ''}
+                onChange={e => setFilterSejourId(e.target.value || null)}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              >
+                <option value="">Tous les séjours</option>
+                {sejoursSemaine.map(s => (
+                  <option key={s.id} value={s.id}>{s.titre}</option>
+                ))}
+              </select>
+            );
+          })()}
           {/* Vue */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             {(['semaine', 'mois'] as const).map(v => (
