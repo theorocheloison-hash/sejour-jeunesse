@@ -166,4 +166,45 @@ export class InvitationCollaborationService {
 
     return result;
   }
+
+  async inviterCentreExterne(dto: {
+    emailDestinataire: string;
+    nomCentre: string;
+    villeCentre: string;
+    codePostalCentre: string;
+    titreSejourSuggere: string;
+    dateDebut: string;
+    dateFin: string;
+    nbElevesEstime: number;
+    message?: string;
+  }, enseignantId: string) {
+    const params = new URLSearchParams({
+      nomCentre: dto.nomCentre,
+      ville: dto.villeCentre,
+      codePostal: dto.codePostalCentre,
+      redirectAfter: 'dashboard',
+    });
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?${params.toString()}`;
+
+    const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
+    const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');
+    const msgPart = dto.message
+      ? `<p style="margin:12px 0;padding:12px;background:#f5f4f1;border-radius:8px;font-style:italic">${dto.message}</p>`
+      : '';
+
+    await this.email.sendGenericNotification(
+      dto.emailDestinataire,
+      `Un enseignant souhaite collaborer avec ${dto.nomCentre} via LIAVO`,
+      `<p>Un enseignant souhaite organiser un séjour avec votre structure :</p>
+       <p><strong>Séjour :</strong> ${dto.titreSejourSuggere}<br>
+       <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+       <strong>Nombre d'élèves :</strong> ${dto.nbElevesEstime}</p>
+       ${msgPart}
+       <p>Pour répondre à cette demande, créez votre compte gratuitement sur LIAVO. Vos informations seront pré-remplies automatiquement.</p>
+       <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon compte LIAVO</a></p>
+       <p style="color:#888;font-size:12px">Une fois votre compte validé par notre équipe, vous pourrez soumettre votre devis à cet enseignant.</p>`,
+    );
+
+    return { sent: true };
+  }
 }

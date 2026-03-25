@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import api from '@/src/lib/api';
 import { getHebergement, creerSejourDepuisCatalogue } from '@/src/lib/hebergement';
 import type { Hebergement } from '@/src/lib/hebergement';
 
@@ -23,6 +24,48 @@ export default function HebergementDetailPage() {
   const [modalForm, setModalForm] = useState({ titre: '', dateDebut: '', dateFin: '', nombreEleves: '', message: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', budgetMaxParEleve: '' });
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Modale invitation centre externe
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    emailDestinataire: '',
+    titreSejourSuggere: '',
+    dateDebut: '',
+    dateFin: '',
+    nbElevesEstime: '',
+    message: '',
+  });
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+
+  const handleInviterCentreExterne = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteError(null);
+    if (!inviteForm.emailDestinataire || !inviteForm.titreSejourSuggere || !inviteForm.dateDebut || !inviteForm.dateFin || !inviteForm.nbElevesEstime) {
+      setInviteError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+    setInviteSubmitting(true);
+    try {
+      await api.post('/invitation-collaboration/centre-externe', {
+        emailDestinataire: inviteForm.emailDestinataire,
+        nomCentre: hebergement?.nom ?? '',
+        villeCentre: hebergement?.ville ?? '',
+        codePostalCentre: hebergement?.codePostal ?? '',
+        titreSejourSuggere: inviteForm.titreSejourSuggere,
+        dateDebut: inviteForm.dateDebut,
+        dateFin: inviteForm.dateFin,
+        nbElevesEstime: parseInt(inviteForm.nbElevesEstime, 10),
+        message: inviteForm.message || undefined,
+      });
+      setInviteSuccess(true);
+    } catch (err: any) {
+      setInviteError(err?.response?.data?.message ?? "Erreur lors de l'envoi");
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
 
   const handleCreerSejour = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +197,24 @@ export default function HebergementDetailPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity shrink-0"
                   >
                     Travailler avec ce centre
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Centre externe — pas sur LIAVO */}
+            {!isLiavoId(params.id as string) && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-amber-50">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Ce centre n&apos;est pas encore sur LIAVO</p>
+                    <p className="text-xs text-amber-700 mt-0.5">Invitez-le à rejoindre la plateforme pour collaborer directement</p>
+                  </div>
+                  <button
+                    onClick={() => setShowInviteModal(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity shrink-0"
+                  >
+                    Inviter ce centre
                   </button>
                 </div>
               </div>
@@ -353,6 +414,96 @@ export default function HebergementDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale invitation centre externe */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Inviter {hebergement?.nom} sur LIAVO</h2>
+              <button onClick={() => { setShowInviteModal(false); setInviteSuccess(false); setInviteError(null); }} className="text-gray-400 hover:text-gray-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {inviteSuccess ? (
+              <div className="text-center py-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                  <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-900 mb-1">Invitation envoyée</p>
+                <p className="text-xs text-gray-500">Le centre recevra un email avec un lien pour créer son compte LIAVO.</p>
+                <button onClick={() => { setShowInviteModal(false); setInviteSuccess(false); }} className="mt-4 text-sm font-medium text-[var(--color-primary)] hover:underline">
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleInviterCentreExterne} className="space-y-4">
+                {inviteError && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{inviteError}</div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email du centre *</label>
+                  <input type="email" required value={inviteForm.emailDestinataire}
+                    onChange={e => setInviteForm(f => ({ ...f, emailDestinataire: e.target.value }))}
+                    placeholder="contact@centre.fr"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  <p className="mt-1 text-xs text-gray-400">Retrouvez l&apos;email dans la section Contact ci-dessous</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Titre du séjour *</label>
+                  <input type="text" required value={inviteForm.titreSejourSuggere}
+                    onChange={e => setInviteForm(f => ({ ...f, titreSejourSuggere: e.target.value }))}
+                    placeholder="Classe de neige 6ème — Janvier 2027"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date début *</label>
+                    <input type="date" required value={inviteForm.dateDebut}
+                      onChange={e => setInviteForm(f => ({ ...f, dateDebut: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date fin *</label>
+                    <input type="date" required value={inviteForm.dateFin}
+                      onChange={e => setInviteForm(f => ({ ...f, dateFin: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre d&apos;élèves *</label>
+                  <input type="number" required min="1" value={inviteForm.nbElevesEstime}
+                    onChange={e => setInviteForm(f => ({ ...f, nbElevesEstime: e.target.value }))}
+                    placeholder="30"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                  <textarea rows={3} value={inviteForm.message}
+                    onChange={e => setInviteForm(f => ({ ...f, message: e.target.value }))}
+                    placeholder="Bonjour, nous souhaiterions organiser un séjour avec votre structure..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none" />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowInviteModal(false)}
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Annuler
+                  </button>
+                  <button type="submit" disabled={inviteSubmitting}
+                    className="flex-1 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-60">
+                    {inviteSubmitting ? 'Envoi...' : 'Envoyer l\'invitation'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
