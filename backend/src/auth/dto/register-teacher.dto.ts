@@ -22,4 +22,20 @@ export class RegisterTeacherDto {
   @IsOptional()
   @IsString()
   telephone?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementUai?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementNom?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementAdresse?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementVille?: string;
 }
