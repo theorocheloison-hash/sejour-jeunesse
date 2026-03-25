@@ -1,5 +1,2 @@
--- AlterTable
-ALTER TABLE "rappels" ADD COLUMN "notified_at" TIMESTAMP(3);
-
--- AlterTable
-ALTER TABLE "devis" ADD COLUMN "relance_envoyee_at" TIMESTAMP(3);
+ALTER TABLE "rappels" ADD COLUMN IF NOT EXISTS "notified_at" TIMESTAMP(3);
+ALTER TABLE "devis" ADD COLUMN IF NOT EXISTS "relance_envoyee_at" TIMESTAMP(3);
