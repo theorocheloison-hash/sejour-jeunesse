@@ -20,7 +20,7 @@ export default function HebergementDetailPage() {
 
   // Modale "Travailler avec ce centre"
   const [showModal, setShowModal] = useState(false);
-  const [modalForm, setModalForm] = useState({ titre: '', dateDebut: '', dateFin: '', nombreEleves: '', message: '' });
+  const [modalForm, setModalForm] = useState({ titre: '', dateDebut: '', dateFin: '', nombreEleves: '', message: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', budgetMaxParEleve: '' });
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -40,6 +40,11 @@ export default function HebergementDetailPage() {
         dateFin: modalForm.dateFin,
         nombreEleves: parseInt(modalForm.nombreEleves, 10),
         message: modalForm.message || undefined,
+        niveauClasse: modalForm.niveauClasse || undefined,
+        heureArrivee: modalForm.heureArrivee || undefined,
+        heureDepart: modalForm.heureDepart || undefined,
+        transportAller: modalForm.transportAller || undefined,
+        budgetMaxParEleve: modalForm.budgetMaxParEleve ? parseFloat(modalForm.budgetMaxParEleve) : undefined,
       });
       router.push(`/dashboard/sejour/${result.sejourId}`);
     } catch (err: any) {
@@ -288,6 +293,46 @@ export default function HebergementDetailPage() {
                 <input type="number" required min="1" value={modalForm.nombreEleves}
                   onChange={e => setModalForm(f => ({ ...f, nombreEleves: e.target.value }))}
                   placeholder="30"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Niveau de classe <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                <input type="text" value={modalForm.niveauClasse}
+                  onChange={e => setModalForm(f => ({ ...f, niveauClasse: e.target.value }))}
+                  placeholder="6ème, CM2..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Heure d&apos;arrivée <span className="text-gray-400 font-normal">(opt.)</span></label>
+                  <input type="time" value={modalForm.heureArrivee}
+                    onChange={e => setModalForm(f => ({ ...f, heureArrivee: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Heure de départ <span className="text-gray-400 font-normal">(opt.)</span></label>
+                  <input type="time" value={modalForm.heureDepart}
+                    onChange={e => setModalForm(f => ({ ...f, heureDepart: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transport aller <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                <select value={modalForm.transportAller}
+                  onChange={e => setModalForm(f => ({ ...f, transportAller: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                  <option value="">Non précisé</option>
+                  <option value="CARS">Cars</option>
+                  <option value="TRAIN">Train</option>
+                  <option value="AVION">Avion</option>
+                  <option value="BESOIN_TRANSPORTEUR">Besoin transporteur</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget max / élève (€) <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                <input type="number" min="0" step="10" value={modalForm.budgetMaxParEleve}
+                  onChange={e => setModalForm(f => ({ ...f, budgetMaxParEleve: e.target.value }))}
+                  placeholder="500"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
               </div>
               <div>

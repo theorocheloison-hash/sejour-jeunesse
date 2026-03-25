@@ -96,6 +96,7 @@ export class DemandeService {
         budgetMaxParEleve: dto.budgetMaxParEleve ?? null,
         transportAller:    dto.transportAller ?? null,
         transportSurPlace: dto.transportSurPlace ?? null,
+        centreDestinataireId: dto.centreDestinataireId ?? null,
         sejourId: dto.sejourId,
         enseignantId,
       },
@@ -123,6 +124,14 @@ export class DemandeService {
         OR: [
           { dateButoireReponse: null },
           { dateButoireReponse: { gte: new Date() } },
+        ],
+        AND: [
+          {
+            OR: [
+              { centreDestinataireId: null },
+              { centreDestinataireId: centre.id },
+            ],
+          },
         ],
       },
       include: {

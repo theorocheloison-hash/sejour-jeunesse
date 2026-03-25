@@ -126,6 +126,7 @@ export class InvitationCollaborationService {
           nombreEleves: invitation.nbElevesEstime,
           villeHebergement: invitation.centre.ville,
           statut: 'OUVERTE',
+          centreDestinataireId: invitation.centreId,
           nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
           heureArrivee: invitation.heureArrivee ?? null,
           heureDepart: invitation.heureDepart ?? null,

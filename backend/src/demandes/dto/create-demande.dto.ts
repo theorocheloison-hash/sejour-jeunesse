@@ -66,4 +66,8 @@ export class CreateDemandeDto {
   @IsNumber()
   @Type(() => Number)
   budgetMaxParEleve?: number;
+
+  @IsOptional()
+  @IsUUID()
+  centreDestinataireId?: string;
 }

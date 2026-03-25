@@ -451,6 +451,7 @@ model CentreHebergement {
   invitationsCollaboration InvitationCollaboration[]
   produitsCatalogue ProduitCatalogue[]
   demandesIgnorees DemandeIgnoree[]
+  demandesDestinees DemandeDevis[] @relation("DemandesDestinees")
   clients          Client[]
 
   @@map("centres_hebergement")
@@ -556,6 +557,8 @@ model DemandeDevis {
   sejour     Sejour   @relation(fields: [sejourId], references: [id], onDelete: Cascade)
   devis      Devis[]
   demandesIgnorees DemandeIgnoree[]
+  centreDestinataire   CentreHebergement? @relation("DemandesDestinees", fields: [centreDestinataireId], references: [id], onDelete: SetNull)
+  centreDestinataireId String?            @map("centre_destinataire_id") @db.Uuid
 
   @@index([sejourId])
   @@index([enseignantId])

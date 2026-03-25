@@ -55,6 +55,11 @@ export async function creerSejourDepuisCatalogue(dto: {
   dateFin: string;
   nombreEleves: number;
   message?: string;
+  niveauClasse?: string;
+  heureArrivee?: string;
+  heureDepart?: string;
+  transportAller?: string;
+  budgetMaxParEleve?: number;
 }): Promise<{ sejourId: string }> {
   const { data } = await api.post<{ sejourId: string }>('/sejours/depuis-catalogue', dto);
   return data;
