@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -98,8 +99,9 @@ export class DevisController {
   signerDevis(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @Req() req: Request,
   ) {
-    return this.devisService.signerDevis(id, user);
+    return this.devisService.signerDevis(id, user, req.ip, req.headers['user-agent'] as string);
   }
 
   @Patch(':id/facturer-acompte')

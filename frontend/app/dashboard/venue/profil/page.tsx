@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import api from '@/src/lib/api';
 import { getMonProfil, updateMonProfil } from '@/src/lib/centre';
+import type { Centre } from '@/src/lib/centre';
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
@@ -63,6 +65,7 @@ export default function VenueProfilPage() {
   const router = useRouter();
 
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [centre, setCentre] = useState<Centre | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -76,6 +79,7 @@ export default function VenueProfilPage() {
     if (!user || user.role !== 'VENUE') return;
     getMonProfil()
       .then((c) => {
+        setCentre(c);
         setForm({
           nom: c.nom ?? '',
           description: c.description ?? '',
@@ -279,6 +283,49 @@ export default function VenueProfilPage() {
                 className={`${inputCls} resize-none`}
               />
             </div>
+
+            {/* Mandat de facturation Chorus Pro */}
+            {centre && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  Mandat de facturation Chorus Pro
+                </h3>
+                {centre.mandatFacturationAccepte ? (
+                  <div className="flex items-center gap-3 rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3">
+                    <svg className="h-5 w-5 text-[var(--color-success)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-success)]">Mandat accepté</p>
+                      {centre.mandatFacturationAccepteAt && (
+                        <p className="text-xs text-[var(--color-success)]">
+                          Le {new Date(centre.mandatFacturationAccepteAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} — version {centre.mandatFacturationVersion}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                      <p className="font-semibold mb-1">Mandat de facturation requis</p>
+                      <p className="text-xs">Pour générer des factures au format Chorus Pro (obligatoire pour les marchés publics avec les établissements scolaires), vous devez accepter le mandat de facturation au sens de l&apos;art. 289-I-2 du Code Général des Impôts. LIAVO agit en votre nom comme émetteur technique.</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.patch('/centres/mandat-facturation');
+                          const updated = await api.get('/centres/mon-profil');
+                          setCentre(updated.data);
+                        } catch { /* ignore */ }
+                      }}
+                      className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                      J&apos;accepte le mandat de facturation
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end gap-3">

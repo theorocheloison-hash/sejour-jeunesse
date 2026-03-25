@@ -28,6 +28,9 @@ export interface Centre {
   iban?: string | null;
   equipements?: string[];
   conditionsAnnulation?: string | null;
+  mandatFacturationAccepte?: boolean;
+  mandatFacturationAccepteAt?: string | null;
+  mandatFacturationVersion?: string | null;
 }
 
 export interface Disponibilite {

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -432,7 +433,7 @@ export class DevisService {
     return updated;
   }
 
-  async signerDevis(devisId: string, user: { id: string; role: string }) {
+  async signerDevis(devisId: string, user: { id: string; role: string }, ipAddress?: string, userAgent?: string) {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
@@ -455,6 +456,11 @@ export class DevisService {
         signatureDirecteur: `Signé électroniquement par ${nomSignataire} — ${new Date().toLocaleDateString('fr-FR')}`,
         dateSignatureDirecteur: new Date(),
         nomSignataireDirecteur: nomSignataire,
+        signatureIpAddress: ipAddress ?? null,
+        signatureUserAgent: userAgent ?? null,
+        signatureHash: createHash('sha256')
+          .update(`${devisId}${user.id}${new Date().toISOString()}${devis.montantTTC ?? '0'}`)
+          .digest('hex'),
       },
       include: { lignes: true },
     });
@@ -789,6 +795,11 @@ export class DevisService {
     if (!devis) throw new NotFoundException('Devis introuvable');
     if (devis.typeDocument !== 'FACTURE_ACOMPTE' && devis.typeDocument !== 'FACTURE_SOLDE') {
       throw new ForbiddenException('Seule une facture d\'acompte peut être exportée');
+    }
+    if (!devis.centre?.mandatFacturationAccepte) {
+      throw new ForbiddenException(
+        'Mandat de facturation non accepté. Veuillez l\'accepter dans vos paramètres avant de générer des factures Chorus Pro.'
+      );
     }
 
     const sejour = devis.demande?.sejour;

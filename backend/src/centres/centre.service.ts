@@ -412,6 +412,24 @@ export class CentreService {
     });
   }
 
+  async accepterMandatFacturation(userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.mandatFacturationAccepte) {
+      return centre; // Déjà accepté — idempotent
+    }
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: {
+        mandatFacturationAccepte: true,
+        mandatFacturationAccepteAt: new Date(),
+        mandatFacturationVersion: process.env.MANDAT_VERSION ?? '1.0',
+      },
+    });
+  }
+
   async archiveProduit(userId: string, produitId: string) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },

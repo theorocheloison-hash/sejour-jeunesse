@@ -77,6 +77,13 @@ export class CentreController {
     return this.centreService.uploadDocument(user.id, file, dto);
   }
 
+  @Patch('mandat-facturation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENUE)
+  accepterMandatFacturation(@CurrentUser() user: JwtUser) {
+    return this.centreService.accepterMandatFacturation(user.id);
+  }
+
   @Get('disponibilites')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENUE)

@@ -7,10 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -80,8 +82,9 @@ export class AutorisationController {
   signer(
     @Param('token') token: string,
     @Body() dto: SignerAutorisationDto,
+    @Req() req: Request,
   ) {
-    return this.autorisationService.signer(token, dto);
+    return this.autorisationService.signer(token, dto, req.ip);
   }
 
   /** POST /autorisations/:token/document — Upload document médical (PAS de guard) */

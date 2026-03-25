@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -120,7 +121,7 @@ export class AutorisationService {
     };
   }
 
-  async signer(token: string, dto: SignerAutorisationDto) {
+  async signer(token: string, dto: SignerAutorisationDto, ipAddress?: string) {
     if (!dto.rgpdAccepte) {
       throw new BadRequestException(
         'Vous devez accepter les conditions de traitement des données personnelles (RGPD).',
@@ -138,6 +139,10 @@ export class AutorisationService {
       where: { tokenAcces: token },
       data: {
         signeeAt: new Date(),
+        signatureIpAddress: ipAddress ?? null,
+        signatureHash: createHash('sha256')
+          .update(`${autorisation.id}${token}${new Date().toISOString()}`)
+          .digest('hex'),
         taille: dto.taille ?? null,
         poids: dto.poids ?? null,
         pointure: dto.pointure ?? null,

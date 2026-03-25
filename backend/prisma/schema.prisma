@@ -230,6 +230,8 @@ model AutorisationParentale {
   parentEmail     String    @map("parent_email") @db.VarChar(255)
   tokenAcces        String    @unique @default(uuid()) @map("token_acces") @db.Uuid
   signeeAt          DateTime? @map("signee_at")
+  signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
+  signatureHash       String?  @map("signature_hash") @db.VarChar(64)
   taille            Int?
   poids             Int?
   pointure          Int?
@@ -435,6 +437,9 @@ model CentreHebergement {
   agrementEducationNationale String?    @map("agrement_education_nationale") @db.VarChar(50)
   typeSejours         String[]          @default([]) @map("type_sejours")
   imageUrl            String?           @map("image_url") @db.VarChar(500)
+  mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
+  mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")
+  mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
@@ -622,6 +627,9 @@ model Devis {
   signatureDirecteur      String?   @map("signature_directeur") @db.Text
   dateSignatureDirecteur  DateTime? @map("date_signature_directeur")
   nomSignataireDirecteur  String?   @map("nom_signataire_directeur") @db.VarChar(255)
+  signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
+  signatureUserAgent  String?  @map("signature_user_agent") @db.VarChar(500)
+  signatureHash       String?  @map("signature_hash") @db.VarChar(64)
 
   relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
   montantVerseTotal Float @default(0) @map("montant_verse_total")
