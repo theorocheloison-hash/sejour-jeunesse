@@ -24,7 +24,9 @@ function RegisterTeacherContent() {
   const [success, setSuccess] = useState(false);
 
   // Établissement search
-  const [etabQuery, setEtabQuery] = useState('');
+  const [etabNom, setEtabNom] = useState('');
+  const [etabVille, setEtabVille] = useState('');
+  const [etabCp, setEtabCp] = useState('');
   const [etabTypeFilter, setEtabTypeFilter] = useState<string>('');
   const [etabResults, setEtabResults] = useState<Array<{ uai: string; nom: string; type: string; adresse: string; codePostal: string; commune: string; academie: string }>>([]);
   const [etabSearching, setEtabSearching] = useState(false);
@@ -38,53 +40,59 @@ function RegisterTeacherContent() {
     };
   }, []);
 
-  const fireEtabSearch = (query: string, type: string) => {
-    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
-    if (query.length < 3 && !type) { setEtabResults([]); return; }
-    if (query.length < 3 && type) {
-      // type seul — recherche immédiate sans debounce
-      if (etabAbortRef.current) etabAbortRef.current.abort();
-      const controller = new AbortController();
-      etabAbortRef.current = controller;
-      setEtabSearching(true);
-      api.get('/etablissements/recherche', { params: { q: undefined, type: type || undefined }, signal: controller.signal })
-        .then(res => setEtabResults(res.data))
-        .catch(() => {})
-        .finally(() => setEtabSearching(false));
-      return;
+  const buildParams = (nom: string, ville: string, cp: string, type: string) => {
+    const params: Record<string, string> = {};
+    if (/^\d{5}$/.test(cp.trim())) {
+      params.q = cp.trim();
+    } else {
+      const parts = [nom.trim(), ville.trim()].filter(Boolean);
+      if (parts.length > 0) params.q = parts.join(' ');
     }
-    etabDebounceRef.current = setTimeout(async () => {
+    if (type) params.type = type;
+    return params;
+  };
+
+  const fireEtabSearch = (nom: string, ville: string, cp: string, type: string) => {
+    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+    const params = buildParams(nom, ville, cp, type);
+    if (!params.q && !params.type) { setEtabResults([]); return; }
+    if (params.q && params.q.length < 3 && !params.type) { setEtabResults([]); return; }
+
+    const doSearch = async () => {
       if (etabAbortRef.current) etabAbortRef.current.abort();
       const controller = new AbortController();
       etabAbortRef.current = controller;
       setEtabSearching(true);
       try {
-        const res = await api.get('/etablissements/recherche', { params: { q: query, type: type || undefined }, signal: controller.signal });
+        const res = await api.get('/etablissements/recherche', { params, signal: controller.signal });
         setEtabResults(res.data);
       } catch { /* aborted or error */ }
       finally { setEtabSearching(false); }
-    }, 400);
-  };
+    };
 
-  const handleEtabSearch = (value: string) => {
-    setEtabQuery(value);
-    fireEtabSearch(value, etabTypeFilter);
+    // No debounce for type-only searches
+    if (!params.q) { doSearch(); return; }
+    etabDebounceRef.current = setTimeout(doSearch, 400);
   };
 
   useEffect(() => {
-    if (form.etablissementNom) return; // already selected
-    fireEtabSearch(etabQuery, etabTypeFilter);
+    if (form.etablissementNom) return;
+    fireEtabSearch(etabNom, etabVille, etabCp, etabTypeFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etabTypeFilter]);
 
   const selectEtab = (e: typeof etabResults[0]) => {
     setForm(f => ({ ...f, etablissementUai: e.uai, etablissementNom: e.nom, etablissementAdresse: e.adresse ?? '', etablissementVille: e.commune }));
     setEtabResults([]);
-    setEtabQuery('');
   };
 
   const clearEtab = () => {
     setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
+    setEtabNom('');
+    setEtabVille('');
+    setEtabCp('');
+    setEtabTypeFilter('');
+    setEtabResults([]);
   };
 
   const searchParams = useSearchParams();
@@ -242,20 +250,42 @@ function RegisterTeacherContent() {
                     ))}
                   </div>
                   <div className="relative">
-                    <input
-                      type="text"
-                      value={etabQuery}
-                      onChange={e => handleEtabSearch(e.target.value)}
-                      placeholder="Nom, ville ou code postal"
-                      disabled={isPending}
-                      autoComplete="off"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                    />
-                    {etabSearching && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        value={etabNom}
+                        onChange={e => { setEtabNom(e.target.value); fireEtabSearch(e.target.value, etabVille, etabCp, etabTypeFilter); }}
+                        placeholder="Nom"
+                        disabled={isPending}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                      />
+                      <input
+                        type="text"
+                        value={etabVille}
+                        onChange={e => { setEtabVille(e.target.value); fireEtabSearch(etabNom, e.target.value, etabCp, etabTypeFilter); }}
+                        placeholder="Ville"
+                        disabled={isPending}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={etabCp}
+                          onChange={e => { setEtabCp(e.target.value); fireEtabSearch(etabNom, etabVille, e.target.value, etabTypeFilter); }}
+                          placeholder="Code postal"
+                          disabled={isPending}
+                          autoComplete="off"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                        />
+                        {etabSearching && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                     {etabResults.length > 0 && (
                       <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {etabResults.map(e => (
