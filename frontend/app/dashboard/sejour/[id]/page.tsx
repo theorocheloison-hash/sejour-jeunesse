@@ -59,7 +59,7 @@ import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePD
 
 type Tab = 'devis' | 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://precious-comfort-production-52c6.up.railway.app';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
 function resolveFileUrl(url: string | null | undefined): string | null {
   if (!url) return null;

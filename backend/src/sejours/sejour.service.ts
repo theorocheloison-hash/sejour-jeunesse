@@ -6,6 +6,8 @@ import { CreateSejourDto } from './dto/create-sejour.dto.js';
 import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
 @Injectable()
 export class SejourService {
   constructor(
@@ -107,7 +109,7 @@ export class SejourService {
     if (centreUser) {
       const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
       const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');
-      const lien = `https://precious-comfort-production-52c6.up.railway.app/dashboard/sejour/${result.sejourId}`;
+      const lien = `${FRONTEND_URL}/dashboard/sejour/${result.sejourId}`;
       await this.email.sendGenericNotification(
         centreUser.email,
         `Nouvelle demande de séjour — ${dto.titre}`,
@@ -509,7 +511,7 @@ export class SejourService {
       return { success: false, message: 'Aucun directeur trouvé pour cet établissement sur Liavo.' };
     }
 
-    const lien = 'https://precious-comfort-production-52c6.up.railway.app/dashboard/director';
+    const lien = `${FRONTEND_URL}/dashboard/director`;
     const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
     const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
     const etablissement = sejour.createur?.etablissementNom ?? 'l\'établissement';
@@ -573,7 +575,7 @@ export class SejourService {
       const prixFormate = dto.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
 
       for (const aut of autorisations) {
-        const lien = `https://precious-comfort-production-52c6.up.railway.app/autorisation/${aut.tokenAcces}`;
+        const lien = `${FRONTEND_URL}/autorisation/${aut.tokenAcces}`;
         await this.email.sendPaiementDisponible(
           aut.parentEmail,
           sejour.titre,
@@ -628,7 +630,7 @@ export class SejourService {
         if (centreSelectionne) {
           const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
           const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
-          const lien = 'https://precious-comfort-production-52c6.up.railway.app/dashboard/venue';
+          const lien = `${FRONTEND_URL}/dashboard/venue`;
           await this.email.sendGenericNotification(
             centreSelectionne.user.email,
             `Séjour approuvé par la direction — ${sejour.titre}`,
