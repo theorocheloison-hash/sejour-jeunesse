@@ -3,7 +3,6 @@ import {
   IsString,
   MinLength,
   IsOptional,
-  Matches,
 } from 'class-validator';
 
 export class RegisterTeacherDto {
@@ -14,10 +13,6 @@ export class RegisterTeacherDto {
   nom: string;
 
   @IsEmail({}, { message: 'Email invalide' })
-  @Matches(
-    /^[^@]+@(ac-[a-z-]+\.fr|education\.gouv\.fr)$/i,
-    { message: 'Veuillez utiliser une adresse académique (@ac-*.fr ou @education.gouv.fr)' },
-  )
   email: string;
 
   @IsString()
