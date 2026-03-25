@@ -43,6 +43,16 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.demanderResetPassword(body.email);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() body: { token: string; password: string }) {
+    return this.authService.reinitialiserMotDePasse(body.token, body.password);
+  }
+
   @Get('sirene/:siret')
   searchSirene(@Param('siret') siret: string) {
     return this.authService.searchSirene(siret);

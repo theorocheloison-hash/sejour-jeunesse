@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -232,6 +233,59 @@ export class AuthService {
     } catch {
       return { found: false };
     }
+  }
+
+  async demanderResetPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    // Toujours retourner success même si l'email n'existe pas (sécurité)
+    if (!user) return { message: 'Si cet email existe, un lien a été envoyé.' };
+
+    const token = randomUUID();
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { resetPasswordToken: token, resetPasswordExpires: expires },
+    });
+
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/reset-password/${token}`;
+    await this.email.sendGenericNotification(
+      email,
+      'Réinitialisation de votre mot de passe LIAVO',
+      `<p>Bonjour,</p>
+       <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+       <p style="margin:24px 0">
+         <a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Réinitialiser mon mot de passe
+         </a>
+       </p>
+       <p style="color:#888;font-size:12px">Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>`,
+    );
+
+    return { message: 'Si cet email existe, un lien a été envoyé.' };
+  }
+
+  async reinitialiserMotDePasse(token: string, nouveauMotDePasse: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gt: new Date() },
+      },
+    });
+    if (!user) throw new BadRequestException('Lien invalide ou expiré');
+
+    const hash = await bcrypt.hash(nouveauMotDePasse, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        motDePasse: hash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    return { message: 'Mot de passe modifié avec succès' };
   }
 
   private buildAuthResponse(user: User) {
