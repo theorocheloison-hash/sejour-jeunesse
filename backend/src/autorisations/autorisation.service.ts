@@ -5,11 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 
@@ -20,6 +18,7 @@ export class AutorisationService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private storage: StorageService,
   ) {}
 
   async create(dto: CreateAutorisationDto, createurId: string) {
@@ -163,12 +162,7 @@ export class AutorisationService {
 
     const isAssurance = type === 'assurance';
     const folder = isAssurance ? 'attestations-assurance' : 'documents-medicaux';
-    const uploadsDir = path.join(process.cwd(), 'uploads', folder);
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${randomUUID()}-${safeName}`;
-    fs.writeFileSync(path.join(uploadsDir, filename), file.buffer);
-    const url = `/uploads/${folder}/${filename}`;
+    const url = await this.storage.upload(file, folder);
 
     return this.prisma.autorisationParentale.update({
       where: { tokenAcces: token },
