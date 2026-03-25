@@ -1,6 +1,19 @@
-# LIAVO — État session dev (23 mars 2026)
+# LIAVO — État session dev (25 mars 2026)
 
-## DÉPLOYÉ AUJOURD'HUI
+## DÉPLOYÉ LE 25 MARS 2026
+
+### Fix migration reset_password (critique)
+- Bug : migration 20260325_add_reset_password_token ciblait TABLE "users" au lieu de "utilisateurs"
+- Conséquence : colonnes reset_password_token et reset_password_expires jamais créées en prod
+- Fix : colonnes ajoutées manuellement en SQL sur "utilisateurs" + UPDATE _prisma_migrations finished_at
+- Fichier corrigé à la source : backend/prisma/migrations/20260325_add_reset_password_token/migration.sql
+- Résultat : POST /auth/register/teacher opérationnel
+
+### Leçon retenue
+- Migrations manuelles : toujours vérifier le @@map() dans schema.prisma avant d'écrire le SQL
+- model User → table "utilisateurs", pas "users"
+
+## DÉPLOYÉ LE 23 MARS 2026
 
 ### CRM Hébergeur
 - Import clients CSV (270 clients Sauvageon importés) — fix BOM + parseCSVLine + COL_MAP normalisation
