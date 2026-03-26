@@ -64,7 +64,23 @@ function mapCentre(c: any) {
     nom: c.nom,
     ville: c.ville,
     departement: c.departement ?? '',
-    region: '',
+    region: (() => {
+      const d = (c.departement ?? '').toLowerCase();
+      if (['haute-savoie','savoie','ain','allier','ardèche','cantal','drôme','isère','loire','haute-loire','puy-de-dôme','rhône'].some(x => d.includes(x))) return 'Auvergne-Rhône-Alpes';
+      if (['côte-d\'or','doubs','jura','nièvre','haute-saône','saône-et-loire','yonne','territoire de belfort'].some(x => d.includes(x))) return 'Bourgogne-Franche-Comté';
+      if (['côtes-d\'armor','finistère','ille-et-vilaine','morbihan'].some(x => d.includes(x))) return 'Bretagne';
+      if (['cher','eure-et-loir','indre','indre-et-loire','loir-et-cher','loiret'].some(x => d.includes(x))) return 'Centre-Val de Loire';
+      if (['corse'].some(x => d.includes(x))) return 'Corse';
+      if (['bas-rhin','haut-rhin','moselle','meurthe-et-moselle','meuse','vosges','ardennes','aube','marne','haute-marne'].some(x => d.includes(x))) return 'Grand Est';
+      if (['aisne','nord','oise','pas-de-calais','somme'].some(x => d.includes(x))) return 'Hauts-de-France';
+      if (['paris','seine-et-marne','yvelines','essonne','hauts-de-seine','seine-saint-denis','val-de-marne','val-d\'oise'].some(x => d.includes(x))) return 'Île-de-France';
+      if (['calvados','eure','manche','orne','seine-maritime'].some(x => d.includes(x))) return 'Normandie';
+      if (['charente','charente-maritime','corrèze','creuse','dordogne','gironde','landes','lot-et-garonne','pyrénées-atlantiques','deux-sèvres','vienne','haute-vienne'].some(x => d.includes(x))) return 'Nouvelle-Aquitaine';
+      if (['ariège','aveyron','haute-garonne','gers','lot','hautes-pyrénées','pyrénées-orientales','tarn','tarn-et-garonne','hérault','gard','lozère'].some(x => d.includes(x))) return 'Occitanie';
+      if (['loire-atlantique','maine-et-loire','mayenne','sarthe','vendée'].some(x => d.includes(x))) return 'Pays de la Loire';
+      if (['alpes-de-haute-provence','hautes-alpes','alpes-maritimes','bouches-du-rhône','var','vaucluse'].some(x => d.includes(x))) return 'Provence-Alpes-Côte d\'Azur';
+      return '';
+    })(),
     codePostal: c.codePostal,
     latitude: null,
     longitude: null,

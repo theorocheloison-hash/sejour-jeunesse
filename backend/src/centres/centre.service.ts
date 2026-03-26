@@ -166,7 +166,12 @@ export class CentreService {
 
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
-      data: dto,
+      data: {
+        ...dto,
+        ...(dto.equipements !== undefined && { equipements: { set: dto.equipements } }),
+        ...(dto.thematiquesCentre !== undefined && { thematiquesCentre: { set: dto.thematiquesCentre } }),
+        ...(dto.activitesCentre !== undefined && { activitesCentre: { set: dto.activitesCentre } }),
+      },
     });
   }
 
