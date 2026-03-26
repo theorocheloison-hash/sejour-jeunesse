@@ -71,7 +71,7 @@ function mapCentre(c: any) {
     capaciteEleves: c.capacite,
     capaciteAdultes: null,
     description: c.description,
-    image: null,
+    image: c.imageUrl ?? null,
     permalien: null,
     contact: c.telephone ?? c.email ?? null,
     thematiques: c.typeSejours ?? [],
