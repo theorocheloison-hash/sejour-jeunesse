@@ -1,66 +1,98 @@
-# LIAVO — État session dev (25 mars 2026)
+# LIAVO — État session dev (26 mars 2026)
 
-## DÉPLOYÉ LE 25 MARS 2026
+## DÉPLOYÉ AUJOURD'HUI
 
-### Fix migration reset_password (critique)
-- Bug : migration 20260325_add_reset_password_token ciblait TABLE "users" au lieu de "utilisateurs"
-- Fix : colonnes ajoutées manuellement en SQL sur "utilisateurs" + UPDATE _prisma_migrations finished_at + checksum corrigé
-- Fichier corrigé à la source : backend/prisma/migrations/20260325_add_reset_password_token/migration.sql
-- Résultat : POST /auth/register/teacher opérationnel
+### Fix image catalogue hébergeurs LIAVO
+- mapCentre() dans hebergement.service.ts : image: null → image: c.imageUrl ?? null
+- Le Chalet Le Sauvageon apparaît maintenant avec sa photo dans le catalogue
 
-### Inscription enseignant — recherche établissement
-- 4 champs établissement ajoutés dans RegisterTeacherDto (etablissementUai, Nom, Adresse, Ville)
-- auth.service.ts : persistés à la création du compte
-- Frontend : 3 boutons toggle École/Collège/Lycée + 3 champs Nom/Ville/CP
-- API EN : recherche sur nom_etablissement OR nom_commune, détection code postal 5 chiffres → filtre exact
-- Paramètre ?type= ajouté sur GET /etablissements/recherche
+### Flux invitation centre externe — chaînon manquant
+- Nouvelle table invitations_centre_externe (migration 20260326_add_invitation_centre_externe)
+- inviterCentreExterne() stocke en DB + passe invitationToken dans le lien
+- register/venue/page.tsx : lit invitationToken depuis query params, lie le centre à l'invitation à l'inscription
+- validerHebergeur() : crée séjour DRAFT + DemandeDevis privée automatiquement + notifie l'enseignant
 
-### Invitations privées — Scénario A (centreDestinataireId)
-- Migration : ajout centreDestinataireId UUID? nullable sur demandes_devis
-- DemandeDevis.create() : persiste centreDestinataireId si fourni
-- findOpen() : WHERE centreDestinataireId IS NULL OR centreDestinataireId = centre.id
-- invitation-collaboration.service.ts → accepter() : passe centreDestinataireId = invitation.centreId
-- Résultat : demandes issues d'invitation hébergeur sont privées (visible uniquement par le centre invitant)
+### Bandeau thématiques manquantes
+- PATCH /sejours/:id/thematiques (TEACHER)
+- Bandeau amber conditionnel dans sejour/[id]/page.tsx si thematiquesPedagogiques vide
+- Formulaire inline : select niveau → checkboxes thématiques → save
 
-### Modale "Travailler avec ce centre" enrichie
-- Champs ajoutés : niveauClasse, heureArrivee, heureDepart, transportAller, budgetMaxParEleve
-- hebergement.ts : creerSejourDepuisCatalogue() accepte et passe ces champs au backend
+### Notifications devis
+- DELAI_RELANCE_DEVIS_JOURS : 7 → 20 jours (relance enseignant)
+- Nouveau CRON 9h : relance hébergeur à 30 jours si devis EN_ATTENTE sans réponse
 
-### Invitation centre externe (enseignant → hébergeur sans compte)
-- Nouveau endpoint POST /invitation-collaboration/centre-externe (TEACHER seulement)
-- Envoie un email Brevo avec lien /register/venue?nomCentre=...&ville=...&codePostal=...
-- Frontend fiche hébergeur : bloc "Ce centre n'est pas encore sur LIAVO" + modale d'invitation si ID non-UUID
-- register/venue/page.tsx : lit les query params, pré-remplit le formulaire, saute l'étape 1.5, affiche bandeau invitation
+### Mandat de facturation Chorus Pro — sécurisé
+- Migration 20260326_add_mandat_ip_ua : mandatFacturationIpAddress + mandatFacturationUserAgent
+- centre.controller.ts : capture IP (x-forwarded-for) + User-Agent à l'acceptation
+- centre.service.ts : persiste IP/UA uniquement à la première acceptation (idempotent)
+- EmailModule injecté dans CentreModule
+- email.service.ts : sendMandatFacturationConfirmation() avec résumé 4 points + tableau métadonnées
+- Page statique /legal/mandat-facturation : 9 articles exacts du mandat v1.0
+
+### Pages légales complètes
+- /legal/mentions-legales : éditeur, hébergeur, PI, données, cookies, droit applicable
+- /legal/cgu : 9 articles, gratuit pour établissements, signature électronique eIDAS
+- /legal/cgv-hebergeurs : 11 articles, mandat facturation intégré, tarifs "en cours"
+- /legal/confidentialite : RGPD complet, données mineurs renforcées, droits, CCT Railway
+- Footer liavo.fr : 6 liens légaux opérationnels
 
 ### DNS et branding
-- Cloudflare : CNAME www corrigé → p7metf7f.up.railway.app, proxy activé
-- BREVO_SENDER_NAME : "Séjour Jeunesse" → "LIAVO" dans Railway Variables
-- Service frontend renommé precious-comfort → liavo-frontend dans Railway dashboard
+- BREVO_SENDER_NAME : "Séjour Jeunesse" → "LIAVO"
+- www.liavo.fr → liavo.fr (redirect Next.js next.config.ts)
 
-### Leçon retenue
-- Migrations manuelles : toujours vérifier @@map() dans schema.prisma (model User → table "utilisateurs")
-- Modifier une migration après deploy casse le checksum Prisma → bloquer migrate deploy en boucle
+## ÉTAT COMPTE SAUVAGEON (démo LMDJ)
+- Email : resa@lesauvageon.com / Test1234!
+- Centre ID : 3a710674-d580-4ffd-9d9a-f739bae82154
+- Statut : ACTIVE, compte_valide=t, email_verifie=t
+- Image : présente (Cloudflare R2) ✅ — visible dans le catalogue depuis le fix d'aujourd'hui
+- Description actuelle : "Chalet de montagne" → À COMPLÉTER avant démo
+- Types séjours : scolaire, colo, classe_neige ✅
+- contact@chalet-sauvageon.fr : n'existe pas en DB (jamais créé) — utiliser uniquement resa@lesauvageon.com
 
-## BACKLOG IMMÉDIAT (prochaine session)
+## CHECKLIST DÉMO LMDJ (semaine prochaine)
 
-### Flux invitations — ce qui reste
-- Lier invitation externe à une demande de devis en attente (aujourd'hui l'hébergeur crée son compte mais ne voit pas la demande)
-- Formulaire hébergeur inviter-enseignant : ajouter thematiquesPedagogiques + transportSurPlace (absents)
-- Permettre à l'enseignant de compléter thématiques après acceptation d'une invitation hébergeur
+### Bloquant avant jeudi soir (gel du code)
+- [ ] Compléter description Sauvageon depuis dashboard resa@lesauvageon.com
+- [ ] Créer compte enseignant démo rattaché à un vrai collège Haute-Savoie
+- [ ] Tester flux complet en prod : enseignant → Sauvageon → devis → sélection
+- [ ] Gel du code jeudi soir — plus de push en prod jusqu'après la démo
 
-### Notifications CRM
-- Emails automatiques Brevo la veille d'un rappel
-- Email de relance auto si devis sans réponse après X jours
+### Non bloquant mais visible
+- [ ] transportSurPlace dans formulaire hébergeur inviter-enseignant (30 min)
 
-### Idées à approfondir
-- Boîte email connectée au CRM (Gmail/Outlook OAuth → log emails dans historique client)
-- Rapprochement bancaire (import relevé → matcher avec factures LIAVO)
-- Facture électronique Chorus Pro : API PISTE directe post-premier client signé
+## CHECKLIST LANCEMENT RÉEL HÉBERGEURS
+
+### Avant premier client payant
+- [ ] Immatriculation SASU LIAVO → obtenir SIRET → mettre à jour mentions légales + mandat
+- [ ] Immatriculation OD sur Chorus Pro via API PISTE (2-4 semaines post-SIRET)
+- [ ] Railway Pro (SLA 99.9%) au premier établissement signé
+- [ ] Tarification hébergeurs à finaliser (CGV section 3 marque "en cours")
+
+### Post-démo LMDJ
+- [ ] Rapprochement bancaire Phase 1 : import CSV Crédit Agricole + matching automatique
+- [ ] Rapprochement bancaire Phase 2 : API Bridge (post premier cash)
+- [ ] Boîte email connectée au CRM (Gmail/Outlook OAuth)
+
+## BACKLOG TECHNIQUE
+
+### Flux invitations — edge case restant
+- Lier invitation externe à une demande existante si hébergeur crée compte sans token (edge case)
+
+### Notifications
+- Emails automatiques Brevo la veille des rappels CRM (volontairement déprioritisé)
 
 ## DONNÉES TEST EN BASE
 - resa@lesauvageon.com (Test1234!) — 270 clients + 268 contacts importés
-- enseignant@test.fr / directeur@test.fr / contact@chalet-sauvageon.fr (Test1234!)
-- theo@nunayak.com (Test1234!) — compte enseignant test créé le 25 mars
+- enseignant@test.fr / directeur@test.fr (Test1234!)
+- theo@nunayak.com (Test1234!) — compte enseignant test
 - admin@sejour-jeunesse.fr (Admin2026!)
 - Séjour ID test : 32842d6a-24d5-44b4-ab36-aae594e8fe00
 - UAI établissement test : 0750001A (Collège Victor Hugo Paris)
+
+## LEÇONS RETENUES
+- Migrations manuelles : toujours vérifier @@map() dans schema.prisma (model User → table "utilisateurs")
+- Modifier une migration après deploy casse le checksum Prisma
+- EmailModule doit être explicitement importé dans chaque module NestJS qui l'utilise
+- Railway Hobby : SLA zéro → passer Pro au premier client réel
+- Mandat de facturation : IP + email confirmation obligatoires pour valeur juridique (art. 1366 CC)
+- Chorus Pro : pas d'agrément, juste immatriculation OD sur portail AIFE post-SIRET
