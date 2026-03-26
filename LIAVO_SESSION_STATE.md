@@ -21,19 +21,19 @@
 - DELAI_RELANCE_DEVIS_JOURS : 7 → 20 jours (relance enseignant)
 - Nouveau CRON 9h : relance hébergeur à 30 jours si devis EN_ATTENTE sans réponse
 
-### Mandat de facturation Chorus Pro — sécurisé
+### Mandat de facturation Chorus Pro — entièrement verrouillé
 - Migration 20260326_add_mandat_ip_ua : mandatFacturationIpAddress + mandatFacturationUserAgent
 - centre.controller.ts : capture IP (x-forwarded-for) + User-Agent à l'acceptation
 - centre.service.ts : persiste IP/UA uniquement à la première acceptation (idempotent)
 - EmailModule injecté dans CentreModule
-- email.service.ts : sendMandatFacturationConfirmation() avec résumé 4 points + tableau métadonnées
+- email.service.ts : sendMandatFacturationConfirmation() depuis contact@liavo.fr
+- Modale obligatoire : lien vers /legal/mandat-facturation + checkbox "J'ai lu et j'accepte" + bouton désactivé sans checkbox
 - Page statique /legal/mandat-facturation : 9 articles exacts du mandat v1.0
+- BREVO_SENDER_EMAIL : theo.rocheloison@gmail.com → contact@liavo.fr (Railway + Brevo vérifié DKIM/DMARC)
+- Mandat Sauvageon réinitialisé en DB pour repasser par la vraie modale
 
 ### Pages légales complètes
-- /legal/mentions-legales : éditeur, hébergeur, PI, données, cookies, droit applicable
-- /legal/cgu : 9 articles, gratuit pour établissements, signature électronique eIDAS
-- /legal/cgv-hebergeurs : 11 articles, mandat facturation intégré, tarifs "en cours"
-- /legal/confidentialite : RGPD complet, données mineurs renforcées, droits, CCT Railway
+- /legal/mentions-legales, /legal/cgu, /legal/cgv-hebergeurs, /legal/confidentialite
 - Footer liavo.fr : 6 liens légaux opérationnels
 
 ### DNS et branding
@@ -44,15 +44,16 @@
 - Email : resa@lesauvageon.com / Test1234!
 - Centre ID : 3a710674-d580-4ffd-9d9a-f739bae82154
 - Statut : ACTIVE, compte_valide=t, email_verifie=t
-- Image : présente (Cloudflare R2) ✅ — visible dans le catalogue depuis le fix d'aujourd'hui
+- Image : présente (Cloudflare R2) ✅ — visible dans le catalogue
 - Description actuelle : "Chalet de montagne" → À COMPLÉTER avant démo
 - Types séjours : scolaire, colo, classe_neige ✅
-- contact@chalet-sauvageon.fr : n'existe pas en DB (jamais créé) — utiliser uniquement resa@lesauvageon.com
+- Mandat facturation : réinitialisé — à accepter via la nouvelle modale avant démo
 
 ## CHECKLIST DÉMO LMDJ (semaine prochaine)
 
 ### Bloquant avant jeudi soir (gel du code)
 - [ ] Compléter description Sauvageon depuis dashboard resa@lesauvageon.com
+- [ ] Accepter mandat facturation via la nouvelle modale (resa@lesauvageon.com)
 - [ ] Créer compte enseignant démo rattaché à un vrai collège Haute-Savoie
 - [ ] Tester flux complet en prod : enseignant → Sauvageon → devis → sélection
 - [ ] Gel du code jeudi soir — plus de push en prod jusqu'après la démo
@@ -76,10 +77,10 @@
 ## BACKLOG TECHNIQUE
 
 ### Flux invitations — edge case restant
-- Lier invitation externe à une demande existante si hébergeur crée compte sans token (edge case)
+- Lier invitation externe à une demande existante si hébergeur crée compte sans token
 
-### Notifications
-- Emails automatiques Brevo la veille des rappels CRM (volontairement déprioritisé)
+### Notifications CRM
+- Emails automatiques Brevo la veille des rappels (volontairement déprioritisé)
 
 ## DONNÉES TEST EN BASE
 - resa@lesauvageon.com (Test1234!) — 270 clients + 268 contacts importés
@@ -90,9 +91,9 @@
 - UAI établissement test : 0750001A (Collège Victor Hugo Paris)
 
 ## LEÇONS RETENUES
-- Migrations manuelles : toujours vérifier @@map() dans schema.prisma (model User → table "utilisateurs")
-- Modifier une migration après deploy casse le checksum Prisma
+- Migrations manuelles : toujours vérifier @@map() dans schema.prisma
 - EmailModule doit être explicitement importé dans chaque module NestJS qui l'utilise
 - Railway Hobby : SLA zéro → passer Pro au premier client réel
-- Mandat de facturation : IP + email confirmation obligatoires pour valeur juridique (art. 1366 CC)
+- Mandat de facturation : IP + email confirmation + modale lecture obligatoire pour valeur juridique
 - Chorus Pro : pas d'agrément, juste immatriculation OD sur portail AIFE post-SIRET
+- BREVO_SENDER_EMAIL doit être un domaine vérifié (DKIM + DMARC) — jamais un Gmail en prod
