@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateCentreDto {
@@ -56,4 +56,31 @@ export class UpdateCentreDto {
   @IsOptional()
   @IsString()
   conditionsAnnulation?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  accessiblePmr?: boolean;
+
+  @IsOptional()
+  @IsString()
+  avisSecurite?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  thematiquesCentre?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  activitesCentre?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  capaciteAdultes?: number;
+
+  @IsOptional()
+  @IsString()
+  periodeOuverture?: string;
 }

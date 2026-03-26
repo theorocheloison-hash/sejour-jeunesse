@@ -41,6 +41,12 @@ interface FormState {
   iban: string;
   equipements: string[];
   conditionsAnnulation: string;
+  accessiblePmr: boolean;
+  avisSecurite: string;
+  thematiquesCentre: string[];
+  activitesCentre: string[];
+  capaciteAdultes: string;
+  periodeOuverture: string;
 }
 
 const INITIAL: FormState = {
@@ -58,6 +64,12 @@ const INITIAL: FormState = {
   iban: '',
   equipements: [],
   conditionsAnnulation: '',
+  accessiblePmr: false,
+  avisSecurite: '',
+  thematiquesCentre: [],
+  activitesCentre: [],
+  capaciteAdultes: '',
+  periodeOuverture: '',
 };
 
 export default function VenueProfilPage() {
@@ -97,6 +109,12 @@ export default function VenueProfilPage() {
           iban: c.iban ?? '',
           equipements: c.equipements ?? [],
           conditionsAnnulation: c.conditionsAnnulation ?? '',
+          accessiblePmr: c.accessiblePmr ?? false,
+          avisSecurite: c.avisSecurite ?? '',
+          thematiquesCentre: c.thematiquesCentre ?? [],
+          activitesCentre: c.activitesCentre ?? [],
+          capaciteAdultes: c.capaciteAdultes ? String(c.capaciteAdultes) : '',
+          periodeOuverture: c.periodeOuverture ?? '',
         });
       })
       .catch(() => setError('Impossible de charger le profil.'))
@@ -139,6 +157,12 @@ export default function VenueProfilPage() {
         iban: form.iban || undefined,
         equipements: form.equipements,
         conditionsAnnulation: form.conditionsAnnulation || undefined,
+        accessiblePmr: form.accessiblePmr,
+        avisSecurite: form.avisSecurite || undefined,
+        thematiquesCentre: form.thematiquesCentre,
+        activitesCentre: form.activitesCentre,
+        capaciteAdultes: form.capaciteAdultes ? parseInt(form.capaciteAdultes, 10) : undefined,
+        periodeOuverture: form.periodeOuverture || undefined,
       });
       setSuccess(true);
     } catch {
@@ -271,6 +295,107 @@ export default function VenueProfilPage() {
                     <span className="text-sm text-gray-700">{eq}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+
+            {/* Informations catalogue */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Informations catalogue</h2>
+              <p className="text-xs text-gray-400 mb-4">Ces informations apparaissent sur votre fiche dans le catalogue des hébergements.</p>
+              <div className="space-y-4">
+
+                {/* Accessible PMR */}
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.accessiblePmr}
+                    onChange={(e) => setForm(f => ({ ...f, accessiblePmr: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]" />
+                  <span className="text-sm text-gray-700">Accessible PMR (personnes à mobilité réduite)</span>
+                </label>
+
+                {/* Avis sécurité */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Avis de la commission de sécurité</label>
+                  <select value={form.avisSecurite}
+                    onChange={(e) => setForm(f => ({ ...f, avisSecurite: e.target.value }))}
+                    className={inputCls}>
+                    <option value="">Non renseigné</option>
+                    <option value="Favorable">Favorable</option>
+                    <option value="Favorable avec réserves">Favorable avec réserves</option>
+                    <option value="Défavorable">Défavorable</option>
+                  </select>
+                </div>
+
+                {/* Capacité adultes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Capacité adultes (accompagnateurs)</label>
+                  <input type="number" value={form.capaciteAdultes}
+                    onChange={set('capaciteAdultes')} min={0} placeholder="Ex : 8"
+                    className={inputCls} />
+                </div>
+
+                {/* Période d'ouverture */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Période d&apos;ouverture</label>
+                  <input type="text" value={form.periodeOuverture}
+                    onChange={set('periodeOuverture')}
+                    placeholder="Ex : Toute l'année, Octobre à juin..."
+                    className={inputCls} />
+                </div>
+
+                {/* Thématiques pédagogiques proposées */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Thématiques pédagogiques proposées</label>
+                  <p className="text-xs text-gray-400 mb-2">Saisissez une thématique et appuyez sur Entrée pour l&apos;ajouter.</p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {form.thematiquesCentre.map((t) => (
+                      <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] px-3 py-1 text-xs font-medium">
+                        {t}
+                        <button type="button" onClick={() => setForm(f => ({ ...f, thematiquesCentre: f.thematiquesCentre.filter(x => x !== t) }))}
+                          className="hover:opacity-70">&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Ex : Sciences et nature, Histoire et patrimoine..."
+                    className={inputCls}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = (e.target as HTMLInputElement).value.trim();
+                        if (val && !form.thematiquesCentre.includes(val)) {
+                          setForm(f => ({ ...f, thematiquesCentre: [...f.thematiquesCentre, val] }));
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }
+                    }} />
+                </div>
+
+                {/* Activités proposées */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Activités proposées</label>
+                  <p className="text-xs text-gray-400 mb-2">Saisissez une activité et appuyez sur Entrée pour l&apos;ajouter.</p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {form.activitesCentre.map((a) => (
+                      <span key={a} className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-medium">
+                        {a}
+                        <button type="button" onClick={() => setForm(f => ({ ...f, activitesCentre: f.activitesCentre.filter(x => x !== a) }))}
+                          className="hover:opacity-70">&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Ex : Ski, Escalade, Randonnée..."
+                    className={inputCls}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = (e.target as HTMLInputElement).value.trim();
+                        if (val && !form.activitesCentre.includes(val)) {
+                          setForm(f => ({ ...f, activitesCentre: [...f.activitesCentre, val] }));
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }
+                    }} />
+                </div>
+
               </div>
             </div>
 

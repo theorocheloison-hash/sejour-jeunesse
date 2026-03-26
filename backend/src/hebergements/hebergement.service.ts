@@ -69,16 +69,16 @@ function mapCentre(c: any) {
     latitude: null,
     longitude: null,
     capaciteEleves: c.capacite,
-    capaciteAdultes: null,
+    capaciteAdultes: c.capaciteAdultes ?? null,
     description: c.description,
     image: c.imageUrl ?? null,
     permalien: null,
     contact: c.telephone ?? c.email ?? null,
-    thematiques: c.typeSejours ?? [],
-    activites: [],
-    accessible: false,
-    avisSecurite: c.agrementEducationNationale ?? null,
-    periodeOuverture: null,
+    thematiques: c.thematiquesCentre ?? [],
+    activites: c.activitesCentre ?? [],
+    accessible: c.accessiblePmr ?? false,
+    avisSecurite: c.avisSecurite ?? null,
+    periodeOuverture: c.periodeOuverture ?? null,
   };
 }
 
