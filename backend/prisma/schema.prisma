@@ -116,6 +116,7 @@ model User {
   documentsSejour DocumentSejour[] @relation("DocumentsUploader")
 
   consentementsRgpd ConsentementRgpd[]
+  invitationsCentreExterne InvitationCentreExterne[] @relation("InvitationsEnvoyees")
 
   @@map("utilisateurs")
 }
@@ -851,4 +852,29 @@ model SejourClient {
 
   @@unique([clientId, sejourId])
   @@map("sejours_clients")
+}
+
+// ============================================================
+// MODEL : InvitationCentreExterne (enseignant invite hébergeur sans compte)
+// ============================================================
+model InvitationCentreExterne {
+  id                 String    @id @default(uuid()) @db.Uuid
+  token              String    @unique @default(uuid()) @db.Uuid
+  enseignantId       String    @map("enseignant_id") @db.Uuid
+  emailDestinataire  String    @map("email_destinataire") @db.VarChar(255)
+  nomCentre          String    @map("nom_centre") @db.VarChar(255)
+  villeCentre        String    @map("ville_centre") @db.VarChar(255)
+  codePostalCentre   String    @map("code_postal_centre") @db.VarChar(10)
+  titreSejourSuggere String    @map("titre_sejour_suggere") @db.VarChar(255)
+  dateDebut          DateTime  @map("date_debut") @db.Date
+  dateFin            DateTime  @map("date_fin") @db.Date
+  nbElevesEstime     Int       @map("nb_eleves_estime")
+  message            String?   @db.Text
+  centreId           String?   @map("centre_id") @db.Uuid
+  demandeCreee       Boolean   @default(false) @map("demande_creee")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  enseignant User @relation("InvitationsEnvoyees", fields: [enseignantId], references: [id], onDelete: Cascade)
+
+  @@map("invitations_centre_externe")
 }

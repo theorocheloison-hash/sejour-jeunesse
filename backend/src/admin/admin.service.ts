@@ -87,7 +87,7 @@ export class AdminService {
   async validerHebergeur(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { centres: { select: { nom: true } } },
+      include: { centres: { select: { id: true, nom: true, ville: true } } },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
@@ -107,6 +107,70 @@ export class AdminService {
       await this.email.sendVenueAccountValidated(user.email, user.prenom, nomCentre);
     } catch {
       // Email non bloquant
+    }
+
+    // Créer automatiquement les demandes de devis issues d'invitations centre externe
+    const centreId = user.centres[0]?.id;
+    if (centreId) {
+      const invitations = await this.prisma.invitationCentreExterne.findMany({
+        where: { centreId, demandeCreee: false },
+      });
+
+      for (const invitation of invitations) {
+        try {
+          const sejour = await this.prisma.sejour.create({
+            data: {
+              titre: invitation.titreSejourSuggere,
+              lieu: invitation.villeCentre,
+              dateDebut: invitation.dateDebut,
+              dateFin: invitation.dateFin,
+              placesTotales: invitation.nbElevesEstime,
+              placesRestantes: invitation.nbElevesEstime,
+              statut: 'DRAFT',
+              createurId: invitation.enseignantId,
+              regionSouhaitee: `VILLE:${invitation.villeCentre}`,
+            },
+          });
+
+          await this.prisma.demandeDevis.create({
+            data: {
+              sejourId: sejour.id,
+              enseignantId: invitation.enseignantId,
+              titre: invitation.titreSejourSuggere,
+              dateDebut: invitation.dateDebut,
+              dateFin: invitation.dateFin,
+              nombreEleves: invitation.nbElevesEstime,
+              villeHebergement: invitation.villeCentre,
+              statut: 'OUVERTE',
+              centreDestinataireId: centreId,
+            },
+          });
+
+          await this.prisma.invitationCentreExterne.update({
+            where: { id: invitation.id },
+            data: { demandeCreee: true },
+          });
+
+          // Notifier l'enseignant
+          const enseignant = await this.prisma.user.findUnique({
+            where: { id: invitation.enseignantId },
+            select: { email: true, prenom: true },
+          });
+          if (enseignant) {
+            await this.email.sendGenericNotification(
+              enseignant.email,
+              `${invitation.nomCentre} a rejoint LIAVO — votre demande est en attente de devis`,
+              `<p>Bonjour ${enseignant.prenom},</p>
+               <p>Bonne nouvelle ! Le centre <strong>${invitation.nomCentre}</strong> que vous avez invité vient de rejoindre LIAVO.</p>
+               <p>Une demande de devis pour le séjour <strong>${invitation.titreSejourSuggere}</strong> leur a été automatiquement transmise.</p>
+               <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/teacher" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mon tableau de bord</a></p>`,
+            );
+          }
+        } catch (err) {
+          console.error('Erreur création demande depuis invitation externe', err);
+          // Non bloquant — ne pas faire échouer la validation
+        }
+      }
     }
 
     return { success: true };

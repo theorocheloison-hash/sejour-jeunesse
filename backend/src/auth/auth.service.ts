@@ -120,7 +120,7 @@ export class AuthService {
       }),
     ]);
 
-    await this.prisma.centreHebergement.create({
+    const centre = await this.prisma.centreHebergement.create({
       data: {
         nom: dto.nomCentre,
         adresse: dto.adresse,
@@ -137,6 +137,16 @@ export class AuthService {
         statut: 'PENDING',
       },
     });
+
+    // Lier l'invitation centre externe si un token est fourni
+    if (dto.invitationToken) {
+      try {
+        await this.prisma.invitationCentreExterne.updateMany({
+          where: { token: dto.invitationToken, demandeCreee: false },
+          data: { centreId: centre.id },
+        });
+      } catch { /* non bloquant */ }
+    }
 
     await this.prisma.consentementRgpd.create({
       data: {

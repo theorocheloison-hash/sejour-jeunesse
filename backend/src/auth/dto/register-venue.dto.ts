@@ -68,4 +68,8 @@ export class RegisterVenueDto {
   @IsArray()
   @IsString({ each: true })
   typeSejours?: string[];
+
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }

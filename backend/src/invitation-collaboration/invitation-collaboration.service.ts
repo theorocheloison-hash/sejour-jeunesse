@@ -178,11 +178,28 @@ export class InvitationCollaborationService {
     nbElevesEstime: number;
     message?: string;
   }, enseignantId: string) {
+    // Stocker l'invitation en DB
+    const invitation = await this.prisma.invitationCentreExterne.create({
+      data: {
+        enseignantId,
+        emailDestinataire: dto.emailDestinataire,
+        nomCentre: dto.nomCentre,
+        villeCentre: dto.villeCentre,
+        codePostalCentre: dto.codePostalCentre,
+        titreSejourSuggere: dto.titreSejourSuggere,
+        dateDebut: new Date(dto.dateDebut),
+        dateFin: new Date(dto.dateFin),
+        nbElevesEstime: dto.nbElevesEstime,
+        message: dto.message ?? null,
+      },
+    });
+
+    // Lien avec token pour relier l'inscription au retour
     const params = new URLSearchParams({
       nomCentre: dto.nomCentre,
       ville: dto.villeCentre,
       codePostal: dto.codePostalCentre,
-      redirectAfter: 'dashboard',
+      invitationToken: invitation.token,
     });
     const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?${params.toString()}`;
 
@@ -205,6 +222,6 @@ export class InvitationCollaborationService {
        <p style="color:#888;font-size:12px">Une fois votre compte validé par notre équipe, vous pourrez soumettre votre devis à cet enseignant.</p>`,
     );
 
-    return { sent: true };
+    return { sent: true, token: invitation.token };
   }
 }

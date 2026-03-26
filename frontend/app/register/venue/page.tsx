@@ -38,6 +38,7 @@ function RegisterVenueContent() {
   const urlNomCentre = searchParams.get('nomCentre') ?? '';
   const urlVille = searchParams.get('ville') ?? '';
   const urlCodePostal = searchParams.get('codePostal') ?? '';
+  const urlInvitationToken = searchParams.get('invitationToken') ?? '';
   const fromInvitation = !!(urlNomCentre || urlVille || urlCodePostal);
 
   // step 1 = personal info, 1.5 = centre search, 2 = centre details, 3 = types séjours
@@ -215,6 +216,7 @@ function RegisterVenueContent() {
         emailContact: form.emailContact || undefined,
         agrementEducationNationale: form.agrementEducationNationale || undefined,
         typeSejours: form.typeSejours.length > 0 ? form.typeSejours : undefined,
+        invitationToken: urlInvitationToken || undefined,
       });
       setSuccess(true);
     } catch (err: unknown) {
