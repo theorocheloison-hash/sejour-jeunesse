@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -80,8 +81,10 @@ export class CentreController {
   @Patch('mandat-facturation')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENUE)
-  accepterMandatFacturation(@CurrentUser() user: JwtUser) {
-    return this.centreService.accepterMandatFacturation(user.id);
+  accepterMandatFacturation(@CurrentUser() user: JwtUser, @Req() req: any) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip ?? null;
+    const ua = (req.headers['user-agent'] as string) ?? null;
+    return this.centreService.accepterMandatFacturation(user.id, ip, ua);
   }
 
   @Get('disponibilites')

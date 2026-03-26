@@ -285,7 +285,47 @@ export class EmailService {
     await this.send(to, 'Inscription hébergeur non retenue — Liavo', html);
   }
 
-  // ── j) Dossier rectorat (HTML complet en email) ──────────────────────
+  // ── j) Confirmation mandat de facturation ───────────────────────────
+
+  async sendMandatFacturationConfirmation(
+    email: string,
+    nomCentre: string,
+    dateAcceptation: Date,
+    version: string,
+  ) {
+    const dateFormatee = dateAcceptation.toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    }) + ' à ' + dateAcceptation.toLocaleTimeString('fr-FR', {
+      hour: '2-digit', minute: '2-digit',
+    });
+
+    const html = emailLayout(
+      'Mandat de facturation accepté',
+      `<p>Bonjour,</p>
+       <p>Vous avez accepté le mandat de facturation LIAVO (version ${version}) le ${dateFormatee}.</p>
+       <p>En vertu de ce mandat (art. 289-I-2 du CGI), LIAVO est autorisée à émettre des factures électroniques Chorus Pro en votre nom et pour votre compte, pour les séjours scolaires dont les devis ont été validés sur la plateforme.</p>
+       <p><strong>Résumé des points essentiels :</strong></p>
+       <ul style="padding-left:16px;line-height:1.8">
+         <li>LIAVO émet les factures d'acompte et de solde en votre nom sur la base des devis validés</li>
+         <li>Vous êtes seul responsable de l'exactitude de votre SIRET, TVA, adresse et IBAN dans votre profil</li>
+         <li>La responsabilité de LIAVO est limitée aux dysfonctionnements techniques de la plateforme</li>
+         <li>Ce mandat est actif tant que votre compte LIAVO est actif — révocable depuis vos paramètres</li>
+       </ul>
+       <p>Les métadonnées suivantes ont été enregistrées lors de votre acceptation :</p>
+       <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:12px">
+         <tr style="background:#f5f7fa"><td style="padding:6px 10px;color:#666">Date d'acceptation</td><td style="padding:6px 10px;font-weight:600">${dateFormatee}</td></tr>
+         <tr><td style="padding:6px 10px;color:#666">Version du mandat</td><td style="padding:6px 10px;font-weight:600">${version}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:6px 10px;color:#666">Centre</td><td style="padding:6px 10px;font-weight:600">${nomCentre}</td></tr>
+       </table>
+       <p>Texte intégral du mandat : <a href="https://liavo.fr/legal/mandat-facturation" style="color:#1B4060">liavo.fr/legal/mandat-facturation</a></p>
+       <p style="margin-top:16px;padding:12px;background:#fef9ec;border:1px solid #f0c040;border-radius:6px;font-size:12px;color:#856404">
+         <strong>Important :</strong> Conservez cet email comme preuve de votre acceptation du mandat. Il fait foi en cas de litige.
+       </p>`,
+    );
+    await this.send(email, 'Mandat de facturation Chorus Pro accepté — LIAVO', html);
+  }
+
+  // ── k) Dossier rectorat (HTML complet en email) ──────────────────────
 
   async sendDossierRectorat(
     to: string,

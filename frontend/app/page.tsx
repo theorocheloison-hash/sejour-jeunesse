@@ -636,6 +636,7 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 13, color: 'var(--color-text-muted)' }}>
             <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>CGU</a>
             <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Politique de confidentialité</a>
+            <Link href="/legal/mandat-facturation" style={{ color: 'inherit', textDecoration: 'none' }}>Mandat de facturation</Link>
             <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
           </div>
         </div>

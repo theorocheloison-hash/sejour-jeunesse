@@ -10,6 +10,7 @@ import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { EmailService } from '../email/email.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
@@ -21,6 +22,7 @@ export class CentreService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private storage: StorageService,
+    private email: EmailService,
   ) {}
 
   async searchPublic(search: string) {
@@ -412,22 +414,46 @@ export class CentreService {
     });
   }
 
-  async accepterMandatFacturation(userId: string) {
+  async accepterMandatFacturation(userId: string, ipAddress: string | null = null, userAgent: string | null = null) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
     if (centre.mandatFacturationAccepte) {
-      return centre; // Déjà accepté — idempotent
+      return centre; // Déjà accepté — ne pas écraser ip/ua
     }
-    return this.prisma.centreHebergement.update({
+
+    const version = process.env.MANDAT_VERSION ?? '1.0';
+    const dateAcceptation = new Date();
+
+    const updated = await this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
         mandatFacturationAccepte: true,
-        mandatFacturationAccepteAt: new Date(),
-        mandatFacturationVersion: process.env.MANDAT_VERSION ?? '1.0',
+        mandatFacturationAccepteAt: dateAcceptation,
+        mandatFacturationVersion: version,
+        mandatFacturationIpAddress: ipAddress,
+        mandatFacturationUserAgent: userAgent,
       },
     });
+
+    // Email de confirmation (non bloquant)
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      if (user) {
+        await this.email.sendMandatFacturationConfirmation(
+          user.email,
+          centre.nom,
+          dateAcceptation,
+          version,
+        );
+      }
+    } catch { /* non bloquant */ }
+
+    return updated;
   }
 
   async archiveProduit(userId: string, produitId: string) {

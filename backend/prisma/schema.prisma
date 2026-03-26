@@ -441,6 +441,8 @@ model CentreHebergement {
   mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
   mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")
   mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)
+  mandatFacturationIpAddress String?   @map("mandat_facturation_ip") @db.VarChar(45)
+  mandatFacturationUserAgent String?   @map("mandat_facturation_ua") @db.VarChar(500)
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
