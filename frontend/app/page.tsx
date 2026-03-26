@@ -634,10 +634,12 @@ export default function Home() {
         }}>
           <Logo size="sm" variant="light" showTagline={true} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 13, color: 'var(--color-text-muted)' }}>
-            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>CGU</a>
-            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Politique de confidentialité</a>
+            <Link href="/legal/mentions-legales" style={{ color: 'inherit', textDecoration: 'none' }}>Mentions légales</Link>
+            <Link href="/legal/cgu" style={{ color: 'inherit', textDecoration: 'none' }}>CGU</Link>
+            <Link href="/legal/cgv-hebergeurs" style={{ color: 'inherit', textDecoration: 'none' }}>CGV Hébergeurs</Link>
+            <Link href="/legal/confidentialite" style={{ color: 'inherit', textDecoration: 'none' }}>Confidentialité</Link>
             <Link href="/legal/mandat-facturation" style={{ color: 'inherit', textDecoration: 'none' }}>Mandat de facturation</Link>
-            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
+            <a href="#contact" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
           </div>
         </div>
         <div style={{
