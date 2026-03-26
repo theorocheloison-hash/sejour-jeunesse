@@ -106,6 +106,17 @@ export class SejourController {
     return this.sejourService.getAccompagnateurs(id, user);
   }
 
+  /** PATCH /sejours/:id/thematiques — Mettre à jour les thématiques pédagogiques */
+  @Patch(':id/thematiques')
+  @Roles(Role.TEACHER)
+  updateThematiques(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @Body() body: { thematiques: string[] },
+  ) {
+    return this.sejourService.updateThematiques(id, user.id, body.thematiques);
+  }
+
   /** PATCH /sejours/:id — Mettre à jour prix / dateLimiteInscription */
   @Patch(':id')
   @Roles(Role.TEACHER)

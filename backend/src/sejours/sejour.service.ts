@@ -548,6 +548,17 @@ export class SejourService {
     return { accompagnateurs: createur ? [createur] : [] };
   }
 
+  async updateThematiques(sejourId: string, userId: string, thematiques: string[]) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
+
+    return this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { thematiquesPedagogiques: thematiques },
+    });
+  }
+
   async update(id: string, dto: UpdateSejourDto, userId: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },

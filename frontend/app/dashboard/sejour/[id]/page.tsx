@@ -49,6 +49,8 @@ import {
   type AccompagnateurMission,
 } from '@/src/lib/accompagnateur';
 import { getDossierPedagogique } from '@/src/lib/sejour';
+import { THEMATIQUES, NIVEAUX, type Niveau } from '@/src/data/thematiques-pedagogiques';
+import api from '@/src/lib/api';
 import { validerPaiement } from '@/src/lib/autorisation';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
@@ -289,6 +291,12 @@ export default function CollaborationPage() {
   const [objectifsPedago, setObjectifsPedago] = useState('');
   const [lienProgrammes, setLienProgrammes] = useState('');
 
+  // Thématiques pédagogiques manquantes
+  const [showThematiquesForm, setShowThematiquesForm] = useState(false);
+  const [thematiquesNiveau, setThematiquesNiveau] = useState('');
+  const [thematiquesSelectionnees, setThematiquesSelectionnees] = useState<string[]>([]);
+  const [savingThematiques, setSavingThematiques] = useState(false);
+
   // ── Auth guard ──
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE' && user.role !== 'DIRECTOR'))) {
@@ -493,6 +501,21 @@ export default function CollaborationPage() {
   // Check if ski column relevant
   const showSkiColumn = participants.some((p) => p.niveauSki);
 
+  // ── Save thématiques ──
+  const handleSaveThematiques = async () => {
+    if (thematiquesSelectionnees.length === 0) return;
+    setSavingThematiques(true);
+    try {
+      await api.patch(`/sejours/${id}/thematiques`, { thematiques: thematiquesSelectionnees });
+      setSejour(prev => prev ? { ...prev, thematiquesPedagogiques: thematiquesSelectionnees } : prev);
+      setShowThematiquesForm(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingThematiques(false);
+    }
+  };
+
   // ── Loading / Error ──
   if (isLoading || !user) {
     return (
@@ -546,6 +569,95 @@ export default function CollaborationPage() {
           </div>
         </div>
       </nav>
+
+      {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
+      {user.role === 'TEACHER' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
+        <div className="bg-amber-50 border-b border-amber-200 print:hidden">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            {!showThematiquesForm ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-amber-800">
+                  <svg className="h-5 w-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                  <span><strong>Thématiques pédagogiques manquantes</strong> — Ajoutez-les pour compléter votre dossier pédagogique</span>
+                </div>
+                <button
+                  onClick={() => setShowThematiquesForm(true)}
+                  className="shrink-0 rounded-lg bg-amber-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors"
+                >
+                  Compléter
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+                  <svg className="h-5 w-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                  Compléter les thématiques pédagogiques
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Niveau de classe</label>
+                  <select
+                    value={thematiquesNiveau}
+                    onChange={(e) => { setThematiquesNiveau(e.target.value); setThematiquesSelectionnees([]); }}
+                    className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-transparent"
+                  >
+                    <option value="">Sélectionner un niveau</option>
+                    {NIVEAUX.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                {thematiquesNiveau && THEMATIQUES[thematiquesNiveau as Niveau] && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {THEMATIQUES[thematiquesNiveau as Niveau].map((t) => (
+                      <label key={t} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        thematiquesSelectionnees.includes(t)
+                          ? 'border-amber-400 bg-amber-100 text-amber-900 font-medium'
+                          : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={thematiquesSelectionnees.includes(t)}
+                          onChange={() => setThematiquesSelectionnees(prev =>
+                            prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                          )}
+                          className="sr-only"
+                        />
+                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          thematiquesSelectionnees.includes(t) ? 'border-amber-500 bg-amber-600' : 'border-gray-300'
+                        }`}>
+                          {thematiquesSelectionnees.includes(t) && (
+                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                        </span>
+                        {t}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleSaveThematiques}
+                    disabled={savingThematiques || thematiquesSelectionnees.length === 0}
+                    className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingThematiques ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                  <button
+                    onClick={() => { setShowThematiquesForm(false); setThematiquesNiveau(''); setThematiquesSelectionnees([]); }}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 print:hidden">

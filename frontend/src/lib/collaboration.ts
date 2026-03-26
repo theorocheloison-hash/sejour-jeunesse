@@ -45,6 +45,7 @@ export interface SejourCollabInfo {
   dateFin: string;
   placesTotales: number;
   statut: string;
+  thematiquesPedagogiques?: string[];
   createur?: { id: string; prenom: string; nom: string; email: string };
   hebergementSelectionne?: { id: string; nom: string; ville: string; userId: string };
 }
