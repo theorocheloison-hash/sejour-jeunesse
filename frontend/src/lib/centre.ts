@@ -31,6 +31,13 @@ export interface Centre {
   mandatFacturationAccepte?: boolean;
   mandatFacturationAccepteAt?: string | null;
   mandatFacturationVersion?: string | null;
+  // Champs catalogue (alignement avec centres EN)
+  accessiblePmr?: boolean;
+  avisSecurite?: string | null;
+  thematiquesCentre?: string[];
+  activitesCentre?: string[];
+  capaciteAdultes?: number | null;
+  periodeOuverture?: string | null;
 }
 
 export interface Disponibilite {
