@@ -5,6 +5,10 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Liavo — Coordonnez vos séjours scolaires',
   description: 'Du projet pédagogique à la facturation finale. LIAVO connecte enseignants, directeurs, rectorat, parents et hébergeurs dans un seul workflow.',
+  metadataBase: new URL('https://liavo.fr'),
+  alternates: {
+    canonical: 'https://liavo.fr',
+  },
   robots: {
     index: true,
     follow: true,
@@ -12,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Liavo — Coordonnez vos séjours scolaires',
     description: 'Du projet pédagogique à la facturation finale. 649 centres référencés. Chorus Pro intégré.',
-    url: 'https://www.liavo.fr',
+    url: 'https://liavo.fr',
     siteName: 'Liavo',
     locale: 'fr_FR',
     type: 'website',
