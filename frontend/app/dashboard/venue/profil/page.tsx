@@ -70,6 +70,8 @@ export default function VenueProfilPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMandatModal, setShowMandatModal] = useState(false);
+  const [mandatLu, setMandatLu] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.replace('/login');
@@ -311,17 +313,67 @@ export default function VenueProfilPage() {
                       <p className="text-xs">Pour générer des factures au format Chorus Pro (obligatoire pour les marchés publics avec les établissements scolaires), vous devez accepter le mandat de facturation au sens de l&apos;art. 289-I-2 du Code Général des Impôts. LIAVO agit en votre nom comme émetteur technique.</p>
                     </div>
                     <button
-                      onClick={async () => {
-                        try {
-                          await api.patch('/centres/mandat-facturation');
-                          const updated = await api.get('/centres/mon-profil');
-                          setCentre(updated.data);
-                        } catch { /* ignore */ }
-                      }}
+                      onClick={() => { setShowMandatModal(true); setMandatLu(false); }}
                       className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
                     >
                       J&apos;accepte le mandat de facturation
                     </button>
+
+                    {/* Modale confirmation mandat */}
+                    {showMandatModal && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMandatModal(false)}>
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+                          <h3 className="text-base font-bold text-gray-900 mb-4">Accepter le mandat de facturation</h3>
+                          <p className="text-sm text-gray-600 mb-4">
+                            Avant d&apos;accepter, veuillez prendre connaissance du mandat de facturation qui autorise LIAVO à émettre des factures Chorus Pro en votre nom.
+                          </p>
+                          <a
+                            href="/legal/mandat-facturation"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)] hover:underline mb-5"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                            Lire le mandat complet (version 1.0)
+                          </a>
+                          <label className="flex items-start gap-3 cursor-pointer mb-6">
+                            <input
+                              type="checkbox"
+                              checked={mandatLu}
+                              onChange={(e) => setMandatLu(e.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                            />
+                            <span className="text-sm text-gray-700">
+                              J&apos;ai lu et j&apos;accepte le mandat de facturation LIAVO version 1.0
+                            </span>
+                          </label>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setShowMandatModal(false)}
+                              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              Annuler
+                            </button>
+                            <button
+                              disabled={!mandatLu}
+                              onClick={async () => {
+                                try {
+                                  await api.patch('/centres/mandat-facturation');
+                                  const updated = await api.get('/centres/mon-profil');
+                                  setCentre(updated.data);
+                                  setShowMandatModal(false);
+                                } catch { /* ignore */ }
+                              }}
+                              className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Confirmer l&apos;acceptation
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
