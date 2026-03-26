@@ -2,98 +2,84 @@
 
 ## DÉPLOYÉ AUJOURD'HUI
 
-### Fix image catalogue hébergeurs LIAVO
-- mapCentre() dans hebergement.service.ts : image: null → image: c.imageUrl ?? null
-- Le Chalet Le Sauvageon apparaît maintenant avec sa photo dans le catalogue
+### Fix image catalogue
+- mapCentre() : image: null → image: c.imageUrl ?? null
 
-### Flux invitation centre externe — chaînon manquant
-- Nouvelle table invitations_centre_externe (migration 20260326_add_invitation_centre_externe)
-- inviterCentreExterne() stocke en DB + passe invitationToken dans le lien
-- register/venue/page.tsx : lit invitationToken depuis query params, lie le centre à l'invitation à l'inscription
-- validerHebergeur() : crée séjour DRAFT + DemandeDevis privée automatiquement + notifie l'enseignant
+### Flux invitation centre externe — complet
+- Table invitations_centre_externe (migration 20260326_add_invitation_centre_externe)
+- Token dans le lien, centreId lié à l'inscription, séjour DRAFT + DemandeDevis créés à la validation admin
 
-### Bandeau thématiques manquantes
+### Bandeau thématiques manquantes (enseignant)
 - PATCH /sejours/:id/thematiques (TEACHER)
-- Bandeau amber conditionnel dans sejour/[id]/page.tsx si thematiquesPedagogiques vide
-- Formulaire inline : select niveau → checkboxes thématiques → save
+- Bandeau amber + formulaire inline niveau → checkboxes → save
 
 ### Notifications devis
-- DELAI_RELANCE_DEVIS_JOURS : 7 → 20 jours (relance enseignant)
-- Nouveau CRON 9h : relance hébergeur à 30 jours si devis EN_ATTENTE sans réponse
+- Relance enseignant : 7 → 20 jours
+- Relance hébergeur : nouveau CRON 9h à 30 jours
 
-### Mandat de facturation Chorus Pro — entièrement verrouillé
-- Migration 20260326_add_mandat_ip_ua : mandatFacturationIpAddress + mandatFacturationUserAgent
-- centre.controller.ts : capture IP (x-forwarded-for) + User-Agent à l'acceptation
-- centre.service.ts : persiste IP/UA uniquement à la première acceptation (idempotent)
-- EmailModule injecté dans CentreModule
-- email.service.ts : sendMandatFacturationConfirmation() depuis contact@liavo.fr
-- Modale obligatoire : lien vers /legal/mandat-facturation + checkbox "J'ai lu et j'accepte" + bouton désactivé sans checkbox
-- Page statique /legal/mandat-facturation : 9 articles exacts du mandat v1.0
-- BREVO_SENDER_EMAIL : theo.rocheloison@gmail.com → contact@liavo.fr (Railway + Brevo vérifié DKIM/DMARC)
-- Mandat Sauvageon réinitialisé en DB pour repasser par la vraie modale
+### Mandat de facturation — entièrement verrouillé
+- IP + User-Agent capturés (migration 20260326_add_mandat_ip_ua)
+- Modale obligatoire avec lien + checkbox "J'ai lu et j'accepte"
+- Email confirmation depuis contact@liavo.fr (DKIM + DMARC)
+- Page /legal/mandat-facturation : 9 articles v1.0
+- BREVO_SENDER_EMAIL : theo.rocheloison@gmail.com → contact@liavo.fr
 
 ### Pages légales complètes
 - /legal/mentions-legales, /legal/cgu, /legal/cgv-hebergeurs, /legal/confidentialite
-- Footer liavo.fr : 6 liens légaux opérationnels
+- Footer liavo.fr : 6 liens opérationnels
 
-### DNS et branding
-- BREVO_SENDER_NAME : "Séjour Jeunesse" → "LIAVO"
-- www.liavo.fr → liavo.fr (redirect Next.js next.config.ts)
+### Champs catalogue centre — uniformisation avec API EN
+- Migration 20260326_add_centre_catalogue_fields : accessiblePmr, avisSecurite, thematiquesCentre, activitesCentre, capaciteAdultes, periodeOuverture
+- mapCentre() lit les vrais champs (plus de valeurs hardcodées)
+- Section "Informations catalogue" dans le formulaire profil hébergeur
+- Interface Centre dans frontend/src/lib/centre.ts mise à jour
+
+## EN COURS (CC vient de pousser, pas encore déployé)
+- fix: persistance arrays centre (set explicite Prisma pour thematiquesCentre, activitesCentre, equipements)
+- fix: région déduite depuis département dans mapCentre()
 
 ## ÉTAT COMPTE SAUVAGEON (démo LMDJ)
 - Email : resa@lesauvageon.com / Test1234!
 - Centre ID : 3a710674-d580-4ffd-9d9a-f739bae82154
 - Statut : ACTIVE, compte_valide=t, email_verifie=t
-- Image : présente (Cloudflare R2) ✅ — visible dans le catalogue
-- Description actuelle : "Chalet de montagne" → À COMPLÉTER avant démo
-- Types séjours : scolaire, colo, classe_neige ✅
-- Mandat facturation : réinitialisé — à accepter via la nouvelle modale avant démo
+- accessiblePmr : true, avisSecurite : Favorable
+- thematiquesCentre : {} (vide — fix en cours, à re-sauvegarder après déploiement)
+- Mandat facturation : réinitialisé — à accepter via nouvelle modale
 
 ## CHECKLIST DÉMO LMDJ (semaine prochaine)
 
-### Bloquant avant jeudi soir (gel du code)
-- [ ] Compléter description Sauvageon depuis dashboard resa@lesauvageon.com
-- [ ] Accepter mandat facturation via la nouvelle modale (resa@lesauvageon.com)
-- [ ] Créer compte enseignant démo rattaché à un vrai collège Haute-Savoie
-- [ ] Tester flux complet en prod : enseignant → Sauvageon → devis → sélection
-- [ ] Gel du code jeudi soir — plus de push en prod jusqu'après la démo
+### À faire dès que le fix arrays est déployé
+- [ ] Reconnexion resa@lesauvageon.com → Mon profil → re-sauvegarder thématiques et activités
+- [ ] Vérifier l'affichage dans le catalogue (badges PMR, Avis favorable, thématiques, région)
+- [ ] Accepter le mandat via la nouvelle modale
 
-### Non bloquant mais visible
-- [ ] transportSurPlace dans formulaire hébergeur inviter-enseignant (30 min)
+### Gel du code jeudi soir — plus de push en prod jusqu'après la démo
 
 ## CHECKLIST LANCEMENT RÉEL HÉBERGEURS
+- [ ] Immatriculation SASU LIAVO → SIRET → mettre à jour mentions légales + mandat
+- [ ] Immatriculation OD Chorus Pro via API PISTE (2-4 semaines post-SIRET)
+- [ ] Railway Pro au premier établissement signé
+- [ ] Tarification hébergeurs à finaliser
 
-### Avant premier client payant
-- [ ] Immatriculation SASU LIAVO → obtenir SIRET → mettre à jour mentions légales + mandat
-- [ ] Immatriculation OD sur Chorus Pro via API PISTE (2-4 semaines post-SIRET)
-- [ ] Railway Pro (SLA 99.9%) au premier établissement signé
-- [ ] Tarification hébergeurs à finaliser (CGV section 3 marque "en cours")
-
-### Post-démo LMDJ
-- [ ] Rapprochement bancaire Phase 1 : import CSV Crédit Agricole + matching automatique
-- [ ] Rapprochement bancaire Phase 2 : API Bridge (post premier cash)
-- [ ] Boîte email connectée au CRM (Gmail/Outlook OAuth)
-
-## BACKLOG TECHNIQUE
-
-### Flux invitations — edge case restant
-- Lier invitation externe à une demande existante si hébergeur crée compte sans token
-
-### Notifications CRM
-- Emails automatiques Brevo la veille des rappels (volontairement déprioritisé)
+## BACKLOG POST-DÉMO
+- Rapprochement bancaire Phase 1 : import CSV Crédit Agricole
+- Rapprochement bancaire Phase 2 : API Bridge post-premier cash
+- transportSurPlace dans formulaire hébergeur inviter-enseignant
+- Boîte email connectée au CRM (Gmail/Outlook OAuth)
 
 ## DONNÉES TEST EN BASE
-- resa@lesauvageon.com (Test1234!) — 270 clients + 268 contacts importés
+- resa@lesauvageon.com (Test1234!) — 270 clients + 268 contacts
 - enseignant@test.fr / directeur@test.fr (Test1234!)
-- theo@nunayak.com (Test1234!) — compte enseignant test
+- theo@nunayak.com (Test1234!)
 - admin@sejour-jeunesse.fr (Admin2026!)
 - Séjour ID test : 32842d6a-24d5-44b4-ab36-aae594e8fe00
-- UAI établissement test : 0750001A (Collège Victor Hugo Paris)
+- UAI test : 0750001A (Collège Victor Hugo Paris)
 
 ## LEÇONS RETENUES
-- Migrations manuelles : toujours vérifier @@map() dans schema.prisma
-- EmailModule doit être explicitement importé dans chaque module NestJS qui l'utilise
-- Railway Hobby : SLA zéro → passer Pro au premier client réel
-- Mandat de facturation : IP + email confirmation + modale lecture obligatoire pour valeur juridique
-- Chorus Pro : pas d'agrément, juste immatriculation OD sur portail AIFE post-SIRET
-- BREVO_SENDER_EMAIL doit être un domaine vérifié (DKIM + DMARC) — jamais un Gmail en prod
+- Migrations manuelles : vérifier @@map() dans schema.prisma
+- EmailModule doit être importé explicitement dans chaque module NestJS
+- Railway Hobby : SLA zéro → Pro au premier client
+- Mandat : IP + email + modale lecture obligatoire pour valeur juridique
+- Chorus Pro : immatriculation OD post-SIRET, pas d'agrément
+- BREVO_SENDER_EMAIL : domaine vérifié DKIM+DMARC obligatoire en prod
+- Arrays Prisma : utiliser { set: [...] } pour les mises à jour de tableaux
