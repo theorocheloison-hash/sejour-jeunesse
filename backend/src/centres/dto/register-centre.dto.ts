@@ -37,4 +37,8 @@ export class RegisterCentreDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  reseau?: string;
 }

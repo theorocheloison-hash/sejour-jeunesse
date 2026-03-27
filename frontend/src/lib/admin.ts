@@ -122,10 +122,19 @@ export interface ReseauCentre {
   devisSelectionnes: number;
   caGenere: number;
   derniereActivite: string;
+  onboardingScore: number;
+  onboardingDetails: {
+    profilComplet: boolean;
+    mandatSigne: boolean;
+    agrementRenseigne: boolean;
+    siretRenseigne: boolean;
+  };
 }
 
 export interface ReseauStats {
   reseau: string;
+  nomComplet?: string;
+  periode?: string;
   kpis: {
     totalCentres: number;
     centresActifs: number;
@@ -143,11 +152,21 @@ export async function getReseauStats(reseau: string): Promise<ReseauStats> {
   return data;
 }
 
-export async function getMyReseauStats(): Promise<ReseauStats> {
-  const { data } = await api.get<ReseauStats>('/reseau/stats');
+export async function getMyReseauStats(periode?: string): Promise<ReseauStats> {
+  const params = periode ? { periode } : {};
+  const { data } = await api.get<ReseauStats>('/reseau/stats', { params });
   return data;
 }
 
 export async function updateCentreReseau(centreId: string, reseau: string | null): Promise<void> {
   await api.patch(`/admin/centres/${centreId}/reseau`, { reseau });
+}
+
+export async function inviterCentreReseau(email: string, nomCentre: string): Promise<void> {
+  await api.post('/reseau/inviter', { email, nomCentre });
+}
+
+export async function getReseauCentreDetail(centreId: string): Promise<any> {
+  const { data } = await api.get(`/reseau/centres/${centreId}`);
+  return data;
 }

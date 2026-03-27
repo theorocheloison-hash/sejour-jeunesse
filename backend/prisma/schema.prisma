@@ -106,6 +106,7 @@ model User {
   etablissementTelephone String?  @map("etablissement_telephone") @db.VarChar(20)
   emailRectorat          String?  @map("email_rectorat") @db.VarChar(255)
   reseauNom              String?  @map("reseau_nom") @db.VarChar(100)
+  reseauNomComplet       String?  @map("reseau_nom_complet") @db.VarChar(255)
 
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

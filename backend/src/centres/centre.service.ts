@@ -133,6 +133,7 @@ export class CentreService {
         email: invitation.email,
         capacite: dto.capacite,
         description: dto.description,
+        reseau: dto.reseau ?? null,
         userId: user.id,
       },
     });

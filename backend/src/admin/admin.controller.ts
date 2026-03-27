@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   Request,
   UseGuards,
@@ -73,9 +74,23 @@ export class ReseauController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('stats')
-  getMyReseauStats(@Request() req: any) {
+  getMyReseauStats(@Request() req: any, @Query('periode') periode?: string) {
     const reseau = req.user.reseauNom;
     if (!reseau) throw new Error('Compte réseau non configuré');
-    return this.adminService.getReseauStats(reseau);
+    return this.adminService.getReseauStats(reseau, periode, req.user.reseauNomComplet);
+  }
+
+  @Get('centres/:id')
+  getCentreDetail(@Request() req: any, @Param('id') id: string) {
+    const reseau = req.user.reseauNom;
+    if (!reseau) throw new Error('Compte réseau non configuré');
+    return this.adminService.getReseauCentreDetail(id, reseau);
+  }
+
+  @Post('inviter')
+  inviterCentre(@Request() req: any, @Body() body: { email: string; nomCentre: string }) {
+    const reseau = req.user.reseauNom;
+    if (!reseau) throw new Error('Compte réseau non configuré');
+    return this.adminService.inviterCentreReseau(reseau, body.email, body.nomCentre);
   }
 }

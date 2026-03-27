@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 
@@ -291,31 +291,31 @@ export class AdminService {
 
   // ─── Réseau partenaire ──────────────────────────────────────────────────────
 
-  async getReseauStats(reseau: string) {
+  async getReseauStats(reseau: string, periode?: string, nomComplet?: string) {
+    let dateFrom: Date | undefined;
+    const now = new Date();
+    if (periode === '30j') dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    else if (periode === '90j') dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else if (periode === 'saison') {
+      const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      dateFrom = new Date(year, 8, 1);
+    }
+
     const centres = await this.prisma.centreHebergement.findMany({
       where: { reseau },
       select: {
-        id: true,
-        nom: true,
-        ville: true,
-        departement: true,
-        capacite: true,
-        statut: true,
-        abonnementStatut: true,
+        id: true, nom: true, ville: true, departement: true,
+        capacite: true, statut: true, abonnementStatut: true,
+        mandatFacturationAccepte: true, siret: true,
+        agrementEducationNationale: true, description: true, telephone: true,
         createdAt: true,
         devis: {
-          select: {
-            statut: true,
-            montantTTC: true,
-            createdAt: true,
-          },
+          where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
+          select: { statut: true, montantTTC: true, createdAt: true },
         },
         demandesDestinees: {
-          select: {
-            id: true,
-            statut: true,
-            createdAt: true,
-          },
+          where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
+          select: { id: true, statut: true, createdAt: true },
         },
       },
       orderBy: { nom: 'asc' },
@@ -340,6 +340,8 @@ export class AdminService {
 
     return {
       reseau,
+      nomComplet: nomComplet ?? reseau,
+      periode: periode ?? 'tout',
       kpis: {
         totalCentres,
         centresActifs,
@@ -349,25 +351,100 @@ export class AdminService {
         caTotal,
         tauxReponse,
       },
-      centres: centres.map(c => ({
-        id: c.id,
-        nom: c.nom,
-        ville: c.ville,
-        departement: c.departement,
-        capacite: c.capacite,
-        statut: c.statut,
-        abonnementStatut: c.abonnementStatut,
-        demandesRecues: c.demandesDestinees.length,
-        devisEnvoyes: c.devis.length,
-        devisSelectionnes: c.devis.filter(d => d.statut === 'SELECTIONNE').length,
-        caGenere: c.devis
-          .filter(d => d.statut === 'SELECTIONNE')
-          .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0),
-        derniereActivite: c.devis.length > 0
-          ? c.devis.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
-          : c.createdAt,
-      })),
+      centres: centres.map(c => {
+        const onboardingDetails = {
+          profilComplet: !!(c.description && c.ville && c.telephone),
+          mandatSigne: c.mandatFacturationAccepte,
+          agrementRenseigne: !!c.agrementEducationNationale,
+          siretRenseigne: !!c.siret,
+        };
+        const onboardingScore = [
+          onboardingDetails.profilComplet,
+          onboardingDetails.mandatSigne,
+          onboardingDetails.agrementRenseigne,
+          onboardingDetails.siretRenseigne,
+        ].filter(Boolean).length;
+
+        return {
+          id: c.id,
+          nom: c.nom,
+          ville: c.ville,
+          departement: c.departement,
+          capacite: c.capacite,
+          statut: c.statut,
+          abonnementStatut: c.abonnementStatut,
+          demandesRecues: c.demandesDestinees.length,
+          devisEnvoyes: c.devis.length,
+          devisSelectionnes: c.devis.filter(d => d.statut === 'SELECTIONNE').length,
+          caGenere: c.devis
+            .filter(d => d.statut === 'SELECTIONNE')
+            .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0),
+          derniereActivite: c.devis.length > 0
+            ? c.devis.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+            : c.createdAt,
+          onboardingScore,
+          onboardingDetails,
+        };
+      }),
     };
+  }
+
+  async getReseauCentreDetail(centreId: string, reseau: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { id: centreId, reseau },
+      select: {
+        id: true, nom: true, ville: true, departement: true, adresse: true,
+        codePostal: true, telephone: true, email: true, siteWeb: true,
+        capacite: true, capaciteAdultes: true, statut: true, abonnementStatut: true,
+        siret: true, agrementEducationNationale: true,
+        accessiblePmr: true, avisSecurite: true,
+        thematiquesCentre: true, activitesCentre: true,
+        periodeOuverture: true, description: true,
+        mandatFacturationAccepte: true, mandatFacturationAccepteAt: true,
+        imageUrl: true, createdAt: true,
+        devis: {
+          select: { statut: true, montantTTC: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        demandesDestinees: {
+          select: { id: true, statut: true, createdAt: true, titre: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable dans ce réseau');
+    return centre;
+  }
+
+  async inviterCentreReseau(reseau: string, email: string, nomCentre: string) {
+    const existing = await this.prisma.invitationHebergement.findFirst({
+      where: { email, utilisedAt: null },
+    });
+    if (existing) throw new Error('Une invitation est déjà en attente pour cet email');
+
+    const invitation = await this.prisma.invitationHebergement.create({
+      data: { email, nomCentre },
+    });
+
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
+
+    await this.email.sendGenericNotification(
+      email,
+      `Invitation à rejoindre LIAVO — Réseau ${reseau}`,
+      `<p>Bonjour,</p>
+       <p>Le réseau <strong>${reseau}</strong> vous invite à rejoindre la plateforme LIAVO pour gérer vos séjours scolaires.</p>
+       <p>En tant que membre du réseau ${reseau}, votre centre apparaîtra automatiquement dans le tableau de bord de votre réseau dès votre inscription.</p>
+       <p style="margin:24px 0">
+         <a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Créer mon espace hébergeur
+         </a>
+       </p>
+       <p style="font-size:12px;color:#666;">Ce lien est valable 30 jours. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`,
+    );
+
+    return { success: true, email, nomCentre };
   }
 
   async updateCentreReseau(centreId: string, reseau: string | null) {

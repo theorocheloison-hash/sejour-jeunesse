@@ -72,4 +72,8 @@ export class RegisterVenueDto {
   @IsOptional()
   @IsString()
   invitationToken?: string;
+
+  @IsOptional()
+  @IsString()
+  reseau?: string;
 }

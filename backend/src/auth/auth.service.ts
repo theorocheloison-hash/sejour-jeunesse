@@ -133,6 +133,7 @@ export class AuthService {
         departement: dto.departement ?? null,
         agrementEducationNationale: dto.agrementEducationNationale ?? null,
         typeSejours: dto.typeSejours ?? [],
+        reseau: dto.reseau ?? null,
         userId: user.id,
         statut: 'PENDING',
       },
