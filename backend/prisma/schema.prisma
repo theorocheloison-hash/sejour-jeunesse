@@ -21,6 +21,7 @@ enum Role {
   PARENT
   VENUE
   ADMIN
+  RESEAU
 }
 
 // ============================================================
@@ -104,6 +105,7 @@ model User {
   etablissementEmail     String?  @map("etablissement_email") @db.VarChar(255)
   etablissementTelephone String?  @map("etablissement_telephone") @db.VarChar(20)
   emailRectorat          String?  @map("email_rectorat") @db.VarChar(255)
+  reseauNom              String?  @map("reseau_nom") @db.VarChar(100)
 
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -443,6 +445,7 @@ model CentreHebergement {
   activitesCentre     String[]          @default([]) @map("activites_centre")
   capaciteAdultes     Int?              @map("capacite_adultes")
   periodeOuverture    String?           @map("periode_ouverture") @db.VarChar(255)
+  reseau              String?           @map("reseau") @db.VarChar(100)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
   mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
   mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")

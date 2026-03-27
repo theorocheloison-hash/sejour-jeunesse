@@ -324,7 +324,12 @@ export class AuthService {
   }
 
   private buildAuthResponse(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      reseau: user.reseauNom ?? null,
+    };
     return {
       access_token: this.jwt.sign(payload),
       user: {

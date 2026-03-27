@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -52,5 +53,29 @@ export class AdminController {
   @Get('centres')
   getCentres(@Query('search') search?: string) {
     return this.adminService.getCentres(search);
+  }
+
+  @Get('reseau/:reseau/stats')
+  getReseauStats(@Param('reseau') reseau: string) {
+    return this.adminService.getReseauStats(reseau);
+  }
+
+  @Patch('centres/:id/reseau')
+  updateCentreReseau(@Param('id') id: string, @Body('reseau') reseau: string | null) {
+    return this.adminService.updateCentreReseau(id, reseau);
+  }
+}
+
+@Controller('reseau')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.RESEAU, Role.ADMIN)
+export class ReseauController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Get('stats')
+  getMyReseauStats(@Request() req: any) {
+    const reseau = req.user.reseauNom;
+    if (!reseau) throw new Error('Compte réseau non configuré');
+    return this.adminService.getReseauStats(reseau);
   }
 }

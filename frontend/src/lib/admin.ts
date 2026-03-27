@@ -106,3 +106,48 @@ export async function getCentres(search?: string): Promise<Centre[]> {
   const { data } = await api.get<Centre[]>('/admin/centres', { params });
   return data;
 }
+
+// ─── Réseau partenaire ──────────────────────────────────────────────────────
+
+export interface ReseauCentre {
+  id: string;
+  nom: string;
+  ville: string;
+  departement: string | null;
+  capacite: number;
+  statut: string;
+  abonnementStatut: string;
+  demandesRecues: number;
+  devisEnvoyes: number;
+  devisSelectionnes: number;
+  caGenere: number;
+  derniereActivite: string;
+}
+
+export interface ReseauStats {
+  reseau: string;
+  kpis: {
+    totalCentres: number;
+    centresActifs: number;
+    demandesRecues: number;
+    devisEnvoyes: number;
+    devisSelectionnes: number;
+    caTotal: number;
+    tauxReponse: number;
+  };
+  centres: ReseauCentre[];
+}
+
+export async function getReseauStats(reseau: string): Promise<ReseauStats> {
+  const { data } = await api.get<ReseauStats>(`/admin/reseau/${encodeURIComponent(reseau)}/stats`);
+  return data;
+}
+
+export async function getMyReseauStats(): Promise<ReseauStats> {
+  const { data } = await api.get<ReseauStats>('/reseau/stats');
+  return data;
+}
+
+export async function updateCentreReseau(centreId: string, reseau: string | null): Promise<void> {
+  await api.patch(`/admin/centres/${centreId}/reseau`, { reseau });
+}

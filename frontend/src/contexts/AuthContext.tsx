@@ -28,6 +28,7 @@ const ROLE_ROUTES: Record<string, string> = {
   PARENT:      '/dashboard/parent',
   VENUE:       '/dashboard/venue',
   ADMIN:       '/dashboard/admin',
+  RESEAU:      '/dashboard/reseau',
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────

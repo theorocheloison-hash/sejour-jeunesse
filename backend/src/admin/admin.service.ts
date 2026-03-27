@@ -277,6 +277,7 @@ export class AdminService {
         agrementEducationNationale: true,
         statut: true,
         abonnementStatut: true,
+        reseau: true,
         createdAt: true,
         user: {
           select: { id: true, prenom: true, nom: true, email: true, compteValide: true },
@@ -285,6 +286,95 @@ export class AdminService {
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
+    });
+  }
+
+  // ─── Réseau partenaire ──────────────────────────────────────────────────────
+
+  async getReseauStats(reseau: string) {
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: { reseau },
+      select: {
+        id: true,
+        nom: true,
+        ville: true,
+        departement: true,
+        capacite: true,
+        statut: true,
+        abonnementStatut: true,
+        createdAt: true,
+        devis: {
+          select: {
+            statut: true,
+            montantTTC: true,
+            createdAt: true,
+          },
+        },
+        demandesDestinees: {
+          select: {
+            id: true,
+            statut: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { nom: 'asc' },
+    });
+
+    const totalCentres = centres.length;
+    const centresActifs = centres.filter(c => c.statut === 'ACTIVE').length;
+
+    const tousLesDevis = centres.flatMap(c => c.devis);
+    const toutesLesDemandes = centres.flatMap(c => c.demandesDestinees);
+
+    const devisEnvoyes = tousLesDevis.length;
+    const devisSelectionnes = tousLesDevis.filter(d => d.statut === 'SELECTIONNE').length;
+    const caTotal = tousLesDevis
+      .filter(d => d.statut === 'SELECTIONNE')
+      .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0);
+
+    const demandesRecues = toutesLesDemandes.length;
+    const tauxReponse = demandesRecues > 0
+      ? Math.round((devisEnvoyes / demandesRecues) * 100)
+      : 0;
+
+    return {
+      reseau,
+      kpis: {
+        totalCentres,
+        centresActifs,
+        demandesRecues,
+        devisEnvoyes,
+        devisSelectionnes,
+        caTotal,
+        tauxReponse,
+      },
+      centres: centres.map(c => ({
+        id: c.id,
+        nom: c.nom,
+        ville: c.ville,
+        departement: c.departement,
+        capacite: c.capacite,
+        statut: c.statut,
+        abonnementStatut: c.abonnementStatut,
+        demandesRecues: c.demandesDestinees.length,
+        devisEnvoyes: c.devis.length,
+        devisSelectionnes: c.devis.filter(d => d.statut === 'SELECTIONNE').length,
+        caGenere: c.devis
+          .filter(d => d.statut === 'SELECTIONNE')
+          .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0),
+        derniereActivite: c.devis.length > 0
+          ? c.devis.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+          : c.createdAt,
+      })),
+    };
+  }
+
+  async updateCentreReseau(centreId: string, reseau: string | null) {
+    return this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: { reseau: reseau ?? null },
+      select: { id: true, nom: true, reseau: true },
     });
   }
 }

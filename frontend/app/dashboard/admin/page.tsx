@@ -11,22 +11,28 @@ import {
   getUtilisateurs,
   updateUtilisateur,
   getCentres,
+  getReseauStats,
+  updateCentreReseau,
   type AdminStats,
   type Hebergeur,
   type Utilisateur,
   type Centre,
+  type ReseauStats,
 } from '@/src/lib/admin';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres';
+type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'stats',        label: 'Vue générale' },
   { value: 'hebergeurs',   label: 'Hébergeurs' },
   { value: 'utilisateurs', label: 'Utilisateurs' },
   { value: 'centres',      label: 'Centres' },
+  { value: 'reseaux',      label: 'Réseaux partenaires' },
 ];
+
+const RESEAUX_CONNUS = ['LMDJ', 'IDDJ'];
 
 const ROLE_LABELS: Record<string, string> = {
   TEACHER: 'Enseignant',
@@ -36,6 +42,7 @@ const ROLE_LABELS: Record<string, string> = {
   VENUE: 'Hébergeur',
   ADMIN: 'Admin',
   ACCOUNTANT: 'Comptable',
+  RESEAU: 'Réseau',
 };
 
 const STATUT_SEJOUR_LABELS: Record<string, string> = {
@@ -404,15 +411,16 @@ function UtilisateursTab() {
 // ─── Centres Tab ─────────────────────────────────────────────────────────────
 
 function CentresTab() {
-  const [centres, setCentres] = useState<Centre[]>([]);
+  const [centres, setCentres] = useState<(Centre & { reseau?: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [customReseau, setCustomReseau] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getCentres(search || undefined);
-      setCentres(data);
+      setCentres(data as (Centre & { reseau?: string | null })[]);
     } catch { /* ignore */ }
     setLoading(false);
   }, [search]);
@@ -421,6 +429,28 @@ function CentresTab() {
     const t = setTimeout(fetchData, 400);
     return () => clearTimeout(t);
   }, [fetchData]);
+
+  const handleReseauChange = async (centreId: string, value: string) => {
+    if (value === '__custom__') {
+      setCustomReseau(prev => ({ ...prev, [centreId]: '' }));
+      return;
+    }
+    const reseau = value === '' ? null : value;
+    try {
+      await updateCentreReseau(centreId, reseau);
+      setCentres(prev => prev.map(c => c.id === centreId ? { ...c, reseau } : c));
+    } catch { /* ignore */ }
+  };
+
+  const handleCustomReseauSubmit = async (centreId: string) => {
+    const value = customReseau[centreId]?.trim();
+    if (!value) return;
+    try {
+      await updateCentreReseau(centreId, value);
+      setCentres(prev => prev.map(c => c.id === centreId ? { ...c, reseau: value } : c));
+      setCustomReseau(prev => { const n = { ...prev }; delete n[centreId]; return n; });
+    } catch { /* ignore */ }
+  };
 
   return (
     <div className="space-y-4">
@@ -473,9 +503,158 @@ function CentresTab() {
                   )}
                   <p className="text-xs text-gray-400">Créé le {formatDate(c.createdAt)}</p>
                 </div>
+                <div className="shrink-0">
+                  <label className="text-xs text-gray-500 block mb-1">Réseau</label>
+                  {customReseau[c.id] !== undefined ? (
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        value={customReseau[c.id]}
+                        onChange={(e) => setCustomReseau(prev => ({ ...prev, [c.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCustomReseauSubmit(c.id)}
+                        placeholder="Nom du réseau..."
+                        className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#003189]"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleCustomReseauSubmit(c.id)}
+                        className="px-2 py-1.5 rounded-lg bg-[var(--color-primary)] text-white text-xs font-medium"
+                      >
+                        OK
+                      </button>
+                      <button
+                        onClick={() => setCustomReseau(prev => { const n = { ...prev }; delete n[c.id]; return n; })}
+                        className="px-2 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs"
+                      >
+                        X
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={c.reseau ?? ''}
+                      onChange={(e) => handleReseauChange(c.id, e.target.value)}
+                      className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#003189]"
+                    >
+                      <option value="">Aucun</option>
+                      {RESEAUX_CONNUS.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                      {c.reseau && !RESEAUX_CONNUS.includes(c.reseau) && (
+                        <option value={c.reseau}>{c.reseau}</option>
+                      )}
+                      <option value="__custom__">Autre...</option>
+                    </select>
+                  )}
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Réseaux Tab ─────────────────────────────────────────────────────────────
+
+function ReseauxTab() {
+  const [centres, setCentres] = useState<(Centre & { reseau?: string | null })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReseau, setSelectedReseau] = useState<string | null>(null);
+  const [reseauStats, setReseauStats] = useState<ReseauStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  useEffect(() => {
+    getCentres()
+      .then(data => setCentres(data as (Centre & { reseau?: string | null })[]))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const reseaux = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    for (const c of centres) {
+      if (c.reseau) {
+        grouped[c.reseau] = (grouped[c.reseau] ?? 0) + 1;
+      }
+    }
+    return Object.entries(grouped).sort((a, b) => b[1] - a[1]);
+  }, [centres]);
+
+  const handleViewStats = async (reseau: string) => {
+    setSelectedReseau(reseau);
+    setLoadingStats(true);
+    try {
+      const stats = await getReseauStats(reseau);
+      setReseauStats(stats);
+    } catch { /* ignore */ }
+    setLoadingStats(false);
+  };
+
+  if (loading) return <LoadingSpinner />;
+
+  if (reseaux.length === 0) {
+    return <EmptyState text="Aucun réseau partenaire configuré" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Liste des réseaux */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {reseaux.map(([reseau, count]) => (
+          <div
+            key={reseau}
+            className={`bg-white rounded-2xl border shadow-sm p-5 cursor-pointer transition ${selectedReseau === reseau ? 'border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/20' : 'border-gray-200 hover:border-gray-300'}`}
+            onClick={() => handleViewStats(reseau)}
+          >
+            <h3 className="font-semibold text-gray-900 mb-1">{reseau}</h3>
+            <p className="text-sm text-gray-500">{count} centre{count > 1 ? 's' : ''}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats détaillées */}
+      {selectedReseau && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Stats — {selectedReseau}</h3>
+          {loadingStats ? <LoadingSpinner /> : reseauStats ? (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard label="Centres" value={reseauStats.kpis.totalCentres} />
+                <KpiCard label="Actifs" value={reseauStats.kpis.centresActifs} accent="text-[var(--color-success)]" />
+                <KpiCard label="Devis envoyés" value={reseauStats.kpis.devisEnvoyes} />
+                <KpiCard label="CA total" value={reseauStats.kpis.caTotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} accent="text-[var(--color-primary)]" />
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Demandes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Devis</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Retenus</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {reseauStats.centres.map(c => (
+                        <tr key={c.id} className="hover:bg-gray-50 transition">
+                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">{c.nom}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{c.ville}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{c.demandesRecues}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{c.devisEnvoyes}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.devisSelectionnes}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.caGenere.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       )}
     </div>
@@ -572,6 +751,7 @@ export default function AdminDashboardPage() {
         {tab === 'hebergeurs' && <HebergeursTab />}
         {tab === 'utilisateurs' && <UtilisateursTab />}
         {tab === 'centres' && <CentresTab />}
+        {tab === 'reseaux' && <ReseauxTab />}
       </main>
     </div>
   );
