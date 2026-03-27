@@ -24,13 +24,13 @@ export default function MandatFacturationPage() {
             </div>
             <div>
               <span className="text-lg font-bold text-[#1B4060]">Liavo</span>
-              <p className="text-xs text-gray-500">SASU — 472 route du Mas Devant, 74440 MORILLON — RCS ANNECY</p>
+              <p className="text-xs text-gray-500">SASU — 472 route du Mas Devant, 74440 MORILLON — 102 994 910 RCS Annecy</p>
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Mandat de Facturation</h1>
           <p className="text-sm text-gray-500 mb-3">Émission de factures électroniques au format Chorus Pro</p>
           <span className="inline-flex items-center rounded-full bg-[#1B4060]/10 px-3 py-1 text-xs font-semibold text-[#1B4060]">
-            Version 1.0 — Mars 2026
+            Version 1.1 — Mars 2026
           </span>
         </div>
 
@@ -42,7 +42,8 @@ export default function MandatFacturationPage() {
               <p className="text-xs font-semibold text-[#1B4060] uppercase tracking-wide mb-2">Mandataire</p>
               <p className={liCls}><strong>LIAVO</strong>, SASU au capital de 1 000 €</p>
               <p className={liCls}>Siège : 472 route du Mas Devant, 74440 MORILLON</p>
-              <p className={liCls}>RCS ANNECY</p>
+              <p className={liCls}>SIREN : 102 994 910 — SIRET : en cours d&apos;attribution INSEE</p>
+              <p className={liCls}>102 994 910 RCS Annecy</p>
               <p className={liCls}>Qualité : Plateforme SaaS éditrice — agit comme émetteur technique</p>
             </div>
             <div className={blockCls}>
@@ -174,7 +175,7 @@ export default function MandatFacturationPage() {
         {/* ── Pied de page ── */}
         <div className="border-t border-gray-200 pt-6 mt-12">
           <p className="text-xs text-gray-400 italic mb-2">
-            LIAVO — Mandat de Facturation — Version 1.0 — Mars 2026
+            LIAVO SASU — 102 994 910 RCS Annecy — Mandat de Facturation — Version 1.1 — Mars 2026
           </p>
           <p className="text-xs text-gray-400 mb-4">
             Ce document fait partie intégrante des Conditions Générales de Vente LIAVO.

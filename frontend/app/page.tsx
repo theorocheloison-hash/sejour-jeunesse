@@ -648,7 +648,7 @@ export default function Home() {
           paddingTop: 16, textAlign: 'center',
           fontSize: 13, color: 'var(--color-text-muted)',
         }}>
-          © 2026 LIAVO · liavo.fr
+          © 2026 LIAVO SASU · 102 994 910 RCS Annecy
         </div>
       </footer>
     </div>

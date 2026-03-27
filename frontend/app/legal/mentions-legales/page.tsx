@@ -22,7 +22,7 @@ export default function MentionsLegalesPage() {
       </div>
       <div>
         <span className="text-lg font-bold text-[#1B4060]">Liavo</span>
-        <p className="text-xs text-gray-500">SASU — 472 route du Mas Devant, 74440 MORILLON — RCS ANNECY</p>
+        <p className="text-xs text-gray-500">SASU — 472 route du Mas Devant, 74440 MORILLON — 102 994 910 RCS Annecy</p>
       </div>
     </div>
     <h1 className="text-2xl font-bold text-gray-900 mb-2">Mentions légales</h1>
@@ -39,7 +39,7 @@ export default function MentionsLegalesPage() {
                   ['Forme juridique', 'Société par actions simplifiée unipersonnelle (SASU)'],
                   ['Capital social', '1 000 Euros'],
                   ['Siège social', '472 route du Mas Devant, 74440 MORILLON'],
-                  ['RCS', 'ANNECY — SIRET : [à compléter après immatriculation]'],
+                  ['SIREN / RCS', '102 994 910 RCS Annecy'],
                   ['Directeur de la publication', 'Théo ROCHE-LOISON, Président'],
                   ['Email de contact', 'contact@liavo.fr'],
                   ['Site web', 'https://liavo.fr'],
