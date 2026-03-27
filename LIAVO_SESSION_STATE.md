@@ -1,85 +1,83 @@
-# LIAVO — État session dev (26 mars 2026)
+# LIAVO — État session dev (27 mars 2026)
 
 ## DÉPLOYÉ AUJOURD'HUI
 
-### Fix image catalogue
-- mapCentre() : image: null → image: c.imageUrl ?? null
+### Mise à jour juridique KBIS
+- SIREN 102 994 910 RCS Annecy dans toutes les pages légales
+- Mandat de facturation v1.0 → v1.1
+- Footer : © 2026 LIAVO SASU · 102 994 910 RCS Annecy
 
-### Flux invitation centre externe — complet
-- Table invitations_centre_externe (migration 20260326_add_invitation_centre_externe)
-- Token dans le lien, centreId lié à l'inscription, séjour DRAFT + DemandeDevis créés à la validation admin
+### Fix catalogue hébergeurs
+- Persistance arrays Prisma (set explicite) pour thematiquesCentre, activitesCentre, equipements
+- Région déduite depuis département dans mapCentre()
+- Interface Centre dans frontend/src/lib/centre.ts mise à jour (6 nouveaux champs catalogue)
 
-### Bandeau thématiques manquantes (enseignant)
-- PATCH /sejours/:id/thematiques (TEACHER)
-- Bandeau amber + formulaire inline niveau → checkboxes → save
+### Dashboard réseau partenaire — complet
+- Rôle RESEAU ajouté à l'enum Role (migration 20260327_add_role_reseau)
+- Champ reseauNom + reseauNomComplet sur User (migrations add_reseau_nom_user + add_reseau_nom_complet_user)
+- Champ reseau sur CentreHebergement (migration 20260327_add_reseau_centre)
+- Endpoint GET /reseau/stats (ReseauController, protégé RESEAU+ADMIN)
+- Page /dashboard/reseau : 6 KPIs, filtre période (30j/90j/saison/tout), tableau centres
+- Invitation centres depuis le dashboard réseau (POST /reseau/inviter)
+- Fiche détaillée centre en slide-over (GET /reseau/centres/:id)
+- Onboarding score (0-4 ronds) par centre avec tooltip
+- Export CSV côté client avec BOM UTF-8
+- Nom complet réseau dans JWT et affichage dashboard
 
-### Notifications devis
-- Relance enseignant : 7 → 20 jours
-- Relance hébergeur : nouveau CRON 9h à 30 jours
+## ÉTAT COMPTES DE DÉMO
 
-### Mandat de facturation — entièrement verrouillé
-- IP + User-Agent capturés (migration 20260326_add_mandat_ip_ua)
-- Modale obligatoire avec lien + checkbox "J'ai lu et j'accepte"
-- Email confirmation depuis contact@liavo.fr (DKIM + DMARC)
-- Page /legal/mandat-facturation : 9 articles v1.0
-- BREVO_SENDER_EMAIL : theo.rocheloison@gmail.com → contact@liavo.fr
+### Compte réseau LMDJ
+- Email : demo-lmdj@liavo.fr / LMDJ2026!
+- reseauNom : LMDJ
+- reseauNomComplet : La Montagne des Juniors
+- Dashboard : /dashboard/reseau
 
-### Pages légales complètes
-- /legal/mentions-legales, /legal/cgu, /legal/cgv-hebergeurs, /legal/confidentialite
-- Footer liavo.fr : 6 liens opérationnels
-
-### Champs catalogue centre — uniformisation avec API EN
-- Migration 20260326_add_centre_catalogue_fields : accessiblePmr, avisSecurite, thematiquesCentre, activitesCentre, capaciteAdultes, periodeOuverture
-- mapCentre() lit les vrais champs (plus de valeurs hardcodées)
-- Section "Informations catalogue" dans le formulaire profil hébergeur
-- Interface Centre dans frontend/src/lib/centre.ts mise à jour
-
-## EN COURS (CC vient de pousser, pas encore déployé)
-- fix: persistance arrays centre (set explicite Prisma pour thematiquesCentre, activitesCentre, equipements)
-- fix: région déduite depuis département dans mapCentre()
-
-## ÉTAT COMPTE SAUVAGEON (démo LMDJ)
+### Compte hébergeur Sauvageon
 - Email : resa@lesauvageon.com / Test1234!
 - Centre ID : 3a710674-d580-4ffd-9d9a-f739bae82154
-- Statut : ACTIVE, compte_valide=t, email_verifie=t
+- reseau : LMDJ ✅
 - accessiblePmr : true, avisSecurite : Favorable
-- thematiquesCentre : {} (vide — fix en cours, à re-sauvegarder après déploiement)
-- Mandat facturation : réinitialisé — à accepter via nouvelle modale
+- Mandat facturation : accepté via nouvelle modale ✅
 
-## CHECKLIST DÉMO LMDJ (semaine prochaine)
-
-### À faire dès que le fix arrays est déployé
-- [ ] Reconnexion resa@lesauvageon.com → Mon profil → re-sauvegarder thématiques et activités
-- [ ] Vérifier l'affichage dans le catalogue (badges PMR, Avis favorable, thématiques, région)
-- [ ] Accepter le mandat via la nouvelle modale
-
-### Gel du code jeudi soir — plus de push en prod jusqu'après la démo
-
-## CHECKLIST LANCEMENT RÉEL HÉBERGEURS
-- [ ] Immatriculation SASU LIAVO → SIRET → mettre à jour mentions légales + mandat
-- [ ] Immatriculation OD Chorus Pro via API PISTE (2-4 semaines post-SIRET)
-- [ ] Railway Pro au premier établissement signé
-- [ ] Tarification hébergeurs à finaliser
-
-## BACKLOG POST-DÉMO
-- Rapprochement bancaire Phase 1 : import CSV Crédit Agricole
-- Rapprochement bancaire Phase 2 : API Bridge post-premier cash
-- transportSurPlace dans formulaire hébergeur inviter-enseignant
-- Boîte email connectée au CRM (Gmail/Outlook OAuth)
-
-## DONNÉES TEST EN BASE
-- resa@lesauvageon.com (Test1234!) — 270 clients + 268 contacts
+### Autres comptes test
 - enseignant@test.fr / directeur@test.fr (Test1234!)
-- theo@nunayak.com (Test1234!)
-- admin@sejour-jeunesse.fr (Admin2026!)
-- Séjour ID test : 32842d6a-24d5-44b4-ab36-aae594e8fe00
-- UAI test : 0750001A (Collège Victor Hugo Paris)
+- admin@sejour-jeunesse.fr / Admin2026!
+
+## CHECKLIST DÉMO LMDJ + IDDJ (dans 1 mois)
+
+### Dashboard réseau — à améliorer avant démo
+- [ ] Corriger KPI "Demandes reçues" : inclure les demandes publiques auxquelles le centre a répondu
+- [ ] Créer compte démo IDDJ (demo-iddj@liavo.fr, reseauNomComplet=Isère Drôme Junior)
+- [ ] Créer 4-5 centres fictifs LMDJ avec devis pour rendre le dashboard représentatif
+- [ ] Préparer scénario démo : invitation d'un centre en live depuis le dashboard LMDJ
+
+### Gel du code 1 semaine avant la démo
+
+## CHECKLIST LANCEMENT RÉEL
+
+### Administratif
+- [ ] SIRET LIAVO (en attente attribution INSEE — surveiller sirene.fr SIREN 102994910)
+- [ ] Dès SIRET actif : créer compte Chorus Pro (chorus-pro.gouv.fr) + inscription OD sur PISTE
+- [ ] Acte de cession IP pré-incorporation (code → LIAVO SASU)
+- [ ] Mettre à jour mentions légales avec SIRET définitif
+
+### Technique
+- [ ] Railway Pro au premier client payant
+- [ ] Rapprochement bancaire Phase 1 : CSV Crédit Agricole
+- [ ] Invitation en masse hébergeurs depuis dashboard réseau (upload CSV)
+- [ ] Génération projet pédagogique par IA (post-démo, prioritaire)
+
+## BACKLOG TECHNIQUE
+- IA génération projet pédagogique (cas d'usage prioritaire post-démo)
+- Rapprochement bancaire Phase 2 : API Bridge
+- Import CSV hébergeurs en masse depuis dashboard réseau
+- transportSurPlace dans formulaire invitation hébergeur
+- Boîte email connectée au CRM
 
 ## LEÇONS RETENUES
-- Migrations manuelles : vérifier @@map() dans schema.prisma
+- Arrays Prisma : toujours { set: [...] } pour les mises à jour
 - EmailModule doit être importé explicitement dans chaque module NestJS
-- Railway Hobby : SLA zéro → Pro au premier client
-- Mandat : IP + email + modale lecture obligatoire pour valeur juridique
-- Chorus Pro : immatriculation OD post-SIRET, pas d'agrément
 - BREVO_SENDER_EMAIL : domaine vérifié DKIM+DMARC obligatoire en prod
-- Arrays Prisma : utiliser { set: [...] } pour les mises à jour de tableaux
+- Railway Hobby : SLA zéro → Pro au premier client
+- Mandat facturation : IP + modale lecture obligatoire pour valeur juridique
+- Chorus Pro : immatriculation OD post-SIRET, pas d'agrément
