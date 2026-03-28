@@ -104,7 +104,7 @@ export default function Home() {
             color: 'rgba(255,255,255,0.75)', maxWidth: 600,
             marginLeft: 'auto', marginRight: 'auto',
           }}>
-            LIAVO digitalise l&apos;intégralité de la démarche administrative d&apos;un séjour scolaire — appel d&apos;offres hébergeurs, validations directeur et rectorat, autorisations parentales, paiements échelonnés, Chorus Pro. Cinq acteurs. Un seul workflow.
+            LIAVO coordonne l&apos;intégralité de la démarche administrative d&apos;un séjour collectif — appel d&apos;offres hébergeurs, autorisations, paiements échelonnés, facturation. Que vous soyez enseignant, organisateur de colonie ou responsable d&apos;un réseau de centres : un seul outil, du projet à la facturation.
           </p>
 
           <div style={{
@@ -155,7 +155,7 @@ export default function Home() {
             color: 'var(--color-primary)', textAlign: 'center',
             marginBottom: 48,
           }}>
-            Organiser un séjour scolaire aujourd&apos;hui, c&apos;est ça.
+            Organiser un séjour collectif aujourd&apos;hui, c&apos;est ça.
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, alignItems: 'center' }} className="max-md:!grid-cols-1">
@@ -251,7 +251,7 @@ export default function Home() {
             color: 'var(--color-primary)', textAlign: 'center',
             marginBottom: 16,
           }}>
-            La première plateforme qui connecte tous les acteurs d&apos;un séjour scolaire.
+            La première plateforme qui connecte tous les acteurs d&apos;un séjour collectif.
           </h2>
           <p style={{
             fontSize: 15, lineHeight: 1.7,
@@ -325,8 +325,9 @@ export default function Home() {
                 'Recevez des demandes qualifiées directement depuis les établissements',
                 'Créez vos devis HT/TTC en quelques minutes',
                 'Gérez votre calendrier et vos disponibilités',
+                'CRM clients intégré — importez vos établissements et relancez en un clic',
                 'Facturation Chorus Pro intégrée pour les établissements publics',
-                'Espace collaboratif avec l\'enseignant organisateur',
+                'Espace collaboratif avec l\'organisateur du séjour',
               ].map((t, i) => (
                 <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
                   — {t}
@@ -345,6 +346,63 @@ export default function Home() {
               Référencer mon centre
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION RÉSEAUX ─────────────────────────────────────────────── */}
+      <section style={{
+        padding: '60px 24px',
+        backgroundColor: 'var(--color-bg)',
+        borderTop: '0.5px solid var(--color-border)',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 48 }}>
+          <div style={{ flex: '1 1 320px' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center',
+              backgroundColor: 'var(--color-primary-light)',
+              color: 'var(--color-primary)',
+              fontSize: 12, fontWeight: 600,
+              padding: '4px 12px', borderRadius: 'var(--radius-pill)',
+              marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              Réseaux partenaires
+            </div>
+            <h2 style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 500, color: 'var(--color-primary)', marginBottom: 16, lineHeight: 1.3 }}>
+              Vous pilotez un réseau de centres ?
+            </h2>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-muted)', marginBottom: 24 }}>
+              LIAVO propose un espace dédié aux associations et fédérations de centres : suivez l&apos;activité de vos adhérents, visualisez leur taux d&apos;engagement, invitez-les à rejoindre la plateforme en un clic.
+            </p>
+            <a href="#contact" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 14, fontWeight: 500,
+              padding: '10px 20px', borderRadius: 10,
+              border: '1px solid var(--color-primary)',
+              color: 'var(--color-primary)', textDecoration: 'none',
+              backgroundColor: 'transparent',
+            }}>
+              Demander une démo réseau →
+            </a>
+          </div>
+          <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { icon: '📊', label: 'Dashboard de suivi des adhérents en temps réel' },
+              { icon: '✉️', label: 'Invitation en masse de vos centres depuis votre espace' },
+              { icon: '📈', label: 'KPIs réseau : demandes, devis, CA généré, taux de réponse' },
+              { icon: '⬇️', label: 'Export CSV de l\'activité de votre réseau' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                backgroundColor: 'var(--color-surface)',
+                border: '0.5px solid var(--color-border)',
+                borderRadius: 12, padding: '12px 16px',
+                fontSize: 14, color: 'var(--color-text)',
+              }}>
+                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -378,12 +436,12 @@ export default function Home() {
             gap: 24,
           }}>
             {[
-              { num: '1', title: 'Création du projet', desc: 'L\'enseignant définit la destination, les dates et les objectifs pédagogiques. Le dossier s\'ouvre automatiquement.' },
+              { num: '1', title: 'Création du projet', desc: 'L\'organisateur définit la destination, les dates et les objectifs du séjour. Le dossier s\'ouvre automatiquement.' },
               { num: '2', title: 'Appel d\'offres hébergeurs', desc: 'Les centres référencés sur le périmètre géographique choisi reçoivent votre demande. Les devis arrivent directement dans la plateforme sous 48h.' },
-              { num: '3', title: 'Validation directeur', desc: 'Le directeur compare les offres, sélectionne le centre et approuve le séjour. Tout est horodaté.' },
-              { num: '4', title: 'Dossier rectorat', desc: 'Le dossier réglementaire complet est généré automatiquement et transmis au rectorat pour validation.' },
+              { num: '3', title: 'Sélection et validation', desc: 'L\'organisateur compare les offres, sélectionne le centre et valide le séjour. Tout est horodaté.' },
+              { num: '4', title: 'Dossier administratif', desc: 'Le dossier réglementaire complet est généré automatiquement et transmis à l\'autorité compétente (rectorat, SDJES...).' },
               { num: '5', title: 'Autorisations et paiements', desc: 'Les parents reçoivent l\'autorisation à signer en ligne. Le paiement s\'échelonne jusqu\'à 10 fois sans frais.' },
-              { num: '6', title: 'Le séjour a lieu', desc: 'L\'espace collaboratif relie enseignant, hébergeur et accompagnateurs jusqu\'au retour.' },
+              { num: '6', title: 'Le séjour a lieu', desc: 'L\'espace collaboratif relie organisateur, hébergeur et accompagnateurs jusqu\'au retour.' },
             ].map((step, i) => (
               <div key={i} style={{
                 display: 'flex', gap: 16, alignItems: 'flex-start',
@@ -478,7 +536,7 @@ export default function Home() {
             color: 'rgba(255,255,255,0.75)',
             maxWidth: 520, margin: '0 auto 32px',
           }}>
-            649 centres référencés depuis la base officielle de l&apos;Éducation Nationale. Rejoignez les établissements qui ont déjà rejoint LIAVO.
+            649 centres référencés depuis la base officielle de l&apos;Éducation Nationale. Séjours scolaires, colonies de vacances, séjours collectifs — un seul outil pour tout coordonner.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
             <Link href="/register?type=teacher" style={{
