@@ -215,7 +215,7 @@ export default function Home() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  'Devis reçus en 48h de tous les centres de votre région',
+                  'Lancez un appel d\'offres en quelques minutes auprès des centres de votre choix partout en France',
                   'Signatures électroniques avec relances automatiques',
                   'Dossier généré automatiquement, envoyé directement',
                   'Chaque validation horodatée, archivée, traçable',
