@@ -143,7 +143,7 @@ export default function Home() {
           textAlign: 'center',
           fontSize: 13, color: 'rgba(255,255,255,0.7)',
         }}>
-          649 centres référencés depuis la base officielle de l&apos;Éducation Nationale · Conforme RGPD, hébergé en France · Chorus Pro intégré
+          649 centres référencés depuis la base officielle de l&apos;Éducation Nationale · Conforme RGPD · Chorus Pro intégré
         </div>
       </section>
 
