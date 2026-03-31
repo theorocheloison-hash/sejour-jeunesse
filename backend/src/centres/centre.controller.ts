@@ -34,6 +34,11 @@ export class CentreController {
     return this.centreService.searchPublic(search ?? '');
   }
 
+  @Get('check-invitation/:token')
+  async checkInvitation(@Param('token') token: string) {
+    return this.centreService.checkInvitation(token);
+  }
+
   @Post('register')
   register(@Body() dto: RegisterCentreDto) {
     return this.centreService.register(dto);

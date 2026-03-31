@@ -608,6 +608,86 @@ export class AdminService {
     return { created, updated, errors, details };
   }
 
+  async bulkInviteApidae(reseau: string): Promise<{
+    sent: number;
+    skipped: number;
+    details: string[];
+  }> {
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: {
+        reseau,
+        source: 'APIDAE',
+        userId: null,
+        email: { not: null },
+      },
+      select: { id: true, nom: true, email: true },
+    });
+
+    let sent = 0;
+    let skipped = 0;
+    const details: string[] = [];
+
+    for (const centre of centres) {
+      if (!centre.email) { skipped++; continue; }
+
+      const existingInvitation = await this.prisma.invitationHebergement.findFirst({
+        where: { email: centre.email, utilisedAt: null },
+      });
+      if (existingInvitation) {
+        skipped++;
+        details.push(`IGNORÉ (invitation déjà active) : ${centre.nom}`);
+        continue;
+      }
+
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: centre.email },
+      });
+      if (existingUser) {
+        skipped++;
+        details.push(`IGNORÉ (compte déjà existant) : ${centre.nom}`);
+        continue;
+      }
+
+      try {
+        const invitation = await this.prisma.invitationHebergement.create({
+          data: { email: centre.email, nomCentre: centre.nom },
+        });
+
+        const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
+
+        await this.email.sendGenericNotification(
+          centre.email,
+          `Votre centre ${centre.nom} vous attend sur LIAVO`,
+          `<p>Bonjour,</p>
+           <p>Votre centre <strong>${centre.nom}</strong> est déjà référencé sur LIAVO, la plateforme de coordination des séjours scolaires.</p>
+           <p>Il vous suffit de créer votre compte pour :</p>
+           <ul style="margin:12px 0;padding-left:20px;font-size:14px;color:#374151;">
+             <li style="margin-bottom:6px;">Recevoir les demandes de devis des enseignants sur votre zone</li>
+             <li style="margin-bottom:6px;">Gérer vos disponibilités et envoyer vos devis en ligne</li>
+             <li style="margin-bottom:6px;">Accéder à votre profil déjà enrichi (photos, capacités, description)</li>
+           </ul>
+           <p style="margin:24px 0">
+             <a href="${lien}"
+                style="display:inline-block;background:#1B4060;color:#fff;padding:14px 32px;border-radius:8px;font-weight:700;text-decoration:none;font-size:15px;">
+               Créer mon compte →
+             </a>
+           </p>
+           <p style="font-size:12px;color:#9ca3af;">
+             Ce lien est personnel et valable 30 jours. Questions : <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>
+           </p>`,
+        );
+
+        sent++;
+        details.push(`ENVOYÉ : ${centre.nom} → ${centre.email}`);
+      } catch (err: any) {
+        skipped++;
+        details.push(`ERREUR : ${centre.nom} — ${err.message}`);
+      }
+    }
+
+    return { sent, skipped, details };
+  }
+
   async updateCentreReseau(centreId: string, reseau: string | null) {
     return this.prisma.centreHebergement.update({
       where: { id: centreId },

@@ -67,6 +67,16 @@ function RegisterVenueContent() {
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const [apidaeCentre, setApidaeCentre] = useState<{
+    nom: string;
+    ville: string;
+    departement: string | null;
+    capacite: number;
+    imageUrl: string | null;
+  } | null>(null);
+
+  const urlToken = searchParams.get('token') ?? searchParams.get('invitationToken') ?? '';
+
   // Centre search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CentrePublic[]>([]);
@@ -87,6 +97,18 @@ function RegisterVenueContent() {
         ? f.typeSejours.filter((t) => t !== value)
         : [...f.typeSejours, value],
     }));
+
+  // Check if invitation token points to an APIDAE centre
+  useEffect(() => {
+    if (!urlToken) return;
+    api.get(`/centres/check-invitation/${urlToken}`)
+      .then(({ data }) => {
+        if (data.isApidae && data.centre) {
+          setApidaeCentre(data.centre);
+        }
+      })
+      .catch(() => {});
+  }, [urlToken]);
 
   // Debounced search
   useEffect(() => {
@@ -172,7 +194,11 @@ function RegisterVenueContent() {
       setError('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
-    setStep(fromInvitation ? 2 : 1.5);
+    if (apidaeCentre) {
+      setStep(3);
+    } else {
+      setStep(fromInvitation ? 2 : 1.5);
+    }
   };
 
   const goStep2 = () => {
@@ -314,6 +340,32 @@ function RegisterVenueContent() {
 
           {/* ── STEP 1 : Infos personnelles ── */}
           {step === 1 && (
+            <>
+            {apidaeCentre && (
+              <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
+                {apidaeCentre.imageUrl && (
+                  <img
+                    src={apidaeCentre.imageUrl}
+                    alt={apidaeCentre.nom}
+                    className="w-full h-32 object-cover"
+                  />
+                )}
+                <div className="p-4">
+                  <p className="text-sm font-semibold text-blue-900 mb-1">
+                    Votre centre est déjà sur LIAVO 🎉
+                  </p>
+                  <p className="text-lg font-bold text-[var(--color-primary)]">
+                    {apidaeCentre.nom}
+                  </p>
+                  <p className="text-sm text-blue-700 mt-0.5">
+                    {apidaeCentre.ville}{apidaeCentre.departement ? ` (${apidaeCentre.departement})` : ''} — {apidaeCentre.capacite} lits
+                  </p>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Créez simplement votre compte pour accéder à votre espace hébergeur.
+                  </p>
+                </div>
+              </div>
+            )}
             <form onSubmit={goStep15} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -347,6 +399,7 @@ function RegisterVenueContent() {
                 </svg>
               </button>
             </form>
+            </>
           )}
 
           {/* ── STEP 1.5 : Recherche centre ── */}
@@ -582,6 +635,16 @@ function RegisterVenueContent() {
           {/* ── STEP 3 : Types de séjours ── */}
           {step === 3 && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {apidaeCentre && (
+                <div className="rounded-lg bg-[var(--color-success-light)] border border-green-200 px-4 py-3 mb-2">
+                  <p className="text-sm font-semibold text-[var(--color-success)]">
+                    ✓ Votre centre {apidaeCentre.nom} sera automatiquement rattaché à votre compte
+                  </p>
+                  <p className="text-xs text-green-600 mt-0.5">
+                    Vos photos, description et capacité sont déjà enregistrées.
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Types de séjours proposés <span className="text-gray-400 font-normal">(optionnel)</span>

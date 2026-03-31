@@ -66,6 +66,11 @@ export class AdminController {
     return this.adminService.syncApidae(reseau);
   }
 
+  @Post('reseau/:reseau/bulk-invite-apidae')
+  bulkInviteApidae(@Param('reseau') reseau: string) {
+    return this.adminService.bulkInviteApidae(reseau);
+  }
+
   @Patch('centres/:id/reseau')
   updateCentreReseau(@Param('id') id: string, @Body('reseau') reseau: string | null) {
     return this.adminService.updateCentreReseau(id, reseau);

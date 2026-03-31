@@ -180,6 +180,44 @@ export class CentreService {
     };
   }
 
+  async checkInvitation(token: string): Promise<{
+    isApidae: boolean;
+    centre: {
+      nom: string;
+      ville: string;
+      departement: string | null;
+      capacite: number;
+      imageUrl: string | null;
+    } | null;
+  }> {
+    const invitation = await this.prisma.invitationHebergement.findUnique({
+      where: { token: token as any },
+    });
+    if (!invitation || invitation.utilisedAt) {
+      return { isApidae: false, centre: null };
+    }
+
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: {
+        email: invitation.email,
+        userId: null,
+        source: 'APIDAE',
+      },
+      select: {
+        nom: true,
+        ville: true,
+        departement: true,
+        capacite: true,
+        imageUrl: true,
+      },
+    });
+
+    return {
+      isApidae: !!centre,
+      centre: centre ?? null,
+    };
+  }
+
   async getMonProfil(userId: string) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
