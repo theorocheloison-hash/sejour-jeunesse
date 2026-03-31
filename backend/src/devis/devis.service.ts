@@ -354,6 +354,15 @@ export class DevisService {
                 etablissementTelephone: true,
               },
             },
+            sejour: {
+              select: {
+                id: true, titre: true, dateDebut: true, dateFin: true,
+                niveauClasse: true, statut: true,
+                createur: {
+                  select: { prenom: true, nom: true, etablissementNom: true, etablissementVille: true },
+                },
+              },
+            },
           },
         },
       },
