@@ -285,3 +285,18 @@ export async function addRecetteBudget(sejourId: string, data: { source: string;
 export async function deleteRecetteBudget(sejourId: string, recetteId: string): Promise<void> {
   await api.delete(`/collaboration/${sejourId}/budget/recettes/${recetteId}`);
 }
+
+export interface ActiviteCatalogue {
+  id: string;
+  nom: string;
+  description?: string;
+  type: string;
+  unite: string;
+}
+
+export async function getActivitesCatalogue(sejourId: string): Promise<ActiviteCatalogue[]> {
+  const { data } = await api.get<ActiviteCatalogue[]>(
+    `/collaboration/${sejourId}/activites-catalogue`
+  );
+  return data;
+}

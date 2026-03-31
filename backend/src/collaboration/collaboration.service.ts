@@ -309,4 +309,31 @@ export class CollaborationService {
       orderBy: { dateDebut: 'asc' },
     });
   }
+
+  async getActivitesCatalogue(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { hebergementSelectionneId: true },
+    });
+
+    if (!sejour?.hebergementSelectionneId) return [];
+
+    return this.prisma.produitCatalogue.findMany({
+      where: {
+        centreId: sejour.hebergementSelectionneId,
+        type: 'ACTIVITE',
+        actif: true,
+      },
+      select: {
+        id: true,
+        nom: true,
+        description: true,
+        type: true,
+        unite: true,
+      },
+      orderBy: { nom: 'asc' },
+    });
+  }
 }

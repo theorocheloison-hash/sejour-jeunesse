@@ -21,6 +21,7 @@ import {
   getPlanning,
   createPlanning,
   deletePlanning,
+  getActivitesCatalogue,
   getDocuments,
   createDocument,
   getParticipants,
@@ -42,6 +43,7 @@ import type {
   DocumentCentreFiche,
   LigneCompl,
   RecetteBudget,
+  ActiviteCatalogue,
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
@@ -129,6 +131,33 @@ function DroppableDay({
         />
       ))}
       {children}
+    </div>
+  );
+}
+
+// ─── DraggableCatalogueItem ───────────────────────────────────────────────────
+function DraggableCatalogueItem({ activite }: { activite: ActiviteCatalogue }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `catalogue-${activite.id}`,
+    data: { type: 'catalogue', activite },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 999 : 1,
+      }}
+      className="rounded-lg border border-[var(--color-accent)] bg-amber-50 px-3 py-2 cursor-grab active:cursor-grabbing select-none"
+      {...attributes}
+      {...listeners}
+    >
+      <p className="text-xs font-semibold text-amber-800 truncate">{activite.nom}</p>
+      {activite.description && (
+        <p className="text-[10px] text-amber-600 truncate mt-0.5">{activite.description}</p>
+      )}
     </div>
   );
 }
@@ -249,6 +278,7 @@ export default function CollaborationPage() {
 
   // Planning
   const [planning, setPlanning] = useState<PlanningActivite[]>([]);
+  const [activitesCatalogue, setActivitesCatalogue] = useState<ActiviteCatalogue[]>([]);
   const [planModal, setPlanModal] = useState<{
     open: boolean;
     date: string;
@@ -318,7 +348,14 @@ export default function CollaborationPage() {
 
   const loadPlanning = useCallback(async () => {
     if (!id) return;
-    try { setPlanning(await getPlanning(id)); } catch { /* ignore */ }
+    try {
+      const [plan, activites] = await Promise.all([
+        getPlanning(id),
+        getActivitesCatalogue(id).catch(() => []),
+      ]);
+      setPlanning(plan);
+      setActivitesCatalogue(activites);
+    } catch { /* ignore */ }
   }, [id]);
 
   const loadDocs = useCallback(async () => {
@@ -985,6 +1022,25 @@ export default function CollaborationPage() {
 
           const handleDragEnd = async (event: DragEndEvent) => {
             if (!isVenue) return;
+
+            // Drop depuis le catalogue d'activités
+            if (event.active.data.current?.type === 'catalogue') {
+              const activite = event.active.data.current.activite as ActiviteCatalogue;
+              const overDay = event.over?.id as string | undefined;
+              if (!overDay || !overDay.startsWith('day-') || !id) return;
+              const dateStr = overDay.replace('day-', '');
+              setPlanModal({
+                open: true,
+                date: dateStr,
+                heureDebut: '09:00',
+                heureFin: '10:00',
+                titre: activite.nom,
+                description: activite.description ?? '',
+                responsable: '',
+              });
+              return;
+            }
+
             const { active, delta } = event;
             const actId = active.id as string;
             const act = planning.find(p => p.id === actId);
@@ -1035,6 +1091,9 @@ export default function CollaborationPage() {
           };
 
           return (
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="flex gap-4 h-full">
+            <div className="flex-1 min-w-0">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               {!isVenue && (
                 <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
@@ -1042,7 +1101,6 @@ export default function CollaborationPage() {
                 </div>
               )}
 
-              <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
                 <div className="overflow-x-auto">
                   <div style={{ minWidth: `${56 + days.length * 120}px` }}>
 
@@ -1151,8 +1209,6 @@ export default function CollaborationPage() {
                     </div>
                   </div>
                 </div>
-              </DndContext>
-
               {/* Modale création/édition */}
               {planModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -1213,6 +1269,35 @@ export default function CollaborationPage() {
                 </div>
               )}
             </div>
+            </div>
+
+            {/* Panneau latéral activités catalogue — visible seulement pour VENUE */}
+            {isVenue && (
+              <div className="w-64 shrink-0">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sticky top-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    Activités proposées
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Glissez une activité sur le planning pour l&apos;ajouter
+                  </p>
+                  {activitesCatalogue.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">
+                      Aucune activité dans le catalogue.<br />
+                      <span className="text-[10px]">Ajoutez des produits de type Activité dans votre catalogue.</span>
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {activitesCatalogue.map(a => (
+                        <DraggableCatalogueItem key={a.id} activite={a} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            </div>
+            </DndContext>
           );
         })()}
 

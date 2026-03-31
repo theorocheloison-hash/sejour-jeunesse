@@ -147,6 +147,14 @@ export class CollaborationController {
     return this.service.deletePlanning(sejourId, user.id, planningId, user.role);
   }
 
+  @Get(':sejourId/activites-catalogue')
+  getActivitesCatalogue(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.getActivitesCatalogue(sejourId, user.id, user.role);
+  }
+
   // ── Documents ─────────────────────────────────────────────────
 
   @Get(':sejourId/documents')
