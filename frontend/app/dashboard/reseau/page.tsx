@@ -216,6 +216,16 @@ function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () 
                 <p className="text-xs text-gray-400">{centre.adresse}, {centre.codePostal}</p>
               </div>
 
+              {!(centre.description) && (centre as any).source === 'APIDAE' && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                  <p className="text-xs font-semibold text-blue-700 mb-1">Importé depuis APIDAE</p>
+                  <p className="text-xs text-blue-600">
+                    Ce centre a été importé automatiquement. Son profil complet sera disponible
+                    dès qu&apos;il aura rejoint la plateforme.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-gray-500">Capacité élèves</span><p className="font-medium">{centre.capacite}</p></div>
                 {centre.capaciteAdultes && <div><span className="text-gray-500">Capacité adultes</span><p className="font-medium">{centre.capaciteAdultes}</p></div>}
@@ -314,6 +324,30 @@ function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () 
   );
 }
 
+// ─── Sortable Header ──────────────────────────────────────────────────────────
+
+function SortableHeader({
+  col, label, current, dir, onSort,
+}: {
+  col: string; label: string; current: string; dir: 'asc' | 'desc';
+  onSort: (col: string) => void;
+}) {
+  const active = col === current;
+  return (
+    <th
+      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:text-gray-900 select-none whitespace-nowrap"
+      onClick={() => onSort(col)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        <span className="text-gray-300">
+          {active ? (dir === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 // ─── Export CSV ───────────────────────────────────────────────────────────────
 
 function exportCSV(stats: ReseauStats) {
@@ -348,6 +382,9 @@ export default function ReseauDashboardPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [selectedCentreId, setSelectedCentreId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [sortCol, setSortCol] = useState<string>('nom');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'RESEAU' && user.role !== 'ADMIN'))) {
@@ -375,6 +412,37 @@ export default function ReseauDashboardPage() {
   if (isLoading || !user) return null;
 
   const displayName = stats?.nomComplet && stats.nomComplet !== stats.reseau ? stats.nomComplet : stats?.reseau;
+
+  const filteredCentres = stats?.centres.filter(c =>
+    !search ||
+    c.nom.toLowerCase().includes(search.toLowerCase()) ||
+    c.ville.toLowerCase().includes(search.toLowerCase())
+  ) ?? [];
+
+  const sortedCentres = [...filteredCentres].sort((a, b) => {
+    let va: any, vb: any;
+    switch (sortCol) {
+      case 'nom': va = a.nom; vb = b.nom; break;
+      case 'ville': va = a.ville; vb = b.ville; break;
+      case 'capacite': va = a.capacite; vb = b.capacite; break;
+      case 'onboarding': va = a.onboardingScore; vb = b.onboardingScore; break;
+      case 'demandes': va = a.demandesRecues; vb = b.demandesRecues; break;
+      case 'devis': va = a.devisEnvoyes; vb = b.devisEnvoyes; break;
+      case 'retenus': va = a.devisSelectionnes; vb = b.devisSelectionnes; break;
+      case 'ca': va = a.caGenere; vb = b.caGenere; break;
+      case 'activite': va = a.derniereActivite; vb = b.derniereActivite; break;
+      default: va = a.nom; vb = b.nom;
+    }
+    if (typeof va === 'string') {
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    return sortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const handleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -447,38 +515,116 @@ export default function ReseauDashboardPage() {
         ) : stats ? (
           <div className="space-y-6">
             {/* KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
               <KpiCard label="Centres membres" value={stats.kpis.totalCentres} />
               <KpiCard label="Centres actifs" value={stats.kpis.centresActifs} accent="text-[var(--color-success)]" />
               <KpiCard label="Demandes reçues" value={stats.kpis.demandesRecues} />
               <KpiCard label="Devis envoyés" value={stats.kpis.devisEnvoyes} />
               <KpiCard label="Devis retenus" value={stats.kpis.devisSelectionnes} accent="text-[var(--color-primary)]" />
-              <KpiCard label="Taux de réponse" value={`${stats.kpis.tauxReponse} %`} />
+              <KpiCard label="CA total réseau" value={formatEuros(stats.kpis.caTotal)} accent="text-[var(--color-accent)]" />
+              <KpiCard label="Taux de réponse" value={stats.kpis.demandesRecues === 0 ? '—' : `${stats.kpis.tauxReponse} %`} />
             </div>
 
-            {/* Table des centres */}
-            {stats.centres.length === 0 ? (
-              <EmptyState text="Aucun centre rattaché à ce réseau" />
+            {/* Onboarding réseau */}
+            {stats.centres.length > 0 && (() => {
+              const total = stats.centres.length;
+              const profilsComplets = stats.centres.filter(c => c.onboardingDetails.profilComplet).length;
+              const mandatsSigbes = stats.centres.filter(c => c.onboardingDetails.mandatSigne).length;
+              const agrementsRenseignes = stats.centres.filter(c => c.onboardingDetails.agrementRenseigne).length;
+              const siretsRenseignes = stats.centres.filter(c => c.onboardingDetails.siretRenseigne).length;
+              const scoreGlobal = Math.round(
+                ((profilsComplets + mandatsSigbes + agrementsRenseignes + siretsRenseignes) / (total * 4)) * 100
+              );
+
+              return (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Onboarding réseau</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Progression de vos {total} centres adhérents</p>
+                    </div>
+                    <span className="text-2xl font-bold text-[var(--color-primary)]">{scoreGlobal} %</span>
+                  </div>
+
+                  {/* Barre de progression globale */}
+                  <div className="w-full bg-gray-100 rounded-full h-2 mb-5">
+                    <div
+                      className="bg-[var(--color-primary)] h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${scoreGlobal}%` }}
+                    />
+                  </div>
+
+                  {/* 4 métriques détaillées */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Profil complet', count: profilsComplets },
+                      { label: 'Mandat signé', count: mandatsSigbes },
+                      { label: 'Agrément renseigné', count: agrementsRenseignes },
+                      { label: 'SIRET renseigné', count: siretsRenseignes },
+                    ].map(({ label, count }) => (
+                      <div key={label} className="text-center">
+                        <div className="flex items-end justify-center gap-1 mb-1">
+                          <span className="text-xl font-bold text-gray-900">{count}</span>
+                          <span className="text-sm text-gray-400 mb-0.5">/ {total}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">{label}</p>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                          <div
+                            className="bg-[var(--color-success)] h-1.5 rounded-full"
+                            style={{ width: `${Math.round((count / total) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Recherche + Table des centres */}
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un centre par nom ou ville…"
+                className="w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="text-xs text-gray-400 hover:text-gray-700 transition"
+                >
+                  Effacer
+                </button>
+              )}
+              <span className="text-xs text-gray-400 ml-auto">
+                {filteredCentres.length} centre{filteredCentres.length > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {filteredCentres.length === 0 ? (
+              <EmptyState text={search ? `Aucun centre trouvé pour "${search}"` : 'Aucun centre rattaché à ce réseau'} />
             ) : (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ville / Dép.</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capacité</th>
+                        <SortableHeader col="nom" label="Nom" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="ville" label="Ville / Dép." current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="capacite" label="Capacité" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Profil</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Demandes</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Devis</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Retenus</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA généré</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dernière activité</th>
+                        <SortableHeader col="onboarding" label="Profil" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="demandes" label="Demandes" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="devis" label="Devis" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="retenus" label="Retenus" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="ca" label="CA généré" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="activite" label="Dernière activité" current={sortCol} dir={sortDir} onSort={handleSort} />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {stats.centres.map((c: ReseauCentre) => (
+                      {sortedCentres.map((c: ReseauCentre) => (
                         <tr
                           key={c.id}
                           className="hover:bg-gray-50 transition cursor-pointer"
@@ -487,6 +633,11 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">
                             {c.nom}
                             {c.onboardingScore < 4 && <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-amber-400" title="Profil incomplet" />}
+                            {(c as any).source === 'APIDAE' && (
+                              <span className="ml-1.5 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                                APIDAE
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                             {c.ville}{c.departement ? ` (${c.departement})` : ''}
