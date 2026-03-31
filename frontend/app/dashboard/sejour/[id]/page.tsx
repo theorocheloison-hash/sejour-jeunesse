@@ -1211,65 +1211,7 @@ export default function CollaborationPage() {
                     </div>
                   </div>
                 </div>
-              {/* Modale création/édition */}
-              {planModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-                  onClick={() => setPlanModal(null)}>
-                  <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4"
-                    onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">
-                      {planModal.editId ? 'Modifier le créneau' : 'Nouveau créneau'}
-                    </h3>
-                    <div className="space-y-3">
-                      <input type="text" placeholder="Titre *" value={planModal.titre}
-                        onChange={(e) => setPlanModal(m => m ? {...m, titre: e.target.value} : m)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Début</label>
-                          <input type="time" value={planModal.heureDebut}
-                            onChange={(e) => setPlanModal(m => m ? {...m, heureDebut: e.target.value} : m)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 mb-1 block">Fin</label>
-                          <input type="time" value={planModal.heureFin}
-                            onChange={(e) => setPlanModal(m => m ? {...m, heureFin: e.target.value} : m)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                        </div>
-                      </div>
-                      <input type="text" placeholder="Description (optionnel)" value={planModal.description}
-                        onChange={(e) => setPlanModal(m => m ? {...m, description: e.target.value} : m)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                      <input type="text" placeholder="Responsable (optionnel)" value={planModal.responsable}
-                        onChange={(e) => setPlanModal(m => m ? {...m, responsable: e.target.value} : m)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                    </div>
-                    <div className="flex gap-3 mt-5">
-                      {planModal.editId && (
-                        <button onClick={async () => {
-                          if (!id || !planModal.editId) return;
-                          try {
-                            await deletePlanning(id, planModal.editId);
-                            setPlanning(prev => prev.filter(p => p.id !== planModal.editId));
-                            setPlanModal(null);
-                          } catch { /* ignore */ }
-                        }} className="flex-1 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-                          Supprimer
-                        </button>
-                      )}
-                      <button onClick={() => setPlanModal(null)}
-                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        Annuler
-                      </button>
-                      <button onClick={handleAddPlanning} disabled={!planModal.titre}
-                        className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                        {planModal.editId ? 'Modifier' : 'Ajouter'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Modale planModal déplacée hors du IIFE — voir fin de <main> */}
             </div>
             </div>
 
@@ -2471,6 +2413,76 @@ export default function CollaborationPage() {
                 </>
               );
             })()}
+          </div>
+        )}
+        {/* ── Modale planning (création/édition) ─── */}
+        {planModal?.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => setPlanModal(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  {planModal.editId ? 'Modifier l\'activité' : 'Ajouter une activité'}
+                </h2>
+                <button onClick={() => setPlanModal(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Titre</label>
+                  <input type="text" value={planModal.titre}
+                    onChange={e => setPlanModal(m => m ? { ...m, titre: e.target.value } : m)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    placeholder="Nom de l'activité" autoFocus />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Heure début</label>
+                    <input type="time" value={planModal.heureDebut}
+                      onChange={e => setPlanModal(m => m ? { ...m, heureDebut: e.target.value } : m)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Heure fin</label>
+                    <input type="time" value={planModal.heureFin}
+                      onChange={e => setPlanModal(m => m ? { ...m, heureFin: e.target.value } : m)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Responsable <span className="text-gray-400 font-normal">(optionnel)</span>
+                  </label>
+                  <input type="text" value={planModal.responsable}
+                    onChange={e => setPlanModal(m => m ? { ...m, responsable: e.target.value } : m)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    placeholder="Nom du responsable" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={() => setPlanModal(null)}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Annuler
+                </button>
+                {planModal.editId && (
+                  <button
+                    onClick={async () => {
+                      if (!id || !planModal.editId) return;
+                      await handleDeletePlanning(planModal.editId);
+                      setPlanModal(null);
+                    }}
+                    className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                    Supprimer
+                  </button>
+                )}
+                <button onClick={handleAddPlanning}
+                  disabled={!planModal.titre.trim()}
+                  className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                  {planModal.editId ? 'Modifier' : 'Ajouter'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
