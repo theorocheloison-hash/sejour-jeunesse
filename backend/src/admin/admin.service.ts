@@ -469,7 +469,7 @@ export class AdminService {
       projetId: creds.projetId,
       selectionIds: [creds.selectionId],
       count: 200,
-      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees'],
+      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees', 'capacites'],
     });
 
     const url = `https://api.apidae-tourisme.com/api/v002/recherche/list-objets-touristiques?query=${encodeURIComponent(query)}`;
@@ -501,7 +501,10 @@ export class AdminService {
         const siteEntry = moyens.find((m: any) => m.type?.id === 205);
         const siteWeb: string | null = siteEntry?.coordonnees?.fr ?? null;
 
-        const capacite: number = obj.informations?.capacite?.nombrePersonnes ?? 0;
+        const capacite: number =
+          obj.capacites?.educationNationale?.personnes ??
+          obj.capacites?.declarees?.personnes ??
+          0;
 
         const existing = await this.prisma.centreHebergement.findFirst({
           where: { apidaeId },
