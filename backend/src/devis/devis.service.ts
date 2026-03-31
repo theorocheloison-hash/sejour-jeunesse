@@ -41,6 +41,26 @@ export class DevisService {
       throw new ForbiddenException('La date butoire de réponse est dépassée');
     }
 
+    // Vérifier qu'un devis actif n'existe pas déjà pour ce couple demande/centre
+    const devisExistant = await this.prisma.devis.findFirst({
+      where: {
+        demandeId: dto.demandeId,
+        centreId: centre.id,
+        statut: {
+          in: [
+            StatutDevis.EN_ATTENTE,
+            StatutDevis.EN_ATTENTE_VALIDATION,
+            StatutDevis.SELECTIONNE,
+          ],
+        },
+      },
+    });
+    if (devisExistant) {
+      throw new ForbiddenException(
+        'Vous avez déjà soumis un devis pour cette demande. Modifiez le devis existant.'
+      );
+    }
+
     // Auto-generate numero devis if not provided
     const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
 
@@ -493,8 +513,7 @@ export class DevisService {
   async getDevisAValider() {
     return this.prisma.devis.findMany({
       where: {
-        statut: StatutDevis.SELECTIONNE,
-        signatureDirecteur: null,
+        statut: StatutDevis.EN_ATTENTE_VALIDATION,
         typeDocument: 'DEVIS',
       },
       include: {
