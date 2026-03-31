@@ -7,6 +7,6 @@ ALTER TABLE "centres_hebergement"
   ADD CONSTRAINT "centres_hebergement_user_id_fkey"
   FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AlterTable: ajouter apidae_id et source
-ALTER TABLE "centres_hebergement" ADD COLUMN "apidae_id" VARCHAR(20);
-ALTER TABLE "centres_hebergement" ADD COLUMN "source" VARCHAR(20);
+-- AlterTable: ajouter apidae_id et source (idempotent)
+ALTER TABLE "centres_hebergement" ADD COLUMN IF NOT EXISTS "apidae_id" VARCHAR(20);
+ALTER TABLE "centres_hebergement" ADD COLUMN IF NOT EXISTS "source" VARCHAR(20);
