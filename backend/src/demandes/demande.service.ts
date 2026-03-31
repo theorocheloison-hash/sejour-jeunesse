@@ -117,10 +117,17 @@ export class DemandeService {
     });
     const ignoreeIds = ignorees.map(i => i.demandeId);
 
+    // Récupérer les demandeIds auxquelles ce centre a déjà répondu
+    const dejarepondus = await this.prisma.devis.findMany({
+      where: { centreId: centre.id },
+      select: { demandeId: true },
+    });
+    const dejaReponduIds = dejarepondus.map(d => d.demandeId);
+
     const demandes = await this.prisma.demandeDevis.findMany({
       where: {
         statut: 'OUVERTE',
-        id: { notIn: ignoreeIds },
+        id: { notIn: [...ignoreeIds, ...dejaReponduIds] },
         OR: [
           { dateButoireReponse: null },
           { dateButoireReponse: { gte: new Date() } },
