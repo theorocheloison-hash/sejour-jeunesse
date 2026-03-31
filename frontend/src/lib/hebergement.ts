@@ -22,6 +22,8 @@ export interface Hebergement {
   accessible: boolean;
   avisSecurite: string | null;
   periodeOuverture: string | null;
+  source: string | null;
+  reseau: string | null;
 }
 
 export interface SearchHebergementParams {

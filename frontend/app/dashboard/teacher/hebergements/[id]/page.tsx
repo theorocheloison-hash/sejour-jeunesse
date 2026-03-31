@@ -25,6 +25,13 @@ export default function HebergementDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // Modale "Je suis intéressé" (centres APIDAE)
+  const [showInteretModal, setShowInteretModal] = useState(false);
+  const [interetMessage, setInteretMessage] = useState('');
+  const [interetSubmitting, setInteretSubmitting] = useState(false);
+  const [interetSuccess, setInteretSuccess] = useState(false);
+  const [interetError, setInteretError] = useState<string | null>(null);
+
   // Modale invitation centre externe
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -38,6 +45,22 @@ export default function HebergementDetailPage() {
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+
+  const handleManifesterInteret = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInteretSubmitting(true);
+    setInteretError(null);
+    try {
+      await api.post(`/hebergements/${params.id}/interet`, {
+        message: interetMessage || undefined,
+      });
+      setInteretSuccess(true);
+    } catch (err: any) {
+      setInteretError(err?.response?.data?.message ?? 'Erreur lors de l\'envoi');
+    } finally {
+      setInteretSubmitting(false);
+    }
+  };
 
   const handleInviterCentreExterne = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,8 +207,8 @@ export default function HebergementDetailPage() {
               </div>
             </div>
 
-            {/* Partenaire Liavo */}
-            {isLiavoId(params.id as string) && (
+            {/* Cas 1 — Centre LIAVO avec compte réel (pas source APIDAE) */}
+            {isLiavoId(params.id as string) && hebergement.source !== 'APIDAE' && (
               <div className="px-6 py-4 border-b border-gray-200 bg-[var(--color-primary-light)]">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -202,7 +225,25 @@ export default function HebergementDetailPage() {
               </div>
             )}
 
-            {/* Centre externe — pas sur LIAVO */}
+            {/* Cas 2 — Centre APIDAE référencé réseau, pas encore inscrit */}
+            {isLiavoId(params.id as string) && hebergement.source === 'APIDAE' && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-blue-50">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800">Ce centre n&apos;est pas encore inscrit sur LIAVO</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Signalez votre intérêt — le réseau le contactera pour accélérer son inscription</p>
+                  </div>
+                  <button
+                    onClick={() => setShowInteretModal(true)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity shrink-0"
+                  >
+                    Je suis intéressé
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Cas 3 — Centre hors base (identifiant EN) */}
             {!isLiavoId(params.id as string) && (
               <div className="px-6 py-4 border-b border-gray-200 bg-amber-50">
                 <div className="flex items-center justify-between gap-4">
@@ -500,6 +541,66 @@ export default function HebergementDetailPage() {
                   <button type="submit" disabled={inviteSubmitting}
                     className="flex-1 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-60">
                     {inviteSubmitting ? 'Envoi...' : 'Envoyer l\'invitation'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Modale manifester intérêt (centres APIDAE) */}
+      {showInteretModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Manifester mon intérêt</h2>
+              <button onClick={() => { setShowInteretModal(false); setInteretSuccess(false); setInteretError(null); }} className="text-gray-400 hover:text-gray-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {interetSuccess ? (
+              <div className="text-center py-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                  <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-900 mb-1">Votre intérêt a été transmis</p>
+                <p className="text-xs text-gray-500">Le réseau va contacter ce centre pour accélérer son inscription sur LIAVO.</p>
+                <button onClick={() => { setShowInteretModal(false); setInteretSuccess(false); }} className="mt-4 text-sm font-medium text-[var(--color-primary)] hover:underline">
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleManifesterInteret} className="space-y-4">
+                {interetError && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{interetError}</div>
+                )}
+                <p className="text-sm text-gray-600">
+                  Votre intérêt sera transmis à <strong>{hebergement?.nom}</strong> et au réseau partenaire.
+                  Le centre sera invité à rejoindre LIAVO pour pouvoir répondre à vos demandes.
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                  <textarea
+                    rows={3}
+                    value={interetMessage}
+                    onChange={e => setInteretMessage(e.target.value)}
+                    placeholder="Précisez votre projet de séjour, vos dates envisagées..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none"
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowInteretModal(false)}
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Annuler
+                  </button>
+                  <button type="submit" disabled={interetSubmitting}
+                    className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-60">
+                    {interetSubmitting ? 'Envoi...' : 'Transmettre mon intérêt'}
                   </button>
                 </div>
               </form>

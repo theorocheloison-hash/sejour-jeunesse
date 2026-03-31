@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { SearchHebergementDto } from './dto/search-hebergement.dto.js';
 
 const API_BASE =
@@ -95,12 +96,14 @@ function mapCentre(c: any) {
     accessible: c.accessiblePmr ?? false,
     avisSecurite: c.avisSecurite ?? null,
     periodeOuverture: c.periodeOuverture ?? null,
+    source: c.source ?? null,
+    reseau: c.reseau ?? null,
   };
 }
 
 @Injectable()
 export class HebergementService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private email: EmailService) {}
 
   async search(dto: SearchHebergementDto) {
     // ── Requête API Éducation Nationale ──────────────────────────────────
@@ -199,5 +202,66 @@ export class HebergementService {
     }
 
     return mapRecord(data.results[0]);
+  }
+
+  async manifesterInteret(centreId: string, enseignantId: string, message?: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { id: centreId, source: 'APIDAE' },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const enseignant = await this.prisma.user.findUnique({
+      where: { id: enseignantId },
+      select: { prenom: true, nom: true, email: true, etablissementNom: true },
+    });
+    if (!enseignant) throw new NotFoundException('Enseignant introuvable');
+
+    // Trouver l'email du réseau correspondant
+    const reseauUser = await this.prisma.user.findFirst({
+      where: { role: 'RESEAU', reseauNom: centre.reseau ?? undefined },
+      select: { email: true, reseauNomComplet: true },
+    });
+
+    const nomReseau = reseauUser?.reseauNomComplet ?? centre.reseau ?? 'le réseau';
+    const emailReseau = reseauUser?.email ?? null;
+
+    // Email à l'enseignant — confirmation
+    await this.email.sendGenericNotification(
+      enseignant.email,
+      `Votre intérêt pour ${centre.nom} a bien été transmis`,
+      `<p>Bonjour ${enseignant.prenom},</p>
+       <p>Nous avons transmis votre intérêt pour le centre <strong>${centre.nom}</strong> (${centre.ville}) à ${nomReseau}.</p>
+       <p>Le réseau va contacter ce centre pour l'inviter à rejoindre LIAVO. Vous serez informé dès qu'il sera disponible pour recevoir des demandes.</p>
+       <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/teacher/hebergements" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Retour au catalogue</a></p>`,
+    );
+
+    // Email au réseau — signal enseignant
+    if (emailReseau) {
+      await this.email.sendGenericNotification(
+        emailReseau,
+        `Un enseignant est intéressé par ${centre.nom}`,
+        `<p>Bonjour,</p>
+         <p>L'enseignant <strong>${enseignant.prenom} ${enseignant.nom}</strong>${enseignant.etablissementNom ? ` (${enseignant.etablissementNom})` : ''} a manifesté son intérêt pour le centre <strong>${centre.nom}</strong> à ${centre.ville}.</p>
+         ${message ? `<p>Message : <em>${message}</em></p>` : ''}
+         ${centre.email ? `<p>Email du centre : <a href="mailto:${centre.email}">${centre.email}</a></p>` : ''}
+         <p>Ce centre n'est pas encore inscrit sur LIAVO. Nous vous suggérons de le contacter pour accélérer son onboarding.</p>`,
+      );
+    }
+
+    // Email au centre — invitation découverte
+    if (centre.email) {
+      await this.email.sendGenericNotification(
+        centre.email,
+        `Un enseignant recherche un hébergement — découvrez LIAVO`,
+        `<p>Bonjour,</p>
+         <p>Un enseignant${enseignant.etablissementNom ? ` de ${enseignant.etablissementNom}` : ''} est intéressé par votre centre <strong>${centre.nom}</strong> pour organiser un séjour scolaire.</p>
+         <p>LIAVO est la plateforme de coordination des séjours scolaires qui vous permet de recevoir des demandes de devis, gérer vos disponibilités et facturer directement.</p>
+         ${message ? `<p>Message de l'enseignant : <em>${message}</em></p>` : ''}
+         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon espace hébergeur</a></p>
+         <p style="font-size:12px;color:#666;">Vous recevez cet email car votre centre est référencé dans le réseau ${nomReseau}.</p>`,
+      );
+    }
+
+    return { success: true };
   }
 }
