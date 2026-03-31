@@ -509,7 +509,7 @@ export class AdminService {
           obj.capacites?.educationNationale?.classes ?? null;
 
         const description: string | null =
-          obj.presentation?.descriptifCourt?.libelleFr ?? null;
+          (obj.presentation?.descriptifCourt?.libelleFr ?? null)?.substring(0, 2000) ?? null;
 
         const imageUrl: string | null =
           obj.illustrations?.[0]?.traductionFichiers?.find(
@@ -517,7 +517,9 @@ export class AdminService {
           )?.urlDiaporama ?? null;
 
         const periodeOuverture: string | null =
-          obj.ouverture?.periodeEnClair?.libelleFr ?? null;
+          (obj.ouverture?.periodeEnClair?.libelleFr ?? null)?.substring(0, 255) ?? null;
+
+        const adresseStr = (adresse.adresse1 ?? adresse.voie ?? '').substring(0, 500);
 
         // Département depuis le code postal (les 2 premiers chiffres)
         const cp: string = adresse.codePostal ?? '';
@@ -549,7 +551,7 @@ export class AdminService {
             where: { id: existing.id },
             data: {
               nom,
-              adresse: adresse.adresse1 ?? adresse.voie ?? '',
+              adresse: adresseStr,
               ville,
               codePostal,
               departement,
@@ -573,7 +575,7 @@ export class AdminService {
           await this.prisma.centreHebergement.create({
             data: {
               nom,
-              adresse: adresse.adresse1 ?? adresse.voie ?? '',
+              adresse: adresseStr,
               ville,
               codePostal,
               departement,
