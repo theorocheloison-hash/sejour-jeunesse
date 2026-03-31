@@ -447,6 +447,115 @@ export class AdminService {
     return { success: true, email, nomCentre };
   }
 
+  // ─── Sync APIDAE ────────────────────────────────────────────────────────────
+  // Variables à ajouter dans Railway : APIDAE_IDDJ_API_KEY, APIDAE_IDDJ_PROJET_ID, APIDAE_IDDJ_SELECTION_ID
+
+  async syncApidae(reseau: string): Promise<{ created: number; updated: number; errors: number; details: string[] }> {
+    const CREDENTIALS: Record<string, { apiKey: string; projetId: number; selectionId: number }> = {
+      IDDJ: {
+        apiKey: process.env.APIDAE_IDDJ_API_KEY ?? '',
+        projetId: Number(process.env.APIDAE_IDDJ_PROJET_ID ?? 3217),
+        selectionId: Number(process.env.APIDAE_IDDJ_SELECTION_ID ?? 67523),
+      },
+    };
+
+    const creds = CREDENTIALS[reseau.toUpperCase()];
+    if (!creds || !creds.apiKey) {
+      throw new BadRequestException(`Aucune configuration APIDAE pour le réseau ${reseau}`);
+    }
+
+    const query = JSON.stringify({
+      apiKey: creds.apiKey,
+      projetId: creds.projetId,
+      selectionIds: [creds.selectionId],
+      count: 200,
+      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees'],
+    });
+
+    const url = `https://api.apidae-tourisme.com/api/v002/recherche/list-objets-touristiques?query=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new BadRequestException(`Erreur API APIDAE : ${res.status}`);
+
+    const data: any = await res.json();
+    const objets: any[] = data.objetsTouristiques ?? [];
+
+    let created = 0;
+    let updated = 0;
+    let errors = 0;
+    const details: string[] = [];
+
+    for (const obj of objets) {
+      try {
+        const apidaeId = String(obj.id);
+        const nom: string = obj.nom?.libelleFr ?? 'Sans nom';
+        const adresse = obj.localisation?.adresse ?? {};
+        const ville: string = adresse.commune?.nom ?? '';
+        const codePostal: string = adresse.codePostal ?? '';
+        const departement: string = adresse.commune?.departement?.nom ?? '';
+
+        const moyens: any[] = obj.informations?.moyensCommunication ?? [];
+        const emailEntry = moyens.find((m: any) => m.type?.id === 204);
+        const email: string | null = emailEntry?.coordonnees?.fr ?? null;
+        const telEntry = moyens.find((m: any) => m.type?.id === 201);
+        const telephone: string | null = telEntry?.coordonnees?.fr ?? null;
+        const siteEntry = moyens.find((m: any) => m.type?.id === 205);
+        const siteWeb: string | null = siteEntry?.coordonnees?.fr ?? null;
+
+        const capacite: number = obj.informations?.capacite?.nombrePersonnes ?? 0;
+
+        const existing = await this.prisma.centreHebergement.findFirst({
+          where: { apidaeId },
+        });
+
+        if (existing) {
+          await this.prisma.centreHebergement.update({
+            where: { id: existing.id },
+            data: {
+              nom,
+              ville,
+              codePostal,
+              departement,
+              email,
+              telephone,
+              siteWeb,
+              capacite: capacite > 0 ? capacite : existing.capacite,
+              reseau,
+              source: 'APIDAE',
+            },
+          });
+          updated++;
+          details.push(`MIS À JOUR : ${nom} (${ville})`);
+        } else {
+          await this.prisma.centreHebergement.create({
+            data: {
+              nom,
+              adresse: adresse.voie ?? '',
+              ville,
+              codePostal,
+              departement,
+              email,
+              telephone,
+              siteWeb,
+              capacite: capacite > 0 ? capacite : 0,
+              reseau,
+              source: 'APIDAE',
+              apidaeId,
+              userId: null,
+              statut: 'ACTIVE',
+            },
+          });
+          created++;
+          details.push(`CRÉÉ : ${nom} (${ville})`);
+        }
+      } catch (err: any) {
+        errors++;
+        details.push(`ERREUR : ${obj.nom?.libelleFr ?? obj.id} — ${err.message}`);
+      }
+    }
+
+    return { created, updated, errors, details };
+  }
+
   async updateCentreReseau(centreId: string, reseau: string | null) {
     return this.prisma.centreHebergement.update({
       where: { id: centreId },

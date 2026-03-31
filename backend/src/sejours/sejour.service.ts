@@ -638,7 +638,7 @@ export class SejourService {
           where: { id: sejour.hebergementSelectionneId },
           include: { user: { select: { email: true } } },
         });
-        if (centreSelectionne) {
+        if (centreSelectionne?.user?.email) {
           const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
           const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
           const lien = `${FRONTEND_URL}/dashboard/venue`;
@@ -700,6 +700,7 @@ export class SejourService {
         include: { user: { select: { email: true } } },
       });
       for (const centre of centres) {
+        if (!centre.user?.email) continue;
         await this.email.sendNouvelleDemandeDevis(
           centre.user.email,
           centre.nom,

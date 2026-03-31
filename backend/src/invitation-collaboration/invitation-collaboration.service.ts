@@ -147,7 +147,7 @@ export class InvitationCollaborationService {
 
     // Notifier l'hébergeur qu'une demande l'attend
     const centreUser = await this.prisma.user.findUnique({
-      where: { id: invitation.centre.userId },
+      where: { id: invitation.centre.userId! },
       select: { email: true },
     });
     if (centreUser) {

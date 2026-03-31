@@ -426,7 +426,7 @@ model CentreHebergement {
   email       String?      @db.VarChar(255)
   capacite    Int
   description String?      @db.Text
-  userId              String            @map("user_id") @db.Uuid
+  userId              String?           @map("user_id") @db.Uuid
   statut              StatutCentre      @default(PENDING)
   abonnement          TypeAbonnement?   @map("abonnement")
   abonnementActifJusquAu DateTime?      @map("abonnement_actif_jusqua") @db.Date
@@ -447,6 +447,8 @@ model CentreHebergement {
   capaciteAdultes     Int?              @map("capacite_adultes")
   periodeOuverture    String?           @map("periode_ouverture") @db.VarChar(255)
   reseau              String?           @map("reseau") @db.VarChar(100)
+  apidaeId            String?           @map("apidae_id") @db.VarChar(20)
+  source              String?           @map("source") @db.VarChar(20)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
   mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
   mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")
@@ -456,7 +458,7 @@ model CentreHebergement {
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   disponibilites    Disponibilite[]
   documents         Document[]
   devis             Devis[]

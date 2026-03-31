@@ -404,7 +404,7 @@ export class DevisService {
         where: { id: devis.demande.sejourId },
         select: { titre: true },
       });
-      if (centre && sejour) {
+      if (centre?.user?.email && sejour) {
         await this.email.sendDevisSelectionne(
           centre.user.email,
           centre.nom,

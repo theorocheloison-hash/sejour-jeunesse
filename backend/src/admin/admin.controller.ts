@@ -61,6 +61,11 @@ export class AdminController {
     return this.adminService.getReseauStats(reseau);
   }
 
+  @Post('reseau/:reseau/sync-apidae')
+  syncApidae(@Param('reseau') reseau: string) {
+    return this.adminService.syncApidae(reseau);
+  }
+
   @Patch('centres/:id/reseau')
   updateCentreReseau(@Param('id') id: string, @Body('reseau') reseau: string | null) {
     return this.adminService.updateCentreReseau(id, reseau);

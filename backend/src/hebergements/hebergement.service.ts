@@ -166,9 +166,14 @@ export class HebergementService {
     const liavoResults = centres.map(mapCentre);
     const enResults = apiData.results.map(mapRecord);
 
+    const liavoBas = new Set(liavoResults.map(r => r.nom.toLowerCase().trim()));
+    const enFiltered = enResults.filter(
+      r => !liavoBas.has(r.nom.toLowerCase().trim())
+    );
+
     return {
-      total: centresCount + apiData.total_count,
-      results: [...liavoResults, ...enResults],
+      total: centresCount + (apiData.total_count - (enResults.length - enFiltered.length)),
+      results: [...liavoResults, ...enFiltered],
     };
   }
 
