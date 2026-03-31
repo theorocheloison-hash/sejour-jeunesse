@@ -313,6 +313,26 @@ export class CollaborationService {
   async getActivitesCatalogue(sejourId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
 
+    // Trouver le devis sélectionné pour ce séjour
+    const demande = await this.prisma.demandeDevis.findFirst({
+      where: { sejourId },
+      include: {
+        devis: {
+          where: { statut: 'SELECTIONNE' },
+          include: { lignes: { select: { description: true } } },
+          take: 1,
+        },
+      },
+    });
+
+    const lignesDevis = demande?.devis?.[0]?.lignes ?? [];
+    if (lignesDevis.length === 0) return [];
+
+    // Descriptions des lignes du devis (noms des produits facturés)
+    const nomsLignes = lignesDevis.map(l => l.description.toLowerCase().trim());
+
+    // Récupérer les produits ACTIVITE du catalogue dont le nom
+    // correspond à une ligne du devis
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
       select: { hebergementSelectionneId: true },
@@ -320,20 +340,23 @@ export class CollaborationService {
 
     if (!sejour?.hebergementSelectionneId) return [];
 
-    return this.prisma.produitCatalogue.findMany({
+    const produits = await this.prisma.produitCatalogue.findMany({
       where: {
         centreId: sejour.hebergementSelectionneId,
         type: 'ACTIVITE',
         actif: true,
       },
-      select: {
-        id: true,
-        nom: true,
-        description: true,
-        type: true,
-        unite: true,
-      },
+      select: { id: true, nom: true, description: true, type: true, unite: true },
       orderBy: { nom: 'asc' },
     });
+
+    // Filtrer : garder seulement les produits dont le nom matche
+    // une ligne du devis (comparaison insensible à la casse)
+    return produits.filter(p =>
+      nomsLignes.some(n =>
+        n.includes(p.nom.toLowerCase().trim()) ||
+        p.nom.toLowerCase().trim().includes(n)
+      )
+    );
   }
 }

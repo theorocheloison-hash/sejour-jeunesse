@@ -456,7 +456,9 @@ export default function CollaborationPage() {
       });
       setPlanning(prev => [...prev, newItem]);
       setPlanModal(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('Erreur création planning:', err);
+    }
   };
 
   const handleDeletePlanning = async (planningId: string) => {
