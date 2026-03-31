@@ -512,7 +512,7 @@ export class AdminService {
         const imageUrl: string | null =
           obj.illustrations?.[0]?.traductionFichiers?.find(
             (t: any) => t.locale === 'fr'
-          )?.urlFiche ?? null;
+          )?.urlDiaporama ?? null;
 
         const existing = await this.prisma.centreHebergement.findFirst({
           where: { apidaeId },
