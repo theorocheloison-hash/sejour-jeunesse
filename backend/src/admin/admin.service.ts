@@ -469,7 +469,7 @@ export class AdminService {
       projetId: creds.projetId,
       selectionIds: [creds.selectionId],
       count: 200,
-      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees', 'capacites'],
+      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees', 'capacites', 'presentation', 'illustrations'],
     });
 
     const url = `https://api.apidae-tourisme.com/api/v002/recherche/list-objets-touristiques?query=${encodeURIComponent(query)}`;
@@ -506,6 +506,14 @@ export class AdminService {
           obj.capacites?.declarees?.personnes ??
           0;
 
+        const description: string | null =
+          obj.presentation?.descriptifCourt?.libelleFr ?? null;
+
+        const imageUrl: string | null =
+          obj.illustrations?.[0]?.traductionFichiers?.find(
+            (t: any) => t.locale === 'fr'
+          )?.urlFiche ?? null;
+
         const existing = await this.prisma.centreHebergement.findFirst({
           where: { apidaeId },
         });
@@ -522,6 +530,8 @@ export class AdminService {
               telephone,
               siteWeb,
               capacite: capacite > 0 ? capacite : existing.capacite,
+              description: description ?? existing.description,
+              imageUrl: imageUrl ?? existing.imageUrl,
               reseau,
               source: 'APIDAE',
             },
@@ -540,6 +550,8 @@ export class AdminService {
               telephone,
               siteWeb,
               capacite: capacite > 0 ? capacite : 0,
+              description,
+              imageUrl,
               reseau,
               source: 'APIDAE',
               apidaeId,
