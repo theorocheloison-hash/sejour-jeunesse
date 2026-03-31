@@ -123,20 +123,49 @@ export class CentreService {
       },
     });
 
-    const centre = await this.prisma.centreHebergement.create({
-      data: {
-        nom: dto.nom,
-        adresse: dto.adresse,
-        ville: dto.ville,
-        codePostal: dto.codePostal,
-        telephone: dto.telephone,
+    // Chercher un centre APIDAE orphelin avec le même email (userId null + source APIDAE uniquement)
+    const centreExistant = await this.prisma.centreHebergement.findFirst({
+      where: {
         email: invitation.email,
-        capacite: dto.capacite,
-        description: dto.description,
-        reseau: dto.reseau ?? null,
-        userId: user.id,
+        userId: null,
+        source: 'APIDAE',
       },
     });
+
+    let centre;
+    if (centreExistant) {
+      // Claim du centre APIDAE existant — on rattache l'utilisateur sans écraser les données enrichies
+      centre = await this.prisma.centreHebergement.update({
+        where: { id: centreExistant.id },
+        data: {
+          userId: user.id,
+          statut: 'ACTIVE',
+          // On ne met à jour nom/adresse/etc que si le champ est vide dans le centre APIDAE
+          ...(dto.nom && !centreExistant.nom && { nom: dto.nom }),
+          ...(dto.adresse && !centreExistant.adresse && { adresse: dto.adresse }),
+          ...(dto.ville && !centreExistant.ville && { ville: dto.ville }),
+          ...(dto.codePostal && !centreExistant.codePostal && { codePostal: dto.codePostal }),
+          ...(dto.telephone && !centreExistant.telephone && { telephone: dto.telephone }),
+        },
+      });
+    } else {
+      // Aucun centre APIDAE trouvé — création standard, flow inchangé
+      centre = await this.prisma.centreHebergement.create({
+        data: {
+          nom: dto.nom,
+          adresse: dto.adresse,
+          ville: dto.ville,
+          codePostal: dto.codePostal,
+          telephone: dto.telephone,
+          email: invitation.email,
+          capacite: dto.capacite,
+          description: dto.description,
+          reseau: dto.reseau ?? null,
+          userId: user.id,
+          statut: 'ACTIVE',
+        },
+      });
+    }
 
     await this.prisma.invitationHebergement.update({
       where: { id: invitation.id },
