@@ -469,7 +469,7 @@ export class AdminService {
       projetId: creds.projetId,
       selectionIds: [creds.selectionId],
       count: 200,
-      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees', 'capacites', 'presentation', 'illustrations'],
+      responseFields: ['@minimal', 'localisation', 'informations', 'coordonnees', 'capacites', 'presentation', 'illustrations', 'prestations', 'ouverture'],
     });
 
     const url = `https://api.apidae-tourisme.com/api/v002/recherche/list-objets-touristiques?query=${encodeURIComponent(query)}`;
@@ -491,7 +491,6 @@ export class AdminService {
         const adresse = obj.localisation?.adresse ?? {};
         const ville: string = adresse.commune?.nom ?? '';
         const codePostal: string = adresse.codePostal ?? '';
-        const departement: string = adresse.commune?.departement?.nom ?? '';
 
         const moyens: any[] = obj.informations?.moyensCommunication ?? [];
         const emailEntry = moyens.find((m: any) => m.type?.id === 204);
@@ -506,6 +505,9 @@ export class AdminService {
           obj.capacites?.declarees?.personnes ??
           0;
 
+        const capaciteAdultes: number | null =
+          obj.capacites?.educationNationale?.classes ?? null;
+
         const description: string | null =
           obj.presentation?.descriptifCourt?.libelleFr ?? null;
 
@@ -513,6 +515,30 @@ export class AdminService {
           obj.illustrations?.[0]?.traductionFichiers?.find(
             (t: any) => t.locale === 'fr'
           )?.urlDiaporama ?? null;
+
+        const periodeOuverture: string | null =
+          obj.ouverture?.periodeEnClair?.libelleFr ?? null;
+
+        // Département depuis le code postal (les 2 premiers chiffres)
+        const cp: string = adresse.codePostal ?? '';
+        const deptCode = cp.substring(0, 2);
+        const DEPT_MAP: Record<string, string> = {
+          '01': 'Ain', '07': 'Ardèche', '26': 'Drôme', '38': 'Isère',
+          '42': 'Loire', '43': 'Haute-Loire', '63': 'Puy-de-Dôme',
+          '69': 'Rhône', '73': 'Savoie', '74': 'Haute-Savoie',
+          '04': 'Alpes-de-Haute-Provence', '05': 'Hautes-Alpes',
+          '06': 'Alpes-Maritimes', '13': 'Bouches-du-Rhône',
+          '83': 'Var', '84': 'Vaucluse',
+        };
+        const departement: string = DEPT_MAP[deptCode] ?? adresse.commune?.departement?.nom ?? '';
+
+        const activitesCentre: string[] = (obj.prestations?.equipements ?? [])
+          .map((e: any) => e.libelleFr as string)
+          .filter(Boolean)
+          .slice(0, 10);
+
+        const accessiblePmr: boolean =
+          (obj.capacites?.hebergementCollectif?.capaciteAccueilPMI ?? 0) > 0;
 
         const existing = await this.prisma.centreHebergement.findFirst({
           where: { apidaeId },
@@ -523,6 +549,7 @@ export class AdminService {
             where: { id: existing.id },
             data: {
               nom,
+              adresse: adresse.adresse1 ?? adresse.voie ?? '',
               ville,
               codePostal,
               departement,
@@ -530,8 +557,12 @@ export class AdminService {
               telephone,
               siteWeb,
               capacite: capacite > 0 ? capacite : existing.capacite,
+              capaciteAdultes: capaciteAdultes ?? existing.capaciteAdultes,
               description: description ?? existing.description,
               imageUrl: imageUrl ?? existing.imageUrl,
+              periodeOuverture: periodeOuverture ?? existing.periodeOuverture,
+              activitesCentre: activitesCentre.length > 0 ? activitesCentre : existing.activitesCentre,
+              accessiblePmr,
               reseau,
               source: 'APIDAE',
             },
@@ -542,7 +573,7 @@ export class AdminService {
           await this.prisma.centreHebergement.create({
             data: {
               nom,
-              adresse: adresse.voie ?? '',
+              adresse: adresse.adresse1 ?? adresse.voie ?? '',
               ville,
               codePostal,
               departement,
@@ -550,8 +581,12 @@ export class AdminService {
               telephone,
               siteWeb,
               capacite: capacite > 0 ? capacite : 0,
+              capaciteAdultes,
               description,
               imageUrl,
+              periodeOuverture,
+              activitesCentre,
+              accessiblePmr,
               reseau,
               source: 'APIDAE',
               apidaeId,
