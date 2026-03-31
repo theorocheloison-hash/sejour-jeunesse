@@ -5,7 +5,7 @@ ALTER TABLE "centres_hebergement" ALTER COLUMN "user_id" DROP NOT NULL;
 ALTER TABLE "centres_hebergement" DROP CONSTRAINT IF EXISTS "centres_hebergement_user_id_fkey";
 ALTER TABLE "centres_hebergement"
   ADD CONSTRAINT "centres_hebergement_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  FOREIGN KEY ("user_id") REFERENCES "utilisateurs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AlterTable: ajouter apidae_id et source (idempotent)
 ALTER TABLE "centres_hebergement" ADD COLUMN IF NOT EXISTS "apidae_id" VARCHAR(20);
