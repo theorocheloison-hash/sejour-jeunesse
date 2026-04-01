@@ -191,8 +191,34 @@ export class DemandeService {
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
+        lignes: true,
         centre: {
-          select: { id: true, nom: true, ville: true, telephone: true, email: true, capacite: true, description: true },
+          select: {
+            id: true, nom: true, ville: true, telephone: true, email: true,
+            capacite: true, description: true, adresse: true, codePostal: true,
+            siret: true, tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+          },
+        },
+        demande: {
+          include: {
+            enseignant: {
+              select: {
+                prenom: true, nom: true, email: true, telephone: true,
+                etablissementNom: true, etablissementAdresse: true,
+                etablissementVille: true, etablissementUai: true,
+                etablissementEmail: true, etablissementTelephone: true,
+              },
+            },
+            sejour: {
+              select: {
+                id: true, titre: true, dateDebut: true, dateFin: true,
+                niveauClasse: true, statut: true,
+                createur: {
+                  select: { prenom: true, nom: true, etablissementNom: true, etablissementVille: true },
+                },
+              },
+            },
+          },
         },
       },
       orderBy: { montantTotal: 'asc' },
