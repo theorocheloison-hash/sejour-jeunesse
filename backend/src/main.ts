@@ -17,15 +17,21 @@ async function bootstrap() {
     res.status(200).json({ status: 'ok' });
   });
 
-  // CORS avant tout middleware
+  // CORS whitelist — CORS_ORIGIN doit être défini sur Railway (ex: https://liavo.fr)
+  const ALLOWED_ORIGINS = [
+    'https://liavo.fr',
+    'https://www.liavo.fr',
+    process.env.CORS_ORIGIN,
+    process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : null,
+    process.env.NODE_ENV !== 'production' ? 'http://localhost:3001' : null,
+  ].filter(Boolean) as string[];
+
   app.use((req: any, res: any, next: any) => {
     const origin = req.headers['origin'];
-    if (origin) {
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Vary', 'Origin');
     }
-    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader(
       'Access-Control-Allow-Methods',

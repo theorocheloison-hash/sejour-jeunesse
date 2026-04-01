@@ -23,9 +23,7 @@ export class StorageService {
         secretAccessKey: this.config.get<string>('R2_SECRET_ACCESS_KEY')!,
       },
     });
-    console.log('R2 ENDPOINT:', JSON.stringify(this.endpoint));
-    console.log('R2 BUCKET:', JSON.stringify(this.bucket));
-    console.log('R2 PUBLIC URL:', JSON.stringify(this.publicUrl));
+    console.log('StorageService initialized');
   }
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {

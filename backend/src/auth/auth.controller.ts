@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -40,11 +41,13 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { ttl: 3600000, limit: 5 } })
   forgotPassword(@Body() body: { email: string }) {
     return this.authService.demanderResetPassword(body.email);
   }
@@ -55,6 +58,7 @@ export class AuthController {
   }
 
   @Get('sirene/:siret')
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   searchSirene(@Param('siret') siret: string) {
     return this.authService.searchSirene(siret);
   }

@@ -56,6 +56,7 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(dto.password, 12);
     const token = randomUUID();
+    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     const user = await this.prisma.user.create({
       data: {
@@ -71,6 +72,7 @@ export class AuthService {
         etablissementVille: dto.etablissementVille ?? null,
         emailVerifie: false,
         tokenVerification: token,
+        tokenVerificationExpires: tokenExpires,
       },
     });
 
@@ -116,6 +118,7 @@ export class AuthService {
           telephone: dto.telephone ?? null,
           emailVerifie: false,
           tokenVerification: token,
+          tokenVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
       }),
     ]);
@@ -176,6 +179,10 @@ export class AuthService {
     });
     if (!user) throw new NotFoundException('Lien de vérification invalide ou expiré');
 
+    if (user.tokenVerificationExpires && user.tokenVerificationExpires < new Date()) {
+      throw new BadRequestException('Lien de vérification expiré. Demandez un nouvel email.');
+    }
+
     if (user.emailVerifie) {
       return { message: 'Votre email est déjà vérifié.' };
     }
@@ -206,7 +213,10 @@ export class AuthService {
     const token = randomUUID();
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { tokenVerification: token },
+      data: {
+        tokenVerification: token,
+        tokenVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
     });
 
     await this.email.sendVerificationEmail(email, user.prenom, token);

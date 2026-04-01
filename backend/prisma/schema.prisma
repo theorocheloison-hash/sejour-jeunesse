@@ -93,8 +93,9 @@ model User {
   dateNaissance     DateTime? @map("date_naissance") @db.Date
   emailVerifie      Boolean  @default(false) @map("email_verifie")
   compteValide      Boolean  @default(false) @map("compte_valide")
-  tokenVerification String?  @map("token_verification") @db.Uuid
-  resetPasswordToken    String?   @map("reset_password_token") @db.Uuid
+  tokenVerification        String?   @map("token_verification") @db.Uuid
+  tokenVerificationExpires DateTime? @map("token_verification_expires")
+  resetPasswordToken       String?   @map("reset_password_token") @db.Uuid
   resetPasswordExpires  DateTime? @map("reset_password_expires")
 
   // Établissement scolaire (données API Éducation Nationale)
