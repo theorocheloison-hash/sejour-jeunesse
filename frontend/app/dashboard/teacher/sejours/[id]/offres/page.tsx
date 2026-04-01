@@ -214,91 +214,17 @@ export default function OffresPage() {
                 </div>
                 <button onClick={() => setSelectedDevis(null)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
-                {/* Montants */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-[var(--color-primary-light)] px-4 py-3">
-                    <p className="text-xs text-gray-500">Total TTC</p>
-                    <p className="text-xl font-bold text-[var(--color-primary)]">{selectedDevis.montantTTC != null ? Number(selectedDevis.montantTTC).toLocaleString('fr-FR', {minimumFractionDigits:2}) : selectedDevis.montantTotal} &euro;</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 px-4 py-3">
-                    <p className="text-xs text-gray-500">Par &eacute;l&egrave;ve</p>
-                    <p className="text-xl font-bold text-gray-900">{selectedDevis.montantParEleve} &euro;</p>
-                  </div>
-                </div>
-                {/* Lignes */}
-                {selectedDevis.lignes && selectedDevis.lignes.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">D&eacute;tail des prestations</p>
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-[var(--color-primary)] text-white">
-                          <th className="text-left px-3 py-2">Description</th>
-                          <th className="text-right px-3 py-2">Qt&eacute;</th>
-                          <th className="text-right px-3 py-2">PU HT</th>
-                          <th className="text-right px-3 py-2">TVA</th>
-                          <th className="text-right px-3 py-2">Total HT</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedDevis.lignes.map((l, i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                            <td className="px-3 py-2 text-gray-900">{l.description}</td>
-                            <td className="px-3 py-2 text-right">{l.quantite}</td>
-                            <td className="px-3 py-2 text-right">{Number(l.prixUnitaire).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</td>
-                            <td className="px-3 py-2 text-right">{l.tva} %</td>
-                            <td className="px-3 py-2 text-right font-medium">{Number(l.totalHT).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {/* Acompte */}
-                {selectedDevis.pourcentageAcompte != null && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
-                    <p className="text-xs text-gray-500">Acompte demand&eacute; ({selectedDevis.pourcentageAcompte}%)</p>
-                    <p className="text-base font-semibold text-amber-700">{Number(selectedDevis.montantAcompte ?? 0).toLocaleString('fr-FR', {minimumFractionDigits:2})} &euro;</p>
-                  </div>
-                )}
-                {/* Conditions annulation */}
-                {selectedDevis.conditionsAnnulation && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Conditions d&apos;annulation</p>
-                    <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{selectedDevis.conditionsAnnulation}</p>
-                  </div>
-                )}
-                {/* Contact hébergeur */}
-                {(selectedDevis.centre?.telephone || selectedDevis.centre?.email) && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact h&eacute;bergeur</p>
-                    <div className="flex gap-4 text-xs text-gray-600">
-                      {selectedDevis.centre?.telephone && <span>{selectedDevis.centre.telephone}</span>}
-                      {selectedDevis.centre?.email && <span>{selectedDevis.centre.email}</span>}
-                    </div>
-                  </div>
-                )}
+              <div className="flex-1 overflow-y-auto px-6 py-4 text-sm">
+                <p className="text-sm text-gray-500 text-center py-4">
+                  Utilisez le bouton ci-dessous pour visualiser le devis complet.
+                </p>
               </div>
               <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
-                {selectedDevis.documentUrl ? (
-                  <a
-                    href={selectedDevis.documentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                    Voir le devis PDF
-                  </a>
-                ) : (
-                  <DevisPDFButton
-                    data={buildPdfProps(selectedDevis)}
-                    filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
-                    label="Télécharger le devis PDF"
-                  />
-                )}
+                <DevisPDFButton
+                  data={buildPdfProps(selectedDevis)}
+                  filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
+                  label="Voir / Télécharger le devis"
+                />
                 {selectedDevis.statut === 'EN_ATTENTE' && (
                   <button
                     onClick={async () => {
