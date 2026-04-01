@@ -174,20 +174,56 @@ export class SejourService {
       include: {
         createur: {
           select: {
-            prenom: true,
-            nom: true,
-            etablissementNom: true,
+            prenom: true, nom: true, email: true,
+            etablissementNom: true, etablissementUai: true,
           },
+        },
+        hebergementSelectionne: {
+          select: { nom: true, ville: true },
         },
         demandes: {
           include: {
             devis: {
-              include: { lignes: true },
+              where: {
+                statut: { in: ['EN_ATTENTE_VALIDATION', 'SELECTIONNE'] },
+                typeDocument: 'DEVIS',
+              },
+              include: {
+                lignes: true,
+                centre: {
+                  select: {
+                    id: true, nom: true, ville: true, email: true,
+                    telephone: true, adresse: true, codePostal: true,
+                    siret: true, tvaIntracommunautaire: true, iban: true,
+                    conditionsAnnulation: true,
+                  },
+                },
+                demande: {
+                  include: {
+                    enseignant: {
+                      select: {
+                        prenom: true, nom: true, email: true, telephone: true,
+                        etablissementNom: true, etablissementAdresse: true,
+                        etablissementVille: true, etablissementUai: true,
+                        etablissementEmail: true, etablissementTelephone: true,
+                      },
+                    },
+                    sejour: {
+                      select: {
+                        id: true, titre: true, dateDebut: true, dateFin: true,
+                        niveauClasse: true, statut: true,
+                      },
+                    },
+                  },
+                },
+              },
+              take: 1,
             },
           },
+          take: 1,
         },
-        hebergementSelectionne: {
-          select: { nom: true },
+        _count: {
+          select: { autorisations: true, planningActivites: true },
         },
       },
       orderBy: { dateDebut: 'asc' },

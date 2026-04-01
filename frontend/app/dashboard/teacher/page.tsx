@@ -89,25 +89,51 @@ function SejourCard({
           )}
 
           {/* Appel d'offres — pour SUBMITTED et APPROVED */}
-          {(sejour.statut === 'SUBMITTED' || sejour.statut === 'APPROVED') && sejour.demandes && sejour.demandes.length > 0 && (() => {
-            const totalDevis = sejour.demandes.reduce((sum, d) => sum + (d._count?.devis ?? 0), 0);
+          {sejour.statut === 'SUBMITTED' && (() => {
+            const totalDevis = (sejour.demandes ?? [])
+              .reduce((sum, d) => sum + (d._count?.devis ?? 0), 0);
             return (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  Appel d&apos;offres ouvert &middot; {totalDevis} devis
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5
+                  text-xs font-medium ${totalDevis > 0
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600'}`}>
+                  {totalDevis > 0
+                    ? `${totalDevis} devis reçu${totalDevis > 1 ? 's' : ''}`
+                    : 'En attente de devis'}
                 </span>
                 {sejour.dateButoireDevis && (
                   <span className="text-xs text-gray-400">
-                    avant le {new Date(sejour.dateButoireDevis).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    avant le {new Date(sejour.dateButoireDevis)
+                      .toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                   </span>
                 )}
                 <Link
                   href={`/dashboard/teacher/sejours/${sejour.id}/offres`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg border
+                    border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold
+                    text-blue-700 hover:bg-blue-100 transition-colors"
                 >
-                  Voir les offres
+                  {totalDevis > 0 ? 'Voir les offres' : 'Voir ma demande'}
                 </Link>
               </div>
+            );
+          })()}
+
+          {/* Badge devis signé/en attente — pour CONVENTION et SIGNE_DIRECTION */}
+          {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (() => {
+            const devisActif = sejour.demandes?.[0]?.devis?.[0];
+            if (!devisActif) return null;
+            const estSigne = !!(devisActif as any).signatureDirecteur;
+            return (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5
+                text-xs font-medium ${estSigne
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'bg-amber-100 text-amber-700'}`}>
+                {estSigne
+                  ? `Signé direction — ${devisActif.centre?.nom ?? ''}`
+                  : `En attente signature — ${devisActif.centre?.nom ?? ''}`}
+              </span>
             );
           })()}
 
