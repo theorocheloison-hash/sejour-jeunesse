@@ -384,10 +384,11 @@ export class DevisService {
       }
     }
 
-    // DIRECTOR can validate or reject (SELECTIONNE / NON_RETENU)
+    // DIRECTOR can only reject a devis (NON_RETENU)
+    // Selection is done by TEACHER via EN_ATTENTE_VALIDATION → signerDevis
     if (userRole === Role.DIRECTOR) {
-      if (statut !== StatutDevis.SELECTIONNE && statut !== StatutDevis.NON_RETENU) {
-        throw new ForbiddenException('Les directeurs peuvent uniquement sélectionner ou refuser un devis');
+      if (statut !== StatutDevis.NON_RETENU) {
+        throw new ForbiddenException('Les directeurs peuvent uniquement refuser un devis');
       }
     }
 
@@ -457,6 +458,33 @@ export class DevisService {
           );
         }
       } catch { /* ne pas bloquer */ }
+    }
+
+    // Quand le directeur refuse un devis — passer le séjour en REJECTED
+    // et notifier l'enseignant
+    if (statut === StatutDevis.NON_RETENU && userRole === Role.DIRECTOR) {
+      const demande = await this.prisma.demandeDevis.findUnique({
+        where: { id: devis.demandeId },
+        include: {
+          sejour: { select: { id: true, titre: true } },
+          enseignant: { select: { email: true, prenom: true, nom: true } },
+        },
+      });
+      if (demande?.sejour?.id) {
+        await this.prisma.sejour.update({
+          where: { id: demande.sejour.id },
+          data: { statut: StatutSejour.REJECTED },
+        });
+      }
+      if (demande?.enseignant && demande?.sejour) {
+        await this.email.sendGenericNotification(
+          demande.enseignant.email,
+          `Devis refusé par la direction — ${demande.sejour.titre}`,
+          `<p>Bonjour ${demande.enseignant.prenom},</p>
+           <p>Le directeur a refusé le devis pour le séjour <strong>${demande.sejour.titre}</strong>.</p>
+           <p>Vous pouvez consulter un autre devis ou soumettre une nouvelle demande depuis votre tableau de bord.</p>`,
+        );
+      }
     }
 
     return updated;

@@ -976,8 +976,7 @@ export default function DirectorDashboard() {
     setDevisActingId(devisId);
     try {
       await updateDevisStatut(devisId, statut);
-      await loadDevis();
-      await loadFactures();
+      await Promise.all([loadDevis(), loadSejours(), loadFactures()]);
       setDevisDetail(null);
     } catch { /* ignore */ }
     setDevisActingId(null);
@@ -987,7 +986,7 @@ export default function DirectorDashboard() {
     setDevisActingId(devisId);
     try {
       await signerDevis(devisId);
-      await loadDevis();
+      await Promise.all([loadDevis(), loadSejours()]);
       setDevisDetail(null);
     } catch { /* ignore */ }
     setDevisActingId(null);
