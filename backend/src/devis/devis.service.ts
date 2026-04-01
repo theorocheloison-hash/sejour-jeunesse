@@ -471,7 +471,38 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.statut !== 'SELECTIONNE') throw new ForbiddenException('Seul un devis sélectionné peut être signé');
+    if (devis.statut !== 'SELECTIONNE' && devis.statut !== StatutDevis.EN_ATTENTE_VALIDATION) {
+      throw new ForbiddenException('Seul un devis sélectionné ou en attente de validation peut être signé');
+    }
+
+    if (devis.statut === StatutDevis.EN_ATTENTE_VALIDATION) {
+      await this.prisma.devis.update({
+        where: { id: devisId },
+        data: { statut: StatutDevis.SELECTIONNE },
+      });
+      await this.prisma.devis.updateMany({
+        where: {
+          demandeId: devis.demandeId,
+          id: { not: devisId },
+          statut: { not: StatutDevis.NON_RETENU },
+        },
+        data: { statut: StatutDevis.NON_RETENU },
+      });
+      await this.prisma.demandeDevis.update({
+        where: { id: devis.demandeId },
+        data: { statut: 'FERMEE' },
+      });
+      if (devis.demande?.sejour?.id) {
+        await this.prisma.sejour.update({
+          where: { id: devis.demande.sejour.id },
+          data: {
+            appelOffreStatut: AppelOffreStatut.FERME,
+            hebergementSelectionneId: devis.centreId,
+            statut: StatutSejour.CONVENTION,
+          },
+        });
+      }
+    }
 
     const directeur = await this.prisma.user.findUnique({
       where: { id: user.id },
