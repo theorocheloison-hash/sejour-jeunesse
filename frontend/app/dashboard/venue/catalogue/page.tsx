@@ -124,33 +124,79 @@ export default function CataloguePage() {
     setImportResult(null);
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !l.startsWith('---'));
-      if (lines.length < 2) {
-        setImportErrors('Fichier vide ou invalide.');
-        return;
-      }
-      const rows = lines.slice(1).map(line => {
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        return {
-          nom: cols[0] ?? '',
-          type: cols[1] ?? 'AUTRE',
-          prixUnitaireHT: parseFloat(cols[2]) || 0,
-          tva: parseFloat(cols[3]) || 10,
-          unite: cols[4] ?? 'PAR_ELEVE',
-          description: cols[5] || undefined,
-        };
-      }).filter(r => r.nom);
 
-      if (rows.length === 0) {
-        setImportErrors('Aucune ligne valide détectée.');
-        return;
+    reader.onload = async (ev) => {
+      try {
+        const XLSX = await import('xlsx');
+
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+
+        const raw: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        const filtered = raw.filter(r => {
+          const nom = String(r['Nom'] ?? '').trim();
+          return nom && !nom.startsWith('---') && nom !== 'Type:' && nom !== 'Unité:' && nom !== 'TVA (%):' && nom !== 'Prix HT :';
+        });
+
+        if (filtered.length === 0) {
+          setImportErrors('Aucune ligne valide détectée. Vérifiez que le fichier contient les en-têtes : Nom, Type, Prix TTC (€), TVA (%), Unité.');
+          return;
+        }
+
+        const VALID_TYPES = new Set(['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE']);
+        const VALID_UNITES = new Set(['PAR_ELEVE', 'PAR_NUIT', 'PAR_JOUR', 'FORFAIT']);
+        const VALID_TVA = [0, 5.5, 10, 20];
+
+        const rows: Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>[] = [];
+        const errors: string[] = [];
+
+        filtered.forEach((r, i) => {
+          const nom = String(r['Nom'] ?? '').trim();
+          const type = String(r['Type'] ?? '').trim().toUpperCase();
+          const prixTTC = parseFloat(String(r['Prix TTC (€)'] ?? '0'));
+          const tva = parseFloat(String(r['TVA (%)'] ?? '0'));
+          const unite = String(r['Unité'] ?? '').trim().toUpperCase();
+          const description = String(r['Description'] ?? '').trim() || undefined;
+
+          // Prix HT calculé depuis TTC + TVA — la colonne HT du fichier est ignorée
+          const prixHT = tva === 0 ? prixTTC : Math.round((prixTTC / (1 + tva / 100)) * 100) / 100;
+
+          if (!nom) { errors.push(`Ligne ${i + 2} : nom manquant`); return; }
+          if (!VALID_TYPES.has(type)) { errors.push(`Ligne ${i + 2} (${nom}) : type invalide "${type}"`); return; }
+          if (isNaN(prixTTC) || prixTTC < 0) { errors.push(`Ligne ${i + 2} (${nom}) : prix TTC invalide`); return; }
+          if (!VALID_TVA.includes(tva)) { errors.push(`Ligne ${i + 2} (${nom}) : TVA invalide "${tva}" — valeurs acceptées : 0, 5.5, 10, 20`); return; }
+          if (!VALID_UNITES.has(unite)) { errors.push(`Ligne ${i + 2} (${nom}) : unité invalide "${unite}"`); return; }
+
+          rows.push({
+            nom,
+            type: type as ProduitCatalogue['type'],
+            prixUnitaireHT: prixHT,
+            prixUnitaireTTC: prixTTC,
+            tva,
+            unite: unite as ProduitCatalogue['unite'],
+            description,
+          });
+        });
+
+        if (errors.length > 0) {
+          setImportErrors(
+            `${errors.length} erreur(s) détectée(s) :\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... et ${errors.length - 5} autre(s)` : ''}`
+          );
+          if (rows.length === 0) return;
+        }
+
+        setImportPreview(rows);
+        setShowImportPreview(true);
+      } catch {
+        setImportErrors('Impossible de lire le fichier. Assurez-vous d\'utiliser le modèle Excel fourni (.xlsx).');
       }
-      setImportPreview(rows as Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>[]);
-      setShowImportPreview(true);
     };
-    reader.readAsText(file, 'UTF-8');
+
+    // readAsArrayBuffer — ne pas changer (xlsx est un ZIP binaire)
+    reader.readAsArrayBuffer(file);
+
     e.target.value = '';
   };
 
@@ -212,8 +258,8 @@ export default function CataloguePage() {
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
-              Importer CSV
-              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+              Importer Excel
+              <input type="file" accept=".xlsx,.csv" className="hidden" onChange={handleFileUpload} />
             </label>
 
             <button

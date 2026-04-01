@@ -168,28 +168,38 @@ export async function archiveProduit(id: string): Promise<void> {
 }
 
 export function downloadTemplateCatalogue(): void {
-  const header = ['Nom', 'Type', 'Prix HT (€)', 'TVA (%)', 'Unité', 'Description'];
-  const exemples = [
-    ['Hébergement nuit', 'HEBERGEMENT', '45', '10', 'PAR_ELEVE', 'Nuitée en chambre partagée'],
-    ['Forfait ski J1', 'ACTIVITE', '38', '10', 'PAR_ELEVE', 'Location matériel + remontées J1'],
-    ['Repas midi', 'REPAS', '12', '10', 'PAR_ELEVE', ''],
-    ['Transport aller', 'TRANSPORT', '15', '10', 'PAR_ELEVE', ''],
-  ];
-  const notice = [
-    ['--- VALEURS ACCEPTÉES ---', '', '', '', '', ''],
-    ['Type:', 'HEBERGEMENT | REPAS | TRANSPORT | ACTIVITE | AUTRE', '', '', '', ''],
-    ['Unité:', 'PAR_ELEVE | PAR_NUIT | PAR_JOUR | FORFAIT', '', '', '', ''],
-    ['TVA (%):', '0 | 5.5 | 10 | 20', '', '', '', ''],
-  ];
-  const rows = [header, ...exemples, [''], ...notice];
-  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'liavo_catalogue_template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  import('xlsx').then(XLSX => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Nom', 'Type', 'Prix TTC (€)', 'TVA (%)', 'Prix HT (€)', 'Unité', 'Description'],
+      ['Hébergement nuit',  'HEBERGEMENT', 49.50, 10, null, 'PAR_ELEVE', 'Nuitée en chambre partagée'],
+      ['Forfait ski J1',    'ACTIVITE',    38.00,  0, null, 'PAR_ELEVE', 'Location matériel + remontées J1'],
+      ['Repas midi',        'REPAS',       13.20, 10, null, 'PAR_ELEVE', ''],
+      ['Transport aller',   'TRANSPORT',   16.50, 10, null, 'PAR_ELEVE', ''],
+    ]);
+
+    // Formules HT = TTC / (1 + TVA/100)
+    ['E2','E3','E4','E5'].forEach((cell, i) => {
+      const row = i + 2;
+      ws[cell] = { t: 'n', f: `C${row}/(1+D${row}/100)`, z: '#,##0.00' };
+    });
+
+    ws['!cols'] = [
+      { wch: 50 }, { wch: 14 }, { wch: 14 }, { wch: 10 },
+      { wch: 14 }, { wch: 12 }, { wch: 30 },
+    ];
+
+    XLSX.utils.sheet_add_aoa(ws, [
+      ['--- VALEURS ACCEPTÉES ---'],
+      ['Type:',     'HEBERGEMENT | REPAS | TRANSPORT | ACTIVITE | AUTRE'],
+      ['Unité:',    'PAR_ELEVE | PAR_NUIT | PAR_JOUR | FORFAIT'],
+      ['TVA (%):', '0 | 5.5 | 10 | 20'],
+      ['Prix HT :', 'Calculé automatiquement — ne pas modifier cette colonne'],
+    ], { origin: { r: 6, c: 0 } });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Catalogue');
+    XLSX.writeFile(wb, 'liavo_catalogue_template.xlsx');
+  });
 }
 
 export async function importProduitsCatalogue(
