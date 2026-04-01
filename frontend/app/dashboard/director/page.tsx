@@ -19,6 +19,8 @@ import { Logo } from '@/app/components/Logo';
 import type { Devis, LigneDevis } from '@/src/lib/devis';
 import { getBudgetData } from '@/src/lib/collaboration';
 import type { BudgetData } from '@/src/lib/collaboration';
+import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -625,9 +627,51 @@ function DevisDetailModal({
   onSign: (id: string) => void;
   isActing: boolean;
 }) {
-  const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const lignes = devis.lignes ?? [];
-  const isPdf = devis.typeDevis === 'PDF' || !!devis.documentUrl;
+  const buildPdfProps = (dv: Devis): DevisPDFProps => {
+    const ens = dv.demande?.enseignant;
+    const sejour = dv.demande?.sejour;
+    const htCalc = Number(dv.montantHT) || (dv.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
+    const ttcCalc = Number(dv.montantTTC) || Number(dv.montantTotal) || 0;
+    const tvaCalc = Number(dv.montantTVA) || (ttcCalc - htCalc);
+    return {
+      typeDocument: dv.typeDocument === 'FACTURE_ACOMPTE' ? 'FACTURE_ACOMPTE'
+        : dv.typeDocument === 'FACTURE_SOLDE' ? 'FACTURE_SOLDE' : 'DEVIS',
+      numeroDocument: dv.numeroDevis ?? dv.numeroFacture ?? `DEV-${dv.id.substring(0, 8).toUpperCase()}`,
+      dateDocument: dv.createdAt,
+      dateValidite: new Date(new Date(dv.createdAt).getTime() + 30 * 86400000).toISOString(),
+      nomEmetteur: dv.nomEntreprise ?? dv.centre?.nom ?? '',
+      adresseEmetteur: dv.adresseEntreprise ?? [dv.centre?.adresse, dv.centre?.codePostal, dv.centre?.ville].filter(Boolean).join(', '),
+      siretEmetteur: dv.siretEntreprise ?? dv.centre?.siret ?? undefined,
+      emailEmetteur: dv.emailEntreprise ?? dv.centre?.email ?? undefined,
+      telEmetteur: dv.telEntreprise ?? dv.centre?.telephone ?? undefined,
+      nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
+      etablissementNom: ens?.etablissementNom ?? undefined,
+      adresseDestinataire: ens?.etablissementAdresse ?? undefined,
+      emailDestinataire: ens?.email ?? undefined,
+      telDestinataire: ens?.telephone ?? undefined,
+      titreSejour: sejour?.titre ?? dv.demande?.titre ?? '',
+      lieuSejour: dv.demande?.villeHebergement,
+      dateDebutSejour: sejour?.dateDebut ?? undefined,
+      dateFinSejour: sejour?.dateFin ?? undefined,
+      nombreEleves: dv.demande?.nombreEleves,
+      niveauClasse: sejour?.niveauClasse ?? undefined,
+      lignes: (dv.lignes ?? []).map(l => ({
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva,
+        totalHT: l.totalHT,
+        totalTTC: l.totalTTC,
+      })),
+      montantHT: htCalc,
+      montantTVA: tvaCalc,
+      montantTTC: ttcCalc,
+      montantAcompte: dv.montantAcompte != null ? Number(dv.montantAcompte) : undefined,
+      pourcentageAcompte: dv.pourcentageAcompte ?? undefined,
+      conditionsAnnulation: dv.conditionsAnnulation ?? dv.centre?.conditionsAnnulation ?? undefined,
+      signatureDirecteur: dv.signatureDirecteur ?? undefined,
+    };
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -665,78 +709,13 @@ function DevisDetailModal({
             {devis.siretEntreprise && <div><span className="text-gray-500">SIRET</span><p className="font-medium">{devis.siretEntreprise}</p></div>}
           </div>
 
-          {/* PDF preview */}
-          {isPdf && devis.documentUrl && (
-            <>
-              <SectionLabel>Document PDF</SectionLabel>
-              <div className="rounded-lg border border-gray-200 overflow-hidden mb-4">
-                <iframe
-                  src={devis.documentUrl}
-                  className="w-full h-[400px]"
-                  title="Devis PDF"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Lignes du devis (PLATEFORME) */}
-          {!isPdf && lignes.length > 0 && (
-            <>
-              <SectionLabel>Détail des prestations</SectionLabel>
-              <div className="overflow-x-auto rounded-lg border border-gray-200 mb-4">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-3 py-2 font-semibold text-gray-600">Description</th>
-                      <th className="text-right px-3 py-2 font-semibold text-gray-600">Qté</th>
-                      <th className="text-right px-3 py-2 font-semibold text-gray-600">PU HT</th>
-                      <th className="text-right px-3 py-2 font-semibold text-gray-600">TVA</th>
-                      <th className="text-right px-3 py-2 font-semibold text-gray-600">Total TTC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lignes.map((l: LigneDevis, i: number) => (
-                      <tr key={i} className="border-b border-gray-100">
-                        <td className="px-3 py-2 text-gray-900">{l.description}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{l.quantite}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{fmt(l.prixUnitaire)} €</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{l.tva} %</td>
-                        <td className="px-3 py-2 text-right font-medium text-gray-900">{fmt(l.totalTTC)} €</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* Totaux */}
-          <SectionLabel>Montants</SectionLabel>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div><span className="text-gray-500">Total HT</span><p className="font-medium">{devis.montantHT != null ? `${fmt(devis.montantHT)} €` : '—'}</p></div>
-            <div><span className="text-gray-500">TVA</span><p className="font-medium">{devis.montantTVA != null ? `${fmt(devis.montantTVA)} €` : '—'}</p></div>
-            <div><span className="text-gray-500">Total TTC</span><p className="font-bold text-[var(--color-primary)] text-base">{devis.montantTTC != null ? `${fmt(devis.montantTTC)} €` : `${devis.montantTotal} €`}</p></div>
-            <div><span className="text-gray-500">Par élève</span><p className="font-medium">{devis.montantParEleve} €</p></div>
-            {devis.pourcentageAcompte != null && devis.montantAcompte != null && (
-              <div className="col-span-2"><span className="text-gray-500">Acompte ({devis.pourcentageAcompte} %)</span><p className="font-medium">{fmt(devis.montantAcompte)} €</p></div>
-            )}
+          <div className="flex justify-center py-6">
+            <DevisPDFButton
+              data={buildPdfProps(devis)}
+              filename={`devis-${(devis.numeroDevis ?? devis.id).substring(0, 8)}.pdf`}
+              label="Visualiser le devis complet"
+            />
           </div>
-
-          {/* Conditions */}
-          {devis.conditionsAnnulation && (
-            <>
-              <SectionLabel>Conditions d&apos;annulation</SectionLabel>
-              <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{devis.conditionsAnnulation}</p>
-            </>
-          )}
-
-          {/* Description */}
-          {devis.description && (
-            <>
-              <SectionLabel>Description</SectionLabel>
-              <p className="text-xs text-gray-600 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">{devis.description}</p>
-            </>
-          )}
         </div>
 
         {/* Footer */}
