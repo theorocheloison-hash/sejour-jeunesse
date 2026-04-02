@@ -1,4 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
@@ -7,6 +8,12 @@ import { CreateDocumentDto } from './dto/create-document.dto.js';
 
 @Injectable()
 export class CollaborationService {
+  private readonly planningJobs = new Map<string, {
+    status: 'pending' | 'done' | 'error';
+    result?: any[];
+    error?: string;
+  }>();
+
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
@@ -531,5 +538,188 @@ export class CollaborationService {
       where: { id: sejourId },
       data: { inscriptionsCloturees: true },
     });
+  }
+
+  async genererPlanningIA(sejourId: string, userId: string, role?: string): Promise<{ jobId: string }> {
+    if (role !== 'VENUE') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
+
+    const sejour = await this.verifyAccess(sejourId, userId, role);
+
+    const demande = await this.prisma.demandeDevis.findFirst({
+      where: { sejourId },
+      include: {
+        devis: {
+          where: { statut: 'SELECTIONNE' },
+          include: {
+            lignes: { select: { description: true, quantite: true, prixUnitaire: true } },
+          },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const devisSelectionne = demande?.devis?.[0];
+    if (!devisSelectionne) {
+      throw new Error('Aucun devis sélectionné — impossible de générer le planning');
+    }
+
+    const centreId = sejour.hebergementSelectionneId;
+    if (!centreId) throw new Error('Centre introuvable');
+
+    const activitesCatalogue = await this.prisma.produitCatalogue.findMany({
+      where: { centreId, type: 'ACTIVITE', actif: true },
+      select: { id: true, nom: true, capaciteParGroupe: true, simultaneitePossible: true, dureeMinutes: true },
+    });
+
+    const groupes = await this.prisma.groupeSejour.findMany({
+      where: { sejourId },
+      select: { id: true, nom: true, couleur: true, taille: true },
+    });
+
+    const contraintesSejour = await this.prisma.contrainteSejour.findMany({
+      where: { sejourId },
+      include: { produit: { select: { nom: true } } },
+    });
+
+    const contraintesCentre = await this.prisma.contrainteCentre.findMany({
+      where: { centreId, actif: true },
+    });
+
+    const nombreEleves = demande?.nombreEleves ?? sejour.placesTotales;
+    const nombreAccompagnateurs = demande?.nombreAccompagnateurs ?? sejour.nombreAccompagnateurs ?? 1;
+    const dateDebut = sejour.dateDebut.toISOString().split('T')[0];
+    const dateFin = sejour.dateFin.toISOString().split('T')[0];
+
+    const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+    const contexte = {
+      sejour: { dateDebut, dateFin, nombreEleves, nombreAccompagnateurs },
+      groupes: groupes.length > 0 ? groupes : [{ nom: 'Groupe unique', taille: nombreEleves }],
+      activites: activitesCatalogue
+        .filter(a => devisSelectionne.lignes.some(l =>
+          l.description.toLowerCase().includes(a.nom.toLowerCase()) ||
+          a.nom.toLowerCase().includes(l.description.toLowerCase())
+        ))
+        .map(a => ({
+          nom: a.nom,
+          capaciteParGroupe: a.capaciteParGroupe ?? 'non défini',
+          dureeMinutes: a.dureeMinutes ?? 120,
+          simultaneitePossible: a.simultaneitePossible ?? true,
+        })),
+      contraintesSejour: contraintesSejour.map(c => ({
+        libelle: c.libelle,
+        type: c.type,
+        date: c.date ? c.date.toISOString().split('T')[0] : null,
+        jourSemaine: c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
+        heureDebut: c.heureDebut,
+        heureFin: c.heureFin,
+        activite: c.produit?.nom ?? null,
+      })),
+      contraintesCentre: contraintesCentre.map(c => ({
+        libelle: c.libelle,
+        type: c.type,
+        jourSemaine: c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
+        heureDebut: c.heureDebut,
+        heureFin: c.heureFin,
+      })),
+    };
+
+    const jobId = `${sejourId}-${Date.now()}`;
+    this.planningJobs.set(jobId, { status: 'pending' });
+
+    this._appelAnthropicPlanning(jobId, sejourId, contexte).catch(() => {
+      this.planningJobs.set(jobId, { status: 'error', error: 'Erreur lors de la génération' });
+    });
+
+    return { jobId };
+  }
+
+  private async _appelAnthropicPlanning(jobId: string, sejourId: string, contexte: any): Promise<void> {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const systemPrompt = `Tu es un assistant spécialisé dans la création de plannings pour des séjours scolaires en France.
+Tu dois générer un planning rotatif en JSON pur — aucun texte avant ou après, aucune balise markdown.
+
+Règles strictes :
+- Chaque groupe doit faire chaque activité exactement une fois sur le séjour
+- Les activités démarrent au plus tôt à 09:00 et se terminent au plus tard à 18:00
+- Respecte les contraintes de blocage (créneaux interdits)
+- Pour les contraintes ACTIVITE_COLLECTIVE : tous les groupes font l'activité en même temps
+- Pour les contraintes CONTRAINTE_ARRIVEE : pas d'activité avant l'heure indiquée le jour concerné
+- Si simultaneitePossible est false pour une activité : un seul groupe à la fois peut la faire
+- Si simultaneitePossible est true : plusieurs groupes peuvent la faire en parallèle
+- Laisse une pause déjeuner de 12:00 à 14:00 chaque jour
+- Attribue une couleur hex différente à chaque groupe (utilise la couleur fournie dans les groupes)
+
+Format de réponse — tableau JSON uniquement :
+[
+  {
+    "titre": "Nom de l'activité",
+    "date": "YYYY-MM-DD",
+    "heureDebut": "HH:MM",
+    "heureFin": "HH:MM",
+    "couleur": "#hexcode",
+    "groupeNom": "Nom du groupe"
+  }
+]`;
+
+    const userMessage = `Génère le planning pour ce séjour :\n${JSON.stringify(contexte, null, 2)}`;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: userMessage }],
+      system: systemPrompt,
+    });
+
+    const rawText = response.content
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('');
+
+    const clean = rawText.replace(/```json|```/g, '').trim();
+    const planningItems: Array<{
+      titre: string;
+      date: string;
+      heureDebut: string;
+      heureFin: string;
+      couleur: string;
+      groupeNom: string;
+    }> = JSON.parse(clean);
+
+    const groupeMap = await this.prisma.groupeSejour.findMany({
+      where: { sejourId },
+      select: { id: true, nom: true, couleur: true },
+    });
+
+    const created = await Promise.all(
+      planningItems.map(item => {
+        const groupe = groupeMap.find(g => g.nom === item.groupeNom);
+        return this.prisma.planningActivite.create({
+          data: {
+            sejourId,
+            date: new Date(item.date),
+            heureDebut: item.heureDebut,
+            heureFin: item.heureFin,
+            titre: item.titre,
+            couleur: groupe?.couleur ?? item.couleur,
+            groupeId: groupe?.id ?? null,
+          },
+        });
+      })
+    );
+
+    this.planningJobs.set(jobId, { status: 'done', result: created });
+  }
+
+  async getPlanningGenerationStatus(jobId: string, userId: string, role?: string): Promise<{
+    status: 'pending' | 'done' | 'error';
+    result?: any[];
+    error?: string;
+  }> {
+    const job = this.planningJobs.get(jobId);
+    if (!job) return { status: 'error', error: 'Job introuvable' };
+    return job;
   }
 }

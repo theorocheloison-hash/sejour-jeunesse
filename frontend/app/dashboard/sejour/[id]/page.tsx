@@ -42,6 +42,8 @@ import {
   affecterEleve,
   retirerEleve,
   cloturerInscriptions,
+  genererPlanningIA,
+  getPlanningGenerationStatus,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -307,6 +309,9 @@ export default function CollaborationPage() {
   // Planning
   const [planning, setPlanning] = useState<PlanningActivite[]>([]);
   const [activitesCatalogue, setActivitesCatalogue] = useState<ActiviteCatalogue[]>([]);
+  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
+  const [generationStatus, setGenerationStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle');
+  const generationPollRef = useRef<NodeJS.Timeout | null>(null);
   const [planModal, setPlanModal] = useState<{
     open: boolean;
     date: string;
@@ -469,6 +474,12 @@ export default function CollaborationPage() {
     return () => clearInterval(iv);
   }, [tab, loadMessages]);
 
+  useEffect(() => {
+    return () => {
+      if (generationPollRef.current) clearInterval(generationPollRef.current);
+    };
+  }, []);
+
   // ── Auto-scroll ──
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -515,6 +526,37 @@ export default function CollaborationPage() {
       await deletePlanning(id, planningId);
       setPlanning((prev) => prev.filter((p) => p.id !== planningId));
     } catch { /* ignore */ }
+  };
+
+  const handleGenererPlanningIA = async () => {
+    if (!id) return;
+    setGenerationStatus('pending');
+    try {
+      const { jobId } = await genererPlanningIA(id);
+      setGenerationJobId(jobId);
+      generationPollRef.current = setInterval(async () => {
+        try {
+          const statusData = await getPlanningGenerationStatus(id, jobId);
+          if (statusData.status === 'done') {
+            clearInterval(generationPollRef.current!);
+            generationPollRef.current = null;
+            setGenerationStatus('done');
+            setGenerationJobId(null);
+            await loadPlanning();
+          } else if (statusData.status === 'error') {
+            clearInterval(generationPollRef.current!);
+            generationPollRef.current = null;
+            setGenerationStatus('error');
+          }
+        } catch {
+          clearInterval(generationPollRef.current!);
+          generationPollRef.current = null;
+          setGenerationStatus('error');
+        }
+      }, 2000);
+    } catch {
+      setGenerationStatus('error');
+    }
   };
 
   const handleProposerGroupes = async () => {
@@ -1244,6 +1286,32 @@ export default function CollaborationPage() {
 
           return (
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            {isVenue && (
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleGenererPlanningIA}
+                    disabled={generationStatus === 'pending'}
+                    className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {generationStatus === 'pending' ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Génération en cours...
+                      </>
+                    ) : (
+                      <>✨ Générer le planning IA</>
+                    )}
+                  </button>
+                  {generationStatus === 'done' && (
+                    <span className="text-sm text-green-600 font-medium">✓ Planning généré</span>
+                  )}
+                  {generationStatus === 'error' && (
+                    <span className="text-sm text-red-500">Erreur lors de la génération</span>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex gap-4 h-full">
             <div className="flex-1 min-w-0">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">

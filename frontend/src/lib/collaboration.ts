@@ -400,3 +400,17 @@ export async function retirerEleve(sejourId: string, autorisationId: string): Pr
 export async function cloturerInscriptions(sejourId: string): Promise<void> {
   await api.post(`/collaboration/${sejourId}/cloturer-inscriptions`);
 }
+
+export async function genererPlanningIA(sejourId: string): Promise<{ jobId: string }> {
+  const { data } = await api.post<{ jobId: string }>(`/collaboration/${sejourId}/planning/generer`);
+  return data;
+}
+
+export async function getPlanningGenerationStatus(sejourId: string, jobId: string): Promise<{
+  status: 'pending' | 'done' | 'error';
+  result?: any[];
+  error?: string;
+}> {
+  const { data } = await api.get(`/collaboration/${sejourId}/planning/generer/${jobId}`);
+  return data;
+}

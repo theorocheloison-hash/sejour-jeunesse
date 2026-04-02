@@ -120,6 +120,25 @@ export class CollaborationController {
     return this.service.createMessage(sejourId, user.id, dto, user.role);
   }
 
+  // ── Planning IA ───────────────────────────────────────────────
+
+  @Post(':sejourId/planning/generer')
+  genererPlanningIA(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.genererPlanningIA(sejourId, user.id, user.role);
+  }
+
+  @Get(':sejourId/planning/generer/:jobId')
+  getPlanningGenerationStatus(
+    @Param('sejourId') sejourId: string,
+    @Param('jobId') jobId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.getPlanningGenerationStatus(jobId, user.id, user.role);
+  }
+
   // ── Planning ──────────────────────────────────────────────────
 
   @Get(':sejourId/planning')
