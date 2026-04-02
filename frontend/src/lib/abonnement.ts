@@ -4,11 +4,13 @@ import api from '@/src/lib/api';
 
 export type TypeAbonnement = 'MENSUEL' | 'ANNUEL';
 export type StatutAbonnementEnum = 'INACTIF' | 'ACTIF' | 'SUSPENDU';
+export type PlanAbonnement = 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET';
 
 export interface AbonnementStatut {
   type: TypeAbonnement | null;
   statut: StatutAbonnementEnum;
   actifJusquAu: string | null;
+  plan: PlanAbonnement;
 }
 
 // ─── API calls ──────────────────────────────────────────────────────────────

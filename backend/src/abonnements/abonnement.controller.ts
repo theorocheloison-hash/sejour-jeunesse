@@ -15,7 +15,7 @@ export class AbonnementController {
   @Post('simuler')
   @Roles(Role.VENUE)
   simuler(@CurrentUser() user: JwtUser, @Body() dto: SimulerAbonnementDto) {
-    return this.abonnementService.simuler(user.id, dto.type);
+    return this.abonnementService.simuler(user.id, dto.type, dto.plan);
   }
 
   @Get('statut')

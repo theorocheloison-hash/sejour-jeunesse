@@ -23,14 +23,23 @@ export default function AbonnementPage() {
     }
   }, [user]);
 
-  // TODO: Stripe — remplacer le corps par un appel a l'API de checkout Stripe
+  // TODO: Stripe — remplacer le corps par un appel à l'API de checkout Stripe
   function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) {
-    const subject = encodeURIComponent('Abonnement ' + plan + ' LIAVO \u2014 ' + (annual ? 'Annuel' : 'Mensuel'));
+    const subject = encodeURIComponent('Abonnement ' + plan + ' LIAVO — ' + (annual ? 'Annuel' : 'Mensuel'));
     const body = encodeURIComponent('Bonjour, je souhaite activer le plan ' + plan + ' (' + (annual ? 'annuel' : 'mensuel') + ') pour mon centre.');
     window.location.href = 'mailto:contact@liavo.fr?subject=' + subject + '&body=' + body;
   }
 
   if (isLoading || !user) return null;
+
+  const PLAN_LABELS: Record<string, string> = {
+    DECOUVERTE: 'Plan Découverte',
+    ESSENTIEL: 'Plan Essentiel',
+    COMPLET: 'Plan Complet',
+  };
+  const nomPlan = abo?.statut === 'ACTIF' && abo.plan
+    ? `${PLAN_LABELS[abo.plan] ?? abo.plan} — ${abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}`
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,7 +53,7 @@ export default function AbonnementPage() {
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>Abonnement</h1>
-        <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>Gerez votre plan et vos acces.</p>
+        <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>Gérez votre plan et vos accès.</p>
 
         {/* ── Bandeau statut ──────────────────────────────────────────── */}
         {abo?.statut === 'ACTIF' ? (
@@ -60,7 +69,7 @@ export default function AbonnementPage() {
               Abonnement actif
             </span>
             <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
-              Plan {abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}
+              {nomPlan}
             </span>
             {abo.actifJusquAu && (
               <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
@@ -84,7 +93,7 @@ export default function AbonnementPage() {
               Abonnement suspendu
             </span>
             <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
-              Contactez-nous pour reactiver :{' '}
+              Contactez-nous pour réactiver :{' '}
               <a href="mailto:contact@liavo.fr" style={{ color: '#9C2B2B', fontWeight: 500 }}>contact@liavo.fr</a>
             </span>
           </div>
@@ -99,7 +108,7 @@ export default function AbonnementPage() {
               backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
               border: '1px solid var(--color-border)',
             }}>
-              Plan Decouverte &mdash; gratuit
+              Plan Découverte — gratuit
             </span>
           </div>
         )}

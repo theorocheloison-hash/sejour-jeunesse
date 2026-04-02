@@ -366,6 +366,12 @@ enum StatutAbonnement {
   SUSPENDU
 }
 
+enum PlanAbonnement {
+  DECOUVERTE
+  ESSENTIEL
+  COMPLET
+}
+
 // ============================================================
 // ENUM : statut d'une demande de devis
 // ============================================================
@@ -432,6 +438,7 @@ model CentreHebergement {
   abonnement          TypeAbonnement?   @map("abonnement")
   abonnementActifJusquAu DateTime?      @map("abonnement_actif_jusqua") @db.Date
   abonnementStatut    StatutAbonnement  @default(INACTIF) @map("abonnement_statut")
+  planAbonnement      PlanAbonnement    @default(DECOUVERTE) @map("plan_abonnement")
   siret               String?           @map("siret") @db.VarChar(14)
   siteWeb             String?           @map("site_web") @db.VarChar(500)
   tvaIntracommunautaire String?         @map("tva_intracommunautaire") @db.VarChar(20)

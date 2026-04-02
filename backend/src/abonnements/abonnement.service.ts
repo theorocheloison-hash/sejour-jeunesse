@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { TypeAbonnement, StatutAbonnement } from '@prisma/client';
+import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class AbonnementService {
   constructor(private prisma: PrismaService) {}
 
-  async simuler(userId: string, type: TypeAbonnement) {
+  async simuler(userId: string, type: TypeAbonnement, plan: PlanAbonnement) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
     });
@@ -26,6 +26,7 @@ export class AbonnementService {
         abonnement: type,
         abonnementStatut: StatutAbonnement.ACTIF,
         abonnementActifJusquAu: expiration,
+        planAbonnement: plan,
       },
     });
   }
@@ -37,6 +38,7 @@ export class AbonnementService {
         abonnement: true,
         abonnementStatut: true,
         abonnementActifJusquAu: true,
+        planAbonnement: true,
       },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
@@ -45,6 +47,7 @@ export class AbonnementService {
       type: centre.abonnement,
       statut: centre.abonnementStatut,
       actifJusquAu: centre.abonnementActifJusquAu,
+      plan: centre.planAbonnement,
     };
   }
 }
