@@ -187,6 +187,8 @@ model Sejour {
   documentsSejour        DocumentSejour[]
   lignesBudget           LigneBudgetComplementaire[]
   recettesBudget         RecetteBudget[]
+  contraintes            ContrainteSejour[]
+  groupesSejour          GroupeSejour[]
 
   @@index([createurId])
   @@index([statut])
@@ -476,6 +478,7 @@ model CentreHebergement {
   demandesIgnorees DemandeIgnoree[]
   demandesDestinees DemandeDevis[] @relation("DemandesDestinees")
   clients          Client[]
+  contraintes      ContrainteCentre[]
 
   @@map("centres_hebergement")
 }
@@ -494,9 +497,14 @@ model ProduitCatalogue {
   tva             Float    @default(10)
   unite           String   @db.VarChar(50)
   actif           Boolean  @default(true)
+  capaciteParGroupe     Int?     @map("capacite_par_groupe")
+  encadrementParGroupe  Int?     @map("encadrement_par_groupe")
+  simultaneitePossible  Boolean  @default(true) @map("simultaneite_possible")
+  dureeMinutes          Int?     @map("duree_minutes")
   createdAt       DateTime @default(now()) @map("created_at")
 
-  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  centre      CentreHebergement  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  contraintes ContrainteSejour[]
 
   @@map("produits_catalogue")
 }
@@ -743,11 +751,74 @@ model PlanningActivite {
   titre       String   @db.VarChar(255)
   description String?  @db.Text
   responsable String?  @db.VarChar(255)
+  couleur     String?  @db.VarChar(50)
+  groupeId    String?  @map("groupe_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
 
-  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  sejour Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  groupe GroupeSejour? @relation("ActivitesGroupe", fields: [groupeId], references: [id], onDelete: SetNull)
 
   @@map("planning_activites")
+}
+
+// ============================================================
+// MODEL : GroupeSejour (groupes d'élèves pour planning IA)
+// ============================================================
+model GroupeSejour {
+  id        String   @id @default(uuid()) @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  nom       String   @db.VarChar(100)
+  couleur   String   @db.VarChar(50)
+  taille    Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sejour    Sejour             @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  activites PlanningActivite[] @relation("ActivitesGroupe")
+
+  @@index([sejourId])
+  @@map("groupes_sejour")
+}
+
+// ============================================================
+// MODEL : ContrainteCentre (contraintes horaires/capacité du centre)
+// ============================================================
+model ContrainteCentre {
+  id          String   @id @default(uuid()) @db.Uuid
+  centreId    String   @map("centre_id") @db.Uuid
+  libelle     String   @db.VarChar(255)
+  type        String   @db.VarChar(50)
+  jourSemaine Int?     @map("jour_semaine")
+  heureDebut  String?  @map("heure_debut") @db.VarChar(5)
+  heureFin    String?  @map("heure_fin") @db.VarChar(5)
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([centreId])
+  @@map("contraintes_centre")
+}
+
+// ============================================================
+// MODEL : ContrainteSejour (contraintes spécifiques au séjour)
+// ============================================================
+model ContrainteSejour {
+  id          String    @id @default(uuid()) @db.Uuid
+  sejourId    String    @map("sejour_id") @db.Uuid
+  libelle     String    @db.VarChar(255)
+  type        String    @db.VarChar(50)
+  date        DateTime? @db.Date
+  jourSemaine Int?      @map("jour_semaine")
+  heureDebut  String?   @map("heure_debut") @db.VarChar(5)
+  heureFin    String?   @map("heure_fin") @db.VarChar(5)
+  produitId   String?   @map("produit_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  sejour  Sejour            @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  produit ProduitCatalogue? @relation(fields: [produitId], references: [id], onDelete: SetNull)
+
+  @@index([sejourId])
+  @@map("contraintes_sejour")
 }
 
 // ============================================================
