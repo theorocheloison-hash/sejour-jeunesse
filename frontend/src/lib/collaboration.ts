@@ -300,3 +300,103 @@ export async function getActivitesCatalogue(sejourId: string): Promise<ActiviteC
   );
   return data;
 }
+
+// ── Contraintes séjour ──────────────────────────────────────────────────────
+
+export interface ContrainteSejour {
+  id: string;
+  sejourId: string;
+  libelle: string;
+  type: string;
+  date: string | null;
+  jourSemaine: number | null;
+  heureDebut: string | null;
+  heureFin: string | null;
+  produitId: string | null;
+  produit: { id: string; nom: string } | null;
+  createdAt: string;
+}
+
+export async function getContraintesSejour(sejourId: string): Promise<ContrainteSejour[]> {
+  const { data } = await api.get<ContrainteSejour[]>(`/collaboration/${sejourId}/contraintes`);
+  return data;
+}
+
+export async function createContrainteSejour(sejourId: string, dto: {
+  libelle: string;
+  type: string;
+  date?: string;
+  jourSemaine?: number;
+  heureDebut?: string;
+  heureFin?: string;
+  produitId?: string;
+}): Promise<ContrainteSejour> {
+  const { data } = await api.post<ContrainteSejour>(`/collaboration/${sejourId}/contraintes`, dto);
+  return data;
+}
+
+export async function deleteContrainteSejour(sejourId: string, contrainteId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/contraintes/${contrainteId}`);
+}
+
+// ── Groupes séjour ──────────────────────────────────────────────────────────
+
+export interface EleveGroupe {
+  id: string;
+  autorisationId: string;
+  autorisation: { id: string; eleveNom: string; elevePrenom: string; signeeAt: string | null };
+}
+
+export interface GroupeSejour {
+  id: string;
+  sejourId: string;
+  nom: string;
+  couleur: string;
+  taille: number;
+  eleves: EleveGroupe[];
+  createdAt: string;
+}
+
+export interface PropositionGroupes {
+  groupes: { nom: string; couleur: string; taille: number }[];
+  tailleGroupe: number;
+  nombreGroupes: number;
+  nombreEleves: number;
+  nombreAccompagnateurs: number;
+}
+
+export async function getGroupes(sejourId: string): Promise<GroupeSejour[]> {
+  const { data } = await api.get<GroupeSejour[]>(`/collaboration/${sejourId}/groupes`);
+  return data;
+}
+
+export async function createGroupe(sejourId: string, dto: { nom: string; couleur: string; taille: number }): Promise<GroupeSejour> {
+  const { data } = await api.post<GroupeSejour>(`/collaboration/${sejourId}/groupes`, dto);
+  return data;
+}
+
+export async function updateGroupe(sejourId: string, groupeId: string, dto: { nom?: string; couleur?: string; taille?: number }): Promise<GroupeSejour> {
+  const { data } = await api.patch<GroupeSejour>(`/collaboration/${sejourId}/groupes/${groupeId}`, dto);
+  return data;
+}
+
+export async function deleteGroupe(sejourId: string, groupeId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/groupes/${groupeId}`);
+}
+
+export async function proposerGroupes(sejourId: string): Promise<PropositionGroupes> {
+  const { data } = await api.post<PropositionGroupes>(`/collaboration/${sejourId}/groupes/proposer`);
+  return data;
+}
+
+export async function affecterEleve(sejourId: string, groupeId: string, autorisationId: string): Promise<void> {
+  await api.post(`/collaboration/${sejourId}/groupes/${groupeId}/eleves/${autorisationId}`);
+}
+
+export async function retirerEleve(sejourId: string, autorisationId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/groupes/eleves/${autorisationId}`);
+}
+
+export async function cloturerInscriptions(sejourId: string): Promise<void> {
+  await api.post(`/collaboration/${sejourId}/cloturer-inscriptions`);
+}

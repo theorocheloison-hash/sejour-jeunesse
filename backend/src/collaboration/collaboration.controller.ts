@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -182,5 +183,94 @@ export class CollaborationController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.service.createDocument(sejourId, user.id, dto, file, user.role);
+  }
+
+  // ── Contraintes séjour ────────────────────────────────────────
+
+  @Get(':sejourId/contraintes')
+  getContraintesSejour(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.getContraintesSejour(sejourId, user.id, user.role);
+  }
+
+  @Post(':sejourId/contraintes')
+  createContrainteSejour(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { libelle: string; type: string; date?: string; jourSemaine?: number; heureDebut?: string; heureFin?: string; produitId?: string },
+  ) {
+    return this.service.createContrainteSejour(sejourId, user.id, dto, user.role);
+  }
+
+  @Delete(':sejourId/contraintes/:contrainteId')
+  deleteContrainteSejour(
+    @Param('sejourId') sejourId: string,
+    @Param('contrainteId') contrainteId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteContrainteSejour(sejourId, user.id, contrainteId, user.role);
+  }
+
+  // ── Groupes séjour ────────────────────────────────────────────
+
+  @Get(':sejourId/groupes')
+  getGroupes(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.getGroupes(sejourId, user.id, user.role);
+  }
+
+  @Post(':sejourId/groupes')
+  createGroupe(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { nom: string; couleur: string; taille: number },
+  ) {
+    return this.service.createGroupe(sejourId, user.id, dto, user.role);
+  }
+
+  @Patch(':sejourId/groupes/:groupeId')
+  updateGroupe(
+    @Param('sejourId') sejourId: string,
+    @Param('groupeId') groupeId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { nom?: string; couleur?: string; taille?: number },
+  ) {
+    return this.service.updateGroupe(sejourId, user.id, groupeId, dto, user.role);
+  }
+
+  @Delete(':sejourId/groupes/:groupeId')
+  deleteGroupe(
+    @Param('sejourId') sejourId: string,
+    @Param('groupeId') groupeId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteGroupe(sejourId, user.id, groupeId, user.role);
+  }
+
+  @Post(':sejourId/groupes/proposer')
+  proposerGroupes(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.proposerGroupes(sejourId, user.id, user.role);
+  }
+
+  @Post(':sejourId/groupes/:groupeId/eleves/:autorisationId')
+  affecterEleve(
+    @Param('sejourId') sejourId: string,
+    @Param('groupeId') groupeId: string,
+    @Param('autorisationId') autorisationId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.affecterEleve(sejourId, user.id, groupeId, autorisationId, user.role);
+  }
+
+  @Delete(':sejourId/groupes/eleves/:autorisationId')
+  retirerEleve(
+    @Param('sejourId') sejourId: string,
+    @Param('autorisationId') autorisationId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.retirerEleve(sejourId, user.id, autorisationId, user.role);
+  }
+
+  @Post(':sejourId/cloturer-inscriptions')
+  cloturerInscriptions(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.cloturerInscriptions(sejourId, user.id, user.role);
   }
 }

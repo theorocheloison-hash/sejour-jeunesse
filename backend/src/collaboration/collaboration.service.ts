@@ -360,4 +360,176 @@ export class CollaborationService {
       )
     );
   }
+
+  // ── Contraintes séjour ────────────────────────────────────────
+
+  async getContraintesSejour(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    return this.prisma.contrainteSejour.findMany({
+      where: { sejourId },
+      include: { produit: { select: { id: true, nom: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createContrainteSejour(sejourId: string, userId: string, dto: {
+    libelle: string;
+    type: string;
+    date?: string;
+    jourSemaine?: number;
+    heureDebut?: string;
+    heureFin?: string;
+    produitId?: string;
+  }, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    return this.prisma.contrainteSejour.create({
+      data: {
+        sejourId,
+        libelle: dto.libelle,
+        type: dto.type,
+        date: dto.date ? new Date(dto.date) : null,
+        jourSemaine: dto.jourSemaine ?? null,
+        heureDebut: dto.heureDebut ?? null,
+        heureFin: dto.heureFin ?? null,
+        produitId: dto.produitId ?? null,
+      },
+      include: { produit: { select: { id: true, nom: true } } },
+    });
+  }
+
+  async deleteContrainteSejour(sejourId: string, userId: string, contrainteId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    const c = await this.prisma.contrainteSejour.findUnique({ where: { id: contrainteId } });
+    if (!c || c.sejourId !== sejourId) throw new NotFoundException('Contrainte introuvable');
+    return this.prisma.contrainteSejour.delete({ where: { id: contrainteId } });
+  }
+
+  // ── Groupes séjour ────────────────────────────────────────────
+
+  async getGroupes(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    return this.prisma.groupeSejour.findMany({
+      where: { sejourId },
+      include: {
+        eleves: {
+          include: {
+            autorisation: {
+              select: { id: true, eleveNom: true, elevePrenom: true, signeeAt: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createGroupe(sejourId: string, userId: string, dto: {
+    nom: string;
+    couleur: string;
+    taille: number;
+  }, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    return this.prisma.groupeSejour.create({
+      data: { sejourId, nom: dto.nom, couleur: dto.couleur, taille: dto.taille },
+      include: { eleves: true },
+    });
+  }
+
+  async updateGroupe(sejourId: string, userId: string, groupeId: string, dto: {
+    nom?: string;
+    couleur?: string;
+    taille?: number;
+  }, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    const g = await this.prisma.groupeSejour.findUnique({ where: { id: groupeId } });
+    if (!g || g.sejourId !== sejourId) throw new NotFoundException('Groupe introuvable');
+    return this.prisma.groupeSejour.update({
+      where: { id: groupeId },
+      data: dto,
+      include: { eleves: { include: { autorisation: { select: { id: true, eleveNom: true, elevePrenom: true, signeeAt: true } } } } },
+    });
+  }
+
+  async deleteGroupe(sejourId: string, userId: string, groupeId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    const g = await this.prisma.groupeSejour.findUnique({ where: { id: groupeId } });
+    if (!g || g.sejourId !== sejourId) throw new NotFoundException('Groupe introuvable');
+    return this.prisma.groupeSejour.delete({ where: { id: groupeId } });
+  }
+
+  async affecterEleve(sejourId: string, userId: string, groupeId: string, autorisationId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    // Retirer l'élève de son groupe actuel s'il en a un
+    await this.prisma.eleveGroupe.deleteMany({ where: { autorisationId } });
+    // Affecter au nouveau groupe
+    return this.prisma.eleveGroupe.create({
+      data: { groupeId, autorisationId },
+    });
+  }
+
+  async retirerEleve(sejourId: string, userId: string, autorisationId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    await this.prisma.eleveGroupe.deleteMany({ where: { autorisationId } });
+  }
+
+  async proposerGroupes(sejourId: string, userId: string, role?: string) {
+    const sejour = await this.verifyAccess(sejourId, userId, role);
+
+    // Récupérer la demande de devis pour avoir nombreEleves et nombreAccompagnateurs
+    const demande = await this.prisma.demandeDevis.findFirst({
+      where: { sejourId },
+      orderBy: { createdAt: 'desc' },
+    });
+    const nombreEleves = demande?.nombreEleves ?? sejour.placesTotales;
+    const nombreAccompagnateurs = demande?.nombreAccompagnateurs ?? sejour.nombreAccompagnateurs ?? 1;
+
+    // Récupérer les activités du catalogue avec capaciteParGroupe
+    const centreId = sejour.hebergementSelectionneId;
+    if (!centreId) return { groupes: [], tailleGroupe: nombreEleves, nombreGroupes: 1 };
+
+    const activites = await this.prisma.produitCatalogue.findMany({
+      where: { centreId, type: 'ACTIVITE', actif: true, capaciteParGroupe: { not: null } },
+      select: { capaciteParGroupe: true, encadrementParGroupe: true },
+    });
+
+    // Algorithme LCM pour trouver la taille optimale des groupes
+    const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
+    const lcm = (a: number, b: number): number => (a * b) / gcd(a, b);
+
+    let tailleOptimale = nombreEleves;
+    if (activites.length > 0) {
+      const capacites = activites
+        .map(a => a.capaciteParGroupe!)
+        .filter(c => c > 0);
+      if (capacites.length > 0) {
+        // LCM de toutes les capacités
+        const lcmCapacites = capacites.reduce((acc, c) => lcm(acc, c), capacites[0]);
+        // Trouver le multiple de lcmCapacites le plus proche de nombreEleves/3
+        const cible = Math.ceil(nombreEleves / 3);
+        const multiple = Math.max(lcmCapacites, Math.round(cible / lcmCapacites) * lcmCapacites);
+        tailleOptimale = Math.min(multiple, nombreEleves);
+      }
+    }
+
+    const nombreGroupes = Math.ceil(nombreEleves / tailleOptimale);
+    const couleurs = ['#16a34a', '#2563eb', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#be185d', '#374151'];
+
+    const groupes = Array.from({ length: nombreGroupes }, (_, i) => {
+      const isLast = i === nombreGroupes - 1;
+      const taille = isLast ? nombreEleves - tailleOptimale * (nombreGroupes - 1) : tailleOptimale;
+      return { nom: `Groupe ${i + 1}`, couleur: couleurs[i % couleurs.length], taille };
+    });
+
+    return { groupes, tailleGroupe: tailleOptimale, nombreGroupes, nombreEleves, nombreAccompagnateurs };
+  }
+
+  async cloturerInscriptions(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    return this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { inscriptionsCloturees: true },
+    });
+  }
 }

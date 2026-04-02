@@ -145,6 +145,10 @@ export interface ProduitCatalogue {
   tva: number;
   unite: 'PAR_ELEVE' | 'PAR_NUIT' | 'PAR_JOUR' | 'FORFAIT';
   actif: boolean;
+  capaciteParGroupe?: number | null;
+  encadrementParGroupe?: number | null;
+  simultaneitePossible?: boolean;
+  dureeMinutes?: number | null;
   createdAt: string;
 }
 
@@ -224,5 +228,48 @@ export async function uploadCentreDocument(dto: {
   const { data } = await api.post<DocumentCentre>('/centres/documents-upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return data;
+}
+
+// ─── Contraintes centre ─────────────────────────────────────────────────────
+
+export interface ContrainteCentre {
+  id: string;
+  libelle: string;
+  type: string;
+  jourSemaine: number | null;
+  heureDebut: string | null;
+  heureFin: string | null;
+  actif: boolean;
+  createdAt: string;
+}
+
+export async function getContraintesCentre(): Promise<ContrainteCentre[]> {
+  const { data } = await api.get<ContrainteCentre[]>('/centres/contraintes-centre');
+  return data;
+}
+
+export async function createContrainteCentre(dto: {
+  libelle: string;
+  type: string;
+  jourSemaine?: number;
+  heureDebut?: string;
+  heureFin?: string;
+}): Promise<ContrainteCentre> {
+  const { data } = await api.post<ContrainteCentre>('/centres/contraintes-centre', dto);
+  return data;
+}
+
+export async function deleteContrainteCentre(id: string): Promise<void> {
+  await api.delete(`/centres/contraintes-centre/${id}`);
+}
+
+export async function updateCapacitesProduit(id: string, dto: {
+  capaciteParGroupe?: number | null;
+  encadrementParGroupe?: number | null;
+  simultaneitePossible?: boolean;
+  dureeMinutes?: number | null;
+}): Promise<ProduitCatalogue> {
+  const { data } = await api.patch<ProduitCatalogue>(`/centres/catalogue/${id}/capacites`, dto);
   return data;
 }
