@@ -667,7 +667,7 @@ Format de réponse — tableau JSON uniquement :
     const userMessage = `Génère le planning pour ce séjour :\n${JSON.stringify(contexte, null, 2)}`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 4096,
       messages: [{ role: 'user', content: userMessage }],
       system: systemPrompt,
