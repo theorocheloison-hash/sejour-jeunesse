@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; color: #2C2C2A; background: #F5F4F1; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; min-height: 297mm; background: #F5F4F1; padding: 14mm 14mm 12mm; display: flex; flex-direction: column; gap: 10px; }
+  .header { background: #1B4060; border-radius: 10px; padding: 20px 24px 18px; }
+  .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .logo-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.12); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .logo-name { font-size: 18px; font-weight: 500; color: #fff; letter-spacing: 0.04em; }
+  .sep { width: 1px; height: 18px; background: rgba(255,255,255,0.2); }
+  .badge { font-size: 10px; font-weight: 600; color: #C87D2E; background: rgba(200,125,46,0.18); padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-title { font-size: 18px; font-weight: 500; color: #fff; margin-bottom: 5px; line-height: 1.25; }
+  .header-sub { font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 300; line-height: 1.5; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .kpi { background: #fff; border: 0.5px solid #D3D1C7; border-radius: 8px; padding: 11px 13px; }
+  .kpi-val { font-size: 20px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .kpi-label { font-size: 10px; color: #888780; line-height: 1.4; font-weight: 400; }
+  .perspective { background: #fff; border: 0.5px solid #D3D1C7; border-radius: 10px; overflow: hidden; }
+  .perspective-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 0.5px solid #D3D1C7; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .p-who { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
+  .p-label { font-size: 11.5px; font-weight: 500; color: #2C2C2A; }
+  .p-headline { margin-left: auto; font-size: 10px; font-style: italic; color: #888780; text-align: right; max-width: 200px; line-height: 1.4; }
+  .perspective-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 12px; }
+  .gain { background: #F5F4F1; border-radius: 7px; padding: 10px 11px; }
+  .gain-title { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .gain-text { font-size: 10px; color: #5F5E5A; line-height: 1.55; font-weight: 400; }
+  .terms { background: #fff; border: 0.5px solid #D3D1C7; border-radius: 10px; padding: 13px 16px; margin-top: 2px; }
+  .terms-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #1B4060; margin-bottom: 10px; }
+  .terms-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .terms-item { display: flex; align-items: flex-start; gap: 7px; font-size: 10.5px; color: #2C2C2A; line-height: 1.45; }
+  .terms-dot { width: 4px; height: 4px; border-radius: 50%; background: #C87D2E; flex-shrink: 0; margin-top: 5px; }
+  .terms-note { margin-top: 9px; font-size: 9.5px; color: #888780; font-style: italic; border-top: 0.5px solid #D3D1C7; padding-top: 9px; }
+  .footer { display: flex; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 0.5px solid #D3D1C7; margin-top: auto; }
+  .footer-baseline { font-size: 9.5px; font-style: italic; color: #888780; font-weight: 300; }
+  .footer-right { text-align: right; font-size: 9.5px; color: #888780; line-height: 1.5; }
+  .footer-url { font-size: 10.5px; font-weight: 600; color: #C87D2E; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-icon">
+        <svg width="20" height="20" viewBox="0 0 42 42" fill="none">
+          <rect width="42" height="42" rx="10" fill="rgba(255,255,255,0.1)"/>
+          <rect x="15" y="7" width="13" height="13" rx="2.5" transform="rotate(45 21 13.5)" fill="none" stroke="white" stroke-width="1.5" opacity="0.9"/>
+          <circle cx="21" cy="13.5" r="2.2" fill="#C87D2E"/>
+          <line x1="21" y1="22" x2="21" y2="32" stroke="white" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+          <line x1="14" y1="32" x2="28" y2="32" stroke="white" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo-name">Liavo</span>
+      <div class="sep"></div>
+      <span class="badge">Réseaux partenaires</span>
+    </div>
+    <div class="header-title">Proposition de partenariat — LAMDJ &amp; IDDJ</div>
+    <div class="header-sub">Ce que ce partenariat apporte à chaque acteur : réseaux, hébergeurs, enseignants, et LIAVO</div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val" style="color:#1B4060">179</div><div class="kpi-label">centres hébergeurs couverts<br>(109 LAMDJ + 70 IDDJ)</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#1B4060">700+</div><div class="kpi-label">demandes de séjour / an<br>sur les deux réseaux</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#C87D2E">Gratuit</div><div class="kpi-label">pour tous les hébergeurs<br>des deux réseaux en 2026</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#1E5C42">10%</div><div class="kpi-label">de commission reversée<br>à chaque réseau dès 2027</div></div>
+  </div>
+
+  <div class="perspective">
+    <div class="perspective-header">
+      <div class="dot" style="background:#1B4060"></div>
+      <div><div class="p-who" style="color:#1B4060">Pour les réseaux</div><div class="p-label">LAMDJ &amp; IDDJ — sur un pied d'égalité</div></div>
+      <div class="p-headline">Des données de pilotage que vous n'avez qu'à moitié aujourd'hui</div>
+    </div>
+    <div class="perspective-body">
+      <div class="gain"><div class="gain-title" style="color:#1B4060">Dashboard en temps réel</div><div class="gain-text">Taux de réponse, taux de concrétisation, CA réseau, scoring d'activation centre par centre — sans relancer personne ni compiler des tableaux.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1B4060">Recrutement d'adhérents</div><div class="gain-text">Le tarif réseau préférentiel devient un argument d'adhésion. Un hébergeur non-membre qui veut LIAVO doit passer par votre réseau.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1B4060">Réduction charge admin</div><div class="gain-text">Les relances manuelles, le suivi à 30 jours, le reporting mensuel disparaissent. Votre équipe se concentre sur l'accompagnement et la relation centres.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1B4060">Commission dès 2027</div><div class="gain-text">10% reversés sur chaque abonnement actif. Sur 100 centres payants : 290 à 590€/mois de ressources supplémentaires pour chaque réseau.</div></div>
+    </div>
+  </div>
+
+  <div class="perspective">
+    <div class="perspective-header">
+      <div class="dot" style="background:#C87D2E"></div>
+      <div><div class="p-who" style="color:#C87D2E">Pour les hébergeurs</div><div class="p-label">Centres adhérents LAMDJ &amp; IDDJ</div></div>
+      <div class="p-headline">Un outil complet offert par leur réseau — qui n'existe pas ailleurs sur le marché</div>
+    </div>
+    <div class="perspective-body">
+      <div class="gain"><div class="gain-title" style="color:#C87D2E">Appel d'offres numérique</div><div class="gain-text">Réception des demandes d'enseignants directement dans la plateforme, ciblées par zone géographique, capacité et dates.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#C87D2E">Devis &amp; facturation intégrés</div><div class="gain-text">Constructeur de devis avec catalogue, signature électronique directeur, génération de facture et export Chorus Pro.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#C87D2E">Espace collaboratif séjour</div><div class="gain-text">Planning, messagerie, documents partagés avec l'enseignant sur chaque séjour. Tout centralisé, sans aller-retour email.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#C87D2E">Gratuit en 2026</div><div class="gain-text">Accès au plan Complet (59€/mois en tarif public) sans frais pour tous les hébergeurs des deux réseaux pendant toute l'année 2026.</div></div>
+    </div>
+  </div>
+
+  <div class="perspective">
+    <div class="perspective-header">
+      <div class="dot" style="background:#1E5C42"></div>
+      <div><div class="p-who" style="color:#1E5C42">Pour les enseignants</div><div class="p-label">Établissements scolaires — toujours gratuit</div></div>
+      <div class="p-headline">Un parcours administratif simplifié de bout en bout</div>
+    </div>
+    <div class="perspective-body">
+      <div class="gain"><div class="gain-title" style="color:#1E5C42">Recherche &amp; appel d'offres</div><div class="gain-text">L'enseignant publie son projet une seule fois. Les centres du réseau reçoivent la demande et répondent avec un devis complet dans la plateforme.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1E5C42">Workflow de validation</div><div class="gain-text">Validation directeur, transmission rectorat, signature électronique — chaque étape débloque la suivante, sans ressaisie manuelle.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1E5C42">Familles &amp; paiements</div><div class="gain-text">Autorisations parentales numériques, fiche sanitaire, paiement échelonné jusqu'à 10 fois — tout depuis un espace unique.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#1E5C42">Traçabilité complète</div><div class="gain-text">Chaque validation horodatée et archivée. En cas de contrôle, l'historique complet est disponible en un clic.</div></div>
+    </div>
+  </div>
+
+  <div class="perspective">
+    <div class="perspective-header">
+      <div class="dot" style="background:#888780"></div>
+      <div><div class="p-who" style="color:#888780">Pour LIAVO</div><div class="p-label">LIAVO SASU — co-construction nationale</div></div>
+      <div class="p-headline">Une base réelle pour valider et déployer la plateforme à l'échelle nationale</div>
+    </div>
+    <div class="perspective-body">
+      <div class="gain"><div class="gain-title" style="color:#888780">Traction immédiate</div><div class="gain-text">179 centres et 700+ demandes annuelles dès le démarrage — une base réelle pour valider le produit avec des données terrain.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#888780">Co-construction roadmap</div><div class="gain-text">LAMDJ et IDDJ co-construisent les priorités de développement en 2026. Leurs besoins réels pilotent les fonctionnalités.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#888780">Crédibilité institutionnelle</div><div class="gain-text">Deux réseaux associatifs reconnus facilitent la démarche vers les académies et le déploiement à l'échelle nationale.</div></div>
+      <div class="gain"><div class="gain-title" style="color:#888780">Modèle économique validé</div><div class="gain-text">Le partenariat permet d'atteindre la rentabilité opérationnelle (~30-35 centres payants) dès la bascule 2027, sans levée précoce.</div></div>
+    </div>
+  </div>
+
+  <div class="terms">
+    <div class="terms-title">Modalités du partenariat</div>
+    <div class="terms-grid">
+      <div class="terms-item"><span class="terms-dot"></span>Plan Complet (59€/mois tarif public) offert à tous les hébergeurs des deux réseaux en 2026</div>
+      <div class="terms-item"><span class="terms-dot"></span>Dashboard réseau dédié livré dès la signature de l'accord pour chaque réseau</div>
+      <div class="terms-item"><span class="terms-dot"></span>Import automatique des centres depuis APIDAE à l'onboarding (LAMDJ &amp; IDDJ)</div>
+      <div class="terms-item"><span class="terms-dot"></span>10% de commission reversée à chaque réseau sur ses abonnements actifs dès 2027</div>
+      <div class="terms-item"><span class="terms-dot"></span>Tarif réseau négocié ensemble pour 2027 avant fin 2026</div>
+      <div class="terms-item"><span class="terms-dot"></span>Établissements scolaires : accès toujours gratuit, sans condition</div>
+    </div>
+    <div class="terms-note">Conditionné à un accord de partenariat signé précisant les modalités 2027. LAMDJ et IDDJ — réseaux partenaires fondateurs, sur un pied d'égalité.</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-baseline">"Du projet pédagogique à la facturation finale."</div>
+    <div class="footer-right">
+      <div>Théo Roche-Loison — Fondateur LIAVO · contact@liavo.fr</div>
+      <div class="footer-url">liavo.fr</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
