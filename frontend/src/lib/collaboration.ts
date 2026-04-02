@@ -121,7 +121,7 @@ export async function getPlanning(sejourId: string): Promise<PlanningActivite[]>
 
 export async function createPlanning(
   sejourId: string,
-  body: { date: string; heureDebut: string; heureFin: string; titre: string; description?: string; responsable?: string },
+  body: { date: string; heureDebut: string; heureFin: string; titre: string; description?: string; responsable?: string; couleur?: string },
 ): Promise<PlanningActivite> {
   const { data } = await api.post<PlanningActivite>(`/collaboration/${sejourId}/planning`, body);
   return data;

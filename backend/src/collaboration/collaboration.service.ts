@@ -101,6 +101,7 @@ export class CollaborationService {
         titre: dto.titre,
         description: dto.description,
         responsable: dto.responsable,
+        couleur: dto.couleur,
       },
     });
   }

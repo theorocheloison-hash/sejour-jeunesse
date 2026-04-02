@@ -107,6 +107,17 @@ const NIVEAU_SKI_LABEL: Record<string, string> = {
   HORS_PISTE: 'Hors-piste',
 };
 
+const COULEURS_ACTIVITE: { hex: string; label: string }[] = [
+  { hex: '#16a34a', label: 'Vert' },
+  { hex: '#2563eb', label: 'Bleu' },
+  { hex: '#dc2626', label: 'Rouge' },
+  { hex: '#d97706', label: 'Orange' },
+  { hex: '#7c3aed', label: 'Violet' },
+  { hex: '#0891b2', label: 'Cyan' },
+  { hex: '#be185d', label: 'Rose' },
+  { hex: '#374151', label: 'Gris' },
+];
+
 // ─── DroppableDay ────────────────────────────────────────────────────────────
 function DroppableDay({
   dayIdx, dateStr, isVenue, slots, slotHeight, onCellClick, children
@@ -237,7 +248,8 @@ function DraggableActivity({
       onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing && !justResized.current) onEdit(); }}
     >
       <div
-        className="h-full rounded-md bg-green-600 text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
+        className="h-full rounded-md text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
+        style={{ backgroundColor: act.couleur ?? '#16a34a' }}
         {...(isVenue ? { ...attributes, ...listeners } : {})}
       >
         <div className="font-semibold truncate">{act.titre}</div>
@@ -287,6 +299,7 @@ export default function CollaborationPage() {
     titre: string;
     description: string;
     responsable: string;
+    couleur: string;
     editId?: string;
   } | null>(null);
 
@@ -453,6 +466,7 @@ export default function CollaborationPage() {
         titre: planModal.titre,
         description: planModal.description || undefined,
         responsable: planModal.responsable || undefined,
+        couleur: planModal.couleur || undefined,
       });
       setPlanning(prev => [...prev, newItem]);
       setPlanModal(null);
@@ -1019,6 +1033,7 @@ export default function CollaborationPage() {
               titre: '',
               description: '',
               responsable: '',
+              couleur: '',
             });
           };
 
@@ -1039,6 +1054,7 @@ export default function CollaborationPage() {
                 titre: activite.nom,
                 description: activite.description ?? '',
                 responsable: '',
+                couleur: '',
               });
               return;
             }
@@ -1177,6 +1193,7 @@ export default function CollaborationPage() {
                                       titre: act.titre,
                                       description: act.description ?? '',
                                       responsable: act.responsable ?? '',
+                                      couleur: act.couleur ?? '',
                                       editId: act.id,
                                     })}
                                     onResize={async (newDurationSlots) => {
@@ -1195,6 +1212,7 @@ export default function CollaborationPage() {
                                           titre: act.titre,
                                           description: act.description,
                                           responsable: act.responsable,
+                                          couleur: act.couleur ?? undefined,
                                         });
                                         setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
                                       } catch {
@@ -2459,6 +2477,29 @@ export default function CollaborationPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     placeholder="Nom du responsable" />
                 </div>
+                {user.role === 'VENUE' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Couleur du groupe <span className="text-gray-400 font-normal">(optionnel)</span>
+                    </label>
+                    <div className="flex gap-2 flex-wrap">
+                      {COULEURS_ACTIVITE.map(c => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          title={c.label}
+                          onClick={() => setPlanModal(m => m ? { ...m, couleur: c.hex } : m)}
+                          className="w-6 h-6 rounded-full border-2 transition-all"
+                          style={{
+                            backgroundColor: c.hex,
+                            borderColor: planModal?.couleur === c.hex ? '#1B4060' : 'transparent',
+                            transform: planModal?.couleur === c.hex ? 'scale(1.25)' : 'scale(1)',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 mt-4">
                 <button onClick={() => setPlanModal(null)}

@@ -23,4 +23,8 @@ export class CreatePlanningDto {
   @IsString()
   @IsOptional()
   responsable?: string;
+
+  @IsString()
+  @IsOptional()
+  couleur?: string;
 }
