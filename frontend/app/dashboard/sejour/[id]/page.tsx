@@ -74,6 +74,8 @@ import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
 import type { BudgetPDFProps } from '@/src/components/pdf/BudgetPDFButton';
 import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePDFButton';
+import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -289,6 +291,52 @@ function DraggableActivity({
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
+
+function DevisPDFInline({ data }: { data: DevisPDFProps }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    (async () => {
+      try {
+        const { pdf } = await import('@react-pdf/renderer');
+        const { default: DevisPDF } = await import('@/src/components/pdf/DevisPDF');
+        const blob = await pdf(<DevisPDF {...data} />).toBlob();
+        if (!cancelled) {
+          objectUrl = URL.createObjectURL(blob);
+          setUrl(objectUrl);
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, []);
+
+  if (loading) return (
+    <div className="flex justify-center items-center h-48 rounded-2xl border border-gray-200 bg-white">
+      <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
+        Génération du PDF...
+      </div>
+    </div>
+  );
+
+  if (!url) return null;
+
+  return (
+    <iframe
+      src={url}
+      className="w-full rounded-2xl border border-gray-200 shadow-sm"
+      style={{ height: '80vh', minHeight: 600 }}
+      title="Aperçu du devis"
+    />
+  );
+}
 
 export default function CollaborationPage() {
   const { id } = useParams<{ id: string }>();
@@ -911,18 +959,11 @@ export default function CollaborationPage() {
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* ── Print CSS ─── */}
-        <style>{`
-          @media print {
-            body * { visibility: hidden; }
-            #devis-print-zone, #devis-print-zone * { visibility: visible; }
-            #devis-print-zone { position: absolute; left: 0; top: 0; width: 100%; }
-          }
-        `}</style>
+
 
         {/* ── Devis ─── */}
         {tab === 'devis' && (
-          <div id="devis-print-zone">
+          <div>
             {budgetLoading && (
               <div className="flex justify-center py-12">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
@@ -940,168 +981,71 @@ export default function CollaborationPage() {
               const s = budgetData.sejour;
               const c = d.centre;
               const createur = s?.createur;
-              const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              const dateDevis = new Date(d.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-              const isPdfDevis = !!d.documentUrl;
+              const htCalc = Number(d.montantHT) || d.lignes.reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
+              const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
+              const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
 
-              // Récapitulatif TVA par taux
-              const tvaByRate = d.lignes.reduce<Record<number, { ht: number; tva: number }>>((acc, l) => {
-                if (!acc[l.tva]) acc[l.tva] = { ht: 0, tva: 0 };
-                acc[l.tva].ht += l.totalHT;
-                acc[l.tva].tva += l.totalTTC - l.totalHT;
-                return acc;
-              }, {});
-
-              const totalHT = d.lignes.reduce((sum, l) => sum + l.totalHT, 0);
-              const totalTTC = d.lignes.reduce((sum, l) => sum + l.totalTTC, 0);
-              const totalTVA = totalTTC - totalHT;
+              const pdfProps: DevisPDFProps = {
+                typeDocument: 'DEVIS',
+                numeroDocument: d.numeroDevis ?? `DEV-${d.id.substring(0, 8).toUpperCase()}`,
+                dateDocument: d.createdAt,
+                dateValidite: new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
+                nomEmetteur: d.nomEntreprise ?? c?.nom ?? '',
+                adresseEmetteur: d.adresseEntreprise ?? [c?.adresse, c?.codePostal, c?.ville].filter(Boolean).join(', '),
+                siretEmetteur: d.siretEntreprise ?? c?.siret ?? undefined,
+                emailEmetteur: d.emailEntreprise ?? c?.email ?? undefined,
+                telEmetteur: d.telEntreprise ?? c?.telephone ?? undefined,
+                tvaEmetteur: (c as any)?.tvaIntracommunautaire ?? undefined,
+                ibanEmetteur: (c as any)?.iban ?? undefined,
+                nomDestinataire: createur ? `${createur.prenom} ${createur.nom}` : '',
+                etablissementNom: createur?.etablissementNom ?? undefined,
+                adresseDestinataire: createur?.etablissementAdresse ?? undefined,
+                emailDestinataire: (createur as any)?.etablissementEmail ?? createur?.email ?? undefined,
+                telDestinataire: (createur as any)?.etablissementTelephone ?? (createur as any)?.telephone ?? undefined,
+                titreSejour: s?.titre ?? '',
+                lieuSejour: (s as any)?.lieu ?? (s as any)?.ville ?? '',
+                dateDebutSejour: s?.dateDebut,
+                dateFinSejour: s?.dateFin,
+                nombreEleves: s?.placesTotales ?? undefined,
+                niveauClasse: (s as any)?.niveauClasse ?? undefined,
+                lignes: d.lignes.map((l: any) => ({
+                  description: l.description,
+                  quantite: Number(l.quantite),
+                  prixUnitaire: Number(l.prixUnitaire),
+                  tva: Number(l.tva),
+                  totalHT: Number(l.totalHT),
+                  totalTTC: Number(l.totalTTC),
+                })),
+                montantHT: htCalc,
+                montantTVA: tvaCalc,
+                montantTTC: ttcCalc,
+                montantAcompte: Number(d.montantAcompte) || undefined,
+                pourcentageAcompte: Number(d.pourcentageAcompte) || undefined,
+                conditionsAnnulation: d.conditionsAnnulation ?? undefined,
+                signatureDirecteur: (d as any).signatureDirecteur ?? null,
+              };
 
               return (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 space-y-8">
-
-                  {/* Bouton impression */}
-                  <div className="flex justify-end print:hidden">
-                    <button
-                      onClick={() => window.print()}
-                      className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
-                    >
-                      Imprimer le devis
-                    </button>
-                  </div>
-
-                  {/* En-tête : émetteur + destinataire */}
-                  <div className="grid grid-cols-2 gap-8">
-                    {/* Émetteur (hébergeur) */}
-                    <div className="text-sm text-gray-700 space-y-1">
-                      <p className="font-bold text-gray-900 text-base">{d.nomEntreprise ?? c?.nom ?? '—'}</p>
-                      {(d.adresseEntreprise ?? c?.adresse) && <p>{d.adresseEntreprise ?? c?.adresse}</p>}
-                      {c && <p>{c.codePostal} {c.ville}</p>}
-                      {(d.telEntreprise ?? c?.telephone) && <p>Tél. : {d.telEntreprise ?? c?.telephone}</p>}
-                      {(d.emailEntreprise ?? c?.email) && <p>Email : {d.emailEntreprise ?? c?.email}</p>}
-                      {(d.siretEntreprise ?? c?.siret) && <p>N° SIRET : {d.siretEntreprise ?? c?.siret}</p>}
-                    </div>
-
-                    {/* Destinataire (établissement) */}
-                    <div className="text-sm text-gray-700 space-y-1">
-                      {createur?.etablissementNom && <p className="font-bold text-gray-900 text-base">{createur.etablissementNom}</p>}
-                      {createur?.prenom && <p>{createur.prenom} {createur.nom}</p>}
-                      {createur?.etablissementAdresse && <p>{createur.etablissementAdresse}</p>}
-                      {createur?.etablissementVille && <p>{createur.etablissementVille}</p>}
-                      {(createur?.etablissementTelephone ?? createur?.telephone) && <p>Tél. : {createur?.etablissementTelephone ?? createur?.telephone}</p>}
-                      {(createur?.etablissementEmail ?? createur?.email) && <p>Email : {createur?.etablissementEmail ?? createur?.email}</p>}
-                    </div>
-                  </div>
-
-                  {/* Numéro devis + titre séjour + date */}
-                  <div className="text-center border-y border-gray-200 py-4 space-y-1">
-                    {s?.titre && <p className="text-lg font-bold text-gray-900 uppercase">{s.titre}</p>}
-                    {d.numeroDevis && <p className="text-base font-semibold text-gray-700">DEVIS N° {d.numeroDevis}</p>}
-                    <p className="text-sm text-gray-500">Le {dateDevis}</p>
-                    {s?.dateDebut && s?.dateFin && (
-                      <p className="text-sm text-gray-500">
-                        Du {new Date(s.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} au {new Date(s.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                      </p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <DevisPDFButton
+                      data={pdfProps}
+                      filename={`devis-${pdfProps.numeroDocument}.pdf`}
+                      label="Télécharger le devis"
+                    />
+                    {user.role === 'VENUE' && (
+                      <a
+                        href={`/dashboard/venue/devis/${d.id}/modifier`}
+                        className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                        </svg>
+                        Modifier le devis
+                      </a>
                     )}
                   </div>
-
-                  {/* Tableau des lignes */}
-                  {isPdfDevis ? (
-                    <div className="rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                        <p className="text-sm font-medium text-gray-700">Document PDF original</p>
-                        <a
-                          href={d.documentUrl!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
-                        >
-                          Ouvrir en plein écran
-                        </a>
-                      </div>
-                      <iframe
-                        src={d.documentUrl!}
-                        className="w-full"
-                        style={{ height: '600px' }}
-                        title="Devis PDF"
-                      />
-                    </div>
-                  ) : d.lignes.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm border-collapse">
-                        <thead>
-                          <tr className="border-b-2 border-gray-300">
-                            <th className="text-left py-2 pr-4 font-semibold text-gray-700">Désignation</th>
-                            <th className="text-right py-2 px-2 font-semibold text-gray-700">Qté</th>
-                            <th className="text-right py-2 px-2 font-semibold text-gray-700">PU HT</th>
-                            <th className="text-right py-2 px-2 font-semibold text-gray-700">TVA %</th>
-                            <th className="text-right py-2 px-2 font-semibold text-gray-700">Total HT</th>
-                            <th className="text-right py-2 pl-2 font-semibold text-gray-700">Total TTC</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {d.lignes.map((l) => (
-                            <tr key={l.id} className="border-b border-gray-100">
-                              <td className="py-2 pr-4 text-gray-900">{l.description}</td>
-                              <td className="py-2 px-2 text-right text-gray-600">{l.quantite}</td>
-                              <td className="py-2 px-2 text-right text-gray-600">{fmt(l.prixUnitaire)} &euro;</td>
-                              <td className="py-2 px-2 text-right text-gray-600">{l.tva} %</td>
-                              <td className="py-2 px-2 text-right text-gray-600">{fmt(l.totalHT)} &euro;</td>
-                              <td className="py-2 pl-2 text-right font-semibold text-gray-900">{fmt(l.totalTTC)} &euro;</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : null}
-
-                  {/* Récapitulatif TVA + totaux */}
-                  <div className="flex justify-end">
-                    <div className="w-80 space-y-1 text-sm">
-                      {Object.entries(tvaByRate).map(([taux, vals]) => (
-                        <div key={taux} className="flex justify-between text-gray-600">
-                          <span>TVA {taux} % — Base HT</span>
-                          <span>{fmt(vals.ht)} &euro;</span>
-                        </div>
-                      ))}
-                      <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Total HT</span>
-                          <span>{fmt(totalHT)} &euro;</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>TVA</span>
-                          <span>{fmt(totalTVA)} &euro;</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-gray-900 text-base border-t border-gray-300 pt-2">
-                          <span>Total TTC</span>
-                          <span>{fmt(totalTTC)} &euro;</span>
-                        </div>
-                      </div>
-
-                      {/* Conditions de paiement */}
-                      {d.pourcentageAcompte && d.montantAcompte && (
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600 space-y-1">
-                          <p className="font-semibold text-gray-700">Conditions de paiement :</p>
-                          <p>• {d.pourcentageAcompte} % soit {fmt(d.montantAcompte)} &euro; — Acompte</p>
-                          <p>• {100 - d.pourcentageAcompte} % soit {fmt(totalTTC - d.montantAcompte)} &euro; — Solde</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Conditions annulation */}
-                  {d.conditionsAnnulation && (
-                    <div className="text-xs text-gray-500 border-t border-gray-100 pt-4">
-                      <p className="font-semibold text-gray-700 mb-1">Conditions d&apos;annulation :</p>
-                      <p>{d.conditionsAnnulation}</p>
-                    </div>
-                  )}
-
-                  {/* Bon pour accord */}
-                  <div className="border-t border-gray-200 pt-6 text-sm text-gray-600">
-                    <p>Bon pour accord</p>
-                  </div>
-
+                  <DevisPDFInline data={pdfProps} />
                 </div>
               );
             })()}
