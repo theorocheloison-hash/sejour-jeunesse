@@ -31,6 +31,17 @@ import {
   deleteLigneCompl,
   addRecetteBudget,
   deleteRecetteBudget,
+  getContraintesSejour,
+  createContrainteSejour,
+  deleteContrainteSejour,
+  getGroupes,
+  createGroupe,
+  updateGroupe,
+  deleteGroupe,
+  proposerGroupes,
+  affecterEleve,
+  retirerEleve,
+  cloturerInscriptions,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -44,6 +55,9 @@ import type {
   LigneCompl,
   RecetteBudget,
   ActiviteCatalogue,
+  ContrainteSejour,
+  GroupeSejour,
+  PropositionGroupes,
 } from '@/src/lib/collaboration';
 import {
   getAccompagnateursBySejour,
@@ -61,7 +75,7 @@ import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePD
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'devis' | 'messages' | 'planning' | 'participants' | 'documents' | 'budget' | 'projet';
+type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'contraintes' | 'participants' | 'documents' | 'budget' | 'projet';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -75,6 +89,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'devis', label: 'Devis' },
   { key: 'messages', label: 'Messages' },
   { key: 'planning', label: 'Planning' },
+  { key: 'groupes', label: 'Groupes' },
+  { key: 'contraintes', label: 'Contraintes' },
   { key: 'participants', label: 'Participants' },
   { key: 'documents', label: 'Documents' },
   { key: 'budget', label: 'Budget prévisionnel' },
@@ -303,6 +319,16 @@ export default function CollaborationPage() {
     editId?: string;
   } | null>(null);
 
+  // Groupes & contraintes
+  const [groupes, setGroupes] = useState<GroupeSejour[]>([]);
+  const [groupeModal, setGroupeModal] = useState<{ open: boolean; editId?: string; nom: string; couleur: string; taille: number } | null>(null);
+  const [propositionGroupes, setPropositionGroupes] = useState<PropositionGroupes | null>(null);
+  const [loadingProposition, setLoadingProposition] = useState(false);
+  const [contraintesSejour, setContraintesSejour] = useState<ContrainteSejour[]>([]);
+  const [contrainteSejourForm, setContrainteSejourForm] = useState({ libelle: '', type: 'BLOCAGE_CRENEAU', date: '', jourSemaine: '', heureDebut: '', heureFin: '', produitId: '' });
+  const [savingContrainteSejour, setSavingContrainteSejour] = useState(false);
+  const [dragEleve, setDragEleve] = useState<string | null>(null);
+
   // Documents
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
   const [docsCentre, setDocsCentre] = useState<DocumentCentreFiche[]>([]);
@@ -422,6 +448,14 @@ export default function CollaborationPage() {
     if (tab === 'devis') loadBudget();
     if (tab === 'messages') loadMessages();
     if (tab === 'planning') loadPlanning();
+    if (tab === 'groupes') {
+      getGroupes(id).then(setGroupes).catch(() => {});
+      getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
+    }
+    if (tab === 'contraintes') {
+      getContraintesSejour(id).then(setContraintesSejour).catch(() => {});
+      getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
+    }
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
     if (tab === 'budget') loadBudget();
@@ -480,6 +514,101 @@ export default function CollaborationPage() {
     try {
       await deletePlanning(id, planningId);
       setPlanning((prev) => prev.filter((p) => p.id !== planningId));
+    } catch { /* ignore */ }
+  };
+
+  const handleProposerGroupes = async () => {
+    if (!id) return;
+    setLoadingProposition(true);
+    try {
+      const prop = await proposerGroupes(id);
+      setPropositionGroupes(prop);
+    } catch { /* ignore */ }
+    finally { setLoadingProposition(false); }
+  };
+
+  const handleAppliquerProposition = async () => {
+    if (!id || !propositionGroupes) return;
+    try {
+      const created = await Promise.all(
+        propositionGroupes.groupes.map(g => createGroupe(id, g))
+      );
+      setGroupes(prev => [...prev, ...created]);
+      setPropositionGroupes(null);
+    } catch { /* ignore */ }
+  };
+
+  const handleSaveGroupe = async () => {
+    if (!groupeModal || !id) return;
+    try {
+      if (groupeModal.editId) {
+        const updated = await updateGroupe(id, groupeModal.editId, { nom: groupeModal.nom, couleur: groupeModal.couleur, taille: groupeModal.taille });
+        setGroupes(prev => prev.map(g => g.id === groupeModal.editId ? updated : g));
+      } else {
+        const created = await createGroupe(id, { nom: groupeModal.nom, couleur: groupeModal.couleur, taille: groupeModal.taille });
+        setGroupes(prev => [...prev, created]);
+      }
+      setGroupeModal(null);
+    } catch { /* ignore */ }
+  };
+
+  const handleDeleteGroupe = async (groupeId: string) => {
+    if (!id) return;
+    try {
+      await deleteGroupe(id, groupeId);
+      setGroupes(prev => prev.filter(g => g.id !== groupeId));
+    } catch { /* ignore */ }
+  };
+
+  const handleAffecterEleve = async (autorisationId: string, groupeId: string) => {
+    if (!id) return;
+    try {
+      await affecterEleve(id, groupeId, autorisationId);
+      setGroupes(await getGroupes(id));
+    } catch { /* ignore */ }
+  };
+
+  const handleRetirerEleve = async (autorisationId: string) => {
+    if (!id) return;
+    try {
+      await retirerEleve(id, autorisationId);
+      setGroupes(await getGroupes(id));
+    } catch { /* ignore */ }
+  };
+
+  const handleCloturerInscriptions = async () => {
+    if (!id) return;
+    try {
+      await cloturerInscriptions(id);
+      setSejour(prev => prev ? { ...prev, inscriptionsCloturees: true } as any : prev);
+    } catch { /* ignore */ }
+  };
+
+  const handleAddContrainteSejour = async () => {
+    if (!id || !contrainteSejourForm.libelle) return;
+    setSavingContrainteSejour(true);
+    try {
+      const c = await createContrainteSejour(id, {
+        libelle: contrainteSejourForm.libelle,
+        type: contrainteSejourForm.type,
+        date: contrainteSejourForm.date || undefined,
+        jourSemaine: contrainteSejourForm.jourSemaine ? Number(contrainteSejourForm.jourSemaine) : undefined,
+        heureDebut: contrainteSejourForm.heureDebut || undefined,
+        heureFin: contrainteSejourForm.heureFin || undefined,
+        produitId: contrainteSejourForm.produitId || undefined,
+      });
+      setContraintesSejour(prev => [...prev, c]);
+      setContrainteSejourForm({ libelle: '', type: 'BLOCAGE_CRENEAU', date: '', jourSemaine: '', heureDebut: '', heureFin: '', produitId: '' });
+    } finally {
+      setSavingContrainteSejour(false);
+    }
+  };
+
+  const handleDeleteContrainteSejour = async (contrainteId: string) => {
+    if (!id) return;
+    try {
+      await deleteContrainteSejour(id, contrainteId);
+      setContraintesSejour(prev => prev.filter(c => c.id !== contrainteId));
     } catch { /* ignore */ }
   };
 
@@ -716,7 +845,12 @@ export default function CollaborationPage() {
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
-            {TABS.filter((t) => (t.key !== 'projet' || user.role === 'TEACHER') && (t.key !== 'budget' || user.role === 'TEACHER' || isDirector)).map((t) => (
+            {TABS.filter((t) =>
+              (t.key !== 'projet' || user.role === 'TEACHER') &&
+              (t.key !== 'budget' || user.role === 'TEACHER' || isDirector) &&
+              (t.key !== 'groupes' || user.role === 'TEACHER' || user.role === 'VENUE') &&
+              (t.key !== 'contraintes' || user.role === 'VENUE')
+            ).map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
@@ -1262,6 +1396,317 @@ export default function CollaborationPage() {
             </DndContext>
           );
         })()}
+
+        {/* ── Groupes ─── */}
+        {tab === 'groupes' && (
+          <div className="space-y-6">
+            {/* Bandeau clôture inscriptions — TEACHER uniquement */}
+            {user.role === 'TEACHER' && !(sejour as any)?.inscriptionsCloturees && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Inscriptions ouvertes</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Clôturez les inscriptions pour affecter les élèves aux groupes.</p>
+                </div>
+                <button onClick={handleCloturerInscriptions}
+                  className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+                  Clôturer les inscriptions
+                </button>
+              </div>
+            )}
+            {user.role === 'TEACHER' && (sejour as any)?.inscriptionsCloturees && (
+              <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-3 text-sm text-green-700 font-medium">
+                ✓ Inscriptions clôturées — vous pouvez affecter les élèves aux groupes
+              </div>
+            )}
+
+            {/* Actions VENUE */}
+            {user.role === 'VENUE' && (
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">Groupes du séjour</h2>
+                <div className="flex gap-2">
+                  <button onClick={handleProposerGroupes} disabled={loadingProposition}
+                    className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] disabled:opacity-50">
+                    {loadingProposition ? 'Calcul...' : '✨ Proposer automatiquement'}
+                  </button>
+                  <button onClick={() => setGroupeModal({ open: true, nom: '', couleur: '#16a34a', taille: 10 })}
+                    className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+                    + Ajouter un groupe
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Proposition automatique */}
+            {propositionGroupes && user.role === 'VENUE' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">Proposition : {propositionGroupes.nombreGroupes} groupe{propositionGroupes.nombreGroupes > 1 ? 's' : ''} de {propositionGroupes.tailleGroupe} élèves</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Basée sur {propositionGroupes.nombreEleves} élèves et les capacités de vos activités</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleAppliquerProposition}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                      Appliquer
+                    </button>
+                    <button onClick={() => setPropositionGroupes(null)}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                      Ignorer
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {propositionGroupes.groupes.map((g, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: g.couleur }} />
+                      <span className="text-xs font-medium text-gray-900">{g.nom}</span>
+                      <span className="text-xs text-gray-500">{g.taille} élèves</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Layout deux colonnes : élèves non affectés | groupes */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+              {/* Colonne gauche — élèves non affectés */}
+              {(sejour as any)?.inscriptionsCloturees && (
+                <div className="lg:col-span-1">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Élèves non affectés ({participants.filter(p => !groupes.some(g => g.eleves.some(e => e.autorisationId === p.id))).length})
+                  </h3>
+                  <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                    {participants
+                      .filter(p => !groupes.some(g => g.eleves.some(e => e.autorisationId === p.id)))
+                      .map(p => (
+                        <div
+                          key={p.id}
+                          draggable={user.role === 'TEACHER'}
+                          onDragStart={() => user.role === 'TEACHER' && setDragEleve(p.id)}
+                          onDragEnd={() => setDragEleve(null)}
+                          className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs ${user.role === 'TEACHER' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-semibold shrink-0">
+                            {p.elevePrenom[0]}{p.eleveNom[0]}
+                          </div>
+                          <span className="truncate font-medium text-gray-900">{p.elevePrenom} {p.eleveNom}</span>
+                          {p.signeeAt && <span className="shrink-0 text-green-500">✓</span>}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Colonne droite — cards groupes */}
+              <div className={`${(sejour as any)?.inscriptionsCloturees ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                {groupes.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
+                    {user.role === 'VENUE' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {groupes.map(g => (
+                      <div
+                        key={g.id}
+                        onDragOver={user.role === 'TEACHER' ? (e) => e.preventDefault() : undefined}
+                        onDrop={user.role === 'TEACHER' ? (e) => { e.preventDefault(); if (dragEleve) { handleAffecterEleve(dragEleve, g.id); setDragEleve(null); } } : undefined}
+                        className={`rounded-2xl border-2 bg-white p-4 transition-colors ${dragEleve && user.role === 'TEACHER' ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'}`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: g.couleur }} />
+                            <span className="text-sm font-semibold text-gray-900">{g.nom}</span>
+                            <span className="text-xs text-gray-400">({g.eleves.length}/{g.taille})</span>
+                          </div>
+                          {user.role === 'VENUE' && (
+                            <div className="flex gap-1">
+                              <button onClick={() => setGroupeModal({ open: true, editId: g.id, nom: g.nom, couleur: g.couleur, taille: g.taille })}
+                                className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)]">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                                </svg>
+                              </button>
+                              <button onClick={() => handleDeleteGroupe(g.id)}
+                                className="rounded p-1 text-gray-400 hover:text-red-500">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1 min-h-8">
+                          {g.eleves.map(e => (
+                            <div key={e.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs">
+                              <span className="truncate text-gray-900">{e.autorisation.elevePrenom} {e.autorisation.eleveNom}</span>
+                              {user.role === 'TEACHER' && (
+                                <button onClick={() => handleRetirerEleve(e.autorisationId)}
+                                  className="shrink-0 ml-2 text-gray-300 hover:text-red-400">&times;</button>
+                              )}
+                            </div>
+                          ))}
+                          {g.eleves.length === 0 && (
+                            <p className="text-xs text-gray-300 text-center py-2">
+                              {(sejour as any)?.inscriptionsCloturees && user.role === 'TEACHER' ? 'Glissez des élèves ici' : 'Vide'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modale groupe (VENUE uniquement) */}
+            {groupeModal?.open && user.role === 'VENUE' && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setGroupeModal(null)}>
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                  <h2 className="text-sm font-semibold text-gray-900 mb-4">{groupeModal.editId ? 'Modifier le groupe' : 'Nouveau groupe'}</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
+                      <input value={groupeModal.nom}
+                        onChange={e => setGroupeModal(m => m ? { ...m, nom: e.target.value } : m)}
+                        placeholder="ex: Groupe 1, Les Lynx..."
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" autoFocus />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Taille cible (élèves)</label>
+                      <input type="number" min="1" value={groupeModal.taille}
+                        onChange={e => setGroupeModal(m => m ? { ...m, taille: Number(e.target.value) } : m)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Couleur</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {['#16a34a','#2563eb','#dc2626','#d97706','#7c3aed','#0891b2','#be185d','#374151'].map(hex => (
+                          <button key={hex} type="button"
+                            onClick={() => setGroupeModal(m => m ? { ...m, couleur: hex } : m)}
+                            className="w-7 h-7 rounded-full border-2 transition-all"
+                            style={{ backgroundColor: hex, borderColor: groupeModal.couleur === hex ? '#1B4060' : 'transparent', transform: groupeModal.couleur === hex ? 'scale(1.2)' : 'scale(1)' }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => setGroupeModal(null)} className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+                    <button onClick={handleSaveGroupe} disabled={!groupeModal.nom.trim()}
+                      className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                      {groupeModal.editId ? 'Modifier' : 'Créer'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Contraintes ─── */}
+        {tab === 'contraintes' && user.role === 'VENUE' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Contraintes de ce séjour</h2>
+              <p className="text-xs text-gray-500">Règles spécifiques à ce séjour : blocages ponctuels, activités collectives obligatoires, contraintes d&apos;arrivée...</p>
+            </div>
+
+            {/* Liste des contraintes */}
+            {contraintesSejour.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {contraintesSejour.map(c => {
+                  const JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+                  const parts = [
+                    c.type === 'BLOCAGE_CRENEAU' ? '🚫' : c.type === 'ACTIVITE_COLLECTIVE' ? '👥' : '📌',
+                    c.libelle,
+                    c.date ? new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : null,
+                    c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
+                    c.heureDebut && c.heureFin ? `${c.heureDebut}-${c.heureFin}` : null,
+                    c.produit ? `→ ${c.produit.nom}` : null,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs text-orange-800">
+                      {parts}
+                      <button onClick={() => handleDeleteContrainteSejour(c.id)} className="text-orange-300 hover:text-red-500">&times;</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Formulaire nouvelle contrainte */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Ajouter une contrainte</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Libellé *</label>
+                  <input value={contrainteSejourForm.libelle}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, libelle: e.target.value }))}
+                    placeholder="ex: Arrivée lundi 11h, Marché mercredi matin, Rando journée tous ensemble..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                  <select value={contrainteSejourForm.type}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, type: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                    <option value="BLOCAGE_CRENEAU">Blocage créneau</option>
+                    <option value="ACTIVITE_COLLECTIVE">Activité collective (tous les groupes)</option>
+                    <option value="CONTRAINTE_ARRIVEE">Contrainte d&apos;arrivée/départ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Date précise <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                  <input type="date" value={contrainteSejourForm.date}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Jour récurrent <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                  <select value={contrainteSejourForm.jourSemaine}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, jourSemaine: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                    <option value="">Aucun</option>
+                    <option value="1">Lundi</option>
+                    <option value="2">Mardi</option>
+                    <option value="3">Mercredi</option>
+                    <option value="4">Jeudi</option>
+                    <option value="5">Vendredi</option>
+                    <option value="6">Samedi</option>
+                    <option value="0">Dimanche</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure début</label>
+                  <input type="time" value={contrainteSejourForm.heureDebut}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, heureDebut: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure fin</label>
+                  <input type="time" value={contrainteSejourForm.heureFin}
+                    onChange={e => setContrainteSejourForm(f => ({ ...f, heureFin: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                {contrainteSejourForm.type === 'ACTIVITE_COLLECTIVE' && activitesCatalogue.length > 0 && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Activité concernée</label>
+                    <select value={contrainteSejourForm.produitId}
+                      onChange={e => setContrainteSejourForm(f => ({ ...f, produitId: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                      <option value="">Sélectionner une activité</option>
+                      {activitesCatalogue.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <button onClick={handleAddContrainteSejour} disabled={savingContrainteSejour || !contrainteSejourForm.libelle}
+                className="w-full rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                {savingContrainteSejour ? 'Ajout...' : 'Ajouter la contrainte'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Participants ─── */}
         {tab === 'participants' && (

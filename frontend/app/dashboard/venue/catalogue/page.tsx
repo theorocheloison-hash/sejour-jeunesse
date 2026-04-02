@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getCatalogue, createProduit, updateProduit, archiveProduit, downloadTemplateCatalogue, importProduitsCatalogue } from '@/src/lib/centre';
-import type { ProduitCatalogue } from '@/src/lib/centre';
+import { getCatalogue, createProduit, updateProduit, archiveProduit, downloadTemplateCatalogue, importProduitsCatalogue, updateCapacitesProduit, getContraintesCentre, createContrainteCentre, deleteContrainteCentre } from '@/src/lib/centre';
+import type { ProduitCatalogue, ContrainteCentre } from '@/src/lib/centre';
 
 const TYPE_OPTIONS = [
   { value: 'HEBERGEMENT', label: 'Hébergement', color: 'bg-blue-100 text-blue-700' },
@@ -27,7 +27,7 @@ const TVA_OPTIONS = [
   { value: 20, label: '20%' },
 ];
 
-const EMPTY_FORM = { nom: '', description: '', type: 'HEBERGEMENT', prixUnitaireHT: '', prixUnitaireTTC: '', tva: 10, unite: 'PAR_ELEVE' };
+const EMPTY_FORM = { nom: '', description: '', type: 'HEBERGEMENT', prixUnitaireHT: '', prixUnitaireTTC: '', tva: 10, unite: 'PAR_ELEVE', capaciteParGroupe: '', encadrementParGroupe: '', simultaneitePossible: true, dureeMinutes: '' };
 
 export default function CataloguePage() {
   const { user, isLoading } = useAuth();
@@ -44,10 +44,15 @@ export default function CataloguePage() {
   const [importPreview, setImportPreview] = useState<Omit<ProduitCatalogue, 'id' | 'actif' | 'createdAt'>[]>([]);
   const [filterType, setFilterType] = useState<string>('TOUS');
   const [dernierChampSaisi, setDernierChampSaisi] = useState<'HT' | 'TTC'>('HT');
+  const [contraintes, setContraintes] = useState<ContrainteCentre[]>([]);
+  const [contrainteForm, setContrainteForm] = useState({ libelle: '', type: 'BLOCAGE_CRENEAU', jourSemaine: '', heureDebut: '', heureFin: '' });
+  const [savingContrainte, setSavingContrainte] = useState(false);
+  const [showContraintesSection, setShowContraintesSection] = useState(false);
 
   useEffect(() => {
     if (!isLoading && user?.role === 'VENUE') {
       getCatalogue().then(setProduits).finally(() => setLoading(false));
+      getContraintesCentre().then(setContraintes).catch(() => {});
     }
   }, [isLoading, user]);
 
@@ -63,9 +68,23 @@ export default function CataloguePage() {
         prixUnitaireTTC: form.prixUnitaireTTC ? Number(form.prixUnitaireTTC) : undefined,
         tva: Number(form.tva),
         unite: form.unite as ProduitCatalogue['unite'],
+        ...(form.type === 'ACTIVITE' && {
+          capaciteParGroupe: form.capaciteParGroupe ? Number(form.capaciteParGroupe) : undefined,
+          encadrementParGroupe: form.encadrementParGroupe ? Number(form.encadrementParGroupe) : undefined,
+          simultaneitePossible: form.simultaneitePossible,
+          dureeMinutes: form.dureeMinutes ? Number(form.dureeMinutes) : undefined,
+        }),
       };
       if (editingId) {
         const updated = await updateProduit(editingId, dto);
+        if (form.type === 'ACTIVITE') {
+          await updateCapacitesProduit(editingId, {
+            capaciteParGroupe: form.capaciteParGroupe ? Number(form.capaciteParGroupe) : null,
+            encadrementParGroupe: form.encadrementParGroupe ? Number(form.encadrementParGroupe) : null,
+            simultaneitePossible: form.simultaneitePossible,
+            dureeMinutes: form.dureeMinutes ? Number(form.dureeMinutes) : null,
+          });
+        }
         setProduits(prev => prev.map(p => p.id === editingId ? updated : p));
       } else {
         const created = await createProduit(dto);
@@ -81,7 +100,19 @@ export default function CataloguePage() {
 
   const handleEdit = (p: ProduitCatalogue) => {
     const ttc = p.prixUnitaireTTC != null ? p.prixUnitaireTTC : Math.round(p.prixUnitaireHT * (1 + p.tva / 100) * 100) / 100;
-    setForm({ nom: p.nom, description: p.description ?? '', type: p.type, prixUnitaireHT: String(p.prixUnitaireHT), prixUnitaireTTC: String(ttc), tva: p.tva, unite: p.unite });
+    setForm({
+      nom: p.nom,
+      description: p.description ?? '',
+      type: p.type,
+      prixUnitaireHT: String(p.prixUnitaireHT),
+      prixUnitaireTTC: String(ttc),
+      tva: p.tva,
+      unite: p.unite,
+      capaciteParGroupe: p.capaciteParGroupe != null ? String(p.capaciteParGroupe) : '',
+      encadrementParGroupe: p.encadrementParGroupe != null ? String(p.encadrementParGroupe) : '',
+      simultaneitePossible: p.simultaneitePossible ?? true,
+      dureeMinutes: p.dureeMinutes != null ? String(p.dureeMinutes) : '',
+    });
     setEditingId(p.id);
     setShowForm(true);
   };
@@ -115,6 +146,29 @@ export default function CataloguePage() {
   const handleArchive = async (id: string) => {
     await archiveProduit(id);
     setProduits(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleAddContrainte = async () => {
+    if (!contrainteForm.libelle) return;
+    setSavingContrainte(true);
+    try {
+      const c = await createContrainteCentre({
+        libelle: contrainteForm.libelle,
+        type: contrainteForm.type,
+        jourSemaine: contrainteForm.jourSemaine ? Number(contrainteForm.jourSemaine) : undefined,
+        heureDebut: contrainteForm.heureDebut || undefined,
+        heureFin: contrainteForm.heureFin || undefined,
+      });
+      setContraintes(prev => [...prev, c]);
+      setContrainteForm({ libelle: '', type: 'BLOCAGE_CRENEAU', jourSemaine: '', heureDebut: '', heureFin: '' });
+    } finally {
+      setSavingContrainte(false);
+    }
+  };
+
+  const handleDeleteContrainte = async (id: string) => {
+    await deleteContrainteCentre(id);
+    setContraintes(prev => prev.filter(c => c.id !== id));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -353,6 +407,40 @@ export default function CataloguePage() {
                 />
               </div>
             </div>
+            {form.type === 'ACTIVITE' && (
+              <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Paramètres groupes &amp; planning IA</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Capacité par groupe <span className="text-gray-400 font-normal">(nb élèves max)</span></label>
+                    <input type="number" min="1" value={form.capaciteParGroupe}
+                      onChange={e => setForm(f => ({ ...f, capaciteParGroupe: e.target.value }))}
+                      placeholder="ex: 8"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Encadrement requis <span className="text-gray-400 font-normal">(accompagnants)</span></label>
+                    <input type="number" min="1" value={form.encadrementParGroupe}
+                      onChange={e => setForm(f => ({ ...f, encadrementParGroupe: e.target.value }))}
+                      placeholder="ex: 1"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Durée <span className="text-gray-400 font-normal">(minutes)</span></label>
+                    <input type="number" min="30" step="30" value={form.dureeMinutes}
+                      onChange={e => setForm(f => ({ ...f, dureeMinutes: e.target.value }))}
+                      placeholder="ex: 180"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="simultaneite" checked={form.simultaneitePossible}
+                      onChange={e => setForm(f => ({ ...f, simultaneitePossible: e.target.checked }))}
+                      className="rounded border-gray-300 text-[var(--color-primary)]" />
+                    <label htmlFor="simultaneite" className="text-xs text-gray-700">Plusieurs groupes simultanés possibles</label>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex gap-3 mt-4">
               <button onClick={handleSubmit} disabled={saving} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
                 {saving ? 'Enregistrement...' : editingId ? 'Mettre à jour' : 'Ajouter au catalogue'}
@@ -461,6 +549,14 @@ export default function CataloguePage() {
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{fmt(p.prixUnitaireHT)} &euro; HT</p>
                       <p className="text-xs text-gray-500">{fmt(prixTTC)} &euro; TTC &middot; TVA {p.tva}% &middot; {uniteOpt?.label}</p>
+                      {p.type === 'ACTIVITE' && (p.capaciteParGroupe || p.dureeMinutes) && (
+                        <p className="text-xs text-[var(--color-primary)] mt-0.5">
+                          {p.capaciteParGroupe ? `${p.capaciteParGroupe} élèves/groupe` : ''}
+                          {p.capaciteParGroupe && p.encadrementParGroupe ? ` + ${p.encadrementParGroupe} encadrant` : ''}
+                          {p.dureeMinutes ? ` · ${p.dureeMinutes} min` : ''}
+                          {p.simultaneitePossible === false ? ' · groupes non simultanés' : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handleEdit(p)} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]">
@@ -480,6 +576,94 @@ export default function CataloguePage() {
             })}
           </div>
         )}
+
+        {/* ── Contraintes centre ── */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Contraintes récurrentes du centre</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Blocages réguliers qui s&apos;appliquent à tous les séjours (marché hebdomadaire, fermeture annuelle...)</p>
+            </div>
+            <button onClick={() => setShowContraintesSection(s => !s)}
+              className="text-xs text-[var(--color-primary)] hover:underline">
+              {showContraintesSection ? 'Masquer' : 'Gérer'}
+            </button>
+          </div>
+
+          {contraintes.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {contraintes.map(c => {
+                const JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+                const label = [
+                  c.type === 'BLOCAGE_CRENEAU' ? '🚫' : '📌',
+                  c.libelle,
+                  c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
+                  c.heureDebut && c.heureFin ? `${c.heureDebut}-${c.heureFin}` : null,
+                ].filter(Boolean).join(' · ');
+                return (
+                  <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs text-amber-800">
+                    {label}
+                    <button onClick={() => handleDeleteContrainte(c.id)} className="text-amber-400 hover:text-red-500">&times;</button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {showContraintesSection && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Libellé *</label>
+                  <input value={contrainteForm.libelle}
+                    onChange={e => setContrainteForm(f => ({ ...f, libelle: e.target.value }))}
+                    placeholder="ex: Marché hebdomadaire, Fermeture annuelle..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                  <select value={contrainteForm.type}
+                    onChange={e => setContrainteForm(f => ({ ...f, type: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                    <option value="BLOCAGE_CRENEAU">Blocage créneau</option>
+                    <option value="ACTIVITE_RESERVEE">Activité réservée</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Jour de la semaine</label>
+                  <select value={contrainteForm.jourSemaine}
+                    onChange={e => setContrainteForm(f => ({ ...f, jourSemaine: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                    <option value="">Tous les jours</option>
+                    <option value="1">Lundi</option>
+                    <option value="2">Mardi</option>
+                    <option value="3">Mercredi</option>
+                    <option value="4">Jeudi</option>
+                    <option value="5">Vendredi</option>
+                    <option value="6">Samedi</option>
+                    <option value="0">Dimanche</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure début</label>
+                  <input type="time" value={contrainteForm.heureDebut}
+                    onChange={e => setContrainteForm(f => ({ ...f, heureDebut: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure fin</label>
+                  <input type="time" value={contrainteForm.heureFin}
+                    onChange={e => setContrainteForm(f => ({ ...f, heureFin: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+              </div>
+              <button onClick={handleAddContrainte} disabled={savingContrainte || !contrainteForm.libelle}
+                className="w-full rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                {savingContrainte ? 'Ajout...' : 'Ajouter la contrainte'}
+              </button>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
