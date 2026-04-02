@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/app/components/Logo';
 import { ActeursSchema } from '@/app/components/ActeursSchema';
+import PricingTable from '@/app/components/PricingTable';
 
 export default function Home() {
   const [contactForm, setContactForm] = useState({ nom: '', email: '', message: '' });
@@ -53,6 +54,9 @@ export default function Home() {
             </a>
             <a href="#workflow" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
               Comment ça marche
+            </a>
+            <a href="#tarifs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
+              Tarifs
             </a>
             <a href="#contact" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
               Contact
@@ -133,6 +137,12 @@ export default function Home() {
               Je suis un hébergeur
             </Link>
           </div>
+
+          <p style={{
+            marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.55)',
+          }}>
+            Gratuit pour les enseignants et les etablissements scolaires &middot; Sans engagement
+          </p>
         </div>
 
         {/* Bandeau preuves */}
@@ -404,6 +414,32 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── SECTION TARIFS ────────────────────────────────────────────────── */}
+      <section id="tarifs" style={{
+        padding: '80px 24px',
+        backgroundColor: 'var(--color-surface)',
+        borderTop: '0.5px solid var(--color-border)',
+        borderBottom: '0.5px solid var(--color-border)',
+      }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
+            color: 'var(--color-primary)', textAlign: 'center',
+            marginBottom: 12,
+          }}>
+            Tarifs hebergeurs
+          </h2>
+          <p style={{
+            fontSize: 15, lineHeight: 1.7,
+            color: 'var(--color-text-muted)', textAlign: 'center',
+            maxWidth: 560, margin: '0 auto 40px',
+          }}>
+            Enseignants et etablissements scolaires : toujours gratuit, sans limitation.
+          </p>
+          <PricingTable />
         </div>
       </section>
 

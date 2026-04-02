@@ -4,20 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAbonnementStatut, simulerAbonnement } from '@/src/lib/abonnement';
-import type { AbonnementStatut, TypeAbonnement } from '@/src/lib/abonnement';
-
-const PLANS: { type: TypeAbonnement; label: string; prix: string; desc: string }[] = [
-  { type: 'MENSUEL', label: 'Mensuel', prix: '19 €/mois', desc: 'Accès complet aux demandes des enseignants' },
-  { type: 'ANNUEL', label: 'Annuel', prix: '149 €/an', desc: 'Économisez 20 % par rapport au mensuel' },
-];
+import { getAbonnementStatut } from '@/src/lib/abonnement';
+import type { AbonnementStatut } from '@/src/lib/abonnement';
+import PricingTable from '@/app/components/PricingTable';
 
 export default function AbonnementPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
-  const [activating, setActivating] = useState<TypeAbonnement | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'VENUE')) router.push('/login');
@@ -29,19 +23,12 @@ export default function AbonnementPage() {
     }
   }, [user]);
 
-  const handleActivate = async (type: TypeAbonnement) => {
-    setActivating(type);
-    setError(null);
-    try {
-      await simulerAbonnement(type);
-      const updated = await getAbonnementStatut();
-      setAbo(updated);
-    } catch {
-      setError('Erreur lors de l\'activation de l\'abonnement.');
-    } finally {
-      setActivating(null);
-    }
-  };
+  // TODO: Stripe — remplacer le corps par un appel a l'API de checkout Stripe
+  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) {
+    const subject = encodeURIComponent('Abonnement ' + plan + ' LIAVO \u2014 ' + (annual ? 'Annuel' : 'Mensuel'));
+    const body = encodeURIComponent('Bonjour, je souhaite activer le plan ' + plan + ' (' + (annual ? 'annuel' : 'mensuel') + ') pour mon centre.');
+    window.location.href = 'mailto:contact@liavo.fr?subject=' + subject + '&body=' + body;
+  }
 
   if (isLoading || !user) return null;
 
@@ -55,49 +42,73 @@ export default function AbonnementPage() {
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Abonnement</h1>
-        <p className="text-sm text-gray-500 mb-8">Activez votre abonnement pour accéder aux demandes des enseignants</p>
+      <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>Abonnement</h1>
+        <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>Gerez votre plan et vos acces.</p>
 
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
-        )}
-
+        {/* ── Bandeau statut ──────────────────────────────────────────── */}
         {abo?.statut === 'ACTIF' ? (
-          <div className="bg-white rounded-2xl border border-[var(--color-success)]/20 shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-3 py-1 text-sm font-semibold text-[var(--color-success)]">
-                Abonnement actif
+          <div style={{
+            backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
+            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <span style={{
+              fontSize: 12, fontWeight: 600, color: '#1E5C42',
+              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+            }}>
+              Abonnement actif
+            </span>
+            <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+              Plan {abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}
+            </span>
+            {abo.actifJusquAu && (
+              <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
+                &middot; Actif jusqu&apos;au{' '}
+                <strong>
+                  {new Date(abo.actifJusquAu).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </strong>
               </span>
-              <span className="text-sm text-gray-500">Plan {abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}</span>
-            </div>
-            <p className="text-sm text-gray-700">
-              Votre abonnement est actif jusqu&apos;au{' '}
-              <strong>
-                {abo.actifJusquAu
-                  ? new Date(abo.actifJusquAu).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-                  : '—'}
-              </strong>
-            </p>
+            )}
+          </div>
+        ) : abo?.statut === 'SUSPENDU' ? (
+          <div style={{
+            backgroundColor: '#FDECEA', border: '1px solid #9C2B2B',
+            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <span style={{
+              fontSize: 12, fontWeight: 600, color: '#9C2B2B',
+              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+            }}>
+              Abonnement suspendu
+            </span>
+            <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
+              Contactez-nous pour reactiver :{' '}
+              <a href="mailto:contact@liavo.fr" style={{ color: '#9C2B2B', fontWeight: 500 }}>contact@liavo.fr</a>
+            </span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {PLANS.map((plan) => (
-              <div key={plan.type} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-                <h3 className="text-lg font-semibold text-gray-900">{plan.label}</h3>
-                <p className="text-2xl font-bold text-[var(--color-primary)] mt-2">{plan.prix}</p>
-                <p className="text-sm text-gray-500 mt-2 flex-1">{plan.desc}</p>
-                <button
-                  onClick={() => handleActivate(plan.type)}
-                  disabled={activating !== null}
-                  className="mt-4 w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {activating === plan.type ? 'Activation…' : 'Activer'}
-                </button>
-              </div>
-            ))}
+          <div style={{
+            backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
+            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <span style={{
+              fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)',
+              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+              border: '1px solid var(--color-border)',
+            }}>
+              Plan Decouverte &mdash; gratuit
+            </span>
           </div>
         )}
+
+        <PricingTable
+          showCurrentPlan
+          currentStatut={abo?.statut ?? null}
+          onUpgrade={handleUpgrade}
+        />
       </main>
     </div>
   );
