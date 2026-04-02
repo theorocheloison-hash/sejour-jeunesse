@@ -217,6 +217,11 @@ export class CollaborationController {
     return this.service.getGroupes(sejourId, user.id, user.role);
   }
 
+  @Post(':sejourId/groupes/proposer')
+  proposerGroupes(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.proposerGroupes(sejourId, user.id, user.role);
+  }
+
   @Post(':sejourId/groupes')
   createGroupe(
     @Param('sejourId') sejourId: string,
@@ -224,30 +229,6 @@ export class CollaborationController {
     @Body() dto: { nom: string; couleur: string; taille: number },
   ) {
     return this.service.createGroupe(sejourId, user.id, dto, user.role);
-  }
-
-  @Patch(':sejourId/groupes/:groupeId')
-  updateGroupe(
-    @Param('sejourId') sejourId: string,
-    @Param('groupeId') groupeId: string,
-    @CurrentUser() user: JwtUser,
-    @Body() dto: { nom?: string; couleur?: string; taille?: number },
-  ) {
-    return this.service.updateGroupe(sejourId, user.id, groupeId, dto, user.role);
-  }
-
-  @Delete(':sejourId/groupes/:groupeId')
-  deleteGroupe(
-    @Param('sejourId') sejourId: string,
-    @Param('groupeId') groupeId: string,
-    @CurrentUser() user: JwtUser,
-  ) {
-    return this.service.deleteGroupe(sejourId, user.id, groupeId, user.role);
-  }
-
-  @Post(':sejourId/groupes/proposer')
-  proposerGroupes(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
-    return this.service.proposerGroupes(sejourId, user.id, user.role);
   }
 
   @Post(':sejourId/groupes/:groupeId/eleves/:autorisationId')
@@ -260,6 +241,16 @@ export class CollaborationController {
     return this.service.affecterEleve(sejourId, user.id, groupeId, autorisationId, user.role);
   }
 
+  @Patch(':sejourId/groupes/:groupeId')
+  updateGroupe(
+    @Param('sejourId') sejourId: string,
+    @Param('groupeId') groupeId: string,
+    @CurrentUser() user: JwtUser,
+    @Body() dto: { nom?: string; couleur?: string; taille?: number },
+  ) {
+    return this.service.updateGroupe(sejourId, user.id, groupeId, dto, user.role);
+  }
+
   @Delete(':sejourId/groupes/eleves/:autorisationId')
   retirerEleve(
     @Param('sejourId') sejourId: string,
@@ -267,6 +258,15 @@ export class CollaborationController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.service.retirerEleve(sejourId, user.id, autorisationId, user.role);
+  }
+
+  @Delete(':sejourId/groupes/:groupeId')
+  deleteGroupe(
+    @Param('sejourId') sejourId: string,
+    @Param('groupeId') groupeId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteGroupe(sejourId, user.id, groupeId, user.role);
   }
 
   @Post(':sejourId/cloturer-inscriptions')
