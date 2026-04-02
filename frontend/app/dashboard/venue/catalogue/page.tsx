@@ -115,6 +115,7 @@ export default function CataloguePage() {
     });
     setEditingId(p.id);
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleHTChange = (value: string) => {
