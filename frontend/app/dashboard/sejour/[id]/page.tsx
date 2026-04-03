@@ -508,6 +508,10 @@ export default function CollaborationPage() {
     if (tab === 'contraintes') {
       getContraintesSejour(id).then(setContraintesSejour).catch(() => {});
       getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
+      if (sejour?.dateDebut) {
+        const dateStr = new Date(sejour.dateDebut).toISOString().split('T')[0];
+        setContrainteSejourForm(f => f.date ? f : { ...f, date: dateStr });
+      }
     }
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
@@ -1453,7 +1457,18 @@ export default function CollaborationPage() {
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-semibold text-blue-900">Proposition : {propositionGroupes.nombreGroupes} groupe{propositionGroupes.nombreGroupes > 1 ? 's' : ''} de {propositionGroupes.tailleGroupe} élèves</p>
+                    <p className="text-sm font-semibold text-blue-900">
+                      {(() => {
+                        const taillesMap = new Map<number, number>();
+                        propositionGroupes.groupes.forEach(g => {
+                          taillesMap.set(g.taille, (taillesMap.get(g.taille) ?? 0) + 1);
+                        });
+                        const parts = Array.from(taillesMap.entries())
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([taille, count]) => `${count} groupe${count > 1 ? 's' : ''} de ${taille}`);
+                        return `Proposition : ${parts.join(' + ')} élèves`;
+                      })()}
+                    </p>
                     <p className="text-xs text-blue-600 mt-0.5">Basée sur {propositionGroupes.nombreEleves} élèves et les capacités de vos activités</p>
                   </div>
                   <div className="flex gap-2">
