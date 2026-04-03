@@ -36,7 +36,7 @@ export default function ModifierDevisPage() {
 
   // Data
   const [devisOriginal, setDevisOriginal] = useState<Devis | null>(null);
-  const [centre, setCentre] = useState<{ id: string; nom: string; adresse: string; ville: string; codePostal: string; telephone?: string | null; email?: string | null } | null>(null);
+  const [centre, setCentre] = useState<{ id: string; nom: string; adresse: string; ville: string; codePostal: string; siret?: string | null; telephone?: string | null; email?: string | null } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Company info
@@ -50,6 +50,8 @@ export default function ModifierDevisPage() {
   const [lignes, setLignes] = useState<LigneForm[]>([]);
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
+  const [catalogueSearch, setCatalogueSearch] = useState('');
+  const [showCatalogueSearch, setShowCatalogueSearch] = useState(false);
 
   // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
@@ -79,7 +81,7 @@ export default function ModifierDevisPage() {
         // Pre-fill fields
         setNomEntreprise(devis.nomEntreprise ?? c.nom);
         setAdresseEntreprise(devis.adresseEntreprise ?? `${c.adresse}, ${c.codePostal} ${c.ville}`);
-        setSiretEntreprise(devis.siretEntreprise ?? '');
+        setSiretEntreprise(devis.siretEntreprise ?? c.siret ?? '');
         setEmailEntreprise(devis.emailEntreprise ?? c.email ?? '');
         setTelEntreprise(devis.telEntreprise ?? c.telephone ?? '');
         setPourcentageAcompte(devis.pourcentageAcompte ?? 30);
@@ -368,43 +370,68 @@ export default function ModifierDevisPage() {
             <div className="mt-3 flex items-center gap-3 flex-wrap">
               {catalogue.length > 0 && (
                 <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setShowCatalogueDropdown(v => !v); }}
-                    className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-                    </svg>
-                    Depuis le catalogue
-                  </button>
-                  {showCatalogueDropdown && (
-                    <div className="absolute left-0 top-8 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-                      {['HEBERGEMENT', 'REPAS', 'TRANSPORT', 'ACTIVITE', 'AUTRE'].map(type => {
-                        const items = catalogue.filter(p => p.type === type);
-                        if (items.length === 0) return null;
-                        const labels: Record<string, string> = { HEBERGEMENT: 'Hébergement', REPAS: 'Repas', TRANSPORT: 'Transport', ACTIVITE: 'Activité', AUTRE: 'Autre' };
-                        return (
-                          <div key={type}>
-                            <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">{labels[type]}</p>
-                            {items.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => {
-                                  const nombreEleves = devisOriginal?.demande?.nombreEleves ?? 1;
-                                  setLignes(prev => [...prev, makeLigneForm(p.nom, String(nombreEleves), String(p.prixUnitaireHT), String(p.tva))]);
-                                  setShowCatalogueDropdown(false);
-                                }}
-                                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
-                              >
-                                <span className="text-sm text-gray-900">{p.nom}</span>
-                                <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} &euro; HT</span>
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      })}
+                  {!showCatalogueSearch ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setShowCatalogueSearch(true); setCatalogueSearch(''); }}
+                      className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                      </svg>
+                      Depuis le catalogue
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={catalogueSearch}
+                          onChange={(e) => setCatalogueSearch(e.target.value)}
+                          onBlur={() => setTimeout(() => setShowCatalogueSearch(false), 150)}
+                          placeholder="Rechercher un produit..."
+                          className="w-64 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                        />
+                        {catalogueSearch.length >= 2 && (() => {
+                          const results = catalogue.filter(p =>
+                            p.nom.toLowerCase().includes(catalogueSearch.toLowerCase())
+                          );
+                          if (results.length === 0) return (
+                            <div className="absolute left-0 top-9 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg px-3 py-2 text-xs text-gray-400">
+                              Aucun produit trouvé
+                            </div>
+                          );
+                          return (
+                            <div className="absolute left-0 top-9 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg max-h-60 overflow-y-auto">
+                              {results.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    const nombreEleves = devisOriginal?.demande?.nombreEleves ?? 1;
+                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nombreEleves), String(p.prixUnitaireHT), String(p.tva))]);
+                                    setCatalogueSearch('');
+                                    setShowCatalogueSearch(false);
+                                  }}
+                                  className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                                >
+                                  <span className="text-sm text-gray-900">{p.nom}</span>
+                                  <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} € HT</span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCatalogueSearch(false)}
+                        className="text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
                 </div>

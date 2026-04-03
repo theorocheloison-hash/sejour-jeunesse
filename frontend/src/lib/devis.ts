@@ -139,6 +139,7 @@ export interface DemandeInfo {
     adresse: string;
     ville: string;
     codePostal: string;
+    siret?: string | null;
     telephone?: string | null;
     email?: string | null;
   };
