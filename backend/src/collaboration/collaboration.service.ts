@@ -540,7 +540,7 @@ export class CollaborationService {
 
     const groupes = await this.prisma.groupeSejour.findMany({
       where: { sejourId },
-      select: { id: true, nom: true, couleur: true, taille: true },
+      select: { id: true, nom: true, couleur: true, taille: true, createdAt: true },
     });
 
     const activitesManuelles = await this.prisma.planningActivite.findMany({
@@ -552,6 +552,19 @@ export class CollaborationService {
     const nombreAccompagnateurs = demande?.nombreAccompagnateurs ?? sejour.nombreAccompagnateurs ?? 1;
     const dateDebut = sejour.dateDebut.toISOString().split('T')[0];
     const dateFin = sejour.dateFin.toISOString().split('T')[0];
+
+    // Calculer les paires stables de groupes (G1+G2, G3+G4, G5+G6, etc.)
+    // Les groupes sont triés par ordre de création (createdAt asc)
+    const groupesTries = [...groupes].sort((a, b) =>
+      (a as any).createdAt < (b as any).createdAt ? -1 : 1
+    );
+    const pairesGroupes: { groupe1: string; groupe2: string | null }[] = [];
+    for (let i = 0; i < groupesTries.length; i += 2) {
+      pairesGroupes.push({
+        groupe1: groupesTries[i].nom,
+        groupe2: groupesTries[i + 1]?.nom ?? null,
+      });
+    }
 
     const contexte = {
       sejour: { dateDebut, dateFin, nombreEleves, nombreAccompagnateurs },
@@ -571,6 +584,7 @@ export class CollaborationService {
           dureeMinutes: a.dureeMinutes ?? 120,
           simultaneitePossible: a.simultaneitePossible ?? true,
         })),
+      pairesGroupes,
       activitesManuelles: activitesManuelles.map(a => ({
         titre: a.titre,
         date: a.date.toISOString().split('T')[0],
@@ -609,10 +623,15 @@ RÈGLES ABSOLUES :
    - Le champ "couleur" doit être EXACTEMENT la couleur hex fournie pour ce groupe
    - Le champ "titre" doit contenir : "NOM_ACTIVITE — NOM_GROUPE"
 
-3. ROTATION
-   - Chaque groupe doit faire chaque activité exactement une fois sur le séjour
-   - Si simultaneitePossible est true : plusieurs groupes peuvent faire la même activité en parallèle
-   - Si simultaneitePossible est false : un seul groupe à la fois
+3. PAIRES STABLES ET ROTATION
+   - Le contexte contient "pairesGroupes" : ce sont les paires fixes de groupes pour tout le séjour
+   - Exemple : paire [G1, G2] signifie que G1 et G2 font toujours la même activité en même temps
+   - RÈGLE ABSOLUE : si G1 fait Rafting à 9h lundi, G2 fait aussi Rafting à 9h lundi — même activité, même créneau exact, même date
+   - Cette règle s'applique sur TOUS les créneaux du séjour sans exception
+   - Un groupe seul (groupe2: null) est traité individuellement
+   - Chaque paire fait chaque activité exactement une fois sur le séjour
+   - Si simultaneitePossible est true : plusieurs paires peuvent faire la même activité en parallèle
+   - Si simultaneitePossible est false : une seule paire à la fois sur cette activité
 
 4. HORAIRES
    - Activités entre 09:00 et 18:00 uniquement
