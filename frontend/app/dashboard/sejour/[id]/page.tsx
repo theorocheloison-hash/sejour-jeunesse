@@ -190,7 +190,7 @@ function DraggableCatalogueItem({ activite }: { activite: ActiviteCatalogue }) {
 
 // ─── DraggableActivity ───────────────────────────────────────────────────────
 function DraggableActivity({
-  act, topPx, heightPx, isVenue, colWidth, slotHeight, widthPct, leftPct, onEdit, onResize
+  act, topPx, heightPx, isVenue, colWidth, slotHeight, widthPct, leftPct, labelGroupes, onEdit, onResize
 }: {
   act: PlanningActivite;
   topPx: number;
@@ -200,6 +200,7 @@ function DraggableActivity({
   slotHeight: number;
   widthPct?: number;
   leftPct?: number;
+  labelGroupes?: string;
   onEdit: () => void;
   onResize: (newDurationSlots: number) => void;
 }) {
@@ -273,6 +274,7 @@ function DraggableActivity({
         <div className="font-semibold truncate text-[11px] leading-tight">{act.titre}</div>
         <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
         {act.estCollective && <div className="opacity-90 text-[10px] font-bold">👥 Tous</div>}
+        {labelGroupes && <div className="opacity-90 text-[10px] font-medium truncate">{labelGroupes}</div>}
         {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
         {isVenue && (
           <div
@@ -361,6 +363,8 @@ export default function CollaborationPage() {
   const generationPollRef = useRef<NodeJS.Timeout | null>(null);
   const [planningDebutActivites, setPlanningDebutActivites] = useState('');
   const [planningFinActivites, setPlanningFinActivites] = useState('');
+  const [planningVue, setPlanningVue] = useState<'semaine' | 'jour'>('semaine');
+  const [planningJourSelectionne, setPlanningJourSelectionne] = useState<string>('');
   const [planModal, setPlanModal] = useState<{
     open: boolean;
     date: string;
@@ -1091,6 +1095,13 @@ export default function CollaborationPage() {
             days.push(new Date(d));
           }
 
+          const jourEffectif = planningVue === 'jour'
+            ? (planningJourSelectionne || (days[0]?.toISOString().split('T')[0] ?? ''))
+            : null;
+          const daysAffiches = planningVue === 'jour'
+            ? days.filter(d => d.toISOString().split('T')[0] === jourEffectif)
+            : days;
+
           const DAY_LABELS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
           const today = new Date();
 
@@ -1198,6 +1209,39 @@ export default function CollaborationPage() {
 
           return (
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            {/* Sélecteur vue Semaine / Jour */}
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                <button
+                  onClick={() => setPlanningVue('semaine')}
+                  className={`px-3 py-1.5 transition-colors ${planningVue === 'semaine' ? 'bg-[var(--color-primary)] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Semaine
+                </button>
+                <button
+                  onClick={() => setPlanningVue('jour')}
+                  className={`px-3 py-1.5 border-l border-gray-200 transition-colors ${planningVue === 'jour' ? 'bg-[var(--color-primary)] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  Jour
+                </button>
+              </div>
+              {planningVue === 'jour' && (
+                <select
+                  value={planningJourSelectionne}
+                  onChange={e => setPlanningJourSelectionne(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  {days.map(day => {
+                    const dateStr = day.toISOString().split('T')[0];
+                    return (
+                      <option key={dateStr} value={dateStr}>
+                        {day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+            </div>
             {isVenue && (
               <div className="mb-4">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -1252,12 +1296,12 @@ export default function CollaborationPage() {
               )}
 
                 <div className="overflow-x-auto">
-                  <div style={{ minWidth: `${56 + days.length * 120}px` }}>
+                  <div style={{ minWidth: `${56 + daysAffiches.length * (planningVue === 'jour' ? 600 : 120)}px` }}>
 
                     {/* Header jours */}
                     <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
                       <div className="w-14 shrink-0" />
-                      {days.map((day, i) => {
+                      {daysAffiches.map((day, i) => {
                         const isToday = day.toDateString() === today.toDateString();
                         return (
                           <div key={i} className="flex-1 text-center py-2 border-l border-gray-200" style={{ minWidth: 120 }}>
@@ -1286,7 +1330,7 @@ export default function CollaborationPage() {
                         </div>
 
                         {/* Colonnes jours */}
-                        {days.map((day, dayIdx) => {
+                        {daysAffiches.map((day, dayIdx) => {
                           const dateStr = day.toISOString().split('T')[0];
                           const dayActivities = planning.filter(p => p.date.startsWith(dateStr));
                           const colWidth = 120;
@@ -1302,66 +1346,123 @@ export default function CollaborationPage() {
                               onCellClick={(slotIdx) => handleCellClick(day, slotIdx)}
                             >
                               {(() => {
-                                // ── Détection des chevauchements et calcul des colonnes ──
                                 const toMin = (t: string) => {
                                   const [h, m] = t.split(':').map(Number);
                                   return (h - HOUR_START) * 60 + m;
                                 };
 
-                                // Trier par heure de début
-                                const sorted = [...dayActivities].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
+                                // ── Étape 1 : regrouper les activités simultanées (même titre + même créneau exact) ──
+                                type GroupedAct = {
+                                  key: string;
+                                  acts: PlanningActivite[];
+                                  titre: string;
+                                  heureDebut: string;
+                                  heureFin: string;
+                                  couleur: string;
+                                  estCollective: boolean;
+                                  representative: PlanningActivite;
+                                };
 
-                                // Calculer les colonnes (algorithme sweep line)
-                                type ActCol = { act: PlanningActivite; col: number; totalCols: number };
+                                const groupedMap = new Map<string, GroupedAct>();
+                                for (const act of dayActivities) {
+                                  // Extraire le nom de l'activité (avant " — " si présent)
+                                  const nomActivite = act.titre.includes(' — ')
+                                    ? act.titre.split(' — ')[0].trim()
+                                    : act.titre.trim();
+                                  const key = `${nomActivite}|${act.heureDebut}|${act.heureFin}`;
+                                  if (!groupedMap.has(key)) {
+                                    groupedMap.set(key, {
+                                      key,
+                                      acts: [act],
+                                      titre: nomActivite,
+                                      heureDebut: act.heureDebut,
+                                      heureFin: act.heureFin,
+                                      couleur: act.couleur ?? '#16a34a',
+                                      estCollective: act.estCollective ?? false,
+                                      representative: act,
+                                    });
+                                  } else {
+                                    groupedMap.get(key)!.acts.push(act);
+                                  }
+                                }
+
+                                const grouped = Array.from(groupedMap.values());
+
+                                // ── Étape 2 : algorithme sweep line sur les groupes fusionnés ──
+                                type ActCol = { g: GroupedAct; col: number; totalCols: number };
                                 const result: ActCol[] = [];
-                                const columns: PlanningActivite[][] = [];
+                                const columns: GroupedAct[][] = [];
 
-                                for (const act of sorted) {
-                                  const start = toMin(act.heureDebut);
-                                  const end = toMin(act.heureFin);
-                                  // Trouver une colonne libre
+                                const sortedGroups = [...grouped].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
+
+                                for (const g of sortedGroups) {
+                                  const start = toMin(g.heureDebut);
                                   let placed = false;
                                   for (let c = 0; c < columns.length; c++) {
-                                    const lastInCol = columns[c][columns[c].length - 1];
-                                    if (toMin(lastInCol.heureFin) <= start) {
-                                      columns[c].push(act);
-                                      result.push({ act, col: c, totalCols: 0 });
+                                    const last = columns[c][columns[c].length - 1];
+                                    if (toMin(last.heureFin) <= start) {
+                                      columns[c].push(g);
+                                      result.push({ g, col: c, totalCols: 0 });
                                       placed = true;
                                       break;
                                     }
                                   }
                                   if (!placed) {
-                                    columns.push([act]);
-                                    result.push({ act, col: columns.length - 1, totalCols: 0 });
+                                    columns.push([g]);
+                                    result.push({ g, col: columns.length - 1, totalCols: 0 });
                                   }
                                 }
 
-                                // Calculer totalCols pour chaque activité (max colonnes utilisées simultanément)
                                 for (const item of result) {
-                                  const start = toMin(item.act.heureDebut);
-                                  const end = toMin(item.act.heureFin);
-                                  // Compter combien d'activités chevauchent cet intervalle
+                                  const start = toMin(item.g.heureDebut);
+                                  const end = toMin(item.g.heureFin);
                                   const overlapping = result.filter(other => {
-                                    const oStart = toMin(other.act.heureDebut);
-                                    const oEnd = toMin(other.act.heureFin);
+                                    const oStart = toMin(other.g.heureDebut);
+                                    const oEnd = toMin(other.g.heureFin);
                                     return oStart < end && oEnd > start;
                                   });
                                   item.totalCols = Math.max(...overlapping.map(o => o.col + 1));
                                 }
 
-                                return result.map(({ act, col, totalCols }) => {
-                                  const topMin = toMin(act.heureDebut);
-                                  const botMin = toMin(act.heureFin);
+                                // ── Étape 3 : rendu ──
+                                return result.map(({ g, col, totalCols }) => {
+                                  const topMin = toMin(g.heureDebut);
+                                  const botMin = toMin(g.heureFin);
                                   const duration = botMin - topMin;
                                   if (duration <= 0 || topMin < 0) return null;
                                   const topPx = (topMin / 30) * SLOT_HEIGHT;
                                   const heightPx = Math.max((duration / 30) * SLOT_HEIGHT, SLOT_HEIGHT);
                                   const widthPct = 100 / totalCols;
                                   const leftPct = col * widthPct;
+
+                                  // Label groupes : "G1 G2 G3" si plusieurs groupes fusionnés
+                                  const nbGroupes = g.acts.length;
+                                  const labelGroupes = nbGroupes > 1
+                                    ? g.acts.map(a => {
+                                        const part = a.titre.includes(' — ') ? a.titre.split(' — ')[1]?.trim() : '';
+                                        // Abréger : "Groupe 1" → "G1", sinon garder tel quel tronqué
+                                        return part ? part.replace(/^Groupe\s+/i, 'G') : '';
+                                      }).filter(Boolean).join(' ')
+                                    : '';
+
+                                  // Titre affiché : "NOM_ACTIVITE" si regroupé, sinon titre complet
+                                  const titreFinal = nbGroupes > 1 ? g.titre : g.representative.titre;
+
+                                  // Couleur : si regroupé avec couleurs différentes → utiliser couleur du premier acte ou dégradé via opacité
+                                  const couleurFinal = g.couleur;
+
+                                  // Pour onEdit : si un seul acte, ouvrir la modale d'édition de cet acte
+                                  // Si plusieurs actes regroupés, ouvrir sur le premier (representative)
+                                  const actForEdit = g.representative;
+
                                   return (
                                     <DraggableActivity
-                                      key={act.id}
-                                      act={act}
+                                      key={g.key}
+                                      act={{
+                                        ...actForEdit,
+                                        titre: titreFinal,
+                                        couleur: couleurFinal,
+                                      }}
                                       topPx={topPx}
                                       heightPx={heightPx}
                                       isVenue={isVenue}
@@ -1369,38 +1470,44 @@ export default function CollaborationPage() {
                                       slotHeight={SLOT_HEIGHT}
                                       widthPct={widthPct}
                                       leftPct={leftPct}
+                                      labelGroupes={labelGroupes}
                                       onEdit={() => setPlanModal({
                                         open: true,
-                                        date: act.date.split('T')[0],
-                                        heureDebut: act.heureDebut,
-                                        heureFin: act.heureFin,
-                                        titre: act.titre,
-                                        description: act.description ?? '',
-                                        responsable: act.responsable ?? '',
-                                        couleur: act.couleur ?? '',
-                                        editId: act.id,
+                                        date: actForEdit.date.split('T')[0],
+                                        heureDebut: actForEdit.heureDebut,
+                                        heureFin: actForEdit.heureFin,
+                                        titre: actForEdit.titre,
+                                        description: actForEdit.description ?? '',
+                                        responsable: actForEdit.responsable ?? '',
+                                        couleur: actForEdit.couleur ?? '',
+                                        editId: actForEdit.id,
                                       })}
                                       onResize={async (newDurationSlots) => {
                                         if (!isVenue || !id) return;
-                                        const startMins = toMin(act.heureDebut);
+                                        const startMins = toMin(actForEdit.heureDebut);
                                         const newEndMins = startMins + newDurationSlots * 30;
                                         if (newEndMins <= startMins) return;
                                         const newHeureFin = minutesToTime(newEndMins);
-                                        setPlanning(prev => prev.map(p => p.id === act.id ? { ...p, heureFin: newHeureFin } : p));
+                                        setPlanning(prev => prev.map(p =>
+                                          g.acts.some(a => a.id === p.id) ? { ...p, heureFin: newHeureFin } : p
+                                        ));
                                         try {
-                                          await deletePlanning(id, act.id);
-                                          const newItem = await createPlanning(id, {
-                                            date: act.date.split('T')[0],
-                                            heureDebut: act.heureDebut,
+                                          await Promise.all(g.acts.map(a => deletePlanning(id, a.id)));
+                                          const newItems = await Promise.all(g.acts.map(a => createPlanning(id, {
+                                            date: a.date.split('T')[0],
+                                            heureDebut: a.heureDebut,
                                             heureFin: newHeureFin,
-                                            titre: act.titre,
-                                            description: act.description,
-                                            responsable: act.responsable,
-                                            couleur: act.couleur ?? undefined,
+                                            titre: a.titre,
+                                            description: a.description,
+                                            responsable: a.responsable,
+                                            couleur: a.couleur ?? undefined,
+                                          })));
+                                          setPlanning(prev => {
+                                            const filtered = prev.filter(p => !g.acts.some(a => a.id === p.id));
+                                            return [...filtered, ...newItems];
                                           });
-                                          setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
                                         } catch {
-                                          setPlanning(prev => prev.map(p => p.id === act.id ? act : p));
+                                          await loadPlanning();
                                         }
                                       }}
                                     />
