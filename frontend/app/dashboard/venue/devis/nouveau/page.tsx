@@ -67,6 +67,8 @@ function NouveauDevisContent() {
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
   const [catalogueSearch, setCatalogueSearch] = useState('');
+  const [activeDescriptionKey, setActiveDescriptionKey] = useState<string | null>(null);
+  const [descriptionSearch, setDescriptionSearch] = useState('');
 
   // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
@@ -144,6 +146,16 @@ function NouveauDevisContent() {
 
   const removeLigne = useCallback((key: string) => {
     setLignes((prev) => prev.filter((l) => l.key !== key));
+  }, []);
+
+  const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
+    setLignes((prev) => prev.map((l) =>
+      l.key === key
+        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireHT), tva: String(produit.tva) }
+        : l
+    ));
+    setActiveDescriptionKey(null);
+    setDescriptionSearch('');
   }, []);
 
   // ── Submit ──
@@ -343,7 +355,7 @@ function NouveauDevisContent() {
               <div className="col-span-2 text-right">Quantité</div>
               <div className="col-span-2 text-right">Prix unit. HT</div>
               <div className="col-span-1 text-right">TVA %</div>
-              <div className="col-span-2 text-right">Total HT</div>
+              <div className="col-span-2 text-right">Total TTC</div>
               <div className="col-span-1" />
             </div>
 
@@ -351,12 +363,52 @@ function NouveauDevisContent() {
             {lignes.map((l, idx) => {
               const qte = parseFloat(l.quantite) || 0;
               const pu = parseFloat(l.prixUnitaire) || 0;
+              const tvaRate = parseFloat(l.tva) || 0;
               const ht = qte * pu;
+              const ttc = ht * (1 + tvaRate / 100);
               return (
                 <div key={l.key} className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
-                  <div className="col-span-12 sm:col-span-4">
-                    <input value={l.description} onChange={(e) => updateLigne(l.key, 'description', e.target.value)}
-                      placeholder="Description" className="w-full text-sm border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent" />
+                  <div className="col-span-12 sm:col-span-4 relative">
+                    <input
+                      value={activeDescriptionKey === l.key ? descriptionSearch : l.description}
+                      onChange={(e) => {
+                        setActiveDescriptionKey(l.key);
+                        setDescriptionSearch(e.target.value);
+                        updateLigne(l.key, 'description', e.target.value);
+                      }}
+                      onFocus={() => {
+                        setActiveDescriptionKey(l.key);
+                        setDescriptionSearch(l.description);
+                      }}
+                      onBlur={() => setTimeout(() => {
+                        setActiveDescriptionKey(null);
+                        setDescriptionSearch('');
+                      }, 150)}
+                      placeholder="Description"
+                      className="w-full text-sm border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent"
+                    />
+                    {activeDescriptionKey === l.key && descriptionSearch.length >= 2 && (() => {
+                      const results = catalogue.filter(p =>
+                        p.nom.toLowerCase().includes(descriptionSearch.toLowerCase())
+                      );
+                      if (results.length === 0) return null;
+                      return (
+                        <div className="absolute left-0 top-8 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
+                          {results.map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectProduitForLigne(l.key, p)}
+                              className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                            >
+                              <span className="text-sm text-gray-900 truncate">{p.nom}</span>
+                              <span className="text-xs text-gray-500 shrink-0 ml-2">{p.prixUnitaireHT.toFixed(2)} € HT</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="col-span-4 sm:col-span-2">
                     <input value={l.quantite} onChange={(e) => updateLigne(l.key, 'quantite', e.target.value)}
@@ -371,7 +423,7 @@ function NouveauDevisContent() {
                       placeholder="0" type="number" step="0.1" className="w-full text-sm text-right border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent" />
                   </div>
                   <div className="col-span-1 sm:col-span-2 text-right text-sm font-medium text-gray-900">
-                    {fmt(ht)} €
+                    {fmt(ttc)} €
                   </div>
                   <div className="col-span-1 text-right">
                     {lignes.length > 1 && (
