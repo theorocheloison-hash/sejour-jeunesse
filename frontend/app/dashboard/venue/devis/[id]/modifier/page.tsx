@@ -332,10 +332,11 @@ export default function ModifierDevisPage() {
 
             {/* Header */}
             <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200 mb-2">
-              <div className="col-span-4">Description</div>
+              <div className="col-span-3">Description</div>
               <div className="col-span-2 text-right">Quantité</div>
-              <div className="col-span-2 text-right">Prix unit. HT</div>
+              <div className="col-span-2 text-right">PU HT</div>
               <div className="col-span-1 text-right">TVA %</div>
+              <div className="col-span-1 text-right">PU TTC</div>
               <div className="col-span-2 text-right">Total TTC</div>
               <div className="col-span-1" />
             </div>
@@ -345,11 +346,12 @@ export default function ModifierDevisPage() {
               const qte = parseFloat(l.quantite) || 0;
               const pu = parseFloat(l.prixUnitaire) || 0;
               const tvaRate = parseFloat(l.tva) || 0;
+              const puTTC = pu * (1 + tvaRate / 100);
               const ht = qte * pu;
               const ttc = ht * (1 + tvaRate / 100);
               return (
                 <div key={l.key} className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
-                  <div className="col-span-12 sm:col-span-4 relative">
+                  <div className="col-span-12 sm:col-span-3 relative">
                     <input
                       value={activeDescriptionKey === l.key ? descriptionSearch : l.description}
                       onChange={(e) => {
@@ -402,6 +404,9 @@ export default function ModifierDevisPage() {
                   <div className="col-span-2 sm:col-span-1">
                     <input value={l.tva} onChange={(e) => updateLigne(l.key, 'tva', e.target.value)}
                       placeholder="0" type="number" step="0.1" className="w-full text-sm text-right border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent" />
+                  </div>
+                  <div className="col-span-1 sm:col-span-1 text-right text-sm text-gray-500">
+                    {puTTC > 0 ? fmt(puTTC) : '—'} €
                   </div>
                   <div className="col-span-1 sm:col-span-2 text-right text-sm font-medium text-gray-900">
                     {fmt(ttc)} €
