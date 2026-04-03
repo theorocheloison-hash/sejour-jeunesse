@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, Matches, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, Matches, IsDateString } from 'class-validator';
 
 export class CreatePlanningDto {
   @IsDateString()
@@ -27,4 +27,10 @@ export class CreatePlanningDto {
   @IsString()
   @IsOptional()
   couleur?: string;
+
+  @IsOptional()
+  estManuelle?: boolean;
+
+  @IsOptional()
+  estCollective?: boolean;
 }

@@ -126,8 +126,9 @@ export class CollaborationController {
   genererPlanningIA(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
+    @Body() body?: { debutActivites?: string; finActivites?: string },
   ) {
-    return this.service.genererPlanningIA(sejourId, user.id, user.role);
+    return this.service.genererPlanningIA(sejourId, user.id, user.role, body?.debutActivites, body?.finActivites);
   }
 
   @Get(':sejourId/planning/generer/:jobId')
@@ -202,31 +203,6 @@ export class CollaborationController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.service.createDocument(sejourId, user.id, dto, file, user.role);
-  }
-
-  // ── Contraintes séjour ────────────────────────────────────────
-
-  @Get(':sejourId/contraintes')
-  getContraintesSejour(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
-    return this.service.getContraintesSejour(sejourId, user.id, user.role);
-  }
-
-  @Post(':sejourId/contraintes')
-  createContrainteSejour(
-    @Param('sejourId') sejourId: string,
-    @CurrentUser() user: JwtUser,
-    @Body() dto: { libelle: string; type: string; date?: string; jourSemaine?: number; heureDebut?: string; heureFin?: string; produitId?: string },
-  ) {
-    return this.service.createContrainteSejour(sejourId, user.id, dto, user.role);
-  }
-
-  @Delete(':sejourId/contraintes/:contrainteId')
-  deleteContrainteSejour(
-    @Param('sejourId') sejourId: string,
-    @Param('contrainteId') contrainteId: string,
-    @CurrentUser() user: JwtUser,
-  ) {
-    return this.service.deleteContrainteSejour(sejourId, user.id, contrainteId, user.role);
   }
 
   // ── Groupes séjour ────────────────────────────────────────────

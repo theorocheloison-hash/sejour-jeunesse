@@ -109,6 +109,8 @@ export class CollaborationService {
         description: dto.description,
         responsable: dto.responsable,
         couleur: dto.couleur,
+        estManuelle: dto.estManuelle ?? true,
+        estCollective: dto.estCollective ?? false,
       },
     });
   }
@@ -368,49 +370,6 @@ export class CollaborationService {
     );
   }
 
-  // ── Contraintes séjour ────────────────────────────────────────
-
-  async getContraintesSejour(sejourId: string, userId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
-    return this.prisma.contrainteSejour.findMany({
-      where: { sejourId },
-      include: { produit: { select: { id: true, nom: true } } },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async createContrainteSejour(sejourId: string, userId: string, dto: {
-    libelle: string;
-    type: string;
-    date?: string;
-    jourSemaine?: number;
-    heureDebut?: string;
-    heureFin?: string;
-    produitId?: string;
-  }, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
-    return this.prisma.contrainteSejour.create({
-      data: {
-        sejourId,
-        libelle: dto.libelle,
-        type: dto.type,
-        date: dto.date ? new Date(dto.date) : null,
-        jourSemaine: dto.jourSemaine ?? null,
-        heureDebut: dto.heureDebut ?? null,
-        heureFin: dto.heureFin ?? null,
-        produitId: dto.produitId ?? null,
-      },
-      include: { produit: { select: { id: true, nom: true } } },
-    });
-  }
-
-  async deleteContrainteSejour(sejourId: string, userId: string, contrainteId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
-    const c = await this.prisma.contrainteSejour.findUnique({ where: { id: contrainteId } });
-    if (!c || c.sejourId !== sejourId) throw new NotFoundException('Contrainte introuvable');
-    return this.prisma.contrainteSejour.delete({ where: { id: contrainteId } });
-  }
-
   // ── Groupes séjour ────────────────────────────────────────────
 
   async getGroupes(sejourId: string, userId: string, role?: string) {
@@ -547,7 +506,7 @@ export class CollaborationService {
     });
   }
 
-  async genererPlanningIA(sejourId: string, userId: string, role?: string): Promise<{ jobId: string }> {
+  async genererPlanningIA(sejourId: string, userId: string, role?: string, debutActivites?: string, finActivites?: string): Promise<{ jobId: string }> {
     if (role !== 'VENUE') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
 
     const sejour = await this.verifyAccess(sejourId, userId, role);
@@ -584,13 +543,9 @@ export class CollaborationService {
       select: { id: true, nom: true, couleur: true, taille: true },
     });
 
-    const contraintesSejour = await this.prisma.contrainteSejour.findMany({
-      where: { sejourId },
-      include: { produit: { select: { nom: true } } },
-    });
-
-    const contraintesCentre = await this.prisma.contrainteCentre.findMany({
-      where: { centreId, actif: true },
+    const activitesManuelles = await this.prisma.planningActivite.findMany({
+      where: { sejourId, estManuelle: true },
+      orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
     });
 
     const nombreEleves = demande?.nombreEleves ?? sejour.placesTotales;
@@ -598,10 +553,12 @@ export class CollaborationService {
     const dateDebut = sejour.dateDebut.toISOString().split('T')[0];
     const dateFin = sejour.dateFin.toISOString().split('T')[0];
 
-    const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
     const contexte = {
       sejour: { dateDebut, dateFin, nombreEleves, nombreAccompagnateurs },
+      plageActivites: {
+        debut: debutActivites ?? `${dateDebut}T09:00`,
+        fin: finActivites ?? `${dateFin}T18:00`,
+      },
       groupes: groupes.length > 0 ? groupes : [{ nom: 'Groupe unique', taille: nombreEleves }],
       activites: activitesCatalogue
         .filter(a => devisSelectionne.lignes.some(l =>
@@ -614,21 +571,12 @@ export class CollaborationService {
           dureeMinutes: a.dureeMinutes ?? 120,
           simultaneitePossible: a.simultaneitePossible ?? true,
         })),
-      contraintesSejour: contraintesSejour.map(c => ({
-        libelle: c.libelle,
-        type: c.type,
-        date: c.date ? c.date.toISOString().split('T')[0] : null,
-        jourSemaine: c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
-        heureDebut: c.heureDebut,
-        heureFin: c.heureFin,
-        activite: c.produit?.nom ?? null,
-      })),
-      contraintesCentre: contraintesCentre.map(c => ({
-        libelle: c.libelle,
-        type: c.type,
-        jourSemaine: c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
-        heureDebut: c.heureDebut,
-        heureFin: c.heureFin,
+      activitesManuelles: activitesManuelles.map(a => ({
+        titre: a.titre,
+        date: a.date.toISOString().split('T')[0],
+        heureDebut: a.heureDebut,
+        heureFin: a.heureFin,
+        estCollective: a.estCollective,
       })),
     };
 
@@ -645,29 +593,42 @@ export class CollaborationService {
   private async _appelAnthropicPlanning(jobId: string, sejourId: string, contexte: any): Promise<void> {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const systemPrompt = `Tu es un assistant spécialisé dans la création de plannings pour des séjours scolaires en France.
-Tu dois générer un planning rotatif en JSON pur — aucun texte avant ou après, aucune balise markdown.
+    const systemPrompt = `Tu es un assistant expert en planification de séjours scolaires en montagne.
+Tu génères un planning rotatif en JSON pur — aucun texte avant ou après, aucune balise markdown.
 
-Règles strictes :
-- Chaque groupe doit faire chaque activité exactement une fois sur le séjour
-- Les activités démarrent au plus tôt à 09:00 et se terminent au plus tard à 18:00
-- Respecte les contraintes de blocage (créneaux interdits)
-- Pour les contraintes ACTIVITE_COLLECTIVE : tous les groupes font l'activité en même temps
-- Pour les contraintes CONTRAINTE_ARRIVEE : pas d'activité avant l'heure indiquée le jour concerné
-- Si simultaneitePossible est false pour une activité : un seul groupe à la fois peut la faire
-- Si simultaneitePossible est true : plusieurs groupes peuvent la faire en parallèle
-- Laisse une pause déjeuner de 12:00 à 14:00 chaque jour
-- Attribue une couleur hex différente à chaque groupe (utilise la couleur fournie dans les groupes)
+RÈGLES ABSOLUES :
+
+1. ACTIVITÉS MANUELLES — PRIORITÉ MAXIMALE
+   - Le contexte contient une liste "activitesManuelles" : ce sont des activités déjà placées par l'hébergeur, à ne JAMAIS déplacer ni modifier
+   - Les activités manuelles avec estCollective=true sont faites par TOUS les groupes simultanément — ne pas les router en rotation
+   - Respecte ces créneaux comme des contraintes fixes
+
+2. GROUPES ET COULEURS
+   - Chaque entrée du planning correspond à UN groupe précis faisant UNE activité
+   - Le champ "groupeNom" doit être EXACTEMENT le nom du groupe tel que fourni
+   - Le champ "couleur" doit être EXACTEMENT la couleur hex fournie pour ce groupe
+   - Le champ "titre" doit contenir : "NOM_ACTIVITE — NOM_GROUPE"
+
+3. ROTATION
+   - Chaque groupe doit faire chaque activité exactement une fois sur le séjour
+   - Si simultaneitePossible est true : plusieurs groupes peuvent faire la même activité en parallèle
+   - Si simultaneitePossible est false : un seul groupe à la fois
+
+4. HORAIRES
+   - Activités entre 09:00 et 18:00 uniquement
+   - Pause déjeuner obligatoire 12:00-14:00
+   - Respecte les durées indiquées dans dureeMinutes
+   - Ne génère AUCUNE activité sur les créneaux des activitesManuelles
 
 Format de réponse — tableau JSON uniquement :
 [
   {
-    "titre": "Nom de l'activité",
+    "titre": "NOM_ACTIVITE — NOM_GROUPE",
     "date": "YYYY-MM-DD",
     "heureDebut": "HH:MM",
     "heureFin": "HH:MM",
-    "couleur": "#hexcode",
-    "groupeNom": "Nom du groupe"
+    "couleur": "#hexcode_exact_du_groupe",
+    "groupeNom": "nom_exact_du_groupe"
   }
 ]`;
 
@@ -681,7 +642,7 @@ Format de réponse — tableau JSON uniquement :
     });
 
     // Supprimer le planning existant avant d'insérer le nouveau
-    await this.prisma.planningActivite.deleteMany({ where: { sejourId } });
+    await this.prisma.planningActivite.deleteMany({ where: { sejourId, estManuelle: false } });
 
     const rawText = response.content
       .filter((b: any) => b.type === 'text')
@@ -715,6 +676,7 @@ Format de réponse — tableau JSON uniquement :
             titre: item.titre,
             couleur: groupe?.couleur ?? item.couleur,
             groupeId: groupe?.id ?? null,
+            estManuelle: false,
           },
         });
       })

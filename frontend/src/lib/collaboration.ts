@@ -23,6 +23,9 @@ export interface PlanningActivite {
   description?: string;
   responsable?: string;
   couleur?: string;
+  estManuelle?: boolean;
+  estCollective?: boolean;
+  groupeNom?: string | null;
   createdAt: string;
 }
 
@@ -121,7 +124,7 @@ export async function getPlanning(sejourId: string): Promise<PlanningActivite[]>
 
 export async function createPlanning(
   sejourId: string,
-  body: { date: string; heureDebut: string; heureFin: string; titre: string; description?: string; responsable?: string; couleur?: string },
+  body: { date: string; heureDebut: string; heureFin: string; titre: string; description?: string; responsable?: string; couleur?: string; estCollective?: boolean; estManuelle?: boolean },
 ): Promise<PlanningActivite> {
   const { data } = await api.post<PlanningActivite>(`/collaboration/${sejourId}/planning`, body);
   return data;
@@ -301,44 +304,6 @@ export async function getActivitesCatalogue(sejourId: string): Promise<ActiviteC
   return data;
 }
 
-// ── Contraintes séjour ──────────────────────────────────────────────────────
-
-export interface ContrainteSejour {
-  id: string;
-  sejourId: string;
-  libelle: string;
-  type: string;
-  date: string | null;
-  jourSemaine: number | null;
-  heureDebut: string | null;
-  heureFin: string | null;
-  produitId: string | null;
-  produit: { id: string; nom: string } | null;
-  createdAt: string;
-}
-
-export async function getContraintesSejour(sejourId: string): Promise<ContrainteSejour[]> {
-  const { data } = await api.get<ContrainteSejour[]>(`/collaboration/${sejourId}/contraintes`);
-  return data;
-}
-
-export async function createContrainteSejour(sejourId: string, dto: {
-  libelle: string;
-  type: string;
-  date?: string;
-  jourSemaine?: number;
-  heureDebut?: string;
-  heureFin?: string;
-  produitId?: string;
-}): Promise<ContrainteSejour> {
-  const { data } = await api.post<ContrainteSejour>(`/collaboration/${sejourId}/contraintes`, dto);
-  return data;
-}
-
-export async function deleteContrainteSejour(sejourId: string, contrainteId: string): Promise<void> {
-  await api.delete(`/collaboration/${sejourId}/contraintes/${contrainteId}`);
-}
-
 // ── Groupes séjour ──────────────────────────────────────────────────────────
 
 export interface EleveGroupe {
@@ -401,8 +366,11 @@ export async function cloturerInscriptions(sejourId: string): Promise<void> {
   await api.post(`/collaboration/${sejourId}/cloturer-inscriptions`);
 }
 
-export async function genererPlanningIA(sejourId: string): Promise<{ jobId: string }> {
-  const { data } = await api.post<{ jobId: string }>(`/collaboration/${sejourId}/planning/generer`);
+export async function genererPlanningIA(sejourId: string, debutActivites?: string, finActivites?: string): Promise<{ jobId: string }> {
+  const { data } = await api.post<{ jobId: string }>(`/collaboration/${sejourId}/planning/generer`, {
+    debutActivites,
+    finActivites,
+  });
   return data;
 }
 

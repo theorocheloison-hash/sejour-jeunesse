@@ -186,27 +186,4 @@ export class CentreController {
     return this.centreService.updateCapacitesProduit(user.id, id, dto);
   }
 
-  @Get('contraintes-centre')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
-  getContraintesCentre(@CurrentUser() user: JwtUser) {
-    return this.centreService.getContraintesCentre(user.id);
-  }
-
-  @Post('contraintes-centre')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
-  createContrainteCentre(
-    @CurrentUser() user: JwtUser,
-    @Body() dto: { libelle: string; type: string; jourSemaine?: number; heureDebut?: string; heureFin?: string },
-  ) {
-    return this.centreService.createContrainteCentre(user.id, dto);
-  }
-
-  @Delete('contraintes-centre/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
-  deleteContrainteCentre(@CurrentUser() user: JwtUser, @Param('id') id: string) {
-    return this.centreService.deleteContrainteCentre(user.id, id);
-  }
 }

@@ -31,9 +31,6 @@ import {
   deleteLigneCompl,
   addRecetteBudget,
   deleteRecetteBudget,
-  getContraintesSejour,
-  createContrainteSejour,
-  deleteContrainteSejour,
   getGroupes,
   createGroupe,
   updateGroupe,
@@ -57,7 +54,6 @@ import type {
   LigneCompl,
   RecetteBudget,
   ActiviteCatalogue,
-  ContrainteSejour,
   GroupeSejour,
   PropositionGroupes,
 } from '@/src/lib/collaboration';
@@ -79,7 +75,7 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'contraintes' | 'participants' | 'documents' | 'budget' | 'projet';
+type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'participants' | 'documents' | 'budget' | 'projet';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -94,7 +90,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'messages', label: 'Messages' },
   { key: 'planning', label: 'Planning' },
   { key: 'groupes', label: 'Groupes' },
-  { key: 'contraintes', label: 'Contraintes' },
   { key: 'participants', label: 'Participants' },
   { key: 'documents', label: 'Documents' },
   { key: 'budget', label: 'Budget prévisionnel' },
@@ -272,8 +267,9 @@ function DraggableActivity({
         style={{ backgroundColor: act.couleur ?? '#16a34a' }}
         {...(isVenue ? { ...attributes, ...listeners } : {})}
       >
-        <div className="font-semibold truncate">{act.titre}</div>
+        <div className="font-semibold truncate text-[11px] leading-tight">{act.titre}</div>
         <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
+        {act.estCollective && <div className="opacity-90 text-[10px] font-bold">👥 Tous</div>}
         {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
         {isVenue && (
           <div
@@ -360,6 +356,8 @@ export default function CollaborationPage() {
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle');
   const generationPollRef = useRef<NodeJS.Timeout | null>(null);
+  const [planningDebutActivites, setPlanningDebutActivites] = useState('');
+  const [planningFinActivites, setPlanningFinActivites] = useState('');
   const [planModal, setPlanModal] = useState<{
     open: boolean;
     date: string;
@@ -369,17 +367,15 @@ export default function CollaborationPage() {
     description: string;
     responsable: string;
     couleur: string;
+    estCollective?: boolean;
     editId?: string;
   } | null>(null);
 
-  // Groupes & contraintes
+  // Groupes
   const [groupes, setGroupes] = useState<GroupeSejour[]>([]);
   const [groupeModal, setGroupeModal] = useState<{ open: boolean; editId?: string; nom: string; couleur: string; taille: number } | null>(null);
   const [propositionGroupes, setPropositionGroupes] = useState<PropositionGroupes | null>(null);
   const [loadingProposition, setLoadingProposition] = useState(false);
-  const [contraintesSejour, setContraintesSejour] = useState<ContrainteSejour[]>([]);
-  const [contrainteSejourForm, setContrainteSejourForm] = useState({ libelle: '', type: 'BLOCAGE_CRENEAU', date: '', jourSemaine: '', heureDebut: '', heureFin: '', produitId: '' });
-  const [savingContrainteSejour, setSavingContrainteSejour] = useState(false);
   const [dragEleve, setDragEleve] = useState<string | null>(null);
 
   // Documents
@@ -505,14 +501,6 @@ export default function CollaborationPage() {
       getGroupes(id).then(setGroupes).catch(() => {});
       getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
     }
-    if (tab === 'contraintes') {
-      getContraintesSejour(id).then(setContraintesSejour).catch(() => {});
-      getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
-      if (sejour?.dateDebut) {
-        const dateStr = new Date(sejour.dateDebut).toISOString().split('T')[0];
-        setContrainteSejourForm(f => f.date ? f : { ...f, date: dateStr });
-      }
-    }
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
     if (tab === 'budget') loadBudget();
@@ -564,6 +552,8 @@ export default function CollaborationPage() {
         description: planModal.description || undefined,
         responsable: planModal.responsable || undefined,
         couleur: planModal.couleur || undefined,
+        estCollective: planModal.estCollective ?? false,
+        estManuelle: true,
       });
       setPlanning(prev => [...prev, newItem]);
       setPlanModal(null);
@@ -584,7 +574,7 @@ export default function CollaborationPage() {
     if (!id) return;
     setGenerationStatus('pending');
     try {
-      const { jobId } = await genererPlanningIA(id);
+      const { jobId } = await genererPlanningIA(id, planningDebutActivites || undefined, planningFinActivites || undefined);
       setGenerationJobId(jobId);
       generationPollRef.current = setInterval(async () => {
         try {
@@ -675,34 +665,6 @@ export default function CollaborationPage() {
     try {
       await cloturerInscriptions(id);
       setSejour(prev => prev ? { ...prev, inscriptionsCloturees: true } as any : prev);
-    } catch { /* ignore */ }
-  };
-
-  const handleAddContrainteSejour = async () => {
-    if (!id || !contrainteSejourForm.libelle) return;
-    setSavingContrainteSejour(true);
-    try {
-      const c = await createContrainteSejour(id, {
-        libelle: contrainteSejourForm.libelle,
-        type: contrainteSejourForm.type,
-        date: contrainteSejourForm.date || undefined,
-        jourSemaine: contrainteSejourForm.jourSemaine ? Number(contrainteSejourForm.jourSemaine) : undefined,
-        heureDebut: contrainteSejourForm.heureDebut || undefined,
-        heureFin: contrainteSejourForm.heureFin || undefined,
-        produitId: contrainteSejourForm.produitId || undefined,
-      });
-      setContraintesSejour(prev => [...prev, c]);
-      setContrainteSejourForm({ libelle: '', type: 'BLOCAGE_CRENEAU', date: '', jourSemaine: '', heureDebut: '', heureFin: '', produitId: '' });
-    } finally {
-      setSavingContrainteSejour(false);
-    }
-  };
-
-  const handleDeleteContrainteSejour = async (contrainteId: string) => {
-    if (!id) return;
-    try {
-      await deleteContrainteSejour(id, contrainteId);
-      setContraintesSejour(prev => prev.filter(c => c.id !== contrainteId));
     } catch { /* ignore */ }
   };
 
@@ -942,8 +904,7 @@ export default function CollaborationPage() {
             {TABS.filter((t) =>
               (t.key !== 'projet' || user.role === 'TEACHER') &&
               (t.key !== 'budget' || user.role === 'TEACHER' || isDirector) &&
-              (t.key !== 'groupes' || user.role === 'TEACHER' || user.role === 'VENUE') &&
-              (t.key !== 'contraintes' || user.role === 'VENUE')
+              (t.key !== 'groupes' || user.role === 'TEACHER' || user.role === 'VENUE')
             ).map((t) => (
               <button
                 key={t.key}
@@ -1235,29 +1196,47 @@ export default function CollaborationPage() {
           return (
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             {isVenue && (
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleGenererPlanningIA}
-                    disabled={generationStatus === 'pending'}
-                    className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {generationStatus === 'pending' ? (
-                      <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Génération en cours...
-                      </>
-                    ) : (
-                      <>✨ Générer le planning IA</>
-                    )}
-                  </button>
-                  {generationStatus === 'done' && (
-                    <span className="text-sm text-green-600 font-medium">✓ Planning généré</span>
-                  )}
-                  {generationStatus === 'error' && (
-                    <span className="text-sm text-red-500">Erreur lors de la génération</span>
-                  )}
-                </div>
+              <div className="mb-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Début activités</label>
+                      <input
+                        type="datetime-local"
+                        value={planningDebutActivites}
+                        onChange={e => setPlanningDebutActivites(e.target.value)}
+                        min={sejour.dateDebut.split('T')[0]}
+                        max={sejour.dateFin.split('T')[0]}
+                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Fin activités</label>
+                      <input
+                        type="datetime-local"
+                        value={planningFinActivites}
+                        onChange={e => setPlanningFinActivites(e.target.value)}
+                        min={sejour.dateDebut.split('T')[0]}
+                        max={sejour.dateFin.split('T')[0]}
+                        className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                    </div>
+                    <button
+                      onClick={handleGenererPlanningIA}
+                      disabled={generationStatus === 'pending'}
+                      className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {generationStatus === 'pending' ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Génération en cours...
+                        </>
+                      ) : (
+                        <>✨ Générer le planning IA</>
+                      )}
+                    </button>
+                    {generationStatus === 'done' && <span className="text-sm text-green-600 font-medium">✓ Planning généré</span>}
+                    {generationStatus === 'error' && <span className="text-sm text-red-500">Erreur lors de la génération</span>}
+                  </div>
               </div>
             )}
             <div className="flex gap-4 h-full">
@@ -1627,111 +1606,6 @@ export default function CollaborationPage() {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── Contraintes ─── */}
-        {tab === 'contraintes' && user.role === 'VENUE' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900 mb-1">Contraintes de ce séjour</h2>
-              <p className="text-xs text-gray-500">Règles spécifiques à ce séjour : blocages ponctuels, activités collectives obligatoires, contraintes d&apos;arrivée...</p>
-            </div>
-
-            {/* Liste des contraintes */}
-            {contraintesSejour.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {contraintesSejour.map(c => {
-                  const JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-                  const parts = [
-                    c.type === 'BLOCAGE_CRENEAU' ? '🚫' : c.type === 'ACTIVITE_COLLECTIVE' ? '👥' : '📌',
-                    c.libelle,
-                    c.date ? new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : null,
-                    c.jourSemaine != null ? JOURS[c.jourSemaine] : null,
-                    c.heureDebut && c.heureFin ? `${c.heureDebut}-${c.heureFin}` : null,
-                    c.produit ? `→ ${c.produit.nom}` : null,
-                  ].filter(Boolean).join(' · ');
-                  return (
-                    <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1 text-xs text-orange-800">
-                      {parts}
-                      <button onClick={() => handleDeleteContrainteSejour(c.id)} className="text-orange-300 hover:text-red-500">&times;</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Formulaire nouvelle contrainte */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
-              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Ajouter une contrainte</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Libellé *</label>
-                  <input value={contrainteSejourForm.libelle}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, libelle: e.target.value }))}
-                    placeholder="ex: Arrivée lundi 11h, Marché mercredi matin, Rando journée tous ensemble..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
-                  <select value={contrainteSejourForm.type}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, type: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-                    <option value="BLOCAGE_CRENEAU">Blocage créneau</option>
-                    <option value="ACTIVITE_COLLECTIVE">Activité collective (tous les groupes)</option>
-                    <option value="CONTRAINTE_ARRIVEE">Contrainte d&apos;arrivée/départ</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Date précise <span className="text-gray-400 font-normal">(optionnel)</span></label>
-                  <input type="date" value={contrainteSejourForm.date}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, date: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Jour récurrent <span className="text-gray-400 font-normal">(optionnel)</span></label>
-                  <select value={contrainteSejourForm.jourSemaine}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, jourSemaine: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-                    <option value="">Aucun</option>
-                    <option value="1">Lundi</option>
-                    <option value="2">Mardi</option>
-                    <option value="3">Mercredi</option>
-                    <option value="4">Jeudi</option>
-                    <option value="5">Vendredi</option>
-                    <option value="6">Samedi</option>
-                    <option value="0">Dimanche</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure début</label>
-                  <input type="time" value={contrainteSejourForm.heureDebut}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, heureDebut: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Heure fin</label>
-                  <input type="time" value={contrainteSejourForm.heureFin}
-                    onChange={e => setContrainteSejourForm(f => ({ ...f, heureFin: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                </div>
-                {contrainteSejourForm.type === 'ACTIVITE_COLLECTIVE' && activitesCatalogue.length > 0 && (
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Activité concernée</label>
-                    <select value={contrainteSejourForm.produitId}
-                      onChange={e => setContrainteSejourForm(f => ({ ...f, produitId: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
-                      <option value="">Sélectionner une activité</option>
-                      {activitesCatalogue.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
-                    </select>
-                  </div>
-                )}
-              </div>
-              <button onClick={handleAddContrainteSejour} disabled={savingContrainteSejour || !contrainteSejourForm.libelle}
-                className="w-full rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                {savingContrainteSejour ? 'Ajout...' : 'Ajouter la contrainte'}
-              </button>
-            </div>
           </div>
         )}
 
@@ -2972,6 +2846,18 @@ export default function CollaborationPage() {
                     </div>
                   </div>
                 )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="estCollective"
+                    checked={planModal?.estCollective ?? false}
+                    onChange={e => setPlanModal(m => m ? { ...m, estCollective: e.target.checked } : m)}
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
+                  />
+                  <label htmlFor="estCollective" className="text-xs font-medium text-gray-700">
+                    Activité collective — tous les groupes en même temps
+                  </label>
+                </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <button onClick={() => setPlanModal(null)}

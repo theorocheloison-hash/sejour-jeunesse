@@ -558,34 +558,4 @@ export class CentreService {
     });
   }
 
-  async getContraintesCentre(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-    return this.prisma.contrainteCentre.findMany({
-      where: { centreId: centre.id, actif: true },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async createContrainteCentre(userId: string, dto: {
-    libelle: string;
-    type: string;
-    jourSemaine?: number;
-    heureDebut?: string;
-    heureFin?: string;
-  }) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-    return this.prisma.contrainteCentre.create({
-      data: { centreId: centre.id, ...dto },
-    });
-  }
-
-  async deleteContrainteCentre(userId: string, contrainteId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-    const c = await this.prisma.contrainteCentre.findUnique({ where: { id: contrainteId } });
-    if (!c || c.centreId !== centre.id) throw new ForbiddenException('Contrainte introuvable');
-    return this.prisma.contrainteCentre.update({ where: { id: contrainteId }, data: { actif: false } });
-  }
 }
