@@ -509,35 +509,14 @@ export class CollaborationService {
         .map(a => a.capaciteParGroupe!)
         .filter(c => c > 0);
       if (capacites.length > 0) {
-        // Trouver la taille de groupe qui minimise les places perdues
-        // en testant toutes les tailles de 2 à la moitié des élèves
-        const tailleMax = Math.ceil(nombreEleves / 2);
-        let meilleuresTailles: number[] = [];
-        let meilleuresPertesRatio = Infinity;
-
-        for (let t = 2; t <= tailleMax; t++) {
-          // Ne considérer que les tailles qui sont un diviseur d'au moins une capacité d'activité
-          // ou qui sont une capacité elle-même
-          const estPertinente = capacites.some(c => c % t === 0 || t % c === 0 || t === c);
-          if (!estPertinente) continue;
-
-          const nombreGroupesT = Math.ceil(nombreEleves / t);
-          const placesUtilisees = nombreGroupesT * t;
-          const pertesRatio = (placesUtilisees - nombreEleves) / nombreEleves;
-
-          if (pertesRatio < meilleuresPertesRatio) {
-            meilleuresPertesRatio = pertesRatio;
-            meilleuresTailles = [t];
-          } else if (pertesRatio === meilleuresPertesRatio) {
-            meilleuresTailles.push(t);
-          }
-        }
-
-        // Parmi les meilleures tailles, prendre la plus petite (plus de groupes = meilleure rotation)
-        if (meilleuresTailles.length > 0) {
-          tailleOptimale = meilleuresTailles[0];
+        // Choisir la plus petite capacité d'activité >= 6
+        // C'est la taille de groupe la plus naturelle métier :
+        // elle correspond directement à ce qu'un moniteur peut prendre,
+        // et le surplus est absorbé dans le dernier groupe
+        const capacitesValides = capacites.filter(c => c >= 6).sort((a, b) => a - b);
+        if (capacitesValides.length > 0) {
+          tailleOptimale = capacitesValides[0];
         } else {
-          // Fallback : taille minimale dans les capacités
           tailleOptimale = Math.min(...capacites);
         }
       }
