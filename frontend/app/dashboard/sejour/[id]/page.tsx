@@ -190,7 +190,7 @@ function DraggableCatalogueItem({ activite }: { activite: ActiviteCatalogue }) {
 
 // ─── DraggableActivity ───────────────────────────────────────────────────────
 function DraggableActivity({
-  act, topPx, heightPx, isVenue, colWidth, slotHeight, onEdit, onResize
+  act, topPx, heightPx, isVenue, colWidth, slotHeight, widthPct, leftPct, onEdit, onResize
 }: {
   act: PlanningActivite;
   topPx: number;
@@ -198,6 +198,8 @@ function DraggableActivity({
   isVenue: boolean;
   colWidth: number;
   slotHeight: number;
+  widthPct?: number;
+  leftPct?: number;
   onEdit: () => void;
   onResize: (newDurationSlots: number) => void;
 }) {
@@ -247,8 +249,9 @@ function DraggableActivity({
     position: 'absolute',
     top: `${topPx}px`,
     height: `${resizing ? currentHeight : heightPx}px`,
-    left: '2px',
-    right: '2px',
+    left: `calc(${leftPct ?? 0}% + 1px)`,
+    width: `calc(${widthPct ?? 100}% - 2px)`,
+    right: 'auto',
     zIndex: isDragging ? 50 : 10,
     opacity: isDragging ? 0.7 : 1,
     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
@@ -1298,59 +1301,112 @@ export default function CollaborationPage() {
                               slotHeight={SLOT_HEIGHT}
                               onCellClick={(slotIdx) => handleCellClick(day, slotIdx)}
                             >
-                              {dayActivities.map((act) => {
-                                const topMin = timeToMinutes(act.heureDebut);
-                                const botMin = timeToMinutes(act.heureFin);
-                                const duration = botMin - topMin;
-                                if (duration <= 0 || topMin < 0) return null;
-                                const topPx = (topMin / 30) * SLOT_HEIGHT;
-                                const heightPx = Math.max((duration / 30) * SLOT_HEIGHT, SLOT_HEIGHT);
-                                return (
-                                  <DraggableActivity
-                                    key={act.id}
-                                    act={act}
-                                    topPx={topPx}
-                                    heightPx={heightPx}
-                                    isVenue={isVenue}
-                                    colWidth={colWidth}
-                                    slotHeight={SLOT_HEIGHT}
-                                    onEdit={() => setPlanModal({
-                                      open: true,
-                                      date: act.date.split('T')[0],
-                                      heureDebut: act.heureDebut,
-                                      heureFin: act.heureFin,
-                                      titre: act.titre,
-                                      description: act.description ?? '',
-                                      responsable: act.responsable ?? '',
-                                      couleur: act.couleur ?? '',
-                                      editId: act.id,
-                                    })}
-                                    onResize={async (newDurationSlots) => {
-                                      if (!isVenue || !id) return;
-                                      const startMins = timeToMinutes(act.heureDebut);
-                                      const newEndMins = startMins + newDurationSlots * 30;
-                                      if (newEndMins <= startMins) return;
-                                      const newHeureFin = minutesToTime(newEndMins);
-                                      setPlanning(prev => prev.map(p => p.id === act.id ? { ...p, heureFin: newHeureFin } : p));
-                                      try {
-                                        await deletePlanning(id, act.id);
-                                        const newItem = await createPlanning(id, {
-                                          date: act.date.split('T')[0],
-                                          heureDebut: act.heureDebut,
-                                          heureFin: newHeureFin,
-                                          titre: act.titre,
-                                          description: act.description,
-                                          responsable: act.responsable,
-                                          couleur: act.couleur ?? undefined,
-                                        });
-                                        setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
-                                      } catch {
-                                        setPlanning(prev => prev.map(p => p.id === act.id ? act : p));
-                                      }
-                                    }}
-                                  />
-                                );
-                              })}
+                              {(() => {
+                                // ── Détection des chevauchements et calcul des colonnes ──
+                                const toMin = (t: string) => {
+                                  const [h, m] = t.split(':').map(Number);
+                                  return (h - HOUR_START) * 60 + m;
+                                };
+
+                                // Trier par heure de début
+                                const sorted = [...dayActivities].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
+
+                                // Calculer les colonnes (algorithme sweep line)
+                                type ActCol = { act: PlanningActivite; col: number; totalCols: number };
+                                const result: ActCol[] = [];
+                                const columns: PlanningActivite[][] = [];
+
+                                for (const act of sorted) {
+                                  const start = toMin(act.heureDebut);
+                                  const end = toMin(act.heureFin);
+                                  // Trouver une colonne libre
+                                  let placed = false;
+                                  for (let c = 0; c < columns.length; c++) {
+                                    const lastInCol = columns[c][columns[c].length - 1];
+                                    if (toMin(lastInCol.heureFin) <= start) {
+                                      columns[c].push(act);
+                                      result.push({ act, col: c, totalCols: 0 });
+                                      placed = true;
+                                      break;
+                                    }
+                                  }
+                                  if (!placed) {
+                                    columns.push([act]);
+                                    result.push({ act, col: columns.length - 1, totalCols: 0 });
+                                  }
+                                }
+
+                                // Calculer totalCols pour chaque activité (max colonnes utilisées simultanément)
+                                for (const item of result) {
+                                  const start = toMin(item.act.heureDebut);
+                                  const end = toMin(item.act.heureFin);
+                                  // Compter combien d'activités chevauchent cet intervalle
+                                  const overlapping = result.filter(other => {
+                                    const oStart = toMin(other.act.heureDebut);
+                                    const oEnd = toMin(other.act.heureFin);
+                                    return oStart < end && oEnd > start;
+                                  });
+                                  item.totalCols = Math.max(...overlapping.map(o => o.col + 1));
+                                }
+
+                                return result.map(({ act, col, totalCols }) => {
+                                  const topMin = toMin(act.heureDebut);
+                                  const botMin = toMin(act.heureFin);
+                                  const duration = botMin - topMin;
+                                  if (duration <= 0 || topMin < 0) return null;
+                                  const topPx = (topMin / 30) * SLOT_HEIGHT;
+                                  const heightPx = Math.max((duration / 30) * SLOT_HEIGHT, SLOT_HEIGHT);
+                                  const widthPct = 100 / totalCols;
+                                  const leftPct = col * widthPct;
+                                  return (
+                                    <DraggableActivity
+                                      key={act.id}
+                                      act={act}
+                                      topPx={topPx}
+                                      heightPx={heightPx}
+                                      isVenue={isVenue}
+                                      colWidth={colWidth}
+                                      slotHeight={SLOT_HEIGHT}
+                                      widthPct={widthPct}
+                                      leftPct={leftPct}
+                                      onEdit={() => setPlanModal({
+                                        open: true,
+                                        date: act.date.split('T')[0],
+                                        heureDebut: act.heureDebut,
+                                        heureFin: act.heureFin,
+                                        titre: act.titre,
+                                        description: act.description ?? '',
+                                        responsable: act.responsable ?? '',
+                                        couleur: act.couleur ?? '',
+                                        editId: act.id,
+                                      })}
+                                      onResize={async (newDurationSlots) => {
+                                        if (!isVenue || !id) return;
+                                        const startMins = toMin(act.heureDebut);
+                                        const newEndMins = startMins + newDurationSlots * 30;
+                                        if (newEndMins <= startMins) return;
+                                        const newHeureFin = minutesToTime(newEndMins);
+                                        setPlanning(prev => prev.map(p => p.id === act.id ? { ...p, heureFin: newHeureFin } : p));
+                                        try {
+                                          await deletePlanning(id, act.id);
+                                          const newItem = await createPlanning(id, {
+                                            date: act.date.split('T')[0],
+                                            heureDebut: act.heureDebut,
+                                            heureFin: newHeureFin,
+                                            titre: act.titre,
+                                            description: act.description,
+                                            responsable: act.responsable,
+                                            couleur: act.couleur ?? undefined,
+                                          });
+                                          setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
+                                        } catch {
+                                          setPlanning(prev => prev.map(p => p.id === act.id ? act : p));
+                                        }
+                                      }}
+                                    />
+                                  );
+                                });
+                              })()}
                             </DroppableDay>
                           );
                         })}
@@ -2846,18 +2902,25 @@ export default function CollaborationPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="estCollective"
-                    checked={planModal?.estCollective ?? false}
-                    onChange={e => setPlanModal(m => m ? { ...m, estCollective: e.target.checked } : m)}
-                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
-                  />
-                  <label htmlFor="estCollective" className="text-xs font-medium text-gray-700">
-                    Activité collective — tous les groupes en même temps
-                  </label>
-                </div>
+                {(() => {
+                  const actExistante = planModal?.editId ? planning.find(p => p.id === planModal.editId) : null;
+                  const isActiviteIA = actExistante && actExistante.estManuelle === false;
+                  if (isActiviteIA) return null;
+                  return (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="estCollective"
+                        checked={planModal?.estCollective ?? false}
+                        onChange={e => setPlanModal(m => m ? { ...m, estCollective: e.target.checked } : m)}
+                        className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
+                      />
+                      <label htmlFor="estCollective" className="text-xs font-medium text-gray-700">
+                        Activité collective — tous les groupes en même temps
+                      </label>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex gap-3 mt-4">
                 <button onClick={() => setPlanModal(null)}
