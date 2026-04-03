@@ -670,6 +670,9 @@ Format de réponse — tableau JSON uniquement :
       system: systemPrompt,
     });
 
+    // Supprimer le planning existant avant d'insérer le nouveau
+    await this.prisma.planningActivite.deleteMany({ where: { sejourId } });
+
     const rawText = response.content
       .filter((b: any) => b.type === 'text')
       .map((b: any) => b.text)
