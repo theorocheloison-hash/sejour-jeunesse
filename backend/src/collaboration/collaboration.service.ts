@@ -636,13 +636,17 @@ Format de réponse — tableau JSON uniquement :
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: 'user', content: userMessage }],
       system: systemPrompt,
     });
 
     // Supprimer le planning existant avant d'insérer le nouveau
     await this.prisma.planningActivite.deleteMany({ where: { sejourId, estManuelle: false } });
+
+    if (response.stop_reason === 'max_tokens') {
+      console.error('[PlanningIA] Réponse tronquée — max_tokens atteint. Augmenter max_tokens ou réduire le contexte.');
+    }
 
     const rawText = response.content
       .filter((b: any) => b.type === 'text')
@@ -666,7 +670,9 @@ Format de réponse — tableau JSON uniquement :
 
     const created = await Promise.all(
       planningItems.map(item => {
-        const groupe = groupeMap.find(g => g.nom === item.groupeNom);
+        const groupe = groupeMap.find(g =>
+          g.nom.trim().toLowerCase() === item.groupeNom?.trim().toLowerCase()
+        );
         return this.prisma.planningActivite.create({
           data: {
             sejourId,
