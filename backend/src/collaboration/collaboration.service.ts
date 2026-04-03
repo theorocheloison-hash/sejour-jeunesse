@@ -509,18 +509,49 @@ export class CollaborationService {
         .map(a => a.capaciteParGroupe!)
         .filter(c => c > 0);
       if (capacites.length > 0) {
-        // Cap : taille optimale = min(LCM des capacités, moitié des élèves)
-        const lcmCapacites = capacites.reduce((acc, c) => lcm(acc, c), capacites[0]);
-        tailleOptimale = Math.min(lcmCapacites, Math.ceil(nombreEleves / 2));
+        // Trouver la taille de groupe qui minimise les places perdues
+        // en testant toutes les tailles de 2 à la moitié des élèves
+        const tailleMax = Math.ceil(nombreEleves / 2);
+        let meilleuresTailles: number[] = [];
+        let meilleuresPertesRatio = Infinity;
+
+        for (let t = 2; t <= tailleMax; t++) {
+          // Ne considérer que les tailles qui sont un diviseur d'au moins une capacité d'activité
+          // ou qui sont une capacité elle-même
+          const estPertinente = capacites.some(c => c % t === 0 || t % c === 0 || t === c);
+          if (!estPertinente) continue;
+
+          const nombreGroupesT = Math.ceil(nombreEleves / t);
+          const placesUtilisees = nombreGroupesT * t;
+          const pertesRatio = (placesUtilisees - nombreEleves) / nombreEleves;
+
+          if (pertesRatio < meilleuresPertesRatio) {
+            meilleuresPertesRatio = pertesRatio;
+            meilleuresTailles = [t];
+          } else if (pertesRatio === meilleuresPertesRatio) {
+            meilleuresTailles.push(t);
+          }
+        }
+
+        // Parmi les meilleures tailles, prendre la plus petite (plus de groupes = meilleure rotation)
+        if (meilleuresTailles.length > 0) {
+          tailleOptimale = meilleuresTailles[0];
+        } else {
+          // Fallback : taille minimale dans les capacités
+          tailleOptimale = Math.min(...capacites);
+        }
       }
     }
 
-    const nombreGroupes = Math.ceil(nombreEleves / tailleOptimale);
+    const nombreGroupes = Math.floor(nombreEleves / tailleOptimale);
+    const surplus = nombreEleves % tailleOptimale;
     const couleurs = ['#16a34a', '#2563eb', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#be185d', '#374151'];
 
+    // surplus élèves sont ajoutés au dernier groupe (ex: 50 élèves / 7 = 6 groupes de 7 + 1 groupe de 8)
     const groupes = Array.from({ length: nombreGroupes }, (_, i) => {
-      const isLast = i === nombreGroupes - 1;
-      const taille = isLast ? nombreEleves - tailleOptimale * (nombreGroupes - 1) : tailleOptimale;
+      const taille = (i === nombreGroupes - 1 && surplus > 0)
+        ? tailleOptimale + surplus
+        : tailleOptimale;
       return { nom: `Groupe ${i + 1}`, couleur: couleurs[i % couleurs.length], taille };
     });
 
