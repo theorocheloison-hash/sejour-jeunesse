@@ -509,12 +509,9 @@ export class CollaborationService {
         .map(a => a.capaciteParGroupe!)
         .filter(c => c > 0);
       if (capacites.length > 0) {
-        // LCM de toutes les capacités
+        // Cap : taille optimale = min(LCM des capacités, moitié des élèves)
         const lcmCapacites = capacites.reduce((acc, c) => lcm(acc, c), capacites[0]);
-        // Trouver le multiple de lcmCapacites le plus proche de nombreEleves/3
-        const cible = Math.ceil(nombreEleves / 3);
-        const multiple = Math.max(lcmCapacites, Math.round(cible / lcmCapacites) * lcmCapacites);
-        tailleOptimale = Math.min(multiple, nombreEleves);
+        tailleOptimale = Math.min(lcmCapacites, Math.ceil(nombreEleves / 2));
       }
     }
 
