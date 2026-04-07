@@ -271,7 +271,7 @@ function DraggableActivity({
         style={{ backgroundColor: act.couleur ?? '#16a34a' }}
         {...(isVenue ? { ...attributes, ...listeners } : {})}
       >
-        <div className="font-semibold truncate text-[11px] leading-tight">{act.titre}</div>
+        <div className="font-semibold text-[11px] leading-tight break-words whitespace-normal line-clamp-3">{act.titre}</div>
         <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
         {act.estCollective && <div className="opacity-90 text-[10px] font-bold">👥 Tous</div>}
         {labelGroupes && <div className="opacity-90 text-[10px] font-medium truncate">{labelGroupes}</div>}
@@ -287,6 +287,46 @@ function DraggableActivity({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── DroppableParking ────────────────────────────────────────────────────────
+function DroppableParking({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'parking' });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-32 rounded-xl border-2 border-dashed transition-colors p-2 space-y-1.5 ${
+        isOver ? 'border-[var(--color-primary)] bg-blue-50' : 'border-gray-200 bg-gray-50'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── DraggableParkingItem ─────────────────────────────────────────────────────
+function DraggableParkingItem({ act }: { act: PlanningActivite }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `parking-${act.id}`,
+    data: { type: 'parking', act },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 999 : 1,
+        backgroundColor: act.couleur ?? '#16a34a',
+      }}
+      className="rounded-lg px-2 py-1.5 cursor-grab active:cursor-grabbing select-none text-white text-xs shadow-sm"
+      {...attributes}
+      {...listeners}
+    >
+      <p className="font-semibold text-[11px] leading-tight break-words">{act.titre}</p>
+      <p className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</p>
     </div>
   );
 }
@@ -357,10 +397,12 @@ export default function CollaborationPage() {
 
   // Planning
   const [planning, setPlanning] = useState<PlanningActivite[]>([]);
+  const [parking, setParking] = useState<PlanningActivite[]>([]);
   const [activitesCatalogue, setActivitesCatalogue] = useState<ActiviteCatalogue[]>([]);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle');
   const generationPollRef = useRef<NodeJS.Timeout | null>(null);
+  const calendarBodyRef = useRef<HTMLDivElement>(null);
   const [planningDebutActivites, setPlanningDebutActivites] = useState('');
   const [planningFinActivites, setPlanningFinActivites] = useState('');
   const [planningVue, setPlanningVue] = useState<'semaine' | 'jour'>('semaine');
@@ -1139,17 +1181,98 @@ export default function CollaborationPage() {
           const handleDragEnd = async (event: DragEndEvent) => {
             if (!isVenue) return;
 
-            // Drop depuis le catalogue d'activités
-            if (event.active.data.current?.type === 'catalogue') {
-              const activite = event.active.data.current.activite as ActiviteCatalogue;
-              const overDay = event.over?.id as string | undefined;
+            const overDay = event.over?.id as string | undefined;
+
+            // ── Drop vers le parking ──────────────────────────────────────────────
+            if (overDay === 'parking') {
+              const actId = event.active.id as string;
+              // Peut venir du calendrier (id = uuid) ou du parking lui-même (id = parking-uuid)
+              const realId = actId.startsWith('parking-') ? actId.replace('parking-', '') : actId;
+              const act = planning.find(p => p.id === realId);
+              if (!act || !id) return;
+              try {
+                await deletePlanning(id, realId);
+                setPlanning(prev => prev.filter(p => p.id !== realId));
+                setParking(prev => [...prev, { ...act, id: realId }]);
+              } catch { /* ignore */ }
+              return;
+            }
+
+            // ── Drop depuis le parking vers le calendrier ─────────────────────────
+            if (event.active.data.current?.type === 'parking') {
+              const act = event.active.data.current.act as PlanningActivite;
               if (!overDay || !overDay.startsWith('day-') || !id) return;
               const dateStr = overDay.replace('day-', '');
+
+              // Calculer l'heure à partir de la position Y du drop
+              const activatorEvent = event.activatorEvent as PointerEvent;
+              const calendarEl = calendarBodyRef.current;
+              let heureDebut = act.heureDebut;
+              let heureFin = act.heureFin;
+              if (calendarEl && activatorEvent) {
+                const dropY = activatorEvent.clientY + event.delta.y;
+                const rect = calendarEl.getBoundingClientRect();
+                const offsetInCol = dropY - rect.top + calendarEl.scrollTop;
+                const slotIdx = Math.max(0, Math.floor(offsetInCol / SLOT_HEIGHT));
+                const startMins = slotIdx * 30;
+                const duration = (() => {
+                  const [h1, m1] = act.heureDebut.split(':').map(Number);
+                  const [h2, m2] = act.heureFin.split(':').map(Number);
+                  return (h2 * 60 + m2) - (h1 * 60 + m1);
+                })();
+                const totalStart = (HOUR_START * 60) + startMins;
+                const totalEnd = totalStart + duration;
+                const pad = (n: number) => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+                heureDebut = pad(totalStart);
+                heureFin = pad(totalEnd);
+              }
+
+              try {
+                const newItem = await createPlanning(id, {
+                  date: dateStr,
+                  heureDebut,
+                  heureFin,
+                  titre: act.titre,
+                  description: act.description,
+                  responsable: act.responsable,
+                  couleur: act.couleur ?? undefined,
+                  estManuelle: act.estManuelle ?? true,
+                });
+                setParking(prev => prev.filter(p => p.id !== act.id));
+                setPlanning(prev => [...prev, newItem]);
+              } catch { /* ignore */ }
+              return;
+            }
+
+            // ── Drop depuis le catalogue d'activités ─────────────────────────────
+            if (event.active.data.current?.type === 'catalogue') {
+              const activite = event.active.data.current.activite as ActiviteCatalogue;
+              if (!overDay || !overDay.startsWith('day-') || !id) return;
+              const dateStr = overDay.replace('day-', '');
+
+              // Calculer l'heure à partir de la position Y du drop
+              const activatorEvent = event.activatorEvent as PointerEvent;
+              const calendarEl = calendarBodyRef.current;
+              let heureDebut = '09:00';
+              const dureeCatalogue = 60;
+              if (calendarEl && activatorEvent) {
+                const dropY = activatorEvent.clientY + event.delta.y;
+                const rect = calendarEl.getBoundingClientRect();
+                const offsetInCol = dropY - rect.top + calendarEl.scrollTop;
+                const slotIdx = Math.max(0, Math.floor(offsetInCol / SLOT_HEIGHT));
+                const startMins = slotIdx * 30;
+                const totalStart = HOUR_START * 60 + startMins;
+                heureDebut = String(Math.floor(totalStart / 60)).padStart(2, '0') + ':' + String(totalStart % 60).padStart(2, '0');
+              }
+              const [hh, mm] = heureDebut.split(':').map(Number);
+              const endMins = hh * 60 + mm + dureeCatalogue;
+              const heureFin = String(Math.floor(endMins / 60)).padStart(2, '0') + ':' + String(endMins % 60).padStart(2, '0');
+
               setPlanModal({
                 open: true,
                 date: dateStr,
-                heureDebut: '09:00',
-                heureFin: '10:00',
+                heureDebut,
+                heureFin,
                 titre: activite.nom,
                 description: activite.description ?? '',
                 responsable: '',
@@ -1158,6 +1281,7 @@ export default function CollaborationPage() {
               return;
             }
 
+            // ── Drag d'une activité existante dans le calendrier ─────────────────
             const { active, delta } = event;
             const actId = active.id as string;
             const act = planning.find(p => p.id === actId);
@@ -1317,7 +1441,7 @@ export default function CollaborationPage() {
                     </div>
 
                     {/* Corps scrollable */}
-                    <div style={{ height: '600px', overflowY: 'auto' }}>
+                    <div ref={calendarBodyRef} style={{ height: '600px', overflowY: 'auto' }}>
                       <div className="flex relative" style={{ height: `${SLOTS * SLOT_HEIGHT}px` }}>
 
                         {/* Colonne heures */}
@@ -1481,6 +1605,21 @@ export default function CollaborationPage() {
                       ))}
                     </div>
                   )}
+                  {/* Zone parking */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h4 className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
+                      <span>⏸</span> Parking
+                    </h4>
+                    <p className="text-[10px] text-gray-400 mb-2">Glissez ici pour mettre de côté</p>
+                    <DroppableParking>
+                      {parking.length === 0 && (
+                        <p className="text-[10px] text-gray-300 text-center py-3">Vide</p>
+                      )}
+                      {parking.map(act => (
+                        <DraggableParkingItem key={act.id} act={act} />
+                      ))}
+                    </DroppableParking>
+                  </div>
                 </div>
               </div>
             )}
