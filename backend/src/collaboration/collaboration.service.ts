@@ -559,10 +559,24 @@ export class CollaborationService {
       orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
     });
 
+    // Exclure de la rotation les activités déjà placées manuellement
+    const nomsActivitesManuelles = new Set(
+      activitesManuelles.map(a => {
+        const nom = a.titre.includes(' — ') ? a.titre.split(' — ')[0].trim() : a.titre.trim();
+        return nom.toLowerCase();
+      })
+    );
+    const activitesRotationFiltrees = activitesRotation.filter(a =>
+      !nomsActivitesManuelles.has(a.nom.toLowerCase().trim())
+    );
+    if (activitesRotationFiltrees.length === 0) {
+      throw new Error('Toutes les activités sont déjà placées manuellement — rien à générer.');
+    }
+
     // ── Calculer le nb de groupes simultanés par activité ─────────────────────
     // nbGroupesSimultanes(activite) = nbMoniteursMax ?? 1
     const nbGroupesSimultanesMin = Math.min(
-      ...activitesRotation.map(a => Math.max(1, (a as any).nbMoniteursMax ?? 1))
+      ...activitesRotationFiltrees.map(a => Math.max(1, (a as any).nbMoniteursMax ?? 1))
     );
     // Taille des clusters = min sur toutes les activités pour cohérence de la rotation
     const nbGroupesParCluster = Math.max(1, nbGroupesSimultanesMin);
@@ -573,7 +587,7 @@ export class CollaborationService {
       clusters.push(groupes.slice(i, i + nbGroupesParCluster));
     }
     const nbClusters = clusters.length;
-    const nbActivites = activitesRotation.length;
+    const nbActivites = activitesRotationFiltrees.length;
 
     // ── Helpers horaires ─────────────────────────────────────────────────────
     const toMin = (hh: string): number => {
@@ -611,7 +625,7 @@ export class CollaborationService {
       const finJour = toMin(estDernierJour ? heureFinGlobal : '18:00');
 
       const manuelsJour = activitesManuelles
-        .filter(a => a.date.toISOString().split('T')[0] === jour && !a.estCollective)
+        .filter(a => a.date.toISOString().split('T')[0] === jour)
         .map(a => ({ debut: toMin(a.heureDebut), fin: toMin(a.heureFin) }));
 
       const bloques = [
@@ -667,7 +681,7 @@ export class CollaborationService {
       const dureeMaxTour = Math.max(
         ...clusters.map((_, ci) => {
           const actIdx = (ci + tour) % nbActivites;
-          return activitesRotation[actIdx].dureeMinutes ?? 120;
+          return activitesRotationFiltrees[actIdx].dureeMinutes ?? 120;
         })
       );
 
@@ -690,7 +704,7 @@ export class CollaborationService {
 
       for (let ci = 0; ci < nbClusters; ci++) {
         const actIdx = (ci + tour) % nbActivites;
-        const activite = activitesRotation[actIdx];
+        const activite = activitesRotationFiltrees[actIdx];
         const duree = Math.min(activite.dureeMinutes ?? 120, slot.fenetre.dureeMin);
         const heureDebut = slot.fenetre.heureDebut;
         const heureFin = toHHMM(toMin(heureDebut) + duree);
