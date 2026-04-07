@@ -582,9 +582,16 @@ export class CollaborationService {
     const nbGroupesParCluster = Math.max(1, nbGroupesSimultanesMin);
 
     // ── Construire les clusters ───────────────────────────────────────────────
+    // Répartition uniforme : floor(n/k) par cluster, les premiers clusters prennent 1 de plus si reste
+    const nbClustersTotal = Math.ceil(groupes.length / nbGroupesParCluster);
     const clusters: Array<typeof groupes> = [];
-    for (let i = 0; i < groupes.length; i += nbGroupesParCluster) {
-      clusters.push(groupes.slice(i, i + nbGroupesParCluster));
+    let offset = 0;
+    for (let c = 0; c < nbClustersTotal; c++) {
+      const restant = groupes.length - offset;
+      const clustersRestants = nbClustersTotal - c;
+      const taille = Math.ceil(restant / clustersRestants);
+      clusters.push(groupes.slice(offset, offset + taille));
+      offset += taille;
     }
     const nbClusters = clusters.length;
     const nbActivites = activitesRotationFiltrees.length;
