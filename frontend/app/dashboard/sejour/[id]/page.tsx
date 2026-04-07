@@ -1351,83 +1351,45 @@ export default function CollaborationPage() {
                                   return (h - HOUR_START) * 60 + m;
                                 };
 
-                                // ── Étape 1 : regrouper les activités simultanées (même titre + même créneau exact) ──
-                                type GroupedAct = {
-                                  key: string;
-                                  acts: PlanningActivite[];
-                                  titre: string;
-                                  heureDebut: string;
-                                  heureFin: string;
-                                  couleur: string;
-                                  estCollective: boolean;
-                                  representative: PlanningActivite;
-                                };
-
-                                const groupedMap = new Map<string, GroupedAct>();
-                                for (const act of dayActivities) {
-                                  // Extraire le nom de l'activité (avant " — " si présent)
-                                  const nomActivite = act.titre.includes(' — ')
-                                    ? act.titre.split(' — ')[0].trim()
-                                    : act.titre.trim();
-                                  const key = `${nomActivite}|${act.heureDebut}|${act.heureFin}`;
-                                  if (!groupedMap.has(key)) {
-                                    groupedMap.set(key, {
-                                      key,
-                                      acts: [act],
-                                      titre: nomActivite,
-                                      heureDebut: act.heureDebut,
-                                      heureFin: act.heureFin,
-                                      couleur: act.couleur ?? '#16a34a',
-                                      estCollective: act.estCollective ?? false,
-                                      representative: act,
-                                    });
-                                  } else {
-                                    groupedMap.get(key)!.acts.push(act);
-                                  }
-                                }
-
-                                const grouped = Array.from(groupedMap.values());
-
-                                // ── Étape 2 : algorithme sweep line sur les groupes fusionnés ──
-                                type ActCol = { g: GroupedAct; col: number; totalCols: number };
+                                // Algo sweep line — un bloc par PlanningActivite, pas de fusion
+                                type ActCol = { act: PlanningActivite; col: number; totalCols: number };
                                 const result: ActCol[] = [];
-                                const columns: GroupedAct[][] = [];
+                                const columns: PlanningActivite[][] = [];
 
-                                const sortedGroups = [...grouped].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
+                                const sorted = [...dayActivities].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
 
-                                for (const g of sortedGroups) {
-                                  const start = toMin(g.heureDebut);
+                                for (const act of sorted) {
+                                  const start = toMin(act.heureDebut);
                                   let placed = false;
                                   for (let c = 0; c < columns.length; c++) {
                                     const last = columns[c][columns[c].length - 1];
                                     if (toMin(last.heureFin) <= start) {
-                                      columns[c].push(g);
-                                      result.push({ g, col: c, totalCols: 0 });
+                                      columns[c].push(act);
+                                      result.push({ act, col: c, totalCols: 0 });
                                       placed = true;
                                       break;
                                     }
                                   }
                                   if (!placed) {
-                                    columns.push([g]);
-                                    result.push({ g, col: columns.length - 1, totalCols: 0 });
+                                    columns.push([act]);
+                                    result.push({ act, col: columns.length - 1, totalCols: 0 });
                                   }
                                 }
 
                                 for (const item of result) {
-                                  const start = toMin(item.g.heureDebut);
-                                  const end = toMin(item.g.heureFin);
+                                  const start = toMin(item.act.heureDebut);
+                                  const end = toMin(item.act.heureFin);
                                   const overlapping = result.filter(other => {
-                                    const oStart = toMin(other.g.heureDebut);
-                                    const oEnd = toMin(other.g.heureFin);
+                                    const oStart = toMin(other.act.heureDebut);
+                                    const oEnd = toMin(other.act.heureFin);
                                     return oStart < end && oEnd > start;
                                   });
                                   item.totalCols = Math.max(...overlapping.map(o => o.col + 1));
                                 }
 
-                                // ── Étape 3 : rendu ──
-                                return result.map(({ g, col, totalCols }) => {
-                                  const topMin = toMin(g.heureDebut);
-                                  const botMin = toMin(g.heureFin);
+                                return result.map(({ act, col, totalCols }) => {
+                                  const topMin = toMin(act.heureDebut);
+                                  const botMin = toMin(act.heureFin);
                                   const duration = botMin - topMin;
                                   if (duration <= 0 || topMin < 0) return null;
                                   const topPx = (topMin / 30) * SLOT_HEIGHT;
@@ -1435,34 +1397,10 @@ export default function CollaborationPage() {
                                   const widthPct = 100 / totalCols;
                                   const leftPct = col * widthPct;
 
-                                  // Label groupes : "G1 G2 G3" si plusieurs groupes fusionnés
-                                  const nbGroupes = g.acts.length;
-                                  const labelGroupes = nbGroupes > 1
-                                    ? g.acts.map(a => {
-                                        const part = a.titre.includes(' — ') ? a.titre.split(' — ')[1]?.trim() : '';
-                                        // Abréger : "Groupe 1" → "G1", sinon garder tel quel tronqué
-                                        return part ? part.replace(/^Groupe\s+/i, 'G') : '';
-                                      }).filter(Boolean).join(' ')
-                                    : '';
-
-                                  // Titre affiché : "NOM_ACTIVITE" si regroupé, sinon titre complet
-                                  const titreFinal = nbGroupes > 1 ? g.titre : g.representative.titre;
-
-                                  // Couleur : si regroupé avec couleurs différentes → utiliser couleur du premier acte ou dégradé via opacité
-                                  const couleurFinal = g.couleur;
-
-                                  // Pour onEdit : si un seul acte, ouvrir la modale d'édition de cet acte
-                                  // Si plusieurs actes regroupés, ouvrir sur le premier (representative)
-                                  const actForEdit = g.representative;
-
                                   return (
                                     <DraggableActivity
-                                      key={g.key}
-                                      act={{
-                                        ...actForEdit,
-                                        titre: titreFinal,
-                                        couleur: couleurFinal,
-                                      }}
+                                      key={act.id}
+                                      act={act}
                                       topPx={topPx}
                                       heightPx={heightPx}
                                       isVenue={isVenue}
@@ -1470,44 +1408,38 @@ export default function CollaborationPage() {
                                       slotHeight={SLOT_HEIGHT}
                                       widthPct={widthPct}
                                       leftPct={leftPct}
-                                      labelGroupes={labelGroupes}
                                       onEdit={() => setPlanModal({
                                         open: true,
-                                        date: actForEdit.date.split('T')[0],
-                                        heureDebut: actForEdit.heureDebut,
-                                        heureFin: actForEdit.heureFin,
-                                        titre: actForEdit.titre,
-                                        description: actForEdit.description ?? '',
-                                        responsable: actForEdit.responsable ?? '',
-                                        couleur: actForEdit.couleur ?? '',
-                                        editId: actForEdit.id,
+                                        date: act.date.split('T')[0],
+                                        heureDebut: act.heureDebut,
+                                        heureFin: act.heureFin,
+                                        titre: act.titre,
+                                        description: act.description ?? '',
+                                        responsable: act.responsable ?? '',
+                                        couleur: act.couleur ?? '',
+                                        editId: act.id,
                                       })}
                                       onResize={async (newDurationSlots) => {
                                         if (!isVenue || !id) return;
-                                        const startMins = toMin(actForEdit.heureDebut);
+                                        const startMins = toMin(act.heureDebut);
                                         const newEndMins = startMins + newDurationSlots * 30;
                                         if (newEndMins <= startMins) return;
                                         const newHeureFin = minutesToTime(newEndMins);
-                                        setPlanning(prev => prev.map(p =>
-                                          g.acts.some(a => a.id === p.id) ? { ...p, heureFin: newHeureFin } : p
-                                        ));
+                                        setPlanning(prev => prev.map(p => p.id === act.id ? { ...p, heureFin: newHeureFin } : p));
                                         try {
-                                          await Promise.all(g.acts.map(a => deletePlanning(id, a.id)));
-                                          const newItems = await Promise.all(g.acts.map(a => createPlanning(id, {
-                                            date: a.date.split('T')[0],
-                                            heureDebut: a.heureDebut,
+                                          await deletePlanning(id, act.id);
+                                          const newItem = await createPlanning(id, {
+                                            date: act.date.split('T')[0],
+                                            heureDebut: act.heureDebut,
                                             heureFin: newHeureFin,
-                                            titre: a.titre,
-                                            description: a.description,
-                                            responsable: a.responsable,
-                                            couleur: a.couleur ?? undefined,
-                                          })));
-                                          setPlanning(prev => {
-                                            const filtered = prev.filter(p => !g.acts.some(a => a.id === p.id));
-                                            return [...filtered, ...newItems];
+                                            titre: act.titre,
+                                            description: act.description,
+                                            responsable: act.responsable,
+                                            couleur: act.couleur ?? undefined,
                                           });
+                                          setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
                                         } catch {
-                                          await loadPlanning();
+                                          setPlanning(prev => prev.map(p => p.id === act.id ? act : p));
                                         }
                                       }}
                                     />
