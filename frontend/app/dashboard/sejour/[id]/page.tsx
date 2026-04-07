@@ -1482,7 +1482,13 @@ export default function CollaborationPage() {
                                 const result: ActCol[] = [];
                                 const columns: PlanningActivite[][] = [];
 
-                                const sorted = [...dayActivities].sort((a, b) => toMin(a.heureDebut) - toMin(b.heureDebut));
+                                const sorted = [...dayActivities].sort((a, b) => {
+                                  const timeDiff = toMin(a.heureDebut) - toMin(b.heureDebut);
+                                  if (timeDiff !== 0) return timeDiff;
+                                  const nomA = a.titre.includes(' — ') ? a.titre.split(' — ')[0] : a.titre;
+                                  const nomB = b.titre.includes(' — ') ? b.titre.split(' — ')[0] : b.titre;
+                                  return nomA.localeCompare(nomB);
+                                });
 
                                 for (const act of sorted) {
                                   const start = toMin(act.heureDebut);
