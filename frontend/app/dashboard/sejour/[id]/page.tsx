@@ -1200,6 +1200,8 @@ export default function CollaborationPage() {
                 titre: act.titre,
                 description: act.description,
                 responsable: act.responsable,
+                couleur: act.couleur ?? undefined,
+                estManuelle: act.estManuelle ?? true,
               });
               setPlanning(prev => prev.map(p => p.id === actId ? newItem : p));
             } catch {
