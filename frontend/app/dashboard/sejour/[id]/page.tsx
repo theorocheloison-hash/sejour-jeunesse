@@ -401,6 +401,7 @@ export default function CollaborationPage() {
   const [activitesCatalogue, setActivitesCatalogue] = useState<ActiviteCatalogue[]>([]);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'pending' | 'done' | 'error'>('idle');
+  const [showConfirmViderPlanning, setShowConfirmViderPlanning] = useState(false);
   const generationPollRef = useRef<NodeJS.Timeout | null>(null);
   const calendarBodyRef = useRef<HTMLDivElement>(null);
   const [planningDebutActivites, setPlanningDebutActivites] = useState('');
@@ -1393,6 +1394,13 @@ export default function CollaborationPage() {
                         className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                       />
                     </div>
+                    <button
+                      onClick={() => setShowConfirmViderPlanning(true)}
+                      disabled={planning.length === 0}
+                      className="flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      🗑 Vider le planning
+                    </button>
                     <button
                       onClick={handleGenererPlanningIA}
                       disabled={generationStatus === 'pending'}
@@ -3019,6 +3027,39 @@ export default function CollaborationPage() {
                 </>
               );
             })()}
+          </div>
+        )}
+        {/* ── Modale confirmation vider planning ─── */}
+        {showConfirmViderPlanning && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => setShowConfirmViderPlanning(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+              onClick={e => e.stopPropagation()}>
+              <h2 className="text-sm font-semibold text-gray-900 mb-2">Vider le planning ?</h2>
+              <p className="text-sm text-gray-500 mb-5">Toutes les activités seront supprimées définitivement, y compris les activités manuelles. Cette action est irréversible.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirmViderPlanning(false)}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!id) return;
+                    try {
+                      await Promise.all(planning.map(p => deletePlanning(id, p.id)));
+                      setPlanning([]);
+                      setParking([]);
+                    } catch { /* ignore */ }
+                    setShowConfirmViderPlanning(false);
+                  }}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Supprimer tout
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {/* ── Modale planning (création/édition) ─── */}
