@@ -414,6 +414,7 @@ export class CentreService {
     prixUnitaireTTC?: number;
     tva: number;
     unite: string;
+    nbMoniteursMax?: number;
   }) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
@@ -547,6 +548,7 @@ export class CentreService {
     encadrementParGroupe?: number | null;
     simultaneitePossible?: boolean;
     dureeMinutes?: number | null;
+    nbMoniteursMax?: number | null;
   }) {
     const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
     if (!centre) throw new NotFoundException('Centre introuvable');

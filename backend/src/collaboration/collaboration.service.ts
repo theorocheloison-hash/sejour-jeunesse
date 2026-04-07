@@ -1,5 +1,4 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
@@ -535,179 +534,206 @@ export class CollaborationService {
 
     const activitesCatalogue = await this.prisma.produitCatalogue.findMany({
       where: { centreId, type: 'ACTIVITE', actif: true },
-      select: { id: true, nom: true, capaciteParGroupe: true, simultaneitePossible: true, dureeMinutes: true },
+      select: { id: true, nom: true, capaciteParGroupe: true, simultaneitePossible: true, dureeMinutes: true, nbMoniteursMax: true },
     });
+
+    // Filtrer les activités du devis
+    const activitesRotation = activitesCatalogue
+      .filter(a => devisSelectionne.lignes.some(l =>
+        l.description.toLowerCase().includes(a.nom.toLowerCase()) ||
+        a.nom.toLowerCase().includes(l.description.toLowerCase())
+      ));
+
+    if (activitesRotation.length === 0) throw new Error('Aucune activité du catalogue ne correspond aux lignes du devis');
 
     const groupes = await this.prisma.groupeSejour.findMany({
       where: { sejourId },
-      select: { id: true, nom: true, couleur: true, taille: true, createdAt: true },
+      select: { id: true, nom: true, couleur: true, taille: true },
+      orderBy: { createdAt: 'asc' },
     });
+
+    if (groupes.length === 0) throw new Error('Aucun groupe défini pour ce séjour');
 
     const activitesManuelles = await this.prisma.planningActivite.findMany({
       where: { sejourId, estManuelle: true },
       orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
     });
 
-    const nombreEleves = demande?.nombreEleves ?? sejour.placesTotales;
-    const nombreAccompagnateurs = demande?.nombreAccompagnateurs ?? sejour.nombreAccompagnateurs ?? 1;
-    const dateDebut = sejour.dateDebut.toISOString().split('T')[0];
-    const dateFin = sejour.dateFin.toISOString().split('T')[0];
-
-    // Calculer les paires stables de groupes (G1+G2, G3+G4, G5+G6, etc.)
-    // Les groupes sont triés par ordre de création (createdAt asc)
-    const groupesTries = [...groupes].sort((a, b) =>
-      (a as any).createdAt < (b as any).createdAt ? -1 : 1
+    // ── Calculer le nb de groupes simultanés par activité ─────────────────────
+    // nbGroupesSimultanes(activite) = nbMoniteursMax ?? 1
+    const nbGroupesSimultanesMin = Math.min(
+      ...activitesRotation.map(a => Math.max(1, (a as any).nbMoniteursMax ?? 1))
     );
-    const pairesGroupes: { groupe1: string; groupe2: string | null }[] = [];
-    for (let i = 0; i < groupesTries.length; i += 2) {
-      pairesGroupes.push({
-        groupe1: groupesTries[i].nom,
-        groupe2: groupesTries[i + 1]?.nom ?? null,
-      });
-    }
+    // Taille des clusters = min sur toutes les activités pour cohérence de la rotation
+    const nbGroupesParCluster = Math.max(1, nbGroupesSimultanesMin);
 
-    const contexte = {
-      sejour: { dateDebut, dateFin, nombreEleves, nombreAccompagnateurs },
-      plageActivites: {
-        debut: debutActivites ?? `${dateDebut}T09:00`,
-        fin: finActivites ?? `${dateFin}T18:00`,
-      },
-      groupes: groupes.length > 0 ? groupes : [{ nom: 'Groupe unique', taille: nombreEleves }],
-      activites: activitesCatalogue
-        .filter(a => devisSelectionne.lignes.some(l =>
-          l.description.toLowerCase().includes(a.nom.toLowerCase()) ||
-          a.nom.toLowerCase().includes(l.description.toLowerCase())
-        ))
-        .map(a => ({
-          nom: a.nom,
-          capaciteParGroupe: a.capaciteParGroupe ?? 'non défini',
-          dureeMinutes: a.dureeMinutes ?? 120,
-          simultaneitePossible: a.simultaneitePossible ?? true,
-        })),
-      pairesGroupes,
-      activitesManuelles: activitesManuelles.map(a => ({
-        titre: a.titre,
-        date: a.date.toISOString().split('T')[0],
-        heureDebut: a.heureDebut,
-        heureFin: a.heureFin,
-        estCollective: a.estCollective,
-      })),
+    // ── Construire les clusters ───────────────────────────────────────────────
+    const clusters: Array<typeof groupes> = [];
+    for (let i = 0; i < groupes.length; i += nbGroupesParCluster) {
+      clusters.push(groupes.slice(i, i + nbGroupesParCluster));
+    }
+    const nbClusters = clusters.length;
+    const nbActivites = activitesRotation.length;
+
+    // ── Helpers horaires ─────────────────────────────────────────────────────
+    const toMin = (hh: string): number => {
+      const [h, m] = hh.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const toHHMM = (mins: number): string => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     };
 
-    const jobId = `${sejourId}-${Date.now()}`;
-    this.planningJobs.set(jobId, { status: 'pending' });
+    // ── Construire les jours disponibles ──────────────────────────────────────
+    const dateDebutStr = sejour.dateDebut.toISOString().split('T')[0];
+    const dateFinStr = sejour.dateFin.toISOString().split('T')[0];
+    const heureDebutGlobal = debutActivites?.split('T')[1]?.substring(0, 5) ?? '09:00';
+    const heureFinGlobal = finActivites?.split('T')[1]?.substring(0, 5) ?? '18:00';
 
-    this._appelAnthropicPlanning(jobId, sejourId, contexte).catch(() => {
-      this.planningJobs.set(jobId, { status: 'error', error: 'Erreur lors de la génération' });
-    });
-
-    return { jobId };
-  }
-
-  private async _appelAnthropicPlanning(jobId: string, sejourId: string, contexte: any): Promise<void> {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    const systemPrompt = `Tu es un assistant expert en planification de séjours scolaires en montagne.
-Tu génères un planning rotatif en JSON pur — aucun texte avant ou après, aucune balise markdown.
-
-RÈGLES ABSOLUES :
-
-1. ACTIVITÉS MANUELLES — PRIORITÉ MAXIMALE
-   - Le contexte contient une liste "activitesManuelles" : ce sont des activités déjà placées par l'hébergeur, à ne JAMAIS déplacer ni modifier
-   - Les activités manuelles avec estCollective=true sont faites par TOUS les groupes simultanément — ne pas les router en rotation
-   - Respecte ces créneaux comme des contraintes fixes
-
-2. GROUPES ET COULEURS
-   - Chaque entrée du planning correspond à UN groupe précis faisant UNE activité
-   - Le champ "groupeNom" doit être EXACTEMENT le nom du groupe tel que fourni
-   - Le champ "couleur" doit être EXACTEMENT la couleur hex fournie pour ce groupe
-   - Le champ "titre" doit contenir : "NOM_ACTIVITE — NOM_GROUPE"
-
-3. PAIRES STABLES ET ROTATION
-   - Le contexte contient "pairesGroupes" : ce sont les paires fixes de groupes pour tout le séjour
-   - Exemple : paire [G1, G2] signifie que G1 et G2 font toujours la même activité en même temps
-   - RÈGLE ABSOLUE : si G1 fait Rafting à 9h lundi, G2 fait aussi Rafting à 9h lundi — même activité, même créneau exact, même date
-   - Cette règle s'applique sur TOUS les créneaux du séjour sans exception
-   - Un groupe seul (groupe2: null) est traité individuellement
-   - Chaque paire fait chaque activité exactement une fois sur le séjour
-   - Si simultaneitePossible est true : plusieurs paires peuvent faire la même activité en parallèle
-   - Si simultaneitePossible est false : une seule paire à la fois sur cette activité
-
-4. HORAIRES
-   - Activités entre 09:00 et 18:00 uniquement
-   - Pause déjeuner obligatoire 12:00-14:00
-   - Respecte les durées indiquées dans dureeMinutes
-   - Ne génère AUCUNE activité sur les créneaux des activitesManuelles
-
-Format de réponse — tableau JSON uniquement :
-[
-  {
-    "titre": "NOM_ACTIVITE — NOM_GROUPE",
-    "date": "YYYY-MM-DD",
-    "heureDebut": "HH:MM",
-    "heureFin": "HH:MM",
-    "couleur": "#hexcode_exact_du_groupe",
-    "groupeNom": "nom_exact_du_groupe"
-  }
-]`;
-
-    const userMessage = `Génère le planning pour ce séjour :\n${JSON.stringify(contexte, null, 2)}`;
-
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 8192,
-      messages: [{ role: 'user', content: userMessage }],
-      system: systemPrompt,
-    });
-
-    // Supprimer le planning existant avant d'insérer le nouveau
-    await this.prisma.planningActivite.deleteMany({ where: { sejourId, estManuelle: false } });
-
-    if (response.stop_reason === 'max_tokens') {
-      console.error('[PlanningIA] Réponse tronquée — max_tokens atteint. Augmenter max_tokens ou réduire le contexte.');
+    const jours: string[] = [];
+    const cursorDate = new Date(dateDebutStr + 'T12:00:00Z');
+    const finDate = new Date(dateFinStr + 'T12:00:00Z');
+    while (cursorDate <= finDate) {
+      jours.push(cursorDate.toISOString().split('T')[0]);
+      cursorDate.setDate(cursorDate.getDate() + 1);
     }
 
-    const rawText = response.content
-      .filter((b: any) => b.type === 'text')
-      .map((b: any) => b.text)
-      .join('');
+    // ── Calculer les fenêtres libres par jour ──────────────────────────────
+    type Fenetre = { heureDebut: string; heureFin: string; dureeMin: number };
 
-    const clean = rawText.replace(/```json|```/g, '').trim();
-    const planningItems: Array<{
+    const fenetresParJour = new Map<string, Fenetre[]>();
+    for (const jour of jours) {
+      const estPremierJour = jour === jours[0];
+      const estDernierJour = jour === jours[jours.length - 1];
+      const debutJour = toMin(estPremierJour ? heureDebutGlobal : '09:00');
+      const finJour = toMin(estDernierJour ? heureFinGlobal : '18:00');
+
+      const manuelsJour = activitesManuelles
+        .filter(a => a.date.toISOString().split('T')[0] === jour && !a.estCollective)
+        .map(a => ({ debut: toMin(a.heureDebut), fin: toMin(a.heureFin) }));
+
+      const bloques = [
+        { debut: 12 * 60, fin: 14 * 60 },
+        ...manuelsJour,
+      ].filter(b => b.debut < finJour && b.fin > debutJour)
+        .sort((a, b) => a.debut - b.debut);
+
+      const fenetres: Fenetre[] = [];
+      let cur = debutJour;
+      for (const bloque of bloques) {
+        if (cur < bloque.debut) {
+          fenetres.push({ heureDebut: toHHMM(cur), heureFin: toHHMM(bloque.debut), dureeMin: bloque.debut - cur });
+        }
+        cur = Math.max(cur, bloque.fin);
+      }
+      if (cur < finJour) {
+        fenetres.push({ heureDebut: toHHMM(cur), heureFin: toHHMM(finJour), dureeMin: finJour - cur });
+      }
+      fenetresParJour.set(jour, fenetres);
+    }
+
+    // ── Pool de créneaux disponibles ───────────────────────────────────────
+    type Slot = { jour: string; fenetre: Fenetre };
+    const slots: Slot[] = [];
+    for (const jour of jours) {
+      for (const f of fenetresParJour.get(jour) ?? []) {
+        slots.push({ jour, fenetre: f });
+      }
+    }
+
+    if (slots.length < nbActivites) {
+      throw new Error(`Pas assez de créneaux : ${nbActivites} tours nécessaires, ${slots.length} créneaux disponibles. Élargissez la plage horaire.`);
+    }
+
+    // ── Rotation round-robin : clusters × activités ────────────────────────
+    type EntreePlanning = {
+      groupeId: string;
+      couleur: string;
       titre: string;
       date: string;
       heureDebut: string;
       heureFin: string;
-      couleur: string;
-      groupeNom: string;
-    }> = JSON.parse(clean);
+    };
+    const entrees: EntreePlanning[] = [];
+    const slotsUtilises = new Set<number>();
 
-    const groupeMap = await this.prisma.groupeSejour.findMany({
-      where: { sejourId },
-      select: { id: true, nom: true, couleur: true },
-    });
+    for (let tour = 0; tour < nbActivites; tour++) {
+      // Durée max requise pour ce tour
+      const dureeMaxTour = Math.max(
+        ...clusters.map((_, ci) => {
+          const actIdx = (ci + tour) % nbActivites;
+          return activitesRotation[actIdx].dureeMinutes ?? 120;
+        })
+      );
 
-    const created = await Promise.all(
-      planningItems.map(item => {
-        const groupe = groupeMap.find(g =>
-          g.nom.trim().toLowerCase() === item.groupeNom?.trim().toLowerCase()
+      // Chercher le premier slot libre avec assez de durée
+      let slotIdx = -1;
+      for (let i = 0; i < slots.length; i++) {
+        if (!slotsUtilises.has(i) && slots[i].fenetre.dureeMin >= dureeMaxTour) {
+          slotIdx = i; break;
+        }
+      }
+      // Fallback : premier slot libre quelle que soit la durée
+      if (slotIdx === -1) {
+        for (let i = 0; i < slots.length; i++) {
+          if (!slotsUtilises.has(i)) { slotIdx = i; break; }
+        }
+      }
+      if (slotIdx === -1) continue;
+      slotsUtilises.add(slotIdx);
+      const slot = slots[slotIdx];
+
+      for (let ci = 0; ci < nbClusters; ci++) {
+        const actIdx = (ci + tour) % nbActivites;
+        const activite = activitesRotation[actIdx];
+        const duree = Math.min(activite.dureeMinutes ?? 120, slot.fenetre.dureeMin);
+        const heureDebut = slot.fenetre.heureDebut;
+        const heureFin = toHHMM(toMin(heureDebut) + duree);
+        for (const groupe of clusters[ci]) {
+          entrees.push({
+            groupeId: groupe.id,
+            couleur: groupe.couleur,
+            titre: `${activite.nom} — ${groupe.nom}`,
+            date: slot.jour,
+            heureDebut,
+            heureFin,
+          });
+        }
+      }
+    }
+
+    // ── Persister en base ─────────────────────────────────────────────────
+    const jobId = `${sejourId}-${Date.now()}`;
+    this.planningJobs.set(jobId, { status: 'pending' });
+
+    (async () => {
+      try {
+        await this.prisma.planningActivite.deleteMany({ where: { sejourId, estManuelle: false } });
+        const created = await Promise.all(
+          entrees.map(e =>
+            this.prisma.planningActivite.create({
+              data: {
+                sejourId,
+                date: new Date(e.date + 'T12:00:00Z'),
+                heureDebut: e.heureDebut,
+                heureFin: e.heureFin,
+                titre: e.titre,
+                couleur: e.couleur,
+                groupeId: e.groupeId,
+                estManuelle: false,
+              },
+            })
+          )
         );
-        return this.prisma.planningActivite.create({
-          data: {
-            sejourId,
-            date: new Date(item.date),
-            heureDebut: item.heureDebut,
-            heureFin: item.heureFin,
-            titre: item.titre,
-            couleur: groupe?.couleur ?? item.couleur,
-            groupeId: groupe?.id ?? null,
-            estManuelle: false,
-          },
-        });
-      })
-    );
+        this.planningJobs.set(jobId, { status: 'done', result: created });
+      } catch (err) {
+        this.planningJobs.set(jobId, { status: 'error', error: String(err) });
+      }
+    })();
 
-    this.planningJobs.set(jobId, { status: 'done', result: created });
+    return { jobId };
   }
 
   async getPlanningGenerationStatus(jobId: string, userId: string, role?: string): Promise<{
