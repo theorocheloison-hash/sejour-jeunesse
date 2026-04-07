@@ -549,7 +549,7 @@ export class CollaborationService {
     const groupes = await this.prisma.groupeSejour.findMany({
       where: { sejourId },
       select: { id: true, nom: true, couleur: true, taille: true },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { nom: 'asc' },
     });
 
     if (groupes.length === 0) throw new Error('Aucun groupe défini pour ce séjour');
@@ -659,6 +659,9 @@ export class CollaborationService {
     const entrees: EntreePlanning[] = [];
     const slotsUtilises = new Set<number>();
 
+    const abrégerGroupe = (nom: string): string =>
+      nom.replace(/^Groupe\s+/i, 'G');
+
     for (let tour = 0; tour < nbActivites; tour++) {
       // Durée max requise pour ce tour
       const dureeMaxTour = Math.max(
@@ -695,7 +698,7 @@ export class CollaborationService {
           entrees.push({
             groupeId: groupe.id,
             couleur: groupe.couleur,
-            titre: `${activite.nom} — ${groupe.nom}`,
+            titre: `${activite.nom} — ${abrégerGroupe(groupe.nom)}`,
             date: slot.jour,
             heureDebut,
             heureFin,
