@@ -598,18 +598,52 @@ export class SejourService {
   async update(id: string, dto: UpdateSejourDto, userId: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },
-      include: { createur: { select: { etablissementNom: true } } },
+      include: {
+        createur: { select: { etablissementNom: true } },
+        demandes: {
+          where: { statut: 'OUVERTE' },
+          select: { id: true },
+          take: 1,
+        },
+      },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== userId)
-      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
+    if (sejour.statut !== 'DRAFT') throw new ForbiddenException('Ce séjour ne peut plus être modifié');
 
-    const data: Record<string, unknown> = {};
-    if (dto.prix !== undefined) data.prix = dto.prix;
-    if (dto.dateLimiteInscription !== undefined)
-      data.dateLimiteInscription = new Date(dto.dateLimiteInscription);
+    const updated = await this.prisma.sejour.update({
+      where: { id },
+      data: {
+        ...(dto.prix !== undefined && { prix: dto.prix }),
+        ...(dto.dateLimiteInscription !== undefined && { dateLimiteInscription: new Date(dto.dateLimiteInscription) }),
+        ...(dto.niveauClasse !== undefined && { niveauClasse: dto.niveauClasse }),
+        ...(dto.activitesSouhaitees !== undefined && { activitesSouhaitees: dto.activitesSouhaitees }),
+        ...(dto.budgetMaxParEleve !== undefined && { budgetMaxParEleve: dto.budgetMaxParEleve }),
+        ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
+        ...(dto.heureArrivee !== undefined && { heureArrivee: dto.heureArrivee }),
+        ...(dto.heureDepart !== undefined && { heureDepart: dto.heureDepart }),
+        ...(dto.transportAller !== undefined && { transportAller: dto.transportAller }),
+        ...(dto.transportSurPlace !== undefined && { transportSurPlace: dto.transportSurPlace }),
+        ...(dto.informationsComplementaires !== undefined && { description: dto.informationsComplementaires }),
+      },
+    });
 
-    const updated = await this.prisma.sejour.update({ where: { id }, data });
+    // Mettre à jour la DemandeDevis OUVERTE si elle existe
+    const demandeOuverte = sejour.demandes?.[0];
+    if (demandeOuverte) {
+      await this.prisma.demandeDevis.update({
+        where: { id: demandeOuverte.id },
+        data: {
+          ...(dto.activitesSouhaitees !== undefined && { activitesSouhaitees: dto.activitesSouhaitees }),
+          ...(dto.budgetMaxParEleve !== undefined && { budgetMaxParEleve: dto.budgetMaxParEleve }),
+          ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
+          ...(dto.heureArrivee !== undefined && { heureArrivee: dto.heureArrivee }),
+          ...(dto.heureDepart !== undefined && { heureDepart: dto.heureDepart }),
+          ...(dto.transportAller !== undefined && { transportAller: dto.transportAller }),
+          ...(dto.transportSurPlace !== undefined && { transportSurPlace: dto.transportSurPlace }),
+        },
+      });
+    }
 
     // Envoyer un email aux parents quand le prix est défini
     if (dto.prix !== undefined && dto.prix > 0) {

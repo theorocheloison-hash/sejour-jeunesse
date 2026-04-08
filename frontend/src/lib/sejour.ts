@@ -56,7 +56,15 @@ export interface Sejour {
   placesRestantes: number;
   prix: number;
   statut: StatutSejour;
+  description: string | null;
   niveauClasse: string | null;
+  nombreAccompagnateurs: number | null;
+  heureArrivee: string | null;
+  heureDepart: string | null;
+  transportAller: string | null;
+  transportSurPlace: boolean | null;
+  activitesSouhaitees: string | null;
+  budgetMaxParEleve: number | null;
   thematiquesPedagogiques: string[];
   typeZone: TypeZone | null;
   zoneGeographique: string | null;
@@ -152,12 +160,21 @@ export async function updateSejourStatus(id: string, statut: StatutSejour): Prom
   return data;
 }
 
-export async function updateSejour(
-  id: string,
-  dto: { prix?: number; dateLimiteInscription?: string },
-): Promise<Sejour> {
-  const { data } = await api.patch<Sejour>(`/sejours/${id}`, dto);
-  return data;
+export async function updateSejour(id: string, data: {
+  prix?: number;
+  dateLimiteInscription?: string;
+  niveauClasse?: string;
+  activitesSouhaitees?: string;
+  budgetMaxParEleve?: number;
+  nombreAccompagnateurs?: number;
+  heureArrivee?: string;
+  heureDepart?: string;
+  transportAller?: string;
+  transportSurPlace?: boolean;
+  informationsComplementaires?: string;
+}): Promise<Sejour> {
+  const { data: result } = await api.patch<Sejour>(`/sejours/${id}`, data);
+  return result;
 }
 
 // ── Dossier pédagogique ──────────────────────────────────────────────────────
