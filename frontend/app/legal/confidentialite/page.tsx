@@ -25,7 +25,7 @@ export default function ConfidentialitePage() {
             </div>
             <div>
               <span className="text-lg font-bold text-[#1B4060]">Liavo</span>
-              <p className="text-xs text-gray-500">SASU — 472 route du Mas Devant, 74440 MORILLON — RCS ANNECY</p>
+              <p className="text-xs text-gray-500">SASU — SIRET 102 994 910 00010 — RCS Annecy</p>
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Politique de confidentialité</h1>

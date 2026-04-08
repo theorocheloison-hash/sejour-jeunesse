@@ -42,7 +42,7 @@ export default function MandatFacturationPage() {
               <p className="text-xs font-semibold text-[#1B4060] uppercase tracking-wide mb-2">Mandataire</p>
               <p className={liCls}><strong>LIAVO</strong>, SASU au capital de 1 000 €</p>
               <p className={liCls}>Siège : 472 route du Mas Devant, 74440 MORILLON</p>
-              <p className={liCls}>SIREN : 102 994 910 — SIRET : en cours d&apos;attribution INSEE</p>
+              <p className={liCls}>SIRET : 102 994 910 00010 — RCS Annecy</p>
               <p className={liCls}>102 994 910 RCS Annecy</p>
               <p className={liCls}>Qualité : Plateforme SaaS éditrice — agit comme émetteur technique</p>
             </div>
