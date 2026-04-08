@@ -839,6 +839,10 @@ model InvitationCollaboration {
   transportSurPlace         Boolean?  @map("transport_sur_place")
   activitesSouhaitees       String?   @map("activites_souhaitees") @db.Text
   budgetMaxParEleve         Float?    @map("budget_max_par_eleve")
+  etablissementUai      String?   @map("etablissement_uai") @db.VarChar(20)
+  etablissementNom      String?   @map("etablissement_nom") @db.VarChar(255)
+  etablissementAdresse  String?   @map("etablissement_adresse") @db.VarChar(500)
+  etablissementVille    String?   @map("etablissement_ville") @db.VarChar(255)
   acceptedAt          DateTime?          @map("accepted_at")
   sejourId            String?            @map("sejour_id") @db.Uuid
   createdAt           DateTime           @default(now()) @map("created_at")

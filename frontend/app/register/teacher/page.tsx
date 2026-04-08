@@ -23,6 +23,9 @@ function RegisterTeacherContent() {
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Invitation pré-remplissage
+  const [invitationCentre, setInvitationCentre] = useState<string | null>(null);
+
   // Établissement search
   const [etabNom, setEtabNom] = useState('');
   const [etabVille, setEtabVille] = useState('');
@@ -98,6 +101,29 @@ function RegisterTeacherContent() {
   const searchParams = useSearchParams();
   const redirectAfterLogin = searchParams.get('redirect');
 
+  const invitationToken = redirectAfterLogin?.startsWith('/rejoindre/')
+    ? redirectAfterLogin.replace('/rejoindre/', '')
+    : null;
+
+  useEffect(() => {
+    if (!invitationToken) return;
+    api.get(`/invitation-collaboration/${invitationToken}`)
+      .then(res => {
+        const inv = res.data;
+        if (inv.etablissementNom) {
+          setInvitationCentre(inv.centre?.nom ?? 'votre hébergeur');
+          setForm(f => ({
+            ...f,
+            etablissementNom: inv.etablissementNom,
+            etablissementVille: inv.etablissementVille ?? '',
+            etablissementAdresse: inv.etablissementAdresse ?? '',
+            etablissementUai: inv.etablissementUai ?? '',
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [invitationToken]);
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -107,9 +133,6 @@ function RegisterTeacherContent() {
     setIsPending(true);
     try {
       await api.post('/auth/register/teacher', form);
-      if (redirectAfterLogin) {
-        sessionStorage.setItem('liavo_redirect_after_login', redirectAfterLogin);
-      }
       setSuccess(true);
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -223,6 +246,14 @@ function RegisterTeacherContent() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-0.5">Votre établissement</label>
               <p className="text-xs text-gray-400 mb-1.5">(optionnel)</p>
+              {invitationCentre && form.etablissementNom && (
+                <div className="mb-2 flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Établissement pré-rempli par {invitationCentre}. Vérifiez que c&apos;est bien le vôtre, ou modifiez-le.
+                </div>
+              )}
               {form.etablissementNom ? (
                 <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
                   <div className="flex-1 min-w-0">

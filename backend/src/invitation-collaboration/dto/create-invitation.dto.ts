@@ -58,4 +58,20 @@ export class CreateInvitationCollaborationDto {
   @IsOptional()
   @IsString()
   message?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementUai?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementNom?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementAdresse?: string;
+
+  @IsOptional()
+  @IsString()
+  etablissementVille?: string;
 }

@@ -40,6 +40,10 @@ export class InvitationCollaborationService {
         transportSurPlace: dto.transportSurPlace ?? null,
         activitesSouhaitees: dto.activitesSouhaitees ?? null,
         budgetMaxParEleve: dto.budgetMaxParEleve ?? null,
+        etablissementUai: dto.etablissementUai ?? null,
+        etablissementNom: dto.etablissementNom ?? null,
+        etablissementAdresse: dto.etablissementAdresse ?? null,
+        etablissementVille: dto.etablissementVille ?? null,
       },
     });
 
@@ -88,6 +92,22 @@ export class InvitationCollaborationService {
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable');
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
+
+    // Pré-remplir l'établissement si l'enseignant ne l'a pas encore renseigné
+    if (invitation.etablissementUai) {
+      const userComplet = await this.prisma.user.findUnique({ where: { id: user.id } });
+      if (userComplet && !userComplet.etablissementUai) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            etablissementUai: invitation.etablissementUai,
+            etablissementNom: invitation.etablissementNom ?? null,
+            etablissementAdresse: invitation.etablissementAdresse ?? null,
+            etablissementVille: invitation.etablissementVille ?? null,
+          },
+        });
+      }
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
       // Séjour en DRAFT sans hébergeur lié — l'enseignant doit choisir via le workflow devis normal

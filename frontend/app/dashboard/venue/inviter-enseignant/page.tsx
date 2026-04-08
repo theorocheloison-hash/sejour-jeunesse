@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
@@ -21,10 +21,70 @@ export default function InviterEnseignantPage() {
     activitesSouhaitees: '',
     budgetMaxParEleve: '',
     message: '',
+    etablissementUai: '',
+    etablissementNom: '',
+    etablissementAdresse: '',
+    etablissementVille: '',
   });
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Établissement search
+  const [etabNom, setEtabNom] = useState('');
+  const [etabVille, setEtabVille] = useState('');
+  const [etabCp, setEtabCp] = useState('');
+  const [etabResults, setEtabResults] = useState<Array<{ uai: string; nom: string; type: string; adresse: string; codePostal: string; commune: string; academie: string }>>([]);
+  const [etabSearching, setEtabSearching] = useState(false);
+  const etabDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const etabAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+      if (etabAbortRef.current) etabAbortRef.current.abort();
+    };
+  }, []);
+
+  const fireEtabSearch = (nom: string, ville: string, cp: string) => {
+    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+    const params: Record<string, string> = {};
+    if (/^\d{5}$/.test(cp.trim())) {
+      params.q = cp.trim();
+    } else {
+      const parts = [nom.trim(), ville.trim()].filter(Boolean);
+      if (parts.length > 0) params.q = parts.join(' ');
+    }
+    if (!params.q) { setEtabResults([]); return; }
+    if (params.q.length < 3) { setEtabResults([]); return; }
+
+    const doSearch = async () => {
+      if (etabAbortRef.current) etabAbortRef.current.abort();
+      const controller = new AbortController();
+      etabAbortRef.current = controller;
+      setEtabSearching(true);
+      try {
+        const res = await api.get('/etablissements/recherche', { params, signal: controller.signal });
+        setEtabResults(res.data);
+      } catch { /* aborted or error */ }
+      finally { setEtabSearching(false); }
+    };
+
+    etabDebounceRef.current = setTimeout(doSearch, 400);
+  };
+
+  const selectEtab = (e: typeof etabResults[0]) => {
+    setForm(f => ({ ...f, etablissementUai: e.uai, etablissementNom: e.nom, etablissementAdresse: e.adresse ?? '', etablissementVille: e.commune }));
+    setEtabResults([]);
+  };
+
+  const clearEtab = () => {
+    setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
+    setEtabNom('');
+    setEtabVille('');
+    setEtabCp('');
+    setEtabResults([]);
+  };
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -49,6 +109,10 @@ export default function InviterEnseignantPage() {
         activitesSouhaitees: form.activitesSouhaitees || undefined,
         budgetMaxParEleve: form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
         message: form.message || undefined,
+        etablissementUai: form.etablissementUai || undefined,
+        etablissementNom: form.etablissementNom || undefined,
+        etablissementAdresse: form.etablissementAdresse || undefined,
+        etablissementVille: form.etablissementVille || undefined,
       });
       setSuccess(form.emailEnseignant);
     } catch (err: any) {
@@ -59,7 +123,11 @@ export default function InviterEnseignantPage() {
   };
 
   const resetForm = () => {
-    setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', nombreAccompagnateurs: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', activitesSouhaitees: '', budgetMaxParEleve: '', message: '' });
+    setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', nombreAccompagnateurs: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', activitesSouhaitees: '', budgetMaxParEleve: '', message: '', etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' });
+    setEtabNom('');
+    setEtabVille('');
+    setEtabCp('');
+    setEtabResults([]);
     setSuccess(null);
     setError(null);
   };
@@ -198,6 +266,73 @@ export default function InviterEnseignantPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Activités souhaitées</label>
                 <input type="text" value={form.activitesSouhaitees} onChange={set('activitesSouhaitees')} placeholder="Ski, randonnée, escalade..." className={inputCls} />
               </div>
+
+              {/* Établissement scolaire */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-0.5">Établissement scolaire</label>
+                <p className="text-xs text-gray-400 mb-1.5">(optionnel — facilite l&apos;inscription de l&apos;enseignant)</p>
+                {form.etablissementNom ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
+                      <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}</p>
+                    </div>
+                    <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        value={etabNom}
+                        onChange={e => { setEtabNom(e.target.value); fireEtabSearch(e.target.value, etabVille, etabCp); }}
+                        placeholder="Nom"
+                        autoComplete="off"
+                        className={inputCls}
+                      />
+                      <input
+                        type="text"
+                        value={etabVille}
+                        onChange={e => { setEtabVille(e.target.value); fireEtabSearch(etabNom, e.target.value, etabCp); }}
+                        placeholder="Ville"
+                        autoComplete="off"
+                        className={inputCls}
+                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={etabCp}
+                          onChange={e => { setEtabCp(e.target.value); fireEtabSearch(etabNom, etabVille, e.target.value); }}
+                          placeholder="Code postal"
+                          autoComplete="off"
+                          className={inputCls}
+                        />
+                        {etabSearching && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {etabResults.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {etabResults.map(e => (
+                          <button
+                            key={e.uai}
+                            type="button"
+                            onClick={() => selectEtab(e)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-gray-900 truncate">{e.nom}</p>
+                            <p className="text-xs text-gray-500 truncate">{e.commune} — {e.type}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Message personnalisé <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optionnel)</span></label>
                 <textarea value={form.message} onChange={set('message')} rows={3} placeholder="Bonjour, nous serions ravis de..." className={`${inputCls} resize-none`} />

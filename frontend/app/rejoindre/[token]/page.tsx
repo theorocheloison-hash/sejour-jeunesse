@@ -49,13 +49,6 @@ export default function RejoindreInvitationPage() {
     loadInvitation();
   }, [loadInvitation]);
 
-  // Auto-accept if logged in as teacher
-  useEffect(() => {
-    if (status === 'ready' && user?.role === 'TEACHER') {
-      handleAccept();
-    }
-  }, [status, user, handleAccept]);
-
   const fmt = (iso: string) =>
     new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -129,7 +122,7 @@ export default function RejoindreInvitationPage() {
     );
   }
 
-  // status === 'ready' && !isLoggedIn
+  // status === 'ready'
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 480, width: '100%' }}>
@@ -186,6 +179,18 @@ export default function RejoindreInvitationPage() {
                 {invitation!.nbElevesEstime} élèves
               </p>
             </div>
+            {invitation!.etablissementNom && (
+              <div>
+                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Établissement</span>
+                <p style={{ fontSize: 14, color: 'var(--color-text)', margin: '2px 0 0' }}>
+                  {invitation!.etablissementNom}
+                  {invitation!.etablissementVille && ` — ${invitation!.etablissementVille}`}
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                  Cet établissement sera pré-rempli sur votre compte. Vous pourrez le modifier si nécessaire.
+                </p>
+              </div>
+            )}
             {invitation!.message && (
               <div style={{
                 marginTop: 8, padding: 12,
@@ -199,31 +204,50 @@ export default function RejoindreInvitationPage() {
             )}
           </div>
 
-          {/* Boutons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 28 }}>
-            <Link href={`/login?redirect=/rejoindre/${token}`} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '12px 24px', borderRadius: 'var(--radius-md)',
-              border: '0.5px solid var(--color-border-strong)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              fontSize: 14, fontWeight: 500,
-            }}>
-              J&apos;ai déjà un compte — Me connecter
-            </Link>
-            <Link href={`/register/teacher?redirect=/rejoindre/${token}`} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '12px 24px', borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-accent)',
-              color: '#FFFFFF', textDecoration: 'none',
-              fontSize: 14, fontWeight: 500,
-            }}>
-              Je n&apos;ai pas de compte — Créer mon compte
-            </Link>
-          </div>
-
-          <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 16, textAlign: 'center' }}>
-            Après connexion, le séjour sera automatiquement créé dans votre tableau de bord.
-          </p>
+          {/* Boutons selon état connexion */}
+          {user?.role === 'TEACHER' ? (
+            <div style={{ marginTop: 28 }}>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16, textAlign: 'center' }}>
+                Votre compte est actif. Cliquez pour ajouter ce séjour à votre tableau de bord.
+              </p>
+              <button
+                onClick={handleAccept}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '12px 24px', borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-accent)',
+                  color: '#FFFFFF', border: 'none',
+                  fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Confirmer et rejoindre ce séjour
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 28 }}>
+              <Link href={`/login?redirect=/rejoindre/${token}`} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '12px 24px', borderRadius: 'var(--radius-md)',
+                border: '0.5px solid var(--color-border-strong)',
+                color: 'var(--color-primary)', textDecoration: 'none',
+                fontSize: 14, fontWeight: 500,
+              }}>
+                J&apos;ai déjà un compte — Me connecter
+              </Link>
+              <Link href={`/register/teacher?redirect=/rejoindre/${token}`} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '12px 24px', borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-accent)',
+                color: '#FFFFFF', textDecoration: 'none',
+                fontSize: 14, fontWeight: 500,
+              }}>
+                Je n&apos;ai pas de compte — Créer mon compte
+              </Link>
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, textAlign: 'center' }}>
+                Après connexion, le séjour sera automatiquement créé dans votre tableau de bord.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

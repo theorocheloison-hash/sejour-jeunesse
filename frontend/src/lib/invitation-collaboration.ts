@@ -9,6 +9,10 @@ export interface InvitationCollaboration {
   dateFin: string;
   nbElevesEstime: number;
   message: string | null;
+  etablissementUai?: string | null;
+  etablissementNom?: string | null;
+  etablissementAdresse?: string | null;
+  etablissementVille?: string | null;
   acceptedAt: string | null;
   centre: {
     nom: string;
