@@ -101,6 +101,31 @@ function SejourCard({
             </button>
           )}
 
+          {/* Devis reçus — pour DRAFT avec demande existante (flow invitation) */}
+          {sejour.statut === 'DRAFT' && sejour.demandes && sejour.demandes.length > 0 && (() => {
+            const totalDevis = (sejour.demandes ?? [])
+              .reduce((sum, d) => sum + (d._count?.devis ?? 0), 0);
+            return (
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  totalDevis > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {totalDevis > 0
+                    ? `${totalDevis} devis reçu${totalDevis > 1 ? 's' : ''}`
+                    : 'En attente de devis'}
+                </span>
+                {totalDevis > 0 && (
+                  <Link
+                    href={`/dashboard/teacher/sejours/${sejour.id}/offres`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    Voir les offres
+                  </Link>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Appel d'offres — pour SUBMITTED et APPROVED */}
           {sejour.statut === 'SUBMITTED' && (() => {
             const totalDevis = (sejour.demandes ?? [])
