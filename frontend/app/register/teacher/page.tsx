@@ -133,6 +133,9 @@ function RegisterTeacherContent() {
     setIsPending(true);
     try {
       await api.post('/auth/register/teacher', form);
+      if (redirectAfterLogin) {
+        sessionStorage.setItem('liavo_redirect_after_login', redirectAfterLogin);
+      }
       setSuccess(true);
     } catch (err: unknown) {
       setError(extractApiError(err));
