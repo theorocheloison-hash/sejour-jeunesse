@@ -82,8 +82,8 @@ function SejourCard({
             </Link>
           )}
 
-          {/* Bouton soumettre — uniquement pour DRAFT */}
-          {sejour.statut === 'DRAFT' && (
+          {/* Bouton soumettre — uniquement pour DRAFT et sans demande existante */}
+          {sejour.statut === 'DRAFT' && !(sejour.demandes && sejour.demandes.length > 0) && (
             <button
               type="button"
               onClick={() => onSubmit(sejour.id)}
