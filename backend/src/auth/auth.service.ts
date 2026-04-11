@@ -15,6 +15,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { RegisterTeacherDto } from './dto/register-teacher.dto.js';
 import { RegisterVenueDto } from './dto/register-venue.dto.js';
+import { RegisterDirectorDto } from './dto/register-director.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -84,6 +85,56 @@ export class AuthService {
         ipAddress: ipAddress ?? null,
         userAgent: userAgent ?? null,
         etablissementUai: null,
+      },
+    });
+
+    await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
+
+    return {
+      message: 'Inscription réussie. Vérifiez votre email pour activer votre compte.',
+      user: { id: user.id, email: user.email, role: user.role },
+    };
+  }
+
+  // ── Inscription directeur ────────────────────────────────────────────
+
+  async registerDirector(dto: RegisterDirectorDto, ipAddress?: string, userAgent?: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException('Cet email est déjà utilisé');
+
+    const hashed = await bcrypt.hash(dto.password, 12);
+    const token = randomUUID();
+    const tokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const user = await this.prisma.user.create({
+      data: {
+        prenom: dto.prenom,
+        nom: dto.nom,
+        email: dto.email,
+        motDePasse: hashed,
+        role: Role.DIRECTOR,
+        telephone: dto.telephone ?? null,
+        etablissementUai: dto.etablissementUai ?? null,
+        etablissementNom: dto.etablissementNom ?? null,
+        etablissementAdresse: dto.etablissementAdresse ?? null,
+        etablissementVille: dto.etablissementVille ?? null,
+        emailVerifie: false,
+        compteValide: true,
+        tokenVerification: token,
+        tokenVerificationExpires: tokenExpires,
+      },
+    });
+
+    await this.prisma.consentementRgpd.create({
+      data: {
+        userId: user.id,
+        role: Role.DIRECTOR,
+        versionDpa: process.env.DPA_VERSION ?? '1.0',
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        etablissementUai: dto.etablissementUai ?? null,
       },
     });
 

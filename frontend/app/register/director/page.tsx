@@ -1,0 +1,339 @@
+'use client';
+
+import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { Suspense } from 'react';
+import Link from 'next/link';
+import api from '@/src/lib/api';
+import { extractApiError } from '@/src/contexts/AuthContext';
+
+function RegisterDirectorContent() {
+  const [form, setForm] = useState({
+    prenom: '',
+    nom: '',
+    email: '',
+    password: '',
+    telephone: '',
+    etablissementUai: '',
+    etablissementNom: '',
+    etablissementAdresse: '',
+    etablissementVille: '',
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Établissement search
+  const [etabNom, setEtabNom] = useState('');
+  const [etabVille, setEtabVille] = useState('');
+  const [etabCp, setEtabCp] = useState('');
+  const [etabTypeFilter, setEtabTypeFilter] = useState<string>('');
+  const [etabResults, setEtabResults] = useState<Array<{ uai: string; nom: string; type: string; adresse: string; codePostal: string; commune: string; academie: string }>>([]);
+  const [etabSearching, setEtabSearching] = useState(false);
+  const etabDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const etabAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+      if (etabAbortRef.current) etabAbortRef.current.abort();
+    };
+  }, []);
+
+  const buildParams = (nom: string, ville: string, cp: string, type: string) => {
+    const params: Record<string, string> = {};
+    if (/^\d{5}$/.test(cp.trim())) {
+      params.q = cp.trim();
+    } else {
+      const parts = [nom.trim(), ville.trim()].filter(Boolean);
+      if (parts.length > 0) params.q = parts.join(' ');
+    }
+    if (type) params.type = type;
+    return params;
+  };
+
+  const fireEtabSearch = (nom: string, ville: string, cp: string, type: string) => {
+    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
+    const params = buildParams(nom, ville, cp, type);
+    if (!params.q && !params.type) { setEtabResults([]); return; }
+    if (params.q && params.q.length < 3 && !params.type) { setEtabResults([]); return; }
+
+    const doSearch = async () => {
+      if (etabAbortRef.current) etabAbortRef.current.abort();
+      const controller = new AbortController();
+      etabAbortRef.current = controller;
+      setEtabSearching(true);
+      try {
+        const res = await api.get('/etablissements/recherche', { params, signal: controller.signal });
+        setEtabResults(res.data);
+      } catch { /* aborted or error */ }
+      finally { setEtabSearching(false); }
+    };
+
+    if (!params.q) { doSearch(); return; }
+    etabDebounceRef.current = setTimeout(doSearch, 400);
+  };
+
+  useEffect(() => {
+    if (form.etablissementNom) return;
+    fireEtabSearch(etabNom, etabVille, etabCp, etabTypeFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etabTypeFilter]);
+
+  const selectEtab = (e: typeof etabResults[0]) => {
+    setForm(f => ({ ...f, etablissementUai: e.uai, etablissementNom: e.nom, etablissementAdresse: e.adresse ?? '', etablissementVille: e.commune }));
+    setEtabResults([]);
+  };
+
+  const clearEtab = () => {
+    setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
+    setEtabNom('');
+    setEtabVille('');
+    setEtabCp('');
+    setEtabTypeFilter('');
+    setEtabResults([]);
+  };
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!form.etablissementNom) {
+      setError('Veuillez sélectionner votre établissement.');
+      return;
+    }
+    setError(null);
+    setIsPending(true);
+    try {
+      await api.post('/auth/register/director', form);
+      setSuccess(true);
+    } catch (err: unknown) {
+      setError(extractApiError(err));
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-sm text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--color-success-light)] mb-6">
+            <svg className="w-8 h-8 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Vérifiez votre email</h1>
+          <p className="text-gray-500 mb-6">
+            Un email de vérification a été envoyé à <strong className="text-gray-700">{form.email}</strong>.
+            Cliquez sur le lien dans l&apos;email pour activer votre compte.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-6">
+            Pensez à vérifier vos spams si vous ne trouvez pas l&apos;email.
+          </div>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            Retour à la connexion
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+      <div className="w-full max-w-md">
+
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link href="/register" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-[var(--color-primary)] mb-4">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            Retour
+          </Link>
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--color-primary)] mb-4">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Inscription directeur(trice)</h1>
+          <p className="mt-1 text-sm text-gray-500">Créez votre compte directeur d&apos;établissement</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+
+          {error && (
+            <div role="alert" className="mb-5 flex items-start gap-3 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+              <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="prenom" className="block text-sm font-medium text-gray-700 mb-1.5">Prénom</label>
+                <input id="prenom" type="text" required disabled={isPending} value={form.prenom} onChange={set('prenom')}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+              </div>
+              <div>
+                <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-1.5">Nom</label>
+                <input id="nom" type="text" required disabled={isPending} value={form.nom} onChange={set('nom')}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email professionnel</label>
+              <input id="email" type="email" required disabled={isPending} value={form.email} onChange={set('email')}
+                placeholder="votre@email.fr"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+            </div>
+
+            <div>
+              <label htmlFor="telephone" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Téléphone <span className="text-gray-400 font-normal">(optionnel)</span>
+              </label>
+              <input id="telephone" type="tel" disabled={isPending} value={form.telephone} onChange={set('telephone')}
+                placeholder="06 12 34 56 78"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe</label>
+              <input id="password" type="password" required disabled={isPending} value={form.password} onChange={set('password')}
+                placeholder="8 caractères minimum"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+            </div>
+
+            {/* Établissement */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Votre établissement *</label>
+              {form.etablissementNom ? (
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
+                    <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}</p>
+                  </div>
+                  <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    {([['École', 'Ecole'], ['Collège', 'Collège'], ['Lycée', 'Lycée']] as const).map(([label, value]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setEtabTypeFilter(prev => prev === value ? '' : value)}
+                        className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          etabTypeFilter === value
+                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        value={etabNom}
+                        onChange={e => { setEtabNom(e.target.value); fireEtabSearch(e.target.value, etabVille, etabCp, etabTypeFilter); }}
+                        placeholder="Nom"
+                        disabled={isPending}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                      />
+                      <input
+                        type="text"
+                        value={etabVille}
+                        onChange={e => { setEtabVille(e.target.value); fireEtabSearch(etabNom, e.target.value, etabCp, etabTypeFilter); }}
+                        placeholder="Ville"
+                        disabled={isPending}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={etabCp}
+                          onChange={e => { setEtabCp(e.target.value); fireEtabSearch(etabNom, etabVille, e.target.value, etabTypeFilter); }}
+                          placeholder="Code postal"
+                          disabled={isPending}
+                          autoComplete="off"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
+                        />
+                        {etabSearching && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {etabResults.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {etabResults.map(e => (
+                          <button
+                            key={e.uai}
+                            type="button"
+                            onClick={() => selectEtab(e)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-gray-900 truncate">{e.nom}</p>
+                            <p className="text-xs text-gray-500 truncate">{e.commune} — {e.type}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Votre rôle de directeur sera vérifié par les équipes LIAVO. Seuls les directeurs d&apos;établissement peuvent valider des dossiers de séjours scolaires.
+              </p>
+            </div>
+
+            <button type="submit" disabled={isPending}
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed">
+              {isPending ? (
+                <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Inscription en cours...</>
+              ) : (
+                "S'inscrire"
+              )}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Déjà un compte ?{' '}
+          <Link href="/login" className="font-semibold text-[var(--color-primary)] hover:underline">Se connecter</Link>
+        </p>
+        <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)' }}>
+          Besoin d&apos;aide ?{' '}
+          <a href="mailto:contact@liavo.fr" style={{ color: 'var(--color-primary)', fontWeight: 500 }}>
+            contact@liavo.fr
+          </a>
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export default function RegisterDirectorPage() {
+  return (
+    <Suspense>
+      <RegisterDirectorContent />
+    </Suspense>
+  );
+}

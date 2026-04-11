@@ -6,6 +6,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { RegisterTeacherDto } from './dto/register-teacher.dto.js';
 import { RegisterVenueDto } from './dto/register-venue.dto.js';
+import { RegisterDirectorDto } from './dto/register-director.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 
 @Controller('auth')
@@ -25,6 +26,11 @@ export class AuthController {
   @Post('register/venue')
   registerVenue(@Body() dto: RegisterVenueDto, @Req() req: Request) {
     return this.authService.registerVenue(dto, req.ip, req.headers['user-agent']);
+  }
+
+  @Post('register/director')
+  registerDirector(@Body() dto: RegisterDirectorDto, @Req() req: Request) {
+    return this.authService.registerDirector(dto, req.ip, req.headers['user-agent']);
   }
 
   @Post('verify-email/:token')
