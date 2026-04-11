@@ -287,3 +287,8 @@ export async function soumettreAuDirecteur(sejourId: string): Promise<{ success:
 export async function soumettreAuRectorat(sejourId: string): Promise<void> {
   await api.post(`/sejours/${sejourId}/soumettre-rectorat`);
 }
+
+export async function inviterDirecteur(sejourId: string, emailDirecteur?: string, devisId?: string): Promise<{ found: boolean; sent?: boolean; alreadySent?: boolean; needsEmail?: boolean }> {
+  const { data } = await api.post(`/sejours/${sejourId}/inviter-directeur`, { emailDirecteur, devisId });
+  return data;
+}

@@ -952,3 +952,22 @@ model InvitationCentreExterne {
 
   @@map("invitations_centre_externe")
 }
+
+// ============================================================
+// MODEL : InvitationDirecteur (enseignant invite directeur non inscrit)
+// ============================================================
+model InvitationDirecteur {
+  id                String    @id @default(uuid()) @db.Uuid
+  token             String    @unique @default(uuid()) @db.Uuid
+  sejourId          String    @map("sejour_id") @db.Uuid
+  devisId           String?   @map("devis_id") @db.Uuid
+  emailDirecteur    String    @map("email_directeur") @db.VarChar(255)
+  etablissementUai  String?   @map("etablissement_uai") @db.VarChar(20)
+  etablissementNom  String?   @map("etablissement_nom") @db.VarChar(255)
+  enseignantPrenom  String?   @map("enseignant_prenom") @db.VarChar(100)
+  sejourTitre       String?   @map("sejour_titre") @db.VarChar(255)
+  utilisedAt        DateTime? @map("utilised_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@map("invitations_directeur")
+}

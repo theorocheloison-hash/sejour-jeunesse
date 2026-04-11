@@ -86,6 +86,17 @@ export class SejourController {
     return this.sejourService.soumettreAuDirecteur(id, user.id);
   }
 
+  /** POST /sejours/:id/inviter-directeur — Inviter directeur (trouvé ou non) */
+  @Post(':id/inviter-directeur')
+  @Roles(Role.TEACHER)
+  inviterDirecteur(
+    @Param('id') id: string,
+    @Body() body: { emailDirecteur?: string; devisId?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.inviterDirecteur(id, body.emailDirecteur, body.devisId, user.id);
+  }
+
   /** POST /sejours/:id/soumettre-rectorat — Soumettre au rectorat (DIRECTOR) */
   @Post(':id/soumettre-rectorat')
   @Roles(Role.DIRECTOR)

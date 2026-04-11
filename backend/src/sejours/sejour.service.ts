@@ -568,6 +568,105 @@ export class SejourService {
     return { success: true, message: `Dossier transmis à ${directeur.prenom} ${directeur.nom} (${directeur.email})` };
   }
 
+  async inviterDirecteur(sejourId: string, emailDirecteur: string | undefined, devisId: string | undefined, userId: string) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      include: {
+        createur: {
+          select: { prenom: true, etablissementUai: true, etablissementNom: true },
+        },
+      },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
+
+    // Cas 1 : directeur déjà inscrit sur LIAVO
+    const directeurExistant = await this.prisma.user.findFirst({
+      where: {
+        role: 'DIRECTOR',
+        etablissementUai: sejour.createur?.etablissementUai ?? undefined,
+        compteValide: true,
+        emailVerifie: true,
+      },
+      select: { email: true, prenom: true, nom: true },
+    });
+
+    // Changer le statut du devis si fourni
+    if (devisId) {
+      await this.prisma.devis.update({
+        where: { id: devisId },
+        data: { statut: 'EN_ATTENTE_VALIDATION' },
+      });
+    }
+
+    if (directeurExistant) {
+      const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
+      const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+      const lien = `${FRONTEND_URL}/dashboard/director`;
+      await this.email.sendGenericNotification(
+        directeurExistant.email,
+        `Dossier séjour à examiner — ${sejour.titre}`,
+        `<p>Bonjour ${directeurExistant.prenom},</p>
+         <p>L'enseignant <strong>${sejour.createur?.prenom ?? ''}</strong> vous a transmis un dossier de séjour pour examen :</p>
+         <p><strong>Séjour :</strong> ${sejour.titre}<br>
+         <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+         <strong>Élèves :</strong> ${sejour.placesTotales}</p>
+         <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mon tableau de bord</a></p>`,
+      );
+      return { found: true };
+    }
+
+    // Cas 2 : directeur non inscrit — besoin d'un email
+    if (!emailDirecteur) {
+      return { found: false, sent: false, needsEmail: true };
+    }
+
+    // Vérifier qu'une invitation récente n'a pas déjà été envoyée (anti-spam 24h)
+    const invitationRecente = await this.prisma.invitationDirecteur.findFirst({
+      where: {
+        emailDirecteur,
+        sejourId,
+        utilisedAt: null,
+        createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+    });
+
+    if (invitationRecente) {
+      return { found: false, sent: false, alreadySent: true };
+    }
+
+    const invitation = await this.prisma.invitationDirecteur.create({
+      data: {
+        sejourId,
+        devisId: devisId ?? null,
+        emailDirecteur,
+        etablissementUai: sejour.createur?.etablissementUai ?? null,
+        etablissementNom: sejour.createur?.etablissementNom ?? null,
+        enseignantPrenom: sejour.createur?.prenom ?? null,
+        sejourTitre: sejour.titre,
+      },
+    });
+
+    const lienInscription = `${FRONTEND_URL}/register/director?token=${invitation.token}`;
+    const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
+    const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+
+    await this.email.sendGenericNotification(
+      emailDirecteur,
+      `${sejour.createur?.prenom ?? 'Un enseignant'} attend votre validation — ${sejour.titre}`,
+      `<p>Bonjour,</p>
+       <p>Un enseignant de votre établissement (<strong>${sejour.createur?.etablissementNom ?? ''}</strong>) a organisé un séjour scolaire et souhaite votre validation en tant que directeur(trice) :</p>
+       <p><strong>Séjour :</strong> ${sejour.titre}<br>
+       <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
+       <strong>Élèves :</strong> ${sejour.placesTotales}</p>
+       <p>Pour valider ce dossier, créez votre compte directeur sur LIAVO. Votre établissement sera pré-rempli automatiquement.</p>
+       <p style="margin:24px 0"><a href="${lienInscription}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon compte et valider le dossier</a></p>
+       <p style="color:#888;font-size:12px">Ce lien est valable 7 jours. Si vous n'êtes pas le(la) directeur(trice) de cet établissement, ignorez cet email.</p>`,
+    );
+
+    return { found: false, sent: true };
+  }
+
   async getAccompagnateurs(id: string, user: JwtUser) {
     const sejour = await this.prisma.sejour.findUnique({ where: { id } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');

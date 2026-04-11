@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 
 function RegisterDirectorContent() {
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get('token');
+
   const [form, setForm] = useState({
     prenom: '',
     nom: '',
@@ -21,6 +25,30 @@ function RegisterDirectorContent() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Pré-remplissage via invitation
+  const [invitationLoaded, setInvitationLoaded] = useState(false);
+  const [invitationInfo, setInvitationInfo] = useState<{ sejourTitre?: string; enseignantPrenom?: string } | null>(null);
+
+  useEffect(() => {
+    if (!invitationToken) return;
+    api.get(`/invitations-directeur/${invitationToken}`)
+      .then(res => {
+        const inv = res.data;
+        setInvitationInfo({ sejourTitre: inv.sejourTitre, enseignantPrenom: inv.enseignantPrenom });
+        if (inv.etablissementNom) {
+          setForm(f => ({
+            ...f,
+            etablissementNom: inv.etablissementNom ?? '',
+            etablissementUai: inv.etablissementUai ?? '',
+            etablissementVille: '',
+            etablissementAdresse: '',
+          }));
+          setInvitationLoaded(true);
+        }
+      })
+      .catch(() => {});
+  }, [invitationToken]);
 
   // Établissement search
   const [etabNom, setEtabNom] = useState('');
@@ -91,6 +119,7 @@ function RegisterDirectorContent() {
     setEtabCp('');
     setEtabTypeFilter('');
     setEtabResults([]);
+    setInvitationLoaded(false);
   };
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -106,6 +135,10 @@ function RegisterDirectorContent() {
     setIsPending(true);
     try {
       await api.post('/auth/register/director', form);
+      // Marquer l'invitation comme utilisée si token présent
+      if (invitationToken) {
+        try { await api.post(`/invitations-directeur/${invitationToken}/utiliser`); } catch { /* non bloquant */ }
+      }
       setSuccess(true);
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -166,6 +199,15 @@ function RegisterDirectorContent() {
           <p className="mt-1 text-sm text-gray-500">Créez votre compte directeur d&apos;établissement</p>
         </div>
 
+        {/* Invitation context banner */}
+        {invitationInfo && (
+          <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
+            <p className="text-sm text-blue-800">
+              <strong>{invitationInfo.enseignantPrenom ?? 'Un enseignant'}</strong> vous a invité(e) à valider le séjour <strong>{invitationInfo.sejourTitre}</strong>. Créez votre compte pour accéder au dossier.
+            </p>
+          </div>
+        )}
+
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
 
@@ -224,7 +266,9 @@ function RegisterDirectorContent() {
                     <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
                     <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}</p>
                   </div>
-                  <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                  {!invitationLoaded && (
+                    <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesDemandes } from '@/src/lib/demande';
 import { getDevisForDemande, updateDevisStatut } from '@/src/lib/devis';
+import { inviterDirecteur } from '@/src/lib/sejour';
 import type { Demande } from '@/src/lib/demande';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
@@ -30,6 +31,14 @@ export default function TeacherDemandesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [devisMap, setDevisMap] = useState<Record<string, Devis[]>>({});
   const [updatingDevis, setUpdatingDevis] = useState<string | null>(null);
+
+  // Modale soumettre au directeur
+  const [soumettreModal, setSoumettreModal] = useState<{ sejourId: string; devisId: string } | null>(null);
+  const [emailDirecteur, setEmailDirecteur] = useState('');
+  const [soumettreLoading, setSoumettreLoading] = useState(false);
+  const [soumettreResult, setSoumettreResult] = useState<string | null>(null);
+  const [needsEmail, setNeedsEmail] = useState(false);
+
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'TEACHER')) router.push('/login');
   }, [user, isLoading, router]);
@@ -232,9 +241,8 @@ export default function TeacherDemandesPage() {
                                   />
                                   {dv.statut === 'EN_ATTENTE' && (
                                     <button
-                                      onClick={() => handleStatut(dv.id, 'EN_ATTENTE_VALIDATION', d.id)}
-                                      disabled={updatingDevis === dv.id}
-                                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                                      onClick={() => setSoumettreModal({ sejourId: d.sejourId, devisId: dv.id })}
+                                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
                                     >
                                       Soumettre au directeur
                                     </button>
@@ -253,6 +261,91 @@ export default function TeacherDemandesPage() {
           </div>
         )}
       </main>
+
+      {/* Modale soumettre au directeur */}
+      {soumettreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => { setSoumettreModal(null); setSoumettreResult(null); setEmailDirecteur(''); setNeedsEmail(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-bold text-gray-900 mb-2">Soumettre au directeur</h2>
+
+            {soumettreResult ? (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">{soumettreResult}</p>
+                <button
+                  onClick={() => { setSoumettreModal(null); setSoumettreResult(null); setEmailDirecteur(''); setNeedsEmail(false); load(); }}
+                  className="w-full rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  {needsEmail
+                    ? 'Votre directeur n\u2019est pas encore sur LIAVO. Renseignez son email pour lui envoyer une invitation.'
+                    : 'LIAVO va rechercher le directeur de votre établissement. S\u2019il n\u2019a pas encore de compte, renseignez son email pour lui envoyer une invitation.'}
+                </p>
+                {needsEmail && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                    Aucun directeur trouvé pour votre établissement. Veuillez saisir l&apos;email de votre directeur(trice).
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Email du directeur
+                  </label>
+                  <input
+                    type="email"
+                    value={emailDirecteur}
+                    onChange={e => setEmailDirecteur(e.target.value)}
+                    placeholder="directeur@college.fr"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setSoumettreModal(null); setEmailDirecteur(''); setNeedsEmail(false); }}
+                    className="flex-1 rounded-lg border border-gray-300 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setSoumettreLoading(true);
+                      try {
+                        const result = await inviterDirecteur(
+                          soumettreModal.sejourId,
+                          emailDirecteur || undefined,
+                          soumettreModal.devisId,
+                        );
+                        if (result.found) {
+                          setSoumettreResult('Le directeur de votre établissement a été notifié par email. Le devis est maintenant en attente de sa validation.');
+                        } else if (result.needsEmail) {
+                          setNeedsEmail(true);
+                        } else if (result.alreadySent) {
+                          setSoumettreResult('Une invitation a déjà été envoyée au directeur dans les dernières 24h. Veuillez patienter.');
+                        } else {
+                          setSoumettreResult(`Une invitation a été envoyée à ${emailDirecteur}. Le directeur recevra un email pour créer son compte et valider le dossier.`);
+                        }
+                      } catch {
+                        setSoumettreResult('Erreur lors de l\u2019envoi. Vérifiez l\u2019email et réessayez.');
+                      } finally {
+                        setSoumettreLoading(false);
+                      }
+                    }}
+                    disabled={soumettreLoading || (needsEmail && !emailDirecteur)}
+                    className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {soumettreLoading ? 'Envoi...' : 'Envoyer'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Print CSS ─── */}
       <style>{`

@@ -24,6 +24,7 @@ import { InvitationCollaborationModule } from './invitation-collaboration/invita
 import { StorageModule } from './storage/storage.module.js';
 import { ClientsModule } from './clients/clients.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { InvitationsDirecteurModule } from './invitations-directeur/invitations-directeur.module.js';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     InvitationCollaborationModule,
     ClientsModule,
     NotificationsModule,
+    InvitationsDirecteurModule,
   ],
   controllers: [AppController],
   providers: [
