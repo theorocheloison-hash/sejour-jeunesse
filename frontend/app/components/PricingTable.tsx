@@ -267,43 +267,6 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
 
       </div>
 
-      {/* Bloc réseau */}
-      <div style={{
-        background: 'var(--color-bg, #F5F4F1)',
-        border: '0.5px solid var(--color-border, #D3D1C7)',
-        borderRadius: 12, padding: '1.25rem 1.5rem',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <span style={{
-            fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em',
-            background: '#1B4060', color: 'white', padding: '3px 10px', borderRadius: 20,
-          }}>
-            Réseau partenaire
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text, #2C2C2A)' }}>
-            LAMDJ · IDDJ
-          </span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {[
-            'Plan Complet offert à tous les hébergeurs du réseau en 2026',
-            'Tarif grand public à partir de 2027',
-            '10% de commission reversée au réseau sur chaque abonnement actif',
-            'Dashboard réseau dédié avec données en temps réel',
-          ].map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--color-text, #2C2C2A)', lineHeight: 1.4 }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#C87D2E', flexShrink: 0, marginTop: 5 }} />
-              {item}
-            </div>
-          ))}
-        </div>
-        <div style={{
-          marginTop: 10, fontSize: 11, color: 'var(--color-text-muted, #888780)',
-          fontStyle: 'italic', borderTop: '0.5px solid var(--color-border, #D3D1C7)', paddingTop: 10,
-        }}>
-          Conditionné à un accord de partenariat signé précisant les modalités 2027. Établissements scolaires : accès toujours gratuit.
-        </div>
-      </div>
     </div>
   );
 }
