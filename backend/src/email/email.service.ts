@@ -6,8 +6,8 @@ const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.c
 const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Liavo';
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
-// ─── Couleurs Éducation Nationale ───────────────────────────────────────────
-const PRIMARY = '#003189';
+// ─── Couleurs LIAVO ─────────────────────────────────────────────────────────
+const PRIMARY = '#1B4060';
 const BG = '#f5f7fa';
 
 function emailLayout(title: string, body: string, buttonText?: string, buttonUrl?: string): string {

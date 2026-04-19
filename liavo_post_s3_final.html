@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>LIAVO — Post S3 final</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 628px;
+    overflow: hidden;
+    background: #1B4060;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .card {
+    width: 1200px;
+    height: 628px;
+    background: #1B4060;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 85% 15%, rgba(200,125,46,0.07) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .top-bar {
+    height: 5px;
+    background: #C87D2E;
+    flex-shrink: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    flex-shrink: 0;
+    padding: 24px 56px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 2;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-text {
+    font-weight: 500;
+    font-size: 17px;
+    color: #fff;
+    letter-spacing: 0.04em;
+  }
+
+  .header-right { text-align: right; }
+
+  .header-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.45);
+  }
+
+  .header-sub {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #C87D2E;
+    margin-top: 3px;
+  }
+
+  /* ── TITRE ── */
+  .title-block {
+    flex-shrink: 0;
+    padding: 20px 56px 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .main-title {
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1.15;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  .main-title-sub {
+    font-size: 36px;
+    font-weight: 300;
+    line-height: 1.15;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: -0.02em;
+  }
+
+  /* ── TIMELINE ── */
+  .timeline-block {
+    flex-shrink: 0;
+    padding: 28px 56px 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .ca-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .ca-spacer { flex: 1; }
+
+  .ca-badge {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ca-badge-inner {
+    background: rgba(200,125,46,0.18);
+    border: 1px solid rgba(200,125,46,0.45);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #C87D2E;
+    white-space: nowrap;
+  }
+
+  .tl-steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  /* Ligne horizontale derrière les dots */
+  .tl-steps::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: 5%;
+    right: 5%;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    z-index: 0;
+  }
+
+  .tl-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .dot-normal {
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.75);
+  }
+
+  .dot-ca {
+    background: #C87D2E;
+    border: 1.5px solid #C87D2E;
+    color: #fff;
+  }
+
+  .dot-warn {
+    background: rgba(200,125,46,0.18);
+    border: 1.5px dashed #C87D2E;
+    color: #C87D2E;
+    font-size: 14px;
+  }
+
+  .step-content { text-align: center; }
+
+  .step-actor {
+    display: block;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 3px;
+  }
+
+  .step-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+    line-height: 1.3;
+  }
+
+  .step-label.warn { color: #C87D2E; }
+
+  /* ── FOOTER — padding fixe, pas de flex:1 ── */
+  .footer-block {
+    flex-shrink: 0;
+    padding: 28px 56px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 2;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    margin-top: 28px;
+  }
+
+  .footer-left {
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .footer-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .footer-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #C87D2E;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
+  .footer-text {
+    font-size: 12.5px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.5;
+  }
+
+  .footer-text strong {
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .footer-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    background: rgba(200,125,46,0.15);
+    border: 1px solid rgba(200,125,46,0.3);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #C87D2E;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .url-tag {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top-bar"></div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-row">
+      <svg width="30" height="30" viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="8" fill="#1B4060"/>
+        <rect x="0.5" y="0.5" width="35" height="35" rx="7.5" stroke="rgba(255,255,255,0.15)"/>
+        <rect x="14" y="14" width="8" height="8" rx="1" transform="rotate(45 18 18)" stroke="white" stroke-width="1.3" fill="none"/>
+        <circle cx="18" cy="18" r="1.8" fill="#C87D2E"/>
+        <line x1="18" y1="22.5" x2="18" y2="26.5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="14.5" y1="26.5" x2="21.5" y2="26.5" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">Liavo</span>
+    </div>
+    <div class="header-right">
+      <span class="header-label">Le flux réel d'un séjour scolaire</span>
+      <span class="header-sub">Terrain · Sans outil partagé</span>
+    </div>
+  </div>
+
+  <!-- TITRE -->
+  <div class="title-block">
+    <div class="main-title">5 acteurs. Aucun espace commun.</div>
+    <div class="main-title-sub">Les délais s'accumulent mécaniquement.</div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="timeline-block">
+    <div class="ca-row">
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-badge"><span class="ca-badge-inner">CA · 1× par trimestre</span></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+      <div class="ca-spacer"></div>
+    </div>
+
+    <div class="tl-steps">
+      <div class="tl-step">
+        <div class="dot dot-normal">1</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant</span>
+          <span class="step-label">Cherche un hébergement</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">2</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant</span>
+          <span class="step-label">Demande des devis</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">3</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant</span>
+          <span class="step-label">Dossier pédagogique</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-ca">4</div>
+        <div class="step-content">
+          <span class="step-actor">Conseil d'Admin.</span>
+          <span class="step-label">Validation institutionnelle</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-warn">⏳</div>
+        <div class="step-content">
+          <span class="step-actor">Hébergeur</span>
+          <span class="step-label warn">Attend depuis 3 mois</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">6</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant + Hébergeur</span>
+          <span class="step-label">Autorisations & paiements</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">7</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant + Hébergeur</span>
+          <span class="step-label">Devis ajusté, planning</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">8</div>
+        <div class="step-content">
+          <span class="step-actor">Enseignant</span>
+          <span class="step-label">Dossier rectorat / inspection</span>
+        </div>
+      </div>
+      <div class="tl-step">
+        <div class="dot dot-normal">9</div>
+        <div class="step-content">
+          <span class="step-actor">Hébergeur</span>
+          <span class="step-label">Facture · Chorus Pro</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer-block">
+    <div class="footer-left">
+      <div class="footer-line">
+        <div class="footer-dot"></div>
+        <span class="footer-text"><strong>Chaque collège a son propre circuit de validation.</strong> Pas le même délai. Pas le même interlocuteur.</span>
+      </div>
+      <div class="footer-line">
+        <div class="footer-dot"></div>
+        <span class="footer-text">Ce n'est pas un problème d'organisation. <strong>C'est un problème d'infrastructure partagée.</strong></span>
+      </div>
+    </div>
+    <div class="footer-right">
+      <span class="badge">3 à 6 mois de délai moyen</span>
+      <span class="url-tag">liavo.fr</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

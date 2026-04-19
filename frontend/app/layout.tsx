@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Liavo — Coordonnez vos séjours collectifs',
-    description: 'Du projet pédagogique à la facturation finale. 649 centres référencés. Chorus Pro intégré.',
+    description: 'Du projet pédagogique à la facturation finale. Chorus Pro intégré. Conforme RGPD.',
     url: 'https://liavo.fr',
     siteName: 'Liavo',
     locale: 'fr_FR',

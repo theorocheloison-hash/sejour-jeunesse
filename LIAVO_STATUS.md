@@ -1,125 +1,145 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 07 avril 2026
+> Dernière mise à jour : 19 avril 2026
 
 ---
 
 ## Entité juridique
 
-**LIAVO SAS** — créée le 26/03/2026 via le Guichet Unique
-- Formalité : **J00228864781**
-- Forme : SAS (société par actions simplifiée)
+**LIAVO SASU** — immatriculée 27/03/2026
+- SIREN : **102 994 910** — RCS Annecy — EUID : FR7401.102994910
 - Capital : **1 000 €**
 - Siège : 472 Route du Mas Devant, 74440 Morillon, France
-- Président : **Théo Roche-Loison** (né le 27/10/1993 à Roanne)
-- Activité démarrée : 23/03/2026
-- Nature : Libérale non réglementée
-- Régime fiscal : IS réel simplifié, franchise en base TVA
+- Président : Théo Roche-Loison
 - Publication légale : Eco Savoie Mont-Blanc Web, 24/03/2026
-- **SIREN : 102 994 910** — RCS Annecy — EUID : FR7401.102994910
 
 **Actions restantes :**
-- [ ] Ouvrir compte bancaire pro LIAVO SAS (débloquer capital au Crédit Agricole Samoëns)
-- [ ] Céder la marque INPI (personne physique → LIAVO SAS) — formulaire INPI, ~26€
-- [ ] Vérifier mentions légales liavo.fr (SIREN à jour ?)
-- [ ] RC Professionnelle + Cyber (Hiscox, ~500–700€/an)
+- [x] Compte bancaire pro LIAVO SASU ouvert (Crédit Agricole Samoëns)
+- [ ] Céder la marque INPI (personne physique → SASU) — formulaire INPI, ~26€
+- [ ] RC Professionnelle + Cyber (Hiscox, ~500–700€/an) — différé post-démo
 
 ---
 
-## Marque
+## Marque & domaine
 
-- **LIAVO** déposée à l'INPI en personne physique (Théo Roche-Loison)
-- Classes : **35, 38, 42**
-- À céder à la SASU (26€, inpi.fr)
-
----
-
-## Domaine & infrastructure
-
-- **liavo.fr** — acheté OVH, 3 ans, renouvellement mars 2029
-- **www.liavo.fr** — CNAME vers liavo.fr, redirect 301 www → apex
+- **LIAVO** déposée INPI en personne physique — classes 35, 38, 42 — à céder à la SASU
+- **liavo.fr** — OVH, 3 ans, renouvellement mars 2029
 - Hébergement : **Railway EU West** (production)
-- Base de données : **PostgreSQL 16** (Railway)
-- Stockage fichiers : **Cloudflare R2** (bucket liavo-uploads, URL publique : https://pub-85a20d60440e4c5fa2abff95765a4ed3.r2.dev)
-- Emails transactionnels : **Brevo** (BREVO_SENDER_EMAIL = contact@liavo.fr)
+- DB : **PostgreSQL 16** (Railway)
+- Stockage : **Cloudflare R2** (bucket liavo-uploads)
+- Emails : **Brevo** (contact@liavo.fr)
 - Railway project : https://railway.com/project/68313907-c9fc-4ddc-9535-3a6a642e6e3c
 
 ---
 
-## SEO & Search Console
-
-- Propriété **liavo.fr** vérifiée en mode "domaine" dans Google Search Console
-- Sitemap `https://liavo.fr/sitemap.xml` soumis — 5 pages indexables
-- Balise canonical configurée dans `app/layout.tsx`
-- robots.txt en place
-
----
-
-## Email
-
-- **contact@liavo.fr** opérationnel dans Gmail via Zimbra OVH (IMAP/SMTP)
-
----
-
-## Comptes de test
+## Comptes production
 
 | Email | Rôle | Mot de passe |
 |---|---|---|
-| enseignant@test.fr | TEACHER | Test1234! |
-| directeur@test.fr | DIRECTOR | Test1234! |
+| contact@liavo.fr | ADMIN | Admin2026! |
 | resa@lesauvageon.com | VENUE (Chalet Le Sauvageon) | Test1234! |
-| admin@sejour-jeunesse.fr | ADMIN | Admin2026! |
 | demo-lmdj@liavo.fr | RESEAU (La Montagne des Juniors) | LMDJ2026! |
 
-Comptes enseignant/directeur liés à l'établissement UAI `0750001A` (Collège Victor Hugo Paris)
+---
+
+## Charte graphique
+
+- Primaire : `#1B4060` — Accent : `#C87D2E` — Succès : `#1E5C42` — Fond : `#F5F4F1`
+- Typo : Inter 400/500 uniquement
+- Baseline : "Du projet pédagogique à la facturation finale."
+- Tagline : "Coordonnez vos séjours"
 
 ---
 
-## Charte graphique (validée)
+## État produit — 19 avril 2026
 
-- **Couleur primaire :** `#1B4060` (bleu marine)
-- **Couleur accent :** `#C87D2E` (ocre)
-- **Couleur succès :** `#1E5C42` (vert)
-- **Blanc cassé :** `#F5F4F1`
-- **Typographie :** Inter
-- **Wordmark :** "Liavo" (L majuscule, iavo minuscule)
-- **Tagline logo :** "Coordonnez vos séjours"
-- **Baseline communication :** "Du projet pédagogique à la facturation finale."
+### Features en production ✅
+
+**Flows enseignant :**
+- Inscription enseignant avec recherche établissement (API Éducation Nationale)
+- Création séjour via formulaire 3 étapes (appel d'offres ouvert)
+- Flow invitation hébergeur → enseignant :
+  - Hébergeur invite avec pré-remplissage établissement scolaire
+  - Enseignant crée son compte → email vérification → redirect invitation → confirmation explicite
+  - Séjour DRAFT créé + DemandeDevis OUVERTE vers l'hébergeur automatiquement
+  - Bouton "Modifier" sur séjour DRAFT (niveauClasse, activités, budget, horaires, transport)
+  - Badge "X devis reçu(s)" + bouton "Voir les offres" visible sur carte DRAFT si demande existante
+  - Bouton "Lancer l'appel d'offres" masqué si demande déjà existante (flow invitation)
+- Sélection devis → statut SELECTIONNE
+- Soumission au directeur :
+  - Recherche automatique directeur par UAI
+  - Si trouvé : email direct
+  - Si non trouvé : modale saisie email → invitation à créer compte directeur avec établissement pré-rempli + contexte séjour
+  - Anti-spam 24h
+
+**Flows directeur :**
+- Inscription directeur avec établissement obligatoire (auto-déclaration, vérification LIAVO mentionnée)
+- Page `/register/director?token=UUID` : pré-remplissage établissement depuis invitation + bandeau contexte
+- Dashboard directeur : liste séjours par UAI, filtres, signature électronique devis, refus, soumission rectorat, paramètres email DSDEN, Chorus Pro XML
+- Persistance : une fois inscrit avec son UAI, trouvé automatiquement pour tous les futurs séjours du même établissement
+
+**Flows hébergeur :**
+- Dashboard venue : demandes reçues, création devis HT/TTC, gestion planning, CRM clients
+- Invitation enseignant avec recherche établissement scolaire
+- Envoi devis → enseignant notifié
+
+**Infrastructure :**
+- Flow vérification email complet (sessionStorage redirect préservé)
+- Pages légales : CGU, CGV hébergeurs, mentions légales, confidentialité, mandat facturation Chorus Pro v1.1
+- Footer légal injecté via layout.tsx sur toutes les routes /dashboard/*
+- CORS whitelist, rate limiting, logs R2 supprimés
+
+**Landing :**
+- Bloc réseau LAMDJ/IDDJ supprimé (prématuré) — code conservé dans PricingTable.tsx commenté
+- "649 centres référencés" conservé dans bandeau hero et CTA final (chiffre base officielle EN)
+
+**Dashboard réseau :**
+- Rôle RESEAU, compte demo-lmdj@liavo.fr / LMDJ2026!
+- 54 centres IDDJ importés via APIDAE en prod, onboarding 25%
+- KPIs, filtres période, invitation centres, slide-over fiche, export CSV
+
+### PISTE / Chorus Pro
+
+- Compte PISTE créé : contact@liavo.fr — validé
+- App SANDBOX : APP_SANDBOX_contact@liavo.fr — validée
+- Client ID OAuth : `13b4b067-aab9-4bd9-b3f4-c2cd737c96f5`
+- API Key : `ea844f57-0b6d-41d0-b1a9-1268fc383f84`
+- CGU Factures SANDBOX + PROD acceptées ✅
+- API Factures SANDBOX souscrite ✅
+- Export XML PEPPOL UBL 2.1 fonctionnel dans `devis.service.ts → getChorusXml()`
+- Bouton téléchargement XML dans `/dashboard/venue/devis/page.tsx`
+- **Pending :** habilitation tiers mandaté AIFE (LIAVO dépose pour hébergeurs) → https://communaute.chorus-pro.gouv.fr
 
 ---
 
-## État du produit (07 avril 2026)
+## Démo LMDJ + IDDJ
 
-### Flux principal — fonctionnel ✅
-- Enseignant crée séjour → soumet appel d'offres → hébergeur reçoit demande → envoie devis → enseignant sélectionne → signature direction → espace collaboratif ouvert
-- Autorisations parentales : envoi email, signature électronique, suivi
-- Planning collaboratif : génération IA (algo round-robin clusters), drag & drop, parking, vue semaine/jour
-- CRM hébergeur : 270 contacts Sauvageon importés, versements, rappels
-- Dashboard réseau (LMDJ) : KPIs, invitation centres, onboarding score, export CSV
-- Chorus Pro XML (PEPPOL UBL 2.1), facture de solde
-- PDF : budget prévisionnel, projet pédagogique, devis
-
-### Prêt pour vrais utilisateurs — 08/04/2026 ✅
-- Abonnement Sauvageon : ACTIF ✅
-- Onboarding enseignant testé (theo@nunayak) ✅
-- Email Brevo vérification testé ✅
-- Invitation enseignant depuis dashboard Sauvageon : `/dashboard/venue/inviter-enseignant`
-- Base nettoyée : séjours/devis/demandes/invitations supprimés, users et clients CRM conservés ✅
-- Compte admin migré vers contact@liavo.fr (role ADMIN, emailVerifie=true, compteValide=true) ✅
-- Ancien compte admin@sejour-jeunesse.fr supprimé ✅
+- Date : fin avril 2026 (28 ou 30 avril, visio)
+- Contacts : Anaïtis Mangeon (LMDJ), Robin Baladi (IDDJ)
+- Credentials LMDJ : non encore reçus d'Anaïtis
+- Credentials IDDJ : apiKey=mr8RQgOh, projetId=3217, selectionId=67523 — intégration prod OK
+- Dashboard démo : demo-lmdj@liavo.fr / LMDJ2026!
 
 ---
 
-## Marketing & communication
+## Roadmap post-démo (ne pas construire avant validation commerciale)
 
-### LinkedIn
-- Post S1 publié : "Ce que j'ai appris en 7 ans d'accueil de classes de neige"
-- Post S2 rédigé + visuel prêt
-- Post S3 rédigé + visuel prêt
-- Calendrier éditorial 12 semaines défini (4 phases)
+- **Notification centres APIDAE non inscrits** : modifier demande.service.ts create() → fire-and-forget notifierCentresApidae(), rate limit 7j. Prompt CC préparé.
+- **Freemium hébergeur** : infrastructure abonnementStatut en place, TODO dans findOpen() à décommenter
+- **Refactoring DashboardShell** : teacher/page.tsx, director/page.tsx, venue/page.tsx → composant unique. Estimé 4-6 jours, risque moyen — après démo.
+- **JWT httpOnly cookie** : migration délibérément différée post-démo (risque régression auth)
+- **Chorus Pro production** : finaliser habilitation AIFE, créer ChorusProService NestJS, variables Railway PISTE_CLIENT_ID + PISTE_CLIENT_SECRET
+- **Intégration APIDAE LMDJ** : une ligne dans syncApidae() une fois credentials reçus
+- **RC Pro** : ~500-700€/an Hiscox, différé post-démo
 
-### Partenaires réseaux
-- **La Montagne des Juniors (LMDJ)** : Anaïtis Mangeon (directrice), démo visio confirmée fin avril avec IDDJ
-- **IDDJ** : Robin Baladi (directeur), APIDAE credentials validés (54 centres)
+---
+
+## Financement
+
+Séquence validée :
+1. Initiative Faucigny Mont-Blanc (membre CA, prêt taux zéro) → immédiat
+2. Start-up & Go Emergence post-SIREN → en cours
+3. Réseau Entreprendre Haute-Savoie → 6 mois
+4. BPI → 12-18 mois avec pilote rectorat
 
 ---
 
@@ -138,44 +158,16 @@ Comptes enseignant/directeur liés à l'établissement UAI `0750001A` (Collège 
 
 **Repo :** `theorocheloison-hash/sejour-jeunesse`
 **Local :** `C:\Users\Roche-Loison\Desktop\sejour-jeunesse`
-**Déploiement :** automatique sur push `main`
+**Déploiement :** automatique sur push main
 
 ---
 
-## PISTE / Chorus Pro — État au 08/04/2026
+## Règles de développement
 
-**Compte PISTE créé** : `contact@liavo.fr` — validé
-**Application SANDBOX** : `APP_SANDBOX_contact@liavo.fr` — statut Validée
-**Client ID OAuth** : `13b4b067-aab9-4bd9-b3f4-c2cd737c96f5` (Confidentiel)
-**API Key** : `ea844f57-0b6d-41d0-b1a9-1268fc383f84`
-**Client Secret** : noté par Théo (ne pas stocker ici)
-**CGU acceptées** : Factures SANDBOX + PROD ✅
-**API Factures SANDBOX souscrite** ✅
-**URL OAuth sandbox** : `https://sandbox-oauth.piste.gouv.fr/api/oauth/token`
-**URL API sandbox** : `https://sandbox-api.piste.gouv.fr`
-
-**Ce qui reste avant intégration code :**
-- Obtenir habilitation tiers mandaté AIFE (LIAVO dépose pour compte des hébergeurs)
-- Contacter support AIFE : `https://communaute.chorus-pro.gouv.fr` ou formulaire PISTE
-- Une fois habilité : créer `ChorusProService` dans NestJS (OAuth2 client_credentials + dépôt XML)
-- Variables Railway à ajouter : `PISTE_CLIENT_ID`, `PISTE_CLIENT_SECRET`
-- L'export XML PEPPOL UBL 2.1 est déjà fonctionnel dans `devis.service.ts` → `getChorusXml()`
-- Le bouton téléchargement XML existe déjà dans `/dashboard/venue/devis/page.tsx`
-
----
-
-## Roadmap post-démo LMDJ (ne pas construire avant validation commerciale)
-
-- Notification centres APIDAE non inscrits sur nouvelle demande (`demande.service.ts`, prompt CC préparé)
-- ~~Import backend 54 centres IDDJ~~ **FAIT** — 54 centres en prod dans dashboard réseau, onboarding 25%
-- Freemium hébergeur (infrastructure `abonnementStatut` en place, TODO dans `findOpen()`)
-- Refactoring dashboards vers DashboardShell (4–6 jours dev, après démo)
-- Intégration bancaire SEPA/Open Banking (horizon 18–24 mois)
-
----
-
-## Modèle économique
-
-- **Établissements scolaires :** gratuit
-- **Hébergeurs :** abonnement mensuel ou annuel
-- **Objectif terme :** contrats B2G avec les académies (modèle Pronote)
+- **Fix at source, never patch** — règle absolue
+- **Lire les fichiers avant toute proposition** — via filesystem-liavo
+- **Anticiper les bugs cascade** avant d'écrire le moindre code
+- **Ne jamais push sans confirmation explicite de Théo**
+- `str_replace` non fiable sur Windows → utiliser `write_file` ou `edit_file`
+- Migration sans .env local → créer SQL manuellement (même pattern que invitation_etablissement)
+- Railway démarrage backend : 2-3 min (start.sh migration loop)

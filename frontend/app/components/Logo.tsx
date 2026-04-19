@@ -26,14 +26,21 @@ export function Logo({
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <svg width={s.icon} height={s.icon} viewBox="0 0 42 42" fill="none">
         <rect width="42" height="42" rx="10" fill={iconBg}/>
-        <rect x="15" y="7" width="13" height="13" rx="2.5"
-              transform="rotate(45 21 13.5)"
-              fill="none" stroke="white" strokeWidth="1.5" opacity="0.9"/>
-        <circle cx="21" cy="13.5" r="2.2" fill="#C87D2E"/>
+        <polygon
+          points="21,4 30,13 21,22 12,13"
+          fill="none"
+          stroke="white"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          opacity="0.9"
+        />
+        <circle cx="21" cy="13" r="2.2" fill="#C87D2E"/>
         <line x1="21" y1="22" x2="21" y2="32"
-              stroke="white" strokeWidth="1.5" opacity="0.5" strokeLinecap="round"/>
+              stroke="white" strokeWidth="1.5"
+              opacity="0.9" strokeLinecap="round"/>
         <line x1="14" y1="32" x2="28" y2="32"
-              stroke="white" strokeWidth="1.5" opacity="0.5" strokeLinecap="round"/>
+              stroke="white" strokeWidth="1.5"
+              opacity="0.9" strokeLinecap="round"/>
       </svg>
       <div>
         <div style={{

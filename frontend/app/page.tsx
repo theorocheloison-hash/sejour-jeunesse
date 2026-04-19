@@ -90,7 +90,7 @@ export default function Home() {
         paddingTop: 180, paddingBottom: 0,
         background: 'linear-gradient(135deg, var(--color-primary) 0%, #1a365d 40%, #2b4c7e 100%)',
       }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px 80px', textAlign: 'center' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', textAlign: 'center' }}>
           <h1 style={{
             fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 500,
             lineHeight: 1.15, letterSpacing: '-0.01em',
@@ -153,13 +153,13 @@ export default function Home() {
           textAlign: 'center',
           fontSize: 13, color: 'rgba(255,255,255,0.7)',
         }}>
-          649 centres référencés depuis la base officielle de l&apos;Éducation Nationale · Conforme RGPD · Chorus Pro intégré
+          Conforme RGPD · Chorus Pro intégré
         </div>
       </section>
 
       {/* ── SECTION 2 — LA DOULEUR ──────────────────────────────────────────── */}
       <section id="probleme" style={{ padding: '80px 24px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
             color: 'var(--color-primary)', textAlign: 'center',
@@ -255,7 +255,7 @@ export default function Home() {
         borderTop: '0.5px solid var(--color-border)',
         borderBottom: '0.5px solid var(--color-border)',
       }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
             color: 'var(--color-primary)', textAlign: 'center',
@@ -277,7 +277,7 @@ export default function Home() {
       {/* ── SECTION 4 — DEUX UNIVERS ────────────────────────────────────────── */}
       <section style={{ padding: '80px 24px' }}>
         <div style={{
-          maxWidth: 960, margin: '0 auto',
+          maxWidth: 1200, margin: '0 auto',
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: 32,
         }}>
@@ -294,7 +294,7 @@ export default function Home() {
             </h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
               {[
-                'Lancez un appel d\'offres en 10 minutes auprès de 649 centres référencés',
+                'Lancez un appel d\'offres en 10 minutes auprès des centres de votre choix',
                 'Recevez et comparez les devis directement dans la plateforme',
                 'Workflow de validation directeur et rectorat intégré',
                 'Autorisations parentales numériques avec relances automatiques',
@@ -366,7 +366,7 @@ export default function Home() {
         backgroundColor: 'var(--color-bg)',
         borderTop: '0.5px solid var(--color-border)',
       }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 48 }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 48 }}>
           <div style={{ flex: '1 1 320px' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center',
@@ -424,7 +424,7 @@ export default function Home() {
         borderTop: '0.5px solid var(--color-border)',
         borderBottom: '0.5px solid var(--color-border)',
       }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
             color: 'var(--color-primary)', textAlign: 'center',
@@ -450,7 +450,7 @@ export default function Home() {
         borderTop: '0.5px solid var(--color-border)',
         borderBottom: '0.5px solid var(--color-border)',
       }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
             color: 'var(--color-primary)', textAlign: 'center',
@@ -468,7 +468,7 @@ export default function Home() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
             gap: 24,
           }}>
             {[
@@ -509,7 +509,7 @@ export default function Home() {
 
       {/* ── SECTION 6 — ARGUMENTS INSTITUTIONNELS ────────────────────────────── */}
       <section style={{ padding: '80px 24px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h2 style={{
             fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
             color: 'var(--color-primary)', textAlign: 'center',
@@ -572,7 +572,7 @@ export default function Home() {
             color: 'rgba(255,255,255,0.75)',
             maxWidth: 520, margin: '0 auto 32px',
           }}>
-            649 centres référencés depuis la base officielle de l&apos;Éducation Nationale. Séjours scolaires, colonies de vacances, séjours collectifs — un seul outil pour tout coordonner.
+            Séjours scolaires, colonies de vacances, séjours collectifs — un seul outil pour tout coordonner.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
             <Link href="/register?type=teacher" style={{
