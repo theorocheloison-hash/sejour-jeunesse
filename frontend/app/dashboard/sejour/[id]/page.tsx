@@ -72,6 +72,7 @@ import type { BudgetPDFProps } from '@/src/components/pdf/BudgetPDFButton';
 import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePDFButton';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -1417,7 +1418,37 @@ export default function CollaborationPage() {
                     </button>
                     {generationStatus === 'done' && <span className="text-sm text-green-600 font-medium">✓ Planning généré</span>}
                     {generationStatus === 'error' && <span className="text-sm text-red-500">Erreur lors de la génération</span>}
+                    {planning.length > 0 && (
+                      <PlanningPDFButton
+                        planningProps={{
+                          titreSejour: sejour.titre,
+                          dateDebut: sejour.dateDebut,
+                          dateFin: sejour.dateFin,
+                          nombreEleves: sejour.placesTotales,
+                          centreName: sejour.hebergementSelectionne?.nom,
+                          planning,
+                          groupes: groupes.map(g => ({ id: g.id, nom: g.nom, couleur: g.couleur, taille: g.taille })),
+                        }}
+                        filename={`planning-${sejour.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`}
+                      />
+                    )}
                   </div>
+              </div>
+            )}
+            {!isVenue && planning.length > 0 && (
+              <div className="mb-4">
+                <PlanningPDFButton
+                  planningProps={{
+                    titreSejour: sejour.titre,
+                    dateDebut: sejour.dateDebut,
+                    dateFin: sejour.dateFin,
+                    nombreEleves: sejour.placesTotales,
+                    centreName: sejour.hebergementSelectionne?.nom,
+                    planning,
+                    groupes: groupes.map(g => ({ id: g.id, nom: g.nom, couleur: g.couleur, taille: g.taille })),
+                  }}
+                  filename={`planning-${sejour.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`}
+                />
               </div>
             )}
             <div className="flex gap-4 h-full">

@@ -1,5 +1,5 @@
 # LIAVO — Stratégie commerciale
-> Dernière mise à jour : 2 avril 2026
+> Dernière mise à jour : 19 avril 2026
 
 ---
 
@@ -140,7 +140,7 @@ LAMDJ et IDDJ ont l'opportunité d'être les réseaux fondateurs d'une plateform
   - Sur Complet : 5,90€/centre/mois
   - Sur 100 centres actifs : 290-590€/mois par réseau
 
-⚠️ **Point de vigilance** : la gratuité Y1 doit être conditionnée à un accord signé avec clause de bascule Y2. Sans document, aucun levier de renouvellement.
+**Point de vigilance** : la gratuité Y1 doit être conditionnée à un accord signé avec clause de bascule Y2. Sans document, aucun levier de renouvellement.
 
 ---
 
@@ -167,11 +167,11 @@ LIAVO devient un outil de **recrutement de nouveaux membres** : un hébergeur no
 
 | Scénario | Hypothèse | ARR fin Y1 | ARR fin Y2 |
 |---|---|---|---|
-| Pessimiste | 15% activation LAMDJ+IDDJ ≈ 27 centres × 29€ | ~9 400€ | ~18 000€ |
-| Médian (cible) | 40% activation ≈ 72 centres + 20 directs | ~25 000€ | ~36 000€ |
-| Haut | 150+ centres actifs × 35€ moyen | — | ~54 000€ |
+| Pessimiste | 15% activation LAMDJ+IDDJ = 27 centres x 29EUR | ~9 400EUR | ~18 000EUR |
+| Médian (cible) | 40% activation = 72 centres + 20 directs | ~25 000EUR | ~36 000EUR |
+| Haut | 150+ centres actifs x 35EUR moyen | — | ~54 000EUR |
 
-Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra ≤ 150€/mois).
+Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra <= 150EUR/mois).
 
 ---
 
@@ -191,5 +191,5 @@ Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra ≤ 150€/moi
 | demo-lmdj@liavo.fr | RESEAU | LMDJ2026! | reseauNomComplet = La Montagne des Juniors |
 | enseignant@test.fr | TEACHER | Test1234! | UAI 0750001A — Collège Victor Hugo Paris |
 | directeur@test.fr | DIRECTOR | Test1234! | |
-| contact@chalet-sauvageon.fr | VENUE | Test1234! | Sauvageon tagué reseau=LMDJ |
-| admin@sejour-jeunesse.fr | ADMIN | Admin2026! | |
+| resa@lesauvageon.com | VENUE | Test1234! | Sauvageon, compte prod hébergeur |
+| contact@liavo.fr | ADMIN | Admin2026! | Admin production LIAVO |
