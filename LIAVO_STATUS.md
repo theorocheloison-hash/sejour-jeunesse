@@ -157,8 +157,9 @@ Séquence validée :
 | DNS/Domaine | OVH |
 
 **Repo :** `theorocheloison-hash/sejour-jeunesse`
-**Local :** `C:\Users\Roche-Loison\Desktop\sejour-jeunesse`
+**Local :** `C:\Users\Roche-Loison\Desktop\sejour-jeunesse` (copie UNIQUE — ancienne copie ~/sejour-jeunesse supprimée 25/04)
 **Déploiement :** automatique sur push main
+**GitHub auth :** OAuth via Git Credential Manager (renouvellement auto). Ne JAMAIS hardcoder de token dans .git/config.
 
 ---
 
