@@ -371,6 +371,27 @@ export default function SignerAutorisationPage() {
               </p>
             </section>
 
+            {/* ── JOURNAL DE SÉJOUR (CTA parent) ─────────────────────────── */}
+            <section className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="shrink-0 h-10 w-10 rounded-full bg-white border border-blue-200 flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-[var(--color-primary)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-blue-900">
+                  Suivez le séjour de {autorisation.elevePrenom} en temps réel
+                </p>
+                <p className="text-xs text-blue-800 mt-0.5">
+                  Photos, activités et nouvelles publiées par l&apos;enseignant et l&apos;hébergeur
+                </p>
+              </div>
+              <a
+                href={`/sejour/${token}/journal`}
+                className="shrink-0 inline-flex items-center justify-center rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors"
+              >
+                Voir le journal du séjour
+              </a>
+            </section>
+
             {/* ── SECTION PAIEMENT (retour parent) ───────────────────────── */}
             <section className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-primary)] mb-4">
@@ -930,6 +951,11 @@ export default function SignerAutorisationPage() {
                 </label>
               )}
             </section>
+
+            {/* ── INFO JOURNAL DE SÉJOUR (post-signature) ───────────────────── */}
+            <p className="text-xs text-gray-500 text-center">
+              Un journal de séjour sera disponible une fois l&apos;autorisation signée.
+            </p>
 
             {/* ── BOUTON SIGNER ─────────────────────────────────────────────── */}
             <section className="pb-2">
