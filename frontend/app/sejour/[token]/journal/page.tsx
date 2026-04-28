@@ -51,6 +51,87 @@ function formatDateRange(debut: string, fin: string): string {
   return `du ${d1.toLocaleDateString('fr-FR')} au ${d2.toLocaleDateString('fr-FR')}`;
 }
 
+function lighten(hex: string | null | undefined, percent: number): string {
+  if (!hex || !hex.startsWith('#')) return '#e5e7eb';
+  let h = hex.slice(1);
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * percent);
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+type PlanningAct = {
+  id: string;
+  date: string;
+  heureDebut: string;
+  heureFin: string;
+  titre: string;
+  couleur: string | null;
+  estCollective: boolean;
+};
+
+type GroupedActivite = {
+  nomBase: string;
+  estCollective: boolean;
+  couleur: string | null;
+  groupes: { label: string; couleur: string | null }[];
+};
+
+type CreneauGroupe = {
+  heureDebut: string;
+  heureFin: string;
+  activites: GroupedActivite[];
+};
+
+function regrouperParCreneau(activites: PlanningAct[]): CreneauGroupe[] {
+  const slotsMap = new Map<string, PlanningAct[]>();
+  for (const a of activites) {
+    const key = `${a.heureDebut}-${a.heureFin}`;
+    const arr = slotsMap.get(key) ?? [];
+    arr.push(a);
+    slotsMap.set(key, arr);
+  }
+
+  return Array.from(slotsMap.entries())
+    .sort(([k1], [k2]) => k1.localeCompare(k2))
+    .map(([, items]) => {
+      const heureDebut = items[0].heureDebut;
+      const heureFin = items[0].heureFin;
+
+      const byName = new Map<string, PlanningAct[]>();
+      for (const a of items) {
+        const nomBase = a.titre.replace(/ — G\d+$/, '').trim();
+        const k = `${a.estCollective ? 'col' : 'grp'}:${nomBase}`;
+        const arr = byName.get(k) ?? [];
+        arr.push(a);
+        byName.set(k, arr);
+      }
+
+      const activitesGroupees: GroupedActivite[] = Array.from(byName.values()).map((rows) => {
+        const nomBase = rows[0].titre.replace(/ — G\d+$/, '').trim();
+        const groupes = rows
+          .map((r) => {
+            const m = r.titre.match(/ — (G\d+)$/);
+            return m ? { label: m[1], couleur: r.couleur } : null;
+          })
+          .filter((x): x is { label: string; couleur: string | null } => x !== null)
+          .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+        return {
+          nomBase,
+          estCollective: rows[0].estCollective,
+          couleur: rows[0].couleur,
+          groupes,
+        };
+      });
+
+      activitesGroupees.sort((a, b) => Number(b.estCollective) - Number(a.estCollective));
+      return { heureDebut, heureFin, activites: activitesGroupees };
+    });
+}
+
 function PhotoGrid({ photos }: { photos: PhotoJournal[] }) {
   if (photos.length === 0) return null;
   if (photos.length === 1) {
@@ -337,32 +418,55 @@ export default function JournalPublicPage() {
               {joursPlanning.map(({ date, activites }) => {
                 const d = new Date(date + 'T12:00:00');
                 const label = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+                const creneaux = regrouperParCreneau(activites);
                 return (
                   <div key={date}>
                     <h3 className="text-sm font-semibold text-[var(--color-primary)] mb-2 capitalize">
                       {label}
                     </h3>
-                    {activites.length === 0 ? (
+                    {creneaux.length === 0 ? (
                       <p className="text-xs text-gray-400 italic">Pas d&apos;activité prévue</p>
                     ) : (
                       <div className="space-y-2">
-                        {activites.map((a) => (
+                        {creneaux.map((c) => (
                           <div
-                            key={a.id}
+                            key={`${c.heureDebut}-${c.heureFin}`}
                             className="bg-white rounded-xl border border-gray-200 px-4 py-3"
-                            style={{ borderLeft: `3px solid ${a.couleur ?? 'var(--color-primary)'}` }}
                           >
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-semibold text-gray-900">{a.titre}</span>
-                              {a.estCollective && (
-                                <span className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-blue-50 text-[var(--color-primary)]">
-                                  Tous les groupes
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {a.heureDebut} – {a.heureFin}
+                            <p className="text-sm font-bold text-gray-900 mb-2">
+                              {c.heureDebut} – {c.heureFin}
                             </p>
+                            <div className="space-y-2">
+                              {c.activites.map((act, i) => (
+                                <div
+                                  key={i}
+                                  className="pl-3 py-1"
+                                  style={{ borderLeft: `3px solid ${act.couleur ?? 'var(--color-primary)'}` }}
+                                >
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium text-gray-900">{act.nomBase}</span>
+                                    {act.estCollective ? (
+                                      <span className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full bg-blue-50 text-[var(--color-primary)]">
+                                        Tous les groupes
+                                      </span>
+                                    ) : (
+                                      act.groupes.map((g, j) => (
+                                        <span
+                                          key={j}
+                                          className="rounded-full px-2 py-0.5 text-xs font-medium"
+                                          style={{
+                                            backgroundColor: lighten(g.couleur, 0.85),
+                                            color: g.couleur ?? 'var(--color-primary)',
+                                          }}
+                                        >
+                                          {g.label}
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
                       </div>
