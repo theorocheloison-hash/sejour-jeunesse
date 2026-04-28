@@ -9,6 +9,7 @@ import {
   createAutorisation,
   getAutorisationsBySejour,
   importAutorisationsCsv,
+  envoyerInvitations,
   type AutorisationParentale,
 } from '@/src/lib/autorisation';
 import { getMesSejours, updateSejour, type Sejour } from '@/src/lib/sejour';
@@ -44,6 +45,12 @@ export default function GestionAutorisationsPage() {
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [postImportBanner, setPostImportBanner] = useState<number | null>(null);
+
+  // Sélection / envoi invitations
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sendingInvitations, setSendingInvitations] = useState(false);
+  const [invitationsResult, setInvitationsResult] = useState<{ sent: number; total: number; errors: string[] } | null>(null);
 
   // Accompagnateurs
   const [accompagnateurs, setAccompagnateurs] = useState<AccompagnateurMission[]>([]);
@@ -152,7 +159,10 @@ export default function GestionAutorisationsPage() {
     try {
       const result = await importAutorisationsCsv(sejourId, importFile);
       setImportResult(result);
-      if (result.created > 0) await loadData();
+      if (result.created > 0) {
+        await loadData();
+        setPostImportBanner(result.created);
+      }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setImportError(e.response?.data?.message ?? "Erreur lors de l'import du fichier.");
@@ -168,6 +178,40 @@ export default function GestionAutorisationsPage() {
     setImportError(null);
     setDragActive(false);
   };
+
+  const handleEnvoyerInvitations = async (ids?: string[]) => {
+    if (!sejourId) return;
+    setSendingInvitations(true);
+    setInvitationsResult(null);
+    try {
+      const result = await envoyerInvitations(sejourId, ids);
+      setInvitationsResult(result);
+      setSelectedIds(new Set());
+      setPostImportBanner(null);
+      await loadData();
+    } catch {
+      setInvitationsResult({ sent: 0, total: 0, errors: ["Erreur lors de l'envoi des invitations."] });
+    } finally {
+      setSendingInvitations(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const eligibleIds = autorisations.filter((a) => !a.signeeAt && !a.emailEnvoye).map((a) => a.id);
+  const allEligibleSelected = eligibleIds.length > 0 && eligibleIds.every((id) => selectedIds.has(id));
+  const toggleSelectAll = () => {
+    if (allEligibleSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(eligibleIds));
+  };
+  const nbEnAttenteEnvoi = eligibleIds.length;
 
   const handleSavePrix = async () => {
     if (!sejourId) return;
@@ -593,18 +637,94 @@ export default function GestionAutorisationsPage() {
           </div>
         )}
 
+        {/* Bandeau post-import : invitations à envoyer */}
+        {postImportBanner !== null && nbEnAttenteEnvoi > 0 && (
+          <div className="mb-6 rounded-xl bg-blue-50 border border-blue-200 px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-blue-900">
+                {postImportBanner} élève{postImportBanner > 1 ? 's' : ''} importé{postImportBanner > 1 ? 's' : ''}.
+              </p>
+              <p className="text-xs text-blue-800 mt-0.5">
+                Les invitations n&apos;ont pas encore été envoyées aux parents.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleEnvoyerInvitations()}
+              disabled={sendingInvitations}
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendingInvitations ? 'Envoi…' : 'Envoyer les invitations à tous'}
+            </button>
+          </div>
+        )}
+
+        {/* Résultat envoi invitations */}
+        {invitationsResult && (
+          <div className="mb-6 rounded-xl bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-4 py-3">
+            <p className="text-sm font-semibold text-[var(--color-success)]">
+              {invitationsResult.sent} invitation{invitationsResult.sent > 1 ? 's' : ''} envoyée{invitationsResult.sent > 1 ? 's' : ''} sur {invitationsResult.total}
+            </p>
+            {invitationsResult.errors.length > 0 && (
+              <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
+                {invitationsResult.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Toolbar sélection */}
+        {nbEnAttenteEnvoi > 0 && (
+          <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="text-xs font-medium text-[var(--color-primary)] hover:underline self-start"
+            >
+              {allEligibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => handleEnvoyerInvitations(Array.from(selectedIds))}
+                disabled={sendingInvitations}
+                className="ml-auto rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingInvitations
+                  ? 'Envoi…'
+                  : `Envoyer l'invitation aux sélectionnés (${selectedIds.size})`}
+              </button>
+            )}
+          </div>
+        )}
+
         {autorisations.length > 0 ? (
           <div className="space-y-3">
             {autorisations.map((a) => {
               const isSigned = !!a.signeeAt;
+              const emailEnvoye = !!a.emailEnvoye;
+              const selectable = !isSigned && !emailEnvoye;
               return (
                 <div
                   key={a.id}
                   className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3"
                 >
+                  {/* Checkbox */}
+                  {selectable && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(a.id)}
+                      onChange={() => toggleSelect(a.id)}
+                      aria-label={`Sélectionner ${a.elevePrenom} ${a.eleveNom}`}
+                      className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                    />
+                  )}
+
                   {/* Infos élève */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="text-sm font-semibold text-gray-900">
                         {a.elevePrenom} {a.eleveNom}
                       </span>
@@ -617,9 +737,13 @@ export default function GestionAutorisationsPage() {
                             year: 'numeric',
                           })}
                         </span>
+                      ) : emailEnvoye ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2.5 py-0.5 text-xs font-medium">
+                          Invitation envoyée
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-700 px-2.5 py-0.5 text-xs font-medium">
-                          En attente
+                          En attente d&apos;envoi
                         </span>
                       )}
                     </div>
