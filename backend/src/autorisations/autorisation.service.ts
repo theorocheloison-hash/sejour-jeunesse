@@ -216,6 +216,80 @@ export class AutorisationService {
     });
   }
 
+  async importCsv(file: Express.Multer.File, sejourId: string, createurId: string) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== createurId) throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    let content = file.buffer.toString('utf-8');
+    if (/Ã[©¨ª«]|Ã|Ã©/.test(content)) {
+      content = Array.from(file.buffer).map((b) => String.fromCharCode(b)).join('');
+    }
+    const lines = content.split(/\r?\n/).filter((l) => l.trim());
+
+    if (lines.length < 2) throw new BadRequestException('Le fichier doit contenir au moins un en-tête et une ligne de données');
+    if (lines.length > 201) throw new BadRequestException('Le fichier ne peut pas contenir plus de 200 élèves');
+
+    const header = lines[0];
+    const sep = [';', ',', '\t'].reduce((best, s) =>
+      header.split(s).length > header.split(best).length ? s : best, ';');
+
+    const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/"/g, ''));
+    const findCol = (keywords: string[]): number =>
+      headers.findIndex((h) => keywords.some((k) => h.includes(k)));
+
+    const colNom = findCol(['nom']);
+    const colPrenom = findCol(['prénom', 'prenom']);
+    const colEmail = findCol(['email', 'mail', 'courriel', 'e-mail']);
+
+    if (colNom === -1) throw new BadRequestException('Colonne "Nom" introuvable. Colonnes détectées : ' + headers.join(', '));
+    if (colPrenom === -1) throw new BadRequestException('Colonne "Prénom" introuvable. Colonnes détectées : ' + headers.join(', '));
+    if (colEmail === -1) throw new BadRequestException('Colonne "Email" introuvable. Colonnes détectées : ' + headers.join(', '));
+
+    const results = { created: 0, skipped: 0, errors: [] as string[] };
+    const existingAuths = await this.prisma.autorisationParentale.findMany({
+      where: { sejourId },
+      select: { eleveNom: true, elevePrenom: true },
+    });
+    const existingSet = new Set(existingAuths.map((a) => `${a.eleveNom.toLowerCase()}|${a.elevePrenom.toLowerCase()}`));
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(sep).map((c) => c.trim().replace(/"/g, ''));
+      const nom = cols[colNom]?.trim();
+      const prenom = cols[colPrenom]?.trim();
+      const email = cols[colEmail]?.trim();
+
+      if (!nom || !prenom) {
+        results.skipped++;
+        continue;
+      }
+      if (!email || !email.includes('@')) {
+        results.errors.push(`Ligne ${i + 1} : email manquant ou invalide pour ${prenom} ${nom}`);
+        results.skipped++;
+        continue;
+      }
+
+      const key = `${nom.toLowerCase()}|${prenom.toLowerCase()}`;
+      if (existingSet.has(key)) {
+        results.skipped++;
+        continue;
+      }
+
+      try {
+        await this.create(
+          { sejourId, eleveNom: nom.toUpperCase(), elevePrenom: prenom, parentEmail: email },
+          createurId,
+        );
+        existingSet.add(key);
+        results.created++;
+      } catch {
+        results.errors.push(`Ligne ${i + 1} : erreur pour ${prenom} ${nom}`);
+      }
+    }
+
+    return results;
+  }
+
   async getBySejour(sejourId: string, createurId: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },

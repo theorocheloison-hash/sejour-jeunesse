@@ -82,6 +82,17 @@ export async function createAutorisation(
   return data;
 }
 
+export async function importAutorisationsCsv(
+  sejourId: string,
+  file: File,
+): Promise<{ created: number; skipped: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('sejourId', sejourId);
+  const res = await api.post('/autorisations/import-csv', formData);
+  return res.data;
+}
+
 export async function getAutorisationsBySejour(
   sejourId: string,
 ): Promise<AutorisationParentale[]> {
