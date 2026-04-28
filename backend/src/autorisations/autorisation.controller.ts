@@ -38,6 +38,20 @@ export class AutorisationController {
     return this.autorisationService.create(dto, user.id);
   }
 
+  /** POST /autorisations/import-csv — Import CSV d'élèves (TEACHER) */
+  @Post('import-csv')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.TEACHER)
+  @UseInterceptors(FileInterceptor('file'))
+  async importCsv(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (!file) throw new BadRequestException('Aucun fichier fourni');
+    return this.autorisationService.importCsv(file, sejourId, user.id);
+  }
+
   /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (TEACHER/DIRECTOR) */
   @Patch(':id/valider-paiement')
   @UseGuards(JwtAuthGuard, RolesGuard)
