@@ -52,6 +52,17 @@ export class AutorisationController {
     return this.autorisationService.importCsv(file, sejourId, user.id);
   }
 
+  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (TEACHER) */
+  @Post('envoyer-invitations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.TEACHER)
+  envoyerInvitations(
+    @Body() body: { sejourId: string; autorisationIds?: string[] },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.envoyerInvitations(body.sejourId, user.id, body.autorisationIds);
+  }
+
   /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (TEACHER/DIRECTOR) */
   @Patch(':id/valider-paiement')
   @UseGuards(JwtAuthGuard, RolesGuard)

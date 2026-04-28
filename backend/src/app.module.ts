@@ -25,6 +25,7 @@ import { StorageModule } from './storage/storage.module.js';
 import { ClientsModule } from './clients/clients.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { InvitationsDirecteurModule } from './invitations-directeur/invitations-directeur.module.js';
+import { JournalPublicModule } from './journal-public/journal-public.module.js';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { InvitationsDirecteurModule } from './invitations-directeur/invitations-
     ClientsModule,
     NotificationsModule,
     InvitationsDirecteurModule,
+    JournalPublicModule,
   ],
   controllers: [AppController],
   providers: [

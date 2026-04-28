@@ -48,7 +48,70 @@ export class AutorisationService {
       lien,
     );
 
+    await this.prisma.autorisationParentale.update({
+      where: { id: autorisation.id },
+      data: { emailEnvoye: true },
+    });
+
     return autorisation;
+  }
+
+  async createSansEmail(dto: CreateAutorisationDto, createurId: string) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: dto.sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    return this.prisma.autorisationParentale.create({
+      data: {
+        sejourId: dto.sejourId,
+        eleveNom: dto.eleveNom,
+        elevePrenom: dto.elevePrenom,
+        parentEmail: dto.parentEmail,
+      },
+    });
+  }
+
+  async envoyerInvitations(sejourId: string, createurId: string, autorisationIds?: string[]) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    const where: {
+      sejourId: string;
+      signeeAt: null;
+      id?: { in: string[] };
+    } = { sejourId, signeeAt: null };
+    if (autorisationIds && autorisationIds.length > 0) {
+      where.id = { in: autorisationIds };
+    }
+
+    const autorisations = await this.prisma.autorisationParentale.findMany({ where });
+
+    let sent = 0;
+    const errors: string[] = [];
+
+    for (const auth of autorisations) {
+      try {
+        const lien = `${FRONTEND_URL}/autorisation/${auth.tokenAcces}`;
+        await this.email.sendAutorisationParentale(
+          auth.parentEmail,
+          `${auth.elevePrenom} ${auth.eleveNom}`,
+          sejour.titre,
+          lien,
+        );
+        await this.prisma.autorisationParentale.update({
+          where: { id: auth.id },
+          data: { emailEnvoye: true },
+        });
+        sent++;
+      } catch {
+        errors.push(`Erreur envoi pour ${auth.elevePrenom} ${auth.eleveNom} (${auth.parentEmail})`);
+      }
+    }
+
+    return { sent, total: autorisations.length, errors };
   }
 
   async getByToken(token: string) {
@@ -276,7 +339,7 @@ export class AutorisationService {
       }
 
       try {
-        await this.create(
+        await this.createSansEmail(
           { sejourId, eleveNom: nom.toUpperCase(), elevePrenom: prenom, parentEmail: email },
           createurId,
         );

@@ -19,6 +19,7 @@ export interface AutorisationParentale {
   moyenPaiement?: string | null;
   paiementValide?: boolean;
   datePaiement?: string | null;
+  emailEnvoye?: boolean;
   createdAt: string;
 }
 
@@ -79,6 +80,14 @@ export async function createAutorisation(
   dto: CreateAutorisationDto,
 ): Promise<AutorisationParentale> {
   const { data } = await api.post<AutorisationParentale>('/autorisations', dto);
+  return data;
+}
+
+export async function envoyerInvitations(
+  sejourId: string,
+  autorisationIds?: string[],
+): Promise<{ sent: number; total: number; errors: string[] }> {
+  const { data } = await api.post('/autorisations/envoyer-invitations', { sejourId, autorisationIds });
   return data;
 }
 

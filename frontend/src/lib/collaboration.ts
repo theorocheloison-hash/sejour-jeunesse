@@ -382,3 +382,41 @@ export async function getPlanningGenerationStatus(sejourId: string, jobId: strin
   const { data } = await api.get(`/collaboration/${sejourId}/planning/generer/${jobId}`);
   return data;
 }
+
+// ── Journal de séjour ───────────────────────────────────────────────────────
+
+export interface PhotoJournal {
+  id: string;
+  url: string;
+  ordre: number;
+}
+
+export interface PostJournal {
+  id: string;
+  sejourId: string;
+  contenu: string;
+  createdAt: string;
+  auteur: { id: string; prenom: string; nom: string; role: string };
+  photos: PhotoJournal[];
+}
+
+export async function getJournal(sejourId: string): Promise<PostJournal[]> {
+  const { data } = await api.get<PostJournal[]>(`/collaboration/${sejourId}/journal`);
+  return data;
+}
+
+export async function createJournalPost(
+  sejourId: string,
+  contenu: string,
+  photos: File[],
+): Promise<PostJournal> {
+  const formData = new FormData();
+  formData.append('contenu', contenu);
+  photos.forEach((p) => formData.append('photos', p));
+  const { data } = await api.post<PostJournal>(`/collaboration/${sejourId}/journal`, formData);
+  return data;
+}
+
+export async function deleteJournalPost(sejourId: string, postId: string): Promise<void> {
+  await api.delete(`/collaboration/${sejourId}/journal/${postId}`);
+}

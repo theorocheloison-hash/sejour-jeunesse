@@ -121,6 +121,7 @@ model User {
 
   consentementsRgpd ConsentementRgpd[]
   invitationsCentreExterne InvitationCentreExterne[] @relation("InvitationsEnvoyees")
+  postsJournal             PostJournal[]            @relation("postsJournal")
 
   @@map("utilisateurs")
 }
@@ -189,6 +190,7 @@ model Sejour {
   lignesBudget           LigneBudgetComplementaire[]
   recettesBudget         RecetteBudget[]
   groupesSejour          GroupeSejour[]
+  postsJournal           PostJournal[]
 
   @@index([createurId])
   @@index([statut])
@@ -261,6 +263,7 @@ model AutorisationParentale {
   telephoneUrgence       String?   @map("telephone_urgence") @db.VarChar(20)
   attestationAssuranceUrl String?  @map("attestation_assurance_url") @db.VarChar(500)
   eleveDateNaissance DateTime? @map("eleve_date_naissance") @db.Date
+  emailEnvoye       Boolean   @default(false) @map("email_envoye")
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour  Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
@@ -970,4 +973,35 @@ model InvitationDirecteur {
   createdAt         DateTime  @default(now()) @map("created_at")
 
   @@map("invitations_directeur")
+}
+
+// ============================================================
+// MODEL : PostJournal (journal de séjour — blog parents)
+// ============================================================
+model PostJournal {
+  id        String   @id @default(uuid()) @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  auteurId  String   @map("auteur_id") @db.Uuid
+  contenu   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sejour Sejour         @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  auteur User           @relation("postsJournal", fields: [auteurId], references: [id])
+  photos PhotoJournal[]
+
+  @@map("posts_journal")
+}
+
+// ============================================================
+// MODEL : PhotoJournal (photos d'un post du journal)
+// ============================================================
+model PhotoJournal {
+  id     String @id @default(uuid()) @db.Uuid
+  postId String @map("post_id") @db.Uuid
+  url    String
+  ordre  Int    @default(0)
+
+  post PostJournal @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("photos_journal")
 }

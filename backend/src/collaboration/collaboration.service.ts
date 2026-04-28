@@ -769,4 +769,69 @@ export class CollaborationService {
     if (!job) return { status: 'error', error: 'Job introuvable' };
     return job;
   }
+
+  // ── Journal de séjour ─────────────────────────────────────────
+
+  async getJournal(sejourId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    return this.prisma.postJournal.findMany({
+      where: { sejourId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        auteur: { select: { id: true, prenom: true, nom: true, role: true } },
+        photos: { orderBy: { ordre: 'asc' } },
+      },
+    });
+  }
+
+  async createJournalPost(
+    sejourId: string,
+    userId: string,
+    role: string | undefined,
+    contenu: string,
+    files: Express.Multer.File[],
+  ) {
+    await this.verifyAccess(sejourId, userId, role);
+    if (!contenu || !contenu.trim()) {
+      throw new ForbiddenException('Le contenu ne peut pas être vide');
+    }
+
+    const post = await this.prisma.postJournal.create({
+      data: { sejourId, auteurId: userId, contenu: contenu.trim() },
+    });
+
+    for (let i = 0; i < files.length && i < 6; i++) {
+      const url = await this.storage.upload(files[i], `journal/${sejourId}`);
+      await this.prisma.photoJournal.create({
+        data: { postId: post.id, url, ordre: i },
+      });
+    }
+
+    return this.prisma.postJournal.findUnique({
+      where: { id: post.id },
+      include: {
+        auteur: { select: { id: true, prenom: true, nom: true, role: true } },
+        photos: { orderBy: { ordre: 'asc' } },
+      },
+    });
+  }
+
+  async deleteJournalPost(sejourId: string, postId: string, userId: string, role?: string) {
+    await this.verifyAccess(sejourId, userId, role);
+    const post = await this.prisma.postJournal.findUnique({
+      where: { id: postId },
+      include: { photos: true },
+    });
+    if (!post || post.sejourId !== sejourId) throw new NotFoundException('Post introuvable');
+    if (post.auteurId !== userId) {
+      throw new ForbiddenException('Vous ne pouvez supprimer que vos propres posts');
+    }
+
+    for (const photo of post.photos) {
+      await this.storage.delete(photo.url);
+    }
+
+    await this.prisma.postJournal.delete({ where: { id: postId } });
+    return { deleted: true };
+  }
 }

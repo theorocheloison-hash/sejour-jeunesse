@@ -9,8 +9,9 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -267,5 +268,37 @@ export class CollaborationController {
   @Post(':sejourId/cloturer-inscriptions')
   cloturerInscriptions(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
     return this.service.cloturerInscriptions(sejourId, user.id, user.role);
+  }
+
+  // ── Journal de séjour ─────────────────────────────────────────
+
+  /** GET /collaboration/:sejourId/journal — Liste les posts (TEACHER, VENUE, DIRECTOR) */
+  @Get(':sejourId/journal')
+  getJournal(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.getJournal(sejourId, user.id, user.role);
+  }
+
+  /** POST /collaboration/:sejourId/journal — Créer un post + photos (TEACHER, VENUE) */
+  @Post(':sejourId/journal')
+  @Roles(Role.TEACHER, Role.VENUE)
+  @UseInterceptors(FilesInterceptor('photos', 6))
+  async createJournalPost(
+    @Param('sejourId') sejourId: string,
+    @Body('contenu') contenu: string,
+    @UploadedFiles() photos: Express.Multer.File[],
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.createJournalPost(sejourId, user.id, user.role, contenu, photos ?? []);
+  }
+
+  /** DELETE /collaboration/:sejourId/journal/:postId — Supprimer un post (auteur seulement) */
+  @Delete(':sejourId/journal/:postId')
+  @Roles(Role.TEACHER, Role.VENUE)
+  deleteJournalPost(
+    @Param('sejourId') sejourId: string,
+    @Param('postId') postId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.deleteJournalPost(sejourId, postId, user.id, user.role);
   }
 }
