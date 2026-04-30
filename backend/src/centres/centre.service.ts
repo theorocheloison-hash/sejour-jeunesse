@@ -15,6 +15,7 @@ import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class CentreService {
@@ -170,6 +171,38 @@ export class CentreService {
     await this.prisma.invitationHebergement.update({
       where: { id: invitation.id },
       data: { utilisedAt: new Date() },
+    });
+
+    // Rattacher l'hébergeur à une Organisation + Membership
+    let organisationId = centre.organisationId;
+    if (!organisationId) {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom: centre.nom,
+        adresse: centre.adresse,
+        codePostal: centre.codePostal,
+        ville: centre.ville,
+        emailContact: centre.email,
+        telephoneContact: centre.telephone,
+        siteWeb: centre.siteWeb,
+        siret: centre.siret,
+        siren: centre.siret ? centre.siret.substring(0, 9) : null,
+        source: centreExistant ? 'APIDAE' : 'MANUAL',
+        sourceId: centreExistant?.apidaeId ?? null,
+        typeStructure: null,
+      });
+      organisationId = organisation.id;
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { organisationId },
+      });
+    }
+
+    await findOrCreateMembership(this.prisma, {
+      userId: user.id,
+      organisationId,
+      role: 'PROPRIETAIRE',
+      isPrimary: true,
+      claimStatut: 'NON_APPLICABLE', // Pas de Kbis à l'inscription via invitation
     });
 
     const payload = { sub: user.id, email: user.email, role: user.role };
