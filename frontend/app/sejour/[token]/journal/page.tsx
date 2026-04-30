@@ -214,9 +214,9 @@ function ReactionBar({
 function PostCard({ post }: { post: PostJournal }) {
   const [reactions, setReactions] = useState<Reactions>(initialReactions);
   const initiales = `${post.auteur.prenom[0] ?? ''}${post.auteur.nom[0] ?? ''}`.toUpperCase();
-  const isVenue = post.auteur.role === 'VENUE';
-  const roleLabel = isVenue ? 'Hébergeur' : 'Enseignant';
-  const avatarBg = isVenue ? 'var(--color-success)' : 'var(--color-primary)';
+  const isHebergeur = post.auteur.role === 'HEBERGEUR';
+  const roleLabel = isHebergeur ? 'Hébergeur' : 'Enseignant';
+  const avatarBg = isHebergeur ? 'var(--color-success)' : 'var(--color-primary)';
 
   const toggle = (k: keyof Reactions) => {
     setReactions((prev) => {
@@ -244,7 +244,7 @@ function PostCard({ post }: { post: PostJournal }) {
             </span>
             <span
               className={`text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${
-                isVenue
+                isHebergeur
                   ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
                   : 'bg-blue-50 text-[var(--color-primary)]'
               }`}

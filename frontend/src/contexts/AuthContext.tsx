@@ -17,18 +17,18 @@ import type { User, LoginDto } from '@/src/types/auth';
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
 const COOKIE_TOKEN = 'token';
-const LS_USER      = 'sj_user';
+const LS_USER      = 'sj_user_v2';
+const LS_USER_OLD  = 'sj_user';
 const COOKIE_OPTS  = { expires: 7, sameSite: 'lax' as const };
 
 const ROLE_ROUTES: Record<string, string> = {
-  TEACHER:     '/dashboard/teacher',
-  DIRECTOR:    '/dashboard/director',
-  ACCOUNTANT:  '/dashboard/accountant',
-  RECTOR:      '/dashboard/rector',
-  PARENT:      '/dashboard/parent',
-  VENUE:       '/dashboard/venue',
-  ADMIN:       '/dashboard/admin',
-  RESEAU:      '/dashboard/reseau',
+  ORGANISATEUR: '/dashboard/organisateur',
+  SIGNATAIRE:   '/dashboard/signataire',
+  AUTORITE:     '/dashboard/autorite',
+  PARENT:       '/dashboard/parent',
+  HEBERGEUR:    '/dashboard/hebergeur',
+  ADMIN:        '/dashboard/admin',
+  RESEAU:       '/dashboard/reseau',
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -53,6 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restaure la session depuis le cookie + localStorage au montage
   useEffect(() => {
+    // Migration cache v1 → v2 : forcer re-login si ancien format présent
+    const oldStored = localStorage.getItem(LS_USER_OLD);
+    if (oldStored && !localStorage.getItem(LS_USER)) {
+      localStorage.removeItem(LS_USER_OLD);
+      Cookies.remove(COOKIE_TOKEN);
+      setLoading(false);
+      return;
+    }
+
     const token = Cookies.get(COOKIE_TOKEN);
     if (!token) {
       setLoading(false);

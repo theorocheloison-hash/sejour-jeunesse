@@ -13,13 +13,13 @@ export class AbonnementController {
   constructor(private readonly abonnementService: AbonnementService) {}
 
   @Post('simuler')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   simuler(@CurrentUser() user: JwtUser, @Body() dto: SimulerAbonnementDto) {
     return this.abonnementService.simuler(user.id, dto.type, dto.plan);
   }
 
   @Get('statut')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getStatut(@CurrentUser() user: JwtUser) {
     return this.abonnementService.getStatut(user.id);
   }

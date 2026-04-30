@@ -115,7 +115,7 @@ export default function Home() {
             marginTop: 32, display: 'flex', flexWrap: 'wrap',
             justifyContent: 'center', gap: 12,
           }}>
-            <Link href="/register?type=teacher" style={{
+            <Link href="/register?type=organisateur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 15, fontWeight: 600, padding: '14px 28px',
               borderRadius: 12,
@@ -126,7 +126,7 @@ export default function Home() {
               Je suis un établissement scolaire
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
-            <Link href="/register?type=venue" style={{
+            <Link href="/register?type=hebergeur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 15, fontWeight: 600, padding: '14px 28px',
               borderRadius: 12,
@@ -306,7 +306,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link href="/register?type=teacher" style={{
+            <Link href="/register?type=organisateur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               marginTop: 24, fontSize: 14, fontWeight: 500,
               padding: '10px 20px', borderRadius: 10,
@@ -344,7 +344,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link href="/register?type=venue" style={{
+            <Link href="/register?type=hebergeur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               marginTop: 24, fontSize: 14, fontWeight: 500,
               padding: '10px 20px', borderRadius: 10,
@@ -575,7 +575,7 @@ export default function Home() {
             Séjours scolaires, colonies de vacances, séjours collectifs — un seul outil pour tout coordonner.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
-            <Link href="/register?type=teacher" style={{
+            <Link href="/register?type=organisateur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 15, fontWeight: 600, padding: '14px 28px',
               borderRadius: 12,
@@ -586,7 +586,7 @@ export default function Home() {
               Créer un compte établissement
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
             </Link>
-            <Link href="/register?type=venue" style={{
+            <Link href="/register?type=hebergeur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               fontSize: 15, fontWeight: 600, padding: '14px 28px',
               borderRadius: 12,

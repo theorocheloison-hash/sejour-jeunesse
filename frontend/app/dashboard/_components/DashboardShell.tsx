@@ -4,11 +4,13 @@ import { logoutAction } from '../actions';
 import { Logo } from '@/app/components/Logo';
 
 const ROLE_LABELS: Record<string, string> = {
-  TEACHER:  'Enseignant',
-  DIRECTOR: 'Direction',
-  RECTOR:   'Recteur',
-  PARENT:   'Parent',
-  VENUE:    'Hébergement',
+  ORGANISATEUR: 'Organisateur',
+  SIGNATAIRE:   'Direction / Signataire',
+  AUTORITE:     'Autorité',
+  PARENT:       'Parent',
+  HEBERGEUR:    'Hébergement',
+  ADMIN:        'Admin',
+  RESEAU:       'Réseau',
 };
 
 interface DashboardShellProps {

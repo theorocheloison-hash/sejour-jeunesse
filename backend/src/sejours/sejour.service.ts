@@ -333,8 +333,8 @@ export class SejourService {
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
 
-    // TEACHER can only see their own
-    if (user.role === Role.TEACHER && sejour.createurId !== user.id) {
+    // ORGANISATEUR can only see their own
+    if (user.role === Role.ORGANISATEUR && sejour.createurId !== user.id) {
       throw new ForbiddenException('Accès refusé');
     }
 
@@ -536,7 +536,7 @@ export class SejourService {
 
     const directeur = await this.prisma.user.findFirst({
       where: {
-        role: 'DIRECTOR',
+        role: 'SIGNATAIRE',
         etablissementUai: sejour.createur?.etablissementUai ?? undefined,
         compteValide: true,
       },
@@ -583,7 +583,7 @@ export class SejourService {
     // Cas 1 : directeur déjà inscrit sur LIAVO
     const directeurExistant = await this.prisma.user.findFirst({
       where: {
-        role: 'DIRECTOR',
+        role: 'SIGNATAIRE',
         etablissementUai: sejour.createur?.etablissementUai ?? undefined,
         compteValide: true,
         emailVerifie: true,
@@ -674,7 +674,7 @@ export class SejourService {
       throw new ForbiddenException('Accès refusé');
     }
 
-    // Return the teacher (createur) as default accompagnateur
+    // Return the organisateur (createur) as default accompagnateur
     const createur = await this.prisma.user.findUnique({
       where: { id: sejour.createurId! },
       select: { id: true, prenom: true, nom: true, email: true, telephone: true },
@@ -775,7 +775,7 @@ export class SejourService {
     const sejour = await this.prisma.sejour.findUnique({ where: { id } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
 
-    if (user.role === Role.TEACHER) {
+    if (user.role === Role.ORGANISATEUR) {
       if (sejour.createurId !== user.id)
         throw new ForbiddenException('Ce séjour ne vous appartient pas');
       if (statut !== StatutSejour.SUBMITTED)

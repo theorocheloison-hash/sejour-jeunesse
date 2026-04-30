@@ -15,11 +15,11 @@ datasource db {
 // ENUM : rôle utilisateur
 // ============================================================
 enum Role {
-  TEACHER
-  DIRECTOR
-  RECTOR
+  ORGANISATEUR
+  SIGNATAIRE
+  AUTORITE
   PARENT
-  VENUE
+  HEBERGEUR
   ADMIN
   RESEAU
 }
@@ -80,6 +80,67 @@ enum TypeHebergement {
 }
 
 // ============================================================
+// ENUM : type de structure organisatrice
+// ============================================================
+enum TypeStructure {
+  COLLEGE_LYCEE
+  ECOLE_PRIMAIRE
+  MAIRIE
+  COLLECTIVITE_TERRITORIALE
+  CENTRE_LOISIRS
+  ASSOCIATION
+  COMITE_ENTREPRISE
+  ENTREPRISE
+  MICRO_ENTREPRISE
+  AUTRE
+}
+
+// ============================================================
+// ENUM : source d'une Organisation
+// ============================================================
+enum SourceOrganisation {
+  MANUAL
+  APIDAE
+  API_EDUCATION_NATIONALE
+  API_SIRENE
+  IMPORT_CSV
+  IMPORT_API_EN
+  RESEAU_IMPORT
+}
+
+// ============================================================
+// ENUM : rôle d'un membre dans une Organisation
+// ============================================================
+enum RoleMembership {
+  PROPRIETAIRE
+  ADMINISTRATEUR
+  MEMBRE
+}
+
+// ============================================================
+// ENUM : statut de validation d'un claim
+// ============================================================
+enum ClaimStatut {
+  NON_APPLICABLE
+  EN_ATTENTE_DOCUMENT
+  EN_ATTENTE_VALIDATION
+  VALIDE
+  REFUSE
+}
+
+// ============================================================
+// ENUM : statut d'une relation commerciale
+// ============================================================
+enum StatutRelation {
+  PROSPECT
+  CONTACTE
+  INTERESSE
+  EN_NEGOCIATION
+  CLIENT
+  INACTIF
+}
+
+// ============================================================
 // MODEL : User (utilisateurs)
 // ============================================================
 model User {
@@ -108,6 +169,7 @@ model User {
   emailRectorat          String?  @map("email_rectorat") @db.VarChar(255)
   reseauNom              String?  @map("reseau_nom") @db.VarChar(100)
   reseauNomComplet       String?  @map("reseau_nom_complet") @db.VarChar(255)
+  typeStructure          TypeStructure? @map("type_structure")
 
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -122,6 +184,9 @@ model User {
   consentementsRgpd ConsentementRgpd[]
   invitationsCentreExterne InvitationCentreExterne[] @relation("InvitationsEnvoyees")
   postsJournal             PostJournal[]            @relation("postsJournal")
+
+  memberships         Membership[]
+  membershipsValidees Membership[] @relation("MembershipValidateur")
 
   @@map("utilisateurs")
 }
@@ -191,6 +256,7 @@ model Sejour {
   recettesBudget         RecetteBudget[]
   groupesSejour          GroupeSejour[]
   postsJournal           PostJournal[]
+  sejourRelations        SejourRelation[]
 
   @@index([createurId])
   @@index([statut])
@@ -427,7 +493,7 @@ enum TypeDocument {
 }
 
 // ============================================================
-// MODEL : CentreHebergement (centres gérés par VENUE)
+// MODEL : CentreHebergement (centres gérés par HEBERGEUR)
 // ============================================================
 model CentreHebergement {
   id          String       @id @default(uuid()) @db.Uuid
@@ -469,10 +535,12 @@ model CentreHebergement {
   mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)
   mandatFacturationIpAddress String?   @map("mandat_facturation_ip") @db.VarChar(45)
   mandatFacturationUserAgent String?   @map("mandat_facturation_ua") @db.VarChar(500)
+  organisationId      String?           @map("organisation_id") @db.Uuid
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
   user              User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organisation      Organisation?   @relation(fields: [organisationId], references: [id], onDelete: SetNull)
   disponibilites    Disponibilite[]
   documents         Document[]
   devis             Devis[]
@@ -1004,4 +1072,111 @@ model PhotoJournal {
   post PostJournal @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@map("photos_journal")
+}
+
+// ============================================================
+// MODEL : Organisation (entité de premier ordre — refactor Phase 1)
+// ============================================================
+model Organisation {
+  id            String              @id @default(uuid()) @db.Uuid
+  siren         String?             @unique @db.VarChar(9)
+  siret         String?             @db.VarChar(14)
+  rna           String?             @db.VarChar(10)
+  uai           String?             @db.VarChar(20)
+  nom           String              @db.VarChar(255)
+  raisonSociale String?             @map("raison_sociale") @db.VarChar(255)
+  adresse       String?             @db.VarChar(500)
+  codePostal    String?             @map("code_postal") @db.VarChar(10)
+  ville         String?             @db.VarChar(255)
+  departement   String?             @db.VarChar(10)
+  emailContact     String?  @map("email_contact") @db.VarChar(255)
+  telephoneContact String?  @map("telephone_contact") @db.VarChar(20)
+  siteWeb          String?  @map("site_web") @db.VarChar(500)
+  typeStructure  TypeStructure?    @map("type_structure")
+  academie       String?           @db.VarChar(100)
+  source         SourceOrganisation @default(MANUAL)
+  sourceId       String?            @map("source_id") @db.VarChar(100)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  memberships          Membership[]
+  centresHebergement   CentreHebergement[]
+  relationsCliente     RelationCommerciale[]   @relation("OrganisationCliente")
+  relationsHebergeur   RelationCommerciale[]   @relation("OrganisationHebergeur")
+
+  @@index([siren])
+  @@index([siret])
+  @@index([uai])
+  @@index([rna])
+  @@index([nom])
+  @@map("organisations")
+}
+
+// ============================================================
+// MODEL : Membership (humain ↔ organisation)
+// ============================================================
+model Membership {
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  organisationId  String          @map("organisation_id") @db.Uuid
+  role            RoleMembership  @default(MEMBRE)
+  isPrimary       Boolean         @default(false) @map("is_primary")
+  claimStatut         ClaimStatut @default(NON_APPLICABLE) @map("claim_statut")
+  claimDocumentUrl    String?     @map("claim_document_url") @db.VarChar(500)
+  claimSiretExtrait   String?     @map("claim_siret_extrait") @db.VarChar(14)
+  claimValidatedById  String?     @map("claim_validated_by_id") @db.Uuid
+  claimValidatedAt    DateTime?   @map("claim_validated_at")
+  claimRefuseRaison   String?     @map("claim_refuse_raison") @db.Text
+  claimSubmittedAt    DateTime?   @map("claim_submitted_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  validateur      User?          @relation("MembershipValidateur", fields: [claimValidatedById], references: [id])
+
+  @@unique([userId, organisationId])
+  @@index([userId])
+  @@index([organisationId])
+  @@index([claimStatut])
+  @@map("memberships")
+}
+
+// ============================================================
+// MODEL : RelationCommerciale (CRM — remplacera Client en Phase 1bis)
+// ============================================================
+model RelationCommerciale {
+  id                       String          @id @default(uuid()) @db.Uuid
+  organisationHebergeurId  String          @map("organisation_hebergeur_id") @db.Uuid
+  organisationClienteId    String          @map("organisation_cliente_id") @db.Uuid
+  statut                   StatutRelation  @default(PROSPECT)
+  notes                    String?         @db.Text
+  source                   String          @default("MANUEL") @db.VarChar(20)
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
+
+  organisationHebergeur Organisation @relation("OrganisationHebergeur", fields: [organisationHebergeurId], references: [id], onDelete: Cascade)
+  organisationCliente   Organisation @relation("OrganisationCliente", fields: [organisationClienteId], references: [id], onDelete: Cascade)
+  sejourRelations       SejourRelation[]
+
+  @@unique([organisationHebergeurId, organisationClienteId])
+  @@index([organisationHebergeurId])
+  @@index([organisationClienteId])
+  @@map("relations_commerciales")
+}
+
+// ============================================================
+// MODEL : SejourRelation (remplacera SejourClient en Phase 1bis)
+// ============================================================
+model SejourRelation {
+  id                    String   @id @default(uuid()) @db.Uuid
+  relationId            String   @map("relation_id") @db.Uuid
+  sejourId              String   @map("sejour_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  relation              RelationCommerciale @relation(fields: [relationId], references: [id], onDelete: Cascade)
+  sejour                Sejour              @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@unique([relationId, sejourId])
+  @@map("sejours_relations")
 }

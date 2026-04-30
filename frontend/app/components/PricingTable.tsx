@@ -180,7 +180,7 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
               {isCurrentDecouverte ? 'Votre plan actuel' : 'Rétrograder'}
             </button>
           ) : (
-            <a href="/register?type=venue" style={{ ...ctaBase, background: 'transparent', borderColor: 'var(--color-border, #D3D1C7)', color: 'var(--color-text-muted, #888780)' }}>
+            <a href="/register?type=hebergeur" style={{ ...ctaBase, background: 'transparent', borderColor: 'var(--color-border, #D3D1C7)', color: 'var(--color-text-muted, #888780)' }}>
               Créer un compte
             </a>
           )}

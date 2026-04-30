@@ -13,9 +13,9 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
-import { RegisterTeacherDto } from './dto/register-teacher.dto.js';
-import { RegisterVenueDto } from './dto/register-venue.dto.js';
-import { RegisterDirectorDto } from './dto/register-director.dto.js';
+import { RegisterOrganisateurDto } from './dto/register-organisateur.dto.js';
+import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
+import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -47,9 +47,9 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  // ── Inscription enseignant ───────────────────────────────────────────
+  // ── Inscription organisateur ─────────────────────────────────────────
 
-  async registerTeacher(dto: RegisterTeacherDto, ipAddress?: string, userAgent?: string) {
+  async registerOrganisateur(dto: RegisterOrganisateurDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -65,12 +65,13 @@ export class AuthService {
         nom: dto.nom,
         email: dto.email,
         motDePasse: hashed,
-        role: Role.TEACHER,
+        role: Role.ORGANISATEUR,
         telephone: dto.telephone ?? null,
         etablissementUai: dto.etablissementUai ?? null,
         etablissementNom: dto.etablissementNom ?? null,
         etablissementAdresse: dto.etablissementAdresse ?? null,
         etablissementVille: dto.etablissementVille ?? null,
+        typeStructure: dto.typeStructure ?? null,
         emailVerifie: false,
         tokenVerification: token,
         tokenVerificationExpires: tokenExpires,
@@ -80,7 +81,7 @@ export class AuthService {
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
-        role: Role.TEACHER,
+        role: Role.ORGANISATEUR,
         versionDpa: process.env.DPA_VERSION ?? '1.0',
         ipAddress: ipAddress ?? null,
         userAgent: userAgent ?? null,
@@ -96,9 +97,9 @@ export class AuthService {
     };
   }
 
-  // ── Inscription directeur ────────────────────────────────────────────
+  // ── Inscription signataire ───────────────────────────────────────────
 
-  async registerDirector(dto: RegisterDirectorDto, ipAddress?: string, userAgent?: string) {
+  async registerSignataire(dto: RegisterSignataireDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -114,7 +115,7 @@ export class AuthService {
         nom: dto.nom,
         email: dto.email,
         motDePasse: hashed,
-        role: Role.DIRECTOR,
+        role: Role.SIGNATAIRE,
         telephone: dto.telephone ?? null,
         etablissementUai: dto.etablissementUai ?? null,
         etablissementNom: dto.etablissementNom ?? null,
@@ -130,7 +131,7 @@ export class AuthService {
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
-        role: Role.DIRECTOR,
+        role: Role.SIGNATAIRE,
         versionDpa: process.env.DPA_VERSION ?? '1.0',
         ipAddress: ipAddress ?? null,
         userAgent: userAgent ?? null,
@@ -148,7 +149,7 @@ export class AuthService {
 
   // ── Inscription hébergeur ────────────────────────────────────────────
 
-  async registerVenue(dto: RegisterVenueDto, ipAddress?: string, userAgent?: string) {
+  async registerHebergeur(dto: RegisterHebergeurDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -165,7 +166,7 @@ export class AuthService {
           nom: dto.nom,
           email: dto.email,
           motDePasse: hashed,
-          role: Role.VENUE,
+          role: Role.HEBERGEUR,
           telephone: dto.telephone ?? null,
           emailVerifie: false,
           tokenVerification: token,
@@ -206,7 +207,7 @@ export class AuthService {
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
-        role: Role.VENUE,
+        role: Role.HEBERGEUR,
         versionDpa: process.env.DPA_VERSION ?? '1.0',
         ipAddress: ipAddress ?? null,
         userAgent: userAgent ?? null,
@@ -214,7 +215,7 @@ export class AuthService {
     });
 
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
-    await this.email.sendVenueAccountPending(dto.email, dto.prenom, dto.nomCentre);
+    await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
 
     return {
       message: 'Inscription réussie. Votre compte est en attente de validation.',

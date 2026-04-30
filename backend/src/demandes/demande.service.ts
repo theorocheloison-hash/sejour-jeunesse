@@ -184,7 +184,7 @@ export class DemandeService {
     });
     if (!demande) throw new NotFoundException('Demande introuvable');
 
-    if (user.role === 'TEACHER' && demande.enseignantId !== user.id) {
+    if (user.role === 'ORGANISATEUR' && demande.enseignantId !== user.id) {
       throw new ForbiddenException('Accès refusé');
     }
 

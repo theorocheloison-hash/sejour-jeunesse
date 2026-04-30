@@ -53,7 +53,7 @@ export interface SejourCollabInfo {
   hebergementSelectionne?: { id: string; nom: string; ville: string; userId: string };
 }
 
-export interface SejourConventionVenue {
+export interface SejourConventionHebergeur {
   id: string;
   titre: string;
   lieu: string;
@@ -163,8 +163,8 @@ export async function getParticipants(sejourId: string): Promise<Participant[]> 
   return data;
 }
 
-export async function getMesSejoursConvention(): Promise<SejourConventionVenue[]> {
-  const { data } = await api.get<SejourConventionVenue[]>('/collaboration/mes-sejours');
+export async function getMesSejoursConvention(): Promise<SejourConventionHebergeur[]> {
+  const { data } = await api.get<SejourConventionHebergeur[]>('/collaboration/mes-sejours');
   return data;
 }
 

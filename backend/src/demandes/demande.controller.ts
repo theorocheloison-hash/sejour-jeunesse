@@ -13,25 +13,25 @@ export class DemandeController {
   constructor(private readonly demandeService: DemandeService) {}
 
   @Post()
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   create(@CurrentUser() user: JwtUser, @Body() dto: CreateDemandeDto) {
     return this.demandeService.create(dto, user.id);
   }
 
   @Get()
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   findOpen(@CurrentUser() user: JwtUser) {
     return this.demandeService.findOpen(user.id);
   }
 
   @Get('mes-demandes')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   getMesDemandes(@CurrentUser() user: JwtUser) {
     return this.demandeService.getMesDemandes(user.id);
   }
 
   @Delete(':id/ignorer')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   ignorerDemande(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -40,13 +40,13 @@ export class DemandeController {
   }
 
   @Get(':id')
-  @Roles(Role.TEACHER, Role.VENUE, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
   findOne(@Param('id') id: string) {
     return this.demandeService.findOne(id);
   }
 
   @Get(':id/devis/comparatif')
-  @Roles(Role.TEACHER, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   getComparatif(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.demandeService.getComparatif(id, user);
   }

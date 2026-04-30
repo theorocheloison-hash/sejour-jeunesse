@@ -20,10 +20,10 @@ import { SignerAccompagnateurDto } from './dto/signer-accompagnateur.dto.js';
 export class AccompagnateurController {
   constructor(private readonly service: AccompagnateurService) {}
 
-  /** POST /accompagnateurs — Créer + envoyer ordre de mission (TEACHER) */
+  /** POST /accompagnateurs — Créer + envoyer ordre de mission (ORGANISATEUR) */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   create(
     @Body() dto: CreateAccompagnateurDto,
     @CurrentUser() user: JwtUser,
@@ -34,7 +34,7 @@ export class AccompagnateurController {
   /** GET /accompagnateurs/sejour/:sejourId — Liste (protégé) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER, Role.DIRECTOR, Role.RECTOR, Role.VENUE)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE, Role.AUTORITE, Role.HEBERGEUR)
   getBySejour(@Param('sejourId') sejourId: string) {
     return this.service.getBySejour(sejourId);
   }
@@ -54,10 +54,10 @@ export class AccompagnateurController {
     return this.service.signer(token, dto);
   }
 
-  /** GET /accompagnateurs/:id/ordre-mission-pdf — HTML ordre de mission (TEACHER, DIRECTOR) */
+  /** GET /accompagnateurs/:id/ordre-mission-pdf — HTML ordre de mission (ORGANISATEUR, SIGNATAIRE) */
   @Get(':id/ordre-mission-pdf')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   getOrdreMissionPdf(@Param('id') id: string) {
     return this.service.getOrdreMissionHtml(id);
   }

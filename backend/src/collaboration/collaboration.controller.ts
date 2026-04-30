@@ -25,7 +25,7 @@ import { CreateDocumentDto } from './dto/create-document.dto.js';
 
 @Controller('collaboration')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.TEACHER, Role.VENUE, Role.DIRECTOR)
+@Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
 export class CollaborationController {
   constructor(private readonly service: CollaborationService) {}
 
@@ -272,15 +272,15 @@ export class CollaborationController {
 
   // ── Journal de séjour ─────────────────────────────────────────
 
-  /** GET /collaboration/:sejourId/journal — Liste les posts (TEACHER, VENUE, DIRECTOR) */
+  /** GET /collaboration/:sejourId/journal — Liste les posts (ORGANISATEUR, HEBERGEUR, SIGNATAIRE) */
   @Get(':sejourId/journal')
   getJournal(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
     return this.service.getJournal(sejourId, user.id, user.role);
   }
 
-  /** POST /collaboration/:sejourId/journal — Créer un post + photos (TEACHER, VENUE) */
+  /** POST /collaboration/:sejourId/journal — Créer un post + photos (ORGANISATEUR, HEBERGEUR) */
   @Post(':sejourId/journal')
-  @Roles(Role.TEACHER, Role.VENUE)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   @UseInterceptors(FilesInterceptor('photos', 6))
   async createJournalPost(
     @Param('sejourId') sejourId: string,
@@ -293,7 +293,7 @@ export class CollaborationController {
 
   /** DELETE /collaboration/:sejourId/journal/:postId — Supprimer un post (auteur seulement) */
   @Delete(':sejourId/journal/:postId')
-  @Roles(Role.TEACHER, Role.VENUE)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   deleteJournalPost(
     @Param('sejourId') sejourId: string,
     @Param('postId') postId: string,

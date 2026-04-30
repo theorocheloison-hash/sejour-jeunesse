@@ -12,7 +12,7 @@ export class InvitationController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.RECTOR, Role.DIRECTOR)
+  @Roles(Role.AUTORITE, Role.SIGNATAIRE)
   create(@Body() dto: CreateInvitationDto) {
     return this.invitationService.create(dto);
   }

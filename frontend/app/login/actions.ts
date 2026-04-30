@@ -5,11 +5,13 @@ import { redirect } from 'next/navigation';
 
 // Correspondance rôle → route dashboard
 const ROLE_ROUTES: Record<string, string> = {
-  TEACHER:  '/dashboard/teacher',
-  DIRECTOR: '/dashboard/director',
-  RECTOR:   '/dashboard/rector',
-  PARENT:   '/dashboard/parent',
-  VENUE:    '/dashboard/venue',
+  ORGANISATEUR: '/dashboard/organisateur',
+  SIGNATAIRE:   '/dashboard/signataire',
+  AUTORITE:     '/dashboard/autorite',
+  PARENT:       '/dashboard/parent',
+  HEBERGEUR:    '/dashboard/hebergeur',
+  ADMIN:        '/dashboard/admin',
+  RESEAU:       '/dashboard/reseau',
 };
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';

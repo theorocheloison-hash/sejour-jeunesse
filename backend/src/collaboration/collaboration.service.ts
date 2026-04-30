@@ -33,10 +33,10 @@ export class CollaborationService {
     }
 
     const isCreateur = sejour.createurId === userId;
-    const isVenue = sejour.hebergementSelectionne?.userId === userId;
+    const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
 
-    const isDirector = role === 'DIRECTOR';
-    if (!isCreateur && !isVenue && !isDirector) {
+    const isDirector = role === 'SIGNATAIRE';
+    if (!isCreateur && !isHebergeur && !isDirector) {
       throw new ForbiddenException('Vous n\'avez pas accès à cet espace collaboratif');
     }
 
@@ -506,7 +506,7 @@ export class CollaborationService {
   }
 
   async genererPlanningIA(sejourId: string, userId: string, role?: string, debutActivites?: string, finActivites?: string): Promise<{ jobId: string }> {
-    if (role !== 'VENUE') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
+    if (role !== 'HEBERGEUR') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
 
     const sejour = await this.verifyAccess(sejourId, userId, role);
 

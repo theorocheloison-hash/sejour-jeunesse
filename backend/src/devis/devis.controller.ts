@@ -17,7 +17,7 @@ export class DevisController {
   constructor(private readonly devisService: DevisService) {}
 
   @Post()
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   @UseInterceptors(FileInterceptor('file'))
   create(
     @CurrentUser() user: JwtUser,
@@ -28,43 +28,43 @@ export class DevisController {
   }
 
   @Get('mes-devis')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getMesDevis(@CurrentUser() user: JwtUser) {
     return this.devisService.getMesDevis(user.id);
   }
 
   @Get('next-numero')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getNextNumeroDevis(@CurrentUser() user: JwtUser) {
     return this.devisService.getNextNumeroDevis(user.id);
   }
 
   @Get('a-valider')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   getDevisAValider() {
     return this.devisService.getDevisAValider();
   }
 
   @Get('factures-acompte')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   getFacturesAcompte() {
     return this.devisService.getFacturesAcompte();
   }
 
   @Get('demande/:demandeId')
-  @Roles(Role.TEACHER, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   getDevisForDemande(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
     return this.devisService.getDevisForDemande(demandeId, user);
   }
 
   @Get('demande-info/:demandeId')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
     return this.devisService.getDemandeInfo(demandeId, user.id);
   }
 
   @Get(':id/detail')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getDevisById(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -73,7 +73,7 @@ export class DevisController {
   }
 
   @Patch(':id')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   @UseInterceptors(FileInterceptor('file'))
   updateDevis(
     @CurrentUser() user: JwtUser,
@@ -85,7 +85,7 @@ export class DevisController {
   }
 
   @Patch(':id/statut')
-  @Roles(Role.TEACHER, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   updateStatut(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -95,7 +95,7 @@ export class DevisController {
   }
 
   @Patch(':id/signer')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   signerDevis(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -105,7 +105,7 @@ export class DevisController {
   }
 
   @Patch(':id/facturer-acompte')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   facturerAcompte(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -114,7 +114,7 @@ export class DevisController {
   }
 
   @Patch(':id/facturer-solde')
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   facturerSolde(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -123,13 +123,13 @@ export class DevisController {
   }
 
   @Patch(':id/valider-acompte')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   validerAcompte(@Param('id') id: string) {
     return this.devisService.validerAcompte(id);
   }
 
   @Post(':id/versements')
-  @Roles(Role.DIRECTOR, Role.VENUE)
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   ajouterVersement(
     @Param('id') id: string,
     @Body() body: { montant: number; datePaiement: string; reference?: string },
@@ -138,13 +138,13 @@ export class DevisController {
   }
 
   @Get(':id/versements')
-  @Roles(Role.DIRECTOR, Role.VENUE)
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getVersements(@Param('id') id: string) {
     return this.devisService.getVersements(id);
   }
 
   @Patch(':id/versements/:versementId/supprimer')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   supprimerVersement(
     @Param('id') id: string,
     @Param('versementId') versementId: string,
@@ -153,7 +153,7 @@ export class DevisController {
   }
 
   @Get(':id/chorus-xml')
-  @Roles(Role.DIRECTOR, Role.VENUE)
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getChorusXml(@Param('id') id: string) {
     return this.devisService.getChorusXml(id);
   }

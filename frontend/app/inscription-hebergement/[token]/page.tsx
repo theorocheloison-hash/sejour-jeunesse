@@ -57,7 +57,7 @@ export default function InscriptionHebergementPage() {
       });
       Cookies.set('token', result.access_token, { expires: 7, sameSite: 'lax' });
       localStorage.setItem('sj_user', JSON.stringify(result.user));
-      router.push('/dashboard/venue');
+      router.push('/dashboard/hebergeur');
     } catch {
       setError('Erreur lors de l\'inscription. Vérifiez les informations saisies.');
     } finally {

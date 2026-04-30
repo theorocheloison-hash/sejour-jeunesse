@@ -243,7 +243,7 @@ export class EmailService {
 
   // ── g) Compte hébergeur en attente ─────────────────────────────────
 
-  async sendVenueAccountPending(to: string, prenom: string, nomCentre: string) {
+  async sendHebergeurAccountPending(to: string, prenom: string, nomCentre: string) {
     const html = emailLayout(
       'Compte en attente de validation',
       `<p>Bonjour ${prenom},</p>
@@ -256,7 +256,7 @@ export class EmailService {
 
   // ── h) Compte hébergeur validé ──────────────────────────────────────
 
-  async sendVenueAccountValidated(to: string, prenom: string, nomCentre: string) {
+  async sendHebergeurAccountValidated(to: string, prenom: string, nomCentre: string) {
     const html = emailLayout(
       'Compte validé !',
       `<p>Bonjour ${prenom},</p>
@@ -270,7 +270,7 @@ export class EmailService {
 
   // ── i) Compte hébergeur refusé ────────────────────────────────────────
 
-  async sendVenueAccountRefused(to: string, prenom: string, nomCentre: string, motif?: string) {
+  async sendHebergeurAccountRefused(to: string, prenom: string, nomCentre: string, motif?: string) {
     const motifHtml = motif
       ? `<p><strong>Motif :</strong> ${motif}</p>`
       : '';

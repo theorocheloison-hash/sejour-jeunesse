@@ -22,9 +22,9 @@ import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
 export class SejourController {
   constructor(private readonly sejourService: SejourService) {}
 
-  /** POST /sejours — Créer un séjour (TEACHER uniquement) */
+  /** POST /sejours — Créer un séjour (ORGANISATEUR uniquement) */
   @Post()
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   create(
     @Body() dto: CreateSejourDto,
     @CurrentUser() user: JwtUser,
@@ -34,7 +34,7 @@ export class SejourController {
 
   /** POST /sejours/depuis-catalogue — Créer séjour depuis fiche hébergeur */
   @Post('depuis-catalogue')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   creerDepuisCatalogue(
     @Body() dto: { centreId: string; titre: string; dateDebut: string; dateFin: string; nombreEleves: number; message?: string },
     @CurrentUser() user: JwtUser,
@@ -44,16 +44,16 @@ export class SejourController {
 
   /** GET /sejours/me — Séjours de l'enseignant connecté */
   @Get('me')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   getMesSejours(@CurrentUser() user: JwtUser) {
     return this.sejourService.getMesSejours(user.id);
   }
 
-  /** GET /sejours — Séjours par établissement (DIRECTOR) ou tous (RECTOR) */
+  /** GET /sejours — Séjours par établissement (SIGNATAIRE) ou tous (AUTORITE) */
   @Get()
-  @Roles(Role.DIRECTOR, Role.RECTOR)
+  @Roles(Role.SIGNATAIRE, Role.AUTORITE)
   findAll(@CurrentUser() user: JwtUser) {
-    if (user.role === Role.DIRECTOR && user.etablissementUai) {
+    if (user.role === Role.SIGNATAIRE && user.etablissementUai) {
       return this.sejourService.findByEtablissement(user.etablissementUai);
     }
     return this.sejourService.findAll();
@@ -61,14 +61,14 @@ export class SejourController {
 
   /** GET /sejours/:id/detail — Détail complet du séjour (directeur) */
   @Get(':id/detail')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   getSejourDetail(@Param('id') id: string) {
     return this.sejourService.getSejourDetail(id);
   }
 
   /** GET /sejours/:id/dossier-pedagogique — Données enrichies du séjour */
   @Get(':id/dossier-pedagogique')
-  @Roles(Role.TEACHER, Role.DIRECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   getDossierPedagogique(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -78,7 +78,7 @@ export class SejourController {
 
   /** POST /sejours/:id/soumettre-directeur — Transmettre au directeur */
   @Post(':id/soumettre-directeur')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   soumettreAuDirecteur(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -88,7 +88,7 @@ export class SejourController {
 
   /** POST /sejours/:id/inviter-directeur — Inviter directeur (trouvé ou non) */
   @Post(':id/inviter-directeur')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   inviterDirecteur(
     @Param('id') id: string,
     @Body() body: { emailDirecteur?: string; devisId?: string },
@@ -97,9 +97,9 @@ export class SejourController {
     return this.sejourService.inviterDirecteur(id, body.emailDirecteur, body.devisId, user.id);
   }
 
-  /** POST /sejours/:id/soumettre-rectorat — Soumettre au rectorat (DIRECTOR) */
+  /** POST /sejours/:id/soumettre-rectorat — Soumettre au rectorat (SIGNATAIRE) */
   @Post(':id/soumettre-rectorat')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   soumettreAuRectorat(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -109,7 +109,7 @@ export class SejourController {
 
   /** GET /sejours/:id/accompagnateurs — Liste accompagnateurs */
   @Get(':id/accompagnateurs')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   getAccompagnateurs(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -119,7 +119,7 @@ export class SejourController {
 
   /** PATCH /sejours/:id/thematiques — Mettre à jour les thématiques pédagogiques */
   @Patch(':id/thematiques')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   updateThematiques(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -130,7 +130,7 @@ export class SejourController {
 
   /** PATCH /sejours/:id — Mettre à jour prix / dateLimiteInscription */
   @Patch(':id')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateSejourDto,
@@ -141,7 +141,7 @@ export class SejourController {
 
   /** PATCH /sejours/:id/status — Changer le statut */
   @Patch(':id/status')
-  @Roles(Role.TEACHER, Role.DIRECTOR, Role.RECTOR)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE, Role.AUTORITE)
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateStatusDto,

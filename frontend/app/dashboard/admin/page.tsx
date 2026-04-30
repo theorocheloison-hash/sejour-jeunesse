@@ -35,13 +35,12 @@ const TABS: { value: Tab; label: string }[] = [
 const RESEAUX_CONNUS = ['LMDJ', 'IDDJ'];
 
 const ROLE_LABELS: Record<string, string> = {
-  TEACHER: 'Enseignant',
-  DIRECTOR: 'Direction',
-  RECTOR: 'Rectorat',
+  ORGANISATEUR: 'Organisateur',
+  SIGNATAIRE: 'Direction / Signataire',
+  AUTORITE: 'Autorité',
   PARENT: 'Parent',
-  VENUE: 'Hébergeur',
+  HEBERGEUR: 'Hébergeur',
   ADMIN: 'Admin',
-  ACCOUNTANT: 'Comptable',
   RESEAU: 'Réseau',
 };
 

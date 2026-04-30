@@ -9,7 +9,7 @@ import { SearchHebergementDto } from './dto/search-hebergement.dto.js';
 
 @Controller('hebergements')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.TEACHER)
+@Roles(Role.ORGANISATEUR)
 export class HebergementController {
   constructor(private readonly hebergementService: HebergementService) {}
 
@@ -25,7 +25,7 @@ export class HebergementController {
 
   @Post(':id/interet')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   async manifesterInteret(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,

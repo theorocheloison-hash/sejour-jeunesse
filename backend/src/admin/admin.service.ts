@@ -25,7 +25,7 @@ export class AdminService {
       this.prisma.centreHebergement.count(),
       this.prisma.sejour.count(),
       this.prisma.devis.count(),
-      this.prisma.user.count({ where: { role: 'VENUE', compteValide: false } }),
+      this.prisma.user.count({ where: { role: 'HEBERGEUR', compteValide: false } }),
       this.prisma.user.groupBy({ by: ['role'], _count: true }),
       this.prisma.sejour.groupBy({ by: ['statut'], _count: true }),
     ]);
@@ -50,7 +50,7 @@ export class AdminService {
   // ─── Hébergeurs ──────────────────────────────────────────────────────────────
 
   async getHebergeurs(statut?: string) {
-    const where: any = { role: 'VENUE' as const };
+    const where: any = { role: 'HEBERGEUR' as const };
     if (statut === 'EN_ATTENTE') where.compteValide = false;
     if (statut === 'VALIDE') where.compteValide = true;
 
@@ -104,7 +104,7 @@ export class AdminService {
 
     try {
       const nomCentre = user.centres[0]?.nom ?? 'votre centre';
-      await this.email.sendVenueAccountValidated(user.email, user.prenom, nomCentre);
+      await this.email.sendHebergeurAccountValidated(user.email, user.prenom, nomCentre);
     } catch {
       // Email non bloquant
     }
@@ -185,7 +185,7 @@ export class AdminService {
 
     try {
       const nomCentre = user.centres[0]?.nom ?? 'votre centre';
-      await this.email.sendVenueAccountRefused(user.email, user.prenom, nomCentre, motif);
+      await this.email.sendHebergeurAccountRefused(user.email, user.prenom, nomCentre, motif);
     } catch {
       // Email non bloquant
     }
