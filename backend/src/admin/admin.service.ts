@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class AdminService {
@@ -598,6 +599,28 @@ export class AdminService {
           });
           created++;
           details.push(`CRÉÉ : ${nom} (${ville})`);
+        }
+
+        // Rattacher le centre à une Organisation (idempotent)
+        const centreRef = existing ?? await this.prisma.centreHebergement.findFirst({ where: { apidaeId } });
+        if (centreRef && !centreRef.organisationId) {
+          const { organisation } = await findOrCreateOrganisation(this.prisma, {
+            nom,
+            adresse: adresseStr,
+            codePostal,
+            ville,
+            departement,
+            emailContact: email,
+            telephoneContact: telephone,
+            siteWeb,
+            source: 'APIDAE',
+            sourceId: apidaeId,
+            typeStructure: null, // sera mis à jour post-migration
+          });
+          await this.prisma.centreHebergement.update({
+            where: { id: centreRef.id },
+            data: { organisationId: organisation.id },
+          });
         }
       } catch (err: any) {
         errors++;
