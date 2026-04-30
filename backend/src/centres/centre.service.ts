@@ -119,7 +119,7 @@ export class CentreService {
         nom: '',
         email: invitation.email,
         motDePasse: hashed,
-        role: Role.VENUE,
+        role: Role.HEBERGEUR,
       },
     });
 

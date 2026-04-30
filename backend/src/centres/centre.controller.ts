@@ -46,21 +46,21 @@ export class CentreController {
 
   @Get('mon-profil')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getMonProfil(@CurrentUser() user: JwtUser) {
     return this.centreService.getMonProfil(user.id);
   }
 
   @Patch('mon-profil')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   updateMonProfil(@CurrentUser() user: JwtUser, @Body() dto: UpdateCentreDto) {
     return this.centreService.updateMonProfil(user.id, dto);
   }
 
   @Post('image')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   @UseInterceptors(FileInterceptor('file'))
   uploadImage(
     @CurrentUser() user: JwtUser,
@@ -72,7 +72,7 @@ export class CentreController {
 
   @Post('documents-upload')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   @UseInterceptors(FileInterceptor('file'))
   uploadDocument(
     @CurrentUser() user: JwtUser,
@@ -85,7 +85,7 @@ export class CentreController {
 
   @Patch('mandat-facturation')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   accepterMandatFacturation(@CurrentUser() user: JwtUser, @Req() req: any) {
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip ?? null;
     const ua = (req.headers['user-agent'] as string) ?? null;
@@ -94,49 +94,49 @@ export class CentreController {
 
   @Get('disponibilites')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getDisponibilites(@CurrentUser() user: JwtUser) {
     return this.centreService.getDisponibilites(user.id);
   }
 
   @Post('disponibilites')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   createDisponibilite(@CurrentUser() user: JwtUser, @Body() dto: CreateDisponibiliteDto) {
     return this.centreService.createDisponibilite(user.id, dto);
   }
 
   @Delete('disponibilites/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   deleteDisponibilite(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.centreService.deleteDisponibilite(user.id, id);
   }
 
   @Get('documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getDocuments(@CurrentUser() user: JwtUser) {
     return this.centreService.getDocuments(user.id);
   }
 
   @Post('documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   createDocument(@CurrentUser() user: JwtUser, @Body() dto: CreateDocumentDto) {
     return this.centreService.createDocument(user.id, dto);
   }
 
   @Get('catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   getCatalogue(@CurrentUser() user: JwtUser) {
     return this.centreService.getProduitsCatalogue(user.id);
   }
 
   @Post('catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   createProduit(
     @CurrentUser() user: JwtUser,
     @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string },
@@ -146,7 +146,7 @@ export class CentreController {
 
   @Post('catalogue/import')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   importProduits(
     @CurrentUser() user: JwtUser,
     @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string }[] },
@@ -156,7 +156,7 @@ export class CentreController {
 
   @Patch('catalogue/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   updateProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -167,7 +167,7 @@ export class CentreController {
 
   @Delete('catalogue/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   archiveProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -177,7 +177,7 @@ export class CentreController {
 
   @Patch('catalogue/:id/capacites')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   updateCapacitesProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,

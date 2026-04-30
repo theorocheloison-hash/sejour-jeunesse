@@ -14,7 +14,7 @@ export class InvitationCollaborationController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.VENUE)
+  @Roles(Role.HEBERGEUR)
   create(
     @Body() dto: CreateInvitationCollaborationDto,
     @CurrentUser() user: JwtUser,
@@ -24,7 +24,7 @@ export class InvitationCollaborationController {
 
   @Post('centre-externe')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   inviterCentreExterne(
     @CurrentUser() user: JwtUser,
     @Body() dto: InviterCentreExterneDto,
@@ -39,7 +39,7 @@ export class InvitationCollaborationController {
 
   @Post(':token/accepter')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   accepter(
     @Param('token') token: string,
     @CurrentUser() user: JwtUser,

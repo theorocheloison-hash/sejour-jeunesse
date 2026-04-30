@@ -1,6 +1,6 @@
 # LIAVO — Feuille de route produit complete
-> Derniere mise a jour : 19 avril 2026
-> Post-demo LMDJ/IDDJ — a prioriser selon validation commerciale
+> Derniere mise a jour : 28 avril 2026
+> Post-demo LMDJ/IDDJ — LMDJ interessee (visio suivi a caler), IDDJ attentiste (CA a consulter)
 
 ---
 
@@ -17,11 +17,16 @@
 - Soumission rectorat (email DSDEN)
 - Dashboard collaboratif (planning drag-drop, messagerie, documents, participants)
 - Autorisations parentales numeriques (fiche sanitaire, regime, paiement echelonne)
+- Import CSV eleves depuis Pronote/ONDE (sans email auto, envoi invitations selectif)
 - Accompagnateurs / ordres de mission
 - CRM hebergeur (clients, contacts, rappels)
 - Dashboard reseau (KPIs, scoring centres, filtres, export CSV)
 - Export Chorus Pro XML (UBL 2.1)
 - Import APIDAE automatique (IDDJ 54 centres en prod)
+- Planning PDF A4 paysage (export/telechargement)
+- Journal de sejour parents (posts + photos R2, page publique /sejour/[token]/journal)
+- Lien journal depuis page autorisation parentale
+- Planning parent regroupe par creneau avec badges groupes
 
 ### Roles existants
 TEACHER, DIRECTOR, RECTOR, PARENT, VENUE, ADMIN, RESEAU

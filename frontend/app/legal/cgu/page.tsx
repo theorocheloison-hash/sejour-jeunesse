@@ -55,7 +55,7 @@ export default function CguPage() {
           <h2 className={h2Cls}>2. Description du service</h2>
           <p className={pCls}>LIAVO met à disposition des fonctionnalités adaptées à chaque rôle :</p>
 
-          <h3 className={h3Cls}>Enseignant (TEACHER)</h3>
+          <h3 className={h3Cls}>Organisateur (ORGANISATEUR)</h3>
           <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
             {[
               'Création et gestion de séjours scolaires',
@@ -67,7 +67,7 @@ export default function CguPage() {
             ].map(item => <li key={item} className={liCls}>{item}</li>)}
           </ul>
 
-          <h3 className={h3Cls}>Directeur d&apos;établissement (DIRECTOR)</h3>
+          <h3 className={h3Cls}>Directeur d&apos;établissement (SIGNATAIRE)</h3>
           <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
             {[
               'Validation et signature électronique des séjours',
@@ -77,7 +77,7 @@ export default function CguPage() {
             ].map(item => <li key={item} className={liCls}>{item}</li>)}
           </ul>
 
-          <h3 className={h3Cls}>Rectorat / DSDEN (RECTOR)</h3>
+          <h3 className={h3Cls}>Rectorat / DSDEN (AUTORITE)</h3>
           <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
             {[
               'Réception et consultation des dossiers de séjour soumis par les établissements',

@@ -27,10 +27,10 @@ import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 export class AutorisationController {
   constructor(private readonly autorisationService: AutorisationService) {}
 
-  /** POST /autorisations — Créer une autorisation (TEACHER) */
+  /** POST /autorisations — Créer une autorisation (ORGANISATEUR) */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   create(
     @Body() dto: CreateAutorisationDto,
     @CurrentUser() user: JwtUser,
@@ -38,10 +38,10 @@ export class AutorisationController {
     return this.autorisationService.create(dto, user.id);
   }
 
-  /** POST /autorisations/import-csv — Import CSV d'élèves (TEACHER) */
+  /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR) */
   @Post('import-csv')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   @UseInterceptors(FileInterceptor('file'))
   async importCsv(
     @UploadedFile() file: Express.Multer.File,
@@ -52,10 +52,10 @@ export class AutorisationController {
     return this.autorisationService.importCsv(file, sejourId, user.id);
   }
 
-  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (TEACHER) */
+  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (ORGANISATEUR) */
   @Post('envoyer-invitations')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   envoyerInvitations(
     @Body() body: { sejourId: string; autorisationIds?: string[] },
     @CurrentUser() user: JwtUser,
@@ -63,10 +63,10 @@ export class AutorisationController {
     return this.autorisationService.envoyerInvitations(body.sejourId, user.id, body.autorisationIds);
   }
 
-  /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (TEACHER/DIRECTOR) */
+  /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (ORGANISATEUR/SIGNATAIRE) */
   @Patch(':id/valider-paiement')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.DIRECTOR, Role.TEACHER)
+  @Roles(Role.SIGNATAIRE, Role.ORGANISATEUR)
   validerPaiement(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -77,7 +77,7 @@ export class AutorisationController {
   /** PATCH /autorisations/:id/valider-paiement-partiel — Enregistrer un versement partiel */
   @Patch(':id/valider-paiement-partiel')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.DIRECTOR, Role.TEACHER)
+  @Roles(Role.SIGNATAIRE, Role.ORGANISATEUR)
   validerPaiementPartiel(
     @Param('id') id: string,
     @Body() body: { montant: number },
@@ -85,10 +85,10 @@ export class AutorisationController {
     return this.autorisationService.validerPaiementPartiel(id, body.montant);
   }
 
-  /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (TEACHER) */
+  /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (ORGANISATEUR) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   getBySejour(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,

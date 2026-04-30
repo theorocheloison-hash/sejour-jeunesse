@@ -5,6 +5,43 @@
 
 ## Priorite 1 — Quick wins produit
 
+### Coherence colos sur toute la plateforme (CRITIQUE avant demo hebergeur)
+Objectif : un hebergeur en demo ne doit jamais voir de champ scolaire (niveau de classe, UAI, rectorat) quand le contexte est colo. Sinon il decroche immediatement ("vous vendez pour les colos mais c'est type scolaire").
+
+**Sous-chantiers** (sequentiels, ~5-7 jours total) :
+
+1. **Onboarding ORGANISATEUR avec typeStructure** — FAIT (29/04/2026)
+   - Enum TypeStructure : COLLEGE_LYCEE, ECOLE_PRIMAIRE, MAIRIE, CENTRE_LOISIRS, ASSOCIATION, COMITE_ENTREPRISE, AUTRE
+   - Onboarding conditionnel UAI scolaire vs structure libre
+
+2. **Validation directeur generique** — EN COURS (Prompt CC #2)
+   - Renommer libelles "signature directeur" en "envoi pour signature"
+   - Signataire libre selon typeStructure (directeur ecole / president asso / elu / etc.)
+
+3. **Suppression rectorat frontend + generation PDF dossier de declaration** — EN COURS (Prompt CC #3)
+   - Cacher le bouton "Soumettre au rectorat" dans le dashboard
+   - Remplacer par "Telecharger le dossier de declaration" (PDF recapitulatif)
+   - L'organisateur envoie lui-meme par email a la DSDEN ou SDJES
+   - Backend soumettreAuRectorat reste en place mais plus appele
+
+4. **Adaptation formulaire invitation hebergeur** — A FAIRE (1 jour)
+   - Aujourd'hui /dashboard/venue/inviter-enseignant 100% scolaire (niveauClasse, UAI)
+   - Renommer en /inviter-client (URL neutre)
+   - Sélecteur "Type d'organisateur" en début de formulaire
+   - Conditionner les champs scolaires selon le choix
+   - Pour les non-scolaires : champs libres (nom de structure, ville, code postal)
+
+5. **Audit transverse libelles/champs scolaires** — A FAIRE (1-2 jours)
+   - Parcourir tout le dashboard TEACHER, VENUE, dashboard collaboratif sejour
+   - Identifier tous les champs/libelles qui n'ont pas de sens pour une colo :
+     - "niveau de classe" → conditionnel ou "tranche d'age" si non scolaire
+     - "etablissement scolaire" → "structure organisatrice"
+     - "UAI" → cache si non scolaire
+     - "rectorat", "DSDEN" → cache si non scolaire
+     - "directeur d'ecole" → "signataire" generique
+     - autres a identifier en passant la plateforme
+   - Conditionner selon le typeStructure du sejour ou de l'utilisateur connecte
+
 ### Landing page — Direction A (screenshots produit)
 - Ajouter 3-4 screenshots du dashboard dans le hero et les sections
 - Bases sur retours qualitatifs de 3-5 personnes cibles (pas amis/famille)

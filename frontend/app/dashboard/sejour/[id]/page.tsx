@@ -141,11 +141,11 @@ const COULEURS_ACTIVITE: { hex: string; label: string }[] = [
 
 // ─── DroppableDay ────────────────────────────────────────────────────────────
 function DroppableDay({
-  dayIdx, dateStr, isVenue, slots, slotHeight, onCellClick, children
+  dayIdx, dateStr, isHebergeur, slots, slotHeight, onCellClick, children
 }: {
   dayIdx: number;
   dateStr: string;
-  isVenue: boolean;
+  isHebergeur: boolean;
   slots: number;
   slotHeight: number;
   onCellClick: (slotIdx: number) => void;
@@ -158,8 +158,8 @@ function DroppableDay({
         <div
           key={slotIdx}
           style={{ height: `${slotHeight}px`, top: `${slotIdx * slotHeight}px` }}
-          className={`absolute w-full border-b ${slotIdx % 2 === 0 ? 'border-gray-100' : 'border-gray-50'} ${isVenue ? 'cursor-pointer hover:bg-blue-50/30' : ''}`}
-          onClick={() => isVenue && onCellClick(slotIdx)}
+          className={`absolute w-full border-b ${slotIdx % 2 === 0 ? 'border-gray-100' : 'border-gray-50'} ${isHebergeur ? 'cursor-pointer hover:bg-blue-50/30' : ''}`}
+          onClick={() => isHebergeur && onCellClick(slotIdx)}
         />
       ))}
       {children}
@@ -196,12 +196,12 @@ function DraggableCatalogueItem({ activite }: { activite: ActiviteCatalogue }) {
 
 // ─── DraggableActivity ───────────────────────────────────────────────────────
 function DraggableActivity({
-  act, topPx, heightPx, isVenue, colWidth, slotHeight, widthPct, leftPct, labelGroupes, onEdit, onResize
+  act, topPx, heightPx, isHebergeur, colWidth, slotHeight, widthPct, leftPct, labelGroupes, onEdit, onResize
 }: {
   act: PlanningActivite;
   topPx: number;
   heightPx: number;
-  isVenue: boolean;
+  isHebergeur: boolean;
   colWidth: number;
   slotHeight: number;
   widthPct?: number;
@@ -213,7 +213,7 @@ function DraggableActivity({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: act.id,
     data: { colWidth },
-    disabled: !isVenue,
+    disabled: !isHebergeur,
   });
 
   const [resizing, setResizing] = React.useState(false);
@@ -225,7 +225,7 @@ function DraggableActivity({
   React.useEffect(() => { setCurrentHeight(heightPx); }, [heightPx]);
 
   const handleResizeStart = (e: React.MouseEvent) => {
-    if (!isVenue) return;
+    if (!isHebergeur) return;
     e.stopPropagation();
     e.preventDefault();
     setResizing(true);
@@ -262,7 +262,7 @@ function DraggableActivity({
     zIndex: isDragging ? 50 : 10,
     opacity: isDragging ? 0.7 : 1,
     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-    cursor: isVenue ? (isDragging ? 'grabbing' : 'grab') : 'default',
+    cursor: isHebergeur ? (isDragging ? 'grabbing' : 'grab') : 'default',
     touchAction: 'none',
   };
 
@@ -275,14 +275,14 @@ function DraggableActivity({
       <div
         className="h-full rounded-md text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
         style={{ backgroundColor: act.couleur ?? '#16a34a' }}
-        {...(isVenue ? { ...attributes, ...listeners } : {})}
+        {...(isHebergeur ? { ...attributes, ...listeners } : {})}
       >
         <div className="font-semibold text-[11px] leading-tight break-words whitespace-normal line-clamp-3">{act.titre}</div>
         <div className="opacity-80 text-[10px]">{act.heureDebut} - {act.heureFin}</div>
         {act.estCollective && <div className="opacity-90 text-[10px] font-bold">👥 Tous</div>}
         {labelGroupes && <div className="opacity-90 text-[10px] font-medium truncate">{labelGroupes}</div>}
         {act.description && <div className="opacity-70 text-[10px] truncate">{act.description}</div>}
-        {isVenue && (
+        {isHebergeur && (
           <div
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => { e.stopPropagation(); handleResizeStart(e); }}
@@ -454,9 +454,9 @@ function JournalPostCard({
   onDelete: () => void;
 }) {
   const initiales = `${post.auteur.prenom[0] ?? ''}${post.auteur.nom[0] ?? ''}`.toUpperCase();
-  const isVenue = post.auteur.role === 'VENUE';
-  const roleLabel = isVenue ? 'Hébergeur' : 'Enseignant';
-  const avatarBg = isVenue ? 'var(--color-success)' : 'var(--color-primary)';
+  const isHebergeur = post.auteur.role === 'HEBERGEUR';
+  const roleLabel = isHebergeur ? 'Hébergeur' : 'Enseignant';
+  const avatarBg = isHebergeur ? 'var(--color-success)' : 'var(--color-primary)';
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
@@ -472,7 +472,7 @@ function JournalPostCard({
             <span className="text-sm font-semibold text-gray-900">
               {post.auteur.prenom} {post.auteur.nom}
             </span>
-            <span className={`text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${isVenue ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' : 'bg-blue-50 text-[var(--color-primary)]'}`}>
+            <span className={`text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${isHebergeur ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' : 'bg-blue-50 text-[var(--color-primary)]'}`}>
               {roleLabel}
             </span>
           </div>
@@ -592,7 +592,7 @@ export default function CollaborationPage() {
 
   // ── Auth guard ──
   useEffect(() => {
-    if (!isLoading && (!user || (user.role !== 'TEACHER' && user.role !== 'VENUE' && user.role !== 'DIRECTOR'))) {
+    if (!isLoading && (!user || (user.role !== 'ORGANISATEUR' && user.role !== 'HEBERGEUR' && user.role !== 'SIGNATAIRE'))) {
       router.replace('/login');
     }
   }, [isLoading, user, router]);
@@ -989,8 +989,8 @@ export default function CollaborationPage() {
     );
   }
 
-  const retourHref = user.role === 'TEACHER' ? '/dashboard/teacher' : user.role === 'DIRECTOR' ? '/dashboard/director' : '/dashboard/venue';
-  const isDirector = user.role === 'DIRECTOR';
+  const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur';
+  const isDirector = user.role === 'SIGNATAIRE';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1027,7 +1027,7 @@ export default function CollaborationPage() {
       </nav>
 
       {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
-      {user.role === 'TEACHER' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
+      {user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
         <div className="bg-amber-50 border-b border-amber-200 print:hidden">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             {!showThematiquesForm ? (
@@ -1120,10 +1120,10 @@ export default function CollaborationPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
             {TABS.filter((t) =>
-              (t.key !== 'projet' || user.role === 'TEACHER') &&
-              (t.key !== 'budget' || user.role === 'TEACHER' || isDirector) &&
-              (t.key !== 'groupes' || user.role === 'TEACHER' || user.role === 'VENUE') &&
-              (t.key !== 'journal' || user.role === 'TEACHER' || user.role === 'VENUE')
+              (t.key !== 'projet' || user.role === 'ORGANISATEUR') &&
+              (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
+              (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
+              (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR')
             ).map((t) => (
               <button
                 key={t.key}
@@ -1217,9 +1217,9 @@ export default function CollaborationPage() {
                       filename={`devis-${pdfProps.numeroDocument}.pdf`}
                       label="Télécharger le devis"
                     />
-                    {user.role === 'VENUE' && (
+                    {user.role === 'HEBERGEUR' && (
                       <a
-                        href={`/dashboard/venue/devis/${d.id}/modifier`}
+                        href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                         className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1247,9 +1247,9 @@ export default function CollaborationPage() {
                 const isOwn = m.auteurId === user.id;
                 const msgRole = m.auteur.role;
                 const ROLE_CONFIG: Record<string, { label: string; bubbleCls: string; labelCls: string }> = {
-                  TEACHER:  { label: 'Enseignant', bubbleCls: 'bg-[var(--color-primary)] text-white',  labelCls: 'text-[var(--color-primary)]' },
-                  VENUE:    { label: 'Hébergeur',  bubbleCls: 'bg-[var(--color-success)] text-white',  labelCls: 'text-[var(--color-success)]' },
-                  DIRECTOR: { label: 'Direction',  bubbleCls: 'bg-purple-600 text-white',               labelCls: 'text-purple-600' },
+                  ORGANISATEUR: { label: 'Organisateur', bubbleCls: 'bg-[var(--color-primary)] text-white',  labelCls: 'text-[var(--color-primary)]' },
+                  HEBERGEUR:    { label: 'Hébergeur',    bubbleCls: 'bg-[var(--color-success)] text-white',  labelCls: 'text-[var(--color-success)]' },
+                  SIGNATAIRE:   { label: 'Direction',    bubbleCls: 'bg-purple-600 text-white',              labelCls: 'text-purple-600' },
                 };
                 const config = ROLE_CONFIG[msgRole] ?? { label: msgRole, bubbleCls: 'bg-gray-100 text-gray-900', labelCls: 'text-gray-500' };
                 return (
@@ -1294,7 +1294,7 @@ export default function CollaborationPage() {
 
         {/* ── Planning ─── */}
         {tab === 'planning' && sejour && (() => {
-          const isVenue = user?.role === 'VENUE';
+          const isHebergeur = user?.role === 'HEBERGEUR';
           const HOUR_START = 7;
           const HOUR_END = 22;
           const SLOT_HEIGHT = 24;
@@ -1330,7 +1330,7 @@ export default function CollaborationPage() {
           };
 
           const handleCellClick = (date: Date, slotIndex: number) => {
-            if (!isVenue) return;
+            if (!isHebergeur) return;
             const h = Math.floor(slotIndex / 2) + HOUR_START;
             const m = slotIndex % 2 === 0 ? '00' : '30';
             const hEnd = slotIndex % 2 === 0 ? h : h + 1;
@@ -1349,7 +1349,7 @@ export default function CollaborationPage() {
           };
 
           const handleDragEnd = async (event: DragEndEvent) => {
-            if (!isVenue) return;
+            if (!isHebergeur) return;
 
             const overDay = event.over?.id as string | undefined;
 
@@ -1538,7 +1538,7 @@ export default function CollaborationPage() {
                 </select>
               )}
             </div>
-            {isVenue && (
+            {isHebergeur && (
               <div className="mb-4">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
@@ -1603,7 +1603,7 @@ export default function CollaborationPage() {
                   </div>
               </div>
             )}
-            {!isVenue && planning.length > 0 && (
+            {!isHebergeur && planning.length > 0 && (
               <div className="mb-4">
                 <PlanningPDFButton
                   planningProps={{
@@ -1622,7 +1622,7 @@ export default function CollaborationPage() {
             <div className="flex gap-4 h-full">
             <div className="flex-1 min-w-0">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-              {!isVenue && (
+              {!isHebergeur && (
                 <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
                   Lecture seule — seul l&apos;hébergeur peut modifier le planning
                 </div>
@@ -1673,7 +1673,7 @@ export default function CollaborationPage() {
                               key={dayIdx}
                               dayIdx={dayIdx}
                               dateStr={dateStr}
-                              isVenue={isVenue}
+                              isHebergeur={isHebergeur}
                               slots={SLOTS}
                               slotHeight={SLOT_HEIGHT}
                               onCellClick={(slotIdx) => handleCellClick(day, slotIdx)}
@@ -1742,7 +1742,7 @@ export default function CollaborationPage() {
                                       act={act}
                                       topPx={topPx}
                                       heightPx={heightPx}
-                                      isVenue={isVenue}
+                                      isHebergeur={isHebergeur}
                                       colWidth={colWidth}
                                       slotHeight={SLOT_HEIGHT}
                                       widthPct={widthPct}
@@ -1759,7 +1759,7 @@ export default function CollaborationPage() {
                                         editId: act.id,
                                       })}
                                       onResize={async (newDurationSlots) => {
-                                        if (!isVenue || !id) return;
+                                        if (!isHebergeur || !id) return;
                                         const startMins = toMin(act.heureDebut);
                                         const newEndMins = startMins + newDurationSlots * 30;
                                         if (newEndMins <= startMins) return;
@@ -1796,8 +1796,8 @@ export default function CollaborationPage() {
             </div>
             </div>
 
-            {/* Panneau latéral activités catalogue — visible seulement pour VENUE */}
-            {isVenue && (
+            {/* Panneau latéral activités catalogue — visible seulement pour HEBERGEUR */}
+            {isHebergeur && (
               <div className="w-64 shrink-0">
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sticky top-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">
@@ -1844,8 +1844,8 @@ export default function CollaborationPage() {
         {/* ── Groupes ─── */}
         {tab === 'groupes' && (
           <div className="space-y-6">
-            {/* Bandeau clôture inscriptions — TEACHER uniquement */}
-            {user.role === 'TEACHER' && !(sejour as any)?.inscriptionsCloturees && (
+            {/* Bandeau clôture inscriptions — ORGANISATEUR uniquement */}
+            {user.role === 'ORGANISATEUR' && !(sejour as any)?.inscriptionsCloturees && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-800">Inscriptions ouvertes</p>
@@ -1857,14 +1857,14 @@ export default function CollaborationPage() {
                 </button>
               </div>
             )}
-            {user.role === 'TEACHER' && (sejour as any)?.inscriptionsCloturees && (
+            {user.role === 'ORGANISATEUR' && (sejour as any)?.inscriptionsCloturees && (
               <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-3 text-sm text-green-700 font-medium">
                 ✓ Inscriptions clôturées — vous pouvez affecter les élèves aux groupes
               </div>
             )}
 
-            {/* Actions VENUE */}
-            {user.role === 'VENUE' && (
+            {/* Actions HEBERGEUR */}
+            {user.role === 'HEBERGEUR' && (
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-gray-900">Groupes du séjour</h2>
                 <div className="flex gap-2">
@@ -1881,7 +1881,7 @@ export default function CollaborationPage() {
             )}
 
             {/* Proposition automatique */}
-            {propositionGroupes && user.role === 'VENUE' && (
+            {propositionGroupes && user.role === 'HEBERGEUR' && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -1937,10 +1937,10 @@ export default function CollaborationPage() {
                       .map(p => (
                         <div
                           key={p.id}
-                          draggable={user.role === 'TEACHER'}
-                          onDragStart={() => user.role === 'TEACHER' && setDragEleve(p.id)}
+                          draggable={user.role === 'ORGANISATEUR'}
+                          onDragStart={() => user.role === 'ORGANISATEUR' && setDragEleve(p.id)}
                           onDragEnd={() => setDragEleve(null)}
-                          className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs ${user.role === 'TEACHER' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                          className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs ${user.role === 'ORGANISATEUR' ? 'cursor-grab active:cursor-grabbing' : ''}`}
                         >
                           <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-semibold shrink-0">
                             {p.elevePrenom[0]}{p.eleveNom[0]}
@@ -1957,16 +1957,16 @@ export default function CollaborationPage() {
               <div className={`${(sejour as any)?.inscriptionsCloturees ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                 {groupes.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
-                    {user.role === 'VENUE' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
+                    {user.role === 'HEBERGEUR' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {groupes.map(g => (
                       <div
                         key={g.id}
-                        onDragOver={user.role === 'TEACHER' ? (e) => e.preventDefault() : undefined}
-                        onDrop={user.role === 'TEACHER' ? (e) => { e.preventDefault(); if (dragEleve) { handleAffecterEleve(dragEleve, g.id); setDragEleve(null); } } : undefined}
-                        className={`rounded-2xl border-2 bg-white p-4 transition-colors ${dragEleve && user.role === 'TEACHER' ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'}`}
+                        onDragOver={user.role === 'ORGANISATEUR' ? (e) => e.preventDefault() : undefined}
+                        onDrop={user.role === 'ORGANISATEUR' ? (e) => { e.preventDefault(); if (dragEleve) { handleAffecterEleve(dragEleve, g.id); setDragEleve(null); } } : undefined}
+                        className={`rounded-2xl border-2 bg-white p-4 transition-colors ${dragEleve && user.role === 'ORGANISATEUR' ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'}`}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
@@ -1974,7 +1974,7 @@ export default function CollaborationPage() {
                             <span className="text-sm font-semibold text-gray-900">{g.nom}</span>
                             <span className="text-xs text-gray-400">({g.eleves.length}/{g.taille})</span>
                           </div>
-                          {user.role === 'VENUE' && (
+                          {user.role === 'HEBERGEUR' && (
                             <div className="flex gap-1">
                               <button onClick={() => setGroupeModal({ open: true, editId: g.id, nom: g.nom, couleur: g.couleur, taille: g.taille })}
                                 className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)]">
@@ -1995,7 +1995,7 @@ export default function CollaborationPage() {
                           {g.eleves.map(e => (
                             <div key={e.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs">
                               <span className="truncate text-gray-900">{e.autorisation.elevePrenom} {e.autorisation.eleveNom}</span>
-                              {user.role === 'TEACHER' && (
+                              {user.role === 'ORGANISATEUR' && (
                                 <button onClick={() => handleRetirerEleve(e.autorisationId)}
                                   className="shrink-0 ml-2 text-gray-300 hover:text-red-400">&times;</button>
                               )}
@@ -2003,7 +2003,7 @@ export default function CollaborationPage() {
                           ))}
                           {g.eleves.length === 0 && (
                             <p className="text-xs text-gray-300 text-center py-2">
-                              {(sejour as any)?.inscriptionsCloturees && user.role === 'TEACHER' ? 'Glissez des élèves ici' : 'Vide'}
+                              {(sejour as any)?.inscriptionsCloturees && user.role === 'ORGANISATEUR' ? 'Glissez des élèves ici' : 'Vide'}
                             </p>
                           )}
                         </div>
@@ -2014,8 +2014,8 @@ export default function CollaborationPage() {
               </div>
             </div>
 
-            {/* Modale groupe (VENUE uniquement) */}
-            {groupeModal?.open && user.role === 'VENUE' && (
+            {/* Modale groupe (HEBERGEUR uniquement) */}
+            {groupeModal?.open && user.role === 'HEBERGEUR' && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setGroupeModal(null)}>
                 <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
                   <h2 className="text-sm font-semibold text-gray-900 mb-4">{groupeModal.editId ? 'Modifier le groupe' : 'Nouveau groupe'}</h2>
@@ -2119,7 +2119,7 @@ export default function CollaborationPage() {
                         <th className="text-left py-3 px-3 font-semibold text-gray-700">Ski</th>
                       )}
                       <th className="text-center py-3 px-3 font-semibold text-gray-700">Médical</th>
-                      {user.role !== 'VENUE' && <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>}
+                      {user.role !== 'HEBERGEUR' && <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -2169,7 +2169,7 @@ export default function CollaborationPage() {
                             <span className="text-gray-300">—</span>
                           )}
                         </td>
-                        {user.role !== 'VENUE' && (
+                        {user.role !== 'HEBERGEUR' && (
                         <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                           {p.paiementValide ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
@@ -2426,7 +2426,7 @@ export default function CollaborationPage() {
         {tab === 'journal' && (
           <div>
             {/* Zone de publication */}
-            {(user.role === 'TEACHER' || user.role === 'VENUE') && (
+            {(user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
                 <textarea
                   value={journalContenu}
@@ -2512,7 +2512,7 @@ export default function CollaborationPage() {
             )}
 
             {/* Lien parent */}
-            {user.role === 'TEACHER' && (
+            {user.role === 'ORGANISATEUR' && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
                 <p className="text-sm text-blue-900 mb-3">
                   Les parents peuvent consulter ce journal via le lien de leur autorisation parentale. Chaque parent accède au journal depuis la page : <code className="text-xs bg-white border border-blue-200 rounded px-1.5 py-0.5">liavo.fr/sejour/&#123;token&#125;/journal</code>
@@ -2709,7 +2709,7 @@ export default function CollaborationPage() {
             {!budgetLoading && budgetData && (() => {
               const s = budgetData.sejour;
               const d = budgetData.devis;
-              const isTeacher = user.role === 'TEACHER';
+              const isTeacher = user.role === 'ORGANISATEUR';
 
               const lignesDevis = d?.lignes ?? [];
               const totalHebergeur = lignesDevis.length > 0
@@ -2972,7 +2972,7 @@ export default function CollaborationPage() {
           </div>
         )}
         {/* ── Projet pédagogique ─── */}
-        {tab === 'projet' && user.role === 'TEACHER' && (
+        {tab === 'projet' && user.role === 'ORGANISATEUR' && (
           <div className="space-y-6">
             <style>{`@media print { [data-print-hide] { display: none !important; } [data-print-show] { display: block !important; } }`}</style>
 
@@ -3416,7 +3416,7 @@ export default function CollaborationPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     placeholder="Nom du responsable" />
                 </div>
-                {user.role === 'VENUE' && (
+                {user.role === 'HEBERGEUR' && (
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Couleur du groupe <span className="text-gray-400 font-normal">(optionnel)</span>

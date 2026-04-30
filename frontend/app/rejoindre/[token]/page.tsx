@@ -38,7 +38,7 @@ export default function RejoindreInvitationPage() {
     try {
       await accepterInvitation(token);
       setStatus('accepted');
-      setTimeout(() => router.push('/dashboard/teacher'), 2000);
+      setTimeout(() => router.push('/dashboard/organisateur'), 2000);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Erreur lors de l\'acceptation');
       setStatus('error');
@@ -79,7 +79,7 @@ export default function RejoindreInvitationPage() {
           <Logo size="md" showTagline={false} />
           <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-success)', marginTop: 24 }}>Invitation déjà acceptée</h1>
           <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>Cette invitation a déjà été utilisée.</p>
-          <Link href="/dashboard/teacher" style={{ display: 'inline-block', marginTop: 20, fontSize: 14, fontWeight: 500, color: 'var(--color-primary)', textDecoration: 'none' }}>
+          <Link href="/dashboard/organisateur" style={{ display: 'inline-block', marginTop: 20, fontSize: 14, fontWeight: 500, color: 'var(--color-primary)', textDecoration: 'none' }}>
             Aller au tableau de bord
           </Link>
         </div>
@@ -205,7 +205,7 @@ export default function RejoindreInvitationPage() {
           </div>
 
           {/* Boutons selon état connexion */}
-          {user?.role === 'TEACHER' ? (
+          {user?.role === 'ORGANISATEUR' ? (
             <div style={{ marginTop: 28 }}>
               <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16, textAlign: 'center' }}>
                 Votre compte est actif. Cliquez pour ajouter ce séjour à votre tableau de bord.
@@ -234,7 +234,7 @@ export default function RejoindreInvitationPage() {
               }}>
                 J&apos;ai déjà un compte — Me connecter
               </Link>
-              <Link href={`/register/teacher?redirect=/rejoindre/${token}`} style={{
+              <Link href={`/register/organisateur?redirect=/rejoindre/${token}`} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '12px 24px', borderRadius: 'var(--radius-md)',
                 backgroundColor: 'var(--color-accent)',

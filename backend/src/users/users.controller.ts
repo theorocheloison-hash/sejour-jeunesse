@@ -14,14 +14,14 @@ export class UsersController {
 
   /** GET /users/me — Profil complet de l'utilisateur connecté */
   @Get('me')
-  @Roles(Role.TEACHER, Role.DIRECTOR, Role.RECTOR, Role.PARENT, Role.VENUE)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE, Role.AUTORITE, Role.PARENT, Role.HEBERGEUR)
   getMe(@CurrentUser() user: JwtUser) {
     return this.usersService.getProfile(user.id);
   }
 
   /** PATCH /users/mon-etablissement — Sauvegarder l'établissement */
   @Patch('mon-etablissement')
-  @Roles(Role.TEACHER)
+  @Roles(Role.ORGANISATEUR)
   updateEtablissement(
     @Body() dto: UpdateEtablissementDto,
     @CurrentUser() user: JwtUser,
@@ -29,9 +29,9 @@ export class UsersController {
     return this.usersService.updateEtablissement(user.id, dto);
   }
 
-  /** PATCH /users/mon-profil — Mettre à jour le profil (DIRECTOR) */
+  /** PATCH /users/mon-profil — Mettre à jour le profil (SIGNATAIRE) */
   @Patch('mon-profil')
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.SIGNATAIRE)
   updateProfil(
     @Body() dto: { emailRectorat?: string },
     @CurrentUser() user: JwtUser,

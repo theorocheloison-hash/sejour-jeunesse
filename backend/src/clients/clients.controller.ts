@@ -11,7 +11,7 @@ import { CreateRappelDto } from './dto/create-rappel.dto.js';
 
 @Controller('clients')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.VENUE)
+@Roles(Role.HEBERGEUR)
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
