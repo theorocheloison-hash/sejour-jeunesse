@@ -26,6 +26,7 @@ import { ClientsModule } from './clients/clients.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { InvitationsDirecteurModule } from './invitations-directeur/invitations-directeur.module.js';
 import { JournalPublicModule } from './journal-public/journal-public.module.js';
+import { OrganisationsModule } from './organisations/organisations.module.js';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { JournalPublicModule } from './journal-public/journal-public.module.js';
     NotificationsModule,
     InvitationsDirecteurModule,
     JournalPublicModule,
+    OrganisationsModule,
   ],
   controllers: [AppController],
   providers: [
