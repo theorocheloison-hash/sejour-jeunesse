@@ -547,7 +547,7 @@ export class SejourService {
       return { success: false, message: 'Aucun directeur trouvé pour cet établissement sur Liavo.' };
     }
 
-    const lien = `${FRONTEND_URL}/dashboard/director`;
+    const lien = `${FRONTEND_URL}/dashboard/signataire`;
     const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
     const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
     const etablissement = sejour.createur?.etablissementNom ?? 'l\'établissement';
@@ -602,7 +602,7 @@ export class SejourService {
     if (directeurExistant) {
       const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
       const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
-      const lien = `${FRONTEND_URL}/dashboard/director`;
+      const lien = `${FRONTEND_URL}/dashboard/signataire`;
       await this.email.sendGenericNotification(
         directeurExistant.email,
         `Dossier séjour à examiner — ${sejour.titre}`,
@@ -647,7 +647,7 @@ export class SejourService {
       },
     });
 
-    const lienInscription = `${FRONTEND_URL}/register/director?token=${invitation.token}`;
+    const lienInscription = `${FRONTEND_URL}/register/signataire?token=${invitation.token}`;
     const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
     const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
 
@@ -810,7 +810,7 @@ export class SejourService {
         if (centreSelectionne?.user?.email) {
           const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
           const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
-          const lien = `${FRONTEND_URL}/dashboard/venue`;
+          const lien = `${FRONTEND_URL}/dashboard/hebergeur`;
           await this.email.sendGenericNotification(
             centreSelectionne.user.email,
             `Séjour approuvé par la direction — ${sejour.titre}`,

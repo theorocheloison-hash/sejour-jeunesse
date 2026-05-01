@@ -164,7 +164,7 @@ export class AdminService {
               `<p>Bonjour ${enseignant.prenom},</p>
                <p>Bonne nouvelle ! Le centre <strong>${invitation.nomCentre}</strong> que vous avez invité vient de rejoindre LIAVO.</p>
                <p>Une demande de devis pour le séjour <strong>${invitation.titreSejourSuggere}</strong> leur a été automatiquement transmise.</p>
-               <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/teacher" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mon tableau de bord</a></p>`,
+               <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/organisateur" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mon tableau de bord</a></p>`,
             );
           }
         } catch (err) {
@@ -429,7 +429,7 @@ export class AdminService {
       data: { email, nomCentre },
     });
 
-    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
 
     await this.email.sendGenericNotification(
       email,
@@ -676,7 +676,7 @@ export class AdminService {
           data: { email: centre.email, nomCentre: centre.nom },
         });
 
-        const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
+        const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;
 
         await this.email.sendGenericNotification(
           centre.email,

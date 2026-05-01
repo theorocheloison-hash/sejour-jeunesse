@@ -18,17 +18,17 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
-  @Post('register/teacher')
+  @Post('register/organisateur')
   registerOrganisateur(@Body() dto: RegisterOrganisateurDto, @Req() req: Request) {
     return this.authService.registerOrganisateur(dto, req.ip, req.headers['user-agent']);
   }
 
-  @Post('register/venue')
+  @Post('register/hebergeur')
   registerHebergeur(@Body() dto: RegisterHebergeurDto, @Req() req: Request) {
     return this.authService.registerHebergeur(dto, req.ip, req.headers['user-agent']);
   }
 
-  @Post('register/director')
+  @Post('register/signataire')
   registerSignataire(@Body() dto: RegisterSignataireDto, @Req() req: Request) {
     return this.authService.registerSignataire(dto, req.ip, req.headers['user-agent']);
   }
