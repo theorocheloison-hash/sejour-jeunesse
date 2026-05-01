@@ -838,4 +838,41 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 
 ---
 
+## 12. Journal d'avancement
+
+### Session 01/05/2026 — Sous-chantiers 3 et 4 (partiels)
+
+**Sous-chantier 3 — Composant `<StructureSearch>` — TERMINÉ**
+- Fichier créé : `frontend/app/components/StructureSearch.tsx`
+- Debounce 300ms, AbortController, navigation clavier, badge source, fallback freeText
+- Confirmation manuelle obligatoire (highlight=-1 par défaut, pas de pré-sélection)
+- Props : `onSelect`, `placeholder`, `disabled`, `allowFreeText`, `defaultSearchValue`, `label`
+- Type-check OK. Pas encore intégré dans les formulaires (sera fait au SC5).
+
+**Sous-chantier 4 — Refactor backend services — PASSE A TERMINÉE, PASSE B DÉCISION ARCHITECTURALE**
+
+*Passe A (terminée, déployée en prod) :*
+- `auth.controller.ts` : 3 routes POST renommées (`register/teacher` → `register/organisateur`, `register/venue` → `register/hebergeur`, `register/director` → `register/signataire`)
+- `admin.service.ts` : 3 URLs emails corrigées (`/dashboard/teacher` → `/dashboard/organisateur`, `/register/venue?token=` → `/register/hebergeur?token=` ×2)
+- `sejour.service.ts` : 4 URLs emails corrigées (`/dashboard/director` → `/dashboard/signataire` ×2, `/register/director?` → `/register/signataire?`, `/dashboard/venue` → `/dashboard/hebergeur`)
+- Build exit 0, pushé sur main.
+
+*Passe B — Migration `etablissement*` → `Organisation` dans les selects Prisma :*
+- **DÉCISION : ne pas faire maintenant.** Les champs `etablissementNom`, `etablissementUai`, etc. sont encore lus directement sur `User` par les dashboards frontend (signataire, organisateur, dossier rectorat HTML, PDF). Migrer les selects Prisma maintenant casserait tous ces affichages.
+- **Règle** : la migration des selects se fera AU SOUS-CHANTIER 8 (suppression champs legacy User), après que le SC5 (refactor frontend dashboards) ait adapté les composants pour lire depuis `Organisation` via `Membership`.
+- **Ce qui a été fait à la place** : helper `getOrganisationPrincipale()` ajouté dans `backend/src/organisations/organisation.helpers.ts` (Passe B du SC4 — voir ci-dessous).
+
+*Passe B (terminée) :*
+- Helper `getOrganisationPrincipale(userId, prisma)` créé dans `organisation.helpers.ts`
+- Retourne l'Organisation avec `isPrimary=true` pour un User donné, ou null
+- Pas encore appelé par les controllers — prépare le terrain pour SC5 et SC8
+
+**Prochaine étape : Sous-chantier 5 — Refactor frontend dashboards + routes françaises**
+- Intégrer `<StructureSearch>` dans les formulaires d'inscription
+- Adapter les dashboards pour lire Organisation primary (via le nouveau helper)
+- Routes : redirects 301 restants à vérifier côté frontend
+- NE PAS supprimer les champs `etablissement*` du User avant SC8
+
+---
+
 *Document à maintenir à jour. Toute déviation documentée ici avec date et raison.*
