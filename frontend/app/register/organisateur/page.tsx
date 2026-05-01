@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
+import StructureSearch from '@/app/components/StructureSearch';
 
 type TypeStructure = 'COLLEGE_LYCEE' | 'ECOLE_PRIMAIRE' | 'MAIRIE' | 'CENTRE_LOISIRS' | 'ASSOCIATION' | 'COMITE_ENTREPRISE' | 'AUTRE';
 
@@ -402,35 +403,43 @@ function RegisterOrganisateurContent() {
 
             {typeStructure && !isStructureScolaire(typeStructure) && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Votre structure</label>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    required
-                    disabled={isPending}
-                    value={form.etablissementNom}
-                    onChange={set('etablissementNom')}
-                    placeholder='Nom de la structure (ex: "Mairie de Morillon", "Association Les Petits Loups", "CE Renault")'
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                  />
-                  <input
-                    type="text"
-                    required
-                    disabled={isPending}
-                    value={form.etablissementVille}
-                    onChange={set('etablissementVille')}
-                    placeholder="Ville"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                  />
-                  <input
-                    type="text"
-                    disabled={isPending}
-                    value={form.etablissementAdresse}
-                    onChange={set('etablissementAdresse')}
-                    placeholder="Adresse (optionnel)"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Votre structure
+                </label>
+                {form.etablissementNom ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
+                      <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementAdresse ? ` — ${form.etablissementAdresse}` : ''}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, etablissementNom: '', etablissementVille: '', etablissementAdresse: '' }))}
+                      className="text-xs text-red-500 hover:underline shrink-0"
+                    >
+                      Effacer
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <StructureSearch
+                      placeholder='Recherchez votre mairie, association, CE…'
+                      allowFreeText={true}
+                      onSelect={(result) => {
+                        if (!result) return;
+                        setForm(f => ({
+                          ...f,
+                          etablissementNom: result.nom,
+                          etablissementVille: result.ville || '',
+                          etablissementAdresse: result.adresse || '',
+                        }));
+                      }}
+                    />
+                    <p className="mt-1 text-xs text-gray-400">
+                      Tapez le nom de votre structure et sélectionnez-la, ou saisissez librement puis appuyez sur Entrée
+                    </p>
+                  </>
+                )}
               </div>
             )}
 

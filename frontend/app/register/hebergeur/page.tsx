@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
+import StructureSearch from '@/app/components/StructureSearch';
 
 const TYPES_SEJOURS = [
   { value: 'scolaire', label: 'Séjour scolaire' },
@@ -38,7 +39,6 @@ function RegisterHebergeurContent() {
   const urlNomCentre = searchParams.get('nomCentre') ?? '';
   const urlVille = searchParams.get('ville') ?? '';
   const urlCodePostal = searchParams.get('codePostal') ?? '';
-  const urlInvitationToken = searchParams.get('invitationToken') ?? '';
   const urlReseau = searchParams.get('reseau') ?? '';
   const fromInvitation = !!(urlNomCentre || urlVille || urlCodePostal);
 
@@ -243,7 +243,7 @@ function RegisterHebergeurContent() {
         emailContact: form.emailContact || undefined,
         agrementEducationNationale: form.agrementEducationNationale || undefined,
         typeSejours: form.typeSejours.length > 0 ? form.typeSejours : undefined,
-        invitationToken: urlInvitationToken || undefined,
+        invitationToken: urlToken || undefined,
         reseau: urlReseau || undefined,
       });
       setSuccess(true);
@@ -507,6 +507,33 @@ function RegisterHebergeurContent() {
                 <input id="nomCentre" type="text" required value={form.nomCentre} onChange={set('nomCentre')}
                   placeholder="Centre de vacances Les Pins" className={inputCls} />
               </div>
+              {!centrePreFilled && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Rechercher votre structure <span className="text-gray-400 font-normal">(optionnel)</span>
+                  </label>
+                  <StructureSearch
+                    placeholder="Nom de votre entreprise, association…"
+                    allowFreeText={false}
+                    onSelect={(result) => {
+                      if (!result) return;
+                      setForm(f => ({
+                        ...f,
+                        nomCentre: f.nomCentre || result.nom,
+                        adresse: f.adresse || result.adresse || '',
+                        ville: f.ville || result.ville || '',
+                        codePostal: f.codePostal || result.codePostal || '',
+                        departement: f.departement || result.departement || '',
+                        siret: f.siret || result.siret || '',
+                      }));
+                      setCentreFromSiret(true);
+                    }}
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Sélectionnez votre structure pour pré-remplir le SIRET et l&apos;adresse automatiquement
+                  </p>
+                </div>
+              )}
               {!centrePreFilled && (
                 <div>
                   <label htmlFor="siret" className="block text-sm font-medium text-gray-700 mb-1.5">
