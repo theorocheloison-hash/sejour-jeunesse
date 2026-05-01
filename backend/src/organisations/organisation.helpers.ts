@@ -1,5 +1,5 @@
 import { PrismaService } from '../prisma/prisma.service.js';
-import { SourceOrganisation, TypeStructure, RoleMembership, ClaimStatut } from '@prisma/client';
+import { SourceOrganisation, TypeStructure, RoleMembership, ClaimStatut, Organisation } from '@prisma/client';
 
 /**
  * Trouve une Organisation existante ou en crée une nouvelle.
@@ -126,16 +126,28 @@ export async function findOrCreateMembership(
 }
 
 /**
- * Retourne l'Organisation primaire d'un User.
- * Centralise la logique qui remplace l'accès à user.etablissement*.
+ * Retourne l'Organisation "principale" (isPrimary=true) d'un User.
+ * Utilisé par les services backend pour résoudre l'organisation active
+ * sans passer par les champs legacy etablissement* du User.
+ *
+ * Retourne null si le User n'a aucun Membership primary.
+ * Ne lève pas d'exception — les appelants gèrent le cas null.
+ *
+ * @param userId  UUID du User
+ * @param prisma  Instance PrismaService injectée par le service appelant
  */
 export async function getOrganisationPrincipale(
-  prisma: PrismaService,
   userId: string,
-) {
+  prisma: PrismaService,
+): Promise<Organisation | null> {
   const membership = await prisma.membership.findFirst({
-    where: { userId, isPrimary: true },
-    include: { organisation: true },
+    where: {
+      userId,
+      isPrimary: true,
+    },
+    include: {
+      organisation: true,
+    },
   });
   return membership?.organisation ?? null;
 }
