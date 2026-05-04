@@ -315,7 +315,9 @@ export default function OrganisateurDashboard() {
                   <p className="text-sm font-medium text-gray-900">
                     {user.firstName} {user.lastName}
                   </p>
-                  <p className="text-xs text-gray-500">Enseignant</p>
+                  <p className="text-xs text-gray-500">
+                    {user.organisation?.nom ?? 'Organisateur'}
+                  </p>
                 </div>
               </Link>
               <button
@@ -357,7 +359,7 @@ export default function OrganisateurDashboard() {
               color: 'var(--color-primary)',
               fontFamily: 'var(--font-sans)',
             }}>
-              Parcourir les 649 centres
+              Parcourir le catalogue
             </span>
             <span style={{
               fontSize: 12, color: 'var(--color-text-muted)',
