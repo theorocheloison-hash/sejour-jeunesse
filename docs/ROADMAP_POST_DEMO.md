@@ -5,25 +5,21 @@
 
 ---
 
-## PRIORITÉ 0 — Actions immédiates (avant roadmap produit)
+## Priorité 0 — Actions immédiates (avant roadmap produit)
 
-### RÈGLE ABSOLUE — à enregistrer définitivement
-**Aucune visio LMDJ, aucun onboarding hébergeur tant que le refactor complet de LIAVO n’est pas finalisé (totalité du doc ARCHITECTURE_ORGANISATIONS.md). Si LMDJ voit des incohérences dans l’outil lors de la visio, il n’y aura pas de signature. L’objectif de la visio est de valider leur volonté d’intégrer leurs centres — ils doivent voir un outil fini.**
+### RÈGLE ABSOLUE
+**Aucune visio LMDJ, aucun onboarding tant que le refactor complet n’est pas finalisé. Si LMDJ voit des incohérences, pas de signature.**
 
-### 0.1 SC9 — Refactor StatutDevis (1 jour) — PRIORITÉ IMMÉDIATE
-Bug : badge « Sélectionné » sur un devis signé/facturé. Cause : `SELECTIONNE` couvre 5 états distincts.
-Solution : étendre `StatutDevis` avec `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`.
-Détail complet en section 5ter de `docs/ARCHITECTURE_ORGANISATIONS.md`.
+**git add/commit/push passent par CC. PowerShell = SQL uniquement.**
 
-Prérequis avant de coder :
-1. Grep `typeDocument` dans tout le backend
-2. Grep `signatureDirecteur` comme condition de routage
-3. Décider si `typeDocument` est supprimé ou conservé en redondance
-4. Script backfill SQL validé avant exécution en prod
+### Prochains chantiers dans l’ordre (avant visio LMDJ)
 
-### 0.2 Visio LMDJ — BLOQUÉE jusqu’à fin du refactor
-- Ne pas caler la visio avant la fin de l’intégralité des sous-chantiers
-- Voir `docs/ARCHITECTURE_ORGANISATIONS.md` pour la liste complète des chantiers restants
+1. **SC5bis /centre/[id]/claim** — page claim catalogue (Routes 3b/5) — estimé 1j
+2. **SC4ter complétion** — `getAllSejoursSignataire()` via Membership + `InvitationCollaboration.organisationCibleId` — estimé 1j
+3. **SC9** — `StatutDevis` étendu + backfill + simplification `matchesOnglet()` — estimé 1j
+4. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale` — estimé 1j
+5. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — 0.5j
+6. **`DECLARE_TAM`** dans `StatutSejour` — 0.5j
 
 ---
 

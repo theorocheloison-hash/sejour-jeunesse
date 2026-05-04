@@ -1415,11 +1415,32 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 - Migration SQL prête à appliquer via `npx prisma migrate deploy` au redémarrage Scalingo
 - **À faire : commit + push main → déploiement Scalingo automatique**
 
-**Prochaine étape :** SC7 (notification centres APIDAE non inscrits) suspendu à validation commerciale LMDJ/IDDJ. En attente de la visio de suivi LMDJ.
+**État au 04/05/2026 — fin de session**
+
+| SC | Statut | Détail |
+|---|---|---|
+| SC0 | ✅ | Scalingo Paris, OVH Gravelines, Brevo FR |
+| SC1 | ✅ | Schéma, backfill BDD, doublons nettoyés |
+| SC1bis | ✅ | findOrCreateOrganisation, helpers |
+| SC2 | ✅ | GET /organisations/search |
+| SC3 | ✅ | StructureSearch.tsx |
+| SC4 | ✅ | Rôles français, passe A+B |
+| SC4bis | ✅ | claim.service.ts, page admin claims |
+| SC4ter | ⚠️ PARTIEL | InvitationDirecteur enrichie ✅ — getAllSejoursSignataire() via Membership ❌ |
+| SC5 | ✅ | Dashboards, routes françaises |
+| SC5bis | 🔄 EN COURS | Corrections A+B+C+Route6+frontend ✅ — /centre/[id]/claim ❌ |
+| SC6 | ✅ | /appel-offres, magic link |
+| SC7 | ⏸ SUSPENDU | Validation commerciale |
+| SC8 | ✅ | Colonnes etablissement* supprimées |
+| SC9 | ❌ À FAIRE | Après SC4ter |
+
+**Ordre prochains chantiers :** SC5bis claim → SC4ter signataire → SC9 StatutDevis → CRM legacy → HORS_SCOLAIRE → DECLARE_TAM
 
 ---
 
-### Session 04/05/2026 (suite) — SC8 déployé + SC9 documenté
+*Document à maintenir à jour. Toute déviation documentée ici avec date et raison.*
+
+> **SC9 ajouté au glossaire de la section 11 :** `SC9` = refactor `StatutDevis`. `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE` = 3 nouvelles valeurs enum cibles.
 
 **SC8 déployé en production :**
 - Vérification préalable : 3 lignes avec `etablissement_nom` non-null en prod (directeur@test.fr, enseignant@test.fr, maeva.loison@gmail.com). Maeva (compte test Théo) supprimée. Les 2 comptes test conservés.

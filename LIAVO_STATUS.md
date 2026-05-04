@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 04/05/2026 (post-SC8, post-démo LMDJ+IDDJ)
+> Dernière mise à jour : 04/05/2026 (session complète — SC8, SC5bis, audit bugs)
 
 ---
 
@@ -18,7 +18,7 @@
 - [x] Compte bancaire pro LIAVO SASU ouvert (Crédit Agricole Samoëns)
 - [x] Acte cession PI signé (marque INPI holding → SASU)
 - [ ] RC Professionnelle + Cyber (Hiscox, ~500–700€/an) — différé post-démo
-- [ ] Résiliation Railway + Cloudflare R2 (après 1 semaine de stabilité Scalingo, soit autour du 06/05)
+- [ ] Résiliation Railway + Cloudflare R2 — délai 1 semaine post-migration (29/04), soit ~06/05
 
 ---
 
@@ -41,13 +41,10 @@
 | Emails | Brevo FR | contact@liavo.fr |
 | DNS | OVH | dns14/ns14.ovh.net |
 
-> ⚠️ Railway (sejour-jeunesse-production.up.railway.app) = OBSOLÈTE
-> ⚠️ Cloudflare R2 = OBSOLÈTE
-> À résilier tous les deux dès confirmation stabilité Scalingo (06/05 au plus tôt)
+> ⚠️ Railway et Cloudflare R2 = OBSOLÈTES. À résilier ~06/05.
 
-**Scalingo CLI :** `C:\Users\Roche-Loison\scalingo\scalingo_1.44.1_windows_amd64\scalingo.exe`
-**API token Scalingo :** tk-us-N7-mDO-KCwTf_kRhQpO09-NT_-2rXhVqMuq1Z0JEbMWLC-sf
-**Clé SSH :** id_ed25519
+**Scalingo CLI :** dans PATH Windows — taper `scalingo` directement
+**Git/déploiement :** via CC (git add/commit/push). PowerShell = SQL uniquement.
 
 ---
 
@@ -58,6 +55,8 @@
 | contact@liavo.fr | ADMIN | Admin2026! |
 | resa@lesauvageon.com | HEBERGEUR (Chalet Le Sauvageon) | Test1234! |
 | demo-lmdj@liavo.fr | RESEAU (La Montagne des Juniors) | LMDJ2026! |
+| enseignant@test.fr | ORGANISATEUR | Test1234! |
+| directeur@test.fr | SIGNATAIRE | Test1234! |
 
 ---
 
@@ -73,102 +72,100 @@
 ## Positionnement validé (post-démo 28/04)
 
 **LIAVO = couche post-mise-en-relation.**
-L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale LMDJ — c'est la plateforme de coordination une fois la mise en relation faite par l'équipe LMDJ.
+L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale LMDJ.
 - Isabelle/Marie (LMDJ) conservent leur rôle de mise en relation
 - Dashboard réseau = visibilité post-dispatch pour LMDJ/IDDJ
 - Pitch hébergeurs : "La plateforme développée par les hébergeurs, pour les hébergeurs."
+
+**Règle absolue :** aucune visio LMDJ, aucun onboarding tant que le refactor complet (doc ARCHITECTURE_ORGANISATIONS.md) n'est pas finalisé.
 
 ---
 
 ## État produit — 04/05/2026
 
-### Features en production ✅
+### Ce qui est en production ✅
 
-**Flows organisateur (enseignant) :**
+**Flows organisateur :**
 - Inscription avec recherche établissement (API Éducation Nationale)
-- Création séjour (formulaire 3 étapes)
-- Flow invitation hébergeur → enseignant :
-  - Compte dormant + magic link (pas de mot de passe requis à l'inscription)
-  - Séjour DRAFT + DemandeDevis créés automatiquement
-  - Bouton "Modifier" sur séjour DRAFT
-  - Badge "X devis reçu(s)" + bouton "Voir les offres"
+- Création séjour + appel d'offres géographique
+- Flow invitation hébergeur → organisateur (compte dormant + magic link)
 - Sélection devis → statut SELECTIONNE
-- Soumission au directeur (recherche par UAI + invitation si non trouvé)
+- Soumission signataire (recherche UAI + invitation si non trouvé)
 
-**Flows signataire (directeur) :**
-- Inscription avec établissement obligatoire
-- Page `/register/signataire?token=UUID` : pré-remplissage depuis invitation
-- Dashboard signataire : liste séjours par UAI, signature électronique devis, refus, soumission rectorat, paramètres email DSDEN, Chorus Pro XML
-- Persistance UAI : trouvé automatiquement pour tous les futurs séjours du même établissement
+**Flows signataire :**
+- Inscription via token avec pré-remplissage établissement
+- Dashboard : liste séjours, signature électronique, soumission rectorat, Chorus Pro XML
 
 **Flows hébergeur :**
-- Dashboard venue : demandes reçues, création devis HT/TTC, gestion planning, CRM clients
-- Invitation organisateur avec recherche établissement scolaire
-- Constructeur devis avec catalogue + autocomplétion + PDF inline
+- Inscription via invitation (3 cas : centre existant / pré-créé admin / nouveau)
+- Dashboard : demandes reçues, constructeur devis, planning collaboratif, CRM
+- Invitation organisateur avec recherche établissement
 
 **Dashboard réseau :**
-- Rôle RESEAU, compte demo-lmdj@liavo.fr / LMDJ2026!
-- 54 centres IDDJ importés via APIDAE en prod (intégration prod OK)
-- KPIs, filtres période, invitation centres, slide-over fiche, export CSV
+- 54 centres IDDJ en prod, KPIs, export CSV
 
 **Infrastructure :**
-- Flow vérification email + magic link
-- Pages légales complètes (CGU, CGV, mentions légales, confidentialité, mandat Chorus Pro v1.1)
-- Footer légal injecté via layout.tsx sur toutes les routes /dashboard/*
-- CORS whitelist, rate limiting
-- Planning IA (Anthropic claude-sonnet-4-5, fire-and-forget)
-- Import CSV élèves (Pronote/ONDE), journal séjour parents, lien journal depuis autorisation
-- Planning PDF A4 paysage
+- Vérification email, magic link, reset password
+- Pages légales complètes, mandat Chorus Pro v1.1
+- CORS, rate limiting, JWT_SECRET sécurisé (changé 04/05)
+- Planning IA, import CSV élèves, journal séjour parents, planning PDF
 
-**SC8 — À déployer (commit + push en attente) :**
-- Suppression colonnes `etablissement*` sur User — données migrées vers Organisation/Membership
-- Build backend + frontend : exit 0, 0 erreur TypeScript
-- Migration SQL prête : `migrations/20260504_sc8_drop_etablissement_columns/migration.sql`
+**Modèle de données :**
+- Organisation + Membership : tous les users hébergeurs/organisateurs rattachés
+- Colonnes `etablissement*` supprimées de `utilisateurs` (SC8)
+- `InvitationHebergement` enrichie (10 nouveaux champs SC5bis)
+- Routes admin : invitations, claims, hébergeurs, utilisateurs, centres
 
-### PISTE / Chorus Pro
+### Ce qui manque encore ❌
+
+**Avant visio LMDJ (dans l'ordre) :**
+1. Page `/centre/[id]/claim` — flow "C'est mon centre" depuis le catalogue (fin SC5bis)
+2. SC4ter : `getAllSejoursSignataire()` via Membership, `InvitationCollaboration.organisationCibleId`
+3. SC9 : `StatutDevis` étendu + backfill (badges cohérents sur devis)
+4. Migration `Client` → `RelationCommerciale` (CRM legacy)
+5. `typeContexte HORS_SCOLAIRE` dans `soumettreDemandePublique()`
+6. `DECLARE_TAM` dans `StatutSejour` (flow colo)
+
+**Suspendus à validation commerciale :**
+- SC7 : notifications APIDAE (prompt CC prêt)
+- Freemium hébergeur (infrastructure en place, TODO à décommenter)
+- Chorus Pro production (habilitation AIFE à finaliser)
+- Intégration APIDAE LMDJ (1 ligne dès réception credentials)
+
+---
+
+## PISTE / Chorus Pro
 
 - Compte PISTE : contact@liavo.fr — validé
-- App SANDBOX : APP_SANDBOX_contact@liavo.fr — validée
-- Client ID OAuth : `13b4b067-aab9-4bd9-b3f4-c2cd737c96f5`
-- API Key : `ea844f57-0b6d-41d0-b1a9-1268fc383f84`
+- App SANDBOX validée, Client ID : `13b4b067-aab9-4bd9-b3f4-c2cd737c96f5`
 - Export XML PEPPOL UBL 2.1 fonctionnel (`devis.service.ts → getChorusXml()`)
 - **Pending :** habilitation tiers mandaté AIFE
-
-### Sécurité — à corriger
-
-- ⚠️ **JWT_SECRET=dev-secret-2024 encore en prod Scalingo** — changer avant tout déploiement sensible :
-  ```bash
-  scalingo --app liavo-backend --region osc-fr1 env-set JWT_SECRET=$(openssl rand -hex 32)
-  ```
 
 ---
 
 ## Démo LMDJ + IDDJ — Résultats (28/04/2026)
 
-- **LMDJ (Anaïtis Mangeon)** : intéressée — visio de suivi à caler
+- **LMDJ (Anaïtis Mangeon)** : intéressée — visio de suivi à caler APRÈS fin refactor
 - **IDDJ (Robin Baladi)** : attentiste — CA à consulter
-- **Prochaine étape :** adapter le pitch au pivot positionnement, caler la visio LMDJ
 
 ---
 
-## Roadmap post-démo
+## Roadmap post-démo (suspendus)
 
-### Ne pas construire avant validation commerciale
-- **Notification centres APIDAE non inscrits** (SC7) : prompt CC préparé, suspendu à LMDJ/IDDJ
-- **Freemium hébergeur** : infrastructure abonnementStatut en place, TODO dans findOpen() à décommenter
-- **Refactoring DashboardShell** : 4-6j, risque moyen
-- **JWT httpOnly cookie** : migration délibérément différée post-démo (risque régression auth)
-- **Chorus Pro production** : finaliser habilitation AIFE, créer ChorusProService NestJS
-- **Intégration APIDAE LMDJ** : une ligne dans syncApidae() une fois credentials reçus
-- **RC Pro** : ~500-700€/an Hiscox, différé post-démo
-- **Éditeur devis colonnes configurables** : 3-4j dev, post-validation commerciale
+- SC7 : notifications APIDAE non inscrits
+- Freemium hébergeur
+- Refactoring DashboardShell
+- JWT httpOnly cookie migration
+- Chorus Pro production
+- Intégration APIDAE LMDJ
+- RC Pro Hiscox
+- Éditeur devis colonnes configurables
 
 ---
 
 ## Financement
 
-Séquence validée :
-1. Initiative Faucigny Mont-Blanc (membre CA, prêt taux zéro) → immédiat
+1. Initiative Faucigny Mont-Blanc (prêt taux zéro) → immédiat
 2. Start-up & Go Emergence post-SIREN → en cours
 3. Réseau Entreprendre Haute-Savoie → 6 mois
 4. BPI → 12-18 mois avec pilote rectorat
@@ -182,24 +179,17 @@ Séquence validée :
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind CSS 4 |
 | Backend | NestJS 11, Prisma ORM |
 | Base de données | PostgreSQL 17 |
-| Auth | JWT |
 | Stockage | OVH Object Storage Gravelines |
 | Emails | Brevo |
 | Hébergement | Scalingo Paris |
 | DNS/Domaine | OVH |
 
-**Repo :** `theorocheloison-hash/sejour-jeunesse`
-**Local :** `C:\Users\Roche-Loison\Desktop\sejour-jeunesse` (copie UNIQUE)
-**Déploiement :** push main → Scalingo auto (backend + frontend)
-**GitHub auth :** OAuth via Git Credential Manager (renouvellement auto). Ne JAMAIS hardcoder de token dans .git/config.
-
 ---
 
 ## Règles de développement
 
-- **Fix at source, never patch** — règle absolue
+- **Fix at source, never patch**
 - **Lire les fichiers avant toute proposition** — via filesystem-liavo
-- **Anticiper les bugs cascade** avant d'écrire le moindre code
-- **Ne jamais push sans confirmation explicite de Théo**
-- `str_replace` non fiable sur Windows → utiliser `write_file` ou `edit_file`
-- **Valider le contenu exact avec Théo avant tout write_file** — présenter → attendre "ok" → agir
+- **Anticiper les bugs cascade + grep vérification** — obligatoires dans chaque prompt CC
+- **git via CC, SQL via PowerShell**
+- **Ne jamais push sans confirmation explicite**
