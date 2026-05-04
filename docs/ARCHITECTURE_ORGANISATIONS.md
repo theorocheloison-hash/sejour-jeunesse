@@ -4,6 +4,7 @@
 > Rédigé le 29 avril 2026, après audit complet du code backend/frontend.
 > Mis à jour le 29 avril 2026 (v3) : Phase 0 Scalingo, rôles français, TypeStructure élargi, widget+notification centres non inscrits.
 > Mis à jour le 29 avril 2026 (v3.1) : Phase 0 Scalingo **TERMINÉE** — backend+BDD+frontend+stockage migrés en France.
+> Mis à jour le 03 mai 2026 (v3.2) : Lacunes identifiées par audit — SC4ter (flow signataire), typeContexte séjour, modèles legacy InvitationDirecteur/InvitationCollaboration, Rappel/ContactClient orphelins, visibilité signataire, statut DECLARE_TAM.
 > Statut : **VALIDÉ — prêt pour lancement sous-chantier 1 (schéma Prisma + rôles français + backfill)**.
 
 ---
@@ -13,9 +14,14 @@
 0. [Phase 0 — Migration Railway → Scalingo (souveraineté données France)](#0-phase-0--migration-railway--scalingo)
 1. [Pourquoi ce refactor](#1-pourquoi-ce-refactor)
 2. [Modèle de données cible](#2-modèle-de-données-cible)
+   - 2.6 Appartenance du séjour — décision architecturale
+   - 2.7 typeContexte sur Sejour — branchement conditionnel scolaire / hors-scolaire
 3. [Mapping ancien → nouveau (incluant renommage des rôles)](#3-mapping-ancien--nouveau)
+   - 3.6 Modèles legacy à migrer : InvitationDirecteur, InvitationCollaboration
+   - 3.7 Modèles CRM legacy à migrer : Rappel, ContactClient
 4. [Les sources d'Organisation et mécanismes de notification](#4-les-sources-dorganisation-et-mécanismes-de-notification)
 5. [Le mécanisme de claim hébergeur (Kbis + validation manuelle)](#5-le-mécanisme-de-claim-hébergeur)
+5bis. [Le flow invitation signataire post-refactor (SC4ter)](#5bis-le-flow-invitation-signataire-post-refactor)
 6. [Découpage en sous-chantiers](#6-découpage-en-sous-chantiers)
 7. [Catalogue des risques cascade](#7-catalogue-des-risques-cascade)
 8. [Checklist de validation pré-déploiement](#8-checklist-de-validation-pré-déploiement)
@@ -364,16 +370,62 @@ Un User peut appartenir à plusieurs Organisations. `Membership.isPrimary` dési
 
 ### 2.6 TypeStructure vs Role — principe de séparation
 
-- **Role** (sur User) → détermine les permissions et le dashboard visible (ORGANISATEUR, HEBERGEUR, SIGNATAIRE, etc.)
+- **Role** (sur l'utilisateur) → détermine les permissions et le dashboard visible (ORGANISATEUR, HEBERGEUR, SIGNATAIRE, etc.)
 - **TypeStructure** (sur Organisation) → classifie la nature juridique/administrative, détermine les branchements UX conditionnels (UAI vs libre, rectorat vs TAM, directeur vs signataire libre)
 - **Modèle économique** → déterminé par la présence de CentreHebergement + planAbonnement, pas par TypeStructure ni Role. Seul l'hébergeur paie.
 
 Exemple concret Mairie de Morillon double-casquette :
 - Organisation : `TypeStructure=MAIRIE`, SIREN unique
-- Sophie (directrice ALSH, organise des colos) → User `role=ORGANISATEUR`, Membership vers cette Organisation
-- Marc (responsable gîte municipal, accueille des groupes) → User `role=HEBERGEUR`, Membership vers cette même Organisation
+- Sophie (directrice ALSH, organise des colos) → utilisateur `role=ORGANISATEUR`, Membership vers cette Organisation
+- Marc (responsable gîte municipal, accueille des groupes) → utilisateur `role=HEBERGEUR`, Membership vers cette même Organisation
 - Dashboard de Sophie : flow organisateur avec branchement "non-scolaire" (pas d'UAI, signataire libre)
 - Dashboard de Marc : flow hébergeur avec devis, planning, CRM. Marc paie l'abonnement LIAVO.
+
+### 2.7 Appartenance du séjour — décision architecturale
+
+**Décision validée le 03/05/2026 :** un séjour appartient à son créateur (l'utilisateur, FK `createurId → utilisateurs`), pas à l'Organisation.
+
+Conséquences :
+- Deux enseignants du même collège ne partagent **pas** automatiquement leurs séjours via le Membership. Chaque séjour est souverain de son créateur.
+- La FK `Sejour.createurId → User` reste inchangée. Pas de migration vers `organisationId` sur `Sejour`.
+- L'organisation de l'organisateur est accessible en passant par `getOrganisationPrincipale(createurId)` quand nécessaire (ex : Chorus Pro, CRM hébergeur).
+- La collaboration multi-utilisateurs sur un même séjour (phase 2, switcher multi-orga) n'est pas dans le périmètre Phase 1.
+
+### 2.8 typeContexte sur Sejour — branchement conditionnel scolaire / hors-scolaire
+
+**Problème :** pour brancher les flows conditionnels (rectorat vs TAM, directeur d'école vs signataire libre, UAI obligatoire vs SIRET), il faut connaître le contexte du séjour au moment de sa création. Déduire ce contexte depuis `Organisation.typeStructure` de l'organisateur est fragile : une Mairie peut organiser des colos ET des séjours scolaires.
+
+**Décision :** ajouter un champ `typeContexte` sur `Sejour`.
+
+```prisma
+enum TypeContexteSejour {
+  SCOLAIRE       // Flow : UAI obligatoire, invitation signataire (directeur d'école), soumission DSDEN
+  HORS_SCOLAIRE  // Flow : signataire libre (maire, président asso, DGS), déclaration TAM, pas de rectorat
+}
+
+model Sejour {
+  // ... champs existants ...
+  typeContexte TypeContexteSejour @default(SCOLAIRE) @map("type_contexte")
+}
+```
+
+Règles de branchement :
+- Si `typeContexte=SCOLAIRE` → afficher UAI, inviter signataire "directeur d'école", bouton "Soumettre au rectorat", statut `SOUMIS_RECTORAT`
+- Si `typeContexte=HORS_SCOLAIRE` → masquer UAI, inviter signataire "responsable légal", bouton "Télécharger le dossier de déclaration", statut `DECLARE_TAM`
+
+Valeur par défaut `SCOLAIRE` pour compatibilité ascendante avec les séjours existants.
+
+**Migration SQL :**
+```sql
+ALTER TYPE IF EXISTS "TypeContexteSejour" ADD VALUE IF NOT EXISTS 'SCOLAIRE';
+ALTER TYPE IF EXISTS "TypeContexteSejour" ADD VALUE IF NOT EXISTS 'HORS_SCOLAIRE';
+ALTER TABLE sejours ADD COLUMN IF NOT EXISTS type_contexte TEXT NOT NULL DEFAULT 'SCOLAIRE';
+```
+
+**Impact StatutSejour :** ajouter `DECLARE_TAM` à l'enum existant pour les séjours hors-scolaire.
+```sql
+ALTER TYPE "StatutSejour" ADD VALUE IF NOT EXISTS 'DECLARE_TAM';
+```
 
 ---
 
@@ -434,6 +486,68 @@ Même logique que précédemment : déduplication par UAI, création Organisatio
 ### 3.5 InvitationCollaboration, Sejour, DemandeDevis
 
 Inchangé par rapport aux versions précédentes du doc.
+
+### 3.6 Modèles legacy à migrer : InvitationDirecteur et InvitationCollaboration
+
+Ces deux modèles stockent des champs établissement à plat (`etablissementUai`, `etablissementNom`, etc.) — vestige du modèle pré-refactor. Ils doivent être mis à jour pour porter des références vers `Organisation`.
+
+**`InvitationDirecteur` (organisateur → signataire) — modifications requises :**
+
+```prisma
+model InvitationDirecteur {
+  // champs existants conservés pour compatibilité...
+  organisationId    String?   @map("organisation_id") @db.Uuid   // NOUVEAU — orga de l'organisateur
+  typeContexte      String?   @map("type_contexte") @db.VarChar(20) // NOUVEAU — 'SCOLAIRE' | 'HORS_SCOLAIRE'
+
+  organisation      Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+}
+```
+
+- `organisationId` : FK nullable vers l'Organisation de l'organisateur émetteur. Quand renseignée, `registerSignataire` crée automatiquement un Membership vers cette Organisation sans demander de saisie.
+- `typeContexte` : propagé depuis le séjour, détermine le flow d'inscription présenté au signataire (recherche UAI scolaire vs StructureSearch libre).
+- Les champs `etablissementUai` et `etablissementNom` sont conservés pendant la période de transition (SC8), utilisés en fallback si `organisationId` est null (invitations créées avant le refactor).
+
+**`InvitationCollaboration` (hébergeur → organisateur) — modifications requises :**
+
+```prisma
+model InvitationCollaboration {
+  // champs existants conservés...
+  organisationCibleId String?  @map("organisation_cible_id") @db.Uuid  // NOUVEAU
+
+  organisationCible   Organisation? @relation(fields: [organisationCibleId], references: [id], onDelete: SetNull)
+}
+```
+
+- `organisationCibleId` : FK nullable vers l'Organisation pré-remplie par l'hébergeur. Quand renseignée, `registerOrganisateur` crée automatiquement un Membership sans re-saisie.
+- Les champs `etablissementUai/Nom/Adresse/Ville` sont conservés en fallback jusqu'au SC8.
+
+**Règle générale pour les deux modèles :** si `organisationId` / `organisationCibleId` est non null à l'inscription → Membership automatique créé, formulaire pré-rempli en lecture seule. Si null (invitation legacy) → comportement actuel conservé.
+
+### 3.7 Modèles CRM legacy à migrer : Rappel et ContactClient
+
+Aujourd'hui `Rappel` et `ContactClient` sont rattachés à `Client` (ancien CRM). Post-migration vers `RelationCommerciale`, ces tables deviennent orphelines si on ne les migre pas.
+
+**Modifications requises au SC4 (dans le même sous-chantier que la migration Client → RelationCommerciale) :**
+
+```prisma
+model Rappel {
+  // Ajouter :
+  relationId   String?  @map("relation_id") @db.Uuid   // FK vers RelationCommerciale
+  relation     RelationCommerciale? @relation(fields: [relationId], references: [id], onDelete: SetNull)
+  // Conserver clientId nullable pendant la transition
+}
+
+model ContactClient {
+  // Ajouter :
+  relationId   String?  @map("relation_id") @db.Uuid
+  relation     RelationCommerciale? @relation(fields: [relationId], references: [id], onDelete: SetNull)
+  // Conserver clientId nullable pendant la transition
+}
+```
+
+**Backfill :** pour chaque `Rappel` et `ContactClient` lié à un `Client`, trouver la `RelationCommerciale` correspondante via `organisationClienteId` (dérivé du `Client.uai` ou `Client.nom`) et renseigner `relationId`.
+
+**Suppression de `Client`, `ContactClient`, `Rappel → clientId` :** au SC8 uniquement, après validation que `relationId` est renseigné pour tous les enregistrements actifs.
 
 ---
 
@@ -517,6 +631,103 @@ Kbis = données personnelles dirigeant. Mention CGU, conservation 12 mois, stock
 
 ---
 
+## 5bis. Le flow invitation signataire post-refactor (SC4ter)
+
+### 5bis.1 Contexte et problème
+
+L'`InvitationDirecteur` actuelle stocke `etablissementUai` et `etablissementNom` à plat, sans lien vers `Organisation`. Quand le signataire s'inscrit via le token, `registerSignataire` crée un utilisateur avec ces champs copiés sur `User` mais **ne crée pas de Membership**. Il n'y a donc aucun lien structurel entre le signataire et l'Organisation du séjour.
+
+Par ailleurs, le formulaire `/register/signataire` est entièrement orienté scolaire (filtres École/Collège/Lycée, recherche UAI, message "directeur d'établissement"), rendant le flow inutilisable pour un signataire hors-scolaire (maire, président d'asso, DGS).
+
+### 5bis.2 Cas 1 — Signataire scolaire (directeur d'école)
+
+**Contexte :** un enseignant du Collège Victor Hugo invite son directeur à signer le dossier.
+
+**Flow cible :**
+1. L'organisateur envoie l'invitation → `InvitationDirecteur` créée avec `organisationId` = l'Organisation "Collège Victor Hugo" de l'organisateur, `typeContexte='SCOLAIRE'`
+2. Le directeur reçoit l'email, clique le lien → `/register/signataire?token=XXX`
+3. Le frontend lit le token → récupère `organisationId` + `typeContexte`
+4. Si `organisationId` non null et `typeContexte=SCOLAIRE` → affiche le nom de l'établissement en lecture seule (pré-rempli, non modifiable), pas de recherche UAI à refaire
+5. L'inscription crée le Membership : `Membership(userId=directeur, organisationId=CollègeVictorHugo, role=MEMBRE, isPrimary=true)`
+6. Résultat : le directeur est rattaché au même collège que l'organisateur, sans ressaisie
+
+**Règle :** le signataire scolaire **ne peut pas choisir une autre organisation** que celle de l'invitation. L'organisation est imposée par le contexte du séjour.
+
+### 5bis.3 Cas 2 — Signataire hors-scolaire (maire, président d'asso, DGS)
+
+**Contexte :** un directeur de centre de loisirs (Organisation = "Association Les Pins") organise une colo et a besoin de la signature du maire de sa commune.
+
+**Différence fondamentale avec le cas scolaire :** le signataire (maire) représente une Organisation **distincte** de celle de l'organisateur. La mairie n'est pas l'asso. Ce ne sont pas deux membres de la même Organisation.
+
+**Flow cible :**
+1. L'organisateur envoie l'invitation → `InvitationDirecteur` créée avec `organisationId=null` (la mairie n'est pas encore en base ou pas connue), `typeContexte='HORS_SCOLAIRE'`
+2. Le maire reçoit l'email, clique le lien → `/register/signataire?token=XXX`
+3. Le frontend lit `typeContexte=HORS_SCOLAIRE` → affiche `<StructureSearch>` (SIRENE) pour que le maire trouve sa mairie, avec fallback saisie libre
+4. Le maire sélectionne ou saisit sa mairie → Organisation créée ou récupérée via `findOrCreateOrganisation()`
+5. L'inscription crée le Membership : `Membership(userId=maire, organisationId=MairieDeXxx, role=PROPRIETAIRE, isPrimary=true)`
+6. L'`InvitationDirecteur` est mise à jour : `organisationId = MairieDeXxx.id` (trace pour l'historique)
+
+**Note :** dans ce cas, l'organisateur et le signataire appartiennent à deux Organisations différentes. Le lien entre eux est établi via le séjour (`Sejour.createurId` → organisateur) et la signature (`Devis.signatureDirecteur`), pas via un Membership commun. C'est intentionnel.
+
+### 5bis.4 Modifications techniques requises (SC4ter)
+
+**Durée estimée : 1 jour. Dépendances : SC1, SC1bis, SC4.**
+
+**Backend — `InvitationDirecteur` :**
+- Ajouter champs `organisationId` (FK nullable) et `typeContexte` (VARCHAR 20) — cf. section 3.6
+- Modifier `invitations-directeur.service.ts` `findByToken()` : retourner `organisationId` + `typeContexte` + `organisation.nom` en plus des champs existants
+- Modifier `auth.service.ts` `registerSignataire()` : si `organisationId` non null → créer Membership automatique vers cette Organisation avec `isPrimary=true`
+- Modifier le service créateur d'invitation (dans `sejour.service.ts` ou équivalent) : renseigner `organisationId` depuis `getOrganisationPrincipale(organisateurId)` et `typeContexte` depuis `sejour.typeContexte`
+
+**Frontend — `/register/signataire` :**
+- Si `typeContexte=SCOLAIRE` et `organisationId` non null → afficher l'établissement pré-rempli en lecture seule, supprimer les filtres École/Collège/Lycée et la recherche UAI
+- Si `typeContexte=HORS_SCOLAIRE` → afficher `<StructureSearch allowFreeText={true}>` à la place de la recherche UAI
+- Si token absent ou `typeContexte` non reconnu → fallback sur le comportement actuel (recherche UAI)
+- Supprimer le message "Seuls les directeurs d'établissement peuvent valider des dossiers de séjours scolaires" — remplacer par un message contextuel selon `typeContexte`
+
+### 5bis.5 Visibilité des séjours pour le SIGNATAIRE
+
+**Règle validée :** un SIGNATAIRE voit **tous** les séjours dont le créateur appartient à la même Organisation que lui (Membership commun), PLUS les séjours pour lesquels il a reçu une invitation directe (`InvitationDirecteur.emailDirecteur = signataire.email`).
+
+Cela signifie concrètement : un directeur du Collège Victor Hugo voit tous les séjours de tous les enseignants de ce collège, pas seulement ceux pour lesquels il a été explicitement invité. C'est cohérent avec sa responsabilité légale de validation sur son établissement.
+
+Pour un signataire hors-scolaire (maire, président d'asso), la visibilité est limitée aux séjours avec invitation directe, car il n'y a pas de notion d'appartenance commune — il signe ponctuellement pour un séjour précis.
+
+**Post-refactor**, la requête `getAllSejoursSignataire()` doit être adaptée : au lieu de matcher sur `etablissementUai`, elle filtre sur Membership commun (cas scolaire) OU invitation directe (cas hors-scolaire + fallback legacy).
+
+```typescript
+// Logique cible dans sejour.service.ts getAllSejoursSignataire(userId, signataire)
+const orgaSignataire = await getOrganisationPrincipale(userId, prisma);
+
+// Cas scolaire : TOUS les séjours des organisateurs de la même Organisation
+const sejoursParOrga = orgaSignataire
+  ? await prisma.sejour.findMany({
+      where: {
+        createur: {
+          memberships: { some: { organisationId: orgaSignataire.id } }
+        }
+      }
+    })
+  : [];
+
+// Cas hors-scolaire + fallback invitations legacy
+const sejoursParInvitation = await prisma.sejour.findMany({
+  where: {
+    invitationsDirecteur: {
+      some: { emailDirecteur: signataire.email }
+    }
+  }
+});
+
+// Union dédupliquée — les séjours scolaires apparaissent une seule fois
+// même si le signataire a aussi reçu une invitation directe dessus
+return deduplicateById([...sejoursParOrga, ...sejoursParInvitation]);
+```
+
+**Note importante sur les performances :** pour un collège actif avec 10 enseignants et 30 séjours sur l'année, cette requête reste légère. Si le volume augmente significativement (réseaux avec centaines d'établissements), envisager une pagination au SC4ter.
+
+---
+
 ## 6. Découpage en sous-chantiers
 
 ### Vue d'ensemble
@@ -530,13 +741,14 @@ Kbis = données personnelles dirigeant. Mention CGU, conservation 12 mois, stock
 | 3 | Composant frontend `<StructureSearch>` | 1.5 j | 2 |
 | 4 | Refactor backend services (etablissement* → orga, rôles français) | 3-4 j | 1, 1bis |
 | 4bis | Refactor claim hébergeur + Kbis + validation manuelle | 1.5 j | 1bis, 4 |
-| 5 | Refactor frontend dashboards + routes françaises | 2 j | 4 |
+| 4ter | Flow invitation signataire post-refactor (InvitationDirecteur + Membership auto) | 1 j | 1, 4 |
+| 5 | Refactor frontend dashboards + routes françaises | 2 j | 4, 4ter |
 | 5bis | Page publique de claim hébergeur | 1 j | 4bis, 3 |
 | 6 | Page publique demande de séjour sans compte | 1.5 j | 3, 4 |
 | 7 | Widget signalement intérêt + notification auto centres | 0.5 j | 4, 5bis |
 | 8 | Suppression champs legacy User | 0.5 j | Tous |
 
-**Total : 15.5-17.5 jours** (incluant Phase 0 Scalingo + renommage rôles + widget notification).
+**Total : 16.5-18.5 jours** (incluant Phase 0 Scalingo + renommage rôles + widget notification + SC4ter signataire).
 
 ### Sous-chantier 0 — Migration Scalingo (1-2 j)
 
@@ -583,6 +795,26 @@ Helpers :
 ### Sous-chantier 4bis — Claim hébergeur + Kbis + validation manuelle (1.5 j)
 
 Backend : endpoints claim, upload-kbis, admin/valider. Frontend : page admin claims, composant KbisUpload, bandeau attente.
+
+### Sous-chantier 4ter — Flow invitation signataire post-refactor (1 j)
+
+Cf. section 5bis pour le détail complet.
+
+**Livrables backend :**
+- Migration Prisma : ajout `organisationId` + `typeContexte` sur `InvitationDirecteur`
+- Ajout `typeContexte` + enum `TypeContexteSejour` sur `Sejour` (avec `DECLARE_TAM` dans `StatutSejour`)
+- `invitations-directeur.service.ts` `findByToken()` : expose `organisationId`, `typeContexte`, `organisation.nom`
+- `auth.service.ts` `registerSignataire()` : création Membership automatique si `organisationId` non null
+- Service émetteur d'invitation : renseigner `organisationId` + `typeContexte` à la création
+- `sejour.service.ts` : adapter `getAllSejoursSignataire()` — cf. section 5bis.5
+
+**Livrables frontend :**
+- `/register/signataire` : bifurcation `typeContexte=SCOLAIRE` (pré-rempli lecture seule) vs `HORS_SCOLAIRE` (`<StructureSearch>` libre)
+- Dashboard signataire : adapter le filtre "À signer" pour inclure séjours par Membership + séjours par invitation directe
+
+**Bugs cascade à anticiper :**
+- #25 — Invitations legacy (sans `organisationId`) : le fallback doit rester fonctionnel, ne pas casser les invitations déjà envoyées
+- #26 — Double Membership si le signataire existait déjà avec un Membership sur la même Organisation : vérifier l'unicité `(userId, organisationId)` avant création
 
 ### Sous-chantier 5 — Refactor frontend + routes françaises (2 j)
 
@@ -683,7 +915,9 @@ Identiques : Kbis falsifié, volume claims, demande erronée non-HEBERGEUR.
 - [ ] Inscription organisateur nouveau (avec UAI) → **PAS de Kbis**
 - [ ] Inscription organisateur nouveau (structure libre, sans UAI) → **PAS de Kbis**
 - [ ] Inscription organisateur colo (mairie, asso) → **PAS de Kbis**
-- [ ] Inscription signataire nouveau → **PAS de Kbis**
+- [ ] Inscription signataire via invitation scolaire → établissement pré-rempli, **PAS de saisie UAI**, **PAS de Kbis**, Membership créé automatiquement
+- [ ] Inscription signataire via invitation hors-scolaire → `<StructureSearch>` affiché, structure libre, **PAS de Kbis**, Membership créé sur l'orga choisie
+- [ ] Inscription signataire sans invitation → fallback recherche UAI actuel
 - [ ] Inscription hébergeur via création manuelle → **PAS de Kbis**
 - [ ] Inscription hébergeur via claim centre APIDAE orphelin → **Kbis demandé**
 - [ ] Validation admin claim + refus admin claim
@@ -698,6 +932,9 @@ Identiques : Kbis falsifié, volume claims, demande erronée non-HEBERGEUR.
 - [ ] Widget "Signalez votre intérêt" sur centre non inscrit
 - [ ] Notification auto centre APIDAE non inscrit (rate limit 7j)
 - [ ] Demande sans compte (Flux 3)
+- [ ] Séjour `typeContexte=SCOLAIRE` → bouton "Soumettre au rectorat" visible, statut `SOUMIS_RECTORAT` atteignable
+- [ ] Séjour `typeContexte=HORS_SCOLAIRE` → bouton "Télécharger le dossier" visible, statut `DECLARE_TAM` atteignable, rectorat masqué
+- [ ] Dashboard signataire : séjours visibles par Membership (même Organisation) ET par invitation directe
 - [ ] Comptes existants (Sauvageon, démo LMDJ, démo IDDJ) fonctionnels
 
 ### Vérifications BDD
@@ -821,6 +1058,10 @@ Identique à la version précédente : multi-établissement, SSO APIDAE, Espace 
 - **Organisation orpheline** : sans Membership rattachée (ex : centre APIDAE importé en bulk).
 - **shouldRequireKbis()** : helper centralisé, 4 conditions cumulatives.
 - **getOrganisationPrincipale()** : helper centralisé pour l'orga primary.
+- **typeContexte** : champ sur `Sejour` — `SCOLAIRE` ou `HORS_SCOLAIRE`. Détermine le flow de validation (rectorat vs TAM, UAI vs SIRET, directeur d'école vs signataire libre).
+- **TypeContexteSejour** : enum Prisma `SCOLAIRE | HORS_SCOLAIRE`.
+- **DECLARE_TAM** : statut `StatutSejour` pour les séjours hors-scolaire déclarés auprès du SDJES.
+- **SC4ter** : sous-chantier dédié au flow invitation signataire post-refactor (InvitationDirecteur + Membership automatique + bifurcation frontend).
 - **Scalingo** : PaaS français souverain remplaçant Railway. Datacenter Paris, ISO 27001, HDS.
 
 ---
@@ -839,6 +1080,19 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 ---
 
 ## 12. Journal d'avancement
+
+### Session 03/05/2026 — Audit doc + v3.2
+
+**Lacunes identifiées et documentées (aucun code modifié) :**
+- SC4ter créé : flow invitation signataire post-refactor (section 5bis)
+- Section 2.7 : appartenance du séjour → l'utilisateur (décision architecturale validée)
+- Section 2.8 : `typeContexte` sur `Sejour` + enum `TypeContexteSejour` + statut `DECLARE_TAM`
+- Section 3.6 : migration `InvitationDirecteur` + `InvitationCollaboration` (ajout `organisationId`, `typeContexte`)
+- Section 3.7 : migration `Rappel` + `ContactClient` → `RelationCommerciale` (ajout `relationId`)
+- Checklist section 8 : tests signataire scolaire/hors-scolaire + tests `typeContexte`
+- Glossaire mis à jour
+
+**Décision :** ne pas coder SC4ter avant validation de la v3.2 par Théo.
 
 ### Session 01/05/2026 — Sous-chantiers 3 et 4 (partiels)
 

@@ -14,12 +14,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { AdminService } from './admin.service.js';
+import { ClaimService } from '../organisations/claim.service.js';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly claimService: ClaimService,
+  ) {}
 
   @Get('stats')
   getStats() {
@@ -74,6 +78,27 @@ export class AdminController {
   @Patch('centres/:id/reseau')
   updateCentreReseau(@Param('id') id: string, @Body('reseau') reseau: string | null) {
     return this.adminService.updateCentreReseau(id, reseau);
+  }
+
+  @Get('claims')
+  getClaimsEnAttente() {
+    return this.claimService.getClaimsEnAttente();
+  }
+
+  @Patch('claims/:id/valider')
+  validerClaim(
+    @Param('id') membershipId: string,
+    @Request() req: any,
+  ) {
+    return this.claimService.validerClaim(membershipId, req.user.id);
+  }
+
+  @Patch('claims/:id/refuser')
+  refuserClaim(
+    @Param('id') membershipId: string,
+    @Body('motif') motif: string,
+  ) {
+    return this.claimService.refuserClaim(membershipId, motif);
   }
 }
 

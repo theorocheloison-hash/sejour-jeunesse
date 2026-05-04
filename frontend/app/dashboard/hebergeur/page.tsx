@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import api from '@/src/lib/api';
 import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import { getMesDevis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
@@ -21,6 +22,7 @@ export default function HebergeurDashboard() {
   const [demandes, setDemandes] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
+  const [claimStatut, setClaimStatut] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
@@ -41,6 +43,11 @@ export default function HebergeurDashboard() {
       setDemandes(mesDemandes);
       setRappelsAujourdhui(rappels);
     } catch {}
+    const cs = await api
+      .get('/organisations/mon-claim-statut')
+      .then((r) => r.data?.claimStatut ?? null)
+      .catch(() => null);
+    setClaimStatut(cs);
   }, []);
 
   useEffect(() => {
@@ -107,6 +114,24 @@ export default function HebergeurDashboard() {
         </div>
         <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">Déconnexion</button>
       </nav>
+
+      {claimStatut === 'EN_ATTENTE_DOCUMENT' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <p className="text-sm text-amber-800">
+            <strong>Revendication en cours</strong> — Votre Kbis est attendu pour valider
+            la propriété de votre centre. <a href="/dashboard/hebergeur/documents"
+            className="underline font-medium">Déposer le document →</a>
+          </p>
+        </div>
+      )}
+      {claimStatut === 'EN_ATTENTE_VALIDATION' && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
+          <p className="text-sm text-blue-800">
+            <strong>Validation en cours</strong> — Votre dossier a été transmis à notre équipe.
+            Vous serez notifié par email sous 48h.
+          </p>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-8">
 
