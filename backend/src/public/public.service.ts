@@ -144,6 +144,11 @@ export class PublicService {
     // 6. Email unique — confirmation + magic link
     await this.email.sendMagicLink(emailNorm, dto.prenom, dto.titre, magicUrl);
 
-    return { success: true, sejourId: sejour.id, demandeId: demande.id };
+    // centresNotifies : 1 si contact direct, 0 si appel d'offres géographique
+    // (le comptage géographique précis sera ajouté quand findOpen() sera extrait
+    // en service partagé — on ne ment pas avec un chiffre approximatif)
+    const centresNotifies = dto.centreDestinataireId ? 1 : 0;
+
+    return { success: true, sejourId: sejour.id, demandeId: demande.id, centresNotifies };
   }
 }

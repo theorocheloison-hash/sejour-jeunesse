@@ -34,6 +34,7 @@ function AppelOffresContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const [centresNotifies, setCentresNotifies] = useState(0);
 
   // Données séjour
   const [titre, setTitre]               = useState('');
@@ -70,21 +71,18 @@ function AppelOffresContent() {
     setError(null);
     setIsPending(true);
     try {
-      await soumettreDemandePublique({
-        prenom,
-        nom,
-        email,
-        typeStructure:      typeStructure || undefined,
-        etablissementNom:   etablissementNom || undefined,
-        titre,
-        dateDebut,
-        dateFin,
-        nombreEleves:       parseInt(nombreEleves, 10),
-        niveauClasse:       niveauClasse || undefined,
-        regionCible:        region || undefined,
-        villeHebergement:   villeHeberg || undefined,
+      const result = await soumettreDemandePublique({
+        prenom, nom, email,
+        typeStructure:        typeStructure || undefined,
+        etablissementNom:     etablissementNom || undefined,
+        titre, dateDebut, dateFin,
+        nombreEleves:         parseInt(nombreEleves, 10),
+        niveauClasse:         niveauClasse || undefined,
+        regionCible:          region || undefined,
+        villeHebergement:     villeHeberg || undefined,
         centreDestinataireId: centreId,
       });
+      setCentresNotifies(result.centresNotifies);
       setSubmittedEmail(email);
       setSuccess(true);
     } catch (err: any) {
@@ -107,6 +105,12 @@ function AppelOffresContent() {
           Un email a été envoyé à <strong>{submittedEmail}</strong> avec un lien
           pour suivre les réponses et accéder à votre espace LIAVO.
         </p>
+        {centresNotifies > 0 && (
+          <p className="text-sm text-gray-600 mb-4">
+            Votre demande a été transmise à{' '}
+            <strong>{centresNotifies} centre{centresNotifies > 1 ? 's' : ''}</strong>.
+          </p>
+        )}
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-6">
           Pensez à vérifier vos spams si vous ne trouvez pas l&apos;email.
         </div>

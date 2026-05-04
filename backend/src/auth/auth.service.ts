@@ -296,6 +296,23 @@ export class AuthService {
     return { message: 'Email de vérification renvoyé.' };
   }
 
+  async renvoyerMagicLink(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.compteValide) {
+      return { message: 'Si cet email correspond à une demande en cours, un lien a été envoyé.' };
+    }
+    const magicToken = randomUUID();
+    const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
+    });
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const magicUrl = `${frontendUrl}/auth/magic/${magicToken}`;
+    await this.email.sendMagicLink(user.email, user.prenom, 'votre demande de séjour', magicUrl);
+    return { message: 'Lien d\'accès envoyé.' };
+  }
+
   // ── Login ────────────────────────────────────────────────────────────
 
   async login(dto: LoginDto) {
@@ -303,6 +320,10 @@ export class AuthService {
       where: { email: dto.email },
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
+
+    if (!user.compteValide && !user.emailVerifie) {
+      throw new UnauthorizedException('COMPTE_DORMANT');
+    }
 
     const isValid = await bcrypt.compare(dto.password, user.motDePasse);
     if (!isValid) throw new UnauthorizedException('Identifiants invalides');

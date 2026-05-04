@@ -74,7 +74,7 @@ export async function getCentrePublic(id: string): Promise<CentrePublic | null> 
 
 export async function soumettreDemandePublique(
   payload: DemandePubliquePayload
-): Promise<{ success: boolean; sejourId: string; demandeId: string }> {
+): Promise<{ success: boolean; sejourId: string; demandeId: string; centresNotifies: number }> {
   const res = await fetch(`${API_BASE}/public/demande`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
