@@ -16,6 +16,7 @@ import { RegisterDto } from './dto/register.dto.js';
 import { RegisterOrganisateurDto } from './dto/register-organisateur.dto.js';
 import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
+import { findOrCreateMembership } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class AuthService {
@@ -127,6 +128,25 @@ export class AuthService {
         tokenVerificationExpires: tokenExpires,
       },
     });
+
+    // Membership automatique si invitation avec organisationId
+    if (dto.organisationId) {
+      await findOrCreateMembership(this.prisma, {
+        userId:         user.id,
+        organisationId: dto.organisationId,
+        role:           'MEMBRE',
+        isPrimary:      true,
+        claimStatut:    'NON_APPLICABLE',
+      });
+    }
+
+    // Marquer l'invitation comme utilisée si token présent
+    if (dto.invitationToken) {
+      await this.prisma.invitationDirecteur.updateMany({
+        where: { token: dto.invitationToken, utilisedAt: null },
+        data:  { utilisedAt: new Date() },
+      }).catch(() => {}); // non bloquant
+    }
 
     await this.prisma.consentementRgpd.create({
       data: {

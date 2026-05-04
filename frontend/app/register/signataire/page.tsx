@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
+import StructureSearch from '@/app/components/StructureSearch';
 
 function RegisterSignataireContent() {
   const searchParams = useSearchParams();
@@ -28,15 +29,40 @@ function RegisterSignataireContent() {
 
   // Pré-remplissage via invitation
   const [invitationLoaded, setInvitationLoaded] = useState(false);
-  const [invitationInfo, setInvitationInfo] = useState<{ sejourTitre?: string; enseignantPrenom?: string } | null>(null);
+  const [invitationInfo, setInvitationInfo] = useState<{
+    sejourTitre?: string;
+    enseignantPrenom?: string;
+    typeContexte?: string;
+    organisationId?: string | null;
+    organisation?: { id: string; nom: string; uai?: string | null; ville?: string | null } | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!invitationToken) return;
     api.get(`/invitations-directeur/${invitationToken}`)
       .then(res => {
         const inv = res.data;
-        setInvitationInfo({ sejourTitre: inv.sejourTitre, enseignantPrenom: inv.enseignantPrenom });
-        if (inv.etablissementNom) {
+        setInvitationInfo({
+          sejourTitre:    inv.sejourTitre,
+          enseignantPrenom: inv.enseignantPrenom,
+          typeContexte:   inv.typeContexte ?? 'SCOLAIRE',
+          organisationId: inv.organisationId ?? null,
+          organisation:   inv.organisation ?? null,
+        });
+
+        // Cas SCOLAIRE avec organisation connue : pré-remplir depuis l'Organisation
+        if (inv.typeContexte !== 'HORS_SCOLAIRE' && inv.organisation) {
+          setForm(f => ({
+            ...f,
+            etablissementNom: inv.organisation.nom ?? '',
+            etablissementUai: inv.organisation.uai ?? inv.etablissementUai ?? '',
+            etablissementVille: inv.organisation.ville ?? '',
+            etablissementAdresse: '',
+          }));
+          setInvitationLoaded(true);
+        }
+        // Cas SCOLAIRE legacy (organisationId null, champs plats) : comportement actuel
+        else if (inv.typeContexte !== 'HORS_SCOLAIRE' && inv.etablissementNom) {
           setForm(f => ({
             ...f,
             etablissementNom: inv.etablissementNom ?? '',
@@ -46,6 +72,7 @@ function RegisterSignataireContent() {
           }));
           setInvitationLoaded(true);
         }
+        // Cas HORS_SCOLAIRE : ne pas pré-remplir, StructureSearch sera affiché
       })
       .catch(() => {});
   }, [invitationToken]);
@@ -128,17 +155,21 @@ function RegisterSignataireContent() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.etablissementNom) {
-      setError('Veuillez sélectionner votre établissement.');
+      setError(
+        invitationInfo?.typeContexte === 'HORS_SCOLAIRE'
+          ? 'Veuillez sélectionner ou saisir votre organisation.'
+          : 'Veuillez sélectionner votre établissement.'
+      );
       return;
     }
     setError(null);
     setIsPending(true);
     try {
-      await api.post('/auth/register/signataire', form);
-      // Marquer l'invitation comme utilisée si token présent
-      if (invitationToken) {
-        try { await api.post(`/invitations-directeur/${invitationToken}/utiliser`); } catch { /* non bloquant */ }
-      }
+      await api.post('/auth/register/signataire', {
+        ...form,
+        invitationToken: invitationToken ?? undefined,
+        organisationId:  invitationInfo?.organisationId ?? undefined,
+      });
       setSuccess(true);
     } catch (err: unknown) {
       setError(extractApiError(err));
@@ -195,8 +226,12 @@ function RegisterSignataireContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Inscription directeur(trice)</h1>
-          <p className="mt-1 text-sm text-gray-500">Créez votre compte directeur d&apos;établissement</p>
+          <h1 className="text-2xl font-bold text-gray-900">Inscription signataire</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {invitationInfo?.typeContexte === 'HORS_SCOLAIRE'
+              ? 'Créez votre compte pour signer le dossier de séjour'
+              : 'Créez votre compte signataire d\'établissement'}
+          </p>
         </div>
 
         {/* Invitation context banner */}
@@ -259,18 +294,27 @@ function RegisterSignataireContent() {
 
             {/* Établissement */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Votre établissement *</label>
-              {form.etablissementNom ? (
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                {invitationInfo?.typeContexte === 'HORS_SCOLAIRE'
+                  ? 'Votre organisation *'
+                  : 'Votre établissement *'}
+              </label>
+
+              {/* CAS SCOLAIRE : établissement pré-rempli verrouillé */}
+              {invitationInfo?.typeContexte !== 'HORS_SCOLAIRE' && form.etablissementNom ? (
                 <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
-                    <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}
+                    </p>
                   </div>
                   {!invitationLoaded && (
                     <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
                   )}
                 </div>
-              ) : (
+              ) : invitationInfo?.typeContexte !== 'HORS_SCOLAIRE' ? (
+                /* CAS SCOLAIRE fallback : recherche établissement via API EN */
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     {([['École', 'Ecole'], ['Collège', 'Collège'], ['Lycée', 'Lycée']] as const).map(([label, value]) => (
@@ -290,34 +334,19 @@ function RegisterSignataireContent() {
                   </div>
                   <div className="relative">
                     <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={etabNom}
+                      <input type="text" value={etabNom}
                         onChange={e => { setEtabNom(e.target.value); fireEtabSearch(e.target.value, etabVille, etabCp, etabTypeFilter); }}
-                        placeholder="Nom"
-                        disabled={isPending}
-                        autoComplete="off"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                      />
-                      <input
-                        type="text"
-                        value={etabVille}
+                        placeholder="Nom" disabled={isPending} autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+                      <input type="text" value={etabVille}
                         onChange={e => { setEtabVille(e.target.value); fireEtabSearch(etabNom, e.target.value, etabCp, etabTypeFilter); }}
-                        placeholder="Ville"
-                        disabled={isPending}
-                        autoComplete="off"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                      />
+                        placeholder="Ville" disabled={isPending} autoComplete="off"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
                       <div className="relative">
-                        <input
-                          type="text"
-                          value={etabCp}
+                        <input type="text" value={etabCp}
                           onChange={e => { setEtabCp(e.target.value); fireEtabSearch(etabNom, etabVille, e.target.value, etabTypeFilter); }}
-                          placeholder="Code postal"
-                          disabled={isPending}
-                          autoComplete="off"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50"
-                        />
+                          placeholder="Code postal" disabled={isPending} autoComplete="off"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
                         {etabSearching && (
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
@@ -328,12 +357,8 @@ function RegisterSignataireContent() {
                     {etabResults.length > 0 && (
                       <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {etabResults.map(e => (
-                          <button
-                            key={e.uai}
-                            type="button"
-                            onClick={() => selectEtab(e)}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
-                          >
+                          <button key={e.uai} type="button" onClick={() => selectEtab(e)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{e.nom}</p>
                             <p className="text-xs text-gray-500 truncate">{e.commune} — {e.type}</p>
                           </button>
@@ -342,9 +367,45 @@ function RegisterSignataireContent() {
                     )}
                   </div>
                 </div>
+              ) : (
+                /* CAS HORS_SCOLAIRE : StructureSearch libre (SIRENE) */
+                <div>
+                  {form.etablissementNom ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
+                        <p className="text-xs text-gray-500 truncate">{form.etablissementVille}</p>
+                      </div>
+                      <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                    </div>
+                  ) : (
+                    <StructureSearch
+                      label=""
+                      placeholder="Rechercher votre mairie, association, entreprise..."
+                      allowFreeText={true}
+                      disabled={isPending}
+                      onSelect={(result) => {
+                        if (result) {
+                          setForm(f => ({
+                            ...f,
+                            etablissementNom: result.nom,
+                            etablissementVille: result.ville ?? '',
+                            etablissementUai: '',
+                            etablissementAdresse: result.adresse ?? '',
+                          }));
+                        } else {
+                          clearEtab();
+                        }
+                      }}
+                    />
+                  )}
+                </div>
               )}
-              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Votre rôle de directeur sera vérifié par les équipes LIAVO. Seuls les directeurs d&apos;établissement peuvent valider des dossiers de séjours scolaires.
+
+              <p className="mt-2 text-xs text-gray-500">
+                {invitationInfo?.typeContexte === 'HORS_SCOLAIRE'
+                  ? 'Sélectionnez votre organisation ou saisissez-la librement.'
+                  : 'Sélectionnez votre établissement dans la liste pour pré-remplir les informations.'}
               </p>
             </div>
 

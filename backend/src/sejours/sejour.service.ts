@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
 import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -635,15 +636,25 @@ export class SejourService {
       return { found: false, sent: false, alreadySent: true };
     }
 
+    // Résoudre l'organisation principale de l'organisateur
+    const orgaPrincipale = userId
+      ? await getOrganisationPrincipale(userId, this.prisma)
+      : null;
+
+    // Déterminer le typeContexte depuis le séjour
+    const typeContexteValue = (sejour as any).typeContexte ?? 'SCOLAIRE';
+
     const invitation = await this.prisma.invitationDirecteur.create({
       data: {
         sejourId,
-        devisId: devisId ?? null,
+        devisId:          devisId ?? null,
         emailDirecteur,
         etablissementUai: sejour.createur?.etablissementUai ?? null,
         etablissementNom: sejour.createur?.etablissementNom ?? null,
         enseignantPrenom: sejour.createur?.prenom ?? null,
-        sejourTitre: sejour.titre,
+        sejourTitre:      sejour.titre,
+        organisationId:   orgaPrincipale?.id ?? null,
+        typeContexte:     typeContexteValue,
       },
     });
 
