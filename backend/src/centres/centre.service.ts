@@ -158,8 +158,8 @@ export class CentreService {
 
     const user = await this.prisma.user.create({
       data: {
-        prenom: dto.nom,
-        nom: '',
+        prenom: dto.prenom ?? dto.nom ?? '',
+        nom: dto.nomContact ?? '',
         email: invitation.email,
         motDePasse: hashed,
         role: Role.HEBERGEUR,
@@ -233,14 +233,14 @@ export class CentreService {
       } else {
         centre = await this.prisma.centreHebergement.create({
           data: {
-            nom: dto.nom,
-            adresse: dto.adresse,
-            ville: dto.ville,
-            codePostal: dto.codePostal,
-            telephone: dto.telephone,
+            nom: dto.nom ?? '',
+            adresse: dto.adresse ?? '',
+            ville: dto.ville ?? '',
+            codePostal: dto.codePostal ?? '',
+            telephone: dto.telephone ?? null,
             email: invitation.email,
-            capacite: dto.capacite,
-            description: dto.description,
+            capacite: dto.capacite ?? 0,
+            description: dto.description ?? null,
             reseau: dto.reseau ?? null,
             userId: user.id,
             statut: 'ACTIVE',
@@ -299,39 +299,84 @@ export class CentreService {
   }
 
   async checkInvitation(token: string): Promise<{
+    cas: 1 | 2 | 3;
     isApidae: boolean;
+    centreExistantId: string | null;
     centre: {
+      id?: string;
       nom: string;
       ville: string;
       departement: string | null;
       capacite: number;
       imageUrl: string | null;
     } | null;
+    precreer: {
+      nom: string;
+      adresse: string | null;
+      ville: string | null;
+      codePostal: string | null;
+      capacite: number | null;
+      siret: string | null;
+      departement: string | null;
+    } | null;
   }> {
     const invitation = await this.prisma.invitationHebergement.findUnique({
       where: { token: token as any },
+      include: {
+        centreExistant: {
+          select: {
+            id: true, nom: true, ville: true, departement: true,
+            capacite: true, imageUrl: true,
+          },
+        },
+      },
     });
+
     if (!invitation || invitation.utilisedAt) {
-      return { isApidae: false, centre: null };
+      return { cas: 3, isApidae: false, centre: null, centreExistantId: null, precreer: null };
     }
 
-    // Passe 1 : par email
-    let centre = await this.prisma.centreHebergement.findFirst({
-      where: {
-        email: invitation.email,
-        userId: null,
-        source: 'APIDAE',
-      },
-      select: {
-        nom: true,
-        ville: true,
-        departement: true,
-        capacite: true,
-        imageUrl: true,
-      },
-    });
+    // CAS 1 : centre existant pointé par l'admin
+    if (invitation.centreExistantId && invitation.centreExistant) {
+      return {
+        cas: 1,
+        isApidae: false,
+        centre: invitation.centreExistant,
+        centreExistantId: invitation.centreExistantId,
+        precreer: null,
+      };
+    }
 
-    // Passe 2 : fallback nom + ville (si invitation contient un nomCentre exploitable)
+    // CAS 2 : données pré-remplies par l'admin
+    if (invitation.centrePrecreerNom) {
+      return {
+        cas: 2,
+        isApidae: false,
+        centre: {
+          nom: invitation.centrePrecreerNom,
+          ville: invitation.centrePrecreerVille ?? '',
+          departement: invitation.centrePrecreerDepartement ?? null,
+          capacite: invitation.centrePrecreerCapacite ?? 0,
+          imageUrl: null,
+        },
+        centreExistantId: null,
+        precreer: {
+          nom: invitation.centrePrecreerNom,
+          adresse: invitation.centrePrecreerAdresse ?? null,
+          ville: invitation.centrePrecreerVille ?? null,
+          codePostal: invitation.centrePrecreerCodePostal ?? null,
+          capacite: invitation.centrePrecreerCapacite ?? null,
+          siret: invitation.centrePrecreerSiret ?? null,
+          departement: invitation.centrePrecreerDepartement ?? null,
+        },
+      };
+    }
+
+    // CAS 3 : matching APIDAE existant — passe 1 email, passe 2 nomCentre
+    let centre = await this.prisma.centreHebergement.findFirst({
+      where: { email: invitation.email, userId: null, source: 'APIDAE' },
+      select: { nom: true, ville: true, departement: true, capacite: true, imageUrl: true },
+    });
     if (!centre && invitation.nomCentre) {
       centre = await this.prisma.centreHebergement.findFirst({
         where: {
@@ -339,19 +384,15 @@ export class CentreService {
           source: 'APIDAE',
           nom: { equals: invitation.nomCentre, mode: 'insensitive' },
         },
-        select: {
-          nom: true,
-          ville: true,
-          departement: true,
-          capacite: true,
-          imageUrl: true,
-        },
+        select: { nom: true, ville: true, departement: true, capacite: true, imageUrl: true },
       });
     }
-
     return {
+      cas: 3,
       isApidae: !!centre,
       centre: centre ?? null,
+      centreExistantId: null,
+      precreer: null,
     };
   }
 

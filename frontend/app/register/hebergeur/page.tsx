@@ -1,11 +1,34 @@
 'use client';
 
 import { useState, useEffect, Suspense, type FormEvent } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Cookies from 'js-cookie';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
+
+interface InvitationInfo {
+  cas: 1 | 2 | 3;
+  isApidae: boolean;
+  centreExistantId: string | null;
+  centre: {
+    nom: string;
+    ville: string;
+    departement: string | null;
+    capacite: number;
+    imageUrl: string | null;
+  } | null;
+  precreer: {
+    nom: string;
+    adresse: string | null;
+    ville: string | null;
+    codePostal: string | null;
+    capacite: number | null;
+    siret: string | null;
+    departement: string | null;
+  } | null;
+}
 
 const TYPES_SEJOURS = [
   { value: 'scolaire', label: 'Séjour scolaire' },
@@ -36,6 +59,7 @@ interface CentrePublic {
 
 function RegisterHebergeurContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const urlNomCentre = searchParams.get('nomCentre') ?? '';
   const urlVille = searchParams.get('ville') ?? '';
   const urlCodePostal = searchParams.get('codePostal') ?? '';
@@ -74,6 +98,7 @@ function RegisterHebergeurContent() {
     capacite: number;
     imageUrl: string | null;
   } | null>(null);
+  const [invitationInfo, setInvitationInfo] = useState<InvitationInfo | null>(null);
 
   const urlToken = searchParams.get('token') ?? searchParams.get('invitationToken') ?? '';
 
@@ -98,13 +123,25 @@ function RegisterHebergeurContent() {
         : [...f.typeSejours, value],
     }));
 
-  // Check if invitation token points to an APIDAE centre
+  // Check invitation token — bifurcation CAS 1 / 2 / 3
   useEffect(() => {
     if (!urlToken) return;
-    api.get(`/centres/check-invitation/${urlToken}`)
+    api.get<InvitationInfo>(`/centres/check-invitation/${urlToken}`)
       .then(({ data }) => {
-        if (data.isApidae && data.centre) {
-          setApidaeCentre(data.centre);
+        setInvitationInfo(data);
+        setApidaeCentre(data.centre ?? null);
+        if (data.cas === 2 && data.precreer) {
+          setForm(f => ({
+            ...f,
+            nomCentre: data.precreer!.nom,
+            adresse: data.precreer!.adresse ?? '',
+            ville: data.precreer!.ville ?? '',
+            codePostal: data.precreer!.codePostal ?? '',
+            capacite: data.precreer!.capacite != null ? String(data.precreer!.capacite) : '',
+            siret: data.precreer!.siret ?? '',
+            departement: data.precreer!.departement ?? '',
+          }));
+          setCentrePreFilled(true);
         }
       })
       .catch(() => {});
@@ -183,15 +220,25 @@ function RegisterHebergeurContent() {
     }
   };
 
-  const goStep15 = (e: FormEvent) => {
+  const goStep15 = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.prenom || !form.nom || !form.email || !form.password) {
+    // CAS 1 : email géré par invitation, pas requis dans le form
+    const emailRequis = invitationInfo?.cas !== 1;
+    if (!form.prenom || !form.nom || (emailRequis && !form.email) || !form.password) {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
     if (form.password.length < 8) {
       setError('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    if (invitationInfo?.cas === 1) {
+      await handleSubmit(e);
+      return;
+    }
+    if (invitationInfo?.cas === 2) {
+      setStep(2);
       return;
     }
     if (apidaeCentre) {
@@ -226,6 +273,27 @@ function RegisterHebergeurContent() {
     setError(null);
     setIsPending(true);
     try {
+      // CAS 1 — invitation admin avec centre existant : POST /centres/register
+      if (invitationInfo?.cas === 1) {
+        const { data } = await api.post('/centres/register', {
+          token: urlToken,
+          password: form.password,
+          prenom: form.prenom,
+          nomContact: form.nom,
+        });
+        Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
+        localStorage.setItem('sj_user_v2', JSON.stringify({
+          id:        data.user.id,
+          email:     data.user.email,
+          firstName: data.user.prenom,
+          lastName:  data.user.nom,
+          role:      data.user.role,
+        }));
+        router.push('/dashboard/hebergeur');
+        return;
+      }
+
+      // CAS 2 / 3 : flow standard
       await api.post('/auth/register/hebergeur', {
         prenom: form.prenom,
         nom: form.nom,
@@ -341,22 +409,36 @@ function RegisterHebergeurContent() {
           {/* ── STEP 1 : Infos personnelles ── */}
           {step === 1 && (
             <>
-            {apidaeCentre && (
+            {invitationInfo?.cas === 1 && apidaeCentre && (
+              <div className="mb-5 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] overflow-hidden">
+                {apidaeCentre.imageUrl && (
+                  <img src={apidaeCentre.imageUrl} alt={apidaeCentre.nom} className="w-full h-32 object-cover" />
+                )}
+                <div className="p-4">
+                  <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">
+                    Votre invitation est liée à un centre référencé
+                  </p>
+                  <p className="text-lg font-bold text-[var(--color-primary)]">{apidaeCentre.nom}</p>
+                  <p className="text-sm text-[var(--color-primary)]/80 mt-0.5">
+                    {apidaeCentre.ville}{apidaeCentre.departement ? ` (${apidaeCentre.departement})` : ''}
+                    {apidaeCentre.capacite ? ` — ${apidaeCentre.capacite} lits` : ''}
+                  </p>
+                  <p className="text-xs text-[var(--color-primary)]/70 mt-2">
+                    Ce centre sera rattaché à votre compte dès l&apos;inscription.
+                  </p>
+                </div>
+              </div>
+            )}
+            {invitationInfo?.cas !== 1 && apidaeCentre && (
               <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
                 {apidaeCentre.imageUrl && (
-                  <img
-                    src={apidaeCentre.imageUrl}
-                    alt={apidaeCentre.nom}
-                    className="w-full h-32 object-cover"
-                  />
+                  <img src={apidaeCentre.imageUrl} alt={apidaeCentre.nom} className="w-full h-32 object-cover" />
                 )}
                 <div className="p-4">
                   <p className="text-sm font-semibold text-blue-900 mb-1">
                     Votre centre est déjà sur LIAVO 🎉
                   </p>
-                  <p className="text-lg font-bold text-[var(--color-primary)]">
-                    {apidaeCentre.nom}
-                  </p>
+                  <p className="text-lg font-bold text-[var(--color-primary)]">{apidaeCentre.nom}</p>
                   <p className="text-sm text-blue-700 mt-0.5">
                     {apidaeCentre.ville}{apidaeCentre.departement ? ` (${apidaeCentre.departement})` : ''} — {apidaeCentre.capacite} lits
                   </p>
@@ -377,10 +459,16 @@ function RegisterHebergeurContent() {
                   <input id="nom" type="text" required value={form.nom} onChange={set('nom')} className={inputCls} />
                 </div>
               </div>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input id="email" type="email" required value={form.email} onChange={set('email')} placeholder="contact@moncentre.fr" className={inputCls} />
-              </div>
+              {invitationInfo?.cas === 1 ? (
+                <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5 text-xs text-gray-600">
+                  L&apos;email utilisé sera celui de votre invitation.
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                  <input id="email" type="email" required value={form.email} onChange={set('email')} placeholder="contact@moncentre.fr" className={inputCls} />
+                </div>
+              )}
               <div>
                 <label htmlFor="telephone" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Téléphone <span className="text-gray-400 font-normal">(optionnel)</span>
@@ -391,12 +479,15 @@ function RegisterHebergeurContent() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe</label>
                 <input id="password" type="password" required value={form.password} onChange={set('password')} placeholder="8 caractères minimum" className={inputCls} />
               </div>
-              <button type="submit"
-                className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2">
-                Continuer
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
+              <button type="submit" disabled={isPending}
+                className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                {isPending ? (
+                  <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Inscription...</>
+                ) : invitationInfo?.cas === 1 ? (
+                  'Créer mon compte'
+                ) : (
+                  <>Continuer<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg></>
+                )}
               </button>
             </form>
             </>
@@ -493,7 +584,14 @@ function RegisterHebergeurContent() {
             <form onSubmit={goStep3} className="space-y-4">
 
               {/* Pre-fill banner */}
-              {centrePreFilled && (
+              {invitationInfo?.cas === 2 ? (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-[var(--color-primary-light)] border border-[var(--color-border-strong)] text-sm text-[var(--color-primary)] mb-2">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Votre centre a été pré-configuré par LIAVO. Vous pouvez vérifier et compléter les informations si nécessaire.</span>
+                </div>
+              ) : centrePreFilled && (
                 <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 text-sm text-[var(--color-success)] mb-2">
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -505,9 +603,11 @@ function RegisterHebergeurContent() {
               <div>
                 <label htmlFor="nomCentre" className="block text-sm font-medium text-gray-700 mb-1.5">Nom du centre</label>
                 <input id="nomCentre" type="text" required value={form.nomCentre} onChange={set('nomCentre')}
-                  placeholder="Centre de vacances Les Pins" className={inputCls} />
+                  readOnly={invitationInfo?.cas === 2}
+                  placeholder="Centre de vacances Les Pins"
+                  className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
               </div>
-              {!centrePreFilled && (
+              {!centrePreFilled && invitationInfo?.cas !== 2 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Rechercher votre structure <span className="text-gray-400 font-normal">(optionnel)</span>
@@ -534,7 +634,7 @@ function RegisterHebergeurContent() {
                   </p>
                 </div>
               )}
-              {!centrePreFilled && (
+              {!centrePreFilled && invitationInfo?.cas !== 2 && (
                 <div>
                   <label htmlFor="siret" className="block text-sm font-medium text-gray-700 mb-1.5">
                     SIRET <span className="text-red-500">*</span>
@@ -583,24 +683,32 @@ function RegisterHebergeurContent() {
                     SIRET <span className="text-gray-400 font-normal">(optionnel)</span>
                   </label>
                   <input id="siret" type="text" value={form.siret} onChange={set('siret')}
-                    placeholder="123 456 789 00012" maxLength={17} className={inputCls} />
+                    readOnly={invitationInfo?.cas === 2}
+                    placeholder="123 456 789 00012" maxLength={17}
+                    className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
                 </div>
               )}
 
               <div>
                 <label htmlFor="adresse" className="block text-sm font-medium text-gray-700 mb-1.5">Adresse</label>
                 <input id="adresse" type="text" required value={form.adresse} onChange={set('adresse')}
-                  placeholder="12 rue des Montagnes" className={inputCls} />
+                  readOnly={invitationInfo?.cas === 2}
+                  placeholder="12 rue des Montagnes"
+                  className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="codePostal" className="block text-sm font-medium text-gray-700 mb-1.5">Code postal</label>
                   <input id="codePostal" type="text" required value={form.codePostal} onChange={set('codePostal')}
-                    placeholder="73000" className={inputCls} />
+                    readOnly={invitationInfo?.cas === 2}
+                    placeholder="73000"
+                    className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
                 </div>
                 <div>
                   <label htmlFor="ville" className="block text-sm font-medium text-gray-700 mb-1.5">Ville</label>
-                  <input id="ville" type="text" required value={form.ville} onChange={set('ville')} className={inputCls} />
+                  <input id="ville" type="text" required value={form.ville} onChange={set('ville')}
+                    readOnly={invitationInfo?.cas === 2}
+                    className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
                 </div>
               </div>
               <div>
@@ -608,7 +716,9 @@ function RegisterHebergeurContent() {
                   Département <span className="text-gray-400 font-normal">(optionnel)</span>
                 </label>
                 <input id="departement" type="text" value={form.departement} onChange={set('departement')}
-                  placeholder="Savoie" className={inputCls} />
+                  readOnly={invitationInfo?.cas === 2}
+                  placeholder="Savoie"
+                  className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -629,7 +739,9 @@ function RegisterHebergeurContent() {
               <div>
                 <label htmlFor="capacite" className="block text-sm font-medium text-gray-700 mb-1.5">Capacité d&apos;accueil (personnes)</label>
                 <input id="capacite" type="number" required value={form.capacite} onChange={set('capacite')}
-                  min="1" placeholder="60" className={inputCls} />
+                  readOnly={invitationInfo?.cas === 2}
+                  min="1" placeholder="60"
+                  className={`${inputCls} ${invitationInfo?.cas === 2 ? 'bg-gray-50 cursor-not-allowed' : ''}`} />
               </div>
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1.5">
