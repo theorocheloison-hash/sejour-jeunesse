@@ -27,6 +27,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { InvitationsDirecteurModule } from './invitations-directeur/invitations-directeur.module.js';
 import { JournalPublicModule } from './journal-public/journal-public.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
+import { PublicModule } from './public/public.module.js';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { OrganisationsModule } from './organisations/organisations.module.js';
     InvitationsDirecteurModule,
     JournalPublicModule,
     OrganisationsModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [

@@ -163,6 +163,8 @@ model User {
   tokenVerificationExpires DateTime? @map("token_verification_expires")
   resetPasswordToken       String?   @map("reset_password_token") @db.Uuid
   resetPasswordExpires  DateTime? @map("reset_password_expires")
+  magicLinkToken   String?   @map("magic_link_token") @db.Uuid
+  magicLinkExpires DateTime? @map("magic_link_expires")
 
   // Établissement scolaire (données API Éducation Nationale)
   etablissementUai       String?  @map("etablissement_uai") @db.VarChar(20)
