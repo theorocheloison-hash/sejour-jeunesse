@@ -151,3 +151,39 @@ export async function getOrganisationPrincipale(
   });
   return membership?.organisation ?? null;
 }
+
+/**
+ * Détermine si un claim Kbis est requis.
+ * 4 conditions CUMULATIVES (doc ARCHITECTURE_ORGANISATIONS.md section 5.1) :
+ *   1. Le User a le rôle HEBERGEUR
+ *   2. L'Organisation existe en base
+ *   3. L'Organisation a au moins un CentreHebergement rattaché
+ *   4. Aucun Membership avec claimStatut=VALIDE n'existe sur cette Organisation
+ *
+ * Retourne false dans tous les autres cas (ORGANISATEUR, SIGNATAIRE, etc.)
+ * Ne lève pas d'exception.
+ */
+export async function shouldRequireKbis(
+  prisma: PrismaService,
+  params: { userRole: string; organisationId: string },
+): Promise<boolean> {
+  if (params.userRole !== 'HEBERGEUR') return false;
+
+  const org = await prisma.organisation.findUnique({
+    where: { id: params.organisationId },
+    include: {
+      centresHebergement: { select: { id: true }, take: 1 },
+      memberships: {
+        where: { claimStatut: 'VALIDE' },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (!org) return false;
+  if (org.centresHebergement.length === 0) return false;
+  if (org.memberships.length > 0) return false; // claim déjà validé
+
+  return true;
+}
