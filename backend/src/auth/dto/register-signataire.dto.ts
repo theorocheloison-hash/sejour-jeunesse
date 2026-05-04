@@ -38,4 +38,12 @@ export class RegisterSignataireDto {
   @IsOptional()
   @IsString()
   etablissementVille?: string;
+
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
+
+  @IsOptional()
+  @IsString()
+  organisationId?: string;
 }

@@ -8,13 +8,17 @@ export class InvitationsDirecteurService {
   async findByToken(token: string) {
     const invitation = await this.prisma.invitationDirecteur.findUnique({
       where: { token },
+      include: { organisation: { select: { id: true, nom: true, uai: true, ville: true } } },
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable ou expirée');
     return {
-      etablissementUai: invitation.etablissementUai,
-      etablissementNom: invitation.etablissementNom,
-      sejourTitre: invitation.sejourTitre,
-      enseignantPrenom: invitation.enseignantPrenom,
+      etablissementUai:  invitation.etablissementUai,
+      etablissementNom:  invitation.etablissementNom,
+      sejourTitre:       invitation.sejourTitre,
+      enseignantPrenom:  invitation.enseignantPrenom,
+      organisationId:    invitation.organisationId ?? null,
+      typeContexte:      invitation.typeContexte ?? 'SCOLAIRE',
+      organisation:      invitation.organisation ?? null,
     };
   }
 
