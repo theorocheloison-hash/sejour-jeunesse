@@ -123,10 +123,70 @@ export class CentreService {
         imageUrl: true, siteWeb: true, typeSejours: true, thematiquesCentre: true,
         activitesCentre: true, equipements: true, accessiblePmr: true,
         agrementEducationNationale: true, periodeOuverture: true, departement: true,
-        source: true, apidaeId: true,
+        source: true, apidaeId: true, organisationId: true,
       },
     });
     return centre ?? null;
+  }
+
+  async materialiserCentreEN(data: {
+    identifiantEN: string;
+    nom: string;
+    ville: string;
+    codePostal: string;
+    capacite: number;
+    departement: string | null;
+  }): Promise<{ centreId: string; organisationId: string }> {
+    // 1. Vérifier qu'un centre avec cet identifiant EN n'existe pas déjà
+    const existant = await this.prisma.centreHebergement.findFirst({
+      where: { apidaeId: data.identifiantEN, source: 'API_EN' },
+      select: { id: true, organisationId: true },
+    });
+    if (existant) {
+      if (existant.organisationId) {
+        return { centreId: existant.id, organisationId: existant.organisationId };
+      }
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom: data.nom,
+        ville: data.ville,
+        codePostal: data.codePostal,
+        departement: data.departement ?? null,
+        source: 'API_EDUCATION_NATIONALE',
+        sourceId: data.identifiantEN,
+      });
+      await this.prisma.centreHebergement.update({
+        where: { id: existant.id },
+        data: { organisationId: organisation.id },
+      });
+      return { centreId: existant.id, organisationId: organisation.id };
+    }
+
+    // 2. Créer Organisation + CentreHebergement minimal
+    const { organisation } = await findOrCreateOrganisation(this.prisma, {
+      nom: data.nom,
+      ville: data.ville,
+      codePostal: data.codePostal,
+      departement: data.departement ?? null,
+      source: 'API_EDUCATION_NATIONALE',
+      sourceId: data.identifiantEN,
+    });
+
+    const centre = await this.prisma.centreHebergement.create({
+      data: {
+        nom: data.nom,
+        adresse: '',
+        ville: data.ville,
+        codePostal: data.codePostal,
+        capacite: data.capacite,
+        departement: data.departement ?? null,
+        apidaeId: data.identifiantEN,
+        source: 'API_EN',
+        organisationId: organisation.id,
+        statut: 'PENDING',
+      },
+    });
+
+    return { centreId: centre.id, organisationId: organisation.id };
   }
 
   async register(dto: RegisterCentreDto) {
