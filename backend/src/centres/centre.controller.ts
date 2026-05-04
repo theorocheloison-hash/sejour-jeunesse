@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -42,6 +43,19 @@ export class CentreController {
   @Post('register')
   register(@Body() dto: RegisterCentreDto) {
     return this.centreService.register(dto);
+  }
+
+  @Post('materialiser-en')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  materialiserCentreEN(@Body() body: {
+    identifiantEN: string;
+    nom: string;
+    ville: string;
+    codePostal: string;
+    capacite: number;
+    departement: string | null;
+  }) {
+    return this.centreService.materialiserCentreEN(body);
   }
 
   @Get('mon-profil')
