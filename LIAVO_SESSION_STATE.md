@@ -47,6 +47,11 @@ Les colonnes suivantes n'existent plus sur `utilisateurs` :
 
 ---
 
+## RÈGLE ABSOLUE — VISIO LMDJ
+**Aucune visio LMDJ, aucun onboarding tant que le refactor complet n’est pas finalisé (intégralité de ARCHITECTURE_ORGANISATIONS.md). Si LMDJ voit des incohérences lors de la visio, pas de signature. L’objectif de la visio = valider leur volonté d’intégrer leurs centres — ils doivent voir un outil fini.**
+
+---
+
 ## STACK TECHNIQUE — ÉTAT ACTUEL
 
 | Composant | Technologie | URL / Détail |

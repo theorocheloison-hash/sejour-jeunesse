@@ -234,6 +234,35 @@ export class AuthService {
       } catch { /* non bloquant */ }
     }
 
+    // Rattacher l'hébergeur à une Organisation + Membership (non bloquant)
+    try {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom:              dto.nomCentre,
+        adresse:          dto.adresse,
+        codePostal:       dto.codePostal,
+        ville:            dto.ville,
+        emailContact:     dto.emailContact ?? null,
+        telephoneContact: dto.telephone ?? null,
+        siret:            dto.siret ?? null,
+        siren:            dto.siret ? dto.siret.substring(0, 9) : null,
+        typeStructure:    null,
+        source:           'MANUAL',
+      });
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { organisationId: organisation.id },
+      });
+      await findOrCreateMembership(this.prisma, {
+        userId:         user.id,
+        organisationId: organisation.id,
+        role:           'PROPRIETAIRE',
+        isPrimary:      true,
+        claimStatut:    'NON_APPLICABLE',
+      });
+    } catch (err) {
+      console.error('[registerHebergeur] Echec rattachement Organisation/Membership', err);
+    }
+
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
