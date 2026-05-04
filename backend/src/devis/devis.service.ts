@@ -550,7 +550,7 @@ export class DevisService {
 
     if (devis.centre?.user?.email) {
       const sejourTitre = devis.demande?.sejour?.titre ?? 'le séjour';
-      const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/venue/devis`;
+      const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/devis`;
       await this.email.sendGenericNotification(
         devis.centre.user.email,
         `Devis signé par la direction — ${sejourTitre}`,

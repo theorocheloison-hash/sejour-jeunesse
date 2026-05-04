@@ -261,7 +261,7 @@ export class HebergementService {
          <p>Un enseignant${nomEtablissement ? ` de ${nomEtablissement}` : ''} est intéressé par votre centre <strong>${centre.nom}</strong> pour organiser un séjour scolaire.</p>
          <p>LIAVO est la plateforme de coordination des séjours scolaires qui vous permet de recevoir des demandes de devis, gérer vos disponibilités et facturer directement.</p>
          ${message ? `<p>Message de l'enseignant : <em>${message}</em></p>` : ''}
-         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon espace hébergeur</a></p>
+         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon espace hébergeur</a></p>
          <p style="font-size:12px;color:#666;">Vous recevez cet email car votre centre est référencé dans le réseau ${nomReseau}.</p>`,
       );
     }

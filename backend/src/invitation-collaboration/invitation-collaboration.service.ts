@@ -164,7 +164,7 @@ export class InvitationCollaborationService {
          <p><strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
          <strong>Élèves :</strong> ${invitation.nbElevesEstime}</p>
          <p>Une demande de devis vous attend dans votre espace. Vous pouvez maintenant soumettre votre devis.</p>
-         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/venue/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
+         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
       );
     }
 
@@ -205,7 +205,7 @@ export class InvitationCollaborationService {
       codePostal: dto.codePostalCentre,
       invitationToken: invitation.token,
     });
-    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue?${params.toString()}`;
+    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur?${params.toString()}`;
 
     const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
     const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');

@@ -197,7 +197,7 @@ export class NotificationsService {
           `<p>Bonjour ${centrePrenom},</p>
            <p>Votre devis pour le séjour <strong>« ${sejourTitre} »</strong> envoyé à ${enseignantNom} est en attente de réponse depuis <strong>${joursEcoules} jours</strong>.</p>
            <p>L'enseignant n'a pas encore donné suite. Vous pouvez le relancer directement ou consulter l'état de votre devis depuis votre tableau de bord.</p>
-           <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/venue/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
+           <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
         );
 
         this.logger.log(`[CRON] Relance hébergeur envoyée — devis: ${d.id}, centre: ${centreNom}`);
