@@ -148,7 +148,7 @@ export class EmailService {
        </table>
        <p>Connectez-vous pour consulter la demande et envoyer votre devis.</p>`,
       'Voir la demande',
-      `${FRONTEND_URL}/dashboard/venue/demandes`,
+      `${FRONTEND_URL}/dashboard/hebergeur/demandes`,
     );
     await this.send(to, `Nouvelle demande — ${sejourTitre}`, html);
   }
@@ -162,7 +162,7 @@ export class EmailService {
        <p>Félicitations ! Votre devis pour le séjour <strong>« ${sejourTitre} »</strong> a été <strong style="color:#16a34a">sélectionné</strong>.</p>
        <p>Le séjour passe maintenant en phase de convention. Connectez-vous à l'espace collaboratif pour échanger avec l'enseignant et organiser le séjour.</p>`,
       'Accéder à l\'espace collaboratif',
-      `${FRONTEND_URL}/dashboard/venue`,
+      `${FRONTEND_URL}/dashboard/hebergeur`,
     );
     await this.send(to, `Devis sélectionné — ${sejourTitre}`, html);
   }
@@ -276,7 +276,7 @@ export class EmailService {
        <p>Bonne nouvelle ! Votre compte hébergeur pour le centre <strong>« ${nomCentre} »</strong> a été <strong style="color:#16a34a">validé</strong> par notre équipe.</p>
        <p>Vous pouvez dès maintenant vous connecter et répondre aux demandes de devis des enseignants.</p>`,
       'Accéder à mon espace',
-      `${FRONTEND_URL}/dashboard/venue`,
+      `${FRONTEND_URL}/dashboard/hebergeur`,
     );
     await this.send(to, 'Compte hébergeur validé — Liavo', html);
   }
@@ -402,7 +402,7 @@ export class EmailService {
        </table>
        <p>Connectez-vous à la plateforme pour examiner le dossier complet.</p>`,
       'Examiner le dossier',
-      `${FRONTEND_URL}/dashboard/rector`,
+      `${FRONTEND_URL}/dashboard/autorite`,
     );
     // Envoyer au rectorat
     await this.send(rectoratEmail, `Dossier séjour — ${sejourTitre}`, html);
