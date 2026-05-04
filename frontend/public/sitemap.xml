@@ -11,12 +11,17 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://liavo.fr/register/teacher</loc>
+    <loc>https://liavo.fr/register/organisateur</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://liavo.fr/register/venue</loc>
+    <loc>https://liavo.fr/register/hebergeur</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://liavo.fr/appel-offres</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
