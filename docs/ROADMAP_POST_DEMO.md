@@ -5,27 +5,25 @@
 
 ---
 
-## Priorité 0 — Actions immédiates (avant roadmap produit)
+## PRIORITÉ 0 — Actions immédiates (avant roadmap produit)
 
-### 0.1 Commit + push SC8
-```bash
-cd C:\Users\Roche-Loison\Desktop\sejour-jeunesse
-git add -A
-git commit -m "SC8 : suppression colonnes etablissement* legacy sur User"
-git push origin main
-```
-Puis vérifier migration appliquée sur Scalingo (0 colonnes etablissement* sur utilisateurs).
+### RÈGLE ABSOLUE — à enregistrer définitivement
+**Aucune visio LMDJ, aucun onboarding hébergeur tant que le refactor complet de LIAVO n’est pas finalisé (totalité du doc ARCHITECTURE_ORGANISATIONS.md). Si LMDJ voit des incohérences dans l’outil lors de la visio, il n’y aura pas de signature. L’objectif de la visio est de valider leur volonté d’intégrer leurs centres — ils doivent voir un outil fini.**
 
-### 0.2 JWT_SECRET en prod
-```bash
-scalingo --app liavo-backend --region osc-fr1 env-set JWT_SECRET=$(openssl rand -hex 32)
-```
-Invalide toutes les sessions actives (pas de risque — aucun utilisateur réel en dehors de Théo/démo).
+### 0.1 SC9 — Refactor StatutDevis (1 jour) — PRIORITÉ IMMÉDIATE
+Bug : badge « Sélectionné » sur un devis signé/facturé. Cause : `SELECTIONNE` couvre 5 états distincts.
+Solution : étendre `StatutDevis` avec `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`.
+Détail complet en section 5ter de `docs/ARCHITECTURE_ORGANISATIONS.md`.
 
-### 0.3 Visio suivi LMDJ
-- Caler la visio avec Anaïtis Mangeon
-- Adapter le pitch : LIAVO = couche post-mise-en-relation, pas remplacement centrale
-- Objectif : engagement écrit daté (pas "on réfléchit")
+Prérequis avant de coder :
+1. Grep `typeDocument` dans tout le backend
+2. Grep `signatureDirecteur` comme condition de routage
+3. Décider si `typeDocument` est supprimé ou conservé en redondance
+4. Script backfill SQL validé avant exécution en prod
+
+### 0.2 Visio LMDJ — BLOQUÉE jusqu’à fin du refactor
+- Ne pas caler la visio avant la fin de l’intégralité des sous-chantiers
+- Voir `docs/ARCHITECTURE_ORGANISATIONS.md` pour la liste complète des chantiers restants
 
 ---
 

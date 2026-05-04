@@ -551,6 +551,7 @@ model CentreHebergement {
   demandesIgnorees DemandeIgnoree[]
   demandesDestinees DemandeDevis[] @relation("DemandesDestinees")
   clients          Client[]
+  invitationsAdmin InvitationHebergement[] @relation("InvitationCentreExistant")
   @@map("centres_hebergement")
 }
 
@@ -626,6 +627,24 @@ model InvitationHebergement {
   utilisedAt  DateTime? @map("utilised_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
+  // Centre pré-existant à rattacher
+  centreExistantId    String?   @map("centre_existant_id") @db.Uuid
+  centreExistant      CentreHebergement? @relation("InvitationCentreExistant", fields: [centreExistantId], references: [id], onDelete: SetNull)
+
+  // Données de pré-création d'un nouveau centre (si centreExistantId null)
+  centrePrecreerNom         String?  @map("centre_precreer_nom") @db.VarChar(255)
+  centrePrecreerAdresse     String?  @map("centre_precreer_adresse") @db.VarChar(500)
+  centrePrecreerVille       String?  @map("centre_precreer_ville") @db.VarChar(255)
+  centrePrecreerCodePostal  String?  @map("centre_precreer_code_postal") @db.VarChar(10)
+  centrePrecreerCapacite    Int?     @map("centre_precreer_capacite")
+  centrePrecreerSiret       String?  @map("centre_precreer_siret") @db.VarChar(14)
+  centrePrecreerDepartement String?  @map("centre_precreer_departement") @db.VarChar(10)
+
+  // Traçabilité envoi email
+  emailEnvoye    Boolean   @default(false) @map("email_envoye")
+  emailEnvoyeAt  DateTime? @map("email_envoye_at")
+
+  @@index([centreExistantId])
   @@map("invitations_hebergement")
 }
 

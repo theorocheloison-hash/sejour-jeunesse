@@ -15,6 +15,8 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { AdminService } from './admin.service.js';
 import { ClaimService } from '../organisations/claim.service.js';
+import { InvitationService } from '../invitations/invitation.service.js';
+import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto.js';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,6 +25,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly claimService: ClaimService,
+    private readonly invitationService: InvitationService,
   ) {}
 
   @Get('stats')
@@ -99,6 +102,21 @@ export class AdminController {
     @Body('motif') motif: string,
   ) {
     return this.claimService.refuserClaim(membershipId, motif);
+  }
+
+  @Get('invitations')
+  getInvitations() {
+    return this.invitationService.getInvitations();
+  }
+
+  @Post('invitations')
+  creerInvitation(@Body() dto: CreateInvitationDto) {
+    return this.invitationService.create(dto);
+  }
+
+  @Post('invitations/:id/renvoyer')
+  renvoyerInvitation(@Param('id') id: string) {
+    return this.invitationService.renvoyer(id);
   }
 }
 

@@ -6,7 +6,9 @@
 > Mis à jour le 29 avril 2026 (v3.1) : Phase 0 Scalingo **TERMINÉE** — backend+BDD+frontend+stockage migrés en France.
 > Mis à jour le 03 mai 2026 (v3.2) : Lacunes identifiées par audit — SC4ter (flow signataire), typeContexte séjour, modèles legacy InvitationDirecteur/InvitationCollaboration, Rappel/ContactClient orphelins, visibilité signataire, statut DECLARE_TAM.
 > Mis à jour le 04 mai 2026 (v3.3) : SC8 terminé — suppression colonnes etablissement* sur User. Positionnement validé : LIAVO = plateforme développée par les hébergeurs, pour les hébergeurs.
-> Statut : **SC8 TERMINÉ — en attente de commit + déploiement Scalingo. SC7 suspendu à validation commerciale LMDJ/IDDJ.**
+> Mis à jour le 04 mai 2026 (v3.4) : SC8 déployé en prod (commit+push, migration SQL appliquée, JWT_SECRET changé). SC9 documenté — refactor StatutDevis pour correspondance BDD/réalité cycle de vie.
+> Mis à jour le 04 mai 2026 (v3.6) : Audit complet des 5 routes d’entrée hébergeur. 3 bugs identifiés sur registerHebergeur(), matching APIDAE, et searchPublic(). À corriger avant SC5bis.
+> Statut : **SC1→SC4ter ✅ SC5bis — 3 corrections préalables requises avant implémentation. SC9 après SC5bis. SC7 suspendu.**
 
 ---
 
@@ -23,6 +25,7 @@
 4. [Les sources d'Organisation et mécanismes de notification](#4-les-sources-dorganisation-et-mécanismes-de-notification)
 5. [Le mécanisme de claim hébergeur (Kbis + validation manuelle)](#5-le-mécanisme-de-claim-hébergeur)
 5bis. [Le flow invitation signataire post-refactor (SC4ter)](#5bis-le-flow-invitation-signataire-post-refactor)
+5ter. [Refactor StatutDevis — correspondance BDD/cycle de vie réel (SC9)](#5ter-refactor-statutdevis--sc9)
 6. [Découpage en sous-chantiers](#6-découpage-en-sous-chantiers)
 7. [Catalogue des risques cascade](#7-catalogue-des-risques-cascade)
 8. [Checklist de validation pré-déploiement](#8-checklist-de-validation-pré-déploiement)
@@ -729,6 +732,92 @@ return deduplicateById([...sejoursParOrga, ...sejoursParInvitation]);
 
 ---
 
+## 5ter. Refactor StatutDevis — SC9
+
+### Problème identifié (04/05/2026)
+
+Le badge affiché sur le devis dans le dashboard hébergeur indique « Sélectionné » alors que le devis est dans l’onglet « Signé direction ». Ce n’est pas un bug d’affichage à corriger par un patch conditionnel : c’est une incohérence de modélisation. Le cycle de vie réel d’un devis est encodé dans plusieurs champs (`statut` + `typeDocument` + `signatureDirecteur`) alors qu’il devrait être représenté par un seul enum à la source.
+
+### Anatomie du problème
+
+**`StatutDevis` actuel en BDD (6 valeurs) :**
+```
+EN_ATTENTE | ACCEPTE | REFUSE | EN_ATTENTE_VALIDATION | SELECTIONNE | NON_RETENU
+```
+
+**États réels du cycle de vie (9 états distincts) encodés sur 3 champs :**
+
+| État réel | `statut` BDD | `typeDocument` | `signatureDirecteur` | Affichage actuel |
+|---|---|---|---|---|
+| En attente de réponse hébergeur | `EN_ATTENTE` | `DEVIS` | null | « En attente » |
+| Devis envoyé, non encore sélectionné | `EN_ATTENTE` | `DEVIS` | null | « En attente » |
+| Sélectionné par l’enseignant | `SELECTIONNE` | `DEVIS` | null | « Sélectionné » ✅ |
+| Signé par le signataire | `SELECTIONNE` | `DEVIS` | non-null | « Sélectionné » ❌ (devrait être « Signé ») |
+| Converti en facture acompte | `SELECTIONNE` | `FACTURE_ACOMPTE` | non-null | « Sélectionné » ❌ |
+| Acompte versé | `SELECTIONNE` | `FACTURE_ACOMPTE` | non-null | « Sélectionné » ❌ |
+| Facture solde émise | `SELECTIONNE` | `FACTURE_SOLDE` | non-null | « Sélectionné » ❌ |
+| Non retenu | `NON_RETENU` | `DEVIS` | null | « Non retenu » ✅ |
+| Refusé | `REFUSE` | `DEVIS` | null | « Refusé » ✅ |
+
+**Cause racine :** `SELECTIONNE` couvre 5 états différents. Le frontend compense avec `matchesOnglet()` (logique de filtrage multi-champs) mais le badge ne suit pas, et les états avancés du cycle de facturation sont invisibles en BDD.
+
+### Solution à la source : étendre `StatutDevis`
+
+**Enum cible :**
+```
+EN_ATTENTE            → inchangé
+ACCEPTE               → inchangé (si utilisé)
+REFUSE                → inchangé
+EN_ATTENTE_VALIDATION → inchangé (si utilisé)
+NON_RETENU            → inchangé
+SELECTIONNE           → inchangé (enseignant a sélectionné, signataire pas encore signé)
+SIGNE_DIRECTION       → NOUVEAU (signataire a signé, pas encore facturé)
+FACTURE_ACOMPTE       → NOUVEAU (facture acompte émise)
+FACTURE_SOLDE         → NOUVEAU (facture solde émise)
+```
+
+**`typeDocument` devient redondant :** une fois `StatutDevis` étendu, `typeDocument` peut être supprimé ou conservé comme méta-information technique (utile pour le PDF et Chorus Pro). Décision prise : **conserver `typeDocument`** en redondance pour ces usages, ne plus l’utiliser comme indicateur d’état.
+
+**`EN_ATTENTE_VALIDATION` et `ACCEPTE` :** ces deux valeurs sont déclarées dans l’enum Prisma mais **n’apparaissent nulle part dans le code** (grep confirmé le 04/05/2026). Elles sont mortes. Décision : les **conserver comme valeurs réservées** — supprimer une valeur d’un enum PostgreSQL est complexe (recréation de l’enum), le risque est disproportionné au bénéfice. Documenter : « réservées, non utilisées ».
+
+### Impact cascade à anticiper
+
+**Backend :**
+- `schema.prisma` : ajout 3 valeurs dans enum `StatutDevis`
+- Migration SQL : `ALTER TYPE` sur l’enum PostgreSQL (non-destructif)
+- `devis.service.ts` `updateStatut()` : transition `SELECTIONNE` → `SIGNE_DIRECTION` au moment de la signature signataire
+- `devis.service.ts` `facturerAcompte()` : transition `SIGNE_DIRECTION` → `FACTURE_ACOMPTE`
+- `devis.service.ts` `facturerSolde()` : transition `FACTURE_ACOMPTE` → `FACTURE_SOLDE`
+- Backfill BDD : mettre à jour les devis existants avec `signatureDirecteur` non-null → `SIGNE_DIRECTION`
+- Backfill BDD : devis avec `typeDocument=FACTURE_ACOMPTE` → `FACTURE_ACOMPTE`
+- Backfill BDD : devis avec `typeDocument=FACTURE_SOLDE` → `FACTURE_SOLDE`
+
+**Frontend :**
+- `STATUT_BADGE` dans `hebergeur/devis/page.tsx` : ajouter les 3 nouveaux statuts
+- `matchesOnglet()` : simplifier — les onglets peuvent filtrer sur `statut` seul au lieu de `statut` + `typeDocument` + `signatureDirecteur`
+- Partout où `typeDocument` est utilisé pour du routing conditionnel : migrer vers `statut`
+
+**Risques :**
+- Les devis existants en prod avec `typeDocument=FACTURE_ACOMPTE` et `statut=SELECTIONNE` doivent être backfillés avant que le frontend lise `statut` — sinon ils disparaissent des onglets. Faire le backfill SQL AVANT de déployer le nouveau frontend.
+- Vérifier que `getChorusXml()` ne dépend pas du `typeDocument` pour sa logique interne.
+
+### Prérequis avant de coder
+
+1. Audit complet des usages de `typeDocument` dans le backend (grep `typeDocument` dans `src/`)
+2. Audit complet des usages de `signatureDirecteur` comme condition de routage
+3. Décider si `typeDocument` est supprimé ou conservé en rédondance
+4. Rédiger le script de backfill SQL + le valider sur un dump de la prod avant exécution
+
+### Quand faire SC9
+
+SC9 est à faire **avant la visio LMDJ**, pas après. Règle absolue : aucune visio, aucun onboarding tant que le refactor complet de LIAVO n’est pas finalisé (totalité du doc architecture). Si LMDJ voit des incohérences dans l’outil, il n’y aura pas de signature.
+
+SC9 s’intègre donc dans la séquence des sous-chantiers avant toute présentation commerciale.
+
+**Estimé : 1 jour (migration + backfill + frontend).**
+
+---
+
 ## 6. Découpage en sous-chantiers
 
 ### Vue d'ensemble
@@ -827,9 +916,70 @@ Cf. section 5bis pour le détail complet.
 - Intégration `<StructureSearch>` dans tous les formulaires d'inscription
 - Adaptation dashboards pour Organisation primary
 
-### Sous-chantier 5bis — Page publique claim hébergeur (1 j)
+### Sous-chantier 5bis — Page publique claim hébergeur (2-3 j)
 
-Route `/centre/[id]/claim`. CTA "C'est mon centre". SIREN + Kbis.
+**Audit des 5 routes d’entrée hébergeur (04/05/2026) :**
+
+| Route | Couverture | Bugs |
+|---|---|---|
+| 1 — Invitation réseau (LMDJ/IDDJ) | ✅ Complet | Matching APIDAE sur email uniquement — si email centre ≠ email invitation → doublon silencieux |
+| 2 — Invitation organisateur | ⚠️ Partiel | `registerHebergeur()` ne fait pas de matching APIDAE ni `findOrCreateOrganisation` → centre sans Organisation |
+| 3a — Autonome, centre inexistant | ⚠️ Partiel | Idem Route 2 — `registerHebergeur()` ne crée pas d’Organisation |
+| 3b — Autonome, centre en base | ❌ Manquant | SC5bis — pas de page `/centre/[id]/claim`, pas de matérialisation des centres EN |
+| 4 — Push email géographique (appel d’offres) | ⏸ SC7 suspendu | Le lien dans l’email n’existe pas encore — à concevoir en même temps que SC7 |
+| 5 — Autonome, trouve son centre dans le catalogue | ❌ Manquant | Identique à 3b — SC5bis |
+| 6 — Invitation admin avec pré-création centre | ❌ Manquant | `InvitationHebergement` existe en BDD mais sans email, sans pré-création centre, sans interface admin |
+
+**3 corrections préalables à SC5bis (dans cet ordre) :**
+
+**Correction A — `registerHebergeur()` dans `auth.service.ts` (0.5j)**
+Ajouter `findOrCreateOrganisation` + `findOrCreateMembership` après la création du centre. Même logique que `centre.service.ts register()`. Sans ça, tout hébergeur passant par la Route 2 ou 3a se retrouve avec un centre sans Organisation — incohérence avec le modèle de données.
+
+**Correction B — Matching APIDAE dans `centre.service.ts register()` (0.5j)**
+Etape actuelle : `where: { email: invitation.email, userId: null, source: 'APIDAE' }`. Problème : si l’email du centre APIDAE est différent de l’email de l’invitation (cas fréquent — email perso vs email centre), le matching échoue et un doublon est créé silencieusement.
+Solution : fallback nom+ville si aucun match par email. Ordre : email → nom+ville normalisé (insensitive).
+
+**Correction C — Déduplication dans `searchPublic()` (0.5j)**
+Current: `[...prismaResults, ...enResults]` sans déduplication. Même centre peut apparaître 2 fois.
+Solution : après concat, filtrer les résultats EN dont le nom+ville correspond à un résultat Prisma (insensitive). Privilégier le résultat Prisma (UUID) en cas de doublon.
+
+**SC5bis proprement dit (2j) :**
+
+*Sous-problème 1 — Centre APIDAE en base (UUID connu)*
+Flow direct : CTA "C’est mon centre" → `POST /organisations/:organisationId/claim` → upload Kbis si requis → notification admin.
+
+*Sous-problème 2 — Centre API EN hors base (identifiant string, pas UUID)*
+`searchPublic()` concatène des résultats Prisma (UUID) et des résultats API EN live (identifiant string non-UUID). Ces derniers n’ont pas d’Organisation en base.
+Solution : à la sélection d’un centre EN par un HEBERGEUR, matérialiser en base via `findOrCreateOrganisation()` + création d’un `CentreHebergement` minimal (source=API_EDUCATION_NATIONALE), puis rediriger vers le claim.
+Point d’attention : `getPublic(id)` fait un `isUuid` check — les ids EN ne passent pas. Le frontend détecte si l’id est UUID (centre en base) ou string (centre EN) et bifurque vers un endpoint de matérialisation.
+
+**Estimé total (corrections A+B+C + SC5bis) : 3.5 jours.**
+
+**Route 4 (push email géographique) :** lien dans l’email à concevoir en même temps que SC7. Le lien doit pointer vers `/appel-offres?centreId={id}` avec un token de pré-remplissage pour que l’hébergeur soit redirigé vers le claim de son centre après inscription.
+
+**Route 6 — Invitation admin avec pré-création centre (1.5j) — à coder avec SC5bis**
+
+Cas d’usage : Théo démarche un hébergeur, veut lui pré-créer son centre et lui envoyer un lien pour qu’il n’ait plus qu’à créer son compte et valider la propriété.
+
+**Modèle `InvitationHebergement` à enrichir :**
+Ajouter en migration SQL (nullable pour compatibilité ascendante) :
+- `centrePrecreerNom`, `centrePrecreerAdresse`, `centrePrecreerVille`, `centrePrecreerCodePostal`, `centrePrecreerCapacite`, `centrePrecreerSiret`, `centrePrecreerDepartement`
+- `centreExistantId` (FK nullable vers `CentreHebergement`) — pour pointer vers un centre déjà en base
+- `emailEnvoye` (Boolean, default false) + `emailEnvoyeAt` (DateTime nullable)
+
+**Comportement à `/register/hebergeur?token=XXX` selon le contenu de l’invitation :**
+- `centreExistantId` renseigné → rediriger directement vers la page claim du centre existant
+- Données `centrePrecreer*` renseignées → formulaire pré-rempli lecture seule, hébergeur définit son mot de passe
+- Rien → formulaire vide (comportement actuel)
+
+**Dashboard admin `/dashboard/admin/invitations` à créer :**
+- Formulaire : email hébergeur + champs centre (optionnels) + sélection d’un centre existant (dropdown avec StructureSearch)
+- Bouton "Envoyer l’invitation" → crée `InvitationHebergement`, envoie l’email avec le lien, marque `emailEnvoye=true`
+- Liste des invitations envoyées avec statut (envoyée / utilisée)
+
+**Backend à modifier :**
+- `invitation.service.ts create()` : accepter les nouveaux champs, envoyer l’email via `EmailService`
+- `centre.service.ts register()` : lire `centreExistantId` et `centrePrecreer*` depuis l’invitation pour pré-remplir ou rattacher
 
 ### Sous-chantier 6 — Page publique demande sans compte (1.5 j)
 
@@ -1266,6 +1416,25 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 
 ---
 
+### Session 04/05/2026 (suite) — SC8 déployé + SC9 documenté
+
+**SC8 déployé en production :**
+- Vérification préalable : 3 lignes avec `etablissement_nom` non-null en prod (directeur@test.fr, enseignant@test.fr, maeva.loison@gmail.com). Maeva (compte test Théo) supprimée. Les 2 comptes test conservés.
+- JWT_SECRET changé sur Scalingo avant le push (secret aléatoire 64 hex)
+- Commit + push main → déploiement Scalingo automatique
+- Migration SQL appliquée via Procfile (`prisma migrate deploy` au démarrage)
+- Vérification post-déploiement : 0 colonnes `etablissement%` sur `utilisateurs` ✅
+- Test fonctionnel : dashboard hébergeur (resa@lesauvageon.com) opérationnel, établissement affiché depuis Organisation ✅
+
+**SC9 (StatutDevis) identifié et documenté :**
+- Bug constaté : badge « Sélectionné » affiché sur un devis signé dans l’onglet « Signé direction »
+- Diagnostic : cause racine = `SELECTIONNE` couvre 5 états du cycle de vie différents
+- Décision : fix à la source (extension enum `StatutDevis` + backfill), pas de patch conditionnel
+- Documenté en section 5ter. À faire AVANT la visio LMDJ (règle : aucune visio tant que le refactor complet n’est pas finalisé).
+- Estimé : 1 jour
+
+---
+
 ### Session 01/05/2026 — Sous-chantiers 3 et 4 (partiels)
 
 **Sous-chantier 3 — Composant `<StructureSearch>` — TERMINÉ**
@@ -1302,3 +1471,5 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 ---
 
 *Document à maintenir à jour. Toute déviation documentée ici avec date et raison.*
+
+> **SC9 ajouté au glossaire de la section 11 :** `SC9` = refactor `StatutDevis`. `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE` = 3 nouvelles valeurs enum cibles.
