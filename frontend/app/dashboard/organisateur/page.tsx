@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -242,7 +244,7 @@ function SejourCard({
 
 // ─── Page principale ─────────────────────────────────────────────────────────
 
-export default function OrganisateurDashboard() {
+function OrganisateurDashboardContent() {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
 
@@ -288,6 +290,8 @@ export default function OrganisateurDashboard() {
   }
 
   const initials = `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase();
+  const searchParams = useSearchParams();
+  const showOnboarding = searchParams.get('onboarding') === 'true';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -330,6 +334,30 @@ export default function OrganisateurDashboard() {
           </div>
         </div>
       </nav>
+
+      {showOnboarding && (
+        <div className="bg-[var(--color-primary)] text-white px-4 py-3">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold">Bienvenue sur LIAVO — votre demande a bien été envoyée !</p>
+                <p className="text-xs opacity-80 mt-0.5">
+                  Pour sécuriser votre espace et accéder à toutes les fonctionnalités, définissez votre mot de passe.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/organisateur/profil?section=securite"
+              className="shrink-0 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-gray-100 transition-colors"
+            >
+              Définir mon mot de passe →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Contenu principal ──────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -469,5 +497,13 @@ export default function OrganisateurDashboard() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function OrganisateurDashboard() {
+  return (
+    <Suspense>
+      <OrganisateurDashboardContent />
+    </Suspense>
   );
 }
