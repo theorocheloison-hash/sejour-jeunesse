@@ -9,30 +9,43 @@ export class RegisterCentreDto {
   @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' })
   password: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  nom: string;
+  prenom?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  adresse: string;
+  nomContact?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  ville: string;
+  nom?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  codePostal: string;
+  adresse?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  ville?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  codePostal?: string;
 
   @IsOptional()
   @IsString()
   telephone?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
-  capacite: number;
+  capacite?: number;
 
   @IsOptional()
   @IsString()

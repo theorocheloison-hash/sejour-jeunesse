@@ -8,7 +8,10 @@
 > Mis à jour le 04 mai 2026 (v3.3) : SC8 terminé — suppression colonnes etablissement* sur User. Positionnement validé : LIAVO = plateforme développée par les hébergeurs, pour les hébergeurs.
 > Mis à jour le 04 mai 2026 (v3.4) : SC8 déployé en prod (commit+push, migration SQL appliquée, JWT_SECRET changé). SC9 documenté — refactor StatutDevis pour correspondance BDD/réalité cycle de vie.
 > Mis à jour le 04 mai 2026 (v3.6) : Audit complet des 5 routes d’entrée hébergeur. 3 bugs identifiés sur registerHebergeur(), matching APIDAE, et searchPublic(). À corriger avant SC5bis.
-> Statut : **SC1→SC4ter ✅ SC5bis — 3 corrections préalables requises avant implémentation. SC9 après SC5bis. SC7 suspendu.**
+> Mis à jour le 04 mai 2026 (v3.7) : SC5bis corrections A+B+C + Route 6 invitation admin livrés et déployés. Migration 20260504_sc5bis_invitation_hebergement_enrichi en prod. tsc EXIT=0. SC5bis frontend (page claim + /register/hebergeur bifurcation) reste à faire.
+> Mis à jour le 04 mai 2026 (v3.8) : SC5bis frontend livré — checkInvitation() réécrit (3 cas typés), RegisterCentreDto optionnalisé, register() prenom/nom corrigé, /register/hebergeur bifurcation CAS1/2/3, page admin invitations créée.
+> Mis à jour le 04 mai 2026 (v3.9) : Audit bugs latents — 6 bugs corrigés + 5 URLs obsolètes bonus. Routes /register/venue, /dashboard/venue, /dashboard/rector éradiquées du codebase. Guard soumettreAuRectorat() corrigé. Filtre géographique notifications ajouté. 0 occurrence résiduelle.
+> Statut : **SC1→SC5bis ✅ complet. Bugs latents ✅ corrigés. SC5bis page /centre/[id]/claim reste à faire. SC9 après. SC7 suspendu.**
 
 ---
 
