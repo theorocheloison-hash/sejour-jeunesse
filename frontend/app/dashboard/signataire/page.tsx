@@ -499,7 +499,9 @@ export default function SignataireDashboard() {
                 </div>
                 <div className="hidden sm:block leading-tight">
                   <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-                  <p className="text-xs text-gray-500">Direction</p>
+                  <p className="text-xs text-gray-500">
+                    {user.organisation?.nom ?? 'Signataire'}
+                  </p>
                 </div>
               </div>
               <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Se déconnecter</button>

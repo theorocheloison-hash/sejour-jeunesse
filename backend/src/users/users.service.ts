@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UpdateEtablissementDto } from './dto/update-etablissement.dto.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class UsersService {
@@ -26,7 +27,22 @@ export class UsersService {
       },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
-    return user;
+
+    const orgaPrincipale = await getOrganisationPrincipale(userId, this.prisma);
+
+    return {
+      ...user,
+      organisation: orgaPrincipale
+        ? {
+            id:            orgaPrincipale.id,
+            nom:           orgaPrincipale.nom,
+            uai:           orgaPrincipale.uai ?? null,
+            siren:         orgaPrincipale.siren ?? null,
+            typeStructure: orgaPrincipale.typeStructure ?? null,
+            ville:         orgaPrincipale.ville ?? null,
+          }
+        : null,
+    };
   }
 
   async updateProfil(userId: string, data: { emailRectorat?: string }) {

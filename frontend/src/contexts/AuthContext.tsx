@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import axios from 'axios';
 import api from '@/src/lib/api';
-import type { User, LoginDto } from '@/src/types/auth';
+import type { User, LoginDto, OrganisationResume } from '@/src/types/auth';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
@@ -96,6 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     Cookies.set(COOKIE_TOKEN, data.access_token, COOKIE_OPTS);
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
+
+    // Enrichir avec l'organisation principale (non bloquant)
+    api.get('/users/me').then(({ data }) => {
+      if (data.organisation) {
+        const enriched: User = { ...user, organisation: data.organisation as OrganisationResume };
+        localStorage.setItem(LS_USER, JSON.stringify(enriched));
+        setUser(enriched);
+      }
+    }).catch(() => {});
 
     router.push(redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard');
   }, [router]);
