@@ -37,6 +37,11 @@ enum StatutSejour {
   SIGNE_DIRECTION
 }
 
+enum TypeContexteSejour {
+  SCOLAIRE
+  HORS_SCOLAIRE
+}
+
 // ============================================================
 // ENUM : statut d'une inscription
 // ============================================================
@@ -241,6 +246,7 @@ model Sejour {
   createdAt                 DateTime         @default(now()) @map("created_at")
   updatedAt                 DateTime         @updatedAt @map("updated_at")
   inscriptionsCloturees     Boolean          @default(false) @map("inscriptions_cloturees")
+  typeContexte              TypeContexteSejour @default(SCOLAIRE) @map("type_contexte")
 
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)
@@ -1037,6 +1043,9 @@ model InvitationDirecteur {
   etablissementNom  String?   @map("etablissement_nom") @db.VarChar(255)
   enseignantPrenom  String?   @map("enseignant_prenom") @db.VarChar(100)
   sejourTitre       String?   @map("sejour_titre") @db.VarChar(255)
+  organisationId   String?   @map("organisation_id") @db.Uuid
+  typeContexte     String?   @map("type_contexte") @db.VarChar(20)
+  organisation     Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
   utilisedAt        DateTime? @map("utilised_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
@@ -1103,6 +1112,7 @@ model Organisation {
   centresHebergement   CentreHebergement[]
   relationsCliente     RelationCommerciale[]   @relation("OrganisationCliente")
   relationsHebergeur   RelationCommerciale[]   @relation("OrganisationHebergeur")
+  invitationsDirecteur InvitationDirecteur[]
 
   @@index([siren])
   @@index([siret])
