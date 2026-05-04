@@ -45,6 +45,13 @@ export class AuthController {
     return this.authService.resendVerification(dto.email);
   }
 
+  @Post('renvoyer-magic-link')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 3600000, limit: 3 } })
+  renvoyerMagicLink(@Body() body: { email: string }) {
+    return this.authService.renvoyerMagicLink(body.email);
+  }
+
   @Get('magic/:token')
   async magicLink(@Param('token') token: string, @Res() res: Response) {
     return this.authService.consommerMagicLink(token, res);

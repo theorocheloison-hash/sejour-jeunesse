@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, extractApiError } from '@/src/contexts/AuthContext';
 import { Logo } from '@/app/components/Logo';
+import api from '@/src/lib/api';
 
 function LoginForm() {
   const { login }                   = useAuth();
@@ -14,6 +15,9 @@ function LoginForm() {
   const [password, setPassword]     = useState('');
   const [error, setError]           = useState<string | null>(null);
   const [isPending, setIsPending]   = useState(false);
+  const [compteDormant, setCompteDormant] = useState(false);
+  const [magicLinkEnvoye, setMagicLinkEnvoye] = useState(false);
+  const [magicLinkPending, setMagicLinkPending] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,10 +26,24 @@ function LoginForm() {
     try {
       await login({ email, password }, redirectTo);
     } catch (err: unknown) {
-      setError(extractApiError(err));
+      const msg = extractApiError(err);
+      if (msg === 'COMPTE_DORMANT') {
+        setCompteDormant(true);
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsPending(false);
     }
+  };
+
+  const handleRenvoyerMagicLink = async () => {
+    setMagicLinkPending(true);
+    try {
+      await api.post('/auth/renvoyer-magic-link', { email });
+      setMagicLinkEnvoye(true);
+    } catch { /* non bloquant */ }
+    finally { setMagicLinkPending(false); }
   };
 
   return (
@@ -53,6 +71,27 @@ function LoginForm() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{error}</span>
+            </div>
+          )}
+
+          {compteDormant && !magicLinkEnvoye && (
+            <div className="mb-5 rounded-lg bg-blue-50 border border-blue-200 px-4 py-4 text-sm text-blue-800">
+              <p className="font-semibold mb-1">Vous avez déjà soumis une demande via LIAVO.</p>
+              <p className="text-blue-700 mb-3">
+                Votre espace n&apos;a pas encore été activé. Cliquez ci-dessous pour recevoir
+                un nouveau lien d&apos;accès par email.
+              </p>
+              <button type="button" onClick={handleRenvoyerMagicLink} disabled={magicLinkPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60">
+                {magicLinkPending
+                  ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi…</>
+                  : 'Recevoir un lien d\'accès par email'}
+              </button>
+            </div>
+          )}
+          {magicLinkEnvoye && (
+            <div className="mb-5 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)] px-4 py-3 text-sm text-[var(--color-success)] font-medium">
+              Lien envoyé — vérifiez votre boîte mail (et vos spams).
             </div>
           )}
 

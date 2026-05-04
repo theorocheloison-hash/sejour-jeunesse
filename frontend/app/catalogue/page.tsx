@@ -48,6 +48,10 @@ export default function CataloguePage() {
           <div className="flex h-16 items-center justify-between">
             <Link href="/"><Logo size="sm" showTagline={false} /></Link>
             <div className="flex items-center gap-4">
+              <Link href="/register?type=hebergeur"
+                className="text-sm font-medium text-[var(--color-primary)] hover:underline hidden sm:inline">
+                Inscrire mon centre
+              </Link>
               <Link href="/appel-offres"
                 className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity">
                 Lancer un appel d&apos;offres
@@ -173,6 +177,23 @@ export default function CataloguePage() {
           </div>
         )}
       </main>
+
+      <div className="bg-[var(--color-primary)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="text-white font-semibold text-lg mb-1">
+              Votre centre n&apos;est pas encore listé ?
+            </p>
+            <p className="text-white/70 text-sm">
+              Inscrivez-vous gratuitement et recevez des demandes d&apos;organisateurs dans votre zone.
+            </p>
+          </div>
+          <Link href="/register?type=hebergeur"
+            className="shrink-0 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-[var(--color-primary)] hover:bg-gray-100 transition-colors">
+            Référencer mon centre →
+          </Link>
+        </div>
+      </div>
 
       {/* Footer minimal */}
       <footer className="border-t border-gray-200 mt-16 py-6 text-center text-xs text-gray-400">

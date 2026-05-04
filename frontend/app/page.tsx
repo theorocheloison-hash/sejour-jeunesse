@@ -344,6 +344,14 @@ export default function Home() {
                 </li>
               ))}
             </ul>
+            <Link href="/catalogue" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 13, color: 'rgba(255,255,255,0.75)',
+              textDecoration: 'none', marginBottom: 8,
+            }}>
+              ← Voir le catalogue des centres
+            </Link>
+            <br />
             <Link href="/register?type=hebergeur" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               marginTop: 24, fontSize: 14, fontWeight: 500,
