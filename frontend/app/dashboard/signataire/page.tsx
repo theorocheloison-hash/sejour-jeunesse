@@ -183,7 +183,9 @@ function SejourCard({
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
               {sejour.createur && <span>{sejour.createur.prenom} {sejour.createur.nom}</span>}
-              {sejour.createur?.etablissementNom && <span>{sejour.createur.etablissementNom}</span>}
+              {sejour.createur?.memberships?.[0]?.organisation?.nom && (
+                <span>{sejour.createur.memberships[0].organisation.nom}</span>
+              )}
               <span>{fmtDate(sejour.dateDebut)} → {fmtDate(sejour.dateFin)}</span>
               <span>{sejour.placesTotales} élèves</span>
               {sejour.hebergementSelectionne && <span>Hébergeur : {sejour.hebergementSelectionne.nom}</span>}

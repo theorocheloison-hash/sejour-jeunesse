@@ -5,7 +5,8 @@
 > Mis à jour le 29 avril 2026 (v3) : Phase 0 Scalingo, rôles français, TypeStructure élargi, widget+notification centres non inscrits.
 > Mis à jour le 29 avril 2026 (v3.1) : Phase 0 Scalingo **TERMINÉE** — backend+BDD+frontend+stockage migrés en France.
 > Mis à jour le 03 mai 2026 (v3.2) : Lacunes identifiées par audit — SC4ter (flow signataire), typeContexte séjour, modèles legacy InvitationDirecteur/InvitationCollaboration, Rappel/ContactClient orphelins, visibilité signataire, statut DECLARE_TAM.
-> Statut : **VALIDÉ — prêt pour lancement sous-chantier 1 (schéma Prisma + rôles français + backfill)**.
+> Mis à jour le 04 mai 2026 (v3.3) : SC8 terminé — suppression colonnes etablissement* sur User. Positionnement validé : LIAVO = plateforme développée par les hébergeurs, pour les hébergeurs.
+> Statut : **SC8 TERMINÉ — en attente de commit + déploiement Scalingo. SC7 suspendu à validation commerciale LMDJ/IDDJ.**
 
 ---
 
@@ -1093,6 +1094,177 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 - Glossaire mis à jour
 
 **Décision :** ne pas coder SC4ter avant validation de la v3.2 par Théo.
+
+### Session 04/05/2026 — SC4ter complet (3 passes)
+
+**Sous-chantier SC4ter — Flow invitation signataire post-refactor — TERMINÉ, DÉPLOYÉ**
+
+*Passe A — Migrations Prisma (commit d6ea649) :*
+- Enum `TypeContexteSejour` (SCOLAIRE/HORS_SCOLAIRE) ajouté au schéma
+- Champ `typeContexte` ajouté sur `Sejour` (@default SCOLAIRE — compatibilité ascendante)
+- Champs `organisationId` (FK nullable → Organisation, onDelete SetNull) et `typeContexte` (VARCHAR 20) ajoutés sur `InvitationDirecteur`
+- Relation inverse `invitationsDirecteur` ajoutée sur `Organisation`
+- Migration SQL `20260504_sc4ter_invitation_signataire` créée manuellement et appliquée sur Scalingo via `migrate deploy` au redémarrage
+- `prisma generate` + `npm run build` backend : exit 0
+
+*Passe B — Backend services (commit 8ea385c) :*
+- `invitations-directeur.service.ts` `findByToken()` : inclut désormais l'organisation (id/nom/uai/ville) et retourne `organisationId`, `typeContexte`, `organisation`
+- `sejour.service.ts` `inviterDirecteur()` : résout `getOrganisationPrincipale(userId)` + lit `sejour.typeContexte` avant création de l'invitation ; `organisationId` et `typeContexte` renseignés sur `InvitationDirecteur`
+- `register-signataire.dto.ts` : ajout `invitationToken?` et `organisationId?`
+- `auth.service.ts` `registerSignataire()` : création Membership automatique (MEMBRE/isPrimary:true/NON_APPLICABLE) si `dto.organisationId` non null ; marquage invitation `utilisedAt` (non bloquant) si `dto.invitationToken`
+
+*Passe C — Frontend (commit 8ea385c) :*
+- `register/signataire/page.tsx` : bifurcation complète selon `typeContexte`
+  - SCOLAIRE + organisation connue → établissement pré-rempli verrouillé (non modifiable)
+  - SCOLAIRE legacy (organisationId null) → comportement actuel conservé (recherche UAI API EN)
+  - HORS_SCOLAIRE → `<StructureSearch allowFreeText={true}>` affiché à la place de la recherche UAI
+  - `handleSubmit` transmet `invitationToken` + `organisationId` au backend
+  - Suppression de l'appel `/utiliser` côté frontend (géré backend)
+  - Titre h1 → "Inscription signataire", sous-titre conditionnel
+  - Message d'erreur contextuel selon `typeContexte`
+- `npm run build` frontend : exit 0, 43 pages générées
+
+**Prochaine étape : SC5 — Refactor frontend dashboards (lecture Organisation via Membership)**
+
+### Session 04/05/2026 — SC5 complet (commit bf328b4)
+
+**Sous-chantier SC5 — Enrichissement getProfile() + consommation dashboards — TERMINÉ, DÉPLOYÉ**
+
+*Fix à la source — pas cosmétique :*
+- `users.service.ts` `getProfile()` : enrichi avec `getOrganisationPrincipale()` — retourne désormais `{ ...user, organisation: { id, nom, uai, siren, typeStructure, ville } | null }`. Tout appelant de `/users/me` reçoit automatiquement l'organisation principale sans passer par les champs `etablissement*` legacy.
+- `src/types/auth.ts` : interface `OrganisationResume` ajoutée, champ `organisation?: OrganisationResume | null` ajouté à `User`.
+- `AuthContext.tsx` : après login, appel non-bloquant `api.get('/users/me')` qui enrichit `user.organisation` en localStorage + state. Pas de blocage du flux de connexion.
+- Dashboard organisateur navbar : `{user.organisation?.nom ?? 'Organisateur'}` — affiche le vrai nom de l'établissement depuis `Organisation`, fallback gracieux.
+- Dashboard signataire navbar : `{user.organisation?.nom ?? 'Signataire'}` — idem.
+- Bouton catalogue organisateur : `"Parcourir les 649 centres"` → `"Parcourir le catalogue"` (chiffre hardcodé supprimé).
+
+*Ce que SC5 débloque pour SC8 :* les dashboards consomment déjà `user.organisation` — quand SC8 supprimera les colonnes `etablissement*` de `User`, aucun dashboard ne cassera.
+
+**Prochaine étape : SC6 ou SC8 selon priorité commerciale**
+
+### Session 04/05/2026 — SC6 complet (3 passes)
+
+**Sous-chantier SC6 — Pages publiques + flow demande sans compte — TERMINÉ, DÉPLOYÉ**
+
+*Passe A — Backend PublicModule + magic link (commits push 1) :*
+- Migration SQL `20260504_sc6_magic_link` : 2 champs sur `utilisateurs` (`magic_link_token UUID`, `magic_link_expires TIMESTAMPTZ`)
+- `EmailService.sendMagicLink()` ajoutée
+- `CentreModule` : `exports: [CentreService]` ajouté
+- `CentreService.getPublic(id)` ajoutée (guard UUID + select whitelist)
+- `PublicModule` créé avec `PublicController` (3 endpoints) + `PublicService` (flow complet)
+- `POST /public/demande` : crée User dormant + Organisation + Membership + Sejour + DemandeDevis en transaction + magic link TTL 7j + 1 email
+- `GET /public/centres?search=` : catalogue public (throttle 30/min)
+- `GET /public/centres/:id` : fiche centre publique
+- `GET /auth/magic/:token` : valide token → active compte → génère JWT → redirige `/auth/callback`
+- Anti-doublon : si email existant avec `compteValide=true` → `ConflictException` avec message clair
+- Anti-doublon : si email existant avec `compteValide=false` → réutilise le User dormant
+
+*Passe B — Frontend pages publiques (commit push 2) :*
+- `src/lib/public.ts` : `searchCentresPublics()`, `getCentrePublic()`, `soumettreDemandePublique()` (fetch direct sans token)
+- `app/auth/magic/[token]/page.tsx` : page transitionnelle → redirige vers backend
+- `app/auth/callback/page.tsx` : décode JWT, stocke cookie + localStorage, redirige dashboard avec `?onboarding=true`
+- `app/catalogue/page.tsx` : catalogue public avec recherche debounced, grille cartes, CTA appel d'offres
+- `app/catalogue/[id]/page.tsx` : fiche centre publique, CTA "Envoyer une demande à ce centre" → `/appel-offres?centreId=...`
+- `app/appel-offres/page.tsx` : formulaire 2-3 étapes (bifurcation `centreId` query param), contact direct ou appel d'offres géographique, écran de succès
+- Build frontend : exit 0, 46 pages générées
+
+*Passe C — Banner onboarding dashboard (commit push 3) :*
+- `dashboard/organisateur/page.tsx` : détecte `?onboarding=true`, affiche bandeau bleu "Bienvenue — définissez votre mot de passe" avec CTA → profil section sécurité
+- Wrapper `<Suspense>` ajouté pour `useSearchParams()`
+- Build frontend : exit 0
+
+**Flow utilisateur complet :**
+1. Enseignant arrive sur `/catalogue` ou `/appel-offres` sans compte
+2. Remplit formulaire (titre, dates, élèves, coordonnées) — pas de mot de passe
+3. Backend crée compte dormant + demande + envoie 1 email avec magic link
+4. Enseignant clique le lien → `/auth/magic/[token]` → backend valide → JWT → `/auth/callback` → dashboard avec banner onboarding
+5. Hébergeurs reçoivent la demande et peuvent répondre immédiatement
+6. Enseignant définit son mot de passe depuis le bandeau → compte pleinement actif
+
+**Corrections UX post-SC6 (même session) :**
+- `auth.service.ts` : détection compte dormant dans `login()` → `UnauthorizedException('COMPTE_DORMANT')` si `!compteValide && !emailVerifie` ; nouvelle méthode `renvoyerMagicLink()` (throttle 3/h)
+- `auth.controller.ts` : endpoint `POST /auth/renvoyer-magic-link` ajouté
+- `public.service.ts` : `centresNotifies` retourné (1 si contact direct, 0 si appel d'offres — honnête, pas de chiffre approximatif)
+- `login/page.tsx` : bifurcation `COMPTE_DORMANT` → panneau bleu explicite + bouton "Recevoir un lien d'accès" (utilise `api` axios, pas fetch direct)
+- `appel-offres/page.tsx` : affichage conditionnel "Votre demande a été transmise à 1 centre" dans l'écran de succès
+- `catalogue/page.tsx` : lien "Inscrire mon centre" dans la nav + bandeau CTA hébergeur avant le footer
+- `app/page.tsx` : lien "← Voir le catalogue des centres" ajouté avant "Référencer mon centre" dans le bloc hébergeurs
+
+**Prochaine étape : SC7 — Widget signalement intérêt + notification auto centres APIDAE (dépend validation commerciale LMDJ/IDDJ)**
+
+---
+
+## Backlog — Idées notées, non planifiées
+
+### SC6bis — Notification push centres catalogue EN labellisés
+
+**Contexte :** Le Ministère de l'Éducation Nationale publie un catalogue national des structures d'accueil et d'hébergement labellisées pour les voyages scolaires (`data.education.gouv.fr`, dataset `fr-en-catalogue-structures-accueil-hebergement`). Ce catalogue recense les hébergeurs agréés par les DASEN département par département, renouvelés tous les 3 ans scolaires.
+
+**Problème :** L'API publique de ce dataset n'expose pas les emails — uniquement le site web de chaque structure. Les emails ne sont donc pas directement récupérables via l'API.
+
+**Idée validée :** Récupérer les emails en visitant les sites web de chaque structure (scraping ou enrichissement manuel), les stocker dans une table dédiée (`CentresCatalogueEN`), puis les inclure dans la mécanique de notification SC6 (même pattern rate-limit 7j via `dernierEmailDemandeAt`).
+
+**Valeur :** Ces structures sont pré-qualifiées par l'État pour accueillir des séjours scolaires — c'est exactement la cible hébergeur de LIAVO. L'offre d'essai gratuit du module complet (plan Complet 30 jours) serait le CTA de l'email de notification.
+
+**Ce qu'il faut faire avant de coder :**
+1. Télécharger le CSV du catalogue EN et évaluer le volume (nombre de structures, couverture nationale)
+2. Évaluer le taux de sites web renseignés dans le dataset
+3. Décider de la méthode d'enrichissement email : scraping automatisé (fragile), enrichissement manuel (viable pour quelques centaines), ou prestataire data B2B
+4. Valider le cadre légal : l'envoi d'emails prospectifs B2B en France est soumis à l'opt-out (pas d'opt-in requis pour les professionnels) mais nécessite une mention de désinscription — vérifier avec juriste
+5. Valider la mécanique "essai gratuit Complet 30 jours" dans le schéma abonnement (nouveau statut `TRIALING` + date d'expiration + conversion automatique)
+
+**Dépendances :** SC6 validé commercialement (LMDJ ou IDDJ) + enrichissement email dataset EN réalisé.
+
+**Ne pas coder avant :** validation commerciale + enrichissement email + avis juridique opt-out B2B.
+
+### Session 04/05/2026 — SC8 complet (3 passes)
+
+**Sous-chantier SC8 — Suppression colonnes legacy etablissement* sur User — TERMINÉ, À DÉPLOYER**
+
+**Contexte :** Sans utilisateurs réels (seul compte prod = Sauvageon / Théo), la période d'attente de stabilité est remplacée par un audit exhaustif du code. L'audit a confirmé 7 fichiers backend + 2 fichiers frontend utilisant encore les champs legacy. Tous corrigés à la source, 0 patch.
+
+**Décision de positionnement validée :** LIAVO = couche post-mise-en-relation. L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale LMDJ — c'est la plateforme de coordination une fois la mise en relation faite. Pitch adapté : "La plateforme développée par les hébergeurs, pour les hébergeurs."
+
+*Passe A — Migration SQL :*
+- `backend/prisma/schema.prisma` : 7 champs supprimés sur model User (`etablissementUai`, `etablissementNom`, `etablissementAdresse`, `etablissementVille`, `etablissementEmail`, `etablissementTelephone`, `typeStructure`). Conservés : `emailRectorat`, `reseauNom`, `reseauNomComplet`.
+- Migration `backend/prisma/migrations/20260504_sc8_drop_etablissement_columns/migration.sql` créée : `ALTER TABLE utilisateurs DROP COLUMN IF EXISTS` sur les 7 colonnes.
+- `npx prisma generate` : exit 0.
+
+*Passe B — Backend : auth.service.ts, users.service.ts, users.controller.ts, public.service.ts (0 erreur) :*
+- `auth.service.ts` `registerOrganisateur()` : suppression writes legacy + ajout `findOrCreateOrganisation()` + `findOrCreateMembership()` après inscription.
+- `auth.service.ts` `registerSignataire()` : suppression writes legacy (Membership déjà géré via `dto.organisationId`).
+- `users.service.ts` `getProfile()` : suppression champs legacy du select.
+- `users.service.ts` : suppression méthode `updateEtablissement()` entière.
+- `users.controller.ts` : suppression endpoint `PATCH mon-etablissement`.
+- `public.service.ts` : suppression writes legacy dans `user.create()`.
+
+*Passe C — Backend (9 fichiers) + Frontend (2 fichiers) — 0 erreur TypeScript :*
+- `jwt.strategy.ts` : `etablissementUai` retiré du select.
+- `admin.service.ts` : `etablissementNom` retiré de `getUtilisateurs()`.
+- `hebergement.service.ts` : `getOrganisationPrincipale(enseignantId)` → `nomEtablissement`.
+- `accompagnateur.service.ts` : `orgaCreateur` dans `getByToken()` et `getOrdreMissionHtml()` — PDF ordre de mission lit depuis Organisation.
+- `invitation-collaboration.service.ts` : bloc pré-remplissage `etablissementUai` sur User supprimé.
+- `demande.service.ts` : `getComparatif()` — enseignant et createur sans champs `etablissement*`.
+- `collaboration.service.ts` : `orgaCreateur` retourné dans `getBudgetData()`.
+- `sejour.service.ts` : `findByEtablissement()` réécrit (Organisation → Memberships → userIds) avec `memberships[0].organisation` dans le select createur. `getSejourDetail()`, `getDossierPedagogique()`, `soumettreAuRectorat()`, `soumettreAuDirecteur()`, `inviterDirecteur()`, `update()` tous migrés vers `getOrganisationPrincipale()`. Dossier rectorat HTML lit depuis `orgaCreateur`.
+- `devis.service.ts` : `getMesDevis()` inclut `createur.memberships[0].organisation`. `getDevisById()`, `getDemandeInfo()`, `getDevisForDemande()`, `getFacturesAcompte()`, `signerDevis()` sans champs `etablissement*`. `updateStatut()` `autoRattacher` via `getOrganisationPrincipale()`. `getChorusXml()` createur réduit à `{id}` puis `orgaCreateur` lu dans le XML PEPPOL.
+- `frontend/signataire/page.tsx` : `sejour.createur?.etablissementNom` → `sejour.createur?.memberships?.[0]?.organisation?.nom`.
+- `frontend/hebergeur/devis/page.tsx` : `getEtablissementDisplay()` et `matchesSearch()` lisent `memberships?.[0]?.organisation?.nom`.
+
+**Bugs cascade anticipés et corrigés dans le prompt avant exécution :**
+1. `getMesDevis()` : au lieu de supprimer `etablissementNom` et mettre un TODO, le select inclut `createur.memberships[0].organisation` — 1 seul appel SQL, pas de boucle N+1.
+2. Dashboard signataire `findByEtablissement()` : nouveau select inclut `memberships[0].organisation` pour éviter affichage vide côté frontend.
+3. `getBudgetData()` : `orgaCreateur` récupéré depuis `sejour.createur.id` (déjà disponible dans le select), pas via double requête SQL.
+
+**État post-SC8 :**
+- Build backend : exit 0, 0 erreur TypeScript
+- Build frontend : exit 0
+- Migration SQL prête à appliquer via `npx prisma migrate deploy` au redémarrage Scalingo
+- **À faire : commit + push main → déploiement Scalingo automatique**
+
+**Prochaine étape :** SC7 (notification centres APIDAE non inscrits) suspendu à validation commerciale LMDJ/IDDJ. En attente de la visio de suivi LMDJ.
+
+---
 
 ### Session 01/05/2026 — Sous-chantiers 3 et 4 (partiels)
 

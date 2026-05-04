@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { SearchHebergementDto } from './dto/search-hebergement.dto.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 const API_BASE =
   'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
@@ -212,9 +213,12 @@ export class HebergementService {
 
     const enseignant = await this.prisma.user.findUnique({
       where: { id: enseignantId },
-      select: { prenom: true, nom: true, email: true, etablissementNom: true },
+      select: { id: true, prenom: true, nom: true, email: true },
     });
     if (!enseignant) throw new NotFoundException('Enseignant introuvable');
+
+    const orgaEnseignant = await getOrganisationPrincipale(enseignantId, this.prisma);
+    const nomEtablissement = orgaEnseignant?.nom ?? null;
 
     // Trouver l'email du réseau correspondant
     const reseauUser = await this.prisma.user.findFirst({
@@ -241,7 +245,7 @@ export class HebergementService {
         emailReseau,
         `Un enseignant est intéressé par ${centre.nom}`,
         `<p>Bonjour,</p>
-         <p>L'enseignant <strong>${enseignant.prenom} ${enseignant.nom}</strong>${enseignant.etablissementNom ? ` (${enseignant.etablissementNom})` : ''} a manifesté son intérêt pour le centre <strong>${centre.nom}</strong> à ${centre.ville}.</p>
+         <p>L'enseignant <strong>${enseignant.prenom} ${enseignant.nom}</strong>${nomEtablissement ? ` (${nomEtablissement})` : ''} a manifesté son intérêt pour le centre <strong>${centre.nom}</strong> à ${centre.ville}.</p>
          ${message ? `<p>Message : <em>${message}</em></p>` : ''}
          ${centre.email ? `<p>Email du centre : <a href="mailto:${centre.email}">${centre.email}</a></p>` : ''}
          <p>Ce centre n'est pas encore inscrit sur LIAVO. Nous vous suggérons de le contacter pour accélérer son onboarding.</p>`,
@@ -254,7 +258,7 @@ export class HebergementService {
         centre.email,
         `Un enseignant recherche un hébergement — découvrez LIAVO`,
         `<p>Bonjour,</p>
-         <p>Un enseignant${enseignant.etablissementNom ? ` de ${enseignant.etablissementNom}` : ''} est intéressé par votre centre <strong>${centre.nom}</strong> pour organiser un séjour scolaire.</p>
+         <p>Un enseignant${nomEtablissement ? ` de ${nomEtablissement}` : ''} est intéressé par votre centre <strong>${centre.nom}</strong> pour organiser un séjour scolaire.</p>
          <p>LIAVO est la plateforme de coordination des séjours scolaires qui vous permet de recevoir des demandes de devis, gérer vos disponibilités et facturer directement.</p>
          ${message ? `<p>Message de l'enseignant : <em>${message}</em></p>` : ''}
          <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/venue" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon espace hébergeur</a></p>

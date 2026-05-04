@@ -166,22 +166,35 @@ export class SejourService {
   }
 
   async findByEtablissement(etablissementUai: string) {
+    const organisation = await this.prisma.organisation.findFirst({
+      where: { uai: etablissementUai },
+      select: { id: true },
+    });
+    if (!organisation) return [];
+
+    const memberships = await this.prisma.membership.findMany({
+      where: { organisationId: organisation.id },
+      select: { userId: true },
+    });
+    const userIds = memberships.map(m => m.userId);
+    if (userIds.length === 0) return [];
+
     return this.prisma.sejour.findMany({
-      where: {
-        createur: {
-          etablissementUai: etablissementUai,
-        },
-      },
+      where: { createurId: { in: userIds } },
       include: {
         createur: {
           select: {
             prenom: true, nom: true, email: true,
-            etablissementNom: true, etablissementUai: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: {
+                organisation: { select: { nom: true, ville: true, uai: true } },
+              },
+              take: 1,
+            },
           },
         },
-        hebergementSelectionne: {
-          select: { nom: true, ville: true },
-        },
+        hebergementSelectionne: { select: { nom: true, ville: true } },
         demandes: {
           include: {
             devis: {
@@ -202,12 +215,7 @@ export class SejourService {
                 demande: {
                   include: {
                     enseignant: {
-                      select: {
-                        prenom: true, nom: true, email: true, telephone: true,
-                        etablissementNom: true, etablissementAdresse: true,
-                        etablissementVille: true, etablissementUai: true,
-                        etablissementEmail: true, etablissementTelephone: true,
-                      },
+                      select: { prenom: true, nom: true, email: true, telephone: true },
                     },
                     sejour: {
                       select: {
@@ -223,9 +231,7 @@ export class SejourService {
           },
           take: 1,
         },
-        _count: {
-          select: { autorisations: true, planningActivites: true },
-        },
+        _count: { select: { autorisations: true, planningActivites: true } },
       },
       orderBy: { dateDebut: 'asc' },
     });
@@ -236,12 +242,7 @@ export class SejourService {
       where: { id },
       include: {
         createur: {
-          select: {
-            prenom: true, nom: true, email: true, telephone: true,
-            etablissementNom: true, etablissementAdresse: true,
-            etablissementVille: true, etablissementUai: true,
-            etablissementEmail: true, etablissementTelephone: true,
-          },
+          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
         },
         accompagnateurs: {
           select: {
@@ -272,7 +273,10 @@ export class SejourService {
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    return sejour;
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
+    return { ...sejour, orgaCreateur };
   }
 
   async getDossierPedagogique(id: string, user: JwtUser) {
@@ -280,12 +284,7 @@ export class SejourService {
       where: { id },
       include: {
         createur: {
-          select: {
-            prenom: true, nom: true, email: true, telephone: true,
-            etablissementNom: true, etablissementAdresse: true,
-            etablissementVille: true, etablissementUai: true,
-            etablissementEmail: true, etablissementTelephone: true,
-          },
+          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
         },
         hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true, imageUrl: true } },
         accompagnateurs: {
@@ -339,7 +338,10 @@ export class SejourService {
       throw new ForbiddenException('Accès refusé');
     }
 
-    return sejour;
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
+    return { ...sejour, orgaCreateur };
   }
 
   async soumettreAuRectorat(sejourId: string, userId: string) {
@@ -347,12 +349,7 @@ export class SejourService {
       where: { id: sejourId },
       include: {
         createur: {
-          select: {
-            prenom: true, nom: true, email: true, telephone: true,
-            etablissementNom: true, etablissementAdresse: true,
-            etablissementVille: true, etablissementUai: true,
-            etablissementEmail: true, etablissementTelephone: true,
-          },
+          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
         },
         hebergementSelectionne: {
           select: { nom: true, ville: true, adresse: true, codePostal: true, telephone: true, email: true }
@@ -379,7 +376,11 @@ export class SejourService {
       throw new ForbiddenException('Accès refusé');
     }
 
-    const html = this.genererDossierRectoratHtml(sejour);
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
+
+    const html = this.genererDossierRectoratHtml(sejour, orgaCreateur);
 
     const directeur = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -403,7 +404,7 @@ export class SejourService {
     return { message: 'Dossier soumis au rectorat avec succès.' };
   }
 
-  private genererDossierRectoratHtml(sejour: any): string {
+  private genererDossierRectoratHtml(sejour: any, orgaCreateur: any): string {
     const fmt = (d: string | Date | null) => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
     const fmtDate = (d: string | Date | null) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
     const autorisationsSignees = sejour.autorisations.filter((a: any) => a.signeeAt);
@@ -458,11 +459,11 @@ export class SejourService {
     <p><strong>Niveau :</strong> ${sejour.niveauClasse ?? '—'}</p>
   </div>
   <div class="info-block">
-    <p><strong>Établissement :</strong> ${sejour.createur.etablissementNom ?? '—'}</p>
-    <p><strong>UAI :</strong> ${sejour.createur.etablissementUai ?? '—'}</p>
-    <p><strong>Adresse :</strong> ${sejour.createur.etablissementAdresse ?? '—'}</p>
-    <p><strong>Ville :</strong> ${sejour.createur.etablissementVille ?? '—'}</p>
-    <p><strong>Tél. établissement :</strong> ${sejour.createur.etablissementTelephone ?? '—'}</p>
+    <p><strong>Établissement :</strong> ${orgaCreateur?.nom ?? '—'}</p>
+    <p><strong>UAI :</strong> ${orgaCreateur?.uai ?? '—'}</p>
+    <p><strong>Adresse :</strong> ${orgaCreateur?.adresse ?? '—'}</p>
+    <p><strong>Ville :</strong> ${orgaCreateur?.ville ?? '—'}</p>
+    <p><strong>Tél. établissement :</strong> ${orgaCreateur?.telephoneContact ?? '—'}</p>
   </div>
 </div>
 
@@ -525,20 +526,24 @@ export class SejourService {
       where: { id: sejourId },
       include: {
         createur: {
-          select: {
-            prenom: true, nom: true,
-            etablissementNom: true, etablissementUai: true,
-          },
+          select: { id: true, prenom: true, nom: true },
         },
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== enseignantId) throw new ForbiddenException('Accès refusé');
 
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
+    if (!orgaCreateur) {
+      return { success: false, message: 'Organisation du créateur introuvable.' };
+    }
+
     const directeur = await this.prisma.user.findFirst({
       where: {
         role: 'SIGNATAIRE',
-        etablissementUai: sejour.createur?.etablissementUai ?? undefined,
+        memberships: { some: { organisationId: orgaCreateur.id, isPrimary: true } },
         compteValide: true,
       },
       select: { email: true, prenom: true, nom: true },
@@ -551,7 +556,7 @@ export class SejourService {
     const lien = `${FRONTEND_URL}/dashboard/signataire`;
     const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
     const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
-    const etablissement = sejour.createur?.etablissementNom ?? 'l\'établissement';
+    const etablissement = orgaCreateur.nom ?? 'l\'établissement';
     const enseignant = `${sejour.createur?.prenom ?? ''} ${sejour.createur?.nom ?? ''}`.trim();
 
     await this.email.sendGenericNotification(
@@ -574,23 +579,28 @@ export class SejourService {
       where: { id: sejourId },
       include: {
         createur: {
-          select: { prenom: true, etablissementUai: true, etablissementNom: true },
+          select: { id: true, prenom: true },
         },
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
 
+    // Résoudre l'organisation principale de l'organisateur
+    const orgaPrincipale = userId
+      ? await getOrganisationPrincipale(userId, this.prisma)
+      : null;
+
     // Cas 1 : directeur déjà inscrit sur LIAVO
-    const directeurExistant = await this.prisma.user.findFirst({
+    const directeurExistant = orgaPrincipale ? await this.prisma.user.findFirst({
       where: {
         role: 'SIGNATAIRE',
-        etablissementUai: sejour.createur?.etablissementUai ?? undefined,
+        memberships: { some: { organisationId: orgaPrincipale.id } },
         compteValide: true,
         emailVerifie: true,
       },
       select: { email: true, prenom: true, nom: true },
-    });
+    }) : null;
 
     // Changer le statut du devis si fourni
     if (devisId) {
@@ -636,11 +646,6 @@ export class SejourService {
       return { found: false, sent: false, alreadySent: true };
     }
 
-    // Résoudre l'organisation principale de l'organisateur
-    const orgaPrincipale = userId
-      ? await getOrganisationPrincipale(userId, this.prisma)
-      : null;
-
     // Déterminer le typeContexte depuis le séjour
     const typeContexteValue = (sejour as any).typeContexte ?? 'SCOLAIRE';
 
@@ -649,8 +654,8 @@ export class SejourService {
         sejourId,
         devisId:          devisId ?? null,
         emailDirecteur,
-        etablissementUai: sejour.createur?.etablissementUai ?? null,
-        etablissementNom: sejour.createur?.etablissementNom ?? null,
+        etablissementUai: orgaPrincipale?.uai ?? null,
+        etablissementNom: orgaPrincipale?.nom ?? null,
         enseignantPrenom: sejour.createur?.prenom ?? null,
         sejourTitre:      sejour.titre,
         organisationId:   orgaPrincipale?.id ?? null,
@@ -666,7 +671,7 @@ export class SejourService {
       emailDirecteur,
       `${sejour.createur?.prenom ?? 'Un enseignant'} attend votre validation — ${sejour.titre}`,
       `<p>Bonjour,</p>
-       <p>Un enseignant de votre établissement (<strong>${sejour.createur?.etablissementNom ?? ''}</strong>) a organisé un séjour scolaire et souhaite votre validation en tant que directeur(trice) :</p>
+       <p>Un enseignant de votre établissement (<strong>${orgaPrincipale?.nom ?? ''}</strong>) a organisé un séjour scolaire et souhaite votre validation en tant que directeur(trice) :</p>
        <p><strong>Séjour :</strong> ${sejour.titre}<br>
        <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
        <strong>Élèves :</strong> ${sejour.placesTotales}</p>
@@ -709,7 +714,7 @@ export class SejourService {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },
       include: {
-        createur: { select: { etablissementNom: true } },
+        createur: { select: { id: true } },
         demandes: {
           where: { statut: 'OUVERTE' },
           select: { id: true },
@@ -720,6 +725,11 @@ export class SejourService {
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
     if (sejour.statut !== 'DRAFT') throw new ForbiddenException('Ce séjour ne peut plus être modifié');
+
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
+    const etablissement = orgaCreateur?.nom ?? 'L\'établissement scolaire';
 
     const updated = await this.prisma.sejour.update({
       where: { id },
@@ -762,7 +772,6 @@ export class SejourService {
         select: { parentEmail: true, elevePrenom: true, eleveNom: true, tokenAcces: true },
       });
 
-      const etablissement = sejour.createur?.etablissementNom ?? 'L\'établissement scolaire';
       const prixFormate = dto.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
 
       for (const aut of autorisations) {

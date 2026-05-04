@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { UpdateEtablissementDto } from './dto/update-etablissement.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
@@ -17,12 +16,6 @@ export class UsersService {
         email: true,
         telephone: true,
         role: true,
-        etablissementUai: true,
-        etablissementNom: true,
-        etablissementAdresse: true,
-        etablissementVille: true,
-        etablissementEmail: true,
-        etablissementTelephone: true,
         emailRectorat: true,
       },
     });
@@ -56,26 +49,4 @@ export class UsersService {
     });
   }
 
-  async updateEtablissement(userId: string, dto: UpdateEtablissementDto) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        etablissementUai: dto.etablissementUai,
-        etablissementNom: dto.etablissementNom,
-        etablissementAdresse: dto.etablissementAdresse ?? null,
-        etablissementVille: dto.etablissementVille ?? null,
-        etablissementEmail: dto.etablissementEmail ?? null,
-        etablissementTelephone: dto.etablissementTelephone ?? null,
-      },
-      select: {
-        id: true,
-        etablissementUai: true,
-        etablissementNom: true,
-        etablissementAdresse: true,
-        etablissementVille: true,
-        etablissementEmail: true,
-        etablissementTelephone: true,
-      },
-    });
-  }
 }

@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 // Département → Région mapping (code postal → région)
 const DEPT_TO_REGION: Record<string, string> = {
@@ -202,19 +203,14 @@ export class DemandeService {
         demande: {
           include: {
             enseignant: {
-              select: {
-                prenom: true, nom: true, email: true, telephone: true,
-                etablissementNom: true, etablissementAdresse: true,
-                etablissementVille: true, etablissementUai: true,
-                etablissementEmail: true, etablissementTelephone: true,
-              },
+              select: { prenom: true, nom: true, email: true, telephone: true },
             },
             sejour: {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 niveauClasse: true, statut: true,
                 createur: {
-                  select: { prenom: true, nom: true, etablissementNom: true, etablissementVille: true },
+                  select: { prenom: true, nom: true },
                 },
               },
             },
