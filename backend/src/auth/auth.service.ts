@@ -406,6 +406,40 @@ export class AuthService {
     return { message: 'Mot de passe modifié avec succès' };
   }
 
+  async consommerMagicLink(token: string, res: any) {
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        magicLinkToken: token,
+        magicLinkExpires: { gte: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.redirect(`${frontendUrl}/login?error=magic_link_expired`);
+    }
+
+    // Activer le compte + invalider le token
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        compteValide:     true,
+        emailVerifie:     true,
+        magicLinkToken:   null,
+        magicLinkExpires: null,
+      },
+    });
+
+    // Générer JWT et rediriger
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwt.sign(payload);
+
+    return res.redirect(
+      `${frontendUrl}/auth/callback?token=${encodeURIComponent(accessToken)}&onboarding=true`
+    );
+  }
+
   private buildAuthResponse(user: User) {
     const payload = {
       sub: user.id,

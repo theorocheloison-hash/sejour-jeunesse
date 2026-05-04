@@ -8,5 +8,6 @@ import { CentreService } from './centre.service.js';
   imports: [AuthModule, EmailModule],
   controllers: [CentreController],
   providers: [CentreService],
+  exports: [CentreService],
 })
 export class CentreModule {}

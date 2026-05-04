@@ -100,6 +100,23 @@ export class CentreService {
     return [...prismaResults, ...enResults];
   }
 
+  async getPublic(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!isUuid) return null;
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id },
+      select: {
+        id: true, nom: true, adresse: true, ville: true, codePostal: true,
+        telephone: true, email: true, capacite: true, description: true,
+        imageUrl: true, siteWeb: true, typeSejours: true, thematiquesCentre: true,
+        activitesCentre: true, equipements: true, accessiblePmr: true,
+        agrementEducationNationale: true, periodeOuverture: true, departement: true,
+        source: true, apidaeId: true,
+      },
+    });
+    return centre ?? null;
+  }
+
   async register(dto: RegisterCentreDto) {
     const invitation = await this.prisma.invitationHebergement.findUnique({
       where: { token: dto.token },

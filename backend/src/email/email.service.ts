@@ -226,6 +226,19 @@ export class EmailService {
     await this.send(to, subject, html);
   }
 
+  async sendMagicLink(to: string, prenom: string, titreSejourOuAction: string, magicUrl: string) {
+    const html = emailLayout(
+      'Votre demande a été envoyée',
+      `<p>Bonjour ${prenom},</p>
+       <p>Votre demande <strong>« ${titreSejourOuAction} »</strong> a bien été transmise aux hébergeurs.</p>
+       <p>Cliquez ci-dessous pour suivre les réponses et gérer votre séjour. Ce lien crée automatiquement votre espace sécurisé.</p>
+       <p style="color:#888;font-size:12px;margin-top:16px">Lien valable 7 jours. Si vous n'avez pas soumis cette demande, ignorez cet email.</p>`,
+      'Accéder à mon espace LIAVO →',
+      magicUrl,
+    );
+    await this.send(to, `Votre demande de séjour a été envoyée — Activez votre espace LIAVO`, html);
+  }
+
   // ── g) Vérification email ────────────────────────────────────────────
 
   async sendVerificationEmail(to: string, prenom: string, token: string) {
