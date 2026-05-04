@@ -64,10 +64,6 @@ export class PublicService {
           role:              'ORGANISATEUR',
           compteValide:      false,
           emailVerifie:      false,
-          typeStructure:     (dto.typeStructure as any) ?? null,
-          etablissementNom:  dto.etablissementNom ?? null,
-          etablissementVille: dto.etablissementVille ?? null,
-          etablissementUai:  dto.etablissementUai ?? null,
         },
       });
     }

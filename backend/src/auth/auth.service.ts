@@ -16,7 +16,7 @@ import { RegisterDto } from './dto/register.dto.js';
 import { RegisterOrganisateurDto } from './dto/register-organisateur.dto.js';
 import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
-import { findOrCreateMembership } from '../organisations/organisation.helpers.js';
+import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class AuthService {
@@ -68,11 +68,6 @@ export class AuthService {
         motDePasse: hashed,
         role: Role.ORGANISATEUR,
         telephone: dto.telephone ?? null,
-        etablissementUai: dto.etablissementUai ?? null,
-        etablissementNom: dto.etablissementNom ?? null,
-        etablissementAdresse: dto.etablissementAdresse ?? null,
-        etablissementVille: dto.etablissementVille ?? null,
-        typeStructure: dto.typeStructure ?? null,
         emailVerifie: false,
         tokenVerification: token,
         tokenVerificationExpires: tokenExpires,
@@ -89,6 +84,25 @@ export class AuthService {
         etablissementUai: null,
       },
     });
+
+    // Créer Organisation + Membership depuis les infos d'inscription
+    if (dto.etablissementNom || dto.etablissementUai) {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom:           dto.etablissementNom ?? `${dto.prenom} ${dto.nom}`,
+        uai:           dto.etablissementUai ?? null,
+        adresse:       dto.etablissementAdresse ?? null,
+        ville:         dto.etablissementVille ?? null,
+        typeStructure: (dto.typeStructure as any) ?? null,
+        source:        'MANUAL',
+      });
+      await findOrCreateMembership(this.prisma, {
+        userId:         user.id,
+        organisationId: organisation.id,
+        role:           'PROPRIETAIRE',
+        isPrimary:      true,
+        claimStatut:    'NON_APPLICABLE',
+      });
+    }
 
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
 
@@ -118,10 +132,6 @@ export class AuthService {
         motDePasse: hashed,
         role: Role.SIGNATAIRE,
         telephone: dto.telephone ?? null,
-        etablissementUai: dto.etablissementUai ?? null,
-        etablissementNom: dto.etablissementNom ?? null,
-        etablissementAdresse: dto.etablissementAdresse ?? null,
-        etablissementVille: dto.etablissementVille ?? null,
         emailVerifie: false,
         compteValide: true,
         tokenVerification: token,

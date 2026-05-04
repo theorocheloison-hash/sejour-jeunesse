@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateAccompagnateurDto } from './dto/create-accompagnateur.dto.js';
 import { SignerAccompagnateurDto } from './dto/signer-accompagnateur.dto.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -74,18 +75,7 @@ export class AccompagnateurService {
             description: true,
             niveauClasse: true,
             placesTotales: true,
-            createur: {
-              select: {
-                prenom: true,
-                nom: true,
-                etablissementNom: true,
-                etablissementAdresse: true,
-                etablissementVille: true,
-                etablissementUai: true,
-                etablissementEmail: true,
-                etablissementTelephone: true,
-              },
-            },
+            createur: { select: { id: true, prenom: true, nom: true } },
             hebergements: { select: { nom: true, adresse: true, ville: true }, take: 1 },
           },
         },
@@ -95,6 +85,9 @@ export class AccompagnateurService {
 
     const sejour = accompagnateur.sejour;
     const c = sejour.createur;
+    const orgaCreateur = sejour.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
     return {
       id: accompagnateur.id,
       prenom: accompagnateur.prenom,
@@ -112,12 +105,12 @@ export class AccompagnateurService {
         description: sejour.description,
         niveauClasse: sejour.niveauClasse,
         placesTotales: sejour.placesTotales,
-        etablissement: c?.etablissementNom ?? null,
-        etablissementAdresse: c?.etablissementAdresse ?? null,
-        etablissementVille: c?.etablissementVille ?? null,
-        etablissementUai: c?.etablissementUai ?? null,
-        etablissementEmail: c?.etablissementEmail ?? null,
-        etablissementTelephone: c?.etablissementTelephone ?? null,
+        etablissement:          orgaCreateur?.nom ?? null,
+        etablissementAdresse:   orgaCreateur?.adresse ?? null,
+        etablissementVille:     orgaCreateur?.ville ?? null,
+        etablissementUai:       orgaCreateur?.uai ?? null,
+        etablissementEmail:     orgaCreateur?.emailContact ?? null,
+        etablissementTelephone: orgaCreateur?.telephoneContact ?? null,
         enseignant: c ? `${c.prenom} ${c.nom}` : null,
       },
       hebergement: sejour.hebergements[0] ?? null,
@@ -160,18 +153,7 @@ export class AccompagnateurService {
             dateFin: true,
             niveauClasse: true,
             placesTotales: true,
-            createur: {
-              select: {
-                prenom: true,
-                nom: true,
-                etablissementNom: true,
-                etablissementAdresse: true,
-                etablissementVille: true,
-                etablissementUai: true,
-                etablissementEmail: true,
-                etablissementTelephone: true,
-              },
-            },
+            createur: { select: { id: true, prenom: true, nom: true } },
             hebergements: { select: { nom: true, adresse: true, ville: true }, take: 1 },
           },
         },
@@ -181,6 +163,9 @@ export class AccompagnateurService {
 
     const s = accompagnateur.sejour;
     const c = s.createur;
+    const orgaCreateur = s.createur?.id
+      ? await getOrganisationPrincipale(s.createur.id, this.prisma)
+      : null;
     const h = s.hebergements[0];
     const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const signatureDate = accompagnateur.signeeAt ? fmtDate(accompagnateur.signeeAt) : 'Non signé';
@@ -222,12 +207,12 @@ td:last-child{font-weight:600;color:#1a1a1a}
 <div class="republique">République Française — Liberté, Égalité, Fraternité</div>
 <div class="entete">
   <div class="entete-gauche">
-    <div class="etab">${c?.etablissementNom ?? 'Établissement scolaire'}</div>
-    ${c?.etablissementAdresse ? `<div>${c.etablissementAdresse}</div>` : ''}
-    ${c?.etablissementVille ? `<div>${c.etablissementVille}</div>` : ''}
-    ${c?.etablissementUai ? `<div>UAI : ${c.etablissementUai}</div>` : ''}
-    ${c?.etablissementTelephone ? `<div>Tél. : ${c.etablissementTelephone}</div>` : ''}
-    ${c?.etablissementEmail ? `<div>${c.etablissementEmail}</div>` : ''}
+    <div class="etab">${orgaCreateur?.nom ?? 'Établissement scolaire'}</div>
+    ${orgaCreateur?.adresse ? `<div>${orgaCreateur.adresse}</div>` : ''}
+    ${orgaCreateur?.ville ? `<div>${orgaCreateur.ville}</div>` : ''}
+    ${orgaCreateur?.uai ? `<div>UAI : ${orgaCreateur.uai}</div>` : ''}
+    ${orgaCreateur?.telephoneContact ? `<div>Tél. : ${orgaCreateur.telephoneContact}</div>` : ''}
+    ${orgaCreateur?.emailContact ? `<div>${orgaCreateur.emailContact}</div>` : ''}
   </div>
   <div class="entete-droite">
     <div class="num">${numOM}</div>
@@ -241,7 +226,7 @@ td:last-child{font-weight:600;color:#1a1a1a}
   <tr><td>Qualité / Fonction</td><td>Enseignant(e) accompagnateur(trice)</td></tr>
   <tr><td>Email</td><td>${accompagnateur.email}</td></tr>
   ${accompagnateur.telephone ? `<tr><td>Téléphone</td><td>${accompagnateur.telephone}</td></tr>` : ''}
-  <tr><td>Établissement d'affectation</td><td>${c?.etablissementNom ?? '—'}</td></tr>
+  <tr><td>Établissement d'affectation</td><td>${orgaCreateur?.nom ?? '—'}</td></tr>
 </table>
 <div class="section-title">Objet de la mission</div>
 <table>
@@ -278,7 +263,7 @@ Le présent ordre de mission est établi conformément au Décret n°2006-781 du
   <div class="signature-col" style="text-align:right">
     <div class="label">Le chef d'établissement</div>
     <div class="name">${c ? `${c.prenom} ${c.nom}` : '—'}</div>
-    <div class="date">${c?.etablissementNom ?? ''}</div>
+    <div class="date">${orgaCreateur?.nom ?? ''}</div>
   </div>
 </div>
 <div class="footer">Document généré automatiquement par la plateforme Séjour Jeunesse — ${numOM}</div>

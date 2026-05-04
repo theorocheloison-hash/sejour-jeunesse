@@ -1,142 +1,135 @@
-# LIAVO — Roadmap post-demo LMDJ/IDDJ
-> A attaquer uniquement apres validation commerciale (demo 28 avril 2026)
+# LIAVO — Roadmap post-démo LMDJ/IDDJ
+> Dernière mise à jour : 04/05/2026
+> Résultat démo 28/04 : LMDJ intéressée (visio suivi à caler), IDDJ attentiste (CA à consulter)
+> À attaquer uniquement après validation commerciale
 
 ---
 
-## Priorite 1 — Quick wins produit
+## Priorité 0 — Actions immédiates (avant roadmap produit)
 
-### Coherence colos sur toute la plateforme (CRITIQUE avant demo hebergeur)
-Objectif : un hebergeur en demo ne doit jamais voir de champ scolaire (niveau de classe, UAI, rectorat) quand le contexte est colo. Sinon il decroche immediatement ("vous vendez pour les colos mais c'est type scolaire").
+### 0.1 Commit + push SC8
+```bash
+cd C:\Users\Roche-Loison\Desktop\sejour-jeunesse
+git add -A
+git commit -m "SC8 : suppression colonnes etablissement* legacy sur User"
+git push origin main
+```
+Puis vérifier migration appliquée sur Scalingo (0 colonnes etablissement* sur utilisateurs).
 
-**Sous-chantiers** (sequentiels, ~5-7 jours total) :
+### 0.2 JWT_SECRET en prod
+```bash
+scalingo --app liavo-backend --region osc-fr1 env-set JWT_SECRET=$(openssl rand -hex 32)
+```
+Invalide toutes les sessions actives (pas de risque — aucun utilisateur réel en dehors de Théo/démo).
 
-1. **Onboarding ORGANISATEUR avec typeStructure** — FAIT (29/04/2026)
-   - Enum TypeStructure : COLLEGE_LYCEE, ECOLE_PRIMAIRE, MAIRIE, CENTRE_LOISIRS, ASSOCIATION, COMITE_ENTREPRISE, AUTRE
+### 0.3 Visio suivi LMDJ
+- Caler la visio avec Anaïtis Mangeon
+- Adapter le pitch : LIAVO = couche post-mise-en-relation, pas remplacement centrale
+- Objectif : engagement écrit daté (pas "on réfléchit")
+
+---
+
+## Priorité 1 — Quick wins produit (déclencher après signal commercial)
+
+### Cohérence colos sur toute la plateforme
+Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau de classe, UAI, rectorat) quand le contexte est colo.
+
+**Sous-chantiers :**
+
+1. **Onboarding ORGANISATEUR avec typeStructure** — ✅ FAIT (29/04/2026)
+   - Enum TypeStructure : COLLEGE_LYCEE, ECOLE_PRIMAIRE, MAIRIE, COLLECTIVITE_TERRITORIALE, CENTRE_LOISIRS, ASSOCIATION, COMITE_ENTREPRISE, ENTREPRISE, MICRO_ENTREPRISE, AUTRE
    - Onboarding conditionnel UAI scolaire vs structure libre
 
-2. **Validation directeur generique** — EN COURS (Prompt CC #2)
-   - Renommer libelles "signature directeur" en "envoi pour signature"
-   - Signataire libre selon typeStructure (directeur ecole / president asso / elu / etc.)
+2. **Validation signataire générique** — EN COURS
+   - Renommer libellés "signature directeur" en "envoi pour signature"
+   - Signataire libre selon typeStructure
 
-3. **Suppression rectorat frontend + generation PDF dossier de declaration** — EN COURS (Prompt CC #3)
-   - Cacher le bouton "Soumettre au rectorat" dans le dashboard
-   - Remplacer par "Telecharger le dossier de declaration" (PDF recapitulatif)
-   - L'organisateur envoie lui-meme par email a la DSDEN ou SDJES
-   - Backend soumettreAuRectorat reste en place mais plus appele
+3. **Suppression rectorat frontend + génération PDF dossier de déclaration** — À FAIRE
+   - Cacher le bouton "Soumettre au rectorat"
+   - Remplacer par "Télécharger le dossier de déclaration" (PDF récapitulatif)
+   - Backend soumettreAuRectorat reste en place mais plus appelé
 
-4. **Adaptation formulaire invitation hebergeur** — A FAIRE (1 jour)
-   - Aujourd'hui /dashboard/venue/inviter-enseignant 100% scolaire (niveauClasse, UAI)
-   - Renommer en /inviter-client (URL neutre)
+4. **Adaptation formulaire invitation hébergeur** — À FAIRE (1 jour)
+   - Renommer /dashboard/venue/inviter-enseignant en /inviter-client (URL neutre)
    - Sélecteur "Type d'organisateur" en début de formulaire
    - Conditionner les champs scolaires selon le choix
-   - Pour les non-scolaires : champs libres (nom de structure, ville, code postal)
 
-5. **Audit transverse libelles/champs scolaires** — A FAIRE (1-2 jours)
-   - Parcourir tout le dashboard TEACHER, VENUE, dashboard collaboratif sejour
-   - Identifier tous les champs/libelles qui n'ont pas de sens pour une colo :
-     - "niveau de classe" → conditionnel ou "tranche d'age" si non scolaire
-     - "etablissement scolaire" → "structure organisatrice"
-     - "UAI" → cache si non scolaire
-     - "rectorat", "DSDEN" → cache si non scolaire
-     - "directeur d'ecole" → "signataire" generique
-     - autres a identifier en passant la plateforme
-   - Conditionner selon le typeStructure du sejour ou de l'utilisateur connecte
+5. **Audit transverse libellés/champs scolaires** — À FAIRE (1-2 jours)
+   - "niveau de classe" → conditionnel ou "tranche d'âge" si non scolaire
+   - "établissement scolaire" → "structure organisatrice"
+   - "UAI" → caché si non scolaire
+   - "rectorat", "DSDEN" → caché si non scolaire
+   - "directeur d'école" → "signataire" générique
 
-### Landing page — Direction A (screenshots produit)
-- Ajouter 3-4 screenshots du dashboard dans le hero et les sections
-- Bases sur retours qualitatifs de 3-5 personnes cibles (pas amis/famille)
-- Refonte visuelle ambitieuse (video, motion design) uniquement apres donnees analytics
-- Estime : 4h
+### Landing page — screenshots produit
+- 3-4 screenshots réels du dashboard dans les sections de la landing
+- Basés sur retours qualitatifs de 3-5 personnes cibles
+- Estimé : 4h
 
-### Notification centres APIDAE non inscrits
-- Modifier demande.service.ts create() pour notifier les centres APIDAE sans compte
-- Fire-and-forget, rate limit 7j via dernierEmailDemandeAt
-- Prompt CC deja prepare et valide architecturalement
-- Estime : 2-3h
+### Notification centres APIDAE non inscrits (SC7)
+- Modifier demande.service.ts create() → fire-and-forget notifierCentresApidae()
+- Rate limit 7j via dernierEmailDemandeAt
+- Prompt CC déjà préparé et validé architecturalement
+- Estimé : 2-3h
+- **Suspendu : validation commerciale LMDJ/IDDJ requise**
 
-### Integration APIDAE LMDJ
-- Une ligne a ajouter dans syncApidae() une fois credentials recus d'Anaitis
-- Estime : 15 min
+### Intégration APIDAE LMDJ
+- Une ligne à ajouter dans syncApidae() une fois credentials reçus d'Anaïtis
+- Estimé : 15 min
 
 ---
 
-## Priorite 2 — Features a forte valeur demo
+## Priorité 2 — Features à forte valeur demo
 
-### Pop-up aide IA a l'utilisation
-- Assistant contextuel integre dans chaque page du dashboard
+### Pop-up aide IA à l'utilisation
+- Assistant contextuel intégré dans chaque page du dashboard
 - Guide l'utilisateur sur les actions possibles selon le contexte
-- Deja discute dans une conversation precedente — reprendre le brief
-- Estime : 3-5 jours
+- Estimé : 3-5 jours
 
-### Planning IA — generation automatique
-- Generer le planning semaine a partir du catalogue produits + contraintes (capacite moniteur, groupes)
-- Deja partiellement implemente — valider que ca fonctionne avec les vrais produits Sauvageon
-- Estime : 2-3 jours (si base existante solide)
+### Planning IA — génération automatique
+- Générer le planning semaine à partir du catalogue produits + contraintes
+- Partiellement implémenté — valider avec vrais produits Sauvageon
+- Estimé : 2-3 jours
 
-### Menu auto-genere IA
-- Generer les menus de la semaine a partir des regimes alimentaires et allergies renseignes dans les autorisations parentales
-- Cas demo : vegetarienne (Chloe MOREAU), sans gluten (Alice BERNARD), allergie arachides (Lucas PETIT), allergie lait (Clara MASSON), allergie fruits a coque (Lilou BOYER), diabete (Zoe MERCIER)
-- Integration avec le catalogue repas du Sauvageon (repas midi, repas soir, petit-dejeuner, gouter, panier repas)
-- Estime : 3-5 jours
-
----
-
-## Priorite 3 — Extensions fonctionnelles
+### Menu auto-généré IA
+- Générer les menus de la semaine à partir des régimes alimentaires et allergies (autorisations parentales)
+- Intégration avec catalogue repas du Sauvageon
+- Estimé : 3-5 jours
 
 ### Appel d'offres transport
-- Permettre a l'enseignant de lancer un appel d'offres transport en parallele de l'hebergement
 - Nouveau type de demande, nouveaux fournisseurs (autocaristes)
-- Necessite un nouveau role ou extension du role VENUE
-- Estime : 2-3 semaines
-
-### Blog parent/prof/eleve
-- Espace de publication lie a un sejour (journal de bord)
-- Parents suivent le sejour en temps reel (photos, textes, activites)
-- Eleves contribuent (exercice pedagogique)
-- Prof modere et publie
-- Estime : 2-3 semaines
-
-### Gestion RH integree (planning equipe hebergeur)
-- Planning des equipes du centre (cuisine, menage, animation, encadrement)
-- Affectation du personnel par sejour/activite
-- Vue semaine/mois pour le directeur du centre
-- Extension naturelle du dashboard venue
-- Estime : 3-4 semaines
+- Impact schéma : à évaluer
+- Estimé : 2-3 semaines
 
 ---
 
-## Priorite 4 — Dette technique (avant deploiement backend)
-
-### 15 erreurs TypeScript backend
-- Prisma schema decale par rapport au code
-- A investiguer et resoudre AVANT tout prochain deploiement backend
-- Estime : 1-2 jours
+## Priorité 3 — Dette technique
 
 ### Refactoring DashboardShell
-- Migrer teacher/page.tsx, director/page.tsx, venue/page.tsx vers composant unique
-- 3 patterns de layout differents actuellement
-- Estime : 4-6 jours, risque moyen
+- Migrer organisateur/page.tsx, signataire/page.tsx, hebergeur/page.tsx → composant unique
+- 3 patterns de layout différents actuellement
+- Estimé : 4-6 jours, risque moyen
 
 ### JWT httpOnly cookie migration
-- Deliberement differee post-demo (risque regression auth)
-- Estime : 1-2 jours
+- Délibérément différée post-démo (risque régression auth)
+- Estimé : 1-2 jours
 
 ### Chorus Pro production
-- Finaliser inscription AIFE (habilitation tiers mandate)
-- Creer ChorusProService NestJS
-- Variables Railway PISTE_CLIENT_ID + PISTE_CLIENT_SECRET
-- Resoudre questions TVA sejours scolaires et valeur probatoire eIDAS
+- Finaliser inscription AIFE (habilitation tiers mandaté)
+- Créer ChorusProService NestJS
+- Variables Scalingo PISTE_CLIENT_ID + PISTE_CLIENT_SECRET
+- Résoudre questions TVA séjours scolaires et valeur probatoire eIDAS
 
 ### RC Pro + Cyber insurance
-- Hiscox ~500-700 EUR/an
-- Differe post-demo
+- Hiscox ~500-700€/an
+- Différé post-démo
 
 ---
 
-## Priorite 5 — Financement
+## Priorité 4 — Financement
 
-Sequence validee :
-1. Initiative Faucigny Mont-Blanc (membre CA, pret taux zero) — immediat
+Séquence validée :
+1. Initiative Faucigny Mont-Blanc (membre CA, prêt taux zéro) — immédiat
 2. Start-up & Go Emergence post-SIREN — en cours
-3. Reseau Entreprendre Haute-Savoie — 6 mois
+3. Réseau Entreprendre Haute-Savoie — 6 mois
 4. BPI — 12-18 mois avec pilote rectorat

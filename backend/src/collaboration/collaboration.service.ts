@@ -4,6 +4,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class CollaborationService {
@@ -238,21 +239,14 @@ export class CollaborationService {
         dateFin: true,
         placesTotales: true,
         createur: {
-          select: {
-            prenom: true,
-            nom: true,
-            email: true,
-            telephone: true,
-            etablissementNom: true,
-            etablissementAdresse: true,
-            etablissementVille: true,
-            etablissementUai: true,
-            etablissementEmail: true,
-            etablissementTelephone: true,
-          },
+          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
         },
       },
     });
+
+    const orgaCreateur = sejour?.createur?.id
+      ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
+      : null;
 
     const devis = demande?.devis?.[0] ?? null;
 
@@ -265,7 +259,7 @@ export class CollaborationService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return { sejour, devis, lignesCompl, recettes };
+    return { sejour, devis, lignesCompl, recettes, orgaCreateur };
   }
 
   async addLigneCompl(sejourId: string, userId: string, data: { categorie: string; description: string; montant: number }, role?: string) {

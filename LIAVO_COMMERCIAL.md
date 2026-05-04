@@ -1,5 +1,5 @@
 # LIAVO — Stratégie commerciale
-> Dernière mise à jour : 19 avril 2026
+> Dernière mise à jour : 04/05/2026 (post-démo LMDJ+IDDJ 28/04)
 
 ---
 
@@ -7,33 +7,58 @@
 
 | Personne | Rôle | Organisation | Email | Notes |
 |---|---|---|---|---|
-| Anaïtis Mangeon | Directrice | LAMDJ (La Montagne des Juniors) | contact@lamdj.com | Prescriptrice principale, a invité Robin |
-| Isabelle Louat | CDI | LAMDJ | isabelle.louat@lamdj.com | Gère la centrale manuellement |
-| Marie Charvolin | CDI | LAMDJ | marie.charvolin@lamdj.com | Gère la centrale manuellement |
-| Robin Baladi | Directeur | IDDJ (Isère Drôme Destination Juniors) | robin@iseredrome-juniors.fr | Observateur critique, a répondu en 19h |
+| Anaïtis Mangeon | Directrice | LMDJ (La Montagne des Juniors) | contact@lamdj.com | Prescriptrice principale, intéressée post-démo — visio suivi à caler |
+| Isabelle Louat | CDI | LMDJ | isabelle.louat@lamdj.com | Gère la centrale manuellement — rôle à préserver dans le pitch |
+| Marie Charvolin | CDI | LMDJ | marie.charvolin@lamdj.com | Gère la centrale manuellement — rôle à préserver dans le pitch |
+| Robin Baladi | Directeur | IDDJ (Isère Drôme Destination Juniors) | robin@iseredrome-juniors.fr | Attentiste post-démo — CA à consulter |
 
 ---
 
-## Démo commune LAMDJ + IDDJ
+## Résultats démo LMDJ + IDDJ (28/04/2026)
 
-**Date :** 28 avril après-midi (à confirmer par Anaïtis — 30 avril en alternative)
-**Format :** Visio
+**Format :** Visio commune LMDJ + IDDJ
 
-### Données APIDAE disponibles
+**LMDJ (Anaïtis Mangeon) :**
+- Intéressée
+- Prochaine étape : visio de suivi à caler
+
+**IDDJ (Robin Baladi) :**
+- Attentiste — doit consulter son CA avant tout engagement
+- Pas de frein explicite identifié, pas de signal d'engagement non plus
+
+**Credentials APIDAE :**
 
 | Réseau | apiKey | projetId | selectionId | Statut |
 |---|---|---|---|---|
 | IDDJ | mr8RQgOh | 3217 | 67523 | ✅ Importé en base (54 centres) |
-| LMDJ | — | — | — | ⏳ En attente réponse Anaïtis |
+| LMDJ | — | — | — | ⏳ Non reçus — à demander lors de la visio suivi |
 
-**Variables Railway à poser dès réception credentials LMDJ :**
-- `APIDAE_LMDJ_API_KEY`
-- `APIDAE_LMDJ_PROJET_ID`
-- `APIDAE_LMDJ_SELECTION_ID`
+> ⚠️ Variables Scalingo à poser dès réception credentials LMDJ :
+> `APIDAE_LMDJ_API_KEY`, `APIDAE_LMDJ_PROJET_ID`, `APIDAE_LMDJ_SELECTION_ID`
+> Puis ajouter entrée `LMDJ` dans le `CREDENTIALS` map de `syncApidae()` dans `backend/src/admin/admin.service.ts`
 
-**Prompt CC prêt :** ajouter entrée `LMDJ` dans le `CREDENTIALS` map de `syncApidae()` dans `backend/src/admin/admin.service.ts`. Modification strictement limitée au map, rien d'autre.
+---
 
-### Données terrain IDDJ (Robin)
+## Positionnement validé post-démo
+
+**LIAVO = couche post-mise-en-relation.**
+- L'hébergeur invite l'enseignant directement (pas d'appel d'offres via LMDJ)
+- LMDJ/IDDJ continuent la mise en relation — LIAVO prend le relais après
+- Isabelle/Marie gardent leur rôle : mise en relation, accompagnement, conseil
+- Dashboard réseau = visibilité post-dispatch (taux de réponse, taux de concrétisation, CA réseau)
+- **Pitch pour la visio suivi LMDJ :** "La plateforme développée par les hébergeurs, pour les hébergeurs."
+
+**Ce qu'il ne faut PAS dire :**
+- "Faciliter l'accès pour les enseignants" — trop loin de leurs préoccupations. Reformuler : "réduire le temps de traitement d'une demande pour votre équipe et vos hébergeurs"
+- Tout ce qui suggère que la plateforme actuelle est mauvaise
+- Toute formulation qui suggère que LIAVO remplace Isabelle et Marie
+- "Qui sera peut-être déployée dans toute la France" — conviction ou silence
+
+---
+
+## Données terrain
+
+### IDDJ (Robin Baladi)
 - 200 demandes/an
 - 20% de concrétisation déclarée (40 séjours réellement finalisés)
 - 30% des adhérents n'utilisent pas la plateforme mais paient quand même
@@ -41,63 +66,33 @@
 - Suivi à 30 jours manuel, reporting mensuel centres manuel
 - Flux : enseignant recherche → diffusion auto centres → réponse email type + devis → direct. IDDJ relance à 30j.
 
-### Données terrain LAMDJ
+### LMDJ (Anaïtis Mangeon)
 - 109 hébergeurs (Savoie + Haute-Savoie), 195 adhérents totaux
 - 503 demandes via centrale en 2024 (89% du total)
 - 564 demandes totales 2024 : 244 scolaires + 269 colonies + 51 groupes adultes
 - Résultat 2024 : -11 010€. Budget : 279K€ dont 52% masse salariale
 - Plateforme `adherent.lamdj.com` : Rails ~2015-2018, quasi-amortie (55K€ brut / 4,7K€ net)
-- Flux : demandes enseignants → centrale LAMDJ valide manuellement → accès coordonnées centres
-
-### Objectifs de la démo (par ordre de priorité)
-1. **Non-négociable** : obtenir un engagement concret daté avant de raccrocher (next step, pas "on réfléchit")
-2. **Prioritaire** : qualifier Robin — allié, neutre, ou frein ?
-3. **Important** : faire toucher leurs propres données dans l'interface (dashboard IDDJ live, LMDJ si credentials reçus)
-
-### Ce qui n'est PAS un objectif de cette démo
-- Closer le pricing
-- Présenter toutes les fonctionnalités
-- Critiquer leur plateforme actuelle
-
-### Structure de la démo (60 min max)
-1. **Ouverture (10 min)** — questions sur flux actuels et points de friction. Ne pas parler de LIAVO.
-2. **Démo (25 min)** — flux enseignant → hébergeur → validation directeur → dashboard collaboratif pré-rempli (séjour Sauvageon) → constructeur devis avec catalogue → facture. Puis dashboard réseau avec données APIDAE réelles.
-3. **Questions / échanges (15 min)**
-4. **Proposition (10 min)** — seulement si signal d'intérêt explicite.
-
-### Séjour démo pré-créé
-Classe de montagne 5ème B — Morillon 2026, Chalet Le Sauvageon. Script SQL : `scripts/seed-demo-sejour.sql`. Contient planning complet, accompagnateurs, autorisations parentales, devis avec lignes détaillées, messagerie.
-
-### Points de vigilance en démo
-- Ne jamais soulever le coût de la plateforme Rails LAMDJ en démo — uniquement en one-to-one avec Anaïtis post-démo si intérêt confirmé
-- Préserver les rôles d'Isabelle et Marie dans le pitch — ne pas suggérer que LIAVO les remplace
-- Chorus Pro : ne pas promettre une démo live (SIRET non encore assigné, PISTE non enregistré)
-- Supprimer toute formulation défensive type "qui n'engage rien financièrement je vous rassure"
+- Flux : demandes enseignants → centrale LMDJ valide manuellement → accès coordonnées centres
 
 ---
 
-## Arguments commerciaux réseau (par interlocuteur)
+## Arguments commerciaux réseau
 
-### Argument 1 — Pour Anaïtis et Robin (directeurs de réseau)
+### Pour Anaïtis et Robin (directeurs de réseau)
 **"Un outil de pilotage réel, pas un tableur."**
-Aujourd'hui IDDJ a 80% d'opacité post-demande, un reporting mensuel manuel, 30% de non-utilisation invisible. LAMDJ connaît ses volumes mais pas ce qui se passe après la mise en relation. LIAVO leur donne un dashboard live : taux de réponse, taux de concrétisation, CA réseau, scoring d'activation centre par centre, filtres par période. Des données qu'ils n'ont qu'à moitié aujourd'hui, disponibles en temps réel sans relancer personne.
+Aujourd'hui IDDJ a 80% d'opacité post-demande, un reporting mensuel manuel, 30% de non-utilisation invisible. LMDJ connaît ses volumes mais pas ce qui se passe après la mise en relation. LIAVO donne un dashboard live : taux de réponse, taux de concrétisation, CA réseau, scoring d'activation centre par centre, filtres par période.
 
-### Argument 2 — Pour Isabelle et Marie (CDI LAMDJ, absentes de la décision mais présentes dans la tête d'Anaïtis)
+### Pour Isabelle et Marie (CDI LMDJ — absentes de la décision, présentes dans la tête d'Anaïtis)
 **"LIAVO n'automatise pas leur rôle — il automatise ce qui l'encombre."**
-Les relances manuelles, la collecte de données, la validation administrative disparaissent. Isabelle et Marie se concentrent sur ce que la machine ne peut pas faire : accompagnement pédagogique, relation hébergeurs, conseil aux enseignants. Le pitch doit le dire explicitement en démo.
+Les relances manuelles, la collecte de données, la validation administrative disparaissent. Isabelle et Marie se concentrent sur ce que la machine ne peut pas faire : accompagnement pédagogique, relation hébergeurs, conseil aux enseignants. Le pitch doit le dire explicitement.
 
-### Argument 3 — Pour les hébergeurs adhérents (absents de la salle, présents dans la tête des directeurs)
+### Pour les hébergeurs adhérents (absents de la salle, présents dans la tête des directeurs)
 **"Le réseau offre en Y1 un outil qui n'existe pas sur le marché."**
-Appel d'offres numérique, constructeur de devis avec catalogue, dashboard collaboratif séjour, facturation Chorus Pro — rien de comparable n'existe dans le marché des séjours scolaires EN. Ce n'est pas une mise à jour de la plateforme existante, c'est un saut de génération. Pour les centres non-adhérents, le tarif réseau devient une raison de rejoindre LAMDJ ou IDDJ. Le réseau gagne en attractivité sans investissement supplémentaire.
+Constructeur de devis avec catalogue, dashboard collaboratif séjour, facturation Chorus Pro — rien de comparable n'existe dans le marché des séjours scolaires EN. Pour les centres non-adhérents, le tarif réseau devient une raison de rejoindre LMDJ ou IDDJ.
 
-### Argument 4 — L'argument institutionnel (à sortir en dernier, si le signal est bon)
+### L'argument institutionnel (en dernier, si signal positif)
 **"Vous co-construisez la plateforme nationale, pas une solution locale."**
-LAMDJ et IDDJ ont l'opportunité d'être les réseaux fondateurs d'une plateforme qui a vocation à être déployée à l'échelle nationale et intégrée aux académies. Être premiers, c'est peser sur le roadmap, pas subir une solution imposée par le haut. Formuler avec conviction, jamais au conditionnel.
-
-### Ce qu'il ne faut pas dire
-- "Faciliter l'accès pour les enseignants" — trop loin de leurs préoccupations directes. Reformuler : "réduire le temps de traitement d'une demande pour votre équipe et vos hébergeurs"
-- "Qui sera peut-être déployée dans toute la France" — le conditionnel tue l'argument. Conviction ou silence.
-- Toute formulation qui suggère que leur plateforme actuelle est mauvaise
+LMDJ et IDDJ ont l'opportunité d'être les réseaux fondateurs d'une plateforme nationale intégrée aux académies. Formuler avec conviction, jamais au conditionnel.
 
 ---
 
@@ -114,72 +109,67 @@ LAMDJ et IDDJ ont l'opportunité d'être les réseaux fondateurs d'une plateform
 ### Contenu des plans
 
 **Découverte — Gratuit**
-- Création compte et profil public du centre
-- Visibilité des demandes de séjour sur sa zone géographique
-- Pas de réponse possible aux demandes
+- Profil public du centre + disponibilités
+- Aperçu des demandes (pas de détail enseignant, pas de réponse)
 
 **Essentiel — 29€ HT/mois**
 - Tout Découverte
-- Réponse aux demandes
+- Détail complet des demandes + réponse
 - Constructeur de devis avec catalogue produits
-- Signature directeur électronique
-- Génération facture
-- Export Chorus Pro
+- Signature directeur électronique, génération facture, export Chorus Pro
 
 **Complet — 59€ HT/mois**
 - Tout Essentiel
 - Dashboard collaboratif séjour (planning, messagerie, documents, participants)
 - CRM hébergeur (gestion clients, contacts, rappels)
 
-### Tarif réseau partenaire (LAMDJ / IDDJ)
+### Tarif réseau partenaire (LMDJ / IDDJ)
 
-- **Y1 (2026)** : accès gratuit plan Complet pour tous les hébergeurs du réseau, dans le cadre d'un accord de partenariat **signé** précisant les conditions Y2
+- **Y1 (2026)** : accès gratuit plan Complet pour tous les hébergeurs du réseau, conditionné à un **accord signé** précisant les conditions Y2 — sans document, aucun levier de renouvellement
 - **Y2 (2027+)** : tarif grand public (à renégocier selon traction)
 - **Commission réseau** : 10% sur chaque abonnement actif des hébergeurs de leur réseau, reversée mensuellement
   - Sur Essentiel : 2,90€/centre/mois
   - Sur Complet : 5,90€/centre/mois
   - Sur 100 centres actifs : 290-590€/mois par réseau
 
-**Point de vigilance** : la gratuité Y1 doit être conditionnée à un accord signé avec clause de bascule Y2. Sans document, aucun levier de renouvellement.
-
 ---
 
 ## Positionnement deals réseaux
 
-### Hiérarchie de statut (à maintenir en démo)
-- LAMDJ = **réseau fondateur** : accès prioritaire nouvelles fonctionnalités, co-construction roadmap, tarif fondateur garanti 2 ans
+### Hiérarchie de statut
+- LMDJ = **réseau fondateur** : accès prioritaire nouvelles fonctionnalités, co-construction roadmap, tarif fondateur garanti 2 ans
 - IDDJ = **réseau partenaire** : mêmes fonctionnalités, statut distinct
 
 Ne pas mettre en concurrence explicite. La distinction est symbolique mais réelle.
 
-### Argument LIAVO pour les réseaux (au-delà de la commission)
-LIAVO devient un outil de **recrutement de nouveaux membres** : un hébergeur non-adhérent qui veut le tarif réseau doit passer par LAMDJ ou IDDJ. Le réseau gagne des membres, LIAVO gagne des centres.
+---
 
-### Ce qu'on ne sait pas encore (à qualifier en démo)
-- Taux de concrétisation réel côté LAMDJ (503 demandes connues, séjours finalisés inconnus)
-- Budget maintenance annuel plateforme Rails LAMDJ (à poser en one-to-one post-démo)
-- Profil exact de Robin : décideur autonome ou dépendant de son CA ?
-- Credentials APIDAE LMDJ (en attente Anaïtis)
+## Ce qu'on ne sait pas encore (à qualifier en visio suivi LMDJ)
+
+- Taux de concrétisation réel côté LMDJ (503 demandes connues, séjours finalisés inconnus)
+- Budget maintenance annuel plateforme Rails LMDJ (à poser en one-to-one avec Anaïtis)
+- Credentials APIDAE LMDJ
+- Calendrier décision côté IDDJ (quand le CA se réunit ?)
 
 ---
 
-## Séquence de revenus (prévisionnel Réseau Entreprendre)
+## Séquence de revenus (prévisionnel)
 
 | Scénario | Hypothèse | ARR fin Y1 | ARR fin Y2 |
 |---|---|---|---|
-| Pessimiste | 15% activation LAMDJ+IDDJ = 27 centres x 29EUR | ~9 400EUR | ~18 000EUR |
-| Médian (cible) | 40% activation = 72 centres + 20 directs | ~25 000EUR | ~36 000EUR |
-| Haut | 150+ centres actifs x 35EUR moyen | — | ~54 000EUR |
+| Pessimiste | 15% activation LMDJ+IDDJ = 27 centres x 29€ | ~9 400€ | ~18 000€ |
+| Médian (cible) | 40% activation = 72 centres + 20 directs | ~25 000€ | ~36 000€ |
+| Haut | 150+ centres actifs x 35€ moyen | — | ~54 000€ |
 
-Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra <= 150EUR/mois).
+Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra ≤ 150€/mois).
 
 ---
 
 ## Séquence de financement
 
 1. **Initiative Faucigny Mont-Blanc** — prêt taux zéro, Théo CA membre. Immédiat.
-2. **Start-up & Go Emergence** — post-SIREN (SIREN obtenu, SIRET en attente INSEE)
-3. **Réseau Entreprendre Haute-Savoie** — ~6 mois avec traction LAMDJ/IDDJ
+2. **Start-up & Go Emergence** — post-SIREN (SIREN obtenu)
+3. **Réseau Entreprendre Haute-Savoie** — ~6 mois avec traction LMDJ/IDDJ
 4. **BPI** — 12-18 mois avec pilote rectorat. Pas avant.
 
 ---
@@ -189,7 +179,15 @@ Seuil rentabilité opérationnelle : ~30-35 centres actifs (infra <= 150EUR/mois
 | Email | Rôle | Mot de passe | Notes |
 |---|---|---|---|
 | demo-lmdj@liavo.fr | RESEAU | LMDJ2026! | reseauNomComplet = La Montagne des Juniors |
-| enseignant@test.fr | TEACHER | Test1234! | UAI 0750001A — Collège Victor Hugo Paris |
-| directeur@test.fr | DIRECTOR | Test1234! | |
-| resa@lesauvageon.com | VENUE | Test1234! | Sauvageon, compte prod hébergeur |
+| enseignant@test.fr | ORGANISATEUR | Test1234! | UAI 0750001A — Collège Victor Hugo Paris |
+| directeur@test.fr | SIGNATAIRE | Test1234! | |
+| resa@lesauvageon.com | HEBERGEUR | Test1234! | Sauvageon, compte prod hébergeur |
 | contact@liavo.fr | ADMIN | Admin2026! | Admin production LIAVO |
+
+---
+
+## Séjour démo pré-créé
+
+Classe de montagne 5ème B — Morillon 2026, Chalet Le Sauvageon.
+Script SQL : `scripts/seed-demo-sejour.sql`.
+Contient planning complet, accompagnateurs, autorisations parentales, devis avec lignes détaillées, messagerie.

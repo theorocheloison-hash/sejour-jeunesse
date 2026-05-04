@@ -61,10 +61,10 @@ function matchesSearch(d: Devis, query: string): boolean {
   const fields = [
     d.demande?.sejour?.createur?.prenom,
     d.demande?.sejour?.createur?.nom,
-    d.demande?.sejour?.createur?.etablissementNom,
+    (d.demande?.sejour?.createur as any)?.memberships?.[0]?.organisation?.nom,
     d.demande?.enseignant?.prenom,
     d.demande?.enseignant?.nom,
-    d.demande?.enseignant?.etablissementNom,
+    (d.demande?.enseignant as any)?.memberships?.[0]?.organisation?.nom,
     d.demande?.sejour?.titre,
     d.demande?.titre,
     d.numeroDevis,
@@ -257,8 +257,8 @@ export default function HebergeurDevisPage() {
   };
 
   const getEtablissementDisplay = (d: Devis): string => {
-    return d.demande?.sejour?.createur?.etablissementNom
-      ?? d.demande?.enseignant?.etablissementNom
+    return (d.demande?.sejour?.createur as any)?.memberships?.[0]?.organisation?.nom
+      ?? (d.demande?.enseignant as any)?.memberships?.[0]?.organisation?.nom
       ?? '';
   };
 

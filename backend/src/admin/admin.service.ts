@@ -222,7 +222,6 @@ export class AdminService {
         telephone: true,
         compteValide: true,
         emailVerifie: true,
-        etablissementNom: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },

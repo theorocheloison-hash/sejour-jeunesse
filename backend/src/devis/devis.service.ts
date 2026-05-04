@@ -11,6 +11,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class DevisService {
@@ -159,10 +160,7 @@ export class DevisService {
         demande: {
           include: {
             enseignant: {
-              select: {
-                prenom: true, nom: true, email: true, telephone: true,
-                etablissementNom: true, etablissementVille: true,
-              },
+              select: { id: true, prenom: true, nom: true, email: true, telephone: true },
             },
             sejour: {
               select: {
@@ -170,7 +168,13 @@ export class DevisService {
                 createur: {
                   select: {
                     prenom: true, nom: true,
-                    etablissementNom: true, etablissementVille: true,
+                    memberships: {
+                      where: { isPrimary: true },
+                      select: {
+                        organisation: { select: { nom: true, ville: true } },
+                      },
+                      take: 1,
+                    },
                   },
                 },
               },
@@ -195,11 +199,7 @@ export class DevisService {
         demande: {
           include: {
             enseignant: {
-              select: {
-                prenom: true, nom: true, email: true, telephone: true,
-                etablissementNom: true, etablissementAdresse: true,
-                etablissementVille: true, etablissementEmail: true, etablissementTelephone: true,
-              },
+              select: { prenom: true, nom: true, email: true, telephone: true },
             },
             sejour: {
               select: {
@@ -341,25 +341,14 @@ export class DevisService {
         demande: {
           include: {
             enseignant: {
-              select: {
-                prenom: true,
-                nom: true,
-                email: true,
-                telephone: true,
-                etablissementNom: true,
-                etablissementAdresse: true,
-                etablissementVille: true,
-                etablissementUai: true,
-                etablissementEmail: true,
-                etablissementTelephone: true,
-              },
+              select: { prenom: true, nom: true, email: true, telephone: true },
             },
             sejour: {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 niveauClasse: true, statut: true,
                 createur: {
-                  select: { prenom: true, nom: true, etablissementNom: true, etablissementVille: true },
+                  select: { prenom: true, nom: true },
                 },
               },
             },
@@ -444,17 +433,16 @@ export class DevisService {
 
       // Auto-rattacher client CRM
       try {
-        const createur = await this.prisma.user.findUnique({
-          where: { id: devis.demande.enseignantId ?? '' },
-          select: { etablissementUai: true, etablissementNom: true, etablissementVille: true },
-        });
-        if (createur?.etablissementNom) {
+        const orgaEnseignant = devis.demande.enseignantId
+          ? await getOrganisationPrincipale(devis.demande.enseignantId, this.prisma)
+          : null;
+        if (orgaEnseignant?.nom) {
           await this.clientsService.autoRattacherDepuisDevis(
             devis.demande.sejourId,
             devis.centreId,
-            createur.etablissementUai ?? undefined,
-            createur.etablissementNom,
-            createur.etablissementVille ?? undefined,
+            orgaEnseignant.uai ?? undefined,
+            orgaEnseignant.nom,
+            orgaEnseignant.ville ?? undefined,
           );
         }
       } catch { /* ne pas bloquer */ }
@@ -534,7 +522,7 @@ export class DevisService {
 
     const directeur = await this.prisma.user.findUnique({
       where: { id: user.id },
-      select: { prenom: true, nom: true, etablissementNom: true },
+      select: { prenom: true, nom: true },
     });
     const nomSignataire = directeur ? `${directeur.prenom} ${directeur.nom}` : 'Directeur';
 
@@ -616,11 +604,7 @@ export class DevisService {
       where: { id: demandeId },
       include: {
         enseignant: {
-          select: {
-            prenom: true, nom: true, email: true, telephone: true,
-            etablissementNom: true, etablissementAdresse: true,
-            etablissementVille: true, etablissementEmail: true, etablissementTelephone: true,
-          },
+          select: { prenom: true, nom: true, email: true, telephone: true },
         },
         sejour: {
           select: {
@@ -731,7 +715,7 @@ export class DevisService {
                 dateDebut: true,
                 dateFin: true,
                 createur: {
-                  select: { prenom: true, nom: true, etablissementNom: true },
+                  select: { prenom: true, nom: true },
                 },
               },
             },
@@ -865,14 +849,7 @@ export class DevisService {
           include: {
             sejour: {
               include: {
-                createur: {
-                  select: {
-                    etablissementNom: true,
-                    etablissementUai: true,
-                    etablissementAdresse: true,
-                    etablissementVille: true,
-                  },
-                },
+                createur: { select: { id: true } },
               },
             },
           },
@@ -890,7 +867,10 @@ export class DevisService {
     }
 
     const sejour = devis.demande?.sejour;
-    const createur = sejour?.createur;
+    const createurId = devis.demande?.sejour?.createur?.id ?? null;
+    const orgaCreateur = createurId
+      ? await getOrganisationPrincipale(createurId, this.prisma)
+      : null;
     const dateFacture = devis.dateFacture
       ? new Date(devis.dateFacture).toISOString().substring(0, 10)
       : new Date().toISOString().substring(0, 10);
@@ -952,16 +932,16 @@ export class DevisService {
   <cac:AccountingCustomerParty>
     <cac:Party>
       <cac:PartyName>
-        <cbc:Name>${this.escapeXml(createur?.etablissementNom ?? '')}</cbc:Name>
+        <cbc:Name>${this.escapeXml(orgaCreateur?.nom ?? '')}</cbc:Name>
       </cac:PartyName>
       <cac:PostalAddress>
-        <cbc:StreetName>${this.escapeXml(createur?.etablissementAdresse ?? '')}</cbc:StreetName>
-        <cbc:CityName>${this.escapeXml(createur?.etablissementVille ?? '')}</cbc:CityName>
+        <cbc:StreetName>${this.escapeXml(orgaCreateur?.adresse ?? '')}</cbc:StreetName>
+        <cbc:CityName>${this.escapeXml(orgaCreateur?.ville ?? '')}</cbc:CityName>
         <cac:Country><cbc:IdentificationCode>FR</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
       <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${this.escapeXml(createur?.etablissementNom ?? '')}</cbc:RegistrationName>
-        <cbc:CompanyID schemeID="0009">${this.escapeXml(createur?.etablissementUai ?? '')}</cbc:CompanyID>
+        <cbc:RegistrationName>${this.escapeXml(orgaCreateur?.nom ?? '')}</cbc:RegistrationName>
+        <cbc:CompanyID schemeID="0009">${this.escapeXml(orgaCreateur?.uai ?? '')}</cbc:CompanyID>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
