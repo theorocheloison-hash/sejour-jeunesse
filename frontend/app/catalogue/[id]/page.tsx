@@ -1,0 +1,154 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { getCentrePublic } from '@/src/lib/public';
+import type { CentrePublic } from '@/src/lib/public';
+import { Logo } from '@/app/components/Logo';
+
+export default function CentrePublicPage() {
+  const { id } = useParams<{ id: string }>();
+  const [centre, setCentre] = useState<CentrePublic | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    getCentrePublic(id).then(setCentre).finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
+    </div>
+  );
+
+  if (!centre) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <p className="text-gray-500 mb-4">Centre introuvable.</p>
+        <Link href="/catalogue" className="text-[var(--color-primary)] hover:underline">
+          ← Retour au catalogue
+        </Link>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <Link href="/"><Logo size="sm" showTagline={false} /></Link>
+            <div className="flex items-center gap-4">
+              <Link href="/catalogue" className="text-sm text-gray-500 hover:text-gray-900">
+                ← Catalogue
+              </Link>
+              <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900">
+                Se connecter
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Image */}
+        {centre.imageUrl && (
+          <div className="rounded-2xl overflow-hidden mb-8 h-56 w-full">
+            <img src={centre.imageUrl} alt={centre.nom} className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Colonne principale */}
+          <div className="lg:col-span-2">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{centre.nom}</h1>
+            <p className="text-gray-500 mb-6">
+              {centre.ville}{centre.departement ? ` — ${centre.departement}` : ''}
+              {centre.codePostal ? ` (${centre.codePostal})` : ''}
+            </p>
+
+            {centre.description && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-2">Description</h2>
+                <p className="text-sm text-gray-600 leading-relaxed">{centre.description}</p>
+              </div>
+            )}
+
+            {/* Thématiques */}
+            {(centre.thematiquesCentre?.length > 0) && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-2">Thématiques</h2>
+                <div className="flex flex-wrap gap-2">
+                  {centre.thematiquesCentre.map((t) => (
+                    <span key={t} className="rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] px-3 py-1 text-xs font-medium">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Activités */}
+            {(centre.activitesCentre?.length > 0) && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-2">Activités</h2>
+                <div className="flex flex-wrap gap-2">
+                  {centre.activitesCentre.map((a) => (
+                    <span key={a} className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs">
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {centre.periodeOuverture && (
+              <p className="text-sm text-gray-500">
+                <span className="font-medium text-gray-700">Période d&apos;ouverture :</span>{' '}
+                {centre.periodeOuverture}
+              </p>
+            )}
+          </div>
+
+          {/* Colonne CTA */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sticky top-6">
+              {centre.capacite && (
+                <p className="text-sm text-gray-500 mb-1">
+                  <span className="font-semibold text-gray-900 text-lg">{centre.capacite}</span> lits
+                </p>
+              )}
+              {centre.agrementEducationNationale && (
+                <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium mb-4">
+                  Agréé Éducation Nationale
+                </span>
+              )}
+
+              <Link
+                href={`/appel-offres?centreId=${centre.id}&centreNom=${encodeURIComponent(centre.nom)}`}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity mb-3"
+              >
+                Envoyer une demande à ce centre
+              </Link>
+
+              <Link
+                href="/appel-offres"
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Lancer un appel d&apos;offres
+              </Link>
+
+              {centre.siteWeb && (
+                <a href={centre.siteWeb} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 block text-center text-xs text-gray-400 hover:text-gray-600 hover:underline">
+                  Voir le site du centre →
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
