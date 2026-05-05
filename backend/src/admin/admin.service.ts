@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
+import { trialExpiration } from '../centres/trial.helper.js';
 
 @Injectable()
 export class AdminService {
@@ -97,10 +98,15 @@ export class AdminService {
       data: { compteValide: true },
     });
 
-    // Activer le centre aussi
+    // Activer le centre aussi + démarrer l'essai gratuit 30j (plan COMPLET)
     await this.prisma.centreHebergement.updateMany({
       where: { userId: id },
-      data: { statut: 'ACTIVE' },
+      data: {
+        statut: 'ACTIVE',
+        planAbonnement: 'COMPLET',
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: trialExpiration(),
+      },
     });
 
     try {

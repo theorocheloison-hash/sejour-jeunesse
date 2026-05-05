@@ -38,6 +38,9 @@ export interface Centre {
   activitesCentre?: string[];
   capaciteAdultes?: number | null;
   periodeOuverture?: string | null;
+  abonnementStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU';
+  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET';
+  abonnementActifJusquAu?: string | null;
 }
 
 export interface Disponibilite {

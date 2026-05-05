@@ -43,11 +43,25 @@ export class AbonnementService {
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
 
+    const now = new Date();
+    const expiration = centre.abonnementActifJusquAu;
+    const essaiActif =
+      centre.abonnementStatut === 'ACTIF' &&
+      centre.planAbonnement === 'COMPLET' &&
+      !!expiration &&
+      expiration >= now;
+    const joursRestants =
+      essaiActif && expiration
+        ? Math.ceil((expiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
     return {
       type: centre.abonnement,
       statut: centre.abonnementStatut,
       actifJusquAu: centre.abonnementActifJusquAu,
       plan: centre.planAbonnement,
+      essaiActif,
+      joursRestants,
     };
   }
 }

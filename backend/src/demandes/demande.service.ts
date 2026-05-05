@@ -110,7 +110,20 @@ export class DemandeService {
       select: { id: true, ville: true, codePostal: true },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
-    // TODO: ABONNEMENT — réactiver la vérification d'abonnement
+
+    const centreAbo = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+      select: {
+        planAbonnement: true,
+        abonnementStatut: true,
+        abonnementActifJusquAu: true,
+      },
+    });
+    const now = new Date();
+    const accesComplet =
+      centreAbo?.abonnementStatut === 'ACTIF' &&
+      !!centreAbo.abonnementActifJusquAu &&
+      centreAbo.abonnementActifJusquAu >= now;
 
     const ignorees = await this.prisma.demandeIgnoree.findMany({
       where: { centreId: centre.id },
@@ -150,7 +163,20 @@ export class DemandeService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return demandes.filter((d) => matchesZone(d.regionCible, centre));
+    return demandes
+      .filter((d) => matchesZone(d.regionCible, centre))
+      .map((d) => {
+        if (accesComplet) return d;
+        return {
+          ...d,
+          enseignant: {
+            id: d.enseignant.id,
+            prenom: d.enseignant.prenom,
+            nom: d.enseignant.nom,
+            email: null,
+          },
+        };
+      });
   }
 
   async getMesDemandes(enseignantId: string) {
