@@ -53,8 +53,8 @@ export class SejourController {
   @Get()
   @Roles(Role.SIGNATAIRE, Role.AUTORITE)
   findAll(@CurrentUser() user: JwtUser) {
-    if (user.role === Role.SIGNATAIRE && user.etablissementUai) {
-      return this.sejourService.findByEtablissement(user.etablissementUai);
+    if (user.role === Role.SIGNATAIRE) {
+      return this.sejourService.getAllSejoursSignataire(user.id, user.email);
     }
     return this.sejourService.findAll();
   }

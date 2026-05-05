@@ -165,22 +165,38 @@ export class SejourService {
     });
   }
 
-  async findByEtablissement(etablissementUai: string) {
-    const organisation = await this.prisma.organisation.findFirst({
-      where: { uai: etablissementUai },
-      select: { id: true },
-    });
-    if (!organisation) return [];
-
+  async getAllSejoursSignataire(signataireId: string, signataireEmail: string) {
+    // Source 1 : séjours des organisateurs des mêmes organisations primaires que le signataire
     const memberships = await this.prisma.membership.findMany({
-      where: { organisationId: organisation.id },
-      select: { userId: true },
+      where: { userId: signataireId, isPrimary: true },
+      select: { organisationId: true },
     });
-    const userIds = memberships.map(m => m.userId);
-    if (userIds.length === 0) return [];
+    const orgIds = memberships.map(m => m.organisationId);
+
+    const collegues = orgIds.length > 0
+      ? await this.prisma.membership.findMany({
+          where: { organisationId: { in: orgIds } },
+          select: { userId: true },
+        })
+      : [];
+    const collegueIds = [...new Set(collegues.map(m => m.userId))];
+
+    // Source 2 : séjours pour lesquels le signataire a reçu une invitation directe
+    // (InvitationDirecteur n'a pas de FK userId — matching par email destinataire)
+    const invitations = await this.prisma.invitationDirecteur.findMany({
+      where: { emailDirecteur: signataireEmail },
+      select: { sejourId: true },
+    });
+    const sejourIdsInvitation = invitations.map(i => i.sejourId);
+
+    const orConditions: { createurId?: { in: string[] }; id?: { in: string[] } }[] = [];
+    if (collegueIds.length > 0) orConditions.push({ createurId: { in: collegueIds } });
+    if (sejourIdsInvitation.length > 0) orConditions.push({ id: { in: sejourIdsInvitation } });
+
+    if (orConditions.length === 0) return [];
 
     return this.prisma.sejour.findMany({
-      where: { createurId: { in: userIds } },
+      where: { OR: orConditions },
       include: {
         createur: {
           select: {
@@ -242,7 +258,16 @@ export class SejourService {
       where: { id },
       include: {
         createur: {
-          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
+          select: {
+            id: true, prenom: true, nom: true, email: true, telephone: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: {
+                organisation: { select: { nom: true, ville: true, uai: true } },
+              },
+              take: 1,
+            },
+          },
         },
         accompagnateurs: {
           select: {
@@ -284,7 +309,16 @@ export class SejourService {
       where: { id },
       include: {
         createur: {
-          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
+          select: {
+            id: true, prenom: true, nom: true, email: true, telephone: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: {
+                organisation: { select: { nom: true, ville: true, uai: true } },
+              },
+              take: 1,
+            },
+          },
         },
         hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true, imageUrl: true } },
         accompagnateurs: {

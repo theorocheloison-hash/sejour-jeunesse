@@ -253,12 +253,13 @@ export interface BudgetData {
       nom: string;
       email: string | null;
       telephone: string | null;
-      etablissementNom: string | null;
-      etablissementAdresse: string | null;
-      etablissementVille: string | null;
-      etablissementUai: string | null;
-      etablissementEmail: string | null;
-      etablissementTelephone: string | null;
+      memberships?: Array<{
+        organisation: {
+          nom: string | null;
+          ville: string | null;
+          uai: string | null;
+        };
+      }>;
     };
   } | null;
   devis: DevisBudget | null;

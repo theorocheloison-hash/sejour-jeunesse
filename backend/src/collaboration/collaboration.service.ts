@@ -239,7 +239,16 @@ export class CollaborationService {
         dateFin: true,
         placesTotales: true,
         createur: {
-          select: { id: true, prenom: true, nom: true, email: true, telephone: true },
+          select: {
+            id: true, prenom: true, nom: true, email: true, telephone: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: {
+                organisation: { select: { nom: true, ville: true, uai: true } },
+              },
+              take: 1,
+            },
+          },
         },
       },
     });
