@@ -1,758 +1,672 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/app/components/Logo';
-import { ActeursSchema } from '@/app/components/ActeursSchema';
 import PricingTable from '@/app/components/PricingTable';
+import './landing.css';
+
+const CATALOGUE_CARDS = [
+  { nom: 'Chalet Le Sauvageon', ville: 'Morillon', dept: '74', capacite: 30, tags: ['Agréé EN', 'Montagne', 'Ski'] },
+  { nom: 'Domaine de la Clarée', ville: 'Val-des-Prés', dept: '05', capacite: 80, tags: ['Agréé EN', 'Randonnée', 'Haute montagne'] },
+  { nom: 'Centre Les Pins', ville: 'Mimizan', dept: '40', capacite: 120, tags: ['Agréé EN', 'Mer', 'Surf'] },
+];
 
 export default function Home() {
-  const [contactForm, setContactForm] = useState({ nom: '', email: '', message: '' });
-  const [contactSent, setContactSent] = useState(false);
-  const [contactLoading, setContactLoading] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [catalogueQ, setCatalogueQ] = useState('');
+  const router = useRouter();
 
-  const handleContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setContactLoading(true);
-    try {
-      await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(contactForm),
+  // Nav scroll
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Reveal IntersectionObserver
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    document.querySelectorAll('.liavo-landing .reveal').forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  // Cursor spotlight
+  useEffect(() => {
+    const cards = document.querySelectorAll(
+      '.liavo-landing .feature, .liavo-landing .profil, .liavo-landing .comp, .liavo-landing .net-card, .liavo-landing .cat-card'
+    );
+    const cleanups: Array<() => void> = [];
+    cards.forEach((card) => {
+      const el = card as HTMLElement;
+      const onMove = (e: Event) => {
+        const me = e as MouseEvent;
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', ((me.clientX - r.left) / r.width * 100) + '%');
+        el.style.setProperty('--my', ((me.clientY - r.top) / r.height * 100) + '%');
+      };
+      const onLeave = () => {
+        el.style.setProperty('--mx', '50%');
+        el.style.setProperty('--my', '0%');
+      };
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerleave', onLeave);
+      cleanups.push(() => {
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerleave', onLeave);
       });
-      setContactSent(true);
-    } catch { /* ignore */ }
-    finally { setContactLoading(false); }
+    });
+    return () => cleanups.forEach((fn) => fn());
+  }, []);
+
+  // Parallax hero dashboard
+  useEffect(() => {
+    const dash = document.querySelector('.liavo-landing .dashboard') as HTMLElement | null;
+    const wrap = document.querySelector('.liavo-landing .hero-mockup-wrap') as HTMLElement | null;
+    if (!dash || !wrap) return;
+    let ticking = false;
+    const update = () => {
+      const r = wrap.getBoundingClientRect();
+      const y = Math.max(-40, Math.min(40, (window.innerHeight - r.top) * -0.04));
+      dash.style.transform = `translateY(${y.toFixed(1)}px)`;
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) { requestAnimationFrame(update); ticking = true; }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleCatalogueSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = catalogueQ.trim();
+    router.push(q.length >= 2 ? `/catalogue?q=${encodeURIComponent(q)}` : '/catalogue');
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}>
+    <div className="liavo-landing">
 
-      {/* ── NAV FIXE ────────────────────────────────────────────────────────── */}
-      <header style={{
-        position: 'fixed', inset: '0 0 auto 0', zIndex: 50,
-        backgroundColor: 'rgba(255,255,255,0.85)',
-        borderBottom: '0.5px solid var(--color-border)',
-        backdropFilter: 'blur(16px)',
-        boxShadow: '0 1px 8px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{
-          maxWidth: 1200, margin: '0 auto',
-          padding: '0 24px', display: 'flex',
-          height: 56, alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <Logo size="sm" variant="light" showTagline={false} />
+      {/* ── NAV ── */}
+      <nav className={`nav${scrolled ? ' scrolled' : ''}`} id="nav">
+        <div className="wrap nav-inner">
+          <Link className="brand" href="/">
+            <Logo size="sm" showTagline={false} />
           </Link>
-
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 32 }} className="hidden md:flex">
-            <a href="#acteurs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Pour les établissements
-            </a>
-            <a href="#acteurs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Pour les hébergeurs
-            </a>
-            <a href="#workflow" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Comment ça marche
-            </a>
-            <a href="#tarifs" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Tarifs
-            </a>
-            <a href="#contact" style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-muted)', textDecoration: 'none' }}>
-              Contact
-            </a>
-          </nav>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Link href="/login" className="hidden sm:inline-flex" style={{
-              fontSize: 13, fontWeight: 500, padding: '8px 16px',
-              borderRadius: 10,
-              border: '0.5px solid var(--color-border)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              backgroundColor: 'transparent',
-            }}>
-              Se connecter
+          <div className="nav-links">
+            <a href="#hebergeurs">Hébergeurs</a>
+            <a href="#collaboratif">Espace collaboratif</a>
+            <a href="#enseignants">Enseignants</a>
+            <a href="#colonies">Colonies</a>
+            <Link href="/catalogue">Catalogue</Link>
+            <a href="#pricing">Tarifs</a>
+          </div>
+          <div className="nav-cta">
+            <Link className="btn btn-ghost" href="/login">Se connecter</Link>
+            <Link className="btn btn-primary" href="/register?type=hebergeur">
+              Commencer gratuitement <span className="arrow">→</span>
             </Link>
-            <Link href="/register" style={{
-              fontSize: 13, fontWeight: 500, padding: '8px 16px',
-              borderRadius: 10,
-              backgroundColor: 'var(--color-accent)',
-              color: '#FFFFFF', textDecoration: 'none',
-            }}>
-              Créer un compte
-            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── HERO ── */}
+      <header className="hero">
+        <div className="wrap">
+          <div className="hero-content">
+            <span className="hero-eyebrow">
+              <span className="pulse" />
+              Nouvelle plateforme · Disponible en France
+            </span>
+            <h1>
+              Gérez tous vos séjours de groupe<br />
+              depuis un <span className="accent">seul outil</span>.
+            </h1>
+            <p className="hero-sub">
+              Développée par des hébergeurs, pour des hébergeurs. Gérez vos devis, planning,
+              CRM, facturation Chorus Pro et coordonnez chaque séjour avec l&apos;organisateur en temps réel.
+            </p>
+            <div className="hero-cta">
+              <a className="btn btn-primary btn-lg" href="#hebergeurs">
+                Je suis hébergeur <span className="arrow">→</span>
+              </a>
+              <a className="btn btn-outline btn-lg" href="#enseignants">
+                J&apos;organise un séjour scolaire
+              </a>
+              <a className="btn btn-outline btn-lg" href="#colonies">
+                J&apos;organise une colonie
+              </a>
+              <Link className="btn btn-outline btn-lg" href="/catalogue">
+                Parcourir le catalogue
+              </Link>
+            </div>
+            <div className="hero-note">30 jours d&apos;essai · sans CB</div>
+            <div className="hero-pills">
+              <span className="pill"><span className="dot" />Conforme RGPD</span>
+              <span className="pill"><span className="dot" />Chorus Pro intégré</span>
+              <span className="pill"><span className="dot" />Vos données restent en France</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dashboard mockup */}
+        <div className="hero-mockup-wrap">
+          <div className="dashboard reveal">
+            <aside className="dash-side">
+              <div className="ds-brand">
+                <Logo size="sm" showTagline={false} />
+              </div>
+              <span className="ds-group">Séjour</span>
+              <span role="button">Vue d&apos;ensemble</span>
+              <span role="button" className="active">Participants</span>
+              <span role="button">Planning</span>
+              <span role="button">Devis</span>
+              <span role="button">Messages</span>
+              <span role="button">Journal</span>
+              <span className="ds-group">Centre</span>
+              <span role="button">Catalogue</span>
+              <span role="button">Facturation</span>
+              <span role="button">CRM clients</span>
+            </aside>
+            <main className="dash-main">
+              <div className="dash-bar">
+                <div className="crumb">
+                  <strong>Centre du Lac</strong> · Classe de montagne · 4ème · Morillon
+                </div>
+                <div className="actions">
+                  <span className="mini">Exporter</span>
+                  <span className="mini solid">Inviter</span>
+                </div>
+              </div>
+              <div className="dash-h">
+                <h3>Participants &amp; autorisations</h3>
+                <span className="sub">17–21 mars 2026 · 48 élèves</span>
+              </div>
+              <div className="dash-kpis">
+                <div className="kpi">
+                  <div className="lbl">Inscrits</div>
+                  <div className="val">48</div>
+                  <div className="delta">+3 cette semaine</div>
+                </div>
+                <div className="kpi accent">
+                  <div className="lbl">Autorisations</div>
+                  <div className="val">44/48</div>
+                  <div className="delta">92 % signées</div>
+                </div>
+                <div className="kpi">
+                  <div className="lbl">Paiements</div>
+                  <div className="val">35/48</div>
+                  <div className="delta">8 320 € collectés</div>
+                </div>
+                <div className="kpi">
+                  <div className="lbl">Facture HT</div>
+                  <div className="val">12 480 €</div>
+                  <div className="delta">Émise le 12 mars</div>
+                </div>
+              </div>
+              <div className="dash-table">
+                <div className="row head">
+                  <span>Élève</span>
+                  <span>Autorisation</span>
+                  <span className="h-pay">Paiement</span>
+                  <span className="h-fic">Fiche sanitaire</span>
+                  <span className="h-more" />
+                </div>
+                <div className="row">
+                  <div className="who"><span className="av">AM</span>Amélie Maréchal</div>
+                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                  <span className="c-pay"><span className="tag ok"><span className="pin" />Échelonné</span></span>
+                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                  <span className="c-more more">→</span>
+                </div>
+                <div className="row">
+                  <div className="who"><span className="av">BL</span>Bastien Loiseau</div>
+                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                  <span className="c-pay"><span className="tag wait"><span className="pin" />En attente</span></span>
+                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                  <span className="c-more more">→</span>
+                </div>
+                <div className="row">
+                  <div className="who"><span className="av">CM</span>Camille Mercier</div>
+                  <span><span className="tag wait"><span className="pin" />En attente</span></span>
+                  <span className="c-pay"><span className="tag no"><span className="pin" />—</span></span>
+                  <span className="c-fic"><span className="tag wait"><span className="pin" />Sans gluten</span></span>
+                  <span className="c-more more">→</span>
+                </div>
+                <div className="row">
+                  <div className="who"><span className="av">DR</span>Diego Rovira</div>
+                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                  <span className="c-pay"><span className="tag ok"><span className="pin" />Soldé</span></span>
+                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                  <span className="c-more more">→</span>
+                </div>
+              </div>
+            </main>
           </div>
         </div>
       </header>
 
-      {/* ── SECTION 1 — HERO ────────────────────────────────────────────────── */}
-      <section style={{
-        paddingTop: 180, paddingBottom: 0,
-        background: 'linear-gradient(135deg, var(--color-primary) 0%, #1a365d 40%, #2b4c7e 100%)',
-      }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', textAlign: 'center' }}>
-          <h1 style={{
-            fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 500,
-            lineHeight: 1.15, letterSpacing: '-0.01em',
-            color: '#FFFFFF',
-          }}>
-            Du projet pédagogique à la facturation finale.
-            <br />
-            <span style={{ color: 'rgba(255,255,255,0.7)' }}>
-              Chaque étape coordonnée. Chaque validation tracée.
-            </span>
-          </h1>
-
-          <p style={{
-            marginTop: 24, fontSize: 15, lineHeight: 1.7,
-            color: 'rgba(255,255,255,0.75)', maxWidth: 600,
-            marginLeft: 'auto', marginRight: 'auto',
-          }}>
-            LIAVO coordonne l&apos;intégralité de la démarche administrative d&apos;un séjour collectif — appel d&apos;offres hébergeurs, autorisations, paiements échelonnés, facturation. Que vous soyez enseignant, organisateur de colonie ou responsable d&apos;un réseau de centres : un seul outil, du projet à la facturation.
-          </p>
-
-          <div style={{
-            marginTop: 32, display: 'flex', flexWrap: 'wrap',
-            justifyContent: 'center', gap: 12,
-          }}>
-            <Link href="/register?type=organisateur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 15, fontWeight: 600, padding: '14px 28px',
-              borderRadius: 12,
-              backgroundColor: 'var(--color-accent)',
-              color: '#FFFFFF', textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-            }}>
-              Je suis un établissement scolaire
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-            <Link href="/register?type=hebergeur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 15, fontWeight: 600, padding: '14px 28px',
-              borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.4)',
-              color: '#FFFFFF', textDecoration: 'none',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-            }}>
-              Je suis un hébergeur
-            </Link>
-          </div>
-
-          <p style={{
-            marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.55)',
-          }}>
-            Gratuit pour les enseignants et les etablissements scolaires &middot; Sans engagement
-          </p>
-        </div>
-
-        {/* Bandeau preuves */}
-        <div style={{
-          backgroundColor: 'rgba(255,255,255,0.08)',
-          borderTop: '0.5px solid rgba(255,255,255,0.15)',
-          padding: '16px 24px',
-          textAlign: 'center',
-          fontSize: 13, color: 'rgba(255,255,255,0.7)',
-        }}>
-          Conforme RGPD · Chorus Pro intégré
-        </div>
-      </section>
-
-      {/* ── SECTION 2 — LA DOULEUR ──────────────────────────────────────────── */}
-      <section id="probleme" style={{ padding: '80px 24px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', textAlign: 'center',
-            marginBottom: 48,
-          }}>
-            Organiser un séjour collectif aujourd&apos;hui, c&apos;est ça.
-          </h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, alignItems: 'center' }} className="max-md:!grid-cols-1">
-            {/* Colonne Aujourd'hui */}
-            <div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center',
-                backgroundColor: 'var(--color-danger-light)',
-                color: 'var(--color-danger)',
-                fontSize: 12, fontWeight: 500,
-                padding: '4px 12px', borderRadius: 'var(--radius-pill)',
-                marginBottom: 16,
-              }}>
-                Sans LIAVO
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  'Des semaines d\'emails pour obtenir des devis comparables',
-                  'Des autorisations parentales perdues, relancées manuellement',
-                  'Des dossiers rectorat en PDF remplis à la main',
-                  'Une responsabilité administrative portée seul',
-                ].map((t, i) => (
-                  <div key={i} style={{
-                    backgroundColor: 'var(--color-surface)',
-                    borderLeft: '3px solid var(--color-danger)',
-                    borderRadius: 10,
-                    padding: '16px 20px',
-                    fontSize: 14, lineHeight: 1.6,
-                    color: 'var(--color-text-muted)',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                  }}>
-                    {t}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Flèche centrale — desktop uniquement */}
-            <div className="hidden md:flex" style={{
-              fontSize: 32, color: 'var(--color-accent)',
-              alignSelf: 'center', padding: '0 8px',
-            }}>
-              →
-            </div>
-
-            {/* Colonne Avec LIAVO */}
-            <div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center',
-                backgroundColor: 'var(--color-accent)',
-                color: '#FFFFFF',
-                fontSize: 12, fontWeight: 500,
-                padding: '4px 12px', borderRadius: 'var(--radius-pill)',
-                marginBottom: 16,
-              }}>
-                Avec LIAVO
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  'Lancez un appel d\'offres en quelques minutes auprès des centres de votre choix partout en France',
-                  'Signatures électroniques avec relances automatiques',
-                  'Dossier généré automatiquement, envoyé directement',
-                  'Chaque validation horodatée, archivée, traçable',
-                ].map((t, i) => (
-                  <div key={i} style={{
-                    backgroundColor: 'var(--color-accent)',
-                    borderLeft: '3px solid rgba(255,255,255,0.4)',
-                    borderRadius: 10,
-                    padding: '16px 20px',
-                    fontSize: 14, lineHeight: 1.6,
-                    color: '#FFFFFF',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                  }}>
-                    {t}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 3 — 5 ACTEURS ───────────────────────────────────────────── */}
-      <section id="acteurs" style={{
-        padding: '80px 24px',
-        backgroundColor: 'var(--color-surface)',
-        borderTop: '0.5px solid var(--color-border)',
-        borderBottom: '0.5px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', textAlign: 'center',
-            marginBottom: 16,
-          }}>
-            La première plateforme qui connecte tous les acteurs d&apos;un séjour collectif.
-          </h2>
-          <p style={{
-            fontSize: 15, lineHeight: 1.7,
-            color: 'var(--color-text-muted)', textAlign: 'center',
-            maxWidth: 560, margin: '0 auto 48px',
-          }}>
-            Pas un outil de plus dans votre boîte mail. Une infrastructure partagée où chaque acteur intervient au bon moment, dans le bon ordre.
-          </p>
-          <ActeursSchema />
-        </div>
-      </section>
-
-      {/* ── SECTION 4 — DEUX UNIVERS ────────────────────────────────────────── */}
-      <section style={{ padding: '80px 24px' }}>
-        <div style={{
-          maxWidth: 1200, margin: '0 auto',
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: 32,
-        }}>
-          {/* Bloc établissements */}
-          <div style={{
-            backgroundColor: 'var(--color-primary)',
-            border: 'none',
-            borderRadius: 16, padding: 32,
-            display: 'flex', flexDirection: 'column',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-          }}>
-            <h3 style={{ fontSize: 18, fontWeight: 500, color: '#FFFFFF', marginBottom: 20 }}>
-              Pour les enseignants et les directeurs
-            </h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-              {[
-                'Lancez un appel d\'offres en 10 minutes auprès des centres de votre choix',
-                'Recevez et comparez les devis directement dans la plateforme',
-                'Workflow de validation directeur et rectorat intégré',
-                'Autorisations parentales numériques avec relances automatiques',
-                'Paiement échelonné jusqu\'à 10 fois sans frais pour les familles',
-                'Ordres de mission accompagnateurs générés automatiquement',
-              ].map((t, i) => (
-                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
-                  — {t}
-                </li>
-              ))}
-            </ul>
-            <Link href="/register?type=organisateur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              marginTop: 24, fontSize: 14, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 10,
-              backgroundColor: '#FFFFFF',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              alignSelf: 'flex-start',
-            }}>
-              Créer un compte établissement
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-          </div>
-
-          {/* Bloc hébergeurs */}
-          <div style={{
-            backgroundColor: 'var(--color-accent)',
-            border: 'none',
-            borderRadius: 16, padding: 32,
-            display: 'flex', flexDirection: 'column',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-          }}>
-            <h3 style={{ fontSize: 18, fontWeight: 500, color: '#FFFFFF', marginBottom: 20 }}>
-              Pour les centres d&apos;hébergement
-            </h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-              {[
-                'Recevez des demandes qualifiées directement depuis les établissements',
-                'Créez vos devis HT/TTC en quelques minutes',
-                'Gérez votre calendrier et vos disponibilités',
-                'CRM clients intégré — importez vos établissements et relancez en un clic',
-                'Facturation Chorus Pro intégrée pour les établissements publics',
-                'Espace collaboratif avec l\'organisateur du séjour',
-              ].map((t, i) => (
-                <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.85)' }}>
-                  — {t}
-                </li>
-              ))}
-            </ul>
-            <Link href="/catalogue" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 13, color: 'rgba(255,255,255,0.75)',
-              textDecoration: 'none', marginBottom: 8,
-            }}>
-              ← Voir le catalogue des centres
-            </Link>
-            <br />
-            <Link href="/register?type=hebergeur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              marginTop: 24, fontSize: 14, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 10,
-              border: 'none',
-              backgroundColor: '#FFFFFF',
-              color: 'var(--color-accent)', textDecoration: 'none',
-              alignSelf: 'flex-start',
-            }}>
-              Référencer mon centre
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION RÉSEAUX ─────────────────────────────────────────────── */}
-      <section style={{
-        padding: '60px 24px',
-        backgroundColor: 'var(--color-bg)',
-        borderTop: '0.5px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 48 }}>
-          <div style={{ flex: '1 1 320px' }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center',
-              backgroundColor: 'var(--color-primary-light)',
-              color: 'var(--color-primary)',
-              fontSize: 12, fontWeight: 600,
-              padding: '4px 12px', borderRadius: 'var(--radius-pill)',
-              marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>
-              Réseaux partenaires
-            </div>
-            <h2 style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 500, color: 'var(--color-primary)', marginBottom: 16, lineHeight: 1.3 }}>
-              Vous pilotez un réseau de centres ?
+      {/* ── PROFILS ── */}
+      <section className="profils" id="profils">
+        <div className="wrap">
+          <div className="section-head center reveal">
+            <span className="eyebrow">pour qui ?</span>
+            <h2 className="section-title">
+              Trois métiers,<br /><span className="accent">un seul outil</span>.
             </h2>
-            <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-muted)', marginBottom: 24 }}>
-              LIAVO propose un espace dédié aux associations et fédérations de centres : suivez l&apos;activité de vos adhérents, visualisez leur taux d&apos;engagement, invitez-les à rejoindre la plateforme en un clic.
+            <p className="section-lead">
+              Hébergeurs, enseignants, organisateurs de colos — chacun trouve dans LIAVO l&apos;espace qui lui correspond.
             </p>
-            <a href="#contact" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 10,
-              border: '1px solid var(--color-primary)',
-              color: 'var(--color-primary)', textDecoration: 'none',
-              backgroundColor: 'transparent',
-            }}>
-              Demander une démo réseau →
+          </div>
+          <div className="profils-grid">
+            <a href="#hebergeurs" className="profil reveal" data-delay="1">
+              <span className="badge payant">Solution payante</span>
+              <span className="icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 21V9l9-6 9 6v12" /><path d="M9 21v-7h6v7" /><path d="M3 21h18" />
+                </svg>
+              </span>
+              <h3>Hébergeur et centre de vacances</h3>
+              <p>
+                Vous gérez un ou plusieurs centres — gîte, domaine, chalet, auberge de jeunesse, centre municipal.
+                LIAVO centralise devis, planning, CRM et facturation pour toute votre structure, quel que soit le nombre de sites.
+              </p>
+              <span className="profil-link">Découvrir <span className="arrow">→</span></span>
+            </a>
+            <a href="#enseignants" className="profil reveal" data-delay="2">
+              <span className="badge gratuit">Gratuit</span>
+              <span className="icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" /><path d="M22 10v6" />
+                </svg>
+              </span>
+              <h3>Enseignants</h3>
+              <p>Vous organisez un séjour pour votre classe — classe verte, voyage scolaire, classe de neige.</p>
+              <span className="profil-link">Découvrir <span className="arrow">→</span></span>
+            </a>
+            <a href="#colonies" className="profil reveal" data-delay="3">
+              <span className="badge gratuit">Gratuit</span>
+              <span className="icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 21l9-16 9 16z" /><path d="M9 21l3-7 3 7" /><path d="M3 21h18" />
+                </svg>
+              </span>
+              <h3>Organisateurs de colonies</h3>
+              <p>
+                Vous organisez des camps d&apos;été, séjours de vacances ou centres de loisirs
+                (mairies, associations, comités d&apos;entreprise).
+              </p>
+              <span className="profil-link">Découvrir <span className="arrow">→</span></span>
             </a>
           </div>
-          <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        </div>
+      </section>
+
+      {/* ── HÉBERGEURS ── */}
+      <section className="persona-section" id="hebergeurs">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="tag-persona">Pour les hébergeurs</span>
+            <span className="eyebrow">solution complète · payante</span>
+            <h2 className="section-title">
+              Tous vos types de séjours,<br />dans un <span className="accent">seul outil</span>.
+            </h2>
+            <p className="section-lead">
+              Recevez les demandes — séjours collectifs scolaires, colos, ALSH, groupes — créez vos devis depuis
+              votre catalogue, pilotez planning collaboratif et CRM clients, suivez chaque dossier de A à Z.
+            </p>
+          </div>
+          <div className="features">
             {[
-              { icon: '📊', label: 'Dashboard de suivi des adhérents en temps réel' },
-              { icon: '✉️', label: 'Invitation en masse de vos centres depuis votre espace' },
-              { icon: '📈', label: 'KPIs réseau : demandes, devis, CA généré, taux de réponse' },
-              { icon: '⬇️', label: 'Export CSV de l\'activité de votre réseau' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                backgroundColor: 'var(--color-surface)',
-                border: '0.5px solid var(--color-border)',
-                borderRadius: 12, padding: '12px 16px',
-                fontSize: 14, color: 'var(--color-text)',
-              }}>
-                <span style={{ fontSize: 20 }}>{item.icon}</span>
-                <span>{item.label}</span>
+              { n: '01', t: 'Un compte, plusieurs centres', d: 'Que vous gériez un seul gîte ou une association avec dix hébergements, LIAVO regroupe tout sous une seule organisation. Chaque centre a son propre profil et ses propres séjours.' },
+              { n: '02', t: 'Dashboard collaboratif par séjour', d: "Pour chaque séjour collectif réservé, un espace partagé avec l'enseignant ou l'organisateur : messagerie, planning, participants, documents. Visibilité temps réel sur chaque dossier." },
+              { n: '03', t: 'Planning drag & drop', d: 'Organisez la semaine en glisser-déposer. Les groupes tournent automatiquement sur les activités. Export PDF A4 paysage pour l\'impression.' },
+              { n: '04', t: 'CRM clients intégré', d: 'Gérez vos établissements scolaires et organisateurs récurrents, suivez l\'historique de chaque client, relancez en un clic.' },
+              { n: '05', t: 'Documents administratifs du centre', d: 'Centralisez vos documents réglementaires (agrément Éducation Nationale, RC Pro, attestations) avec suivi de date d\'expiration. L\'organisateur y accède directement depuis l\'espace collaboratif sans avoir à les redemander à chaque séjour.' },
+              { n: '06', t: 'Facturation Chorus Pro intégrée', d: 'Facturez les établissements publics au format XML UBL 2.1, sans démarche supplémentaire. Conforme aux exigences de la facturation électronique.' },
+            ].map((f, i) => (
+              <div key={f.n} className="feature reveal" data-delay={String((i % 5) + 1)}>
+                <span className="num">{f.n}</span>
+                <div><h4>{f.t}</h4><p>{f.d}</p></div>
+              </div>
+            ))}
+          </div>
+          <div className="ps-cta reveal">
+            <a className="btn btn-primary btn-lg" href="#pricing">Essayer gratuitement <span className="arrow">→</span></a>
+            <a className="btn btn-outline btn-lg" href="#pricing">Voir le pricing</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COLLABORATIF ── */}
+      <section className="persona-section" id="collaboratif">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="tag-persona">Différenciation · Inexistant ailleurs</span>
+            <span className="eyebrow">espace collaboratif</span>
+            <h2 className="section-title">
+              Toutes les parties prenantes<br />dans un <span className="accent">seul espace</span>.
+            </h2>
+            <p className="section-lead">
+              Pour chaque séjour réservé, un espace partagé réunit hébergeur, enseignant ou organisateur,
+              directeur d&apos;établissement et familles. Premier outil du marché à centraliser toute la
+              coordination d&apos;un séjour collectif.
+            </p>
+          </div>
+          <div className="hero-pills reveal" style={{ justifyContent: 'flex-start', marginBottom: '40px' }}>
+            {['Hébergeur', 'Enseignant / Organisateur', 'Directeur / Signataire', 'Autorité (rectorat / SDJES)', 'Familles'].map((p) => (
+              <span key={p} className="pill"><span className="dot" />{p}</span>
+            ))}
+          </div>
+          <div className="features cols-3">
+            {[
+              { n: '01', t: 'Messagerie et documents centralisés', d: 'Fini les chaînes d\'emails et les fichiers Word partagés en drive. Toutes les conversations et tous les documents du séjour au même endroit, accessibles à chaque partie prenante avec les bons droits.' },
+              { n: '02', t: 'Planning temps réel', d: 'Drag & drop collaboratif, visible par toutes les parties prenantes. Modifications instantanées, export PDF A4 paysage prêt à imprimer pour les encadrants.' },
+              { n: '03', t: 'Journal de séjour pour les familles', d: 'Photos, planning du jour, nouvelles depuis le terrain. Les familles suivent en temps réel via un lien web, pas d\'app à installer.' },
+            ].map((f, i) => (
+              <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
+                <span className="num">{f.n}</span>
+                <div><h4>{f.t}</h4><p>{f.d}</p></div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── SECTION TARIFS ────────────────────────────────────────────────── */}
-      <section id="tarifs" style={{
-        padding: '80px 24px',
-        backgroundColor: 'var(--color-surface)',
-        borderTop: '0.5px solid var(--color-border)',
-        borderBottom: '0.5px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', textAlign: 'center',
-            marginBottom: 12,
-          }}>
-            Tarifs hebergeurs
-          </h2>
-          <p style={{
-            fontSize: 15, lineHeight: 1.7,
-            color: 'var(--color-text-muted)', textAlign: 'center',
-            maxWidth: 560, margin: '0 auto 40px',
-          }}>
-            Enseignants et etablissements scolaires : toujours gratuit, sans limitation.
-          </p>
+      {/* ── ENSEIGNANTS ── */}
+      <section className="persona-section alt" id="enseignants">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="tag-persona free">Pour les enseignants</span>
+            <span className="eyebrow">gratuit, toujours</span>
+            <h2 className="section-title">
+              Votre séjour scolaire,<br /><span className="accent">sans la paperasse</span>.
+            </h2>
+            <p className="section-lead">
+              De l&apos;appel d&apos;offres à la signature de la convention, LIAVO automatise tout le workflow administratif.
+              Gratuit, toujours.
+            </p>
+          </div>
+          <div className="features">
+            {[
+              { n: '01', t: "Appel d'offres en quelques minutes", d: "Décrivez votre projet (destination, dates, nombre d'élèves), les centres répondent directement avec leurs devis. Comparez sans relancer par email." },
+              { n: '02', t: 'Signature électronique de la convention', d: "Le directeur d'école ou chef d'établissement signe la convention en ligne. LIAVO génère le dossier de déclaration que l'enseignant transmet lui-même à l'autorité académique compétente (IEN de circonscription pour le 1er degré, rectorat pour le 2nd degré)." },
+              { n: '03', t: 'Autorisations parentales numériques', d: 'Importez votre liste d\'élèves depuis Pronote ou ONDE en CSV. Les parents signent en ligne (fiche sanitaire, régime alimentaire, paiement échelonné).' },
+              { n: '04', t: 'Espace collaboratif avec l\'hébergeur et les familles', d: 'Planning, messagerie, documents et journal de séjour. Les familles suivent le séjour en temps réel via un lien web, sans application.' },
+            ].map((f, i) => (
+              <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
+                <span className="num">{f.n}</span>
+                <div><h4>{f.t}</h4><p>{f.d}</p></div>
+              </div>
+            ))}
+          </div>
+          <div className="ps-cta reveal">
+            <Link className="btn btn-primary btn-lg" href="/appel-offres">
+              Créer mon premier séjour <span className="arrow">→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COLONIES ── */}
+      <section className="persona-section dark" id="colonies">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="tag-persona free">Pour les organisateurs de colos</span>
+            <span className="eyebrow">gratuit, toujours</span>
+            <h2 className="section-title">
+              Organisez vos colonies<br />en toute <span className="accent">sérénité</span>.
+            </h2>
+            <p className="section-lead">
+              Pour les associations, mairies, comités d&apos;entreprise et centres de loisirs.
+              Trouvez le centre, gérez les inscriptions, suivez le séjour en direct.
+            </p>
+          </div>
+          <div className="features cols-3">
+            {[
+              { n: '01', t: 'Recherche d\'hébergeur géolocalisée', d: 'Lancez votre demande dans la zone qui vous intéresse, recevez des devis qualifiés des centres disponibles à vos dates.' },
+              { n: '02', t: 'Planning d\'activités drag & drop', d: 'Construisez le programme de la colo semaine par semaine. Glissez-déposez les activités, gérez les groupes et les rotations, exportez le planning en PDF pour les animateurs.' },
+              { n: '03', t: 'Espace collaboratif avec l\'hébergeur', d: 'Messagerie, documents, participants et autorisations parentales. Tout partagé avec le centre d\'hébergement depuis un espace commun.' },
+              { n: '04', t: 'Journal de séjour pour les familles', d: 'Les parents reçoivent un journal de séjour pendant les vacances : photos, planning du jour, nouvelles. Pas d\'app à installer.' },
+              { n: '05', t: 'Déclaration TAM simplifiée', d: 'Préparez le dossier de déclaration auprès du SDJES depuis les données du séjour. Téléchargez le dossier complet, prêt à transmettre.' },
+            ].map((f, i) => (
+              <div key={f.n} className="feature reveal" data-delay={String((i % 5) + 1)}>
+                <span className="num">{f.n}</span>
+                <div><h4>{f.t}</h4><p>{f.d}</p></div>
+              </div>
+            ))}
+          </div>
+          <div className="ps-cta reveal">
+            <Link className="btn btn-primary btn-lg" href="/appel-offres">
+              Tester gratuitement <span className="arrow">→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CATALOGUE ── */}
+      <section className="persona-section" id="catalogue">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="eyebrow">trouver un hébergeur</span>
+            <h2 className="section-title">
+              Parcourez notre catalogue<br />
+              de <span className="accent">centres référencés</span>.
+            </h2>
+            <p className="section-lead">
+              Centres labellisés Éducation Nationale, agréés TAM et partenaires LIAVO.
+            </p>
+          </div>
+          <form className="catalogue-search-wrap reveal" onSubmit={handleCatalogueSearch}>
+            <svg className="catalogue-search-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              className="catalogue-search"
+              placeholder="Rechercher par nom, ville, département…"
+              value={catalogueQ}
+              onChange={(e) => setCatalogueQ(e.target.value)}
+            />
+          </form>
+          <div className="catalogue-grid">
+            {CATALOGUE_CARDS.map((c) => (
+              <Link key={c.nom} href="/catalogue" className="cat-card reveal">
+                <h4>{c.nom}</h4>
+                <p className="loc">
+                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  </svg>
+                  {c.ville} ({c.dept})
+                </p>
+                <p className="cap">{c.capacite} lits</p>
+                <div className="tags">
+                  {c.tags.map((t) => (
+                    <span key={t} className={`ctag${t === 'Agréé EN' ? ' en' : ''}`}>{t}</span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="catalogue-cta reveal">
+            <Link className="btn btn-navy btn-lg" href="/catalogue">
+              Voir tous les centres <span className="arrow">→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── NETWORK ── */}
+      <section className="network-section">
+        <div className="wrap">
+          <div className="net-card reveal">
+            <div>
+              <span className="tag-persona">Réseaux &amp; fédérations</span>
+              <h3>Vous pilotez un réseau d&apos;hébergeurs ?</h3>
+              <p>
+                LIAVO offre un dashboard de pilotage à votre fédération ou association : suivi des adhérents,
+                KPIs réseau, invitation en masse, intégration APIDAE automatique.{' '}
+                <strong style={{ color: 'var(--navy)', fontWeight: 500 }}>
+                  Votre rôle de mise en relation reste central
+                </strong>{' '}
+                — LIAVO gère l&apos;administratif après la mise en relation que vous orchestrez.
+              </p>
+              <ul className="net-list">
+                <li>Dashboard temps réel avec KPIs (demandes, devis, taux de réponse, CA généré)</li>
+                <li>Onboarding score par centre adhérent</li>
+                <li>Invitation en masse + import APIDAE</li>
+              </ul>
+              <a className="btn btn-navy btn-lg" href="mailto:contact@liavo.fr?subject=Démo réseau LIAVO">
+                Demander une démo réseau <span className="arrow">→</span>
+              </a>
+            </div>
+            <div className="net-kpi">
+              <div className="k"><div className="lbl">Adhérents actifs</div><div className="v">54 centres</div></div>
+              <div className="k"><div className="lbl">Zones couvertes</div><div className="v">Haute-Savoie + Isère</div></div>
+              <div className="k"><div className="lbl">Import APIDAE</div><div className="v sync">APIDAE synchronisé</div></div>
+              <div className="k"><div className="lbl">Statut</div><div className="v sync">Synchronisé</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ── */}
+      <section className="pricing" id="pricing">
+        <div className="wrap">
+          <div className="section-head center reveal">
+            <span className="eyebrow">tarifs hébergeurs</span>
+            <h2 className="section-title">
+              Un prix lisible,<br /><span className="accent">pas de palier surprise</span>.
+            </h2>
+            <p className="section-lead">
+              Trois formules pour les hébergeurs. Les enseignants et organisateurs de colonies utilisent LIAVO gratuitement.
+            </p>
+          </div>
+          <div className="pricing-banner reveal">
+            <strong>Enseignants, associations, CSE, mairies :</strong> LIAVO est gratuit, sans limite de durée.
+          </div>
           <PricingTable />
         </div>
       </section>
 
-      {/* ── SECTION 5 — WORKFLOW ─────────────────────────────────────────────── */}
-      <section id="workflow" style={{
-        padding: '80px 24px',
-        backgroundColor: 'var(--color-primary-light)',
-        borderTop: '0.5px solid var(--color-border)',
-        borderBottom: '0.5px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', textAlign: 'center',
-            marginBottom: 12,
-          }}>
-            De l&apos;idée au séjour en 6 étapes.
-          </h2>
-          <p style={{
-            fontSize: 15, lineHeight: 1.7,
-            color: 'var(--color-text-muted)', textAlign: 'center',
-            maxWidth: 480, margin: '0 auto 48px',
-          }}>
-            Chaque étape débloque la suivante. Aucune validation ne peut être sautée.
-          </p>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-            gap: 24,
-          }}>
-            {[
-              { num: '1', title: 'Création du projet', desc: 'L\'organisateur définit la destination, les dates et les objectifs du séjour. Le dossier s\'ouvre automatiquement.' },
-              { num: '2', title: 'Appel d\'offres hébergeurs', desc: 'Les centres référencés sur le périmètre géographique choisi reçoivent votre demande. Les devis arrivent directement dans la plateforme sous 48h.' },
-              { num: '3', title: 'Sélection et validation', desc: 'L\'organisateur compare les offres, sélectionne le centre et valide le séjour. Tout est horodaté.' },
-              { num: '4', title: 'Dossier administratif', desc: 'Le dossier réglementaire complet est généré automatiquement et transmis à l\'autorité compétente (rectorat, SDJES...).' },
-              { num: '5', title: 'Autorisations et paiements', desc: 'Les parents reçoivent l\'autorisation à signer en ligne. Le paiement s\'échelonne jusqu\'à 10 fois sans frais.' },
-              { num: '6', title: 'Le séjour a lieu', desc: 'L\'espace collaboratif relie organisateur, hébergeur et accompagnateurs jusqu\'au retour.' },
-            ].map((step, i) => (
-              <div key={i} style={{
-                display: 'flex', gap: 16, alignItems: 'flex-start',
-              }}>
-                <div style={{
-                  width: 64, height: 64, minWidth: 64,
-                  borderRadius: 14,
-                  backgroundColor: '#FFFFFF',
-                  color: 'var(--color-accent)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, fontWeight: 700,
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                }}>
-                  {step.num}
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-text)', marginBottom: 4 }}>
-                    {step.title}
-                  </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)' }}>
-                    {step.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 6 — ARGUMENTS INSTITUTIONNELS ────────────────────────────── */}
-      <section style={{ padding: '80px 24px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: 'var(--color-primary)', textAlign: 'center',
-            marginBottom: 48,
-          }}>
-            Conçu pour les exigences de l&apos;Éducation Nationale.
-          </h2>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 24,
-          }}>
-            {[
-              { title: 'Données sécurisées', desc: 'Hébergement sur sol français. Conformité RGPD complète. Chaque donnée d\'élève est protégée selon les exigences de l\'Éducation Nationale.', barColor: 'var(--color-accent)' },
-              { title: 'Chorus Pro intégré', desc: 'Facturation électronique vers les établissements publics, sans démarche supplémentaire pour l\'hébergeur.', barColor: 'var(--color-primary)' },
-              { title: 'Traçabilité complète', desc: 'Chaque validation, chaque document, chaque autorisation est horodaté et archivé. En cas de contrôle, l\'historique complet est disponible en un clic.', barColor: 'var(--color-success)' },
-            ].map((card, i) => (
-              <div key={i} style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '0.5px solid var(--color-border)',
-                borderRadius: 14,
-                padding: 28,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                overflow: 'hidden',
-                position: 'relative' as const,
-              }}>
-                <div style={{
-                  position: 'absolute' as const,
-                  top: 0, left: 0, right: 0,
-                  height: 3,
-                  backgroundColor: card.barColor,
-                }} />
-                <h3 style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 8, marginTop: 4 }}>
-                  {card.title}
-                </h3>
-                <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-muted)', margin: 0 }}>
-                  {card.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 7 — CTA FINAL ───────────────────────────────────────────── */}
-      <section style={{
-        padding: '80px 24px',
-        backgroundColor: 'var(--color-primary)',
-      }}>
-        <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{
-            fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 500,
-            color: '#FFFFFF', marginBottom: 16,
-          }}>
-            Prêt à coordonner votre prochain séjour ?
-          </h2>
-          <p style={{
-            fontSize: 15, lineHeight: 1.7,
-            color: 'rgba(255,255,255,0.75)',
-            maxWidth: 520, margin: '0 auto 32px',
-          }}>
-            Séjours scolaires, colonies de vacances, séjours collectifs — un seul outil pour tout coordonner.
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
-            <Link href="/register?type=organisateur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 15, fontWeight: 600, padding: '14px 28px',
-              borderRadius: 12,
-              backgroundColor: 'var(--color-accent)',
-              color: '#FFFFFF', textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-            }}>
-              Créer un compte établissement
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-            <Link href="/register?type=hebergeur" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 15, fontWeight: 600, padding: '14px 28px',
-              borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.4)',
-              color: '#FFFFFF', textDecoration: 'none',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-            }}>
-              Référencer mon centre
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION CONTACT ─────────────────────────────────────────────── */}
-      <section id="contact" style={{
-        padding: '80px 24px',
-        backgroundColor: 'var(--color-bg)',
-        borderTop: '0.5px solid var(--color-border)',
-      }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h2 style={{ fontSize: 28, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 12 }}>
-              Une question ? Contactez-nous
+      {/* ── COMPLIANCE ── */}
+      <section className="compliance" id="conformite">
+        <div className="wrap">
+          <div className="section-head center reveal">
+            <span className="eyebrow">conforme &amp; sécurisé</span>
+            <h2 className="section-title">
+              Une plateforme<br /><span className="accent">aux normes</span>, sans compromis.
             </h2>
-            <p style={{ fontSize: 15, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-              Nous répondons sous 24h ouvrées.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 16, flexWrap: 'wrap' }}>
-              <a href="mailto:contact@liavo.fr" style={{ fontSize: 14, color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500 }}>
-                ✉️ contact@liavo.fr
-              </a>
-            </div>
           </div>
-
-          {contactSent ? (
-            <div style={{
-              backgroundColor: 'var(--color-success-light)',
-              border: '1px solid var(--color-success)',
-              borderRadius: 12, padding: '24px',
-              textAlign: 'center',
-            }}>
-              <p style={{ fontSize: 15, color: 'var(--color-success)', fontWeight: 500 }}>
-                ✓ Message envoyé — nous vous répondrons sous 24h.
+          <div className="comp-grid">
+            <div className="comp reveal" data-delay="1">
+              <div className="ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z" /><path d="M9 12l2 2 4-4" />
+                </svg>
+              </div>
+              <h4>Données des mineurs protégées</h4>
+              <p>
+                Fiches sanitaires, allergies, traitements médicaux, autorisations parentales : toutes les données sensibles
+                des élèves sont hébergées en France sur infrastructure certifiée ISO 27001, sans transfert hors Union Européenne.
               </p>
             </div>
-          ) : (
-            <form onSubmit={handleContact} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
-                    Nom <span style={{ color: 'red' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={contactForm.nom}
-                    onChange={(e) => setContactForm(f => ({ ...f, nom: e.target.value }))}
-                    placeholder="Jean Dupont"
-                    style={{
-                      width: '100%', padding: '10px 14px', borderRadius: 10,
-                      border: '1px solid var(--color-border)',
-                      fontSize: 14, color: 'var(--color-text)',
-                      backgroundColor: 'white', outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
-                    Email <span style={{ color: 'red' }}>*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="jean@college.fr"
-                    style={{
-                      width: '100%', padding: '10px 14px', borderRadius: 10,
-                      border: '1px solid var(--color-border)',
-                      fontSize: 14, color: 'var(--color-text)',
-                      backgroundColor: 'white', outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
+            <div className="comp reveal" data-delay="2">
+              <div className="ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h6M8 17h4" />
+                </svg>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--color-text)', marginBottom: 6 }}>
-                  Message <span style={{ color: 'red' }}>*</span>
-                </label>
-                <textarea
-                  required
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm(f => ({ ...f, message: e.target.value }))}
-                  placeholder="Décrivez votre besoin ou votre question..."
-                  rows={5}
-                  style={{
-                    width: '100%', padding: '10px 14px', borderRadius: 10,
-                    border: '1px solid var(--color-border)',
-                    fontSize: 14, color: 'var(--color-text)',
-                    backgroundColor: 'white', outline: 'none',
-                    resize: 'vertical', boxSizing: 'border-box',
-                    fontFamily: 'inherit',
-                  }}
-                />
+              <h4>Facturation électronique</h4>
+              <p>Chorus Pro intégré pour les marchés publics. Format XML UBL 2.1 généré automatiquement.</p>
+            </div>
+            <div className="comp reveal" data-delay="3">
+              <div className="ic">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><path d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-              <button
-                type="submit"
-                disabled={contactLoading}
-                style={{
-                  alignSelf: 'flex-end',
-                  padding: '12px 28px', borderRadius: 10,
-                  backgroundColor: 'var(--color-primary)',
-                  color: 'white', fontWeight: 600, fontSize: 14,
-                  border: 'none', cursor: contactLoading ? 'not-allowed' : 'pointer',
-                  opacity: contactLoading ? 0.7 : 1,
-                }}
-              >
-                {contactLoading ? 'Envoi...' : 'Envoyer le message'}
-              </button>
-            </form>
-          )}
+              <h4>Signature électronique</h4>
+              <p>Conforme eIDAS pour les autorisations parentales et conventions de séjour. Valeur juridique garantie.</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
-      <footer style={{
-        backgroundColor: 'var(--color-bg)',
-        borderTop: '0.5px solid var(--color-border)',
-        padding: '40px 24px',
-      }}>
-        <div style={{
-          maxWidth: 960, margin: '0 auto',
-          display: 'flex', flexWrap: 'wrap',
-          alignItems: 'center', justifyContent: 'space-between',
-          gap: 24,
-        }}>
-          <Logo size="sm" variant="light" showTagline={true} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 13, color: 'var(--color-text-muted)' }}>
-            <Link href="/legal/mentions-legales" style={{ color: 'inherit', textDecoration: 'none' }}>Mentions légales</Link>
-            <Link href="/legal/cgu" style={{ color: 'inherit', textDecoration: 'none' }}>CGU</Link>
-            <Link href="/legal/cgv-hebergeurs" style={{ color: 'inherit', textDecoration: 'none' }}>CGV Hébergeurs</Link>
-            <Link href="/legal/confidentialite" style={{ color: 'inherit', textDecoration: 'none' }}>Confidentialité</Link>
-            <Link href="/legal/mandat-facturation" style={{ color: 'inherit', textDecoration: 'none' }}>Mandat de facturation</Link>
-            <a href="#contact" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a>
+      {/* ── FINAL CTA ── */}
+      <section className="final" id="contact">
+        <div className="wrap">
+          <h2 className="reveal">
+            Prêt à <span className="accent">digitaliser</span><br />vos séjours ?
+          </h2>
+          <p className="reveal" data-delay="1">
+            Trente jours d&apos;essai pour les hébergeurs. Gratuit, toujours, pour les enseignants et organisateurs.
+          </p>
+          <div className="final-cta reveal" data-delay="2">
+            <a className="btn btn-primary btn-lg" href="#hebergeurs">
+              Je suis hébergeur <span className="arrow">→</span>
+            </a>
+            <a className="btn btn-outline-light btn-lg" href="#enseignants">
+              Je suis enseignant ou organisateur
+            </a>
+          </div>
+          <div className="final-pills reveal" data-delay="3">
+            <span>Conforme RGPD</span>
+            <span>Chorus Pro intégré</span>
+            <span>Vos données restent en France</span>
           </div>
         </div>
-        <div style={{
-          maxWidth: 960, margin: '16px auto 0',
-          borderTop: '0.5px solid var(--color-border)',
-          paddingTop: 16, textAlign: 'center',
-          fontSize: 13, color: 'var(--color-text-muted)',
-        }}>
-          © 2026 LIAVO SASU · 102 994 910 RCS Annecy
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer>
+        <div className="wrap foot">
+          <div className="foot-left">
+            <Link href="/">
+              <Logo size="sm" showTagline={true} />
+            </Link>
+            <div className="copy">
+              © 2026 LIAVO SASU · 102 994 910 RCS Annecy<br />
+              Le standard des séjours collectifs en France.
+            </div>
+          </div>
+          <div className="foot-links">
+            <div className="foot-col">
+              <span className="h">Produit</span>
+              <a href="#hebergeurs">Hébergeurs</a>
+              <a href="#collaboratif">Espace collaboratif</a>
+              <a href="#enseignants">Enseignants</a>
+              <a href="#colonies">Colonies</a>
+              <Link href="/catalogue">Catalogue</Link>
+              <a href="#pricing">Tarifs</a>
+            </div>
+            <div className="foot-col">
+              <span className="h">Légal</span>
+              <Link href="/legal/mentions-legales">Mentions légales</Link>
+              <Link href="/legal/cgu">CGU</Link>
+              <Link href="/legal/cgv-hebergeurs">CGV Hébergeurs</Link>
+              <Link href="/legal/confidentialite">Confidentialité</Link>
+              <Link href="/legal/mandat-facturation">Mandat de facturation</Link>
+            </div>
+            <div className="foot-col">
+              <span className="h">Contact</span>
+              <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>
+              <a href="#contact">Annecy, France</a>
+            </div>
+          </div>
         </div>
       </footer>
+
     </div>
   );
 }
