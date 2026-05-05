@@ -13,10 +13,9 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
-  ACCEPTE:               { label: 'Accepté',             cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-  REFUSE:                { label: 'Refusé',              cls: 'bg-red-100 text-red-700' },
   EN_ATTENTE_VALIDATION: { label: 'En validation',       cls: 'bg-blue-100 text-blue-700' },
   SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
+  SIGNE_DIRECTION:       { label: 'Signé direction',     cls: 'bg-purple-100 text-purple-700' },
   NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
 };
 
@@ -61,10 +60,10 @@ function matchesSearch(d: Devis, query: string): boolean {
   const fields = [
     d.demande?.sejour?.createur?.prenom,
     d.demande?.sejour?.createur?.nom,
-    (d.demande?.sejour?.createur as any)?.memberships?.[0]?.organisation?.nom,
+    d.demande?.sejour?.createur?.memberships?.[0]?.organisation.nom,
     d.demande?.enseignant?.prenom,
     d.demande?.enseignant?.nom,
-    (d.demande?.enseignant as any)?.memberships?.[0]?.organisation?.nom,
+    d.demande?.enseignant?.memberships?.[0]?.organisation.nom,
     d.demande?.sejour?.titre,
     d.demande?.titre,
     d.numeroDevis,
@@ -77,7 +76,10 @@ function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
   switch (onglet) {
     case 'attente': return d.statut === 'EN_ATTENTE';
     case 'selectionnes': return d.statut === 'SELECTIONNE' && !d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE';
-    case 'signes': return !!d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE';
+    case 'signes': return (
+      d.statut === 'SIGNE_DIRECTION' ||
+      (!!d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE')
+    );
     case 'acompte': return d.typeDocument === 'FACTURE_ACOMPTE';
     case 'solde': return d.typeDocument === 'FACTURE_SOLDE';
   }
@@ -217,8 +219,8 @@ export default function HebergeurDevisPage() {
       tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
       ibanEmetteur: d.centre?.iban ?? undefined,
       nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
-      etablissementNom: ens?.etablissementNom ?? undefined,
-      adresseDestinataire: ens?.etablissementAdresse ?? undefined,
+      etablissementNom: ens?.memberships?.[0]?.organisation.nom ?? undefined,
+      adresseDestinataire: ens?.memberships?.[0]?.organisation.ville ?? undefined,
       emailDestinataire: ens?.email ?? undefined,
       telDestinataire: ens?.telephone ?? undefined,
       titreSejour: sejour?.titre ?? d.demande?.titre ?? '',

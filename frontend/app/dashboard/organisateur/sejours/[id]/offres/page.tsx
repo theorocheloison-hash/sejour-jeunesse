@@ -13,10 +13,9 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
-  ACCEPTE:               { label: 'Accepté',               cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-  REFUSE:                { label: 'Refusé',                cls: 'bg-red-100 text-red-700' },
   EN_ATTENTE_VALIDATION: { label: 'Soumis au directeur',   cls: 'bg-blue-100 text-blue-700' },
   SELECTIONNE:           { label: 'Sélectionné',           cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
+  SIGNE_DIRECTION:       { label: 'Signé direction',       cls: 'bg-purple-100 text-purple-700' },
   NON_RETENU:            { label: 'Non retenu',            cls: 'bg-gray-100 text-gray-600' },
 };
 
@@ -80,8 +79,8 @@ export default function OffresPage() {
       tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
       ibanEmetteur: d.centre?.iban ?? undefined,
       nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
-      etablissementNom: ens?.etablissementNom ?? undefined,
-      adresseDestinataire: ens?.etablissementAdresse ?? undefined,
+      etablissementNom: ens?.memberships?.[0]?.organisation.nom ?? undefined,
+      adresseDestinataire: ens?.memberships?.[0]?.organisation.ville ?? undefined,
       emailDestinataire: ens?.email ?? undefined,
       telDestinataire: ens?.telephone ?? undefined,
       titreSejour: sejour?.titre ?? d.demande?.titre ?? '',

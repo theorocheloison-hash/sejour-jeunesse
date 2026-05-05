@@ -2,7 +2,7 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type StatutDevis = 'EN_ATTENTE' | 'ACCEPTE' | 'REFUSE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'NON_RETENU';
+export type StatutDevis = 'EN_ATTENTE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'SIGNE_DIRECTION' | 'NON_RETENU';
 
 export interface VersementPaiement {
   id: string;
@@ -65,8 +65,30 @@ export interface Devis {
     titre: string;
     villeHebergement: string;
     nombreEleves: number;
-    enseignant?: { prenom: string; nom: string; email?: string; telephone?: string | null; etablissementNom?: string | null; etablissementAdresse?: string | null; etablissementVille?: string | null; etablissementUai?: string | null; etablissementEmail?: string | null; etablissementTelephone?: string | null };
-    sejour?: { id: string; titre: string; dateDebut?: string; dateFin?: string; niveauClasse?: string | null; statut?: string | null; createur?: { prenom: string; nom: string; etablissementNom?: string | null; etablissementVille?: string | null } | null } | null;
+    enseignant?: {
+      prenom: string;
+      nom: string;
+      email?: string;
+      telephone?: string | null;
+      memberships?: Array<{
+        organisation: { nom: string | null; ville: string | null; uai: string | null };
+      }>;
+    };
+    sejour?: {
+      id: string;
+      titre: string;
+      dateDebut?: string;
+      dateFin?: string;
+      niveauClasse?: string | null;
+      statut?: string | null;
+      createur?: {
+        prenom: string;
+        nom: string;
+        memberships?: Array<{
+          organisation: { nom: string | null; ville: string | null };
+        }>;
+      } | null;
+    } | null;
   };
   centre?: {
     id: string;
@@ -120,9 +142,9 @@ export interface DemandeInfo {
     villeHebergement: string;
     enseignant?: {
       prenom: string; nom: string; email: string; telephone?: string | null;
-      etablissementNom?: string | null; etablissementAdresse?: string | null;
-      etablissementVille?: string | null; etablissementEmail?: string | null;
-      etablissementTelephone?: string | null;
+      memberships?: Array<{
+        organisation: { nom: string | null; ville: string | null; uai: string | null };
+      }>;
     };
     sejour?: {
       titre: string;

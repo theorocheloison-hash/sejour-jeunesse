@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 04/05/2026 (session complète — post-SC8, SC5bis, audit bugs)
+> Dernière mise à jour : 05/05/2026 (SC4ter + SC9 terminés)
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -44,13 +44,13 @@ Les colonnes suivantes n'existent plus sur `utilisateurs` :
 
 ---
 
-## RÈGLE ABSOLUE — VISIO LMDJ
-**Aucune visio LMDJ, aucun onboarding tant que le refactor complet n'est pas finalisé (intégralité de ARCHITECTURE_ORGANISATIONS.md). Si LMDJ voit des incohérences lors de la visio, pas de signature. L'objectif de la visio = valider leur volonté d'intégrer leurs centres — ils doivent voir un outil fini.**
+## REGLE ABSOLUE — VISIO LMDJ
+**Aucune visio LMDJ, aucun onboarding tant que le refactor complet n'est pas finalisé. Si LMDJ voit des incohérences lors de la visio, pas de signature.**
 
 ---
 
-## RÈGLE ABSOLUE — PROCESS CC
-**L'analyse cascade et le grep de vérification finale font partie intégrante de la conception de chaque prompt CC — pas une étape optionnelle. Chaque prompt CC doit inclure : npx tsc --noEmit + grep des patterns à risque (URLs obsolètes, imports cassés, etc.).**
+## REGLE ABSOLUE — PROCESS CC
+**L'analyse cascade et le grep de vérification finale font partie intégrante de la conception de chaque prompt CC — pas une étape optionnelle. Chaque prompt CC doit inclure : npx tsc --noEmit + grep des patterns à risque.**
 
 **git add/commit/push passent par CC. PowerShell uniquement pour les requêtes SQL Scalingo.**
 
@@ -66,16 +66,14 @@ Les colonnes suivantes n'existent plus sur `utilisateurs` :
 | Stockage | OVH Object Storage Gravelines | s3.gra.io.cloud.ovh.net, bucket liavo-uploads |
 | Emails | Brevo | contact@liavo.fr |
 | DNS | OVH | dns14/ns14.ovh.net |
-| IA | Anthropic claude-sonnet-4-5 | planning IA, futur chat support |
 
 **Repo :** `theorocheloison-hash/sejour-jeunesse`
 **Local :** `C:\Users\Roche-Loison\Desktop\sejour-jeunesse` (copie UNIQUE)
 **Déploiement :** push main → Scalingo auto (backend + frontend) via CC
 **Procfile backend :** `web: npx prisma migrate deploy && npm run start:prod`
 **Scalingo CLI :** dans PATH Windows — taper `scalingo` directement
-**GitHub auth :** OAuth via Git Credential Manager. Ne JAMAIS hardcoder de token dans .git/config.
 
-> ⚠️ Railway et Cloudflare R2 = OBSOLÈTES. À résilier (délai 1 semaine post-migration 29/04 — soit ~06/05).
+> URGENT : Railway et Cloudflare R2 = OBSOLÈTES. Résilier maintenant (deadline dépassée ~06/05).
 
 ---
 
@@ -99,60 +97,43 @@ scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 
 ## COMPTES ET IDs DE RÉFÉRENCE
 
-### Compte réseau LMDJ
-- Email : demo-lmdj@liavo.fr / LMDJ2026!
-- reseauNom : LMDJ / reseauNomComplet : La Montagne des Juniors
+| Email | Rôle | Mot de passe |
+|---|---|---|
+| contact@liavo.fr | ADMIN | Admin2026! |
+| resa@lesauvageon.com | HEBERGEUR (Sauvageon) | Test1234! |
+| demo-lmdj@liavo.fr | RESEAU (LMDJ) | LMDJ2026! |
+| enseignant@test.fr | ORGANISATEUR | Test1234! |
+| directeur@test.fr | SIGNATAIRE | Test1234! |
 
-### Compte hébergeur Sauvageon
-- Email : resa@lesauvageon.com / Test1234!
-- Centre ID : 3a710674-d580-4ffd-9d9a-f739bae82154
-- Plan : COMPLET / abonnementStatut : ACTIF
-- reseau : LMDJ ✅
+Centre Sauvageon ID : 3a710674-d580-4ffd-9d9a-f739bae82154
 
-### Comptes test génériques
-- enseignant@test.fr / directeur@test.fr → Test1234!
-- contact@liavo.fr (ADMIN) → Admin2026!
-
-> ⚠️ contact@chalet-sauvageon.fr = adresse INEXISTANTE. Ne jamais utiliser.
+> INTERDIT : contact@chalet-sauvageon.fr = adresse INEXISTANTE.
 
 ---
 
-## ÉTAT DES SOUS-CHANTIERS — 04/05/2026
+## ÉTAT DES SOUS-CHANTIERS — 05/05/2026
 
 | SC | Nom | Statut |
 |---|---|---|
-| SC0 | Migration Railway → Scalingo (souveraineté France) | ✅ TERMINÉ |
-| SC1 | Schéma Prisma + backfill Organisations/Memberships | ✅ TERMINÉ |
-| SC1bis | findOrCreateOrganisation / findOrCreateMembership / helpers | ✅ TERMINÉ |
-| SC2 | Endpoint autocomplete SIREN | ✅ TERMINÉ |
-| SC3 | Composant `<StructureSearch>` frontend | ✅ TERMINÉ |
-| SC4 | Refactor backend services + rôles français | ✅ TERMINÉ |
-| SC4bis | Claim hébergeur + Kbis + validation admin | ✅ TERMINÉ |
-| SC4ter | Flow invitation signataire + visibilité séjours signataire | ✅ TERMINÉ — getAllSejoursSignataire() via Membership+email, champs etablissement* supprimés |
-| SC5 | Refactor frontend dashboards + routes françaises | ✅ TERMINÉ |
-| SC5bis | Routes d'entrée hébergeur (6 routes) + page claim catalogue | 🔄 EN COURS — page /centre/[id]/claim manquante |
-| SC6 | Flow public catalogue + magic link + appel d'offres | ✅ TERMINÉ |
-| SC7 | Notification centres APIDAE non inscrits | ⏸ SUSPENDU — validation commerciale LMDJ/IDDJ |
-| SC8 | Suppression colonnes etablissement* legacy sur User | ✅ TERMINÉ — déployé prod 04/05 |
-| SC9 | Refactor StatutDevis — cycle de vie cohérent BDD | ❌ À FAIRE — après SC4ter |
+| SC0 | Migration Railway → Scalingo | TERMINE |
+| SC1 | Schéma Prisma + backfill Organisations/Memberships | TERMINE |
+| SC1bis | findOrCreateOrganisation / findOrCreateMembership / helpers | TERMINE |
+| SC2 | Endpoint autocomplete SIREN | TERMINE |
+| SC3 | Composant StructureSearch frontend | TERMINE |
+| SC4 | Refactor backend services + rôles français | TERMINE |
+| SC4bis | Claim hébergeur + Kbis + validation admin | TERMINE |
+| SC4ter | Flow invitation signataire + visibilité séjours signataire | TERMINE — getAllSejoursSignataire() via Membership+email, champs etablissement* supprimés |
+| SC5 | Refactor frontend dashboards + routes françaises | TERMINE |
+| SC5bis | Routes d'entrée hébergeur (6 routes) + page claim catalogue | TERMINE — /centre/[id]/claim livré 04/05 |
+| SC6 | Flow public catalogue + magic link + appel d'offres | TERMINE |
+| SC7 | Notification centres APIDAE non inscrits | SUSPENDU — validation commerciale LMDJ/IDDJ |
+| SC8 | Suppression colonnes etablissement* legacy sur User | TERMINE |
+| SC9 | Refactor StatutDevis — cycle de vie cohérent BDD | TERMINE — SIGNE_DIRECTION ajouté, guards facturerAcompte/Solde, champs etablissement* supprimés devis.ts |
 
 ### Prochains chantiers dans l'ordre (avant visio LMDJ)
-1. **SC9** — `StatutDevis` étendu (`SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`) + backfill + simplification `matchesOnglet()`
-4. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale`
-5. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — hardcodé SCOLAIRE
-6. **`DECLARE_TAM`** dans `StatutSejour` — flow colo non implémenté
-
----
-
-## BUGS CORRIGÉS CETTE SESSION (04/05/2026)
-11 corrections déployées en prod (commit 4925557) :
-- `/register/venue` → `/register/hebergeur` (invitation-collaboration, hebergements.service)
-- `/dashboard/venue` → `/dashboard/hebergeur` (email.service ×2, notifications.service)
-- `/dashboard/venue/demandes` → `/dashboard/hebergeur/demandes` (invitation-collaboration, email.service)
-- `/dashboard/rector` → `/dashboard/autorite` (email.service)
-- `/dashboard/hebergeur/devis` corrigé (devis.service)
-- Guard `soumettreAuRectorat()` : `&&` → `||`
-- Filtre géographique notifications : 54 emails → centres de la bonne zone uniquement
+1. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale`
+2. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — hardcodé SCOLAIRE
+3. **`DECLARE_TAM`** dans `StatutSejour` — flow colo non implémenté
 
 ---
 
@@ -161,14 +142,13 @@ scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 - **SQL Scalingo** : toujours utiliser les vrais noms de tables snake_case
 - **Arrays Prisma** : toujours `{ set: [...] }` pour les mises à jour
 - **Routes NestJS** : statiques AVANT paramétriques (:id)
-- **Modèle Anthropic correct** : `claude-sonnet-4-5` (pas de date dans le string)
-- **Algorithme groupes** : algo pertinence + Math.floor + surplus sur dernier groupe
-- **PDF inline via iframe** : OK desktop Chrome/Firefox, limité Safari mobile
-- **Autocomplétion devis** : `onMouseDown preventDefault()` sur les boutons suggestion
-- **SC8** : getOrganisationPrincipale() = helper central — jamais accès direct User.etablissement*
-- **SC5bis** : checkInvitation() retourne `cas: 1|2|3` — toujours lire ce champ avant bifurcation
+- **SC8** : getOrganisationPrincipale() = helper central
+- **SC5bis** : checkInvitation() retourne `cas: 1|2|3`
 - **Matching APIDAE** : 2 passes — email d'abord, fallback nom+ville insensitive
-- **searchPublic()** : retourne `_source: 'BASE' | 'API_EN'` — les ids API_EN sont des strings non-UUID
+- **searchPublic()** : retourne `_source: 'BASE' | 'API_EN'`
+- **SC4ter** : getAllSejoursSignataire() — Source 1 via Membership, Source 2 via InvitationDirecteur.emailDirecteur (pas de FK userId)
+- **SC9** : StatutDevis = EN_ATTENTE | EN_ATTENTE_VALIDATION | SELECTIONNE | SIGNE_DIRECTION | NON_RETENU. typeDocument ('DEVIS'|'FACTURE_ACOMPTE'|'FACTURE_SOLDE') reste séparé — ne pas fusionner les deux
 - **Bugs URLs** : grep systématique `/register/venue`, `/dashboard/venue`, `/dashboard/rector` dans chaque passe
 - **Process CC** : analyse cascade + grep vérification = obligatoires dans chaque prompt
 - **Git** : commit par passe thématique via CC, PowerShell = SQL uniquement
+- **Railway** : OBSOLÈTE depuis 29/04 — ignorer les emails de crash

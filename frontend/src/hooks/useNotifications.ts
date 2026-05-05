@@ -21,7 +21,7 @@ export function useNotifications(enabled: boolean) {
         ]);
         setCounts({
           demandes: demandes.length,
-          devisAcceptes: devis.filter((d) => d.statut === 'ACCEPTE' || d.statut === 'SELECTIONNE').length,
+          devisAcceptes: devis.filter((d) => d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION').length,
         });
       } catch {
         // silently ignore

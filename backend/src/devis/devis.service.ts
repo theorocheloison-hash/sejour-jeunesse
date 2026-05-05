@@ -160,7 +160,16 @@ export class DevisService {
         demande: {
           include: {
             enseignant: {
-              select: { id: true, prenom: true, nom: true, email: true, telephone: true },
+              select: {
+                id: true, prenom: true, nom: true, email: true, telephone: true,
+                memberships: {
+                  where: { isPrimary: true },
+                  select: {
+                    organisation: { select: { nom: true, ville: true, uai: true } },
+                  },
+                  take: 1,
+                },
+              },
             },
             sejour: {
               select: {
@@ -341,14 +350,32 @@ export class DevisService {
         demande: {
           include: {
             enseignant: {
-              select: { prenom: true, nom: true, email: true, telephone: true },
+              select: {
+                prenom: true, nom: true, email: true, telephone: true,
+                memberships: {
+                  where: { isPrimary: true },
+                  select: {
+                    organisation: { select: { nom: true, ville: true, uai: true } },
+                  },
+                  take: 1,
+                },
+              },
             },
             sejour: {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 niveauClasse: true, statut: true,
                 createur: {
-                  select: { prenom: true, nom: true },
+                  select: {
+                    prenom: true, nom: true,
+                    memberships: {
+                      where: { isPrimary: true },
+                      select: {
+                        organisation: { select: { nom: true, ville: true } },
+                      },
+                      take: 1,
+                    },
+                  },
                 },
               },
             },
@@ -529,6 +556,7 @@ export class DevisService {
     const updated = await this.prisma.devis.update({
       where: { id: devisId },
       data: {
+        statut: StatutDevis.SIGNE_DIRECTION,
         signatureDirecteur: `Signé électroniquement par ${nomSignataire} — ${new Date().toLocaleDateString('fr-FR')}`,
         dateSignatureDirecteur: new Date(),
         nomSignataireDirecteur: nomSignataire,
@@ -604,7 +632,16 @@ export class DevisService {
       where: { id: demandeId },
       include: {
         enseignant: {
-          select: { prenom: true, nom: true, email: true, telephone: true },
+          select: {
+            prenom: true, nom: true, email: true, telephone: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: {
+                organisation: { select: { nom: true, ville: true, uai: true } },
+              },
+              take: 1,
+            },
+          },
         },
         sejour: {
           select: {
@@ -636,8 +673,8 @@ export class DevisService {
     if (devis.centreId !== centre.id) {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
-    if (devis.statut !== StatutDevis.SELECTIONNE) {
-      throw new ForbiddenException('Seul un devis sélectionné peut être facturé');
+    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
+      throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
     }
     if (devis.typeDocument !== 'DEVIS') {
       throw new ForbiddenException('Ce devis a déjà été converti en facture');
@@ -674,7 +711,7 @@ export class DevisService {
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
     if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
-    if (devis.statut !== 'SELECTIONNE') throw new ForbiddenException('Seul un devis sélectionné peut être facturé');
+    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
     if (devis.typeDocument !== 'FACTURE_ACOMPTE') throw new ForbiddenException('La facture d\'acompte doit être générée en premier');
     if (!devis.acompteVerse) throw new ForbiddenException('L\'acompte doit être validé avant de générer la facture de solde');
 
@@ -700,7 +737,7 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: {
         typeDocument: 'FACTURE_ACOMPTE',
-        statut: StatutDevis.SELECTIONNE,
+        statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
       },
       include: {
         lignes: true,
