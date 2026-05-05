@@ -15,6 +15,22 @@ import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/c
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
+const PIPELINE_COLONNES = ['PROSPECT', 'CONTACTE', 'INTERESSE', 'EN_NEGOCIATION', 'CLIENT', 'INACTIF'] as const;
+
+function matchesSearch(c: Client, query: string): boolean {
+  if (query.length < 2) return true;
+  const q = query.toLowerCase();
+  return (
+    c.nom.toLowerCase().includes(q) ||
+    (c.ville ?? '').toLowerCase().includes(q) ||
+    (c.uai ?? '').toLowerCase().includes(q) ||
+    c.contacts.some(ct =>
+      `${ct.prenom} ${ct.nom}`.toLowerCase().includes(q) ||
+      (ct.email ?? '').toLowerCase().includes(q)
+    )
+  );
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -46,6 +62,8 @@ export default function ClientsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filtreStatut, setFiltreStatut] = useState('ALL');
+  const [viewMode, setViewMode] = useState<'liste' | 'pipeline'>('liste');
+  const [showPerdus, setShowPerdus] = useState(false);
 
   // Modales
   const [showNewClient, setShowNewClient] = useState(false);
@@ -97,18 +115,7 @@ export default function ClientsPage() {
   const filtered = useMemo(() => {
     let list = clients;
     if (filtreStatut !== 'ALL') list = list.filter(c => c.statut === filtreStatut);
-    if (searchQuery.length >= 2) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(c =>
-        c.nom.toLowerCase().includes(q) ||
-        (c.ville ?? '').toLowerCase().includes(q) ||
-        (c.uai ?? '').toLowerCase().includes(q) ||
-        c.contacts.some(ct =>
-          `${ct.prenom} ${ct.nom}`.toLowerCase().includes(q) ||
-          (ct.email ?? '').toLowerCase().includes(q)
-        )
-      );
-    }
+    if (searchQuery.length >= 2) list = list.filter(c => matchesSearch(c, searchQuery));
     return list;
   }, [clients, filtreStatut, searchQuery]);
 
@@ -437,51 +444,133 @@ export default function ClientsPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Search + filters */}
+        {/* Search + filters + viewMode toggle */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher (nom, ville, UAI)..." className={`flex-1 ${inputCls}`} />
-        </div>
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          <button onClick={() => setFiltreStatut('ALL')} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === 'ALL' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-            Tous ({clients.length})
-          </button>
-          {Object.entries(STATUT_CLIENT_LABELS).map(([key, { label }]) => (
-            <button key={key} onClick={() => setFiltreStatut(key)} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === key ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-              {label} ({statutCounts[key] ?? 0})
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+            <button
+              onClick={() => setViewMode('liste')}
+              title="Vue liste"
+              className={`inline-flex items-center justify-center rounded-md px-2.5 py-1.5 transition-all ${viewMode === 'liste' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('pipeline')}
+              title="Vue pipeline (kanban)"
+              className={`inline-flex items-center justify-center rounded-md px-2.5 py-1.5 transition-all ${viewMode === 'pipeline' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h4.5v15h-4.5zM9.75 4.5h4.5v9h-4.5zM15.75 4.5h4.5v6h-4.5z" /></svg>
+            </button>
+          </div>
         </div>
+        {viewMode === 'liste' && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            <button onClick={() => setFiltreStatut('ALL')} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === 'ALL' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+              Tous ({clients.length})
+            </button>
+            {Object.entries(STATUT_CLIENT_LABELS).map(([key, { label }]) => (
+              <button key={key} onClick={() => setFiltreStatut(key)} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === key ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+                {label} ({statutCounts[key] ?? 0})
+              </button>
+            ))}
+          </div>
+        )}
+        {viewMode === 'pipeline' && (
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setShowPerdus(s => !s)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              {showPerdus ? 'Masquer les perdus' : `Afficher les perdus (${statutCounts['PERDU'] ?? 0})`}
+            </button>
+          </div>
+        )}
 
-        {/* Layout liste + détail */}
+        {/* Layout liste + détail OU pipeline + détail */}
         <div className="flex gap-6">
-          {/* Liste gauche */}
-          <div className="w-1/3 space-y-2 max-h-[75vh] overflow-y-auto">
-            {loading ? (
-              <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" /></div>
-            ) : filtered.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-8">Aucun client.</p>
-            ) : filtered.map(c => {
-              const st = STATUT_CLIENT_LABELS[c.statut] ?? STATUT_CLIENT_LABELS.PROSPECT;
-              const overdueRappels = c.rappels.filter(r => r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] < today).length;
-              return (
-                <div key={c.id} onClick={() => { setSelectedId(c.id); setEditMode(false); }} className={`rounded-xl border px-4 py-3 cursor-pointer transition-all ${selectedId === c.id ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{c.nom}</p>
-                    <div className="flex items-center gap-1.5">
-                      {overdueRappels > 0 && <span className="h-2 w-2 rounded-full bg-red-500" />}
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${st.cls}`}>{st.label}</span>
+          {/* Colonne gauche : liste OU kanban */}
+          <div className={viewMode === 'liste' ? 'w-1/3 space-y-2 max-h-[75vh] overflow-y-auto' : 'flex-1 min-w-0 overflow-x-auto'}>
+            {viewMode === 'liste' ? (
+              loading ? (
+                <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" /></div>
+              ) : filtered.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-8">Aucun client.</p>
+              ) : filtered.map(c => {
+                const st = STATUT_CLIENT_LABELS[c.statut] ?? STATUT_CLIENT_LABELS.PROSPECT;
+                const overdueRappels = c.rappels.filter(r => r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] < today).length;
+                return (
+                  <div key={c.id} onClick={() => { setSelectedId(c.id); setEditMode(false); }} className={`rounded-xl border px-4 py-3 cursor-pointer transition-all ${selectedId === c.id ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{c.nom}</p>
+                      <div className="flex items-center gap-1.5">
+                        {overdueRappels > 0 && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${st.cls}`}>{st.label}</span>
+                      </div>
                     </div>
+                    <p className="text-xs text-gray-500 truncate">
+                      {c.ville ?? ''}{c.uai ? ` · ${c.uai}` : ''}{c.sejours.length > 0 ? ` · ${c.sejours.length} séjour${c.sejours.length > 1 ? 's' : ''}` : ''}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 truncate">
-                    {c.ville ?? ''}{c.uai ? ` · ${c.uai}` : ''}{c.sejours.length > 0 ? ` · ${c.sejours.length} séjour${c.sejours.length > 1 ? 's' : ''}` : ''}
-                  </p>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${(showPerdus ? PIPELINE_COLONNES.length + 1 : PIPELINE_COLONNES.length)}, minmax(180px, 1fr))` }}>
+                {(showPerdus ? [...PIPELINE_COLONNES, 'PERDU'] : [...PIPELINE_COLONNES]).map(colonne => {
+                  const cfg = STATUT_CLIENT_LABELS[colonne] ?? STATUT_CLIENT_LABELS.PROSPECT;
+                  const clientsColonne = clients.filter(c =>
+                    c.statut === colonne &&
+                    (searchQuery.length < 2 || matchesSearch(c, searchQuery))
+                  );
+                  return (
+                    <div key={colonne} className="flex flex-col rounded-xl border border-gray-200 bg-gray-50 max-h-[calc(100vh-280px)]">
+                      <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl border-b border-gray-200 bg-gray-50 px-3 py-2">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.cls}`}>{cfg.label}</span>
+                        <span className="text-[10px] font-medium text-gray-500">{clientsColonne.length}</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                        {clientsColonne.length === 0 ? (
+                          <p className="text-center text-[10px] text-gray-400 py-3">Aucun</p>
+                        ) : clientsColonne.map(c => {
+                          const ca = c.montantCA ?? 0;
+                          const nbContacts = c.contacts.length;
+                          const nomCourt = c.nom.length > 30 ? `${c.nom.slice(0, 30)}…` : c.nom;
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => { setSelectedId(c.id); setEditMode(false); }}
+                              className={`w-full text-left rounded-lg border bg-white px-3 py-2 transition-all hover:shadow-sm ${selectedId === c.id ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-gray-200'}`}
+                            >
+                              <p className="text-xs font-semibold text-gray-900 truncate">{nomCourt}</p>
+                              {c.ville && <p className="text-[10px] text-gray-500 truncate">{c.ville}</p>}
+                              {(nbContacts > 0 || ca > 0) && (
+                                <div className="mt-1 flex flex-wrap items-center gap-1">
+                                  {nbContacts > 0 && (
+                                    <span className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">
+                                      {nbContacts} contact{nbContacts > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                  {ca > 0 && (
+                                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                      {ca.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Détail droite */}
-          <div className="flex-1">
+          {/* Détail droite — affiché en liste, ou en pipeline quand un client est sélectionné */}
+          {(viewMode === 'liste' || selected) && (
+          <div className={viewMode === 'liste' ? 'flex-1' : 'w-[420px] shrink-0 max-h-[calc(100vh-280px)] overflow-y-auto'}>
             {!selected ? (
               <div className="flex items-center justify-center h-64 bg-white rounded-2xl border border-gray-200">
                 <p className="text-sm text-gray-400">Sélectionnez un client pour voir le détail</p>
@@ -724,6 +813,7 @@ export default function ClientsPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 

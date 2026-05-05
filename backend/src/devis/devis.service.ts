@@ -464,13 +464,20 @@ export class DevisService {
           ? await getOrganisationPrincipale(devis.demande.enseignantId, this.prisma)
           : null;
         if (orgaEnseignant?.nom) {
-          await this.clientsService.autoRattacherDepuisDevis(
+          const clientCree = await this.clientsService.autoRattacherDepuisDevis(
             devis.demande.sejourId,
             devis.centreId,
             orgaEnseignant.uai ?? undefined,
             orgaEnseignant.nom,
             orgaEnseignant.ville ?? undefined,
           );
+          // Lier le Client à l'Organisation source si pas encore fait
+          if (clientCree && !clientCree.organisationId && orgaEnseignant.id) {
+            await this.prisma.client.update({
+              where: { id: clientCree.id },
+              data: { organisationId: orgaEnseignant.id },
+            });
+          }
         }
       } catch { /* ne pas bloquer */ }
     }

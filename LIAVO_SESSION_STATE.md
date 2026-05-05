@@ -131,9 +131,8 @@ Centre Sauvageon ID : 3a710674-d580-4ffd-9d9a-f739bae82154
 | SC9 | Refactor StatutDevis — cycle de vie cohérent BDD | TERMINE — SIGNE_DIRECTION ajouté, guards facturerAcompte/Solde, champs etablissement* supprimés devis.ts |
 
 ### Prochains chantiers dans l'ordre (avant visio LMDJ)
-1. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale`
-2. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — hardcodé SCOLAIRE
-3. **`DECLARE_TAM`** dans `StatutSejour` — flow colo non implémenté
+1. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — hardcodé SCOLAIRE
+2. **`DECLARE_TAM`** dans `StatutSejour` — flow colo non implémenté
 
 ---
 

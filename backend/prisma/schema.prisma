@@ -960,17 +960,20 @@ model Client {
   academie    String?  @db.VarChar(100)
   notes       String?  @db.Text
   source      String   @default("MANUEL") @db.VarChar(20)
+  organisationId String?  @map("organisation_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  centre   CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
-  contacts ContactClient[]
-  rappels  Rappel[]
-  sejours  SejourClient[]
+  centre       CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  organisation Organisation?     @relation("ClientOrganisation", fields: [organisationId], references: [id], onDelete: SetNull)
+  contacts     ContactClient[]
+  rappels      Rappel[]
+  sejours      SejourClient[]
 
   @@index([centreId])
   @@index([centreId, uai])
   @@index([centreId, nom])
+  @@index([organisationId])
   @@map("clients")
 }
 
@@ -1125,6 +1128,7 @@ model Organisation {
 
   memberships          Membership[]
   centresHebergement   CentreHebergement[]
+  clients              Client[]                @relation("ClientOrganisation")
   relationsCliente     RelationCommerciale[]   @relation("OrganisationCliente")
   relationsHebergeur   RelationCommerciale[]   @relation("OrganisationHebergeur")
   invitationsDirecteur InvitationDirecteur[]
