@@ -107,23 +107,22 @@ export class DemandeService {
   async findOpen(userId: string) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
-      select: { id: true, ville: true, codePostal: true },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-
-    const centreAbo = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
       select: {
+        id: true,
+        ville: true,
+        codePostal: true,
         planAbonnement: true,
         abonnementStatut: true,
         abonnementActifJusquAu: true,
       },
     });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
     const now = new Date();
     const accesComplet =
-      centreAbo?.abonnementStatut === 'ACTIF' &&
-      !!centreAbo.abonnementActifJusquAu &&
-      centreAbo.abonnementActifJusquAu >= now;
+      centre.abonnementStatut === 'ACTIF' &&
+      !!centre.abonnementActifJusquAu &&
+      centre.abonnementActifJusquAu >= now;
 
     const ignorees = await this.prisma.demandeIgnoree.findMany({
       where: { centreId: centre.id },
