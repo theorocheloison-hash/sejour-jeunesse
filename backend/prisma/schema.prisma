@@ -243,6 +243,11 @@ model Sejour {
   updatedAt                 DateTime         @updatedAt @map("updated_at")
   inscriptionsCloturees     Boolean          @default(false) @map("inscriptions_cloturees")
   typeContexte              TypeContexteSejour @default(SCOLAIRE) @map("type_contexte")
+  ageMin                    Int?             @map("age_min")
+  ageMax                    Int?             @map("age_max")
+  moinsde6ans               Boolean          @default(false) @map("moins_de_6_ans")
+  typeAccueilACM            String?          @map("type_accueil_acm") @db.VarChar(80)
+  projetEducatif            String?          @map("projet_educatif") @db.Text
 
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)

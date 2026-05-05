@@ -3,15 +3,16 @@
 import { useMemo } from 'react';
 import { NIVEAUX, THEMATIQUES } from '@/src/data/thematiques-pedagogiques';
 import type { Niveau } from '@/src/data/thematiques-pedagogiques';
-import { Field, inputCls } from './shared';
+import { Field, inputCls, TYPE_ACCUEIL_ACM_OPTIONS } from './shared';
 import type { SejourFormData } from './shared';
 
 interface Props {
   form: SejourFormData;
   setForm: React.Dispatch<React.SetStateAction<SejourFormData>>;
+  estHorsScolaireUser?: boolean;
 }
 
-export default function EtapeInfos({ form, setForm }: Props) {
+export default function EtapeInfos({ form, setForm, estHorsScolaireUser = false }: Props) {
   const set = (field: keyof SejourFormData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -30,6 +31,13 @@ export default function EtapeInfos({ form, setForm }: Props) {
     }));
   };
 
+  // Ratio d'encadrement (HORS_SCOLAIRE) : 1 anim. pour 8 (moins de 6 ans) ou 12 (autres)
+  const nbParticipants = parseInt(form.nbEleves, 10) || 0;
+  const nbAccomp = parseInt(form.nombreAccompagnateurs, 10) || 0;
+  const ratioRequis = form.moinsde6ans ? 8 : 12;
+  const ratioOK = nbAccomp > 0 && nbParticipants / nbAccomp <= ratioRequis;
+  const showRatioAlert = estHorsScolaireUser && !ratioOK && nbParticipants > 0 && nbAccomp > 0;
+
   return (
     <div className="space-y-5">
       <h2 className="text-base font-semibold text-gray-900 mb-4">Informations g&eacute;n&eacute;rales</h2>
@@ -38,20 +46,22 @@ export default function EtapeInfos({ form, setForm }: Props) {
         <input type="text" value={form.titre} onChange={set('titre')} placeholder="Ex : S&eacute;jour d&eacute;couverte des Alpes" className={inputCls} required />
       </Field>
 
-      <Field label="Niveau de classe *">
-        <select
-          value={form.niveauClasse}
-          onChange={(e) => setForm((prev) => ({ ...prev, niveauClasse: e.target.value, thematiquesPedagogiques: [] }))}
-          className={inputCls}
-        >
-          <option value="">S&eacute;lectionnez un niveau</option>
-          {NIVEAUX.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
-      </Field>
+      {!estHorsScolaireUser && (
+        <Field label="Niveau de classe *">
+          <select
+            value={form.niveauClasse}
+            onChange={(e) => setForm((prev) => ({ ...prev, niveauClasse: e.target.value, thematiquesPedagogiques: [] }))}
+            className={inputCls}
+          >
+            <option value="">S&eacute;lectionnez un niveau</option>
+            {NIVEAUX.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
-      {form.niveauClasse && thematiquesDisponibles.length > 0 && (
+      {!estHorsScolaireUser && form.niveauClasse && thematiquesDisponibles.length > 0 && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Th&eacute;matiques p&eacute;dagogiques * <span className="text-xs font-normal text-gray-400">(min. 1)</span>
@@ -70,6 +80,55 @@ export default function EtapeInfos({ form, setForm }: Props) {
             ))}
           </div>
         </div>
+      )}
+
+      {estHorsScolaireUser && (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Tranche d&apos;&acirc;ge des participants *</label>
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" value={form.ageMin} onChange={set('ageMin')} min={0} max={17} placeholder="&Acirc;ge minimum" className={inputCls} required />
+              <input type="number" value={form.ageMax} onChange={set('ageMax')} min={0} max={17} placeholder="&Acirc;ge maximum" className={inputCls} required />
+            </div>
+          </div>
+
+          <Field label="Type d'accueil ACM *">
+            <select value={form.typeAccueilACM} onChange={set('typeAccueilACM')} className={inputCls} required>
+              <option value="">S&eacute;lectionnez un type</option>
+              {TYPE_ACCUEIL_ACM_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          <div>
+            <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={form.moinsde6ans}
+                onChange={(e) => setForm((prev) => ({ ...prev, moinsde6ans: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-gray-700">Pr&eacute;sence d&apos;enfants de moins de 6 ans</span>
+            </label>
+            {form.moinsde6ans && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Un avis de la PMI (Protection Maternelle et Infantile) est requis pour les moins de 6 ans. Contactez votre SDJES au moins 2 mois avant le s&eacute;jour.
+              </div>
+            )}
+          </div>
+
+          <Field label="Projet &eacute;ducatif *">
+            <textarea
+              value={form.projetEducatif}
+              onChange={set('projetEducatif')}
+              rows={3}
+              placeholder="D&eacute;crivez les objectifs &eacute;ducatifs et le d&eacute;roulement pr&eacute;vu du s&eacute;jour (requis pour la d&eacute;claration TAM)"
+              className={`${inputCls} resize-none`}
+              required
+            />
+          </Field>
+        </>
       )}
 
       <Field label="Informations compl&eacute;mentaires (optionnel)">
@@ -96,16 +155,22 @@ export default function EtapeInfos({ form, setForm }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          <Field label="Nombre d'&eacute;l&egrave;ves *">
+          <Field label={`${estHorsScolaireUser ? 'Nombre de participants' : 'Nombre d\'élèves'} *`}>
             <input type="number" value={form.nbEleves} onChange={set('nbEleves')} min={1} placeholder="Ex : 25" className={inputCls} required />
           </Field>
-          <Field label="Nombre d'accompagnateurs">
+          <Field label={estHorsScolaireUser ? 'Nombre d\'animateurs' : 'Nombre d\'accompagnateurs'}>
             <input type="number" value={form.nombreAccompagnateurs} onChange={set('nombreAccompagnateurs')} min={0} placeholder="Ex : 3" className={inputCls} />
           </Field>
         </div>
 
+        {showRatioAlert && (
+          <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+            Ratio d&apos;encadrement insuffisant : 1 animateur pour {ratioRequis} enfants maximum requis (actuellement 1 pour {Math.ceil(nbParticipants / nbAccomp)}).
+          </div>
+        )}
+
         <div className="mt-4">
-          <Field label="Budget max par &eacute;l&egrave;ve (&euro;)">
+          <Field label={`Budget max par ${estHorsScolaireUser ? 'participant' : 'élève'} (€)`}>
             <input type="number" value={form.budgetMaxParEleve} onChange={set('budgetMaxParEleve')} min={0} step="0.01" placeholder="Ex : 350" className={inputCls} />
           </Field>
         </div>

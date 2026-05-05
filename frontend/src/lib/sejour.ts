@@ -12,7 +12,7 @@ export interface CreateSejourDto {
   dateDebut: string;
   dateFin: string;
   nombreEleves: number;
-  niveauClasse: string;
+  niveauClasse?: string;
   thematiquesPedagogiques: string[];
   typeZone: TypeZone;
   zoneGeographique: string;
@@ -24,6 +24,15 @@ export interface CreateSejourDto {
   transportSurPlace?: boolean;
   activitesSouhaitees?: string;
   budgetMaxParEleve?: number;
+  ageMin?: number;
+  ageMax?: number;
+  moinsde6ans?: boolean;
+  typeAccueilACM?: string;
+  projetEducatif?: string;
+}
+
+export function estHorsScolaire(sejour: { typeContexte?: string | null }): boolean {
+  return sejour.typeContexte === 'HORS_SCOLAIRE';
 }
 
 export interface DevisSelectionne {
@@ -71,6 +80,12 @@ export interface Sejour {
   dateButoireDevis: string | null;
   dateLimiteInscription: string | null;
   appelOffreStatut: AppelOffreStatut;
+  typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE' | null;
+  ageMin?: number | null;
+  ageMax?: number | null;
+  moinsde6ans?: boolean;
+  typeAccueilACM?: string | null;
+  projetEducatif?: string | null;
   demandes?: SejourDemande[];
 }
 

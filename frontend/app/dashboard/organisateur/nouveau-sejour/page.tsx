@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSejour } from '@/src/lib/sejour';
 import type { TypeZone } from '@/src/lib/sejour';
+import api from '@/src/lib/api';
 import { Logo } from '@/app/components/Logo';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import { INITIAL_DATA } from '@/src/components/sejour/shared';
@@ -12,6 +13,11 @@ import type { SejourFormData } from '@/src/components/sejour/shared';
 import EtapeInfos from '@/src/components/sejour/EtapeInfos';
 import EtapeGeographie from '@/src/components/sejour/EtapeGeographie';
 import EtapeRecapitulatif from '@/src/components/sejour/EtapeRecapitulatif';
+
+const HORS_SCOLAIRE_TYPES = new Set([
+  'MAIRIE','COLLECTIVITE_TERRITORIALE','CENTRE_LOISIRS',
+  'ASSOCIATION','COMITE_ENTREPRISE','ENTREPRISE','MICRO_ENTREPRISE',
+]);
 
 // ─── Step Indicator ────────────────────────────────────────────────────────
 
@@ -90,6 +96,14 @@ export default function NouveauSejourPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [estHorsScolaireUser, setEstHorsScolaireUser] = useState(false);
+
+  useEffect(() => {
+    api.get('/users/me').then(({ data }) => {
+      const ts = data?.organisation?.typeStructure ?? '';
+      setEstHorsScolaireUser(HORS_SCOLAIRE_TYPES.has(ts));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     try {
@@ -98,15 +112,13 @@ export default function NouveauSejourPage() {
   }, [form, step]);
 
   const canAdvance = () => {
-    if (step === 1)
-      return (
-        form.titre &&
-        form.dateDebut &&
-        form.dateFin &&
-        form.nbEleves &&
-        form.niveauClasse &&
-        form.thematiquesPedagogiques.length > 0
-      );
+    if (step === 1) {
+      const base = form.titre && form.dateDebut && form.dateFin && form.nbEleves;
+      if (estHorsScolaireUser) {
+        return !!(base && form.ageMin && form.ageMax && form.typeAccueilACM && form.projetEducatif);
+      }
+      return !!(base && form.niveauClasse && form.thematiquesPedagogiques.length > 0);
+    }
     if (step === 2) return form.typeZone && form.zoneGeographique && form.dateButoireDevis;
     return true;
   };
@@ -121,8 +133,8 @@ export default function NouveauSejourPage() {
         dateDebut:                  form.dateDebut,
         dateFin:                    form.dateFin,
         nombreEleves:               parseInt(form.nbEleves, 10),
-        niveauClasse:               form.niveauClasse,
-        thematiquesPedagogiques:    form.thematiquesPedagogiques,
+        niveauClasse:               estHorsScolaireUser ? undefined : form.niveauClasse,
+        thematiquesPedagogiques:    estHorsScolaireUser ? [] : form.thematiquesPedagogiques,
         typeZone:                   form.typeZone as TypeZone,
         zoneGeographique:           form.zoneGeographique,
         dateButoireDevis:           form.dateButoireDevis,
@@ -133,6 +145,11 @@ export default function NouveauSejourPage() {
         transportSurPlace:          form.transportSurPlace,
         activitesSouhaitees:        form.activitesSouhaitees || undefined,
         budgetMaxParEleve:          form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
+        ageMin:                     estHorsScolaireUser && form.ageMin ? parseInt(form.ageMin, 10) : undefined,
+        ageMax:                     estHorsScolaireUser && form.ageMax ? parseInt(form.ageMax, 10) : undefined,
+        moinsde6ans:                estHorsScolaireUser ? form.moinsde6ans : undefined,
+        typeAccueilACM:             estHorsScolaireUser ? form.typeAccueilACM : undefined,
+        projetEducatif:             estHorsScolaireUser ? form.projetEducatif : undefined,
       });
       sessionStorage.removeItem(SESSION_KEY);
       router.push('/dashboard/organisateur');
@@ -177,9 +194,9 @@ export default function NouveauSejourPage() {
             </div>
           )}
 
-          {step === 1 && <EtapeInfos form={form} setForm={setForm} />}
+          {step === 1 && <EtapeInfos form={form} setForm={setForm} estHorsScolaireUser={estHorsScolaireUser} />}
           {step === 2 && <EtapeGeographie form={form} setForm={setForm} />}
-          {step === 3 && <EtapeRecapitulatif form={form} />}
+          {step === 3 && <EtapeRecapitulatif form={form} estHorsScolaireUser={estHorsScolaireUser} />}
 
           {/* ── Navigation ──────────────────────────────────────── */}
           <div className="mt-8 flex items-center justify-between">

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejours, updateSejourStatus } from '@/src/lib/sejour';
 import type { Sejour, StatutSejour } from '@/src/lib/sejour';
+import { estHorsScolaire } from '@/src/lib/sejour';
 import { Logo } from '@/app/components/Logo';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ function SejourCard({
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>{sejour.lieu}</span>
             <span>{dateDebut} → {dateFin}</span>
-            <span>{sejour.placesTotales} élève{sejour.placesTotales > 1 ? 's' : ''}</span>
+            <span>{sejour.placesTotales} {estHorsScolaire(sejour) ? 'participant' : 'élève'}{sejour.placesTotales > 1 ? 's' : ''}</span>
           </div>
         </div>
 

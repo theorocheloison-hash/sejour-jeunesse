@@ -18,6 +18,11 @@ export interface SejourFormData {
   transportSurPlace: boolean;
   activitesSouhaitees: string;
   budgetMaxParEleve: string;
+  ageMin: string;
+  ageMax: string;
+  moinsde6ans: boolean;
+  typeAccueilACM: string;
+  projetEducatif: string;
 }
 
 export const INITIAL_DATA: SejourFormData = {
@@ -38,7 +43,21 @@ export const INITIAL_DATA: SejourFormData = {
   transportSurPlace: false,
   activitesSouhaitees: '',
   budgetMaxParEleve: '',
+  ageMin: '',
+  ageMax: '',
+  moinsde6ans: false,
+  typeAccueilACM: '',
+  projetEducatif: '',
 };
+
+export const TYPE_ACCUEIL_ACM_OPTIONS: { value: string; label: string }[] = [
+  { value: 'SEJOUR_VACANCES',  label: 'Séjour de vacances avec hébergement' },
+  { value: 'ALSH',             label: 'Accueil de loisirs sans hébergement' },
+  { value: 'SEJOUR_SPORTIF',   label: 'Séjour sportif spécifique' },
+  { value: 'SEJOUR_ARTISTIQUE',label: 'Séjour artistique / culturel' },
+  { value: 'SCOUTISME',        label: 'Séjour de scoutisme' },
+  { value: 'AUTRE',            label: 'Autre' },
+];
 
 export const ZONE_OPTIONS: { value: TypeZone; emoji: string; label: string }[] = [
   { value: 'FRANCE',      emoji: '\uD83C\uDDEB\uD83C\uDDF7', label: 'France enti\u00e8re' },
