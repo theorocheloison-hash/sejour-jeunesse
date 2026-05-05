@@ -306,16 +306,13 @@ function NouveauDevisContent() {
                 {demande.enseignant && (
                   <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
                 )}
-                {demande.enseignant?.etablissementNom && (
-                  <p className="font-medium text-gray-600">{demande.enseignant.etablissementNom}</p>
+                {demande.enseignant?.memberships?.[0]?.organisation.nom && (
+                  <p className="font-medium text-gray-600">{demande.enseignant.memberships[0].organisation.nom}</p>
                 )}
-                {demande.enseignant?.etablissementAdresse && (
-                  <p className="text-gray-500">{demande.enseignant.etablissementAdresse}</p>
+                {demande.enseignant?.memberships?.[0]?.organisation.ville && (
+                  <p className="text-gray-500">{demande.enseignant.memberships[0].organisation.ville}</p>
                 )}
                 {demande.enseignant?.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
-                {demande.enseignant?.etablissementTelephone && (
-                  <p className="text-gray-500">Étab. : {demande.enseignant.etablissementTelephone}</p>
-                )}
                 {demande.enseignant?.telephone && <p className="text-gray-500">Pers. : {demande.enseignant.telephone}</p>}
               </div>
             ) : (
