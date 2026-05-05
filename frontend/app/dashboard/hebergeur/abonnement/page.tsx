@@ -23,11 +23,10 @@ export default function AbonnementPage() {
     }
   }, [user]);
 
-  // TODO: Stripe — remplacer le corps par un appel à l'API de checkout Stripe
-  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) {
-    const subject = encodeURIComponent('Abonnement ' + plan + ' LIAVO — ' + (annual ? 'Annuel' : 'Mensuel'));
-    const body = encodeURIComponent('Bonjour, je souhaite activer le plan ' + plan + ' (' + (annual ? 'annuel' : 'mensuel') + ') pour mon centre.');
-    window.location.href = 'mailto:contact@liavo.fr?subject=' + subject + '&body=' + body;
+  function handleUpgrade(_plan: 'ESSENTIEL' | 'COMPLET', _annual: boolean) {
+    alert(
+      'Paiement en ligne bientôt disponible. Contactez contact@liavo.fr pour activer votre plan.',
+    );
   }
 
   if (isLoading || !user) return null;

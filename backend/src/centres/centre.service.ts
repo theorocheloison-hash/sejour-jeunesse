@@ -16,6 +16,7 @@ import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
+import { trialExpiration } from './trial.helper.js';
 
 @Injectable()
 export class CentreService {
@@ -237,6 +238,14 @@ export class CentreService {
         where: { id: invitation.centreExistantId },
         data: { userId: user.id, statut: 'ACTIVE' },
       });
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: {
+          planAbonnement: 'COMPLET',
+          abonnementStatut: 'ACTIF',
+          abonnementActifJusquAu: trialExpiration(),
+        },
+      });
     } else if (invitation.centrePrecreerNom) {
       // ── CAS 2 : invitation admin avec données pré-remplies ─────────────
       centre = await this.prisma.centreHebergement.create({
@@ -251,6 +260,14 @@ export class CentreService {
           email:       invitation.email,
           userId:      user.id,
           statut:      'ACTIVE',
+        },
+      });
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: {
+          planAbonnement: 'COMPLET',
+          abonnementStatut: 'ACTIF',
+          abonnementActifJusquAu: trialExpiration(),
         },
       });
     } else {
@@ -307,6 +324,14 @@ export class CentreService {
           },
         });
       }
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: {
+          planAbonnement: 'COMPLET',
+          abonnementStatut: 'ACTIF',
+          abonnementActifJusquAu: trialExpiration(),
+        },
+      });
     }
 
     if (!centre) {

@@ -24,6 +24,8 @@ export default function HebergeurDashboard() {
   const [uploading, setUploading] = useState(false);
   const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
   const [claimStatut, setClaimStatut] = useState<string | null>(null);
+  const [essaiActif, setEssaiActif] = useState(false);
+  const [joursRestants, setJoursRestants] = useState(0);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
@@ -43,6 +45,19 @@ export default function HebergeurDashboard() {
       setSejoursConvention(sejours);
       setDemandes(mesDemandes);
       setRappelsAujourdhui(rappels);
+
+      const exp = profil?.abonnementActifJusquAu;
+      const actif =
+        profil?.abonnementStatut === 'ACTIF' &&
+        profil?.planAbonnement === 'COMPLET' &&
+        !!exp &&
+        new Date(exp) >= new Date();
+      setEssaiActif(actif);
+      setJoursRestants(
+        actif
+          ? Math.ceil((new Date(exp).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          : 0,
+      );
     } catch {}
     const cs = await api
       .get('/organisations/mon-claim-statut')
@@ -130,8 +145,40 @@ export default function HebergeurDashboard() {
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-8 w-full">
 
+        {/* Bannière essai gratuit */}
+        {essaiActif && (
+          <div style={{
+            backgroundColor: joursRestants > 7 ? '#FFF8E6' : '#FDECEA',
+            border: `1px solid ${joursRestants > 7 ? '#C87D2E' : '#9C2B2B'}`,
+            borderRadius: 8,
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}>
+            <span style={{ fontSize: 14, color: '#1B4060' }}>
+              {joursRestants > 0
+                ? `Essai gratuit — il vous reste ${joursRestants} jour${joursRestants > 1 ? 's' : ''} d'accès complet.`
+                : `Votre essai gratuit a expiré. Choisissez un plan pour continuer.`}
+            </span>
+            <a
+              href="/dashboard/hebergeur/abonnement"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#1B4060',
+                textDecoration: 'underline',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Voir les plans →
+            </a>
+          </div>
+        )}
+
         {/* Alerte abonnement — discrète */}
-        {!abonnementActif && (
+        {!abonnementActif && !essaiActif && (
           <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
             <p className="text-sm text-amber-700">Abonnement inactif — accès aux demandes limité.</p>
             <Link href="/dashboard/hebergeur/abonnement" className="text-xs font-semibold text-amber-700 underline hover:no-underline">

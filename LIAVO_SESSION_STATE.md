@@ -131,9 +131,30 @@ INTERDIT : contact@chalet-sauvageon.fr = adresse INEXISTANTE
 
 **TOUS LES CHANTIERS PRÉ-VISIO LMDJ SONT TERMINÉS.**
 
-### Chantiers post-visio (suspendus)
+### Chantiers en cours
+
+#### SC-TRIAL — Essai 30 jours (PRIORITAIRE)
+Objectif : tout hébergeur qui s'inscrit a 30 jours d'accès complet, puis bascule en fonctionnalités Découverte.
+
+Backend :
+1. `auth.service.ts` `registerHebergeur()` : après création centre, setter `planAbonnement=COMPLET`, `abonnementStatut=ACTIF`, `abonnementActifJusquAu=now+30j`
+2. Helper `getStatutAbonnement(centreId)` → `{ actif, joursRestants, plan }` — actif = ACTIF ET date non dépassée
+3. `demande.service.ts` `findOpen()` : si essai expiré OU plan DECOUVERTE → masquer `enseignant.email` (null)
+
+Frontend :
+4. `/dashboard/hebergeur/page.tsx` : bannière ocre si essai actif (X jours restants + lien abonnement), bannière rouge si expiré
+5. `/dashboard/hebergeur/abonnement/page.tsx` : remplacer mailto par TODO propre 'Bientôt disponible' (sera branché Stripe dans SC-STRIPE)
+
+#### SC-STRIPE — Paiement abonnement (après SC-TRIAL)
+Pré-requis : créer compte Stripe + 4 produits (Essentiel 29€/mois, 290€/an — Complet 59€/mois, 590€/an)
+
+1. Backend : `AbonnementModule` — `POST /abonnement/checkout` → session Stripe Checkout → retourne URL
+2. Backend : `POST /abonnement/webhook` → events Stripe → mise à jour `planAbonnement` + `abonnementStatut` + `abonnementActifJusquAu`
+3. Frontend : `handleUpgrade` appelle API checkout → redirect Stripe
+4. Portail client Stripe pour gérer/résilier
+
+### Chantiers suspendus post-visio
 - SC7 : notifications APIDAE (prompt CC prêt)
-- Freemium hébergeur
 - Refactoring DashboardShell (teacher/director/venue → composant unique)
 - JWT httpOnly cookie migration
 - Chorus Pro production (habilitation AIFE)

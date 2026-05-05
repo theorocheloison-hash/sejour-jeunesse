@@ -11,6 +11,8 @@ export interface AbonnementStatut {
   statut: StatutAbonnementEnum;
   actifJusquAu: string | null;
   plan: PlanAbonnement;
+  essaiActif: boolean;
+  joursRestants: number;
 }
 
 // ─── API calls ──────────────────────────────────────────────────────────────
