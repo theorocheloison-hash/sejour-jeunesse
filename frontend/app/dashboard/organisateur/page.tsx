@@ -20,6 +20,7 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
   SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
   SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
+  DECLARE_TAM:     { label: 'Déclaré TAM',       cls: 'bg-teal-100 text-teal-700' },
 };
 
 function StatutBadge({ statut }: { statut: StatutSejour }) {

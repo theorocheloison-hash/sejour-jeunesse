@@ -107,6 +107,16 @@ export class SejourController {
     return this.sejourService.soumettreAuRectorat(id, user.id);
   }
 
+  /** POST /sejours/:id/declarer-tam — Déclarer un séjour HORS_SCOLAIRE en TAM */
+  @Post(':id/declarer-tam')
+  @Roles(Role.ORGANISATEUR)
+  declarerTam(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.sejourService.declarerTam(id, user.id);
+  }
+
   /** GET /sejours/:id/accompagnateurs — Liste accompagnateurs */
   @Get(':id/accompagnateurs')
   @Roles(Role.ORGANISATEUR)
