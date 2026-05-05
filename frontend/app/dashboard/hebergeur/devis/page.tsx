@@ -17,6 +17,8 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   SIGNE_DIRECTION:       { label: 'Signé direction',     cls: 'bg-purple-100 text-purple-700' },
   NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
+  FACTURE_ACOMPTE:       { label: 'Facture acompte',     cls: 'bg-indigo-100 text-indigo-700' },
+  FACTURE_SOLDE:         { label: 'Facture solde',       cls: 'bg-teal-100 text-teal-700' },
 };
 
 type OngletDevis = 'attente' | 'selectionnes' | 'signes' | 'acompte' | 'solde';
@@ -74,14 +76,23 @@ function matchesSearch(d: Devis, query: string): boolean {
 
 function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
   switch (onglet) {
-    case 'attente': return d.statut === 'EN_ATTENTE';
-    case 'selectionnes': return d.statut === 'SELECTIONNE' && !d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE';
-    case 'signes': return (
-      d.statut === 'SIGNE_DIRECTION' ||
-      (!!d.signatureDirecteur && d.typeDocument !== 'FACTURE_ACOMPTE' && d.typeDocument !== 'FACTURE_SOLDE')
-    );
-    case 'acompte': return d.typeDocument === 'FACTURE_ACOMPTE';
-    case 'solde': return d.typeDocument === 'FACTURE_SOLDE';
+    case 'attente':
+      return d.statut === 'EN_ATTENTE';
+    case 'selectionnes': {
+      const isFactureStatut = d.statut === 'FACTURE_ACOMPTE' || d.statut === 'FACTURE_SOLDE';
+      return d.statut === 'SELECTIONNE'
+        && !d.signatureDirecteur
+        && !isFactureStatut;
+    }
+    case 'signes':
+      return d.statut === 'SIGNE_DIRECTION'
+        || (!!d.signatureDirecteur
+            && d.statut !== 'FACTURE_ACOMPTE'
+            && d.statut !== 'FACTURE_SOLDE');
+    case 'acompte':
+      return d.statut === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_ACOMPTE';
+    case 'solde':
+      return d.statut === 'FACTURE_SOLDE' || d.typeDocument === 'FACTURE_SOLDE';
   }
 }
 
@@ -125,13 +136,11 @@ export default function HebergeurDevisPage() {
 
   const actionsUrgentes = useMemo(() => {
     const aFacturer = devisList.filter(d =>
-      d.statut === 'SELECTIONNE' &&
-      d.signatureDirecteur &&
+      d.statut === 'SIGNE_DIRECTION' &&
       (!d.typeDocument || d.typeDocument === 'DEVIS')
     );
     const aValider = devisList.filter(d =>
-      d.statut === 'SELECTIONNE' &&
-      d.typeDocument === 'FACTURE_ACOMPTE' &&
+      (d.statut === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_ACOMPTE') &&
       !d.acompteVerse
     );
     return { aFacturer, aValider, total: aFacturer.length + aValider.length };

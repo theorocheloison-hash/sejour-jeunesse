@@ -17,6 +17,8 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   SELECTIONNE:           { label: 'Sélectionné',           cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   SIGNE_DIRECTION:       { label: 'Signé direction',       cls: 'bg-purple-100 text-purple-700' },
   NON_RETENU:            { label: 'Non retenu',            cls: 'bg-gray-100 text-gray-600' },
+  FACTURE_ACOMPTE:       { label: 'Facture acompte',       cls: 'bg-indigo-100 text-indigo-700' },
+  FACTURE_SOLDE:         { label: 'Facture solde',         cls: 'bg-teal-100 text-teal-700' },
 };
 
 export default function OffresPage() {

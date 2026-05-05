@@ -471,6 +471,8 @@ enum StatutDevis {
   SELECTIONNE
   SIGNE_DIRECTION
   NON_RETENU
+  FACTURE_ACOMPTE
+  FACTURE_SOLDE
 }
 
 // ============================================================

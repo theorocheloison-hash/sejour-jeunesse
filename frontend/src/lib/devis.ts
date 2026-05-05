@@ -2,7 +2,7 @@ import api from '@/src/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type StatutDevis = 'EN_ATTENTE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'SIGNE_DIRECTION' | 'NON_RETENU';
+export type StatutDevis = 'EN_ATTENTE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE' | 'SIGNE_DIRECTION' | 'NON_RETENU' | 'FACTURE_ACOMPTE' | 'FACTURE_SOLDE';
 
 export interface VersementPaiement {
   id: string;
