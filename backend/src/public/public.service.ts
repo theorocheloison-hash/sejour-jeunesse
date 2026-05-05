@@ -109,6 +109,11 @@ export class PublicService {
           thematiquesPedagogiques: [],
           statut:                  'SUBMITTED',
           typeContexte:            typeContexte,
+          ageMin:                  null,
+          ageMax:                  null,
+          moinsde6ans:             false,
+          typeAccueilACM:          null,
+          projetEducatif:          null,
           createurId:              user!.id,
         },
       });

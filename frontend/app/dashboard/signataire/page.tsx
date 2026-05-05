@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAllSejours, updateSejourStatus, getSejourDetail, soumettreAuRectorat, getDossierPedagogique } from '@/src/lib/sejour';
+import { getAllSejours, updateSejourStatus, getSejourDetail, soumettreAuRectorat, getDossierPedagogique, estHorsScolaire } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import api from '@/src/lib/api';
 import {
@@ -188,7 +188,7 @@ function SejourCard({
                 <span>{sejour.createur.memberships[0].organisation.nom}</span>
               )}
               <span>{fmtDate(sejour.dateDebut)} → {fmtDate(sejour.dateFin)}</span>
-              <span>{sejour.placesTotales} élèves</span>
+              <span>{sejour.placesTotales} {estHorsScolaire(sejour) ? 'participant' : 'élève'}{sejour.placesTotales > 1 ? 's' : ''}</span>
               {sejour.hebergementSelectionne && <span>Hébergeur : {sejour.hebergementSelectionne.nom}</span>}
             </div>
           </div>
@@ -234,7 +234,7 @@ function SejourCard({
         </div>
       )}
 
-      {hasDevisSigne && (sejour.statut === 'SIGNE_DIRECTION' || sejour.statut === 'CONVENTION') && (
+      {hasDevisSigne && (sejour.statut === 'SIGNE_DIRECTION' || sejour.statut === 'CONVENTION') && !estHorsScolaire(sejour) && (
         <div className="border-t border-purple-100 bg-purple-50 px-5 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <p className="text-xs text-purple-700">
@@ -249,9 +249,17 @@ function SejourCard({
                 Soumettre au rectorat
               </button>
             ) : (
-              <span className="text-xs text-amber-600">Configurez l&apos;email DSDEN pour soumettre au rectorat</span>
+              <span className="text-xs text-amber-600">Configurez l&apos;email de notification pour soumettre le dossier</span>
             )}
           </div>
+        </div>
+      )}
+
+      {hasDevisSigne && (sejour.statut === 'SIGNE_DIRECTION' || sejour.statut === 'CONVENTION') && estHorsScolaire(sejour) && (
+        <div className="border-t border-teal-100 bg-teal-50 px-5 py-3">
+          <p className="text-xs text-teal-700">
+            Séjour hors scolaire — aucune soumission au rectorat requise. Le dossier de déclaration TAM est disponible dans l&apos;espace collaboratif.
+          </p>
         </div>
       )}
 
@@ -528,7 +536,7 @@ export default function SignataireDashboard() {
             ['ALL',              'Tous',            sejours.length,                      'bg-gray-100 text-gray-700 ring-gray-300'],
             ['ASIGNER',         'À signer',        sejours.filter(s => s.demandes?.[0]?.devis?.[0] && !(s.demandes[0].devis[0] as any).signatureDirecteur).length, 'bg-amber-50 text-amber-700 ring-amber-300'],
             ['SIGNE_DIRECTION',  'Signé direction', countByStatut('SIGNE_DIRECTION'),    'bg-purple-50 text-purple-700 ring-purple-300'],
-            ['SOUMIS_RECTORAT',  'Rectorat',        countByStatut('SOUMIS_RECTORAT'),    'bg-purple-50 text-purple-700 ring-purple-300'],
+            ['SOUMIS_RECTORAT',  'Soumis',          countByStatut('SOUMIS_RECTORAT'),    'bg-purple-50 text-purple-700 ring-purple-300'],
             ['REJECTED',         'Refusés',         countByStatut('REJECTED'),           'bg-red-50 text-red-700 ring-red-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
@@ -697,14 +705,14 @@ export default function SignataireDashboard() {
           </h2>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email DSDEN / Rectorat</label>
-              <p className="text-xs text-gray-500 mb-2">Cet email sera utilisé automatiquement pour envoyer le dossier lors de la soumission au rectorat</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email de notification (DSDEN ou responsable hiérarchique)</label>
+              <p className="text-xs text-gray-500 mb-2">Cet email sera utilisé automatiquement pour envoyer le dossier lors de la soumission</p>
               <div className="flex gap-2">
                 <input
                   type="email"
                   value={emailRectorat}
                   onChange={(e) => setEmailRectorat(e.target.value)}
-                  placeholder="dsden@ac-academie.fr"
+                  placeholder="dsden@ac-academie.fr ou directeur@structure.fr"
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
                 <button

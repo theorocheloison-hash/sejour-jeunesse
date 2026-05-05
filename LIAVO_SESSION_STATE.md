@@ -126,7 +126,7 @@ INTERDIT : contact@chalet-sauvageon.fr = adresse INEXISTANTE
 | SC8 | Suppression colonnes etablissement* legacy | TERMINE |
 | SC9 | SIGNE_DIRECTION dans StatutDevis | TERMINE |
 | CRM | Client.organisationId + CA calculé + pipeline Kanban | TERMINE |
-| HORS_SCOLAIRE | typeContexte déduit depuis typeStructure | TERMINE |
+| HORS_SCOLAIRE | typeContexte déduit + champs ACM + formulaire bifurqué + libellés conditionnels | TERMINE |
 | DECLARE_TAM | StatutSejour + route declarer-tam | TERMINE |
 
 **TOUS LES CHANTIERS PRÉ-VISIO LMDJ SONT TERMINÉS.**

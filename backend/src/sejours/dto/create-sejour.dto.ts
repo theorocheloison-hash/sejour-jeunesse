@@ -39,13 +39,38 @@ export class CreateSejourDto {
   @Type(() => Number)
   nombreEleves: number;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  niveauClasse: string;
+  niveauClasse?: string;
 
   @IsArray()
   @IsString({ each: true })
   thematiquesPedagogiques: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  ageMin?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  ageMax?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  moinsde6ans?: boolean;
+
+  @IsOptional()
+  @IsString()
+  typeAccueilACM?: string;
+
+  @IsOptional()
+  @IsString()
+  projetEducatif?: string;
 
   @IsEnum(TypeZone)
   typeZone: TypeZone;
