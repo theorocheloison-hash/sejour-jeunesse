@@ -10,6 +10,7 @@ import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import type { RappelToday } from '@/src/lib/clients';
+import HebergeurSidebar from './_components/HebergeurSidebar';
 
 export default function HebergeurDashboard() {
   const { user, isLoading, logout } = useAuth();
@@ -99,21 +100,15 @@ export default function HebergeurDashboard() {
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center text-white text-xs font-bold">
-            {centre?.nom?.[0] ?? 'H'}
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">{centre?.nom ?? 'Mon établissement'}</p>
-            <p className="text-xs text-gray-500">{centre?.ville}</p>
-          </div>
-        </div>
-        <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">Déconnexion</button>
-      </nav>
+    <div className="flex min-h-screen bg-[var(--color-bg)]">
+      <HebergeurSidebar
+        centre={centre ? { nom: centre.nom ?? null, ville: centre.ville ?? null, imageUrl: centre.imageUrl ?? null } : null}
+        demandesCount={demandesNonLues}
+        rappelsCount={rappelsAujourdhui.length}
+        actionsFactCount={actionsFacturationUrgentes}
+        onLogout={logout}
+      />
+      <div className="flex-1 min-w-0 flex flex-col">
 
       {claimStatut === 'EN_ATTENTE_DOCUMENT' && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
@@ -133,7 +128,7 @@ export default function HebergeurDashboard() {
         </div>
       )}
 
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-5xl mx-auto px-6 py-8 space-y-8 w-full">
 
         {/* Alerte abonnement — discrète */}
         {!abonnementActif && (
@@ -472,6 +467,7 @@ export default function HebergeurDashboard() {
         </div>
 
       </main>
+      </div>
     </div>
   );
 }

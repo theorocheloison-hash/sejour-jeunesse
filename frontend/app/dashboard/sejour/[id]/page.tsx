@@ -77,6 +77,31 @@ import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePD
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
+import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
+
+// ─── Statut sejour (barre contexte) ────────────────────────────────────────
+
+const STATUT_LABEL: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  SUBMITTED: 'Soumis',
+  CONVENTION: 'Convention',
+  SOUMIS_RECTORAT: 'Soumis rectorat',
+  SIGNE_DIRECTION: 'Signé direction',
+  DECLARE_TAM: 'Déclaré TAM',
+  APPROVED: 'Approuvé',
+  REJECTED: 'Refusé',
+};
+
+const STATUT_BADGE_CLS: Record<string, string> = {
+  DRAFT: 'bg-gray-100 text-gray-600',
+  SUBMITTED: 'bg-orange-100 text-orange-700',
+  CONVENTION: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
+  SOUMIS_RECTORAT: 'bg-purple-100 text-purple-700',
+  SIGNE_DIRECTION: 'bg-purple-100 text-purple-700',
+  DECLARE_TAM: 'bg-teal-100 text-teal-700',
+  APPROVED: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
+  REJECTED: 'bg-red-100 text-red-700',
+};
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -498,7 +523,7 @@ function JournalPostCard({
 export default function CollaborationPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
@@ -991,40 +1016,64 @@ export default function CollaborationPage() {
 
   const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur';
   const isDirector = user.role === 'SIGNATAIRE';
+  const isHebergeur = user.role === 'HEBERGEUR';
+  const sejourStatut = sejour?.statut ?? 'DRAFT';
+
+  const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <nav className="bg-white border-b border-gray-200 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href={retourHref} className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">
-                &larr; Retour
-              </Link>
-              {sejour && (
-                <span className="text-sm font-semibold text-gray-900 truncate max-w-xs">
-                  {sejour.titre}
-                </span>
+    <div className={isHebergeur ? 'flex min-h-screen bg-gray-50' : 'min-h-screen bg-gray-50'}>
+      {isHebergeur && (
+        <HebergeurSidebar
+          centre={{
+            nom: sejour?.hebergementSelectionne?.nom ?? null,
+            ville: sejour?.hebergementSelectionne?.ville ?? null,
+            imageUrl: null,
+          }}
+          demandesCount={0}
+          rappelsCount={0}
+          actionsFactCount={0}
+          onLogout={logout}
+        />
+      )}
+      <div className={isHebergeur ? 'flex-1 min-w-0 flex flex-col' : ''}>
+
+      {/* ── Barre de contexte sticky (remplace l'ancienne topbar pour tous les rôles) */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href={retourHref}
+            className="shrink-0 text-gray-400 hover:text-gray-700 transition-colors"
+            aria-label="Retour"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </Link>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {sejour?.titre ?? '—'}
+            </p>
+            <p className="text-xs text-gray-400 truncate">
+              {sejour?.hebergementSelectionne?.nom ?? '—'}
+              {sejour?.dateDebut && sejour?.dateFin && (
+                <> · {fmtCtx(sejour.dateDebut)} → {fmtCtx(sejour.dateFin)}</>
               )}
-              <span className="inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-                Convention
-              </span>
-              {isDirector && (
-                <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
-                  Vue direction — lecture seule
-                </span>
-              )}
-            </div>
-            {sejour && (
-              <div className="hidden sm:flex items-center gap-4 text-xs text-gray-500">
-                {sejour.createur && <span>Enseignant : {sejour.createur.prenom} {sejour.createur.nom}</span>}
-                {sejour.hebergementSelectionne && <span>Centre : {sejour.hebergementSelectionne.nom} ({sejour.hebergementSelectionne.ville})</span>}
-              </div>
-            )}
+              {sejour?.placesTotales != null && <> · {sejour.placesTotales} participants</>}
+            </p>
           </div>
         </div>
-      </nav>
+        <div className="flex items-center gap-2 shrink-0">
+          {isDirector && (
+            <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
+              Vue direction
+            </span>
+          )}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUT_BADGE_CLS[sejourStatut] ?? 'bg-gray-100 text-gray-600'}`}>
+            {STATUT_LABEL[sejourStatut] ?? sejourStatut}
+          </span>
+        </div>
+      </div>
 
       {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
       {user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
@@ -3485,6 +3534,7 @@ export default function CollaborationPage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }
