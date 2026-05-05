@@ -1488,12 +1488,29 @@ Stratégie de déploiement : accumulation locale → push unique Scalingo en fin
 
 **Prochaine étape : Sous-chantier 5 — Refactor frontend dashboards + routes françaises**
 - Intégrer `<StructureSearch>` dans les formulaires d'inscription
-- Adapter les dashboards pour lire Organisation primary (via le nouveau helper)
-- Routes : redirects 301 restants à vérifier côté frontend
-- NE PAS supprimer les champs `etablissement*` du User avant SC8
+**État au 05/05/2026**
+
+| SC | Statut | Détail |
+|---|---|---|
+| SC0 | ✅ | Scalingo Paris, OVH Gravelines, Brevo FR |
+| SC1 | ✅ | Schéma, backfill BDD, doublons nettoyés |
+| SC1bis | ✅ | findOrCreateOrganisation, helpers |
+| SC2 | ✅ | GET /organisations/search |
+| SC3 | ✅ | StructureSearch.tsx |
+| SC4 | ✅ | Rôles français, passe A+B |
+| SC4bis | ✅ | claim.service.ts, page admin claims |
+| SC4ter | ✅ | getAllSejoursSignataire() via Membership+email, champs etablissement* supprimés |
+| SC5 | ✅ | Dashboards, routes françaises |
+| SC5bis | ✅ | 6 routes hébergeur, /centre/[id]/claim, admin invitations |
+| SC6 | ✅ | /appel-offres, magic link |
+| SC7 | ⏸ SUSPENDU | Validation commerciale |
+| SC8 | ✅ | Colonnes etablissement* supprimées |
+| SC9 | ❌ À FAIRE | StatutDevis + backfill + matchesOnglet() |
+
+**Ordre prochains chantiers :** SC9 StatutDevis → CRM legacy → HORS_SCOLAIRE → DECLARE_TAM
 
 ---
 
 *Document à maintenir à jour. Toute déviation documentée ici avec date et raison.*
 
-> **SC9 ajouté au glossaire de la section 11 :** `SC9` = refactor `StatutDevis`. `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE` = 3 nouvelles valeurs enum cibles.
+> **SC9 :** `StatutDevis` cibles : `SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`.

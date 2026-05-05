@@ -1182,10 +1182,10 @@ export default function CollaborationPage() {
                 tvaEmetteur: (c as any)?.tvaIntracommunautaire ?? undefined,
                 ibanEmetteur: (c as any)?.iban ?? undefined,
                 nomDestinataire: createur ? `${createur.prenom} ${createur.nom}` : '',
-                etablissementNom: createur?.etablissementNom ?? undefined,
-                adresseDestinataire: createur?.etablissementAdresse ?? undefined,
-                emailDestinataire: (createur as any)?.etablissementEmail ?? createur?.email ?? undefined,
-                telDestinataire: (createur as any)?.etablissementTelephone ?? (createur as any)?.telephone ?? undefined,
+                etablissementNom: createur?.memberships?.[0]?.organisation.nom ?? undefined,
+                adresseDestinataire: createur?.memberships?.[0]?.organisation.ville ?? undefined,
+                emailDestinataire: createur?.email ?? undefined,
+                telDestinataire: (createur as any)?.telephone ?? undefined,
                 titreSejour: s?.titre ?? '',
                 lieuSejour: (s as any)?.lieu ?? (s as any)?.ville ?? '',
                 dateDebutSejour: s?.dateDebut,
@@ -2754,8 +2754,8 @@ export default function CollaborationPage() {
                         <h2 className="text-lg font-semibold text-gray-900">Budget prévisionnel — {s?.titre}</h2>
                         {s?.createur && (
                           <div className="mt-2 text-sm text-gray-600 space-y-0.5">
-                            {s.createur.etablissementNom && (
-                              <p>{s.createur.etablissementNom}{s.createur.etablissementUai ? ` (UAI : ${s.createur.etablissementUai})` : ''}</p>
+                            {s.createur.memberships?.[0]?.organisation.nom && (
+                              <p>{s.createur.memberships[0].organisation.nom}{s.createur.memberships[0].organisation.uai ? ` (UAI : ${s.createur.memberships[0].organisation.uai})` : ''}</p>
                             )}
                             <p>Enseignant : {s.createur.prenom} {s.createur.nom}</p>
                           </div>
@@ -2774,7 +2774,7 @@ export default function CollaborationPage() {
                             dateFin: s?.dateFin ?? '',
                             nombreEleves: s?.placesTotales ?? 0,
                             enseignantNom: s?.createur ? `${s.createur.prenom} ${s.createur.nom}` : undefined,
-                            etablissementNom: s?.createur?.etablissementNom ?? undefined,
+                            etablissementNom: s?.createur?.memberships?.[0]?.organisation.nom ?? undefined,
                             lignesHebergeur: lignesDevis.map(l => ({ description: l.description, quantite: l.quantite, prixUnitaire: l.prixUnitaire, tva: l.tva, totalTTC: l.totalTTC })),
                             totalHebergeur,
                             lignesCompl: lignesCompl.map(l => ({ categorie: l.categorie, description: l.description, montant: l.montant })),
@@ -3020,9 +3020,9 @@ export default function CollaborationPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Établissement</span>
-                        <p className="font-medium text-gray-900">{d.createur?.etablissementNom ?? '—'}</p>
-                        {d.createur?.etablissementUai && <p className="text-xs text-gray-400">UAI : {d.createur.etablissementUai}</p>}
-                        {d.createur?.etablissementAdresse && <p className="text-xs text-gray-500">{d.createur.etablissementAdresse}{d.createur.etablissementVille ? `, ${d.createur.etablissementVille}` : ''}</p>}
+                        <p className="font-medium text-gray-900">{d.createur?.memberships?.[0]?.organisation.nom ?? '—'}</p>
+                        {d.createur?.memberships?.[0]?.organisation.uai && <p className="text-xs text-gray-400">UAI : {d.createur.memberships[0].organisation.uai}</p>}
+                        {d.createur?.memberships?.[0]?.organisation.ville && <p className="text-xs text-gray-500">{d.createur.memberships[0].organisation.ville}</p>}
                       </div>
                       <div>
                         <span className="text-gray-500">Enseignant responsable</span>

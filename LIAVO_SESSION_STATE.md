@@ -128,7 +128,7 @@ scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 | SC3 | Composant `<StructureSearch>` frontend | ✅ TERMINÉ |
 | SC4 | Refactor backend services + rôles français | ✅ TERMINÉ |
 | SC4bis | Claim hébergeur + Kbis + validation admin | ✅ TERMINÉ |
-| SC4ter | Flow invitation signataire + visibilité séjours signataire | ⚠️ PARTIEL — getAllSejoursSignataire() à adapter via Membership |
+| SC4ter | Flow invitation signataire + visibilité séjours signataire | ✅ TERMINÉ — getAllSejoursSignataire() via Membership+email, champs etablissement* supprimés |
 | SC5 | Refactor frontend dashboards + routes françaises | ✅ TERMINÉ |
 | SC5bis | Routes d'entrée hébergeur (6 routes) + page claim catalogue | 🔄 EN COURS — page /centre/[id]/claim manquante |
 | SC6 | Flow public catalogue + magic link + appel d'offres | ✅ TERMINÉ |
@@ -137,9 +137,7 @@ scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 | SC9 | Refactor StatutDevis — cycle de vie cohérent BDD | ❌ À FAIRE — après SC4ter |
 
 ### Prochains chantiers dans l'ordre (avant visio LMDJ)
-1. **SC5bis /centre/[id]/claim** — page claim catalogue (Routes 3b/5)
-2. **SC4ter complétion** — `getAllSejoursSignataire()` via Membership + `InvitationCollaboration.organisationCibleId`
-3. **SC9** — `StatutDevis` étendu (`SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`) + backfill + simplification `matchesOnglet()`
+1. **SC9** — `StatutDevis` étendu (`SIGNE_DIRECTION`, `FACTURE_ACOMPTE`, `FACTURE_SOLDE`) + backfill + simplification `matchesOnglet()`
 4. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale`
 5. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — hardcodé SCOLAIRE
 6. **`DECLARE_TAM`** dans `StatutSejour` — flow colo non implémenté

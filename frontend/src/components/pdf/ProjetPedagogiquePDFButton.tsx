@@ -71,10 +71,13 @@ export interface ProjetPedagogiqueData {
     nom: string;
     email: string;
     telephone?: string | null;
-    etablissementNom?: string | null;
-    etablissementAdresse?: string | null;
-    etablissementVille?: string | null;
-    etablissementUai?: string | null;
+    memberships?: Array<{
+      organisation: {
+        nom: string | null;
+        ville: string | null;
+        uai: string | null;
+      };
+    }>;
   } | null;
   hebergementSelectionne?: {
     nom: string;
@@ -176,9 +179,9 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
           <View style={s.grid2}>
             <View style={s.gridItem}>
               <Text style={s.label}>Établissement</Text>
-              <Text style={s.value}>{data.createur?.etablissementNom ?? '—'}</Text>
-              {data.createur?.etablissementUai && <Text style={s.valueLight}>UAI : {data.createur.etablissementUai}</Text>}
-              {data.createur?.etablissementAdresse && <Text style={s.valueLight}>{data.createur.etablissementAdresse}{data.createur.etablissementVille ? `, ${data.createur.etablissementVille}` : ''}</Text>}
+              <Text style={s.value}>{data.createur?.memberships?.[0]?.organisation.nom ?? '—'}</Text>
+              {data.createur?.memberships?.[0]?.organisation.uai && <Text style={s.valueLight}>UAI : {data.createur.memberships[0].organisation.uai}</Text>}
+              {data.createur?.memberships?.[0]?.organisation.ville && <Text style={s.valueLight}>{data.createur.memberships[0].organisation.ville}</Text>}
             </View>
             <View style={s.gridItem}>
               <Text style={s.label}>Enseignant responsable</Text>
