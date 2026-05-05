@@ -8,8 +8,6 @@ import { HebergementService } from './hebergement.service.js';
 import { SearchHebergementDto } from './dto/search-hebergement.dto.js';
 
 @Controller('hebergements')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ORGANISATEUR)
 export class HebergementController {
   constructor(private readonly hebergementService: HebergementService) {}
 

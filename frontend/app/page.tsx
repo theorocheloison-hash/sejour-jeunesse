@@ -146,11 +146,13 @@ export default function Home() {
               <a className="btn btn-outline btn-lg" href="#colonies">
                 J&apos;organise une colonie
               </a>
-              <Link className="btn btn-outline btn-lg" href="/catalogue">
-                Parcourir le catalogue
+            </div>
+            <div className="hero-note">
+              30 jours d&apos;essai · sans CB ·{' '}
+              <Link href="/catalogue" className="underline" style={{ color: 'var(--ocre)' }}>
+                Parcourir le catalogue de centres →
               </Link>
             </div>
-            <div className="hero-note">30 jours d&apos;essai · sans CB</div>
             <div className="hero-pills">
               <span className="pill"><span className="dot" />Conforme RGPD</span>
               <span className="pill"><span className="dot" />Chorus Pro intégré</span>

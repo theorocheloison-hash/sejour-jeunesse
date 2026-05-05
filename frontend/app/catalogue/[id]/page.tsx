@@ -2,18 +2,21 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getCentrePublic } from '@/src/lib/public';
-import type { CentrePublic } from '@/src/lib/public';
+import { getHebergementPublic } from '@/src/lib/hebergement';
+import type { Hebergement } from '@/src/lib/hebergement';
 import { Logo } from '@/app/components/Logo';
 
 export default function CentrePublicPage() {
   const { id } = useParams<{ id: string }>();
-  const [centre, setCentre] = useState<CentrePublic | null>(null);
+  const [centre, setCentre] = useState<Hebergement | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    getCentrePublic(id).then(setCentre).finally(() => setLoading(false));
+    getHebergementPublic(id)
+      .then(setCentre)
+      .catch(() => setCentre(null))
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return (
@@ -53,9 +56,9 @@ export default function CentrePublicPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Image */}
-        {centre.imageUrl && (
+        {centre.image && (
           <div className="rounded-2xl overflow-hidden mb-8 h-56 w-full">
-            <img src={centre.imageUrl} alt={centre.nom} className="w-full h-full object-cover" />
+            <img src={centre.image} alt={centre.nom} className="w-full h-full object-cover" />
           </div>
         )}
 
@@ -76,11 +79,11 @@ export default function CentrePublicPage() {
             )}
 
             {/* Thématiques */}
-            {(centre.thematiquesCentre?.length > 0) && (
+            {(centre.thematiques?.length > 0) && (
               <div className="mb-6">
                 <h2 className="text-sm font-semibold text-gray-700 mb-2">Thématiques</h2>
                 <div className="flex flex-wrap gap-2">
-                  {centre.thematiquesCentre.map((t) => (
+                  {centre.thematiques.map((t) => (
                     <span key={t} className="rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] px-3 py-1 text-xs font-medium">
                       {t}
                     </span>
@@ -90,11 +93,11 @@ export default function CentrePublicPage() {
             )}
 
             {/* Activités */}
-            {(centre.activitesCentre?.length > 0) && (
+            {(centre.activites?.length > 0) && (
               <div className="mb-6">
                 <h2 className="text-sm font-semibold text-gray-700 mb-2">Activités</h2>
                 <div className="flex flex-wrap gap-2">
-                  {centre.activitesCentre.map((a) => (
+                  {centre.activites.map((a) => (
                     <span key={a} className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs">
                       {a}
                     </span>
@@ -114,14 +117,19 @@ export default function CentrePublicPage() {
           {/* Colonne CTA */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sticky top-6">
-              {centre.capacite && (
+              {centre.capaciteEleves != null && (
                 <p className="text-sm text-gray-500 mb-1">
-                  <span className="font-semibold text-gray-900 text-lg">{centre.capacite}</span> lits
+                  <span className="font-semibold text-gray-900 text-lg">{centre.capaciteEleves}</span> lits élèves
                 </p>
               )}
-              {centre.agrementEducationNationale && (
+              {centre.capaciteAdultes != null && (
+                <p className="text-sm text-gray-500 mb-1">
+                  <span className="font-semibold text-gray-900 text-lg">{centre.capaciteAdultes}</span> lits adultes
+                </p>
+              )}
+              {centre.accessible && (
                 <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] px-2 py-0.5 text-xs font-medium mb-4">
-                  Agréé Éducation Nationale
+                  Accessible PMR
                 </span>
               )}
 
@@ -139,8 +147,8 @@ export default function CentrePublicPage() {
                 Lancer un appel d&apos;offres
               </Link>
 
-              {centre.siteWeb && (
-                <a href={centre.siteWeb} target="_blank" rel="noopener noreferrer"
+              {centre.permalien && (
+                <a href={centre.permalien} target="_blank" rel="noopener noreferrer"
                   className="mt-3 block text-center text-xs text-gray-400 hover:text-gray-600 hover:underline">
                   Voir le site du centre →
                 </a>
