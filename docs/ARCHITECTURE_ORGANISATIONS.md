@@ -11,7 +11,9 @@
 > Mis à jour le 04 mai 2026 (v3.7) : SC5bis corrections A+B+C + Route 6 invitation admin livrés et déployés. Migration 20260504_sc5bis_invitation_hebergement_enrichi en prod. tsc EXIT=0. SC5bis frontend (page claim + /register/hebergeur bifurcation) reste à faire.
 > Mis à jour le 04 mai 2026 (v3.8) : SC5bis frontend livré — checkInvitation() réécrit (3 cas typés), RegisterCentreDto optionnalisé, register() prenom/nom corrigé, /register/hebergeur bifurcation CAS1/2/3, page admin invitations créée.
 > Mis à jour le 04 mai 2026 (v3.9) : Audit bugs latents — 6 bugs corrigés + 5 URLs obsolètes bonus. Routes /register/venue, /dashboard/venue, /dashboard/rector éradiquées du codebase. Guard soumettreAuRectorat() corrigé. Filtre géographique notifications ajouté. 0 occurrence résiduelle.
-> Statut : **SC1→SC5bis ✅ complet. Bugs latents ✅ corrigés. SC5bis page /centre/[id]/claim reste à faire. SC9 après. SC7 suspendu.**
+> Mis à jour le 05 mai 2026 (v4.1) : SC9 déployé (StatutDevis FACTURE_ACOMPTE+SOLDE, backfill SQL prod). Catalogue public refactorisé (/catalogue = dashboard organisateur, GET /hebergements public). Landing déployée (nouveau design + section catalogue, hero CTA simplifié).
+> Statut : **SC1→SC9 ✅ complet. Landing ✅ prod. Catalogue public ✅ prod. Prochain : CRM legacy → HORS_SCOLAIRE → DECLARE_TAM. SC7 ⏸ suspendu.**
+> 📋 **Voir `docs/JOURNAL_AVANCEMENT.md`** pour le détail des sessions et les points ouverts.
 
 ---
 

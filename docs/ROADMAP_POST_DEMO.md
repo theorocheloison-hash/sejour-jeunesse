@@ -1,5 +1,5 @@
 # LIAVO — Roadmap post-démo LMDJ/IDDJ
-> Dernière mise à jour : 04/05/2026
+> Dernière mise à jour : 05/05/2026
 > Résultat démo 28/04 : LMDJ intéressée (visio suivi à caler), IDDJ attentiste (CA à consulter)
 > À attaquer uniquement après validation commerciale
 
@@ -14,9 +14,9 @@
 
 ### Prochains chantiers dans l’ordre (avant visio LMDJ)
 
-1. **SC5bis /centre/[id]/claim** — page claim catalogue (Routes 3b/5) — estimé 1j
-2. **SC4ter complétion** — `getAllSejoursSignataire()` via Membership + `InvitationCollaboration.organisationCibleId` — estimé 1j
-3. **SC9** — `StatutDevis` étendu + backfill + simplification `matchesOnglet()` — estimé 1j
+1. ~~**SC5bis /centre/[id]/claim**~~ ✅ DÉPLOYÉ 04/05
+2. ~~**SC4ter complétion**~~ ✅ DÉPLOYÉ 04/05
+3. **SC9** — `StatutDevis` étendu + backfill + simplification `matchesOnglet()` — estimé 1j ← PROCHAIN
 4. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale` — estimé 1j
 5. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — 0.5j
 6. **`DECLARE_TAM`** dans `StatutSejour` — 0.5j
@@ -34,7 +34,7 @@ Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau 
    - Enum TypeStructure : COLLEGE_LYCEE, ECOLE_PRIMAIRE, MAIRIE, COLLECTIVITE_TERRITORIALE, CENTRE_LOISIRS, ASSOCIATION, COMITE_ENTREPRISE, ENTREPRISE, MICRO_ENTREPRISE, AUTRE
    - Onboarding conditionnel UAI scolaire vs structure libre
 
-2. **Validation signataire générique** — EN COURS
+2. **Validation signataire générique** — ✅ FAIT (SC4ter — bifurcation SCOLAIRE/HORS_SCOLAIRE dans /register/signataire)
    - Renommer libellés "signature directeur" en "envoi pour signature"
    - Signataire libre selon typeStructure
 

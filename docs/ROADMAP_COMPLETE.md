@@ -1,5 +1,5 @@
 # LIAVO — Feuille de route produit complète
-> Dernière mise à jour : 04/05/2026
+> Dernière mise à jour : 05/05/2026
 > Post-démo LMDJ/IDDJ — LMDJ intéressée (visio suivi à caler), IDDJ attentiste (CA à consulter)
 
 ---
@@ -35,36 +35,44 @@ ORGANISATEUR, SIGNATAIRE, AUTORITE, PARENT, HEBERGEUR, ADMIN, RESEAU
 - Journal de séjour parents (posts + photos OVH R2, page publique /sejour/[token]/journal)
 - Lien journal depuis page autorisation parentale
 
-### SC8 — À déployer (commit + push en attente)
+### SC8 — DÉPLOYÉ EN PROD (04/05/2026) ✅
 - Suppression colonnes `etablissement*` sur User → données portées par Organisation/Membership
-- Build backend + frontend : exit 0, 0 erreur TypeScript
-- Migration SQL prête : `migrations/20260504_sc8_drop_etablissement_columns/migration.sql`
+- Migration SQL appliquée via Procfile au démarrage Scalingo
+- JWT_SECRET changé (secret aléatoire 64 hex)
+
+### Landing page — DÉPLOYÉE EN PROD (05/05/2026) ✅
+- Nouveau design complet (Claude Design) converti en Next.js
+- `frontend/app/landing.css` créé, `frontend/app/page.tsx` remplacé intégralement
+- Section catalogue : barre de recherche + 3 cartes statiques + CTA /catalogue
+- Nav enrichie : lien Catalogue + 4e CTA hero
+- `ActeursSchema` supprimé, `PricingTable` réutilisé tel quel
 
 ---
 
 ## PHASE 1 — Quick wins post-démo (mai 2026)
 
-### 1.1 Commit + push SC8
-Voir ROADMAP_POST_DEMO.md — priorité 0.
+### 1.1 ~~Commit + push SC8~~ ✅ DÉPLOYÉ 04/05
 
-### 1.2 Sécurité JWT_SECRET
-Voir ROADMAP_POST_DEMO.md — priorité 0.
+### 1.2 ~~Sécurité JWT_SECRET~~ ✅ FAIT 04/05
 
 ### 1.3 Visio suivi LMDJ
 Adapter pitch au pivot positionnement. Objectif : engagement écrit daté.
+**Prérequis : SC9 + CRM legacy + HORS_SCOLAIRE + DECLARE_TAM terminés.**
 
-### 1.4 Landing page — screenshots produit
+### 1.4 ~~Landing page~~ ✅ DÉPLOYÉE 05/05
+
+### 1.5 Landing page — screenshots produit
 - 3-4 screenshots réels du dashboard dans les sections de la landing
 - Basés sur retours de 3-5 personnes cibles
 - Estimé : 4h
 
-### 1.5 Notification centres APIDAE non inscrits (SC7)
+### 1.6 Notification centres APIDAE non inscrits (SC7)
 - Rate limit 7j via dernierEmailDemandeAt
 - Prompt CC préparé et validé
 - Suspendu : validation commerciale LMDJ/IDDJ requise
 - Estimé : 2-3h
 
-### 1.6 Intégration APIDAE LMDJ
+### 1.7 Intégration APIDAE LMDJ
 - Une ligne dans syncApidae() une fois credentials Anaïtis reçus
 - Estimé : 15 min
 
