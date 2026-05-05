@@ -6,6 +6,12 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 
+const TYPE_HORS_SCOLAIRE = new Set([
+  'MAIRIE', 'COLLECTIVITE_TERRITORIALE', 'CENTRE_LOISIRS',
+  'ASSOCIATION', 'COMITE_ENTREPRISE', 'ENTREPRISE',
+  'MICRO_ENTREPRISE',
+]);
+
 export interface DemandePubliqueDto {
   prenom: string;
   nom: string;
@@ -86,6 +92,10 @@ export class PublicService {
     });
 
     // 4. Séjour + DemandeDevis dans une transaction atomique
+    const typeContexte = dto.typeStructure && TYPE_HORS_SCOLAIRE.has(dto.typeStructure)
+      ? 'HORS_SCOLAIRE'
+      : 'SCOLAIRE';
+
     const { sejour, demande } = await this.prisma.$transaction(async (tx) => {
       const sejour = await tx.sejour.create({
         data: {
@@ -98,7 +108,7 @@ export class PublicService {
           niveauClasse:            dto.niveauClasse ?? null,
           thematiquesPedagogiques: [],
           statut:                  'SUBMITTED',
-          typeContexte:            'SCOLAIRE',
+          typeContexte:            typeContexte,
           createurId:              user!.id,
         },
       });

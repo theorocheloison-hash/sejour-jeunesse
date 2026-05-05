@@ -406,6 +406,11 @@ export class SejourService {
     });
 
     if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.typeContexte === 'HORS_SCOLAIRE') {
+      throw new ForbiddenException(
+        'Les séjours hors scolaire ne sont pas soumis au rectorat.',
+      );
+    }
     if (sejour.createurId !== userId || sejour.statut !== 'CONVENTION') {
       throw new ForbiddenException('Accès refusé');
     }
@@ -715,6 +720,30 @@ export class SejourService {
     );
 
     return { found: false, sent: true };
+  }
+
+  async declarerTam(sejourId: string, userId: string) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId) {
+      throw new ForbiddenException('Accès refusé');
+    }
+    if (sejour.typeContexte !== 'HORS_SCOLAIRE') {
+      throw new ForbiddenException(
+        'Seuls les séjours hors scolaire peuvent être déclarés en TAM.',
+      );
+    }
+    if (sejour.statut !== 'CONVENTION') {
+      throw new ForbiddenException(
+        'Le séjour doit être en statut Convention pour être déclaré en TAM.',
+      );
+    }
+    return this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { statut: 'DECLARE_TAM' },
+    });
   }
 
   async getAccompagnateurs(id: string, user: JwtUser) {

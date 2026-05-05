@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "StatutSejour" ADD VALUE IF NOT EXISTS 'DECLARE_TAM';
