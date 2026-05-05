@@ -8,9 +8,36 @@ import PricingTable from '@/app/components/PricingTable';
 import './landing.css';
 
 const CATALOGUE_CARDS = [
-  { nom: 'Chalet Le Sauvageon', ville: 'Morillon', dept: '74', capacite: 30, tags: ['Agréé EN', 'Montagne', 'Ski'] },
-  { nom: 'Domaine de la Clarée', ville: 'Val-des-Prés', dept: '05', capacite: 80, tags: ['Agréé EN', 'Randonnée', 'Haute montagne'] },
-  { nom: 'Centre Les Pins', ville: 'Mimizan', dept: '40', capacite: 120, tags: ['Agréé EN', 'Mer', 'Surf'] },
+  {
+    nom: 'Chalet Le Sauvageon',
+    ville: 'Morillon',
+    dept: '74',
+    region: 'Haute-Savoie',
+    capacite: 30,
+    tags: ['Agréé EN', 'Montagne', 'Ski', 'Classe de neige'],
+    description: 'Chalet familial en altitude, idéal pour les classes de neige et séjours montagne.',
+    slug: null,
+  },
+  {
+    nom: 'Centre de la Clarée',
+    ville: 'Val-des-Prés',
+    dept: '05',
+    region: 'Hautes-Alpes',
+    capacite: 80,
+    tags: ['Agréé EN', 'Randonnée', 'Haute montagne', 'Été'],
+    description: 'Grand domaine en vallée alpine, adapté aux groupes scolaires et colos.',
+    slug: null,
+  },
+  {
+    nom: 'Centre Les Pins',
+    ville: 'Mimizan',
+    dept: '40',
+    region: 'Landes',
+    capacite: 120,
+    tags: ['Agréé EN', 'Mer', 'Surf', 'Printemps'],
+    description: 'Centre balnéaire dans les Landes, parfait pour les séjours surf et nature.',
+    slug: null,
+  },
 ];
 
 export default function Home() {
@@ -105,9 +132,10 @@ export default function Home() {
           </Link>
           <div className="nav-links">
             <a href="#hebergeurs">Hébergeurs</a>
-            <a href="#collaboratif">Espace collaboratif</a>
             <a href="#enseignants">Enseignants</a>
             <a href="#colonies">Colonies</a>
+            <a href="#collaboratif">Espace collaboratif</a>
+            <a href="#reseau">Réseaux</a>
             <Link href="/catalogue">Catalogue</Link>
             <a href="#pricing">Tarifs</a>
           </div>
@@ -124,10 +152,6 @@ export default function Home() {
       <header className="hero">
         <div className="wrap">
           <div className="hero-content">
-            <span className="hero-eyebrow">
-              <span className="pulse" />
-              Nouvelle plateforme · Disponible en France
-            </span>
             <h1>
               Gérez tous vos séjours de groupe<br />
               depuis un <span className="accent">seul outil</span>.
@@ -140,120 +164,17 @@ export default function Home() {
               <a className="btn btn-primary btn-lg" href="#hebergeurs">
                 Je suis hébergeur <span className="arrow">→</span>
               </a>
-              <a className="btn btn-outline btn-lg" href="#enseignants">
-                J&apos;organise un séjour scolaire
-              </a>
-              <a className="btn btn-outline btn-lg" href="#colonies">
-                J&apos;organise une colonie
+              <a className="btn btn-outline btn-lg" href="#profils">
+                Découvrir les trois profils <span className="arrow">↓</span>
               </a>
             </div>
-            <div className="hero-note">
-              30 jours d&apos;essai · sans CB ·{' '}
-              <Link href="/catalogue" className="underline" style={{ color: 'var(--ocre)' }}>
-                Parcourir le catalogue de centres →
-              </Link>
-            </div>
-            <div className="hero-pills">
-              <span className="pill"><span className="dot" />Conforme RGPD</span>
-              <span className="pill"><span className="dot" />Chorus Pro intégré</span>
-              <span className="pill"><span className="dot" />Vos données restent en France</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Dashboard mockup */}
-        <div className="hero-mockup-wrap">
-          <div className="dashboard reveal">
-            <aside className="dash-side">
-              <div className="ds-brand">
-                <Logo size="sm" showTagline={false} />
-              </div>
-              <span className="ds-group">Séjour</span>
-              <span role="button">Vue d&apos;ensemble</span>
-              <span role="button" className="active">Participants</span>
-              <span role="button">Planning</span>
-              <span role="button">Devis</span>
-              <span role="button">Messages</span>
-              <span role="button">Journal</span>
-              <span className="ds-group">Centre</span>
-              <span role="button">Catalogue</span>
-              <span role="button">Facturation</span>
-              <span role="button">CRM clients</span>
-            </aside>
-            <main className="dash-main">
-              <div className="dash-bar">
-                <div className="crumb">
-                  <strong>Centre du Lac</strong> · Classe de montagne · 4ème · Morillon
-                </div>
-                <div className="actions">
-                  <span className="mini">Exporter</span>
-                  <span className="mini solid">Inviter</span>
-                </div>
-              </div>
-              <div className="dash-h">
-                <h3>Participants &amp; autorisations</h3>
-                <span className="sub">17–21 mars 2026 · 48 élèves</span>
-              </div>
-              <div className="dash-kpis">
-                <div className="kpi">
-                  <div className="lbl">Inscrits</div>
-                  <div className="val">48</div>
-                  <div className="delta">+3 cette semaine</div>
-                </div>
-                <div className="kpi accent">
-                  <div className="lbl">Autorisations</div>
-                  <div className="val">44/48</div>
-                  <div className="delta">92 % signées</div>
-                </div>
-                <div className="kpi">
-                  <div className="lbl">Paiements</div>
-                  <div className="val">35/48</div>
-                  <div className="delta">8 320 € collectés</div>
-                </div>
-                <div className="kpi">
-                  <div className="lbl">Facture HT</div>
-                  <div className="val">12 480 €</div>
-                  <div className="delta">Émise le 12 mars</div>
-                </div>
-              </div>
-              <div className="dash-table">
-                <div className="row head">
-                  <span>Élève</span>
-                  <span>Autorisation</span>
-                  <span className="h-pay">Paiement</span>
-                  <span className="h-fic">Fiche sanitaire</span>
-                  <span className="h-more" />
-                </div>
-                <div className="row">
-                  <div className="who"><span className="av">AM</span>Amélie Maréchal</div>
-                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                  <span className="c-pay"><span className="tag ok"><span className="pin" />Échelonné</span></span>
-                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                  <span className="c-more more">→</span>
-                </div>
-                <div className="row">
-                  <div className="who"><span className="av">BL</span>Bastien Loiseau</div>
-                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                  <span className="c-pay"><span className="tag wait"><span className="pin" />En attente</span></span>
-                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                  <span className="c-more more">→</span>
-                </div>
-                <div className="row">
-                  <div className="who"><span className="av">CM</span>Camille Mercier</div>
-                  <span><span className="tag wait"><span className="pin" />En attente</span></span>
-                  <span className="c-pay"><span className="tag no"><span className="pin" />—</span></span>
-                  <span className="c-fic"><span className="tag wait"><span className="pin" />Sans gluten</span></span>
-                  <span className="c-more more">→</span>
-                </div>
-                <div className="row">
-                  <div className="who"><span className="av">DR</span>Diego Rovira</div>
-                  <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                  <span className="c-pay"><span className="tag ok"><span className="pin" />Soldé</span></span>
-                  <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                  <span className="c-more more">→</span>
-                </div>
-              </div>
-            </main>
+            <Link href="/catalogue" className="hero-catalogue-cta reveal">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Parcourir le catalogue de centres
+              <span className="arrow">→</span>
+            </Link>
           </div>
         </div>
       </header>
@@ -272,7 +193,7 @@ export default function Home() {
           </div>
           <div className="profils-grid">
             <a href="#hebergeurs" className="profil reveal" data-delay="1">
-              <span className="badge payant">Solution payante</span>
+              <span className="badge payant">30 jours d&apos;essai</span>
               <span className="icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 21V9l9-6 9 6v12" /><path d="M9 21v-7h6v7" /><path d="M3 21h18" />
@@ -286,7 +207,7 @@ export default function Home() {
               <span className="profil-link">Découvrir <span className="arrow">→</span></span>
             </a>
             <a href="#enseignants" className="profil reveal" data-delay="2">
-              <span className="badge gratuit">Gratuit</span>
+              <span className="badge gratuit">Offert</span>
               <span className="icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" /><path d="M22 10v6" />
@@ -297,7 +218,7 @@ export default function Home() {
               <span className="profil-link">Découvrir <span className="arrow">→</span></span>
             </a>
             <a href="#colonies" className="profil reveal" data-delay="3">
-              <span className="badge gratuit">Gratuit</span>
+              <span className="badge gratuit">Offert</span>
               <span className="icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 21l9-16 9 16z" /><path d="M9 21l3-7 3 7" /><path d="M3 21h18" />
@@ -343,44 +264,106 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Dashboard mockup */}
+          <div className="hero-mockup-wrap">
+            <div className="dashboard reveal">
+              <aside className="dash-side">
+                <div className="ds-brand">
+                  <Logo size="sm" showTagline={false} />
+                </div>
+                <span className="ds-group">Séjour</span>
+                <span role="button">Vue d&apos;ensemble</span>
+                <span role="button" className="active">Participants</span>
+                <span role="button">Planning</span>
+                <span role="button">Devis</span>
+                <span role="button">Messages</span>
+                <span role="button">Journal</span>
+                <span className="ds-group">Centre</span>
+                <span role="button">Catalogue</span>
+                <span role="button">Facturation</span>
+                <span role="button">CRM clients</span>
+              </aside>
+              <main className="dash-main">
+                <div className="dash-bar">
+                  <div className="crumb">
+                    <strong>Centre du Lac</strong> · Classe de montagne · 4ème · Morillon
+                  </div>
+                  <div className="actions">
+                    <span className="mini">Exporter</span>
+                    <span className="mini solid">Inviter</span>
+                  </div>
+                </div>
+                <div className="dash-h">
+                  <h3>Participants &amp; autorisations</h3>
+                  <span className="sub">17–21 mars 2026 · 48 élèves</span>
+                </div>
+                <div className="dash-kpis">
+                  <div className="kpi">
+                    <div className="lbl">Inscrits</div>
+                    <div className="val">48</div>
+                    <div className="delta">+3 cette semaine</div>
+                  </div>
+                  <div className="kpi accent">
+                    <div className="lbl">Autorisations</div>
+                    <div className="val">44/48</div>
+                    <div className="delta">92 % signées</div>
+                  </div>
+                  <div className="kpi">
+                    <div className="lbl">Paiements</div>
+                    <div className="val">35/48</div>
+                    <div className="delta">8 320 € collectés</div>
+                  </div>
+                  <div className="kpi">
+                    <div className="lbl">Facture HT</div>
+                    <div className="val">12 480 €</div>
+                    <div className="delta">Émise le 12 mars</div>
+                  </div>
+                </div>
+                <div className="dash-table">
+                  <div className="row head">
+                    <span>Élève</span>
+                    <span>Autorisation</span>
+                    <span className="h-pay">Paiement</span>
+                    <span className="h-fic">Fiche sanitaire</span>
+                    <span className="h-more" />
+                  </div>
+                  <div className="row">
+                    <div className="who"><span className="av">AM</span>Amélie Maréchal</div>
+                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                    <span className="c-pay"><span className="tag ok"><span className="pin" />Échelonné</span></span>
+                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                    <span className="c-more more">→</span>
+                  </div>
+                  <div className="row">
+                    <div className="who"><span className="av">BL</span>Bastien Loiseau</div>
+                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                    <span className="c-pay"><span className="tag wait"><span className="pin" />En attente</span></span>
+                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                    <span className="c-more more">→</span>
+                  </div>
+                  <div className="row">
+                    <div className="who"><span className="av">CM</span>Camille Mercier</div>
+                    <span><span className="tag wait"><span className="pin" />En attente</span></span>
+                    <span className="c-pay"><span className="tag no"><span className="pin" />—</span></span>
+                    <span className="c-fic"><span className="tag wait"><span className="pin" />Sans gluten</span></span>
+                    <span className="c-more more">→</span>
+                  </div>
+                  <div className="row">
+                    <div className="who"><span className="av">DR</span>Diego Rovira</div>
+                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
+                    <span className="c-pay"><span className="tag ok"><span className="pin" />Soldé</span></span>
+                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
+                    <span className="c-more more">→</span>
+                  </div>
+                </div>
+              </main>
+            </div>
+          </div>
+
           <div className="ps-cta reveal">
             <a className="btn btn-primary btn-lg" href="#pricing">Essayer gratuitement <span className="arrow">→</span></a>
             <a className="btn btn-outline btn-lg" href="#pricing">Voir le pricing</a>
-          </div>
-        </div>
-      </section>
-
-      {/* ── COLLABORATIF ── */}
-      <section className="persona-section" id="collaboratif">
-        <div className="wrap">
-          <div className="section-head reveal">
-            <span className="tag-persona">Différenciation · Inexistant ailleurs</span>
-            <span className="eyebrow">espace collaboratif</span>
-            <h2 className="section-title">
-              Toutes les parties prenantes<br />dans un <span className="accent">seul espace</span>.
-            </h2>
-            <p className="section-lead">
-              Pour chaque séjour réservé, un espace partagé réunit hébergeur, enseignant ou organisateur,
-              directeur d&apos;établissement et familles. Premier outil du marché à centraliser toute la
-              coordination d&apos;un séjour collectif.
-            </p>
-          </div>
-          <div className="hero-pills reveal" style={{ justifyContent: 'flex-start', marginBottom: '40px' }}>
-            {['Hébergeur', 'Enseignant / Organisateur', 'Directeur / Signataire', 'Autorité (rectorat / SDJES)', 'Familles'].map((p) => (
-              <span key={p} className="pill"><span className="dot" />{p}</span>
-            ))}
-          </div>
-          <div className="features cols-3">
-            {[
-              { n: '01', t: 'Messagerie et documents centralisés', d: 'Fini les chaînes d\'emails et les fichiers Word partagés en drive. Toutes les conversations et tous les documents du séjour au même endroit, accessibles à chaque partie prenante avec les bons droits.' },
-              { n: '02', t: 'Planning temps réel', d: 'Drag & drop collaboratif, visible par toutes les parties prenantes. Modifications instantanées, export PDF A4 paysage prêt à imprimer pour les encadrants.' },
-              { n: '03', t: 'Journal de séjour pour les familles', d: 'Photos, planning du jour, nouvelles depuis le terrain. Les familles suivent en temps réel via un lien web, pas d\'app à installer.' },
-            ].map((f, i) => (
-              <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
-                <span className="num">{f.n}</span>
-                <div><h4>{f.t}</h4><p>{f.d}</p></div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -395,7 +378,7 @@ export default function Home() {
               Votre séjour scolaire,<br /><span className="accent">sans la paperasse</span>.
             </h2>
             <p className="section-lead">
-              De l&apos;appel d&apos;offres à la signature de la convention, LIAVO automatise tout le workflow administratif.
+              De l&apos;appel d&apos;offres à la signature de la convention, LIAVO automatise tout le flux administratif.
               Gratuit, toujours.
             </p>
           </div>
@@ -439,7 +422,7 @@ export default function Home() {
               { n: '01', t: 'Recherche d\'hébergeur géolocalisée', d: 'Lancez votre demande dans la zone qui vous intéresse, recevez des devis qualifiés des centres disponibles à vos dates.' },
               { n: '02', t: 'Planning d\'activités drag & drop', d: 'Construisez le programme de la colo semaine par semaine. Glissez-déposez les activités, gérez les groupes et les rotations, exportez le planning en PDF pour les animateurs.' },
               { n: '03', t: 'Espace collaboratif avec l\'hébergeur', d: 'Messagerie, documents, participants et autorisations parentales. Tout partagé avec le centre d\'hébergement depuis un espace commun.' },
-              { n: '04', t: 'Journal de séjour pour les familles', d: 'Les parents reçoivent un journal de séjour pendant les vacances : photos, planning du jour, nouvelles. Pas d\'app à installer.' },
+              { n: '04', t: 'Journal de séjour pour les familles', d: 'Les parents reçoivent un journal de séjour pendant les vacances : photos, planning du jour, nouvelles. Pas d\'application à installer.' },
               { n: '05', t: 'Déclaration TAM simplifiée', d: 'Préparez le dossier de déclaration auprès du SDJES depuis les données du séjour. Téléchargez le dossier complet, prêt à transmettre.' },
             ].map((f, i) => (
               <div key={f.n} className="feature reveal" data-delay={String((i % 5) + 1)}>
@@ -452,6 +435,60 @@ export default function Home() {
             <Link className="btn btn-primary btn-lg" href="/appel-offres">
               Tester gratuitement <span className="arrow">→</span>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COLLABORATIF ── */}
+      <section className="persona-section dark" id="collaboratif">
+        <div className="wrap">
+          <div className="section-head reveal">
+            <span className="eyebrow">espace collaboratif</span>
+            <h2 className="section-title">
+              Toutes les parties prenantes<br />dans un <span className="accent">seul espace</span>.
+            </h2>
+            <p className="section-lead">
+              Pour chaque séjour réservé, un espace partagé réunit hébergeur, enseignant ou organisateur,
+              directeur d&apos;établissement et familles. Premier outil du marché à centraliser toute la
+              coordination d&apos;un séjour collectif.
+            </p>
+          </div>
+          <div className="actors-flow reveal" style={{ marginBottom: '40px' }}>
+            {[
+              'Hébergeur',
+              'Enseignant / Organisateur',
+              'Directeur / Signataire',
+              'Autorité (rectorat / SDJES)',
+              'Familles',
+            ].map((label, i, arr) => (
+              <div key={label} className="actor-step">
+                <div className="actor-node">
+                  <span className="actor-dot" />
+                  <span className="actor-label">{label}</span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className="actor-connector" style={{ '--line-index': i } as React.CSSProperties}>
+                    <svg width="40" height="2" viewBox="0 0 40 2" fill="none">
+                      <line x1="0" y1="1" x2="40" y2="1" stroke="rgba(200,125,46,0.25)" strokeWidth="1.5" />
+                      <line className="actor-line-animated" x1="0" y1="1" x2="40" y2="1"
+                        stroke="#C87D2E" strokeWidth="1.5" strokeDasharray="40" strokeDashoffset="40" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="features cols-3">
+            {[
+              { n: '01', t: 'Messagerie et documents centralisés', d: 'Fini les chaînes d\'emails et les fichiers Word partagés en drive. Toutes les conversations et tous les documents du séjour au même endroit, accessibles à chaque partie prenante avec les bons droits.' },
+              { n: '02', t: 'Planning temps réel', d: 'Drag & drop collaboratif, visible par toutes les parties prenantes. Modifications instantanées, export PDF A4 paysage prêt à imprimer pour les encadrants.' },
+              { n: '03', t: 'Journal de séjour pour les familles', d: 'Photos, planning du jour, nouvelles depuis le terrain. Les familles suivent en temps réel via un lien web, pas d\'application à installer.' },
+            ].map((f, i) => (
+              <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
+                <span className="num">{f.n}</span>
+                <div><h4>{f.t}</h4><p>{f.d}</p></div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -484,6 +521,7 @@ export default function Home() {
           <div className="catalogue-grid">
             {CATALOGUE_CARDS.map((c) => (
               <Link key={c.nom} href="/catalogue" className="cat-card reveal">
+                <div className="cat-card-region">{c.region}</div>
                 <h4>{c.nom}</h4>
                 <p className="loc">
                   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -491,12 +529,14 @@ export default function Home() {
                   </svg>
                   {c.ville} ({c.dept})
                 </p>
+                <p className="cat-desc">{c.description}</p>
                 <p className="cap">{c.capacite} lits</p>
                 <div className="tags">
                   {c.tags.map((t) => (
                     <span key={t} className={`ctag${t === 'Agréé EN' ? ' en' : ''}`}>{t}</span>
                   ))}
                 </div>
+                <span className="cat-card-cta">Voir le centre <span className="arrow">→</span></span>
               </Link>
             ))}
           </div>
@@ -509,7 +549,7 @@ export default function Home() {
       </section>
 
       {/* ── NETWORK ── */}
-      <section className="network-section">
+      <section className="network-section" id="reseau">
         <div className="wrap">
           <div className="net-card reveal">
             <div>
@@ -545,15 +585,6 @@ export default function Home() {
       {/* ── PRICING ── */}
       <section className="pricing" id="pricing">
         <div className="wrap">
-          <div className="section-head center reveal">
-            <span className="eyebrow">tarifs hébergeurs</span>
-            <h2 className="section-title">
-              Un prix lisible,<br /><span className="accent">pas de palier surprise</span>.
-            </h2>
-            <p className="section-lead">
-              Trois formules pour les hébergeurs. Les enseignants et organisateurs de colonies utilisent LIAVO gratuitement.
-            </p>
-          </div>
           <div className="pricing-banner reveal">
             <strong>Enseignants, associations, CSE, mairies :</strong> LIAVO est gratuit, sans limite de durée.
           </div>
@@ -579,7 +610,7 @@ export default function Home() {
               </div>
               <h4>Données des mineurs protégées</h4>
               <p>
-                Fiches sanitaires, allergies, traitements médicaux, autorisations parentales : toutes les données sensibles
+                Conforme RGPD. Fiches sanitaires, allergies, traitements médicaux, autorisations parentales : toutes les données sensibles
                 des élèves sont hébergées en France sur infrastructure certifiée ISO 27001, sans transfert hors Union Européenne.
               </p>
             </div>
@@ -646,9 +677,10 @@ export default function Home() {
             <div className="foot-col">
               <span className="h">Produit</span>
               <a href="#hebergeurs">Hébergeurs</a>
-              <a href="#collaboratif">Espace collaboratif</a>
               <a href="#enseignants">Enseignants</a>
               <a href="#colonies">Colonies</a>
+              <a href="#collaboratif">Espace collaboratif</a>
+              <a href="#reseau">Réseaux</a>
               <Link href="/catalogue">Catalogue</Link>
               <a href="#pricing">Tarifs</a>
             </div>
@@ -663,7 +695,7 @@ export default function Home() {
             <div className="foot-col">
               <span className="h">Contact</span>
               <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>
-              <a href="#contact">Annecy, France</a>
+              <a href="#contact">Morillon, Haute-Savoie</a>
             </div>
           </div>
         </div>
