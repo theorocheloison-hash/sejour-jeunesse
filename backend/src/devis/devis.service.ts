@@ -697,6 +697,7 @@ export class DevisService {
       where: { id },
       data: {
         typeDocument: 'FACTURE_ACOMPTE',
+        statut: StatutDevis.FACTURE_ACOMPTE,
         estFacture: true,
         dateFacture: new Date(),
         numeroFacture,
@@ -732,6 +733,7 @@ export class DevisService {
       where: { id },
       data: {
         typeDocument: 'FACTURE_SOLDE',
+        statut: StatutDevis.FACTURE_SOLDE,
         numeroFacture,
         montantAcompte: montantSolde,
         dateFacture: new Date(),
