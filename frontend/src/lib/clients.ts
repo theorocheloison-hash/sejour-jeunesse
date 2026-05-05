@@ -94,11 +94,14 @@ export interface Client {
   academie?: string | null;
   notes?: string | null;
   source: string;
+  organisationId?: string | null;
   createdAt: string;
   contacts: ContactClient[];
   rappels: Rappel[];
   sejours: SejourClient[];
   devis: DevisClient[];
+  montantCA?: number;
+  nombreSejours?: number;
 }
 
 export interface RappelToday {

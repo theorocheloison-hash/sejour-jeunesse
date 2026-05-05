@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { StatutDevis } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
@@ -58,12 +59,17 @@ export class ClientsService {
     });
 
     const sejourIds = clients.flatMap(c => c.sejours.map(s => s.sejourId));
-    if (sejourIds.length === 0) return clients.map(c => ({ ...c, devis: [] }));
+    if (sejourIds.length === 0) {
+      return clients.map(c => ({ ...c, devis: [], montantCA: 0, nombreSejours: c.sejours.length }));
+    }
 
     const devis = await this.prisma.devis.findMany({
       where: {
         centreId,
         demande: { sejourId: { in: sejourIds } },
+        statut: {
+          in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION],
+        },
       },
       select: {
         id: true,
@@ -95,10 +101,19 @@ export class ClientsService {
       devisBySejourId.get(sid)!.push(d);
     }
 
-    return clients.map(c => ({
-      ...c,
-      devis: c.sejours.flatMap(s => devisBySejourId.get(s.sejourId) ?? []),
-    }));
+    return clients.map(c => {
+      const devisClient = c.sejours.flatMap(s => devisBySejourId.get(s.sejourId) ?? []);
+      const montantCA = devisClient.reduce(
+        (sum, d) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0),
+        0,
+      );
+      return {
+        ...c,
+        devis: devisClient,
+        montantCA,
+        nombreSejours: c.sejours.length,
+      };
+    });
   }
 
   async getClient(id: string, userId: string) {
