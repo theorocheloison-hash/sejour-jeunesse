@@ -7,39 +7,6 @@ import { Logo } from '@/app/components/Logo';
 import PricingTable from '@/app/components/PricingTable';
 import './landing.css';
 
-const CATALOGUE_CARDS = [
-  {
-    nom: 'Chalet Le Sauvageon',
-    ville: 'Morillon',
-    dept: '74',
-    region: 'Haute-Savoie',
-    capacite: 30,
-    tags: ['Agréé EN', 'Montagne', 'Ski', 'Classe de neige'],
-    description: 'Chalet familial en altitude, idéal pour les classes de neige et séjours montagne.',
-    slug: null,
-  },
-  {
-    nom: 'Centre de la Clarée',
-    ville: 'Val-des-Prés',
-    dept: '05',
-    region: 'Hautes-Alpes',
-    capacite: 80,
-    tags: ['Agréé EN', 'Randonnée', 'Haute montagne', 'Été'],
-    description: 'Grand domaine en vallée alpine, adapté aux groupes scolaires et colos.',
-    slug: null,
-  },
-  {
-    nom: 'Centre Les Pins',
-    ville: 'Mimizan',
-    dept: '40',
-    region: 'Landes',
-    capacite: 120,
-    tags: ['Agréé EN', 'Mer', 'Surf', 'Printemps'],
-    description: 'Centre balnéaire dans les Landes, parfait pour les séjours surf et nature.',
-    slug: null,
-  },
-];
-
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [catalogueQ, setCatalogueQ] = useState('');
@@ -519,27 +486,26 @@ export default function Home() {
               onChange={(e) => setCatalogueQ(e.target.value)}
             />
           </form>
-          <div className="catalogue-grid">
-            {CATALOGUE_CARDS.map((c) => (
-              <Link key={c.nom} href="/catalogue" className="cat-card reveal">
-                <div className="cat-card-region">{c.region}</div>
-                <h4>{c.nom}</h4>
-                <p className="loc">
-                  <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <div className="catalogue-video-wrap reveal">
+            <a href="/catalogue" className="catalogue-video-link" aria-label="Parcourir le catalogue">
+              <video
+                src="https://liavo-uploads.s3.gra.io.cloud.ovh.net/Video%20catalogue%20liavo.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="catalogue-video"
+              />
+              <div className="catalogue-video-overlay">
+                <span className="catalogue-video-cta">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  {c.ville} ({c.dept})
-                </p>
-                <p className="cat-desc">{c.description}</p>
-                <p className="cap">{c.capacite} lits</p>
-                <div className="tags">
-                  {c.tags.map((t) => (
-                    <span key={t} className={`ctag${t === 'Agréé EN' ? ' en' : ''}`}>{t}</span>
-                  ))}
-                </div>
-                <span className="cat-card-cta">Voir le centre <span className="arrow">→</span></span>
-              </Link>
-            ))}
+                  Parcourir le catalogue complet
+                  <span className="arrow">→</span>
+                </span>
+              </div>
+            </a>
           </div>
           <div className="catalogue-cta reveal">
             <Link className="btn btn-navy btn-lg" href="/catalogue">
