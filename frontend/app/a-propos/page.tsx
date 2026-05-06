@@ -45,9 +45,9 @@ export default function AProposPage() {
             de vos élèves et de vos familles ne quittent jamais le territoire français.
           </p>
           <p className={pCls}>
-            La plateforme est conçue par Théo Roche-Loison, entrepreneur savoyard, titulaire du BAFA,
-            ancien animateur et gérant du Chalet Le Sauvageon à Morillon (Haute-Savoie) — premier
-            hébergement référencé et premier compte production de la plateforme.
+            La plateforme est conçue par Théo Roche-Loison, entrepreneur haut-savoyard, titulaire du BAFA,
+            ancien animateur, propriétaire du Chalet Le Sauvageon à Morillon, premier hébergement référencé
+            et premier compte production de la plateforme.
           </p>
           <p className={pCls}>
             Connaître le terrain de l&apos;intérieur, c&apos;est ce qui nous permet de construire un outil qui
@@ -101,7 +101,7 @@ export default function AProposPage() {
             </a>
           </p>
           <p className={pCls}>
-            Adresse : LIAVO SASU — 472 route du Mas Devant, 74440 Morillon, Haute-Savoie
+            Adresse : LIAVO SASU, 472 route du Mas Devant, 74440 Morillon, Haute-Savoie
           </p>
         </div>
 

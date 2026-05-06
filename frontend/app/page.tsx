@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Logo } from '@/app/components/Logo';
 import PricingTable from '@/app/components/PricingTable';
 import './landing.css';
 
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
-  const [catalogueQ, setCatalogueQ] = useState('');
-  const router = useRouter();
 
   // Nav scroll
   useEffect(() => {
@@ -82,12 +79,6 @@ export default function Home() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const handleCatalogueSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = catalogueQ.trim();
-    router.push(q.length >= 2 ? `/catalogue?q=${encodeURIComponent(q)}` : '/catalogue');
-  };
-
   return (
     <div className="liavo-landing">
 
@@ -101,10 +92,10 @@ export default function Home() {
             <a href="#hebergeurs">Hébergeurs</a>
             <a href="#enseignants">Enseignants</a>
             <a href="#colonies">Colonies</a>
-            <Link href="/a-propos">À propos</Link>
             <a href="#reseau">Réseaux</a>
             <Link href="/catalogue">Catalogue</Link>
             <a href="#pricing">Tarifs</a>
+            <Link href="/a-propos">À propos</Link>
           </div>
           <div className="nav-cta">
             <Link className="btn btn-ghost" href="/login">Se connecter</Link>
@@ -463,18 +454,6 @@ export default function Home() {
               Centres labellisés Éducation Nationale, agréés TAM et partenaires LIAVO.
             </p>
           </div>
-          <form className="catalogue-search-wrap reveal" onSubmit={handleCatalogueSearch}>
-            <svg className="catalogue-search-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              className="catalogue-search"
-              placeholder="Rechercher par nom, ville, département…"
-              value={catalogueQ}
-              onChange={(e) => setCatalogueQ(e.target.value)}
-            />
-          </form>
           <div className="catalogue-video-wrap reveal">
             <a href="/catalogue" className="catalogue-video-link" aria-label="Parcourir le catalogue">
               <video
