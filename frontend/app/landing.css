@@ -227,12 +227,6 @@
   margin-top: 48px; padding: 0 28px;
   max-width: 1280px; margin-left: auto; margin-right: auto;
 }
-.liavo-landing .hero-mockup-wrap::after {
-  content: ""; position: absolute; left: 0; right: 0;
-  bottom: -1px; top: 60%;
-  background: linear-gradient(to bottom, transparent, var(--bg));
-  z-index: 1; pointer-events: none;
-}
 .liavo-landing .dashboard {
   position: relative; z-index: 2;
   background: var(--surface); border: 1px solid var(--line);
