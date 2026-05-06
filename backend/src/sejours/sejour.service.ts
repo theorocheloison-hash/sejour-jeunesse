@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Role, StatutSejour, AppelOffreStatut } from '@prisma/client';
+import { Role, StatutSejour, AppelOffreStatut, TypeContexteSejour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
@@ -42,6 +42,7 @@ export class SejourService {
         moinsde6ans:              dto.moinsde6ans ?? false,
         typeAccueilACM:           dto.typeAccueilACM ?? null,
         projetEducatif:           dto.projetEducatif ?? null,
+        typeContexte:             dto.typeContexte ?? TypeContexteSejour.SCOLAIRE,
         createurId,
       },
     });

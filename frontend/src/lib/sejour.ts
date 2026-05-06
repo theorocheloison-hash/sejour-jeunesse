@@ -29,6 +29,7 @@ export interface CreateSejourDto {
   moinsde6ans?: boolean;
   typeAccueilACM?: string;
   projetEducatif?: string;
+  typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE';
 }
 
 export function estHorsScolaire(sejour: { typeContexte?: string | null }): boolean {
