@@ -171,6 +171,38 @@
   font-size: 18px; color: var(--ink-2); max-width: 660px;
   margin: 0 auto 36px; line-height: 1.55;
 }
+.liavo-landing .hero-trust {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+.liavo-landing .hero-trust-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 220px;
+  text-align: left;
+}
+.liavo-landing .hero-trust-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: var(--navy-soft); color: var(--navy);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .25s ease, color .25s ease;
+}
+.liavo-landing .hero-trust-item:hover .hero-trust-icon {
+  background: var(--ocre-softer); color: var(--ocre);
+}
+.liavo-landing .hero-trust-title {
+  font-size: 13.5px; font-weight: 500; color: var(--ink); margin-bottom: 3px;
+}
+.liavo-landing .hero-trust-desc {
+  font-size: 12.5px; color: var(--ink-3); line-height: 1.5;
+}
 .liavo-landing .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .liavo-landing .pill {
   display: inline-flex; align-items: center; gap: 8px;
@@ -445,10 +477,15 @@
 }
 .liavo-landing .actors-flow .actor-line-animated {
   animation-play-state: paused;
+  animation-fill-mode: forwards;
 }
 .liavo-landing .actors-flow.in .actor-line-animated {
   animation-play-state: running;
 }
+.liavo-landing .actors-flow.in .actor-connector:nth-child(1) .actor-line-animated { animation-delay: 0s; }
+.liavo-landing .actors-flow.in .actor-connector:nth-child(2) .actor-line-animated { animation-delay: 0.3s; }
+.liavo-landing .actors-flow.in .actor-connector:nth-child(3) .actor-line-animated { animation-delay: 0.6s; }
+.liavo-landing .actors-flow.in .actor-connector:nth-child(4) .actor-line-animated { animation-delay: 0.9s; }
 
 /* ── Feature cards ── */
 .liavo-landing .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -491,7 +528,7 @@
 .liavo-landing .persona-section.dark .feature:hover h4 { color: #F4D9B5; }
 .liavo-landing .feature .num {
   width: 36px; height: 36px; border-radius: 9px; background: var(--navy); color: #fff;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500;
   transition: background .3s ease, color .3s ease, transform .35s cubic-bezier(.2,.7,.2,1);
 }
 .liavo-landing .persona-section.dark .feature .num { background: var(--ocre); }
@@ -592,6 +629,31 @@
 .liavo-landing .foot-col .h { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); margin-bottom: 14px; display: block; }
 .liavo-landing .foot-col a { display: block; font-size: 13.5px; color: var(--ink-2); padding: 4px 0; transition: color .15s ease; }
 .liavo-landing .foot-col a:hover { color: var(--navy); }
+
+.liavo-landing .catalogue-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(27,64,96,0.35);
+  text-decoration: none;
+  transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.liavo-landing .catalogue-fab:hover {
+  background: var(--ocre);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(200,125,46,0.4);
+}
+.liavo-landing .catalogue-fab svg { flex-shrink: 0; }
 
 /* ── Reveal ── */
 .liavo-landing .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }

@@ -118,10 +118,36 @@ export default function Home() {
               Développée par des hébergeurs, pour des hébergeurs. Gérez vos devis, planning,
               CRM, facturation Chorus Pro et coordonnez chaque séjour avec l&apos;organisateur en temps réel.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
-              <Link href="/catalogue" className="btn btn-outline btn-lg">
-                Parcourir le catalogue de centres <span className="arrow">→</span>
-              </Link>
+            <div className="hero-trust reveal" data-delay="1">
+              {[
+                {
+                  icon: 'M3 17l6-8 4 3 4-5 6 10H3',
+                  title: 'Né du terrain',
+                  desc: 'Créé par un hébergeur qui organise des séjours depuis 7 ans.',
+                },
+                {
+                  icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+                  title: 'Données en France',
+                  desc: 'Hébergement Scalingo Paris, OVH Gravelines. Conforme RGPD.',
+                },
+                {
+                  icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+                  title: 'Pour tous les acteurs',
+                  desc: 'Hébergeurs, enseignants, organisateurs de colos, directions d\'établissement, familles.',
+                },
+              ].map((item) => (
+                <div key={item.title} className="hero-trust-item">
+                  <div className="hero-trust-icon">
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={item.icon} />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="hero-trust-title">{item.title}</div>
+                    <div className="hero-trust-desc">{item.desc}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -199,15 +225,19 @@ export default function Home() {
           </div>
           <div className="features">
             {[
-              { n: '01', t: 'Un compte, plusieurs centres', d: 'Que vous gériez un seul gîte ou une association avec dix hébergements, LIAVO regroupe tout sous une seule organisation. Chaque centre a son propre profil et ses propres séjours.' },
-              { n: '02', t: 'Dashboard collaboratif par séjour', d: "Pour chaque séjour collectif réservé, un espace partagé avec l'enseignant ou l'organisateur : messagerie, planning, participants, documents. Visibilité temps réel sur chaque dossier." },
-              { n: '03', t: 'Planning drag & drop', d: 'Organisez la semaine en glisser-déposer. Les groupes tournent automatiquement sur les activités. Export PDF A4 paysage pour l\'impression.' },
-              { n: '04', t: 'CRM clients intégré', d: 'Gérez vos établissements scolaires et organisateurs récurrents, suivez l\'historique de chaque client, relancez en un clic.' },
-              { n: '05', t: 'Documents administratifs du centre', d: 'Centralisez vos documents réglementaires (agrément Éducation Nationale, RC Pro, attestations) avec suivi de date d\'expiration. L\'organisateur y accède directement depuis l\'espace collaboratif sans avoir à les redemander à chaque séjour.' },
-              { n: '06', t: 'Facturation Chorus Pro intégrée', d: 'Facturez les établissements publics au format XML UBL 2.1, sans démarche supplémentaire. Conforme aux exigences de la facturation électronique.' },
+              { n: '01', t: 'Un compte, plusieurs centres', d: 'Que vous gériez un seul gîte ou une association avec dix hébergements, LIAVO regroupe tout sous une seule organisation. Chaque centre a son propre profil et ses propres séjours.', icon: 'M3 21h18M3 21V9l9-6 9 6v12M9 21v-7h6v7' },
+              { n: '02', t: 'Dashboard collaboratif par séjour', d: "Pour chaque séjour collectif réservé, un espace partagé avec l'enseignant ou l'organisateur : messagerie, planning, participants, documents. Visibilité temps réel sur chaque dossier.", icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z' },
+              { n: '03', t: 'Planning drag & drop', d: 'Organisez la semaine en glisser-déposer. Les groupes tournent automatiquement sur les activités. Export PDF A4 paysage pour l\'impression.', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+              { n: '04', t: 'CRM clients intégré', d: 'Gérez vos établissements scolaires et organisateurs récurrents, suivez l\'historique de chaque client, relancez en un clic.', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+              { n: '05', t: 'Documents administratifs du centre', d: 'Centralisez vos documents réglementaires (agrément Éducation Nationale, RC Pro, attestations) avec suivi de date d\'expiration. L\'organisateur y accède directement depuis l\'espace collaboratif sans avoir à les redemander à chaque séjour.', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
+              { n: '06', t: 'Facturation Chorus Pro intégrée', d: 'Facturez les établissements publics au format XML UBL 2.1, sans démarche supplémentaire. Conforme aux exigences de la facturation électronique.', icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z' },
             ].map((f, i) => (
               <div key={f.n} className="feature reveal" data-delay={String((i % 5) + 1)}>
-                <span className="num">{f.n}</span>
+                <span className="num">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={f.icon} />
+                  </svg>
+                </span>
                 <div><h4>{f.t}</h4><p>{f.d}</p></div>
               </div>
             ))}
@@ -331,13 +361,17 @@ export default function Home() {
           </div>
           <div className="features">
             {[
-              { n: '01', t: "Appel d'offres en quelques minutes", d: "Décrivez votre projet (destination, dates, nombre d'élèves), les centres répondent directement avec leurs devis. Comparez sans relancer par email." },
-              { n: '02', t: 'Signature électronique de la convention', d: "Le directeur d'école ou chef d'établissement signe la convention en ligne. LIAVO génère le dossier de déclaration que l'enseignant transmet lui-même à l'autorité académique compétente (IEN de circonscription pour le 1er degré, rectorat pour le 2nd degré)." },
-              { n: '03', t: 'Autorisations parentales numériques', d: 'Importez votre liste d\'élèves depuis Pronote ou ONDE en CSV. Les parents signent en ligne (fiche sanitaire, régime alimentaire, paiement échelonné).' },
-              { n: '04', t: 'Espace collaboratif avec l\'hébergeur et les familles', d: 'Planning, messagerie, documents et journal de séjour. Les familles suivent le séjour en temps réel via un lien web, sans application.' },
+              { n: '01', t: "Appel d'offres en quelques minutes", d: "Décrivez votre projet (destination, dates, nombre d'élèves), les centres répondent directement avec leurs devis. Comparez sans relancer par email.", icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
+              { n: '02', t: 'Signature électronique de la convention', d: "Le directeur d'école ou chef d'établissement signe la convention en ligne. LIAVO génère le dossier de déclaration que l'enseignant transmet lui-même à l'autorité académique compétente (IEN de circonscription pour le 1er degré, rectorat pour le 2nd degré).", icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z' },
+              { n: '03', t: 'Autorisations parentales numériques', d: 'Importez votre liste d\'élèves depuis Pronote ou ONDE en CSV. Les parents signent en ligne (fiche sanitaire, régime alimentaire, paiement échelonné).', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+              { n: '04', t: 'Espace collaboratif avec l\'hébergeur et les familles', d: 'Planning, messagerie, documents et journal de séjour. Les familles suivent le séjour en temps réel via un lien web, sans application.', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
             ].map((f, i) => (
               <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
-                <span className="num">{f.n}</span>
+                <span className="num">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={f.icon} />
+                  </svg>
+                </span>
                 <div><h4>{f.t}</h4><p>{f.d}</p></div>
               </div>
             ))}
@@ -366,14 +400,18 @@ export default function Home() {
           </div>
           <div className="features cols-3">
             {[
-              { n: '01', t: 'Recherche d\'hébergeur géolocalisée', d: 'Lancez votre demande dans la zone qui vous intéresse, recevez des devis qualifiés des centres disponibles à vos dates.' },
-              { n: '02', t: 'Planning d\'activités drag & drop', d: 'Construisez le programme de la colo semaine par semaine. Glissez-déposez les activités, gérez les groupes et les rotations, exportez le planning en PDF pour les animateurs.' },
-              { n: '03', t: 'Espace collaboratif avec l\'hébergeur', d: 'Messagerie, documents, participants et autorisations parentales. Tout partagé avec le centre d\'hébergement depuis un espace commun.' },
-              { n: '04', t: 'Journal de séjour pour les familles', d: 'Les parents reçoivent un journal de séjour pendant les vacances : photos, planning du jour, nouvelles. Pas d\'application à installer.' },
-              { n: '05', t: 'Déclaration TAM simplifiée', d: 'Préparez le dossier de déclaration auprès du SDJES depuis les données du séjour. Téléchargez le dossier complet, prêt à transmettre.' },
+              { n: '01', t: 'Recherche d\'hébergeur géolocalisée', d: 'Lancez votre demande dans la zone qui vous intéresse, recevez des devis qualifiés des centres disponibles à vos dates.', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
+              { n: '02', t: 'Planning d\'activités drag & drop', d: 'Construisez le programme de la colo semaine par semaine. Glissez-déposez les activités, gérez les groupes et les rotations, exportez le planning en PDF pour les animateurs.', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 17a2 2 0 012-2h2a2 2 0 012 2m0 0V7a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2' },
+              { n: '03', t: 'Espace collaboratif avec l\'hébergeur', d: 'Messagerie, documents, participants et autorisations parentales. Tout partagé avec le centre d\'hébergement depuis un espace commun.', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
+              { n: '04', t: 'Journal de séjour pour les familles', d: 'Les parents reçoivent un journal de séjour pendant les vacances : photos, planning du jour, nouvelles. Pas d\'application à installer.', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+              { n: '05', t: 'Déclaration TAM simplifiée', d: 'Préparez le dossier de déclaration auprès du SDJES depuis les données du séjour. Téléchargez le dossier complet, prêt à transmettre.', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
             ].map((f, i) => (
               <div key={f.n} className="feature reveal" data-delay={String((i % 5) + 1)}>
-                <span className="num">{f.n}</span>
+                <span className="num">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={f.icon} />
+                  </svg>
+                </span>
                 <div><h4>{f.t}</h4><p>{f.d}</p></div>
               </div>
             ))}
@@ -427,12 +465,16 @@ export default function Home() {
           </div>
           <div className="features cols-3">
             {[
-              { n: '01', t: 'Messagerie et documents centralisés', d: 'Fini les chaînes d\'emails et les fichiers Word partagés en drive. Toutes les conversations et tous les documents du séjour au même endroit, accessibles à chaque partie prenante avec les bons droits.' },
-              { n: '02', t: 'Planning temps réel', d: 'Drag & drop collaboratif, visible par toutes les parties prenantes. Modifications instantanées, export PDF A4 paysage prêt à imprimer pour les encadrants.' },
-              { n: '03', t: 'Journal de séjour pour les familles', d: 'Photos, planning du jour, nouvelles depuis le terrain. Les familles suivent en temps réel via un lien web, pas d\'application à installer.' },
+              { n: '01', t: 'Messagerie et documents centralisés', d: 'Fini les chaînes d\'emails et les fichiers Word partagés en drive. Toutes les conversations et tous les documents du séjour au même endroit, accessibles à chaque partie prenante avec les bons droits.', icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z' },
+              { n: '02', t: 'Planning temps réel', d: 'Drag & drop collaboratif, visible par toutes les parties prenantes. Modifications instantanées, export PDF A4 paysage prêt à imprimer pour les encadrants.', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 17a2 2 0 012-2h2a2 2 0 012 2m0 0V7a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2' },
+              { n: '03', t: 'Journal de séjour pour les familles', d: 'Photos, planning du jour, nouvelles depuis le terrain. Les familles suivent en temps réel via un lien web, pas d\'application à installer.', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
             ].map((f, i) => (
               <div key={f.n} className="feature reveal" data-delay={String(i + 1)}>
-                <span className="num">{f.n}</span>
+                <span className="num">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={f.icon} />
+                  </svg>
+                </span>
                 <div><h4>{f.t}</h4><p>{f.d}</p></div>
               </div>
             ))}
@@ -604,11 +646,11 @@ export default function Home() {
         <div className="wrap foot">
           <div className="foot-left">
             <Link href="/">
-              <Logo size="sm" showTagline={true} />
+              <Logo size="sm" showTagline={false} />
             </Link>
             <div className="copy">
               © 2026 LIAVO SASU · 102 994 910 RCS Annecy<br />
-              Le standard des séjours collectifs en France.
+              Du projet pédagogique à la facturation finale.
             </div>
           </div>
           <div className="foot-links">
@@ -638,6 +680,13 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <a href="/catalogue" className="catalogue-fab" aria-label="Parcourir le catalogue">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <span className="catalogue-fab-label">Catalogue</span>
+      </a>
 
     </div>
   );
