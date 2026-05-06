@@ -114,7 +114,7 @@ export default function ConfidentialitePage() {
               "Équipe LIAVO : accès restreint aux données nécessaires à la gestion du service",
               "Centre d'hébergement sélectionné : accès aux données de séjour (hors données médicales élèves sauf accord explicite)",
               'Rectorat/DSDEN : accès aux dossiers de séjour soumis par les établissements',
-              'Sous-traitants techniques : Railway (hébergement), Cloudflare R2 (stockage fichiers), Brevo (emails transactionnels) — tous engagés contractuellement au RGPD',
+              'Sous-traitants techniques : Scalingo (hébergement backend et frontend, France), OVH Object Storage (stockage fichiers, France), Brevo (emails transactionnels, France) — tous engagés contractuellement au RGPD',
             ].map(item => <li key={item} className={liCls}>{item}</li>)}
           </ul>
           <p className={pCls}>
@@ -125,10 +125,15 @@ export default function ConfidentialitePage() {
         <div className={sectionCls}>
           <h2 className={h2Cls}>4. Transferts hors Union Européenne</h2>
           <p className={pCls}>
-            Railway Corp. (hébergeur) est une société américaine. Le transfert de données vers les États-Unis s&apos;effectue dans le cadre des clauses contractuelles types de la Commission européenne (CCT). Les serveurs Railway utilisés par LIAVO sont localisés en Europe de l&apos;Ouest (EU West).
+            L&apos;ensemble de l&apos;infrastructure technique de LIAVO est hébergée en France ou dans l&apos;Union Européenne :
           </p>
+          <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
+            <li className={liCls}>Backend et base de données : Scalingo SAS, datacenter Paris, France</li>
+            <li className={liCls}>Stockage fichiers : OVH Object Storage, datacenter Gravelines, France</li>
+            <li className={liCls}>Emails transactionnels : Brevo (Sendinblue SAS), France</li>
+          </ul>
           <p className={pCls}>
-            Cloudflare R2 (stockage fichiers) utilise des datacenters en Europe de l&apos;Ouest. Brevo (emails) est une société française.
+            Aucun transfert de données personnelles n&apos;est effectué hors de l&apos;Union Européenne.
           </p>
         </div>
 
@@ -141,7 +146,7 @@ export default function ConfidentialitePage() {
               'Chiffrement des données financières sensibles (IBAN) en base de données',
               'Authentification par JWT avec expiration',
               'Accès aux données segmenté par rôle (RBAC)',
-              'Stockage des fichiers sur Cloudflare R2 avec accès présigné temporaire',
+              'Stockage des fichiers sur OVH Object Storage (France) avec accès présigné temporaire',
               'Journalisation des accès et des modifications',
             ].map(item => <li key={item} className={liCls}>{item}</li>)}
           </ul>

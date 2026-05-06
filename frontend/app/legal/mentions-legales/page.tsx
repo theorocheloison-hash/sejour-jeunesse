@@ -61,9 +61,9 @@ export default function MentionsLegalesPage() {
             <table className="w-full text-sm">
               <tbody>
                 {[
-                  ['Société', 'Railway Corp.'],
-                  ['Adresse', '340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis'],
-                  ['Site web', 'https://railway.com'],
+                  ['Société', 'Scalingo SAS'],
+                  ['Adresse', '15 avenue du Rhin, 67100 Strasbourg, France'],
+                  ['Site web', 'https://scalingo.com'],
                 ].map(([label, value]) => (
                   <tr key={label} className="border-b border-gray-100 last:border-0">
                     <td className="py-2 pr-4 font-medium text-gray-600 w-1/2">{label}</td>
@@ -74,7 +74,9 @@ export default function MentionsLegalesPage() {
             </table>
           </div>
           <p className={`${pCls} mt-3`}>
-            Les fichiers sont stockés sur l&apos;infrastructure Cloudflare R2 (Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, États-Unis), dans des datacenters en Europe de l&apos;Ouest.
+            Les fichiers uploadés (documents, photos) sont stockés sur l&apos;infrastructure OVH Object Storage
+            (OVH SAS, 2 rue Kellermann, 59100 Roubaix, France), dans le datacenter de Gravelines (Nord, France).
+            Les emails transactionnels sont acheminés par Brevo (Sendinblue SAS, 55 rue d&apos;Amsterdam, 75008 Paris, France).
           </p>
         </div>
 
