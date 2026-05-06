@@ -59,7 +59,7 @@ export default function CguPage() {
           <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
             {[
               'Création et gestion de séjours scolaires',
-              'Accès au catalogue de 649+ centres référencés (API Éducation Nationale)',
+              'Accès au catalogue national de centres référencés (API Éducation Nationale)',
               "Lancement d'appels d'offres et réception de devis",
               'Gestion des autorisations parentales numériques',
               'Génération des ordres de mission accompagnateurs',
