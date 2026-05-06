@@ -42,6 +42,9 @@ function AppelOffresContent() {
   const [dateFin, setDateFin]           = useState('');
   const [nombreEleves, setNombreEleves] = useState('');
   const [niveauClasse, setNiveauClasse] = useState('');
+  const [typeSejour, setTypeSejour]     = useState<'SCOLAIRE' | 'HORS_SCOLAIRE' | ''>('');
+  const [ageMin, setAgeMin]             = useState('');
+  const [ageMax, setAgeMax]             = useState('');
 
   // Destination (step 2 — seulement si appel d'offres)
   const [region, setRegion]             = useState('');
@@ -58,8 +61,8 @@ function AppelOffresContent() {
   const totalSteps = estContactDirect ? 2 : 3;
 
   const canAdvance = () => {
-    if (step === 1) return titre && dateDebut && dateFin && nombreEleves;
-    if (step === 2 && !estContactDirect) return region || villeHeberg;
+    if (step === 1) return !!(titre && dateDebut && dateFin && nombreEleves && typeSejour);
+    if (step === 2 && !estContactDirect) return true;
     return true;
   };
 
@@ -179,6 +182,32 @@ function AppelOffresContent() {
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Votre séjour</h2>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type de séjour *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'SCOLAIRE', label: 'Séjour scolaire', sub: 'Classe verte, voyage scolaire, classe de neige' },
+                    { value: 'HORS_SCOLAIRE', label: 'Colonie / groupe', sub: 'Association, mairie, CSE, centre de loisirs' },
+                  ].map((opt) => (
+                    <label key={opt.value} className={`flex flex-col gap-1 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors ${
+                      typeSejour === opt.value
+                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <input type="radio" name="typeSejour" value={opt.value}
+                          checked={typeSejour === opt.value}
+                          onChange={() => setTypeSejour(opt.value as 'SCOLAIRE' | 'HORS_SCOLAIRE')}
+                          className="accent-[var(--color-primary)]" />
+                        <span className={`text-sm font-semibold ${typeSejour === opt.value ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>
+                          {opt.label}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400 ml-5">{opt.sub}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre du séjour *</label>
                 <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)}
                   placeholder="Ex : Séjour ski 4ème A — Janvier 2026"
@@ -194,17 +223,33 @@ function AppelOffresContent() {
                   <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={inputCls} required />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre d&apos;élèves *</label>
-                  <input type="number" min="1" value={nombreEleves} onChange={(e) => setNombreEleves(e.target.value)} className={inputCls} required />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  {typeSejour === 'HORS_SCOLAIRE' ? 'Nombre de participants' : 'Nombre d\'élèves'} *
+                </label>
+                <input type="number" min="1" value={nombreEleves} onChange={(e) => setNombreEleves(e.target.value)} className={inputCls} required />
+              </div>
+              {typeSejour === 'SCOLAIRE' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau de classe</label>
                   <input type="text" value={niveauClasse} onChange={(e) => setNiveauClasse(e.target.value)}
                     placeholder="Ex : 4ème" className={inputCls} />
                 </div>
-              </div>
+              )}
+              {typeSejour === 'HORS_SCOLAIRE' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Âge minimum des participants</label>
+                    <input type="number" min="3" max="17" value={ageMin} onChange={(e) => setAgeMin(e.target.value)}
+                      placeholder="Ex : 8" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Âge maximum des participants</label>
+                    <input type="number" min="3" max="17" value={ageMax} onChange={(e) => setAgeMax(e.target.value)}
+                      placeholder="Ex : 14" className={inputCls} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -224,6 +269,9 @@ function AppelOffresContent() {
                 <input type="text" value={villeHeberg} onChange={(e) => setVilleHeberg(e.target.value)}
                   placeholder="Ex : Chamonix, Alpes…" className={inputCls} />
               </div>
+              <p className="text-xs text-gray-400 mt-3">
+                Si vous ne précisez pas de zone, votre demande sera envoyée à tous les centres référencés en France.
+              </p>
             </div>
           )}
 
