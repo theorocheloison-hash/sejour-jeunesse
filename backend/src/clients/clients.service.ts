@@ -157,7 +157,29 @@ export class ClientsService {
     const centreId = await this.getCentreId(userId);
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
-    return this.prisma.contactClient.create({ data: { ...dto, clientId } });
+
+    // Récupère la RelationCommerciale si elle existe (pont legacy)
+    let relationId: string | undefined;
+    try {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { userId },
+        select: { organisationId: true },
+      });
+      if (client.organisationId && centre?.organisationId) {
+        const rel = await this.prisma.relationCommerciale.findUnique({
+          where: {
+            organisationHebergeurId_organisationClienteId: {
+              organisationHebergeurId: centre.organisationId,
+              organisationClienteId: client.organisationId,
+            },
+          },
+          select: { id: true },
+        });
+        relationId = rel?.id;
+      }
+    } catch { /* non bloquant */ }
+
+    return this.prisma.contactClient.create({ data: { ...dto, clientId, relationId: relationId ?? undefined } });
   }
 
   async updateContact(contactId: string, dto: Partial<CreateContactDto>, userId: string) {
@@ -178,8 +200,37 @@ export class ClientsService {
     const centreId = await this.getCentreId(userId);
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
+
+    // Récupère la RelationCommerciale si elle existe (pont legacy)
+    let relationId: string | undefined;
+    try {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { userId },
+        select: { organisationId: true },
+      });
+      if (client.organisationId && centre?.organisationId) {
+        const rel = await this.prisma.relationCommerciale.findUnique({
+          where: {
+            organisationHebergeurId_organisationClienteId: {
+              organisationHebergeurId: centre.organisationId,
+              organisationClienteId: client.organisationId,
+            },
+          },
+          select: { id: true },
+        });
+        relationId = rel?.id;
+      }
+    } catch { /* non bloquant */ }
+
     return this.prisma.rappel.create({
-      data: { clientId, type: dto.type, dateEcheance: new Date(dto.dateEcheance), description: dto.description, statut: dto.statut ?? 'A_FAIRE' },
+      data: {
+        clientId,
+        type: dto.type,
+        dateEcheance: new Date(dto.dateEcheance),
+        description: dto.description,
+        statut: dto.statut ?? 'A_FAIRE',
+        relationId: relationId ?? undefined,
+      },
     });
   }
 
@@ -227,6 +278,34 @@ export class ClientsService {
       create: { clientId: client.id, sejourId },
       update: {},
     });
+
+    // Pont RelationCommerciale — récupère les organisationId des deux parties
+    try {
+      const centre = await this.prisma.centreHebergement.findUnique({
+        where: { id: centreId },
+        select: { organisationId: true },
+      });
+      if (client.organisationId && centre?.organisationId) {
+        await this.prisma.relationCommerciale.upsert({
+          where: {
+            organisationHebergeurId_organisationClienteId: {
+              organisationHebergeurId: centre.organisationId,
+              organisationClienteId: client.organisationId,
+            },
+          },
+          create: {
+            organisationHebergeurId: centre.organisationId,
+            organisationClienteId: client.organisationId,
+            statut: 'CLIENT',
+            source: 'LIAVO',
+          },
+          update: { statut: 'CLIENT' },
+        });
+      }
+    } catch {
+      // non bloquant — le Client est déjà créé, la RelationCommerciale est un bonus
+    }
+
     return client;
   }
 
@@ -353,6 +432,7 @@ export class ClientsService {
   async importerDepuisCSV(
     lignes: Array<Record<string, string | undefined>>,
     userId: string,
+    organisationHebergeurId?: string,
   ) {
     const centreId = await this.getCentreId(userId);
     let imported = 0;
@@ -368,7 +448,7 @@ export class ClientsService {
 
       if (existing) { skipped++; continue; }
 
-      await this.prisma.client.create({
+      const created = await this.prisma.client.create({
         data: {
           centreId,
           nom,
@@ -383,6 +463,28 @@ export class ClientsService {
           source: 'IMPORT_CSV',
         },
       });
+
+      // Pont RelationCommerciale — non bloquant
+      if (organisationHebergeurId && created.organisationId) {
+        try {
+          await this.prisma.relationCommerciale.upsert({
+            where: {
+              organisationHebergeurId_organisationClienteId: {
+                organisationHebergeurId,
+                organisationClienteId: created.organisationId,
+              },
+            },
+            create: {
+              organisationHebergeurId,
+              organisationClienteId: created.organisationId,
+              statut: (created.statut as any) ?? 'PROSPECT',
+              source: 'IMPORT_CSV',
+            },
+            update: {},
+          });
+        } catch { /* non bloquant */ }
+      }
+
       imported++;
     }
     return { imported, skipped, total: lignes.length };
