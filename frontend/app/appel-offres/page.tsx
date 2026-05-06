@@ -225,7 +225,7 @@ function AppelOffresContent() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {typeSejour === 'HORS_SCOLAIRE' ? 'Nombre de participants' : 'Nombre d\'élèves'} *
+                  {typeSejour === 'HORS_SCOLAIRE' ? 'Nombre de participants' : typeSejour === 'SCOLAIRE' ? 'Nombre d\'élèves' : 'Nombre de participants / élèves'} *
                 </label>
                 <input type="number" min="1" value={nombreEleves} onChange={(e) => setNombreEleves(e.target.value)} className={inputCls} required />
               </div>
