@@ -111,8 +111,8 @@ export default function Home() {
         <div className="wrap">
           <div className="hero-content">
             <h1>
-              Vos séjours,<br />
-              <span className="accent">sans la paperasse</span>.
+              Un séjour, un outil,<br />
+              <span className="accent">tous les acteurs</span>.
             </h1>
             <p className="hero-sub">
               Hébergeurs et organisateurs de séjours jeunesse — fini les échanges d&apos;email, LIAVO centralise tout.
