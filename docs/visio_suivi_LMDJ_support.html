@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Visio LMDJ — Support</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F5F4F1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; background: #F5F4F1; padding: 10mm 11mm 9mm; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
+  .header { background: #1B4060; border-radius: 8px; padding: 14px 18px 12px; flex-shrink: 0; }
+  .header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .logo-row { display: flex; align-items: center; gap: 8px; }
+  .logo-name { font-size: 15px; font-weight: 500; color: #fff; letter-spacing: 0.04em; }
+  .vsep { width: 1px; height: 16px; background: rgba(255,255,255,0.2); }
+  .badge { font-size: 9px; font-weight: 600; color: #C87D2E; background: rgba(200,125,46,0.18); padding: 2px 9px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .header-title { font-size: 15px; font-weight: 500; color: #fff; margin-bottom: 3px; line-height: 1.25; }
+  .header-sub { font-size: 9.5px; color: rgba(255,255,255,0.58); font-weight: 300; line-height: 1.5; }
+
+  .obj-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; flex-shrink: 0; }
+  .obj { background: #fff; border: 0.5px solid #D3D1C7; border-radius: 7px; padding: 9px 11px; border-left: 3px solid; }
+  .obj-title { font-size: 10.5px; font-weight: 600; margin-bottom: 3px; line-height: 1.2; }
+  .obj-text { font-size: 9px; color: #5F5E5A; line-height: 1.45; font-weight: 400; }
+
+  .timeline { background: #fff; border: 0.5px solid #D3D1C7; border-radius: 8px; padding: 8px 12px 6px; flex-shrink: 0; flex: 1; display: flex; flex-direction: column; }
+  .timeline-title { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #1B4060; margin-bottom: 6px; }
+  .phase { position: relative; padding-left: 16px; padding-bottom: 8px; border-left: 1px dashed #D3D1C7; margin-left: 4px; }
+  .phase:last-child { border-left: 1px dashed transparent; padding-bottom: 0; }
+  .phase::before { content: ""; position: absolute; left: -5px; top: 1px; width: 9px; height: 9px; border-radius: 50%; background: #1B4060; border: 2px solid #F5F4F1; }
+  .phase-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+  .phase-num { font-size: 8.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #C87D2E; }
+  .phase-name { font-size: 11px; font-weight: 600; color: #2C2C2A; }
+  .phase-time { font-size: 9px; color: #888780; font-weight: 400; }
+  .phase-cible { font-size: 9px; font-style: italic; color: #1B4060; margin-bottom: 4px; line-height: 1.35; }
+  .phase ul { list-style: none; }
+  .phase li { font-size: 9.2px; color: #2C2C2A; line-height: 1.45; padding-left: 10px; position: relative; margin-bottom: 1px; }
+  .phase li::before { content: "·"; position: absolute; left: 2px; color: #C87D2E; font-weight: 700; }
+  .phase .warning { background: rgba(200,125,46,0.1); border-left: 2px solid #C87D2E; padding: 4px 8px; margin-top: 4px; font-size: 8.8px; color: #8C5318; line-height: 1.4; font-weight: 500; border-radius: 0 3px 3px 0; }
+
+  .footer { display: flex; align-items: center; justify-content: space-between; padding-top: 5px; border-top: 0.5px solid #D3D1C7; margin-top: auto; flex-shrink: 0; }
+  .fb { font-size: 8.5px; font-style: italic; color: #888780; font-weight: 300; }
+  .fr { text-align: right; font-size: 8.5px; color: #888780; line-height: 1.5; }
+  .furl { font-size: 9.5px; font-weight: 600; color: #C87D2E; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-row">
+        <svg width="22" height="22" viewBox="0 0 42 42" fill="none">
+          <rect width="42" height="42" rx="10" fill="rgba(255,255,255,0.12)"/>
+          <rect x="15" y="7" width="13" height="13" rx="2.5" transform="rotate(45 21 13.5)" fill="none" stroke="white" stroke-width="1.5" opacity="0.9"/>
+          <circle cx="21" cy="13.5" r="2.2" fill="#C87D2E"/>
+          <line x1="21" y1="22" x2="21" y2="32" stroke="white" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+          <line x1="14" y1="32" x2="28" y2="32" stroke="white" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+        </svg>
+        <span class="logo-name">Liavo</span>
+      </div>
+      <div class="vsep"></div>
+      <span class="badge">Visio de suivi</span>
+    </div>
+    <div class="header-title">Deuxième échange LMDJ — LIAVO</div>
+    <div class="header-sub">Anaïtis Mangeon · Isabelle Louat · Marie Charvolin</div>
+  </div>
+
+  <div class="obj-row">
+    <div class="obj" style="border-left-color: #1B4060;"><div class="obj-title" style="color: #1B4060;">Confirmer l'intérêt</div><div class="obj-text">Obtenir un engagement daté avant de raccrocher</div></div>
+    <div class="obj" style="border-left-color: #C87D2E;"><div class="obj-title" style="color: #C87D2E;">Valider le positionnement</div><div class="obj-text">S'assurer qu'Anaïtis a compris que LIAVO ne remplace pas la centrale</div></div>
+    <div class="obj" style="border-left-color: #1E5C42;"><div class="obj-title" style="color: #1E5C42;">Définir le next step</div><div class="obj-text">Accord de partenariat ou pilote sur 5 centres</div></div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-title">Déroulé suggéré</div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <span class="phase-num">Phase 1</span>
+        <span class="phase-name">Ouverture</span>
+        <span class="phase-time">5 min</span>
+      </div>
+      <div class="phase-cible">Cible : laisser Anaïtis parler en premier</div>
+      <ul>
+        <li>« Depuis notre démo, qu'est-ce qui vous a le plus marqué ? »</li>
+        <li>Écouter sans interrompre — noter les objections implicites</li>
+        <li>Si elle mentionne Isabelle/Marie : confirmer leur rôle central</li>
+      </ul>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <span class="phase-num">Phase 2</span>
+        <span class="phase-name">Clarifier le positionnement</span>
+        <span class="phase-time">10 min</span>
+      </div>
+      <div class="phase-cible">Cible : le pivot en une phrase</div>
+      <ul>
+        <li>Phrase clé : « LIAVO ne remplace pas la centrale LMDJ. Vous faites la mise en relation. LIAVO prend le relais une fois que l'hébergeur a reçu la demande. »</li>
+        <li>Isabelle et Marie continuent de recevoir les enseignants et de dispatcher vers les hébergeurs</li>
+        <li>LIAVO = ce qui se passe après le dispatch — devis, séjour, facturation</li>
+      </ul>
+      <div class="warning">Ne jamais dire que l'outil automatise ce qu'Isabelle et Marie font</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <span class="phase-num">Phase 3</span>
+        <span class="phase-name">Ce qui a évolué depuis la démo</span>
+        <span class="phase-time">8 min</span>
+      </div>
+      <div class="phase-cible">Cible : montrer la vitesse d'exécution</div>
+      <ul>
+        <li>Infra 100% France déployée (Scalingo Paris + OVH Gravelines)</li>
+        <li>Flow colo complet (typeContexte HORS_SCOLAIRE, récapitulatif TAM)</li>
+        <li>Landing refaite + page /a-propos</li>
+        <li>Pages légales RGPD à jour</li>
+      </ul>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <span class="phase-num">Phase 4</span>
+        <span class="phase-name">Proposition concrète</span>
+        <span class="phase-time">10 min</span>
+      </div>
+      <div class="phase-cible">Cible : seulement si signal positif</div>
+      <ul>
+        <li>Pilote sur 5 centres LMDJ volontaires — 3 mois, accompagnement direct Théo</li>
+        <li>Plan Complet gratuit 2026 pour tous les hébergeurs LMDJ</li>
+        <li>Dashboard réseau livré dès accord signé</li>
+        <li>Credentials APIDAE LMDJ → import automatique des 109 centres</li>
+      </ul>
+      <div class="warning">Ne pas raccrocher sans un next step daté et un prénom responsable</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <span class="phase-num">Phase 5</span>
+        <span class="phase-name">Clôture</span>
+        <span class="phase-time">5 min</span>
+      </div>
+      <div class="phase-cible">Cible : daté avant de raccrocher</div>
+      <ul>
+        <li>« Quelle est la prochaine étape de votre côté — et dans quel délai ? »</li>
+        <li>Proposer d'envoyer un récapitulatif écrit dans la foulée</li>
+        <li>Si hésitation : « On peut démarrer avec 3 centres, tester 30 jours, et décider ensemble »</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="fb">Durée totale : 35–40 min</div>
+    <div class="fr"><div>contact@liavo.fr</div><div class="furl">liavo.fr</div></div>
+  </div>
+</div>
+</body>
+</html>
