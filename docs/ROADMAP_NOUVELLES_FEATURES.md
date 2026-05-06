@@ -21,7 +21,7 @@
 | Landing | ✅ | Refactor complet + /a-propos + titre tarifs + ps-cta |
 | Légal | ✅ | Railway→Scalingo/OVH, RGPD, Morillon |
 
-**Prochaine étape : accord partenariat LMDJ → débloquer A.5, A.6, SC7**
+**Prochaine étape : accord partenariat LMDJ → débloquer A.5, A.6, A.7, SC7**
 
 ---
 
@@ -62,8 +62,6 @@ Options : scraping, enrichissement manuel, prestataire B2B (50-200€), inscript
 - Synchronisation avec APIDAE via credentials réseau (à spécifier avec LMDJ — nécessite accord partenariat)
 - Affichage des dispos dans le catalogue public (l'organisateur voit si le centre est disponible sur ses dates)
 
-**Contexte LMDJ :** un adhérent LMDJ gère aujourd'hui ses dispos depuis l'extranet LMDJ via APIDAE. Si LIAVO synchronise ces dispos, l'hébergeur n'a plus à double-saisir. Argument fort pour remplacer l'extranet LMDJ côté appels d'offres.
-
 **Estimé :** 3-5 jours frontend + investigation API APIDAE dispos. **Ne pas coder avant accord partenariat LMDJ.**
 
 ### A.6 — Grille tarifaire hébergeur (ajouté 06/05/2026)
@@ -76,6 +74,30 @@ Options : scraping, enrichissement manuel, prestataire B2B (50-200€), inscript
 - Pré-remplissage du constructeur de devis depuis la grille tarifaire (évite la ressaisie à chaque devis)
 
 **Estimé :** 2-3 jours. **À faire après A.5 disponibilités calendrier.**
+
+### A.7 — SSO APIDAE + co-branding LMDJ (ajouté 06/05/2026)
+
+**Contexte :** l'extranet LMDJ (`adherent.lamdj.com`) utilise APIDAE OAuth comme méthode d'authentification unique. Un hébergeur LMDJ se connecte à son espace adhérent via APIDAE — il obtient un token APIDAE qui authentifie sa session.
+
+**Ce que ça ouvrirait pour LIAVO :**
+- LIAVO implémente OAuth APIDAE comme méthode de connexion alternative
+- L'hébergeur clique "Se connecter via APIDAE" sur liavo.fr ou un espace co-brandé LMDJ
+- Il arrive directement dans son dashboard LIAVO, reconnu comme adhérent LMDJ, sans créer de nouveau compte
+- Son profil centre est pré-rempli depuis les données APIDAE
+
+**Option A — Co-branding** : interface aux couleurs LMDJ avec "Propulsé par LIAVO" discret. L'hébergeur sait qu'il utilise LIAVO. Meilleur pour la marque LIAVO à long terme.
+
+**Option B — White-label complet** : l'hébergeur ne voit jamais LIAVO, seulement "l'outil LMDJ". Fort pour LMDJ, risqué pour LIAVO — dans 2 ans les hébergeurs connaissent "l'outil LMDJ" pas LIAVO.
+
+**Recommandation :** Option A (co-branding). À discuter explicitement en visio LMDJ avant de coder quoi que ce soit.
+
+**Questions à poser à Anaïtis en visio :**
+- APIDAE peut-il servir de SSO pour accéder à LIAVO depuis votre extranet ?
+- Avez-vous accès à la doc OAuth APIDAE pour votre réseau ?
+- Souhaitez-vous un espace co-brandé LMDJ ou un accès direct à liavo.fr ?
+
+**Dépendances :** accord partenariat LMDJ signé + doc OAuth APIDAE + décision co-branding vs white-label.
+**Estimé :** 5-8 jours après accord. **Ne pas coder avant visio LMDJ.**
 
 ---
 
