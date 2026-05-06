@@ -11,23 +11,23 @@ export class StorageService {
   private publicUrl: string;
 
   constructor(private config: ConfigService) {
-    this.endpoint = this.config.get<string>('R2_ENDPOINT')!;
-    this.bucket = this.config.get<string>('R2_BUCKET_NAME')!;
-    this.publicUrl = this.config.get<string>('R2_PUBLIC_URL')!;
+    this.endpoint = this.config.get<string>('S3_ENDPOINT')!;
+    this.bucket = this.config.get<string>('S3_BUCKET_NAME')!;
+    this.publicUrl = this.config.get<string>('S3_PUBLIC_URL')!;
     this.client = new S3Client({
       region: 'auto',
       endpoint: this.endpoint,
       forcePathStyle: true,
       credentials: {
-        accessKeyId: this.config.get<string>('R2_ACCESS_KEY_ID')!,
-        secretAccessKey: this.config.get<string>('R2_SECRET_ACCESS_KEY')!,
+        accessKeyId: this.config.get<string>('S3_ACCESS_KEY_ID')!,
+        secretAccessKey: this.config.get<string>('S3_SECRET_ACCESS_KEY')!,
       },
     });
-    console.log('StorageService initialized');
+    console.log('StorageService initialized (OVH S3)');
   }
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
-    console.log('R2 upload file:', JSON.stringify({ originalname: file.originalname, mimetype: file.mimetype, size: file.size }));
+    console.log('S3 upload file:', JSON.stringify({ originalname: file.originalname, mimetype: file.mimetype, size: file.size }));
     const mimeToExt: Record<string, string> = {
       'image/jpeg': 'jpg',
       'image/png': 'png',
@@ -45,7 +45,7 @@ export class StorageService {
         ContentType: mimeToExt[file.mimetype] ? file.mimetype : 'application/octet-stream',
       }));
     } catch (e) {
-      console.error('R2 upload error full:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
+      console.error('S3 upload error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
       throw new InternalServerErrorException(`Erreur upload fichier: ${(e as any)?.message ?? 'unknown'}`);
     }
     return `${this.publicUrl}/${key}`;
