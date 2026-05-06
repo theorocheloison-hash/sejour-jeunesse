@@ -362,8 +362,8 @@ export default function Home() {
           </div>
 
           <div className="ps-cta reveal">
-            <a className="btn btn-primary btn-lg" href="#pricing">Essayer gratuitement <span className="arrow">→</span></a>
-            <a className="btn btn-outline btn-lg" href="#pricing">Voir le pricing</a>
+            <a className="btn btn-primary btn-lg" href="#pricing">Commencer 30 jours d&apos;essai <span className="arrow">→</span></a>
+            <a className="btn btn-outline btn-lg" href="#pricing">Voir les tarifs</a>
           </div>
         </div>
       </section>
@@ -585,6 +585,10 @@ export default function Home() {
       {/* ── PRICING ── */}
       <section className="pricing" id="pricing">
         <div className="wrap">
+          <div className="section-head center reveal">
+            <span className="eyebrow">tarification</span>
+            <h2 className="section-title">Tarifs <span className="accent">hébergeurs</span></h2>
+          </div>
           <div className="pricing-banner reveal">
             <strong>Enseignants, associations, CSE, mairies :</strong> LIAVO est gratuit, sans limite de durée.
           </div>
