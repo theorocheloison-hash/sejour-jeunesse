@@ -111,12 +111,11 @@ export default function Home() {
         <div className="wrap">
           <div className="hero-content">
             <h1>
-              Gérez tous vos séjours de groupe<br />
-              depuis un <span className="accent">seul outil</span>.
+              Vos séjours,<br />
+              <span className="accent">sans la paperasse</span>.
             </h1>
             <p className="hero-sub">
-              Développée par des hébergeurs, pour des hébergeurs. Gérez vos devis, planning,
-              CRM, facturation Chorus Pro et coordonnez chaque séjour avec l&apos;organisateur en temps réel.
+              Hébergeurs et organisateurs de séjours jeunesse — fini les échanges d&apos;email, LIAVO centralise tout.
             </p>
             <div className="hero-trust reveal" data-delay="1">
               {[

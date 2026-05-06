@@ -117,8 +117,8 @@
 }
 .liavo-landing .btn .arrow { transition: transform .2s ease; }
 .liavo-landing .btn:hover .arrow { transform: translateX(3px); }
-.liavo-landing .btn-primary { background: var(--ocre); color: #fff; }
-.liavo-landing .btn-primary:hover { background: var(--ocre-2); }
+.liavo-landing .btn-primary { background: #C87D2E !important; color: #fff; }
+.liavo-landing .btn-primary:hover { background: #B26D24 !important; }
 .liavo-landing .btn-navy { background: var(--navy); color: #fff; }
 .liavo-landing .btn-navy:hover { background: var(--navy-2); }
 .liavo-landing .btn-outline { background: transparent; color: var(--ink); border-color: var(--line-2); }
