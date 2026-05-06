@@ -150,6 +150,7 @@ export default function NouveauSejourPage() {
         moinsde6ans:                estHorsScolaireUser ? form.moinsde6ans : undefined,
         typeAccueilACM:             estHorsScolaireUser ? form.typeAccueilACM : undefined,
         projetEducatif:             estHorsScolaireUser ? form.projetEducatif : undefined,
+        typeContexte:               estHorsScolaireUser ? 'HORS_SCOLAIRE' : 'SCOLAIRE',
       });
       sessionStorage.removeItem(SESSION_KEY);
       router.push('/dashboard/organisateur');

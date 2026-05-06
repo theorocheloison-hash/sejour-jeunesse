@@ -11,6 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TypeContexteSejour } from '@prisma/client';
 
 export enum TypeZone {
   FRANCE = 'FRANCE',
@@ -71,6 +72,10 @@ export class CreateSejourDto {
   @IsOptional()
   @IsString()
   projetEducatif?: string;
+
+  @IsOptional()
+  @IsEnum(TypeContexteSejour)
+  typeContexte?: TypeContexteSejour;
 
   @IsEnum(TypeZone)
   typeZone: TypeZone;
