@@ -311,7 +311,6 @@ export default function Home() {
 
           <div className="ps-cta reveal">
             <a className="btn btn-primary btn-lg" href="#pricing">Commencer 30 jours d&apos;essai <span className="arrow">→</span></a>
-            <a className="btn btn-outline btn-lg" href="#pricing">Voir les tarifs</a>
           </div>
         </div>
       </section>
