@@ -330,7 +330,7 @@ export default function Home() {
           </div>
           <div className="ps-cta reveal">
             <Link className="btn btn-primary btn-lg" href="/appel-offres">
-              Tester gratuitement <span className="arrow">→</span>
+              Créer mon premier séjour <span className="arrow">→</span>
             </Link>
           </div>
         </div>
