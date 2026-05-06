@@ -161,50 +161,15 @@
 
 /* ── Hero ── */
 .liavo-landing .hero {
-  position: relative; padding: 140px 0 80px; overflow: hidden;
+  position: relative; padding: 100px 0 40px; overflow: hidden;
 }
 .liavo-landing .hero-content {
-  text-align: center; max-width: 820px; margin: 0 auto; padding-bottom: 56px;
+  text-align: center; max-width: 820px; margin: 0 auto; padding-bottom: 24px;
 }
 .liavo-landing .hero h1 { margin-bottom: 24px; }
 .liavo-landing .hero-sub {
   font-size: 18px; color: var(--ink-2); max-width: 660px;
   margin: 0 auto 36px; line-height: 1.55;
-}
-.liavo-landing .hero-cta {
-  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px;
-}
-.liavo-landing .hero-catalogue-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 auto 28px;
-  padding: 11px 20px;
-  background: var(--ocre-softer);
-  border: 1px solid rgba(200, 125, 46, 0.35);
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ocre-3);
-  text-decoration: none;
-  transition: background .2s ease, border-color .2s ease, transform .25s cubic-bezier(.2,.7,.2,1), color .2s ease;
-  cursor: pointer;
-}
-.liavo-landing .hero-catalogue-cta:hover {
-  background: var(--ocre-soft);
-  border-color: rgba(200, 125, 46, 0.6);
-  color: var(--ocre-2);
-  transform: translateY(-2px);
-}
-.liavo-landing .hero-catalogue-cta .arrow {
-  transition: transform .2s ease;
-}
-.liavo-landing .hero-catalogue-cta:hover .arrow {
-  transform: translateX(3px);
-}
-.liavo-landing .hero-catalogue-cta svg {
-  color: var(--ocre);
-  flex-shrink: 0;
 }
 .liavo-landing .hero-pills { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .liavo-landing .pill {
