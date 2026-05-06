@@ -238,8 +238,9 @@
   flex-wrap: wrap;
   margin-top: 48px;
   padding: 32px;
-  background: var(--navy-softer);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--r-lg);
 }
 .liavo-landing .hero-mockup-wrap::after {

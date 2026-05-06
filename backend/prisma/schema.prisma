@@ -988,6 +988,7 @@ model Client {
 model ContactClient {
   id        String   @id @default(uuid()) @db.Uuid
   clientId  String   @map("client_id") @db.Uuid
+  relationId String?              @map("relation_id") @db.Uuid
   prenom    String   @db.VarChar(100)
   nom       String   @db.VarChar(100)
   email     String?  @db.VarChar(255)
@@ -996,16 +997,19 @@ model ContactClient {
   notes     String?  @db.Text
   createdAt DateTime @default(now()) @map("created_at")
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  relation RelationCommerciale?  @relation("ContactsRelation", fields: [relationId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([clientId, email])
+  @@index([relationId])
   @@map("contacts_clients")
 }
 
 model Rappel {
   id           String   @id @default(uuid()) @db.Uuid
   clientId     String   @map("client_id") @db.Uuid
+  relationId   String?              @map("relation_id") @db.Uuid
   type         String   @db.VarChar(50)
   dateEcheance DateTime @map("date_echeance") @db.Date
   description  String   @db.Text
@@ -1013,9 +1017,11 @@ model Rappel {
   createdAt    DateTime @default(now()) @map("created_at")
   notifiedAt   DateTime? @map("notified_at")
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  relation RelationCommerciale?  @relation("RappelsRelation", fields: [relationId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
+  @@index([relationId])
   @@map("rappels")
 }
 
@@ -1195,6 +1201,8 @@ model RelationCommerciale {
   organisationHebergeur Organisation @relation("OrganisationHebergeur", fields: [organisationHebergeurId], references: [id], onDelete: Cascade)
   organisationCliente   Organisation @relation("OrganisationCliente", fields: [organisationClienteId], references: [id], onDelete: Cascade)
   sejourRelations       SejourRelation[]
+  rappels               Rappel[]         @relation("RappelsRelation")
+  contacts              ContactClient[]  @relation("ContactsRelation")
 
   @@unique([organisationHebergeurId, organisationClienteId])
   @@index([organisationHebergeurId])
