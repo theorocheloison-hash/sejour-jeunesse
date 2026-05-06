@@ -127,21 +127,11 @@ export default function Home() {
               Développée par des hébergeurs, pour des hébergeurs. Gérez vos devis, planning,
               CRM, facturation Chorus Pro et coordonnez chaque séjour avec l&apos;organisateur en temps réel.
             </p>
-            <div className="hero-cta">
-              <a className="btn btn-primary btn-lg" href="#hebergeurs">
-                Je suis hébergeur <span className="arrow">→</span>
-              </a>
-              <a className="btn btn-outline btn-lg" href="#profils">
-                Découvrir les trois profils <span className="arrow">↓</span>
-              </a>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>
+              <Link href="/catalogue" className="btn btn-outline btn-lg">
+                Parcourir le catalogue de centres <span className="arrow">→</span>
+              </Link>
             </div>
-            <Link href="/catalogue" className="hero-catalogue-cta reveal">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Parcourir le catalogue de centres
-              <span className="arrow">→</span>
-            </Link>
           </div>
         </div>
       </header>
