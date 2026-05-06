@@ -39,11 +39,13 @@ function SejourCard({
   sejour,
   onSubmit,
   onDeclarerTAM,
+  onTelechargerTAM,
   isSubmitting,
 }: {
   sejour: Sejour;
   onSubmit: (id: string) => void;
   onDeclarerTAM: (id: string) => void;
+  onTelechargerTAM: (sejour: Sejour) => void;
   isSubmitting: boolean;
 }) {
   const dateDebut = new Date(sejour.dateDebut).toLocaleDateString('fr-FR', {
@@ -232,6 +234,19 @@ function SejourCard({
               Déclarer au SDJES
             </button>
           )}
+
+          {sejour.statut === 'DECLARE_TAM' && estHorsScolaire(sejour) && (
+            <button
+              type="button"
+              onClick={() => onTelechargerTAM(sejour)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Récapitulatif TAM
+            </button>
+          )}
         </div>
       </div>
 
@@ -310,6 +325,38 @@ function OrganisateurDashboardContent() {
     } finally {
       setSubmittingId(null);
     }
+  };
+
+  const handleTelechargerTAM = (sejour: Sejour) => {
+    const lines = [
+      '========================================',
+      'RÉCAPITULATIF DÉCLARATION TAM — LIAVO',
+      '========================================',
+      '',
+      `Titre : ${sejour.titre}`,
+      `Dates : du ${new Date(sejour.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(sejour.dateFin).toLocaleDateString('fr-FR')}`,
+      `Participants : ${sejour.placesTotales}`,
+      sejour.ageMin != null ? `Tranche d'âge : ${sejour.ageMin} – ${sejour.ageMax} ans` : '',
+      sejour.moinsde6ans ? "Présence de moins de 6 ans : Oui" : '',
+      sejour.typeAccueilACM ? `Type d'accueil ACM : ${sejour.typeAccueilACM}` : '',
+      '',
+      sejour.projetEducatif ? `Projet éducatif :\n${sejour.projetEducatif}` : '',
+      '',
+      '========================================',
+      `Généré par LIAVO le ${new Date().toLocaleDateString('fr-FR')}`,
+      'Déclarer sur : https://tam.extranet.jeunesse-sports.gouv.fr',
+      '========================================',
+    ].filter(Boolean).join('\n');
+
+    const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recapitulatif-TAM-${sejour.titre.replace(/\s+/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading || !user) {
@@ -497,6 +544,7 @@ function OrganisateurDashboardContent() {
                 sejour={s}
                 onSubmit={handleSubmit}
                 onDeclarerTAM={handleDeclarerTAM}
+                onTelechargerTAM={handleTelechargerTAM}
                 isSubmitting={submittingId === s.id}
               />
             ))}
