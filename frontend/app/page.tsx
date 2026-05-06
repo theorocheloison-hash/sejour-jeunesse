@@ -243,99 +243,12 @@ export default function Home() {
           </div>
 
           {/* Dashboard mockup */}
-          <div className="hero-mockup-wrap">
-            <div className="dashboard reveal">
-              <aside className="dash-side">
-                <div className="ds-brand">
-                  <Logo size="sm" showTagline={false} />
-                </div>
-                <span className="ds-group">Séjour</span>
-                <span role="button">Vue d&apos;ensemble</span>
-                <span role="button" className="active">Participants</span>
-                <span role="button">Planning</span>
-                <span role="button">Devis</span>
-                <span role="button">Messages</span>
-                <span role="button">Journal</span>
-                <span className="ds-group">Centre</span>
-                <span role="button">Catalogue</span>
-                <span role="button">Facturation</span>
-                <span role="button">CRM clients</span>
-              </aside>
-              <main className="dash-main">
-                <div className="dash-bar">
-                  <div className="crumb">
-                    <strong>Centre du Lac</strong> · Classe de montagne · 4ème · Morillon
-                  </div>
-                  <div className="actions">
-                    <span className="mini">Exporter</span>
-                    <span className="mini solid">Inviter</span>
-                  </div>
-                </div>
-                <div className="dash-h">
-                  <h3>Participants &amp; autorisations</h3>
-                  <span className="sub">17–21 mars 2026 · 48 élèves</span>
-                </div>
-                <div className="dash-kpis">
-                  <div className="kpi">
-                    <div className="lbl">Inscrits</div>
-                    <div className="val">48</div>
-                    <div className="delta">+3 cette semaine</div>
-                  </div>
-                  <div className="kpi accent">
-                    <div className="lbl">Autorisations</div>
-                    <div className="val">44/48</div>
-                    <div className="delta">92 % signées</div>
-                  </div>
-                  <div className="kpi">
-                    <div className="lbl">Paiements</div>
-                    <div className="val">35/48</div>
-                    <div className="delta">8 320 € collectés</div>
-                  </div>
-                  <div className="kpi">
-                    <div className="lbl">Facture HT</div>
-                    <div className="val">12 480 €</div>
-                    <div className="delta">Émise le 12 mars</div>
-                  </div>
-                </div>
-                <div className="dash-table">
-                  <div className="row head">
-                    <span>Élève</span>
-                    <span>Autorisation</span>
-                    <span className="h-pay">Paiement</span>
-                    <span className="h-fic">Fiche sanitaire</span>
-                    <span className="h-more" />
-                  </div>
-                  <div className="row">
-                    <div className="who"><span className="av">AM</span>Amélie Maréchal</div>
-                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                    <span className="c-pay"><span className="tag ok"><span className="pin" />Échelonné</span></span>
-                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                    <span className="c-more more">→</span>
-                  </div>
-                  <div className="row">
-                    <div className="who"><span className="av">BL</span>Bastien Loiseau</div>
-                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                    <span className="c-pay"><span className="tag wait"><span className="pin" />En attente</span></span>
-                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                    <span className="c-more more">→</span>
-                  </div>
-                  <div className="row">
-                    <div className="who"><span className="av">CM</span>Camille Mercier</div>
-                    <span><span className="tag wait"><span className="pin" />En attente</span></span>
-                    <span className="c-pay"><span className="tag no"><span className="pin" />—</span></span>
-                    <span className="c-fic"><span className="tag wait"><span className="pin" />Sans gluten</span></span>
-                    <span className="c-more more">→</span>
-                  </div>
-                  <div className="row">
-                    <div className="who"><span className="av">DR</span>Diego Rovira</div>
-                    <span><span className="tag ok"><span className="pin" />Signé</span></span>
-                    <span className="c-pay"><span className="tag ok"><span className="pin" />Soldé</span></span>
-                    <span className="c-fic"><span className="tag ok"><span className="pin" />OK</span></span>
-                    <span className="c-more more">→</span>
-                  </div>
-                </div>
-              </main>
-            </div>
+          <div className="hero-mockup-wrap reveal">
+            <img
+              src="https://liavo-uploads.s3.gra.io.cloud.ovh.net/Dashboard%20_Hebergeur_Liavo.png"
+              alt="Dashboard hébergeur LIAVO"
+              style={{ width: '100%', borderRadius: '16px 16px 0 0', display: 'block', boxShadow: 'var(--shadow-lg)' }}
+            />
           </div>
 
           <div className="ps-cta reveal">
