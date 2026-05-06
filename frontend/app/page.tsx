@@ -101,7 +101,6 @@ export default function Home() {
             <a href="#hebergeurs">Hébergeurs</a>
             <a href="#enseignants">Enseignants</a>
             <a href="#colonies">Colonies</a>
-            <a href="#collaboratif">Espace collaboratif</a>
             <Link href="/a-propos">À propos</Link>
             <a href="#reseau">Réseaux</a>
             <Link href="/catalogue">Catalogue</Link>
