@@ -542,9 +542,9 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 32px;
-  background: #FFFFFF;
-  border: 1px solid var(--line-2);
-  box-shadow: var(--shadow-sm);
+  background: var(--navy-softer);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   border-radius: var(--r-lg);
 }
 .liavo-landing .roadmap-note {
