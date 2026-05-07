@@ -85,7 +85,7 @@ export default function Home() {
       {/* ── NAV ── */}
       <nav className={`nav${scrolled ? ' scrolled' : ''}`} id="nav">
         <div className="wrap nav-inner">
-          <Link className="brand" href="/">
+          <Link className="brand" href="/" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             <Logo size="sm" showTagline={false} />
           </Link>
           <div className="nav-links">
@@ -457,7 +457,7 @@ export default function Home() {
               de <span className="accent">centres référencés</span>.
             </h2>
             <p className="section-lead">
-              Centres labellisés Éducation Nationale, agréés TAM et partenaires LIAVO.
+              Centres labellisés Éducation Nationale et partenaires LIAVO.
             </p>
           </div>
           <div className="catalogue-video-wrap reveal">
