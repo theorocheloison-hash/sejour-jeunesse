@@ -118,26 +118,57 @@ export default function Home() {
               Hébergeurs, enseignants, organisateurs — LIAVO gère tout le flux administratif, du devis à la convention signée, en un seul outil.
             </p>
             <div className="hero-dossier reveal" data-delay="1">
-              {[
-                { icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', label: 'Demande reçue', delay: 0 },
-                { icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', label: 'Devis envoyé', delay: 1 },
-                { icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', label: 'Convention signée', delay: 2 },
-                { icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Journal familles', delay: 3 },
-              ].map((step) => (
-                <div key={step.label} className="dossier-step" style={{ '--step-delay': step.delay } as React.CSSProperties}>
-                  <div className="dossier-icon">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={step.icon} />
-                    </svg>
+              <div className="dossier-row">
+                {[
+                  { icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', label: 'Demande', delay: 0 },
+                  { icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', label: 'Devis', delay: 1 },
+                  { icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z', label: 'Convention signée', delay: 2 },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="dossier-step-wrap">
+                    <div className="dossier-step" style={{ '--step-delay': step.delay } as React.CSSProperties}>
+                      <div className="dossier-icon">
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                          <path d={step.icon} />
+                        </svg>
+                      </div>
+                      <span className="dossier-label">{step.label}</span>
+                      <div className="dossier-check" style={{ '--check-delay': step.delay } as React.CSSProperties}>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="dossier-connector" style={{ '--connector-delay': step.delay } as React.CSSProperties} />
+                    )}
                   </div>
-                  <span className="dossier-label">{step.label}</span>
-                  <div className="dossier-check">
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                ))}
+              </div>
+              <div className="dossier-row">
+                {[
+                  { icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Journal familles', delay: 3 },
+                  { icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', label: 'Facture', delay: 4 },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="dossier-step-wrap">
+                    <div className="dossier-step" style={{ '--step-delay': step.delay } as React.CSSProperties}>
+                      <div className="dossier-icon">
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                          <path d={step.icon} />
+                        </svg>
+                      </div>
+                      <span className="dossier-label">{step.label}</span>
+                      <div className="dossier-check" style={{ '--check-delay': step.delay } as React.CSSProperties}>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="dossier-connector" style={{ '--connector-delay': step.delay } as React.CSSProperties} />
+                    )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             <div className="hero-trust reveal" data-delay="1">
               {[

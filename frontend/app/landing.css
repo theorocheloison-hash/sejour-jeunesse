@@ -232,14 +232,41 @@
   60%  { transform: scale(1.2); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+@keyframes connector-grow {
+  0%   { width: 0; }
+  100% { width: 32px; }
+}
 
 .liavo-landing .hero-dossier {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
   margin: 36px auto 0;
   max-width: 720px;
+}
+
+.liavo-landing .dossier-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: nowrap;
+}
+
+.liavo-landing .dossier-step-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.liavo-landing .dossier-connector {
+  width: 0;
+  height: 2px;
+  background: var(--ocre);
+  border-radius: 2px;
+  opacity: 0.5;
+  animation: connector-grow 0.3s ease forwards;
+  animation-delay: calc(0.55s + var(--connector-delay) * 0.35s);
+  flex-shrink: 0;
 }
 
 .liavo-landing .dossier-step {
@@ -255,6 +282,7 @@
   animation-delay: calc(0.3s + var(--step-delay) * 0.35s);
   box-shadow: var(--shadow-sm);
   transition: border-color .2s ease, box-shadow .2s ease;
+  white-space: nowrap;
 }
 
 .liavo-landing .dossier-step:hover {
@@ -275,7 +303,6 @@
   font-size: 13.5px;
   font-weight: 500;
   color: var(--ink);
-  white-space: nowrap;
 }
 
 .liavo-landing .dossier-check {
@@ -286,18 +313,20 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   animation: check-pop 0.3s ease forwards;
-  animation-delay: calc(0.7s + var(--step-delay) * 0.35s);
+  animation-delay: calc(0.7s + var(--check-delay) * 0.35s);
   opacity: 0;
 }
 
-@media (max-width: 600px) {
-  .liavo-landing .hero-dossier {
+@media (max-width: 700px) {
+  .liavo-landing .dossier-row {
     flex-direction: column;
-    align-items: center;
+    gap: 8px;
   }
-  .liavo-landing .dossier-step {
-    width: 100%;
-    max-width: 300px;
+  .liavo-landing .dossier-connector {
+    width: 2px;
+    height: 0;
+    animation: none;
+    height: 16px;
   }
 }
 
