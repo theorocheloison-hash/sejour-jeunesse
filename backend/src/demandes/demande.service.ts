@@ -1,5 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
@@ -77,10 +78,13 @@ function matchesZone(regionCible: string, centre: { ville: string; codePostal: s
 
 @Injectable()
 export class DemandeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+  ) {}
 
   async create(dto: CreateDemandeDto, enseignantId: string) {
-    return this.prisma.demandeDevis.create({
+    const demande = await this.prisma.demandeDevis.create({
       data: {
         titre: dto.titre,
         description: dto.description,
@@ -102,6 +106,17 @@ export class DemandeService {
         enseignantId,
       },
     });
+
+    this.notifierCentresInscrits({
+      titre: demande.titre,
+      villeHebergement: demande.villeHebergement,
+      dateDebut: demande.dateDebut,
+      dateFin: demande.dateFin,
+      regionCible: demande.regionCible,
+      centreDestinataireId: demande.centreDestinataireId,
+    }).catch((err) => console.error('[DEMANDE] Erreur notification centres:', err));
+
+    return demande;
   }
 
   async findOpen(userId: string) {
@@ -257,5 +272,49 @@ export class DemandeService {
       create: { demandeId, centreId: centre.id },
       update: {},
     });
+  }
+
+  private async notifierCentresInscrits(demande: {
+    titre: string;
+    villeHebergement: string;
+    dateDebut: Date;
+    dateFin: Date;
+    regionCible: string;
+    centreDestinataireId: string | null;
+  }): Promise<void> {
+    const fmt = (d: Date) =>
+      d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (demande.centreDestinataireId) {
+      const centre = await this.prisma.centreHebergement.findUnique({
+        where: { id: demande.centreDestinataireId },
+        select: { nom: true, email: true },
+      });
+      if (centre?.email) {
+        await this.email.sendNouvelleDemandeDevis(
+          centre.email, centre.nom, demande.titre,
+          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+        );
+      }
+      return;
+    }
+
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: { statut: 'ACTIVE', email: { not: null }, userId: { not: null } },
+      select: { nom: true, email: true, ville: true, codePostal: true },
+    });
+
+    const cibles = centres.filter((c) =>
+      matchesZone(demande.regionCible, { ville: c.ville, codePostal: c.codePostal }),
+    );
+
+    await Promise.allSettled(
+      cibles.map((c) =>
+        this.email.sendNouvelleDemandeDevis(
+          c.email!, c.nom, demande.titre,
+          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+        ),
+      ),
+    );
   }
 }

@@ -155,11 +155,118 @@ export class PublicService {
     // 6. Email unique — confirmation + magic link
     await this.email.sendMagicLink(emailNorm, dto.prenom, dto.titre, magicUrl);
 
-    // centresNotifies : 1 si contact direct, 0 si appel d'offres géographique
-    // (le comptage géographique précis sera ajouté quand findOpen() sera extrait
-    // en service partagé — on ne ment pas avec un chiffre approximatif)
-    const centresNotifies = dto.centreDestinataireId ? 1 : 0;
+    // Notification fire-and-forget aux hébergeurs inscrits dont la zone matche
+    this.notifierCentresInscrits({
+      titre: dto.titre,
+      villeHebergement: dto.villeHebergement ?? dto.etablissementVille ?? '',
+      dateDebut: new Date(dto.dateDebut),
+      dateFin: new Date(dto.dateFin),
+      regionCible: dto.regionCible ?? '',
+      centreDestinataireId: dto.centreDestinataireId ?? null,
+    }).catch((err) => console.error('[PUBLIC] Erreur notification centres:', err));
 
-    return { success: true, sejourId: sejour.id, demandeId: demande.id, centresNotifies };
+    return { success: true, sejourId: sejour.id, demandeId: demande.id, centresNotifies: 0 };
+  }
+
+  private async notifierCentresInscrits(demande: {
+    titre: string;
+    villeHebergement: string;
+    dateDebut: Date;
+    dateFin: Date;
+    regionCible: string;
+    centreDestinataireId: string | null;
+  }): Promise<void> {
+    const fmt = (d: Date) =>
+      d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (demande.centreDestinataireId) {
+      const centre = await this.prisma.centreHebergement.findUnique({
+        where: { id: demande.centreDestinataireId },
+        select: { nom: true, email: true },
+      });
+      if (centre?.email) {
+        await this.email.sendNouvelleDemandeDevis(
+          centre.email, centre.nom, demande.titre,
+          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+        );
+      }
+      return;
+    }
+
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: { statut: 'ACTIVE', email: { not: null }, userId: { not: null } },
+      select: { nom: true, email: true, ville: true, codePostal: true },
+    });
+
+    const getDeptCode = (cp: string) => {
+      if (cp.startsWith('97')) return cp.substring(0, 3);
+      return cp.substring(0, 2);
+    };
+
+    const DEPT_TO_REGION: Record<string, string> = {
+      '01': 'Auvergne-Rhône-Alpes', '03': 'Auvergne-Rhône-Alpes', '07': 'Auvergne-Rhône-Alpes',
+      '15': 'Auvergne-Rhône-Alpes', '26': 'Auvergne-Rhône-Alpes', '38': 'Auvergne-Rhône-Alpes',
+      '42': 'Auvergne-Rhône-Alpes', '43': 'Auvergne-Rhône-Alpes', '63': 'Auvergne-Rhône-Alpes',
+      '69': 'Auvergne-Rhône-Alpes', '73': 'Auvergne-Rhône-Alpes', '74': 'Auvergne-Rhône-Alpes',
+      '21': 'Bourgogne-Franche-Comté', '25': 'Bourgogne-Franche-Comté', '39': 'Bourgogne-Franche-Comté',
+      '58': 'Bourgogne-Franche-Comté', '70': 'Bourgogne-Franche-Comté', '71': 'Bourgogne-Franche-Comté',
+      '89': 'Bourgogne-Franche-Comté', '90': 'Bourgogne-Franche-Comté',
+      '22': 'Bretagne', '29': 'Bretagne', '35': 'Bretagne', '56': 'Bretagne',
+      '18': 'Centre-Val de Loire', '28': 'Centre-Val de Loire', '36': 'Centre-Val de Loire',
+      '37': 'Centre-Val de Loire', '41': 'Centre-Val de Loire', '45': 'Centre-Val de Loire',
+      '44': 'Pays de la Loire', '49': 'Pays de la Loire', '53': 'Pays de la Loire',
+      '72': 'Pays de la Loire', '85': 'Pays de la Loire',
+      '75': 'Île-de-France', '77': 'Île-de-France', '78': 'Île-de-France',
+      '91': 'Île-de-France', '92': 'Île-de-France', '93': 'Île-de-France',
+      '94': 'Île-de-France', '95': 'Île-de-France',
+      '14': 'Normandie', '27': 'Normandie', '50': 'Normandie', '61': 'Normandie', '76': 'Normandie',
+      '02': 'Hauts-de-France', '59': 'Hauts-de-France', '60': 'Hauts-de-France',
+      '62': 'Hauts-de-France', '80': 'Hauts-de-France',
+      '08': 'Grand Est', '10': 'Grand Est', '51': 'Grand Est', '52': 'Grand Est',
+      '54': 'Grand Est', '55': 'Grand Est', '57': 'Grand Est', '67': 'Grand Est',
+      '68': 'Grand Est', '88': 'Grand Est',
+      '09': 'Occitanie', '11': 'Occitanie', '12': 'Occitanie', '30': 'Occitanie',
+      '31': 'Occitanie', '32': 'Occitanie', '34': 'Occitanie', '46': 'Occitanie',
+      '48': 'Occitanie', '65': 'Occitanie', '66': 'Occitanie', '81': 'Occitanie', '82': 'Occitanie',
+      '16': 'Nouvelle-Aquitaine', '17': 'Nouvelle-Aquitaine', '19': 'Nouvelle-Aquitaine',
+      '23': 'Nouvelle-Aquitaine', '24': 'Nouvelle-Aquitaine', '33': 'Nouvelle-Aquitaine',
+      '40': 'Nouvelle-Aquitaine', '47': 'Nouvelle-Aquitaine', '64': 'Nouvelle-Aquitaine',
+      '79': 'Nouvelle-Aquitaine', '86': 'Nouvelle-Aquitaine', '87': 'Nouvelle-Aquitaine',
+      '04': "Provence-Alpes-Côte d'Azur", '05': "Provence-Alpes-Côte d'Azur",
+      '06': "Provence-Alpes-Côte d'Azur", '13': "Provence-Alpes-Côte d'Azur",
+      '83': "Provence-Alpes-Côte d'Azur", '84': "Provence-Alpes-Côte d'Azur",
+    };
+
+    const matchesZone = (regionCible: string, centre: { ville: string; codePostal: string }): boolean => {
+      if (!regionCible || regionCible === '') return true;
+      const colonIdx = regionCible.indexOf(':');
+      if (colonIdx === -1) return true;
+      const type = regionCible.substring(0, colonIdx);
+      const value = regionCible.substring(colonIdx + 1);
+      const deptCode = getDeptCode(centre.codePostal);
+      switch (type) {
+        case 'FRANCE': return true;
+        case 'REGION': return DEPT_TO_REGION[deptCode] === value;
+        case 'DEPARTEMENT': return deptCode === value.split(' - ')[0];
+        case 'VILLE': {
+          const villeName = value.split(' (')[0].toLowerCase();
+          return centre.ville.toLowerCase().includes(villeName) || villeName.includes(centre.ville.toLowerCase());
+        }
+        default: return true;
+      }
+    };
+
+    const cibles = centres.filter((c) =>
+      matchesZone(demande.regionCible, { ville: c.ville, codePostal: c.codePostal ?? '' }),
+    );
+
+    await Promise.allSettled(
+      cibles.map((c) =>
+        this.email.sendNouvelleDemandeDevis(
+          c.email!, c.nom, demande.titre,
+          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+        ),
+      ),
+    );
   }
 }
