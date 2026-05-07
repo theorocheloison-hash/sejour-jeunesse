@@ -111,11 +111,11 @@ export default function Home() {
         <div className="wrap">
           <div className="hero-content">
             <h1>
-              Un séjour, un outil,<br />
-              <span className="accent">tous les acteurs</span>.
+              La plateforme de coordination<br />
+              <span className="accent">des séjours jeunesse</span>.
             </h1>
             <p className="hero-sub">
-              Hébergeurs et organisateurs de séjours jeunesse — fini les échanges d&apos;email, LIAVO centralise tout.
+              Hébergeurs, enseignants, organisateurs — LIAVO gère tout le flux administratif, du devis à la convention signée, en un seul outil.
             </p>
             <div className="hero-trust reveal" data-delay="1">
               {[
