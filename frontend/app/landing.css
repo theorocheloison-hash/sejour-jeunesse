@@ -129,6 +129,41 @@
 .liavo-landing .btn-ghost:hover { background: var(--navy-softer); }
 .liavo-landing .btn-lg { padding: 14px 22px; font-size: 15px; }
 
+@keyframes btn-shimmer {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(250%) skewX(-15deg); }
+}
+
+.liavo-landing .btn-primary::after,
+.liavo-landing .btn-navy::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-100%) skewX(-15deg);
+  pointer-events: none;
+}
+
+.liavo-landing .btn-primary:hover::after,
+.liavo-landing .btn-navy:hover::after {
+  animation: btn-shimmer 0.55s ease forwards;
+}
+
+.liavo-landing .btn-primary,
+.liavo-landing .btn-navy {
+  position: relative;
+  overflow: hidden;
+  transition: all .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+.liavo-landing .btn-primary:hover,
+.liavo-landing .btn-navy:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -6px rgba(200, 125, 46, 0.45);
+}
+
 /* ── Nav ── */
 .liavo-landing .nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 50;
