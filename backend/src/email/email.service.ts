@@ -422,4 +422,32 @@ export class EmailService {
     );
     await this.send(to, `Dossier transmis — ${sejourTitre}`, confirmHtml);
   }
+
+  async sendTrialExpirationAlert(
+    centreNom: string,
+    hebergeurEmail: string,
+    hebergeurPrenom: string,
+    joursRestants: number,
+    expirationDate: Date,
+  ) {
+    const dateFormatee = expirationDate.toLocaleDateString('fr-FR', {
+      day: '2-digit', month: 'long', year: 'numeric',
+    });
+    const adminEmail = process.env.ADMIN_ALERT_EMAIL ?? 'contact@liavo.fr';
+    const html = emailLayout(
+      `Relance essai J+25 — ${centreNom}`,
+      `<p>Bonjour,</p>
+       <p>L'essai gratuit du centre <strong>${centreNom}</strong> expire dans <strong>${joursRestants} jour${joursRestants > 1 ? 's' : ''}</strong> (le ${dateFormatee}).</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centreNom}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Contact</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${hebergeurPrenom} — <a href="mailto:${hebergeurEmail}" style="color:#1B4060">${hebergeurEmail}</a></td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Expiration</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateFormatee}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Jours restants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${joursRestants} jour${joursRestants > 1 ? 's' : ''}</td></tr>
+       </table>
+       <p>👉 Contacter l'hébergeur pour proposer un abonnement avant expiration.</p>`,
+      `Écrire à ${hebergeurPrenom}`,
+      `mailto:${hebergeurEmail}?subject=Votre essai LIAVO expire bientôt&body=Bonjour ${hebergeurPrenom},%0A%0A`,
+    );
+    await this.send(adminEmail, `[LIAVO] Relance essai — ${centreNom} — J-${joursRestants}`, html);
+  }
 }

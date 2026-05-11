@@ -12,6 +12,7 @@ export default function AbonnementPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
+  const [upgradeRequested, setUpgradeRequested] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
@@ -24,9 +25,7 @@ export default function AbonnementPage() {
   }, [user]);
 
   function handleUpgrade(_plan: 'ESSENTIEL' | 'COMPLET', _annual: boolean) {
-    alert(
-      'Paiement en ligne bientôt disponible. Contactez contact@liavo.fr pour activer votre plan.',
-    );
+    setUpgradeRequested(true);
   }
 
   if (isLoading || !user) return null;
@@ -109,6 +108,49 @@ export default function AbonnementPage() {
             }}>
               Plan Découverte — gratuit
             </span>
+          </div>
+        )}
+
+        {upgradeRequested && (
+          <div style={{
+            backgroundColor: '#E8F0F8',
+            border: '1px solid #1B4060',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+          }}>
+            <svg style={{ width: 20, height: 20, color: '#1B4060', flexShrink: 0, marginTop: 2 }}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            <div>
+              <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#1B4060' }}>
+                Activation de votre abonnement
+              </p>
+              <p style={{ margin: '0 0 12px', fontSize: 14, color: '#4a4a4a', lineHeight: 1.6 }}>
+                Le paiement en ligne sera disponible prochainement.
+                Pour activer votre plan dès maintenant, contactez-nous — nous vous répondons sous 24h.
+              </p>
+              <a
+                href="mailto:contact@liavo.fr?subject=Activation abonnement LIAVO&body=Bonjour,%0A%0AJe souhaite activer mon abonnement LIAVO.%0A%0AMerci."
+                style={{
+                  display: 'inline-block',
+                  backgroundColor: '#1B4060',
+                  color: '#fff',
+                  padding: '9px 20px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Contacter LIAVO → contact@liavo.fr
+              </a>
+            </div>
           </div>
         )}
 

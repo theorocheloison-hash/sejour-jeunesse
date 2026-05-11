@@ -25,6 +25,7 @@ export default function HebergeurDashboard() {
   const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
   const [claimStatut, setClaimStatut] = useState<string | null>(null);
   const [essaiActif, setEssaiActif] = useState(false);
+  const [essaiExpire, setEssaiExpire] = useState(false);
   const [joursRestants, setJoursRestants] = useState(0);
 
   useEffect(() => {
@@ -52,7 +53,13 @@ export default function HebergeurDashboard() {
         profil?.planAbonnement === 'COMPLET' &&
         !!exp &&
         new Date(exp) >= new Date();
+      const estExpiré =
+        profil?.abonnementStatut === 'ACTIF' &&
+        profil?.planAbonnement === 'COMPLET' &&
+        !!exp &&
+        new Date(exp) < new Date();
       setEssaiActif(actif);
+      setEssaiExpire(estExpiré);
       setJoursRestants(
         actif
           ? Math.ceil((new Date(exp).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -173,6 +180,30 @@ export default function HebergeurDashboard() {
               }}
             >
               Voir les plans →
+            </a>
+          </div>
+        )}
+
+        {essaiExpire && !essaiActif && (
+          <div style={{
+            backgroundColor: '#FDECEA',
+            border: '1px solid #9C2B2B',
+            borderRadius: 8,
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}>
+            <span style={{ fontSize: 14, color: '#9C2B2B', fontWeight: 500 }}>
+              Votre essai gratuit a expiré. Activez un abonnement pour retrouver l&apos;accès complet.
+            </span>
+            <a
+              href="/dashboard/hebergeur/abonnement"
+              style={{ fontSize: 13, fontWeight: 600, color: '#9C2B2B',
+                textDecoration: 'underline', whiteSpace: 'nowrap' }}
+            >
+              Choisir un plan →
             </a>
           </div>
         )}
