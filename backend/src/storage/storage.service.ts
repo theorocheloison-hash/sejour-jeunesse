@@ -15,7 +15,7 @@ export class StorageService {
     this.bucket = this.config.get<string>('S3_BUCKET_NAME')!;
     this.publicUrl = this.config.get<string>('S3_PUBLIC_URL')!;
     this.client = new S3Client({
-      region: 'auto',
+      region: this.config.get<string>('S3_REGION') ?? 'gra',
       endpoint: this.endpoint,
       forcePathStyle: true,
       credentials: {
