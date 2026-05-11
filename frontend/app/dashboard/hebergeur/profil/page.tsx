@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, updateMonProfil } from '@/src/lib/centre';
+import { getMonProfil, updateMonProfil, uploadCentreImage } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
 
 const inputCls =
@@ -84,6 +84,9 @@ export default function HebergeurProfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [showMandatModal, setShowMandatModal] = useState(false);
   const [mandatLu, setMandatLu] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
@@ -94,6 +97,7 @@ export default function HebergeurProfilPage() {
     getMonProfil()
       .then((c) => {
         setCentre(c);
+        setImageUrl(c.imageUrl ?? null);
         setForm({
           nom: c.nom ?? '',
           description: c.description ?? '',
@@ -172,6 +176,31 @@ export default function HebergeurProfilPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setImageError('Format non supporté. Utilisez JPG, PNG ou WebP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError('Fichier trop lourd. Maximum 10 Mo.');
+      return;
+    }
+    setImageUploading(true);
+    setImageError(null);
+    try {
+      const updated = await uploadCentreImage(file);
+      setImageUrl(updated.imageUrl ?? null);
+    } catch {
+      setImageError("Erreur lors de l'upload. Réessayez.");
+    } finally {
+      setImageUploading(false);
+      e.target.value = '';
+    }
+  };
+
   if (isLoading || !user) return null;
 
   return (
@@ -201,6 +230,58 @@ export default function HebergeurProfilPage() {
             {success && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">Profil mis &agrave; jour avec succ&egrave;s.</div>
             )}
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">Photo de l&apos;établissement</h2>
+              <div className="flex items-start gap-6">
+                <div className="shrink-0">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt="Photo de l'établissement"
+                      className="h-24 w-24 rounded-xl object-cover border border-gray-200"
+                    />
+                  ) : (
+                    <div className="h-24 w-24 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-500 mb-3">
+                    Cette photo apparaît dans le catalogue et sur vos devis.<br />
+                    Formats acceptés : JPG, PNG, WebP — maximum 10 Mo.
+                  </p>
+                  {imageError && (
+                    <p className="text-sm text-red-600 mb-2">{imageError}</p>
+                  )}
+                  <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${imageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    {imageUploading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                        Upload en cours...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                        </svg>
+                        {imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={imageUploading}
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
 
             {/* Informations g&eacute;n&eacute;rales */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
