@@ -248,6 +248,9 @@ export class AutorisationService {
       include: { sejour: { select: { createurId: true } } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== userId) {
+      throw new ForbiddenException('Accès non autorisé à cette autorisation');
+    }
 
     return this.prisma.autorisationParentale.update({
       where: { id: autorisationId },
@@ -258,11 +261,15 @@ export class AutorisationService {
     });
   }
 
-  async validerPaiementPartiel(autorisationId: string, montant: number) {
+  async validerPaiementPartiel(autorisationId: string, montant: number, userId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id: autorisationId },
+      include: { sejour: { select: { createurId: true } } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== userId) {
+      throw new ForbiddenException('Accès non autorisé à cette autorisation');
+    }
     if (autorisation.paiementValide) {
       throw new ConflictException('Le paiement est déjà totalement validé');
     }

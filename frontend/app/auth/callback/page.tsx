@@ -1,18 +1,26 @@
 'use client';
 import { useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import Cookies from 'js-cookie';
 
 function CallbackContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const onboarding = searchParams.get('onboarding');
-    const error = searchParams.get('error');
+    // Le token et les params sont dans le fragment (#) pour éviter les logs serveur
+    const hash = window.location.hash.slice(1); // retire le '#' initial
+    const params = new URLSearchParams(hash);
 
+    const token = params.get('token');
+    const onboarding = params.get('onboarding');
+
+    // Nettoyer le hash de l'URL immédiatement (avant tout traitement)
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+
+    // Gérer l'erreur transmise en query param (ce cas vient du backend, pas du hash)
+    const searchParams = new URLSearchParams(window.location.search);
+    const error = searchParams.get('error');
     if (error === 'magic_link_expired') {
       router.replace('/login?error=magic_link_expired');
       return;
@@ -23,7 +31,6 @@ function CallbackContent() {
       return;
     }
 
-    // Décoder le payload JWT pour récupérer le rôle (sans vérifier la signature)
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const user = {
@@ -46,12 +53,11 @@ function CallbackContent() {
       };
 
       const dest = roleRoutes[user.role] ?? '/dashboard/organisateur';
-      // Ajouter ?onboarding=true pour afficher le message de bienvenue + création mdp
-      router.replace(onboarding ? `${dest}?onboarding=true` : dest);
+      router.replace(onboarding === 'true' ? `${dest}?onboarding=true` : dest);
     } catch {
       router.replace('/login');
     }
-  }, [searchParams, router]);
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

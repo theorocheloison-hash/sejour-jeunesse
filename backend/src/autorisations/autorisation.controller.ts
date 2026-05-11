@@ -81,8 +81,9 @@ export class AutorisationController {
   validerPaiementPartiel(
     @Param('id') id: string,
     @Body() body: { montant: number },
+    @CurrentUser() user: JwtUser,
   ) {
-    return this.autorisationService.validerPaiementPartiel(id, body.montant);
+    return this.autorisationService.validerPaiementPartiel(id, body.montant, user.id);
   }
 
   /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (ORGANISATEUR) */
