@@ -177,7 +177,7 @@ function RegisterOrganisateurContent() {
       const payload = { ...form, typeStructure: typeStructure || undefined };
       await api.post('/auth/register/organisateur', payload);
       if (redirectAfterLogin) {
-        sessionStorage.setItem('liavo_redirect_after_login', redirectAfterLogin);
+        document.cookie = `liavo_post_verify_redirect=${encodeURIComponent(redirectAfterLogin)};path=/;max-age=86400;samesite=lax`;
       }
       setSuccess(true);
     } catch (err: unknown) {

@@ -21,10 +21,14 @@ export default function VerifyEmailPage() {
         const isSuccess = !data.message?.includes('déjà');
         setStatus(isSuccess ? 'success' : 'already');
         if (isSuccess) {
-          const redirect = sessionStorage.getItem('liavo_redirect_after_login');
+          const getCookie = (name: string): string | null => {
+            const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+            return match ? decodeURIComponent(match[1]) : null;
+          };
+          const redirect = getCookie('liavo_post_verify_redirect');
           if (redirect) {
             setLoginHref(`/login?redirect=${encodeURIComponent(redirect)}`);
-            sessionStorage.removeItem('liavo_redirect_after_login');
+            document.cookie = 'liavo_post_verify_redirect=;path=/;max-age=0';
           }
         }
       })
