@@ -273,6 +273,21 @@ export class AuthService {
       },
     });
 
+    // ── Relance admin J+25 (fire-and-forget) ─────────────────────
+    // TODO SC-CRON : migrer vers un job planifié (pg-boss ou cron Scalingo)
+    // quand le volume d'hébergeurs justifie une solution robuste
+    const alertDate = new Date(Date.now() + 25 * 24 * 60 * 60 * 1000);
+    setTimeout(() => {
+      const expiration = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      this.email.sendTrialExpirationAlert(
+        dto.nomCentre,
+        dto.emailContact ?? user.email,
+        dto.prenom,
+        5,
+        expiration,
+      ).catch((err) => console.error('[TRIAL ALERT] Echec envoi relance J+25', err));
+    }, alertDate.getTime() - Date.now());
+
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
