@@ -8,6 +8,7 @@ import { getMyProfile, updateMonEtablissement, type UserProfile } from '@/src/li
 import { Logo } from '@/app/components/Logo';
 import type { Etablissement } from '@/src/lib/etablissements';
 import EtablissementSearch from '@/src/components/EtablissementSearch';
+import api from '@/src/lib/api';
 
 export default function ProfilPage() {
   const { user, isLoading } = useAuth();
@@ -18,6 +19,10 @@ export default function ProfilPage() {
   const [selected, setSelected] = useState<Etablissement | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [mdp, setMdp]               = useState('');
+  const [mdpConfirm, setMdpConfirm] = useState('');
+  const [mdpSaving, setMdpSaving]   = useState(false);
+  const [mdpMsg, setMdpMsg]         = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -57,6 +62,29 @@ export default function ProfilPage() {
       setSaveMsg('Erreur lors de la sauvegarde.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (mdp.length < 8) {
+      setMdpMsg('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    if (mdp !== mdpConfirm) {
+      setMdpMsg('Les mots de passe ne correspondent pas.');
+      return;
+    }
+    setMdpSaving(true);
+    setMdpMsg(null);
+    try {
+      await api.post('/auth/set-password', { password: mdp });
+      setMdpMsg('Mot de passe défini avec succès.');
+      setMdp('');
+      setMdpConfirm('');
+    } catch {
+      setMdpMsg('Erreur lors de la définition du mot de passe.');
+    } finally {
+      setMdpSaving(false);
     }
   };
 
@@ -192,6 +220,52 @@ export default function ProfilPage() {
               Aucun établissement associé. Utilisez la recherche ci-dessus pour trouver votre établissement.
             </p>
           )}
+        </div>
+
+        {/* Sécurité */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mt-6">
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Sécurité</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Définissez un mot de passe pour vous connecter sans magic link.
+          </p>
+          <div className="space-y-3 max-w-sm">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Nouveau mot de passe</label>
+              <input
+                type="password"
+                value={mdp}
+                onChange={(e) => { setMdp(e.target.value); setMdpMsg(null); }}
+                placeholder="8 caractères minimum"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Confirmer le mot de passe</label>
+              <input
+                type="password"
+                value={mdpConfirm}
+                onChange={(e) => { setMdpConfirm(e.target.value); setMdpMsg(null); }}
+                placeholder="Répétez le mot de passe"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={handleSetPassword}
+                disabled={mdpSaving || !mdp || !mdpConfirm}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {mdpSaving
+                  ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Sauvegarde...</>
+                  : 'Définir mon mot de passe'}
+              </button>
+              {mdpMsg && (
+                <span className={`text-sm ${mdpMsg.includes('succès') ? 'text-green-600' : 'text-red-600'}`}>
+                  {mdpMsg}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </main>
     </div>
