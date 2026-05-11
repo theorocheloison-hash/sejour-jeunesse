@@ -100,20 +100,30 @@ function RegisterOrganisateurContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etabTypeFilter]);
 
+  const searchParams = useSearchParams();
+  const redirectAfterLogin = searchParams.get('redirect');
+
+  const invitationToken = redirectAfterLogin?.startsWith('/rejoindre/')
+    ? redirectAfterLogin.replace('/rejoindre/', '')
+    : null;
+
   useEffect(() => {
-    if (typeStructure === 'COLLEGE_LYCEE') {
-      setEtabTypeFilter('college,lycee');
-    } else if (typeStructure === 'ECOLE_PRIMAIRE') {
-      setEtabTypeFilter('ecole');
-    } else {
-      setEtabTypeFilter('');
+    // Ne pas resetter si l'établissement vient d'une invitation
+    // (le pré-remplissage invitation s'applique après ce useEffect)
+    setEtabTypeFilter(
+      typeStructure === 'COLLEGE_LYCEE' ? 'college,lycee' :
+      typeStructure === 'ECOLE_PRIMAIRE' ? 'ecole' : ''
+    );
+    // Ne reset les champs établissement QUE si pas de pré-remplissage invitation
+    if (!invitationToken) {
+      setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '',
+        etablissementAdresse: '', etablissementVille: '' }));
+      setEtabNom('');
+      setEtabVille('');
+      setEtabCp('');
+      setEtabResults([]);
     }
-    setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
-    setEtabNom('');
-    setEtabVille('');
-    setEtabCp('');
-    setEtabResults([]);
-  }, [typeStructure]);
+  }, [typeStructure, invitationToken]);
 
   const selectEtab = (e: typeof etabResults[0]) => {
     setForm(f => ({ ...f, etablissementUai: e.uai, etablissementNom: e.nom, etablissementAdresse: e.adresse ?? '', etablissementVille: e.commune }));
@@ -129,13 +139,6 @@ function RegisterOrganisateurContent() {
     setEtabResults([]);
   };
 
-  const searchParams = useSearchParams();
-  const redirectAfterLogin = searchParams.get('redirect');
-
-  const invitationToken = redirectAfterLogin?.startsWith('/rejoindre/')
-    ? redirectAfterLogin.replace('/rejoindre/', '')
-    : null;
-
   useEffect(() => {
     if (!invitationToken) return;
     api.get(`/invitation-collaboration/${invitationToken}`)
@@ -150,6 +153,14 @@ function RegisterOrganisateurContent() {
             etablissementAdresse: inv.etablissementAdresse ?? '',
             etablissementUai: inv.etablissementUai ?? '',
           }));
+          if (inv.etablissementUai) {
+            // UAI = établissement EN → forcément scolaire
+            // Collège ou lycée par défaut (le plus fréquent)
+            // L'utilisateur peut modifier si c'est une école primaire
+            setTypeStructure('COLLEGE_LYCEE');
+          } else if (inv.etablissementNom && !inv.etablissementUai) {
+            // Structure sans UAI → non scolaire, laisser l'utilisateur choisir
+          }
         }
       })
       .catch(() => {});
@@ -170,7 +181,15 @@ function RegisterOrganisateurContent() {
       }
       setSuccess(true);
     } catch (err: unknown) {
-      setError(extractApiError(err));
+      const status = (err as any)?.response?.status;
+      if (status === 409) {
+        const loginUrl = redirectAfterLogin
+          ? `/login?redirect=${encodeURIComponent(redirectAfterLogin)}`
+          : '/login';
+        setError(`__COMPTE_EXISTANT__${loginUrl}`);
+      } else {
+        setError(extractApiError(err));
+      }
     } finally {
       setIsPending(false);
     }
@@ -236,7 +255,19 @@ function RegisterOrganisateurContent() {
               <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{error}</span>
+              {error.startsWith('__COMPTE_EXISTANT__') ? (
+                <span>
+                  Un compte existe déjà avec cet email.{' '}
+                  <Link
+                    href={error.replace('__COMPTE_EXISTANT__', '')}
+                    className="font-semibold underline hover:no-underline"
+                  >
+                    Me connecter →
+                  </Link>
+                </span>
+              ) : (
+                <span>{error}</span>
+              )}
             </div>
           )}
 
