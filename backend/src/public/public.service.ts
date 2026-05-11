@@ -170,6 +170,7 @@ export class PublicService {
       dateFin: new Date(dto.dateFin),
       regionCible: dto.regionCible ?? '',
       centreDestinataireId: dto.centreDestinataireId ?? null,
+      typeContexte: typeContexte,
     }).catch((err) => console.error('[PUBLIC] Erreur notification centres:', err));
 
     return { success: true, sejourId: sejour.id, demandeId: demande.id, centresNotifies: 0 };
@@ -182,6 +183,7 @@ export class PublicService {
     dateFin: Date;
     regionCible: string;
     centreDestinataireId: string | null;
+    typeContexte?: string;
   }): Promise<void> {
     const fmt = (d: Date) =>
       d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });

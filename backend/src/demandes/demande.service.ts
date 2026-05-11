@@ -105,6 +105,7 @@ export class DemandeService {
         sejourId: dto.sejourId,
         enseignantId,
       },
+      include: { sejour: { select: { typeContexte: true } } },
     });
 
     this.notifierCentresInscrits({
@@ -114,6 +115,7 @@ export class DemandeService {
       dateFin: demande.dateFin,
       regionCible: demande.regionCible,
       centreDestinataireId: demande.centreDestinataireId,
+      typeContexte: demande.sejour?.typeContexte ?? undefined,
     }).catch((err) => console.error('[DEMANDE] Erreur notification centres:', err));
 
     return demande;
@@ -281,6 +283,7 @@ export class DemandeService {
     dateFin: Date;
     regionCible: string;
     centreDestinataireId: string | null;
+    typeContexte?: string;
   }): Promise<void> {
     const fmt = (d: Date) =>
       d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -294,6 +297,7 @@ export class DemandeService {
         await this.email.sendNouvelleDemandeDevis(
           centre.email, centre.nom, demande.titre,
           demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.typeContexte,
         );
       }
       return;
@@ -313,6 +317,7 @@ export class DemandeService {
         this.email.sendNouvelleDemandeDevis(
           c.email!, c.nom, demande.titre,
           demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.typeContexte,
         ),
       ),
     );
