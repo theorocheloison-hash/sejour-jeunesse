@@ -327,6 +327,33 @@ export default function HebergeurDemandesPage() {
                 </div>
               )}
 
+              {detailDemande.informationsComplementaires && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Informations complémentaires</p>
+                  <p className="text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{detailDemande.informationsComplementaires}</p>
+                </div>
+              )}
+
+              {detailDemande.sejour?.niveauClasse && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Niveau de classe</p>
+                  <p className="font-medium text-gray-700">{detailDemande.sejour.niveauClasse}</p>
+                </div>
+              )}
+
+              {detailDemande.sejour?.thematiquesPedagogiques && detailDemande.sejour.thematiquesPedagogiques.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Thématiques pédagogiques</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {detailDemande.sejour.thematiquesPedagogiques.map((t) => (
+                      <span key={t} className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {detailDemande.description && (
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Description</p>

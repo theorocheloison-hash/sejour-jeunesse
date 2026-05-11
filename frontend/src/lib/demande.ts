@@ -23,6 +23,7 @@ export interface Demande {
   transportAller?: string | null;
   transportSurPlace?: boolean | null;
   activitesSouhaitees?: string | null;
+  informationsComplementaires?: string | null;
   budgetMaxParEleve?: number | null;
   enseignant?: { id: string; prenom: string; nom: string; email: string };
   sejour?: { niveauClasse: string | null; thematiquesPedagogiques: string[] } | null;
