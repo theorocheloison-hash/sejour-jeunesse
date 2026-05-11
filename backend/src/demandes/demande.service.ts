@@ -98,6 +98,7 @@ export class DemandeService {
         heureArrivee: dto.heureArrivee ?? null,
         heureDepart: dto.heureDepart ?? null,
         activitesSouhaitees: dto.activitesSouhaitees ?? null,
+        informationsComplementaires: dto.informationsComplementaires ?? null,
         budgetMaxParEleve: dto.budgetMaxParEleve ?? null,
         transportAller:    dto.transportAller ?? null,
         transportSurPlace: dto.transportSurPlace ?? null,

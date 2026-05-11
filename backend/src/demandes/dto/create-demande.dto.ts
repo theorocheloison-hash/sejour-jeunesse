@@ -63,6 +63,10 @@ export class CreateDemandeDto {
   activitesSouhaitees?: string;
 
   @IsOptional()
+  @IsString()
+  informationsComplementaires?: string;
+
+  @IsOptional()
   @IsNumber()
   @Type(() => Number)
   budgetMaxParEleve?: number;
