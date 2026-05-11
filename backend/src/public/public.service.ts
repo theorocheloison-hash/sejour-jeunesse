@@ -25,6 +25,7 @@ export interface DemandePubliqueDto {
   dateFin: string;
   nombreEleves: number;
   niveauClasse?: string;
+  thematiquesPedagogiques?: string[];
   regionCible?: string;
   villeHebergement?: string;
   centreDestinataireId?: string;
@@ -36,6 +37,12 @@ export interface DemandePubliqueDto {
   transportSurPlace?: boolean;
   activitesSouhaitees?: string;
   budgetMaxParEleve?: number;
+  informationsComplementaires?: string;
+  ageMin?: number;
+  ageMax?: number;
+  moinsde6ans?: boolean;
+  typeAccueilACM?: string;
+  projetEducatif?: string;
 }
 
 @Injectable()
@@ -106,14 +113,14 @@ export class PublicService {
           placesTotales:           dto.nombreEleves,
           placesRestantes:         dto.nombreEleves,
           niveauClasse:            dto.niveauClasse ?? null,
-          thematiquesPedagogiques: [],
+          thematiquesPedagogiques: dto.thematiquesPedagogiques ?? [],
           statut:                  'SUBMITTED',
           typeContexte:            typeContexte,
-          ageMin:                  null,
-          ageMax:                  null,
-          moinsde6ans:             false,
-          typeAccueilACM:          null,
-          projetEducatif:          null,
+          ageMin:                  dto.ageMin ?? null,
+          ageMax:                  dto.ageMax ?? null,
+          moinsde6ans:             dto.moinsde6ans ?? false,
+          typeAccueilACM:          dto.typeAccueilACM ?? null,
+          projetEducatif:          dto.projetEducatif ?? null,
           createurId:              user!.id,
         },
       });

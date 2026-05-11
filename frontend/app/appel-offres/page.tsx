@@ -4,88 +4,144 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { soumettreDemandePublique } from '@/src/lib/public';
 import { Logo } from '@/app/components/Logo';
+import EtapeInfos from '@/src/components/sejour/EtapeInfos';
+import EtapeGeographie from '@/src/components/sejour/EtapeGeographie';
+import EtapeRecapitulatif from '@/src/components/sejour/EtapeRecapitulatif';
+import { INITIAL_DATA } from '@/src/components/sejour/shared';
+import type { SejourFormData } from '@/src/components/sejour/shared';
 
-const TYPE_STRUCTURE_OPTIONS = [
-  { value: 'COLLEGE_LYCEE',   label: 'Collège ou lycée' },
-  { value: 'ECOLE_PRIMAIRE',  label: 'École primaire' },
-  { value: 'MAIRIE',          label: 'Mairie ou collectivité' },
-  { value: 'CENTRE_LOISIRS',  label: 'Centre de loisirs (ALSH)' },
-  { value: 'ASSOCIATION',     label: 'Association' },
-  { value: 'COMITE_ENTREPRISE', label: "Comité d'entreprise" },
-  { value: 'AUTRE',           label: 'Autre' },
-];
-
-const REGIONS = [
-  'Auvergne-Rhône-Alpes','Bourgogne-Franche-Comté','Bretagne',
-  'Centre-Val de Loire','Corse','Grand Est','Hauts-de-France',
-  'Île-de-France','Normandie','Nouvelle-Aquitaine','Occitanie',
-  'Pays de la Loire',"Provence-Alpes-Côte d'Azur",
-];
+const HORS_SCOLAIRE_TYPES = new Set([
+  'MAIRIE','COLLECTIVITE_TERRITORIALE','CENTRE_LOISIRS',
+  'ASSOCIATION','COMITE_ENTREPRISE','ENTREPRISE','MICRO_ENTREPRISE',
+]);
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50';
 
+const TYPE_STRUCTURE_OPTIONS = [
+  { value: 'COLLEGE_LYCEE',     label: 'Collège ou lycée',        sub: 'Voyage scolaire, classe verte, classe de neige' },
+  { value: 'ECOLE_PRIMAIRE',    label: 'École primaire',          sub: 'Classe découverte, séjour avec nuitée(s)' },
+  { value: 'MAIRIE',            label: 'Mairie ou collectivité',  sub: 'Séjour organisé par une collectivité' },
+  { value: 'CENTRE_LOISIRS',    label: 'Centre de loisirs (ALSH)',sub: 'Accueil de loisirs avec hébergement' },
+  { value: 'ASSOCIATION',       label: 'Association',             sub: 'Colonie, camp, séjour associatif' },
+  { value: 'COMITE_ENTREPRISE', label: "Comité d'entreprise",     sub: 'Séjour organisé par un CSE' },
+  { value: 'AUTRE',             label: 'Autre',                   sub: '' },
+];
+
+function StepIndicator({ current, labels }: { current: number; labels: string[] }) {
+  return (
+    <div className="flex items-center gap-0 mb-8">
+      {labels.map((label, i) => {
+        const s = i + 1;
+        const done = s < current;
+        const active = s === current;
+        return (
+          <div key={s} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+                done ? 'bg-[var(--color-primary)] text-white'
+                : active ? 'bg-[var(--color-primary)] text-white ring-4 ring-indigo-100'
+                : 'bg-gray-100 text-gray-400'
+              }`}>
+                {done ? '✓' : s}
+              </div>
+              <span className={`mt-1.5 text-xs font-medium whitespace-nowrap ${active ? 'text-[var(--color-primary)]' : done ? 'text-gray-500' : 'text-gray-400'}`}>
+                {label}
+              </span>
+            </div>
+            {s < labels.length && (
+              <div className={`flex-1 h-0.5 mx-2 mb-5 transition-colors ${done ? 'bg-[var(--color-primary)]' : 'bg-gray-200'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AppelOffresContent() {
   const searchParams = useSearchParams();
-  const centreId   = searchParams.get('centreId') ?? undefined;
-  const centreNom  = searchParams.get('centreNom') ?? undefined;
-
-  const [step, setStep] = useState(1);
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState('');
-  const [centresNotifies, setCentresNotifies] = useState(0);
-
-  // Données séjour
-  const [titre, setTitre]               = useState('');
-  const [dateDebut, setDateDebut]       = useState('');
-  const [dateFin, setDateFin]           = useState('');
-  const [nombreEleves, setNombreEleves] = useState('');
-  const [niveauClasse, setNiveauClasse] = useState('');
-  const [typeSejour, setTypeSejour]     = useState<'SCOLAIRE' | 'HORS_SCOLAIRE' | ''>('');
-  const [ageMin, setAgeMin]             = useState('');
-  const [ageMax, setAgeMax]             = useState('');
-
-  // Destination (step 2 — seulement si appel d'offres)
-  const [region, setRegion]             = useState('');
-  const [villeHeberg, setVilleHeberg]   = useState('');
-
-  // Coordonnées (step 3)
-  const [prenom, setPrenom]             = useState('');
-  const [nom, setNom]                   = useState('');
-  const [email, setEmail]               = useState('');
-  const [typeStructure, setTypeStructure] = useState('');
-  const [etablissementNom, setEtablissementNom] = useState('');
+  const centreId  = searchParams.get('centreId') ?? undefined;
+  const centreNom = searchParams.get('centreNom') ?? undefined;
 
   const estContactDirect = !!centreId;
-  const totalSteps = estContactDirect ? 2 : 3;
+
+  // Steps : 1=TypeStructure, 2=Infos, 3=Géographie(si pas contact direct), 4=Récap, 5=Coordonnées
+  // Contact direct : 1=TypeStructure, 2=Infos, 3=Récap, 4=Coordonnées
+  const [step, setStep]               = useState(1);
+  const [form, setForm]               = useState<SejourFormData>(INITIAL_DATA);
+  const [typeStructure, setTypeStructure] = useState('');
+  const [prenom, setPrenom]           = useState('');
+  const [nom, setNom]                 = useState('');
+  const [email, setEmail]             = useState('');
+  const [etablissementNom, setEtablissementNom] = useState('');
+  const [isPending, setIsPending]     = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [success, setSuccess]         = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
+
+  const estHorsScolaireUser = HORS_SCOLAIRE_TYPES.has(typeStructure);
+  const stepLabels = estContactDirect
+    ? ['Type', 'Informations', 'Récapitulatif', 'Coordonnées']
+    : ['Type', 'Informations', 'Destination', 'Récapitulatif', 'Coordonnées'];
+  const totalSteps = stepLabels.length;
+
+  // Mapping step → composant
+  const stepForGeo   = estContactDirect ? 99 : 3;
+  const stepForRecap = estContactDirect ? 3 : 4;
+  const stepForCoord = estContactDirect ? 4 : 5;
 
   const canAdvance = () => {
-    if (step === 1) return !!(titre && dateDebut && dateFin && nombreEleves && typeSejour);
-    if (step === 2 && !estContactDirect) return true;
+    if (step === 1) return !!typeStructure;
+    if (step === 2) {
+      const base = form.titre && form.dateDebut && form.dateFin && form.nbEleves;
+      if (estHorsScolaireUser) return !!(base && form.ageMin && form.ageMax && form.typeAccueilACM && form.projetEducatif);
+      return !!(base && form.niveauClasse && form.thematiquesPedagogiques.length > 0);
+    }
+    if (step === stepForGeo) return !!(form.typeZone && form.zoneGeographique && form.dateButoireDevis);
     return true;
   };
 
+  const buildRegionCible = () => {
+    if (!form.typeZone || form.typeZone === 'FRANCE') return undefined;
+    if (form.typeZone === 'REGION')      return `REGION:${form.zoneGeographique}`;
+    if (form.typeZone === 'DEPARTEMENT') return `DEPARTEMENT:${form.zoneGeographique}`;
+    if (form.typeZone === 'VILLE')       return `VILLE:${form.zoneGeographique}`;
+    return undefined;
+  };
+
   const handleSubmit = async () => {
-    if (!prenom || !nom || !email) {
-      setError('Veuillez renseigner vos coordonnées.');
-      return;
-    }
+    if (!prenom || !nom || !email) { setError('Veuillez renseigner vos coordonnées.'); return; }
     setError(null);
     setIsPending(true);
     try {
-      const result = await soumettreDemandePublique({
+      await soumettreDemandePublique({
         prenom, nom, email,
-        typeStructure:        typeStructure || undefined,
-        etablissementNom:     etablissementNom || undefined,
-        titre, dateDebut, dateFin,
-        nombreEleves:         parseInt(nombreEleves, 10),
-        niveauClasse:         niveauClasse || undefined,
-        regionCible:          region || undefined,
-        villeHebergement:     villeHeberg || undefined,
-        centreDestinataireId: centreId,
+        typeStructure:           typeStructure || undefined,
+        etablissementNom:        etablissementNom || undefined,
+        titre:                   form.titre,
+        dateDebut:               form.dateDebut,
+        dateFin:                 form.dateFin,
+        nombreEleves:            parseInt(form.nbEleves, 10),
+        niveauClasse:            estHorsScolaireUser ? undefined : form.niveauClasse || undefined,
+        thematiquesPedagogiques: estHorsScolaireUser ? [] : form.thematiquesPedagogiques,
+        regionCible:             buildRegionCible(),
+        villeHebergement:        form.zoneGeographique || undefined,
+        centreDestinataireId:    centreId,
+        dateButoireReponse:      form.dateButoireDevis || undefined,
+        nombreAccompagnateurs:   form.nombreAccompagnateurs ? parseInt(form.nombreAccompagnateurs, 10) : undefined,
+        heureArrivee:            form.heureArrivee || undefined,
+        heureDepart:             form.heureDepart || undefined,
+        transportAller:          form.transportAller || undefined,
+        transportSurPlace:       form.transportSurPlace,
+        activitesSouhaitees:     form.activitesSouhaitees || undefined,
+        budgetMaxParEleve:       form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
+        informationsComplementaires: form.informationsComplementaires || undefined,
+        ageMin:                  estHorsScolaireUser && form.ageMin ? parseInt(form.ageMin, 10) : undefined,
+        ageMax:                  estHorsScolaireUser && form.ageMax ? parseInt(form.ageMax, 10) : undefined,
+        moinsde6ans:             estHorsScolaireUser ? form.moinsde6ans : undefined,
+        typeAccueilACM:          estHorsScolaireUser ? form.typeAccueilACM : undefined,
+        projetEducatif:          estHorsScolaireUser ? form.projetEducatif : undefined,
       });
-      setCentresNotifies(result.centresNotifies);
       setSubmittedEmail(email);
       setSuccess(true);
     } catch (err: any) {
@@ -98,28 +154,19 @@ function AppelOffresContent() {
   if (success) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--color-success-light)] mb-6">
-          <svg className="w-8 h-8 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-6">
+          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Demande envoyée !</h1>
         <p className="text-gray-500 mb-4">
-          Un email a été envoyé à <strong>{submittedEmail}</strong> avec un lien
-          pour suivre les réponses et accéder à votre espace LIAVO.
+          Un email a été envoyé à <strong>{submittedEmail}</strong> avec un lien pour suivre les réponses.
         </p>
-        {centresNotifies > 0 && (
-          <p className="text-sm text-gray-600 mb-4">
-            Votre demande a été transmise à{' '}
-            <strong>{centresNotifies} centre{centresNotifies > 1 ? 's' : ''}</strong>.
-          </p>
-        )}
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-6">
           Pensez à vérifier vos spams si vous ne trouvez pas l&apos;email.
         </div>
-        <Link href="/catalogue" className="text-sm text-[var(--color-primary)] hover:underline">
-          ← Retour au catalogue
-        </Link>
+        <Link href="/catalogue" className="text-sm text-[var(--color-primary)] hover:underline">← Retour au catalogue</Link>
       </div>
     </div>
   );
@@ -127,22 +174,18 @@ function AppelOffresContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <Link href="/"><Logo size="sm" showTagline={false} /></Link>
-            <Link href="/catalogue" className="text-sm text-gray-500 hover:text-gray-900">
-              ← Catalogue
-            </Link>
+            <Link href="/catalogue" className="text-sm text-gray-500 hover:text-gray-900">← Catalogue</Link>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            {estContactDirect
-              ? `Envoyer une demande à ${centreNom ?? 'ce centre'}`
-              : 'Lancer un appel d\'offres'}
+            {estContactDirect ? `Envoyer une demande à ${centreNom ?? 'ce centre'}` : "Lancer un appel d'offres"}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             {estContactDirect
@@ -151,21 +194,7 @@ function AppelOffresContent() {
           </p>
         </div>
 
-        {/* Indicateur étapes */}
-        <div className="flex items-center gap-2 mb-8">
-          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
-            <div key={s} className="flex items-center gap-2 flex-1 last:flex-none">
-              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                s < step ? 'bg-[var(--color-primary)] text-white'
-                : s === step ? 'bg-[var(--color-primary)] text-white ring-4 ring-indigo-100'
-                : 'bg-gray-100 text-gray-400'
-              }`}>
-                {s < step ? '✓' : s}
-              </div>
-              {s < totalSteps && <div className={`flex-1 h-0.5 ${s < step ? 'bg-[var(--color-primary)]' : 'bg-gray-200'}`} />}
-            </div>
-          ))}
-        </div>
+        <StepIndicator current={step} labels={stepLabels} />
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
           {error && (
@@ -177,106 +206,50 @@ function AppelOffresContent() {
             </div>
           )}
 
-          {/* Step 1 — Infos séjour */}
+          {/* Step 1 — Type de structure */}
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Votre séjour</h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type de séjour *</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: 'SCOLAIRE', label: 'Séjour scolaire', sub: 'Classe verte, voyage scolaire, classe de neige' },
-                    { value: 'HORS_SCOLAIRE', label: 'Colonie / groupe', sub: 'Association, mairie, CSE, centre de loisirs' },
-                  ].map((opt) => (
-                    <label key={opt.value} className={`flex flex-col gap-1 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors ${
-                      typeSejour === opt.value
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <input type="radio" name="typeSejour" value={opt.value}
-                          checked={typeSejour === opt.value}
-                          onChange={() => setTypeSejour(opt.value as 'SCOLAIRE' | 'HORS_SCOLAIRE')}
-                          className="accent-[var(--color-primary)]" />
-                        <span className={`text-sm font-semibold ${typeSejour === opt.value ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>
-                          {opt.label}
-                        </span>
+              <h2 className="text-base font-semibold text-gray-900 mb-4">Vous êtes…</h2>
+              <div className="space-y-2">
+                {TYPE_STRUCTURE_OPTIONS.map((opt) => (
+                  <label key={opt.value} className={`flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors ${
+                    typeStructure === opt.value
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}>
+                    <input type="radio" name="typeStructure" value={opt.value}
+                      checked={typeStructure === opt.value}
+                      onChange={() => setTypeStructure(opt.value)}
+                      className="mt-1 accent-[var(--color-primary)]" />
+                    <div>
+                      <div className={`text-sm font-semibold ${typeStructure === opt.value ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>
+                        {opt.label}
                       </div>
-                      <span className="text-xs text-gray-400 ml-5">{opt.sub}</span>
-                    </label>
-                  ))}
-                </div>
+                      {opt.sub && <div className="text-xs text-gray-400 mt-0.5">{opt.sub}</div>}
+                    </div>
+                  </label>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre du séjour *</label>
-                <input type="text" value={titre} onChange={(e) => setTitre(e.target.value)}
-                  placeholder="Ex : Séjour ski 4ème A — Janvier 2026"
-                  className={inputCls} required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Date d&apos;arrivée *</label>
-                  <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className={inputCls} required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Date de départ *</label>
-                  <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={inputCls} required />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {typeSejour === 'HORS_SCOLAIRE' ? 'Nombre de participants' : typeSejour === 'SCOLAIRE' ? 'Nombre d\'élèves' : 'Nombre de participants / élèves'} *
-                </label>
-                <input type="number" min="1" value={nombreEleves} onChange={(e) => setNombreEleves(e.target.value)} className={inputCls} required />
-              </div>
-              {typeSejour === 'SCOLAIRE' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau de classe</label>
-                  <input type="text" value={niveauClasse} onChange={(e) => setNiveauClasse(e.target.value)}
-                    placeholder="Ex : 4ème" className={inputCls} />
-                </div>
-              )}
-              {typeSejour === 'HORS_SCOLAIRE' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Âge minimum des participants</label>
-                    <input type="number" min="3" max="17" value={ageMin} onChange={(e) => setAgeMin(e.target.value)}
-                      placeholder="Ex : 8" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Âge maximum des participants</label>
-                    <input type="number" min="3" max="17" value={ageMax} onChange={(e) => setAgeMax(e.target.value)}
-                      placeholder="Ex : 14" className={inputCls} />
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
-          {/* Step 2 — Destination (appel d'offres uniquement) */}
-          {step === 2 && !estContactDirect && (
-            <div className="space-y-4">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Destination souhaitée</h2>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Région</label>
-                <select value={region} onChange={(e) => setRegion(e.target.value)} className={inputCls}>
-                  <option value="">Toute la France</option>
-                  {REGIONS.map((r) => <option key={r} value={`REGION:${r}`}>{r}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Ou ville / zone précise</label>
-                <input type="text" value={villeHeberg} onChange={(e) => setVilleHeberg(e.target.value)}
-                  placeholder="Ex : Chamonix, Alpes…" className={inputCls} />
-              </div>
-              <p className="text-xs text-gray-400 mt-3">
-                Si vous ne précisez pas de zone, votre demande sera envoyée à tous les centres référencés en France.
-              </p>
-            </div>
+          {/* Step 2 — Infos séjour */}
+          {step === 2 && (
+            <EtapeInfos form={form} setForm={setForm} estHorsScolaireUser={estHorsScolaireUser} />
           )}
 
-          {/* Dernière étape — Coordonnées */}
-          {((step === 2 && estContactDirect) || (step === 3 && !estContactDirect)) && (
+          {/* Step 3 — Géographie (appel d'offres uniquement) */}
+          {step === stepForGeo && (
+            <EtapeGeographie form={form} setForm={setForm} />
+          )}
+
+          {/* Step récap */}
+          {step === stepForRecap && (
+            <EtapeRecapitulatif form={form} estHorsScolaireUser={estHorsScolaireUser} />
+          )}
+
+          {/* Step coordonnées */}
+          {step === stepForCoord && (
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900 mb-4">Vos coordonnées</h2>
               <div className="grid grid-cols-2 gap-4">
@@ -295,32 +268,12 @@ function AppelOffresContent() {
                   placeholder="votre@email.fr" className={inputCls} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Type de structure</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {TYPE_STRUCTURE_OPTIONS.map((opt) => (
-                    <label key={opt.value} className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer text-xs transition-colors ${
-                      typeStructure === opt.value
-                        ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] text-[var(--color-primary)]'
-                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-                    }`}>
-                      <input type="radio" name="typeStructure" value={opt.value}
-                        checked={typeStructure === opt.value}
-                        onChange={() => setTypeStructure(opt.value)}
-                        className="accent-[var(--color-primary)]" />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Nom de votre établissement
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom de votre établissement</label>
                 <input type="text" value={etablissementNom} onChange={(e) => setEtablissementNom(e.target.value)}
                   placeholder="Ex : Collège Victor Hugo, Mairie de Morillon…" className={inputCls} />
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                Votre espace LIAVO sera créé automatiquement. Vous recevrez un lien par email pour y accéder et définir votre mot de passe.
+                Votre espace LIAVO sera créé automatiquement. Vous recevrez un lien par email pour y accéder.
               </p>
             </div>
           )}
@@ -331,7 +284,6 @@ function AppelOffresContent() {
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
               ← Précédent
             </button>
-
             {step < totalSteps ? (
               <button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canAdvance()}
                 className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">

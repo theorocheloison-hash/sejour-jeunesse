@@ -44,6 +44,9 @@ export interface DemandePubliquePayload {
   dateFin: string;
   nombreEleves: number;
   niveauClasse?: string;
+  thematiquesPedagogiques?: string[];
+  typeZone?: string;
+  zoneGeographique?: string;
   regionCible?: string;
   villeHebergement?: string;
   centreDestinataireId?: string;
@@ -52,7 +55,15 @@ export interface DemandePubliquePayload {
   heureArrivee?: string;
   heureDepart?: string;
   transportAller?: string;
+  transportSurPlace?: boolean;
+  activitesSouhaitees?: string;
   budgetMaxParEleve?: number;
+  informationsComplementaires?: string;
+  ageMin?: number;
+  ageMax?: number;
+  moinsde6ans?: boolean;
+  typeAccueilACM?: string;
+  projetEducatif?: string;
 }
 
 export async function searchCentresPublics(search: string): Promise<CentrePublic[]> {
