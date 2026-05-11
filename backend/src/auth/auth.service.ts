@@ -518,4 +518,16 @@ export class AuthService {
       },
     };
   }
+
+  async definirMotDePasse(userId: string, password: string): Promise<{ success: boolean }> {
+    if (!password || password.length < 8) {
+      throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères.');
+    }
+    const hash = await bcrypt.hash(password, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { motDePasse: hash },
+    });
+    return { success: true };
+  }
 }

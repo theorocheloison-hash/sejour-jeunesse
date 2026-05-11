@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
@@ -8,6 +8,7 @@ import { RegisterOrganisateurDto } from './dto/register-organisateur.dto.js';
 import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
+import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {
@@ -73,6 +74,13 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() body: { token: string; password: string }) {
     return this.authService.reinitialiserMotDePasse(body.token, body.password);
+  }
+
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  setPassword(@Req() req: Request, @Body() body: { password: string }) {
+    return this.authService.definirMotDePasse((req as any).user.id, body.password);
   }
 
   @Get('sirene/:siret')
