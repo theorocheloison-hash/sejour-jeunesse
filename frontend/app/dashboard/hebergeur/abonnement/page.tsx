@@ -13,6 +13,8 @@ export default function AbonnementPage() {
   const { user, isLoading } = useAuth();
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
   const [upgradeRequested, setUpgradeRequested] = useState(false);
+  const [planChoisi, setPlanChoisi] = useState<string | null>(null);
+  const [annuelChoisi, setAnnuelChoisi] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
@@ -24,7 +26,9 @@ export default function AbonnementPage() {
     }
   }, [user]);
 
-  function handleUpgrade(_plan: 'ESSENTIEL' | 'COMPLET', _annual: boolean) {
+  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) {
+    setPlanChoisi(plan);
+    setAnnuelChoisi(annual);
     setUpgradeRequested(true);
   }
 
@@ -38,6 +42,15 @@ export default function AbonnementPage() {
   const nomPlan = abo?.statut === 'ACTIF' && abo.plan
     ? `${PLAN_LABELS[abo.plan] ?? abo.plan} — ${abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}`
     : null;
+
+  const PLAN_LABELS_UPGRADE: Record<string, string> = {
+    ESSENTIEL: 'Plan Essentiel',
+    COMPLET: 'Plan Complet',
+  };
+  const planLabel = planChoisi ? PLAN_LABELS_UPGRADE[planChoisi] ?? planChoisi : 'un abonnement';
+  const periodeLabel = annuelChoisi ? 'annuel' : 'mensuel';
+  const mailtoBody = `Bonjour,%0A%0AJe souhaite activer le ${planLabel} (${periodeLabel}) sur LIAVO.%0A%0AMon centre : [votre nom de centre]%0A%0AMerci.`;
+  const mailtoSubject = `Activation ${planLabel} ${periodeLabel} — LIAVO`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -132,11 +145,12 @@ export default function AbonnementPage() {
                 Activation de votre abonnement
               </p>
               <p style={{ margin: '0 0 12px', fontSize: 14, color: '#4a4a4a', lineHeight: 1.6 }}>
-                Le paiement en ligne sera disponible prochainement.
-                Pour activer votre plan dès maintenant, contactez-nous — nous vous répondons sous 24h.
+                {`Le paiement en ligne sera disponible prochainement.
+                Pour activer le ${planLabel} (${periodeLabel}) dès maintenant,
+                contactez-nous — nous vous répondons sous 24h.`}
               </p>
               <a
-                href="mailto:contact@liavo.fr?subject=Activation abonnement LIAVO&body=Bonjour,%0A%0AJe souhaite activer mon abonnement LIAVO.%0A%0AMerci."
+                href={`mailto:contact@liavo.fr?subject=${encodeURIComponent(mailtoSubject).replace(/%20/g, '+')}&body=${mailtoBody}`}
                 style={{
                   display: 'inline-block',
                   backgroundColor: '#1B4060',
