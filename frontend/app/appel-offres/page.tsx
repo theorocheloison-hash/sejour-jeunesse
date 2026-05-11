@@ -21,7 +21,7 @@ const TYPE_STRUCTURE_OPTIONS = [
   { value: 'COLLEGE_LYCEE',     label: 'Collège ou lycée',        sub: 'Voyage scolaire, classe verte, classe de neige' },
   { value: 'ECOLE_PRIMAIRE',    label: 'École primaire',          sub: 'Classe découverte, séjour avec nuitée(s)' },
   { value: 'MAIRIE',            label: 'Mairie ou collectivité',  sub: 'Séjour organisé par une collectivité' },
-  { value: 'CENTRE_LOISIRS',    label: 'Centre de loisirs (ALSH)',sub: 'Accueil de loisirs avec hébergement' },
+  { value: 'CENTRE_LOISIRS',    label: 'Centre de loisirs (ALSH)',sub: 'Séjour organisé par un centre de loisirs' },
   { value: 'ASSOCIATION',       label: 'Association',             sub: 'Colonie, camp, séjour associatif' },
   { value: 'COMITE_ENTREPRISE', label: "Comité d'entreprise",     sub: 'Séjour organisé par un CSE' },
   { value: 'AUTRE',             label: 'Autre',                   sub: '' },
