@@ -263,6 +263,16 @@ export class AuthService {
       console.error('[registerHebergeur] Echec rattachement Organisation/Membership', err);
     }
 
+    // ── Trial 30 jours ───────────────────────────────────────
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: {
+        planAbonnement:        'COMPLET',
+        abonnementStatut:      'ACTIF',
+        abonnementActifJusquAu: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
     await this.prisma.consentementRgpd.create({
       data: {
         userId: user.id,
