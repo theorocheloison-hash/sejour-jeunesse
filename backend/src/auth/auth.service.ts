@@ -315,7 +315,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
-    if (!user) throw new NotFoundException('Aucun compte trouvé avec cet email');
+    if (!user) return { message: 'Si cet email est enregistré, un lien a été envoyé.' };
 
     if (user.emailVerifie) {
       return { message: 'Votre email est déjà vérifié.' };
@@ -496,7 +496,7 @@ export class AuthService {
     const accessToken = this.jwt.sign(payload);
 
     return res.redirect(
-      `${frontendUrl}/auth/callback?token=${encodeURIComponent(accessToken)}&onboarding=true`
+      `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&onboarding=true`
     );
   }
 
