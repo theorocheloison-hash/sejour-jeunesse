@@ -91,12 +91,26 @@ export default function HebergeurDashboard() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      alert('Format non supporté. Utilisez JPG, PNG ou WebP.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Fichier trop lourd. Maximum 10 Mo.');
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const updated = await uploadCentreImage(file);
       setCentre((prev: any) => ({ ...prev, imageUrl: updated.imageUrl }));
+    } catch {
+      alert("Erreur lors de l'upload. Réessayez.");
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -511,7 +525,7 @@ export default function HebergeurDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
               </button>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageUpload} />
             </div>
             <div className="flex-1 grid grid-cols-2 gap-3 text-sm">
               <div>
