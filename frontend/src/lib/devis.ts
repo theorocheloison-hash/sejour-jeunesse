@@ -263,15 +263,3 @@ export async function supprimerVersement(devisId: string, versementId: string): 
   await api.patch(`/devis/${devisId}/versements/${versementId}/supprimer`);
 }
 
-export async function uploadDevisPdf(demandeId: string, file: File): Promise<Devis> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('demandeId', demandeId);
-  formData.append('typeDevis', 'PDF');
-  formData.append('montantTotal', '0');
-  formData.append('montantParEleve', '0');
-  const { data } = await api.post<Devis>('/devis', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return data;
-}

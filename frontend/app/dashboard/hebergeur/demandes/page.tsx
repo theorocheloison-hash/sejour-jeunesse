@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDemandesOuvertes, ignorerDemande } from '@/src/lib/demande';
-import { uploadDevisPdf } from '@/src/lib/devis';
+import { createDocument } from '@/src/lib/collaboration';
 import type { Demande } from '@/src/lib/demande';
 
 export default function HebergeurDemandesPage() {
@@ -57,17 +57,21 @@ export default function HebergeurDemandesPage() {
     handleFileSelect(file);
   };
 
-  const handleUpload = async (demandeId: string) => {
+  const handleUpload = async (demandeId: string, sejourId: string) => {
     if (!pdfFile) return;
     setSending(true);
     setSuccessId(null);
     try {
-      await uploadDevisPdf(demandeId, pdfFile);
+      await createDocument(
+        sejourId,
+        { nom: pdfFile.name.replace(/\.pdf$/i, ''), type: 'FACTURE' },
+        pdfFile,
+      );
       setSuccessId(demandeId);
       setOpenUpload(null);
       setPdfFile(null);
     } catch {
-      setError('Erreur lors de l\'envoi du devis PDF.');
+      setError("Erreur lors de l'envoi du document.");
     } finally {
       setSending(false);
     }
@@ -231,7 +235,7 @@ export default function HebergeurDemandesPage() {
                       {pdfFile && (
                         <div className="mt-3 flex justify-end">
                           <button
-                            onClick={() => handleUpload(d.id)}
+                            onClick={() => handleUpload(d.id, d.sejourId)}
                             disabled={sending}
                             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
