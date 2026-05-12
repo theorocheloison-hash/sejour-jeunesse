@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -62,6 +62,7 @@ export class StorageService {
         Key: key,
         Body: file.buffer,
         ContentType: mimeToExt[file.mimetype] ? file.mimetype : 'application/octet-stream',
+        ACL: ObjectCannedACL.public_read,
       }));
     } catch (e) {
       console.error('S3 upload error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
