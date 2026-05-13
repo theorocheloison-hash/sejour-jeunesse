@@ -298,6 +298,7 @@ export class DevisLibresService {
       devis.emailClient,
       `Devis ${devis.numeroDevis} — ${devis.typeEvenement ?? 'Événement'} · Chalet Le Sauvageon`,
       htmlEmail,
+      devis.centre?.nom,
     );
 
     // ── Mise à jour statut ─────────────────────────────────────────────────
@@ -387,6 +388,7 @@ export class DevisLibresService {
          <p>Un acompte de <strong>${Number(devis.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</strong>
          est à régler par virement dans un délai d'un mois.</p>
          <p>À bientôt au Chalet Le Sauvageon !</p>`,
+        devis.centre?.nom,
       );
     }
 
