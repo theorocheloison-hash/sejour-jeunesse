@@ -13,16 +13,20 @@ export default function SignerDevisLibrePage() {
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [contratTelecharge, setContratTelecharge] = useState(false);
 
   useEffect(() => {
     getDevisLibrePublic(token)
-      .then(setDevis)
+      .then((d) => {
+        setDevis(d);
+        if (!d.contratUrl) setContratTelecharge(true);
+      })
       .catch(() => setError('Ce lien de signature est invalide ou a déjà été utilisé.'))
       .finally(() => setLoading(false));
   }, [token]);
 
   const handleSign = async () => {
-    if (!nomSignataire.trim() || !accepted) return;
+    if (!nomSignataire.trim() || !accepted || !contratTelecharge) return;
     setSigning(true);
     try {
       await signerDevisLibre(token, nomSignataire.trim());
@@ -153,6 +157,7 @@ export default function SignerDevisLibrePage() {
               href={devis.contratUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => setContratTelecharge(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -160,6 +165,11 @@ export default function SignerDevisLibrePage() {
               </svg>
               Télécharger le contrat PDF
             </a>
+            {!contratTelecharge && (
+              <p className="text-xs text-amber-600 mt-2">
+                Veuillez télécharger et lire le contrat avant de signer.
+              </p>
+            )}
           </div>
         )}
 
@@ -193,7 +203,7 @@ export default function SignerDevisLibrePage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             onClick={handleSign}
-            disabled={signing || !nomSignataire.trim() || !accepted}
+            disabled={signing || !nomSignataire.trim() || !accepted || !contratTelecharge}
             className="w-full rounded-lg bg-[#1B4060] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {signing ? (

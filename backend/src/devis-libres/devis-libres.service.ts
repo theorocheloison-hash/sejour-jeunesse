@@ -227,6 +227,7 @@ export class DevisLibresService {
 
       const fmt = (d: Date) =>
         d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const round2 = (n: number) => Math.round(n * 100) / 100;
 
       const montantTTC = devis.montantTTC ?? 0;
       const montantAcompte = devis.montantAcompte ?? (montantTTC * 0.3);
@@ -244,16 +245,16 @@ export class DevisLibresService {
         lignes: (devis.lignes ?? []).map(l => ({
           description: l.description,
           quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
+          prixUnitaire: round2(l.prixUnitaire),
           tva: l.tva,
-          totalTTC: l.totalTTC,
+          totalTTC: round2(l.totalTTC),
         })),
-        montantHT: devis.montantHT ?? 0,
-        montantTVA: devis.montantTVA ?? 0,
-        montantTTC,
+        montantHT: round2(devis.montantHT ?? 0),
+        montantTVA: round2(devis.montantTVA ?? 0),
+        montantTTC: round2(montantTTC),
         pourcentageAcompte: devis.pourcentageAcompte ?? 30,
-        montantAcompte,
-        resteAPayer,
+        montantAcompte: round2(montantAcompte),
+        resteAPayer: round2(resteAPayer),
         dateSignature: fmt(new Date()),
         numeroDevis: devis.numeroDevis,
       });

@@ -129,7 +129,7 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
           <Text style={styles.bold}>Type d&apos;événement :</Text> {data.typeEvenement ?? '—'}
         </Text>
         <Text style={styles.value}>
-          <Text style={styles.bold}>Période :</Text> Du {data.dateDebut} au {data.dateFin}
+          <Text style={styles.bold}>Période :</Text> Du {data.dateDebut} à 17h00 au {data.dateFin} à 16h00
         </Text>
         <Text style={styles.value}>
           <Text style={styles.bold}>Lieu :</Text> Chalet Le Sauvageon — 472 Route du Mas Devant, 74440 Morillon
@@ -293,9 +293,9 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         <Text style={styles.paragraph}>
           Toute annulation doit être notifiée par écrit à resa@lesauvageon.com.
         </Text>
-        <Text style={styles.bullet}>• Annulation jusqu&apos;à 6 mois avant le début du séjour : l&apos;acompte versé est remboursé dans son intégralité</Text>
-        <Text style={styles.bullet}>• Annulation entre 6 et 3 mois avant : 50% du montant total TTC est retenu</Text>
-        <Text style={styles.bullet}>• Annulation entre 3 mois et la date du séjour : l&apos;intégralité du montant TTC est due</Text>
+        <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé est remboursé dans son intégralité</Text>
+        <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : 50% du montant total TTC est retenu</Text>
+        <Text style={styles.bullet}>• Annulation moins de 6 mois avant le début du séjour : l&apos;intégralité du montant TTC est due</Text>
 
         <Text style={styles.articleTitle}>Article 5 — Annulation du fait de la SAS Le Sauvageon</Text>
         <Text style={styles.paragraph}>
