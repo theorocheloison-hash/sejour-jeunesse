@@ -49,15 +49,16 @@ export class EmailService {
     }
   }
 
-  private async send(to: string, subject: string, html: string) {
+  private async send(to: string, subject: string, html: string, fromName?: string) {
     if (!BREVO_API_KEY) {
       console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
       return;
     }
-    console.log(`[EMAIL] Envoi via Brevo — from: ${SENDER_EMAIL} — to: ${to} — subject: ${subject}`);
+    const senderName = fromName?.trim() || SENDER_NAME;
+    console.log(`[EMAIL] Envoi via Brevo — from: ${senderName} <${SENDER_EMAIL}> — to: ${to} — subject: ${subject}`);
     try {
       await this.api.sendTransacEmail({
-        sender: { name: SENDER_NAME, email: SENDER_EMAIL },
+        sender: { name: senderName, email: SENDER_EMAIL },
         to: [{ email: to }],
         subject,
         htmlContent: html,
@@ -223,14 +224,14 @@ export class EmailService {
 
   // ── g) Notification générique ────────────────────────────────────────
 
-  async sendGenericNotification(to: string, subject: string, message: string) {
+  async sendGenericNotification(to: string, subject: string, message: string, fromName?: string) {
     const html = emailLayout(
       subject,
       `<p>${message}</p>`,
       'Accéder à la plateforme',
       `${FRONTEND_URL}/login`,
     );
-    await this.send(to, subject, html);
+    await this.send(to, subject, html, fromName);
   }
 
   async sendMagicLink(to: string, prenom: string, titreSejourOuAction: string, magicUrl: string) {
