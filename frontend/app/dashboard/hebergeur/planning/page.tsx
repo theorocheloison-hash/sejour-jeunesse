@@ -5,6 +5,9 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import type { SejourConventionHebergeur } from '@/src/lib/collaboration';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
+import { getMesDevisLibres } from '@/src/lib/devis-libres';
+import type { DevisLibre } from '@/src/lib/devis-libres';
+import { useRouter } from 'next/navigation';
 
 // Palette 8 couleurs séjours
 const PALETTE = [
@@ -17,6 +20,12 @@ const PALETTE = [
   { bg: '#D35400', text: '#fff' },
   { bg: '#2C3E50', text: '#fff' },
 ];
+
+const COULEUR_DL: Record<string, { bg: string; text: string }> = {
+  ENVOYE:  { bg: '#F59E0B', text: '#fff' },
+  ACCEPTE: { bg: '#16A34A', text: '#fff' },
+  PAYE:    { bg: '#1B4060', text: '#fff' },
+};
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 06h → 21h
 const SLOT_HEIGHT = 60; // px par heure
@@ -64,12 +73,19 @@ export default function HebergeurPlanningPage() {
   const [showDispoModal, setShowDispoModal] = useState(false);
   const [dispoForm, setDispoForm] = useState({ dateDebut: '', dateFin: '', commentaire: '' });
   const [saving, setSaving] = useState(false);
+  const [devisLibres, setDevisLibres] = useState<DevisLibre[]>([]);
+  const router = useRouter();
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d] = await Promise.all([getMesSejoursConvention(), getDisponibilites()]);
+      const [s, d, dl] = await Promise.all([
+        getMesSejoursConvention(),
+        getDisponibilites(),
+        getMesDevisLibres(),
+      ]);
       setSejours(s);
       setDispos(d);
+      setDevisLibres(dl.filter(dl => dl.statut !== 'BROUILLON' && dl.statut !== 'REFUSE'));
     } catch {} finally {
       setLoading(false);
     }
@@ -286,6 +302,32 @@ export default function HebergeurPlanningPage() {
                         </Link>
                       );
                     })}
+                    {devisLibres
+                      .filter(dl => {
+                        const s = dl.dateDebut.split('T')[0];
+                        const e = dl.dateFin.split('T')[0];
+                        return ds >= s && ds <= e;
+                      })
+                      .map(dl => {
+                        const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
+                        const isStart = dl.dateDebut.split('T')[0] === ds;
+                        return (
+                          <div
+                            key={dl.id}
+                            className="block text-xs px-1.5 py-0.5 truncate cursor-pointer hover:opacity-90"
+                            style={{
+                              backgroundColor: c.bg,
+                              color: c.text,
+                              marginLeft: isStart ? 2 : 0,
+                              borderRadius: isStart ? '4px 0 0 4px' : '0',
+                            }}
+                            onClick={() => router.push(`/dashboard/hebergeur/devis-libres/${dl.id}`)}
+                            title={`${dl.typeEvenement ?? 'Événement'} — ${dl.nomClient}`}
+                          >
+                            {isStart ? `${dl.typeEvenement ?? 'Événement'} · ${dl.nomClient}` : ''}
+                          </div>
+                        );
+                      })}
                   </div>
                 );
               })}
@@ -438,6 +480,25 @@ export default function HebergeurPlanningPage() {
                             </Link>
                           );
                         })}
+                        {devisLibres
+                          .filter(dl => {
+                            const s = dl.dateDebut.split('T')[0];
+                            const e = dl.dateFin.split('T')[0];
+                            return ds >= s && ds <= e;
+                          })
+                          .map(dl => {
+                            const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
+                            return (
+                              <div
+                                key={dl.id}
+                                className="block text-xs px-1 rounded truncate mb-0.5 cursor-pointer"
+                                style={{ backgroundColor: c.bg, color: c.text }}
+                                onClick={e => { e.stopPropagation(); router.push(`/dashboard/hebergeur/devis-libres/${dl.id}`); }}
+                              >
+                                {dl.typeEvenement ?? 'Événement'} · {dl.nomClient}
+                              </div>
+                            );
+                          })}
                       </div>
                     );
                   })}
@@ -472,6 +533,17 @@ export default function HebergeurPlanningPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowDispoModal(false);
+                  router.push(
+                    `/dashboard/hebergeur/devis-libres/nouveau?dateDebut=${dispoForm.dateDebut}&dateFin=${dispoForm.dateFin}`
+                  );
+                }}
+                className="flex-1 rounded-lg bg-[#1B4060] py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                + Créer un événement
+              </button>
               <button onClick={handleAddDispo} disabled={saving || !dispoForm.dateDebut || !dispoForm.dateFin}
                 className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
                 {saving ? 'Enregistrement...' : 'Marquer indisponible'}

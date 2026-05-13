@@ -100,6 +100,7 @@ export interface Client {
   rappels: Rappel[];
   sejours: SejourClient[];
   devis: DevisClient[];
+  devisLibres?: import('./devis-libres').DevisLibre[];
   montantCA?: number;
   nombreSejours?: number;
 }
