@@ -2,12 +2,7 @@ import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { execSync } from 'node:child_process';
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Request } from 'express';
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -225,62 +220,53 @@ export class DevisLibresService {
       throw new BadRequestException('Email client requis pour envoyer le devis');
     }
 
-    // ── Génération contrat Word → PDF ──────────────────────────────────────
-    const templatePath = join(process.cwd(), 'assets', 'contrat-sauvageon.docx');
+    // Génération contrat PDF via react-pdf
     let contratUrl: string | null = null;
+    try {
+      const { generateContratSauvageonPdf } = await import('./contrat-sauvageon.pdf.js');
 
-    if (existsSync(templatePath)) {
-      try {
-        const templateBuffer = readFileSync(templatePath);
-        const zip = new PizZip(templateBuffer);
-        const doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-        });
+      const fmt = (d: Date) =>
+        d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-        const fmt = (d: Date) =>
-          d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const montantTTC = devis.montantTTC ?? 0;
+      const montantAcompte = devis.montantAcompte ?? (montantTTC * 0.3);
+      const resteAPayer = montantTTC - montantAcompte;
 
-        doc.render({
-          dateDebut: fmt(new Date(devis.dateDebut)),
-          dateFin: fmt(new Date(devis.dateFin)),
-          nomClient: devis.nomClient,
-          prenomClient: devis.prenomClient ?? '',
-          adresseClient: devis.adresseClient ?? '',
-          telClient: devis.telClient ?? '',
-          emailClient: devis.emailClient ?? '',
-          dateSignature: fmt(new Date()),
-          nomPrenomSignataire: `${devis.nomClient} ${devis.prenomClient ?? ''}`.trim(),
-        });
+      const pdfBuffer = await generateContratSauvageonPdf({
+        nomClient: devis.nomClient,
+        prenomClient: devis.prenomClient,
+        adresseClient: devis.adresseClient,
+        telClient: devis.telClient,
+        emailClient: devis.emailClient,
+        typeEvenement: devis.typeEvenement,
+        dateDebut: fmt(new Date(devis.dateDebut)),
+        dateFin: fmt(new Date(devis.dateFin)),
+        lignes: (devis.lignes ?? []).map(l => ({
+          description: l.description,
+          quantite: l.quantite,
+          prixUnitaire: l.prixUnitaire,
+          tva: l.tva,
+          totalTTC: l.totalTTC,
+        })),
+        montantHT: devis.montantHT ?? 0,
+        montantTVA: devis.montantTVA ?? 0,
+        montantTTC,
+        pourcentageAcompte: devis.pourcentageAcompte ?? 30,
+        montantAcompte,
+        resteAPayer,
+        dateSignature: fmt(new Date()),
+        numeroDevis: devis.numeroDevis,
+      });
 
-        const contratDocxBuffer = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
-
-        // Conversion docx → pdf via LibreOffice headless
-        const tmpDocx = `/tmp/contrat-${id}.docx`;
-        const tmpPdf = `/tmp/contrat-${id}.pdf`;
-        writeFileSync(tmpDocx, contratDocxBuffer);
-
-        execSync(
-          `soffice --headless --convert-to pdf --outdir /tmp ${tmpDocx}`,
-          { timeout: 30000 },
-        );
-
-        if (existsSync(tmpPdf)) {
-          const pdfBuffer = readFileSync(tmpPdf);
-          contratUrl = await this.storage.uploadBuffer(
-            pdfBuffer,
-            `contrat-${devis.numeroDevis}.pdf`,
-            'contrats',
-            'application/pdf',
-          );
-          // Nettoyage
-          try { unlinkSync(tmpDocx); } catch {}
-          try { unlinkSync(tmpPdf); } catch {}
-        }
-      } catch (err) {
-        // Non bloquant — on envoie quand même l'email sans contrat PDF si erreur
-        console.error('Erreur génération contrat PDF:', err);
-      }
+      contratUrl = await this.storage.uploadBuffer(
+        pdfBuffer,
+        `contrat-${devis.numeroDevis ?? devis.id}.pdf`,
+        'contrats',
+        'application/pdf',
+      );
+    } catch (err) {
+      console.error('Erreur génération contrat PDF:', err);
+      // non-bloquant : l'email part sans contrat si erreur
     }
 
     // ── Email au client ────────────────────────────────────────────────────
