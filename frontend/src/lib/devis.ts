@@ -174,6 +174,19 @@ export async function createDevis(dto: CreateDevisDto): Promise<Devis> {
   return data;
 }
 
+export async function createDevisWithFile(
+  dto: { demandeId: string; montantTotal: string; montantParEleve: string; typeDevis: string },
+  file: File,
+): Promise<Devis> {
+  const formData = new FormData();
+  formData.append('file', file);
+  Object.entries(dto).forEach(([k, v]) => formData.append(k, v));
+  const { data } = await api.post<Devis>('/devis', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function getMesDevis(): Promise<Devis[]> {
   const { data } = await api.get<Devis[]>('/devis/mes-devis');
   return data;
