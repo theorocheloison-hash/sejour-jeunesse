@@ -71,6 +71,29 @@ export class StorageService {
     return `${this.publicUrl}/${key}`;
   }
 
+  async uploadBuffer(
+    buffer: Buffer,
+    filename: string,
+    folder: string,
+    mimetype: string,
+  ): Promise<string> {
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `${folder}/${randomUUID()}-${safeName}`;
+    try {
+      await this.client.send(new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: mimetype,
+        ACL: ObjectCannedACL.public_read,
+      }));
+    } catch (e) {
+      console.error('S3 uploadBuffer error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
+      throw new InternalServerErrorException(`Erreur upload fichier: ${(e as any)?.message ?? 'unknown'}`);
+    }
+    return `${this.publicUrl}/${key}`;
+  }
+
   async delete(url: string): Promise<void> {
     try {
       const publicBase = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`;
