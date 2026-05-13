@@ -561,6 +561,7 @@ model CentreHebergement {
   demandesDestinees DemandeDevis[] @relation("DemandesDestinees")
   clients          Client[]
   invitationsAdmin InvitationHebergement[] @relation("InvitationCentreExistant")
+  devisLibres      DevisLibre[]
   @@map("centres_hebergement")
 }
 
@@ -795,6 +796,82 @@ model VersementPaiement {
 }
 
 // ============================================================
+// MODEL : DevisLibre (devis clients particuliers — mariages, séminaires)
+// ============================================================
+model DevisLibre {
+  id                  String    @id @default(uuid()) @db.Uuid
+  centreId            String    @map("centre_id") @db.Uuid
+  clientId            String?   @map("client_id") @db.Uuid
+  nomClient           String    @map("nom_client") @db.VarChar(255)
+  prenomClient        String?   @map("prenom_client") @db.VarChar(255)
+  emailClient         String?   @map("email_client") @db.VarChar(255)
+  telClient           String?   @map("tel_client") @db.VarChar(30)
+  adresseClient       String?   @map("adresse_client") @db.VarChar(500)
+  typeEvenement       String?   @map("type_evenement") @db.VarChar(100)
+  dateDebut           DateTime  @map("date_debut") @db.Date
+  dateFin             DateTime  @map("date_fin") @db.Date
+  description         String?   @db.Text
+  conditionsAnnulation String?  @map("conditions_annulation") @db.Text
+  notesInternes       String?   @map("notes_internes") @db.Text
+  statut              String    @default("BROUILLON") @db.VarChar(30)
+  numeroDevis         String?   @map("numero_devis") @db.VarChar(50)
+  montantHT           Float?    @map("montant_ht")
+  montantTVA          Float?    @map("montant_tva")
+  montantTTC          Float?    @map("montant_ttc")
+  tauxTva             Float?    @default(0) @map("taux_tva")
+  pourcentageAcompte  Float?    @default(30) @map("pourcentage_acompte")
+  montantAcompte      Float?    @map("montant_acompte")
+  montantVerseTotal   Float     @default(0) @map("montant_verse_total")
+  documentUrl         String?   @map("document_url") @db.VarChar(500)
+  contratUrl          String?   @map("contrat_url") @db.VarChar(500)
+  tokenSignature      String    @unique @default(uuid()) @map("token_signature") @db.Uuid
+  signatureClient     String?   @map("signature_client") @db.Text
+  dateSignatureClient DateTime? @map("date_signature_client")
+  signatureIp         String?   @map("signature_ip") @db.VarChar(45)
+  signatureUserAgent  String?   @map("signature_user_agent") @db.VarChar(500)
+  signatureHash       String?   @map("signature_hash") @db.VarChar(64)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  centre     CentreHebergement    @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  client     Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  lignes     LigneDevisLibre[]
+  versements VersementDevisLibre[]
+
+  @@index([centreId])
+  @@index([clientId])
+  @@map("devis_libres")
+}
+
+model LigneDevisLibre {
+  id           String     @id @default(uuid()) @db.Uuid
+  devisLibreId String     @map("devis_libre_id") @db.Uuid
+  description  String     @db.Text
+  quantite     Float
+  prixUnitaire Float      @map("prix_unitaire")
+  tva          Float      @default(0)
+  totalHT      Float      @map("total_ht")
+  totalTTC     Float      @map("total_ttc")
+
+  devisLibre DevisLibre @relation(fields: [devisLibreId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_devis_libre")
+}
+
+model VersementDevisLibre {
+  id           String   @id @default(uuid()) @db.Uuid
+  devisLibreId String   @map("devis_libre_id") @db.Uuid
+  montant      Float
+  datePaiement DateTime @map("date_paiement") @db.Date
+  reference    String?  @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  devisLibre DevisLibre @relation(fields: [devisLibreId], references: [id], onDelete: Cascade)
+
+  @@map("versements_devis_libre")
+}
+
+// ============================================================
 // MODEL : LigneDevis (lignes d'un devis)
 // ============================================================
 model LigneDevis {
@@ -978,6 +1055,7 @@ model Client {
   contacts     ContactClient[]
   rappels      Rappel[]
   sejours      SejourClient[]
+  devisLibres  DevisLibre[]
 
   @@index([centreId])
   @@index([centreId, uai])
