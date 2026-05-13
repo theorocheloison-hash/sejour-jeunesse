@@ -4,7 +4,9 @@ import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { createDevisLibre, envoyerDevisLibre } from '@/src/lib/devis-libres';
+import {
+  createDevisLibre, envoyerDevisLibre, getDevisLibre, updateDevisLibre,
+} from '@/src/lib/devis-libres';
 import type { CreateDevisLibreDto } from '@/src/lib/devis-libres';
 import { getMesClients } from '@/src/lib/clients';
 import type { Client } from '@/src/lib/clients';
@@ -60,7 +62,11 @@ function NouveauDevisLibreContent() {
   const initialClientId = searchParams.get('clientId') ?? '';
   const initialDateDebut = searchParams.get('dateDebut') ?? '';
   const initialDateFin = searchParams.get('dateFin') ?? '';
+  const initialEditId = searchParams.get('edit') ?? '';
   const { user, isLoading } = useAuth();
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
   // Client
   const [nomClient, setNomClient] = useState('');
@@ -107,16 +113,56 @@ function NouveauDevisLibreContent() {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
   }, [isLoading, user, router]);
 
-  // ── Load clients + catalogue ──
+  // ── Load clients + catalogue (+ devis si mode édition) ──
   useEffect(() => {
     if (!user) return;
     Promise.all([
       getMesClients().catch(() => [] as Client[]),
       getCatalogue().catch(() => [] as ProduitCatalogue[]),
-    ]).then(([cs, cat]) => {
+      initialEditId ? getDevisLibre(initialEditId).catch(() => null) : Promise.resolve(null),
+    ]).then(([cs, cat, devis]) => {
       setClients(cs);
       setCatalogue(cat);
-      // Pré-remplissage depuis clientId
+
+      // Mode édition : pré-remplit tous les champs depuis le devis
+      if (initialEditId) {
+        if (!devis) {
+          setError('Devis introuvable.');
+          setRedirecting(true);
+          setTimeout(() => router.push('/dashboard/hebergeur'), 2000);
+          return;
+        }
+        if (devis.statut !== 'BROUILLON') {
+          setError(`Ce devis ne peut plus être modifié (statut : ${devis.statut}). Redirection vers la page détail...`);
+          setRedirecting(true);
+          setTimeout(() => router.push(`/dashboard/hebergeur/devis-libres/${devis.id}`), 2000);
+          return;
+        }
+        setEditId(devis.id);
+        setNomClient(devis.nomClient);
+        setPrenomClient(devis.prenomClient ?? '');
+        setEmailClient(devis.emailClient ?? '');
+        setTelClient(devis.telClient ?? '');
+        setAdresseClient(devis.adresseClient ?? '');
+        setSelectedClientId(devis.clientId ?? null);
+        setTypeEvenement(devis.typeEvenement ?? '');
+        setDateDebut(devis.dateDebut.split('T')[0]);
+        setDateFin(devis.dateFin.split('T')[0]);
+        setDescription(devis.description ?? '');
+        setConditionsAnnulation(devis.conditionsAnnulation ?? CONDITIONS_DEFAULT);
+        setNotesInternes(devis.notesInternes ?? '');
+        setPourcentageAcompte(devis.pourcentageAcompte ?? 30);
+        const lignesForm = (devis.lignes ?? []).map(l => makeLigneForm({
+          description: l.description,
+          quantite: String(l.quantite),
+          prixUnitaire: String(l.prixUnitaire),
+          tva: String(l.tva),
+        }));
+        setLignes(lignesForm.length > 0 ? lignesForm : [makeLigneForm()]);
+        return;
+      }
+
+      // Pré-remplissage depuis clientId (création)
       if (initialClientId) {
         const c = cs.find(x => x.id === initialClientId);
         if (c) {
@@ -128,7 +174,7 @@ function NouveauDevisLibreContent() {
         }
       }
     }).finally(() => setLoadingInitial(false));
-  }, [user, initialClientId]);
+  }, [user, initialClientId, initialEditId, router]);
 
   // ── Recherche client avec debounce 300ms ──
   useEffect(() => {
@@ -238,7 +284,7 @@ function NouveauDevisLibreContent() {
     };
   };
 
-  // ── Save brouillon ──
+  // ── Save brouillon (création) / Save modifications (édition) ──
   const handleSaveBrouillon = async () => {
     if (!nomClient.trim() || !dateDebut || !dateFin) {
       setError('Nom du client et dates obligatoires.');
@@ -247,10 +293,15 @@ function NouveauDevisLibreContent() {
     setSending('brouillon');
     setError(null);
     try {
-      const devis = await createDevisLibre(buildDto());
-      router.push(`/dashboard/hebergeur/devis-libres/${devis.id}`);
+      if (editId) {
+        await updateDevisLibre(editId, buildDto());
+        router.push(`/dashboard/hebergeur/devis-libres/${editId}`);
+      } else {
+        const devis = await createDevisLibre(buildDto());
+        router.push(`/dashboard/hebergeur/devis-libres/${devis.id}`);
+      }
     } catch {
-      setError("Erreur lors de l'enregistrement du devis.");
+      setError(editId ? 'Erreur lors de la mise à jour du devis.' : "Erreur lors de l'enregistrement du devis.");
       setSending(null);
     }
   };
@@ -286,6 +337,16 @@ function NouveauDevisLibreContent() {
     );
   }
 
+  if (redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-8 max-w-md w-full text-center">
+          <p className="text-sm text-red-600">{error ?? 'Redirection en cours...'}</p>
+        </div>
+      </div>
+    );
+  }
+
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const canEnvoyer = nomClient.trim() && dateDebut && dateFin && emailClient.trim() && calculs.montantHT > 0;
   const canBrouillon = nomClient.trim() && dateDebut && dateFin;
@@ -299,7 +360,9 @@ function NouveauDevisLibreContent() {
             <Link href="/dashboard/hebergeur" className="text-sm text-[var(--color-primary)] hover:underline font-medium">
               &larr; Tableau de bord
             </Link>
-            <span className="text-sm font-semibold text-gray-700">Nouveau devis événement</span>
+            <span className="text-sm font-semibold text-gray-700">
+              {editId ? 'Modifier le devis' : 'Nouveau devis événement'}
+            </span>
           </div>
         </div>
       </nav>
@@ -743,12 +806,13 @@ function NouveauDevisLibreContent() {
                   Enregistrement...
                 </>
               ) : (
-                'Enregistrer en brouillon'
+                editId ? 'Enregistrer les modifications' : 'Enregistrer en brouillon'
               )}
             </button>
             <button
               type="button"
               onClick={handleSaveEnvoyer}
+              hidden={!!editId}
               disabled={sending !== null || !canEnvoyer}
               title={!emailClient.trim() ? "Email client requis pour l'envoi" : undefined}
               className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -768,7 +832,7 @@ function NouveauDevisLibreContent() {
               )}
             </button>
           </div>
-          {!emailClient.trim() && (
+          {!editId && !emailClient.trim() && (
             <p className="px-8 pb-6 -mt-2 text-xs text-gray-400 text-right">
               Email client requis pour l&apos;envoi du devis au client.
             </p>
