@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDemandesOuvertes, ignorerDemande } from '@/src/lib/demande';
-import { createDocument } from '@/src/lib/collaboration';
+import { createDevisWithFile } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
 
 export default function HebergeurDemandesPage() {
@@ -57,21 +57,25 @@ export default function HebergeurDemandesPage() {
     handleFileSelect(file);
   };
 
-  const handleUpload = async (demandeId: string, sejourId: string) => {
+  const handleUpload = async (demandeId: string, nombreEleves: number) => {
     if (!pdfFile) return;
     setSending(true);
     setSuccessId(null);
     try {
-      await createDocument(
-        sejourId,
-        { nom: pdfFile.name.replace(/\.pdf$/i, ''), type: 'FACTURE' },
+      await createDevisWithFile(
+        {
+          demandeId,
+          montantTotal: '0',
+          montantParEleve: '0',
+          typeDevis: 'EXTERNE',
+        },
         pdfFile,
       );
       setSuccessId(demandeId);
       setOpenUpload(null);
       setPdfFile(null);
     } catch {
-      setError("Erreur lors de l'envoi du document.");
+      setError("Erreur lors de l'envoi du devis.");
     } finally {
       setSending(false);
     }
@@ -235,7 +239,7 @@ export default function HebergeurDemandesPage() {
                       {pdfFile && (
                         <div className="mt-3 flex justify-end">
                           <button
-                            onClick={() => handleUpload(d.id, d.sejourId)}
+                            onClick={() => handleUpload(d.id, d.nombreEleves)}
                             disabled={sending}
                             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >

@@ -280,12 +280,33 @@ export default function OffresPage() {
                 )}
 
                 {/* Bouton PDF */}
-                <div className="pt-2">
-                  <DevisPDFButton
-                    data={buildPdfProps(selectedDevis)}
-                    filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
-                    label="Voir / Imprimer le devis PDF"
-                  />
+                <div className="pt-2 space-y-3">
+                  {selectedDevis.documentUrl ? (
+                    <>
+                      <a
+                        href={selectedDevis.documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        Télécharger le devis PDF
+                      </a>
+                      <iframe
+                        src={selectedDevis.documentUrl}
+                        style={{ width: '100%', height: '60vh', minHeight: 400, border: 'none', borderRadius: 8 }}
+                        title="Aperçu du devis PDF"
+                      />
+                    </>
+                  ) : (selectedDevis.lignes ?? []).length > 0 ? (
+                    <DevisPDFButton
+                      data={buildPdfProps(selectedDevis)}
+                      filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
+                      label="Voir / Imprimer le devis PDF"
+                    />
+                  ) : null}
                 </div>
               </div>
               <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
