@@ -155,12 +155,22 @@ export default function DevisLibreDetailPage() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between gap-4">
-            <button
-              onClick={() => router.push('/dashboard/hebergeur')}
-              className="text-sm text-[var(--color-primary)] hover:underline font-medium"
-            >
-              &larr; Mes devis
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/dashboard/hebergeur')}
+                className="text-sm text-[var(--color-primary)] hover:underline font-medium"
+              >
+                &larr; Mes devis
+              </button>
+              {devis?.clientId && (
+                <Link
+                  href={`/dashboard/hebergeur/clients?selected=${devis.clientId}`}
+                  className="text-sm text-gray-500 hover:text-[var(--color-primary)] hover:underline"
+                >
+                  &larr; Fiche client
+                </Link>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-mono text-gray-700">{devis.numeroDevis ?? '—'}</span>
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}>

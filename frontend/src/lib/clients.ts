@@ -217,3 +217,32 @@ export async function importerContactsCSV(
   );
   return data;
 }
+
+export interface ActiviteClient {
+  id: string;
+  clientId: string;
+  centreId: string;
+  type: string;
+  description: string;
+  metadata?: Record<string, unknown> | null;
+  userId?: string | null;
+  createdAt: string;
+}
+
+export async function getActivitesClient(clientId: string): Promise<ActiviteClient[]> {
+  const { data } = await api.get<ActiviteClient[]>(`/clients/${clientId}/activites`);
+  return data;
+}
+
+export async function createActiviteClient(
+  clientId: string,
+  dto: { type: string; description: string; metadata?: Record<string, unknown> }
+): Promise<ActiviteClient> {
+  const { data } = await api.post<ActiviteClient>(`/clients/${clientId}/activites`, dto);
+  return data;
+}
+
+export async function envoyerBrochureClient(clientId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/clients/${clientId}/envoyer-brochure`);
+  return data;
+}
