@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 13/05/2026 — Module DevisLibre complet (backend + frontend)
+> Dernière mise à jour : 13/05/2026 — Session complète DevisLibre + CRM pipeline mariage
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -31,15 +31,10 @@
 | DevisLibre                | devis_libres                    |
 | LigneDevisLibre           | lignes_devis_libre              |
 | VersementDevisLibre       | versements_devis_libre          |
-
-### Colonnes supprimées (SC8) — ne plus utiliser
-- etablissement_uai, etablissement_nom, etablissement_adresse
-- etablissement_ville, etablissement_email, etablissement_telephone, type_structure
-→ Données portées par organisations via memberships
+| ActiviteClient            | activites_client (À CRÉER)      |
 
 ### StatutDevis — valeurs actuelles
 EN_ATTENTE | EN_ATTENTE_VALIDATION | SELECTIONNE | SIGNE_DIRECTION | NON_RETENU
-(ACCEPTE et REFUSE existent dans l'enum Prisma mais ne sont plus utilisés)
 
 ### StatutDevisLibre — valeurs (string, pas enum)
 BROUILLON | ENVOYE | ACCEPTE | REFUSE | PAYE
@@ -50,9 +45,9 @@ DRAFT | SUBMITTED | APPROVED | REJECTED | CONVENTION | SOUMIS_RECTORAT | SIGNE_D
 ---
 
 ## REGLE ABSOLUE — PROCESS CC
-**L'analyse cascade et le grep de vérification finale font partie intégrante de chaque prompt CC.**
+**Prompts longs : découper en parties numérotées.**
 **git add/commit/push passent par CC. PowerShell uniquement pour les requêtes SQL Scalingo.**
-**Prompts longs : découper en parties numérotées — CC tronque au-delà d'une certaine taille.**
+**Lire les fichiers source avant toute proposition. Ne jamais écrire de prompt sans avoir lu.**
 
 ---
 
@@ -62,16 +57,13 @@ DRAFT | SUBMITTED | APPROVED | REJECTED | CONVENTION | SOUMIS_RECTORAT | SIGNE_D
 |---|---|---|
 | Frontend | Next.js 15 / React 19 / TypeScript / Tailwind 4 | liavo.fr (Scalingo Paris) |
 | Backend | NestJS 11 / Prisma / PostgreSQL 17 | api.liavo.fr (Scalingo Paris) |
-| BDD | PostgreSQL 17.9 | Scalingo Paris |
 | Stockage | OVH Object Storage Gravelines | s3.gra.io.cloud.ovh.net |
-| Emails | Brevo | contact@liavo.fr |
-| DNS | OVH | dns14/ns14.ovh.net |
+| Emails | Brevo | contact@liavo.fr (fromName configurable) |
 
 **Repo :** theorocheloison-hash/sejour-jeunesse
 **Local :** C:\Users\Roche-Loison\Desktop\sejour-jeunesse (copie UNIQUE)
-**Déploiement :** push main → Scalingo auto via CC
 **Scalingo CLI :** C:\Users\Roche-Loison\scalingo\scalingo_1.44.1_windows_amd64\scalingo.exe
-**PROJECT_DIR :** backend=backend / frontend=frontend (monorepo Scalingo)
+**PROJECT_DIR :** backend=backend / frontend=frontend
 
 ---
 
@@ -79,8 +71,8 @@ DRAFT | SUBMITTED | APPROVED | REJECTED | CONVENTION | SOUMIS_RECTORAT | SIGNE_D
 
 ```bash
 scalingo --app liavo-backend --region osc-fr1 pgsql-console
-scalingo --app liavo-backend --region osc-fr1 env
 scalingo --app liavo-backend --region osc-fr1 logs --lines 100
+scalingo --app liavo-backend --region osc-fr1 deployments
 scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 ```
 
@@ -91,175 +83,187 @@ scalingo --app liavo-backend --region osc-fr1 env-set NOM_VAR=valeur
 | Email | Rôle | MDP |
 |---|---|---|
 | contact@liavo.fr | ADMIN | Admin2026! |
-| resa@lesauvageon.com | HEBERGEUR (Sauvageon) | [réinitialisé par Théo le 13/05] |
+| resa@lesauvageon.com | HEBERGEUR (Sauvageon) | [réinitialisé 13/05] |
 | demo-lmdj@liavo.fr | RESEAU (LMDJ) | LMDJ2026! |
 
 Centre Sauvageon ID : 3a710674-d580-4ffd-9d9a-f739bae82154
-INTERDIT : contact@chalet-sauvageon.fr = adresse INEXISTANTE
-Email Sauvageon correct : resa@lesauvageon.com
+INTERDIT : contact@chalet-sauvageon.fr = INEXISTANT
 
 ---
 
-## MODULE DEVIS LIBRES — 13/05/2026 (COMPLET)
+## MODULE DEVIS LIBRES — 13/05/2026 (COMPLET ET VALIDÉ EN PROD)
 
-### Objectif
-Permettre à l'hébergeur de créer des devis pour clients particuliers (mariages,
-séminaires, etc.) sans workflow séjour scolaire. Entièrement côté hébergeur.
+### Flux complet validé
+1. Création devis depuis planning/CRM/direct ✅
+2. Email client avec lien contrat PDF + bouton signature ✅
+3. Page signature publique (sans auth) ✅
+4. Contrat PDF généré côté backend (react-pdf, @react-pdf/renderer v4.5.1) ✅
+5. Upload contrat sur OVH S3 ✅
+6. Signature électronique eIDAS niveau simple ✅
+7. Email confirmation après signature ✅
+8. Suivi versements + barre de progression ✅
+9. Intégration planning (blocs orange/vert/bleu) ✅
+10. Intégration CRM fiche client (Section 5b) ✅
 
-### Architecture
-- Type 2 : DevisLibre pur (mariage, particulier) — ce module
-- Type 3 : Séjour gré-à-gré scolaire sans enseignant actif → reporté post-validation commerciale
+### Fichiers clés
+- `backend/src/devis-libres/contrat-sauvageon.pdf.tsx` — contrat react-pdf complet
+- `backend/src/devis-libres/devis-libres.service.ts` — génération PDF + envoi email
+- `backend/src/devis-libres/dto/create-devis-libre.dto.ts` — DTOs avec décorateurs class-validator
+- `frontend/app/dashboard/hebergeur/devis-libres/nouveau/page.tsx` — formulaire + mode edit
+- `frontend/app/dashboard/hebergeur/devis-libres/[id]/page.tsx` — page détail
+- `frontend/app/devis-libre/signer/[token]/page.tsx` — page publique
 
-### Fichiers créés/modifiés
+### Contrat mariage — données fixes Sauvageon
+- Signataire bailleur : Maëva Roche-Loison, Directrice SAS LE SAUVAGEON
+- IBAN : FR76 1810 6000 2796 7820 4408 470 / BIC : AGRIFRPP881
+- Banque : Crédit Agricole des Savoie — Samoens
+- Tribunal : Annecy
+- Acompte : 30% fixe
+- Accès : vendredi 17h00 → dimanche 16h00 (chambres 11h00)
+- Paliers annulation : 9 mois remboursé / 9-6 mois 50% / <6 mois intégralité due
+- RGPD : 5 ans conservation
 
-**Backend :**
-- `backend/prisma/migrations/20260513090444_add_devis_libre/migration.sql`
-- `backend/prisma/schema.prisma` — 3 nouveaux models + relations inverses sur Client et CentreHebergement
-- `backend/src/devis-libres/devis-libres.module.ts`
-- `backend/src/devis-libres/devis-libres.controller.ts`
-- `backend/src/devis-libres/devis-libres.service.ts`
-- `backend/src/devis-libres/dto/create-devis-libre.dto.ts`
-- `backend/src/storage/storage.service.ts` — ajout `uploadBuffer()`
-- `backend/src/app.module.ts` — import DevisLibresModule
-- `backend/.buildpacks` — LibreOffice buildpack (Soulou) + Node
-- `backend/Aptfile` — libreoffice
-- `backend/assets/contrat-sauvageon.docx` — template contrat type mariage
+### Email expéditeur
+- Adresse : contact@liavo.fr (domaine vérifié Brevo)
+- Nom d'affichage : "Chalet Le Sauvageon" pour emails client DevisLibre
+- Nom d'affichage : "Liavo" pour emails internes hébergeur
+- email.service.ts accepte fromName? optionnel (4e arg)
 
-**Frontend :**
-- `frontend/src/lib/devis-libres.ts` — types + 8 fonctions API
-- `frontend/src/lib/clients.ts` — ajout champ `devisLibres?` sur Client
-- `frontend/app/devis-libre/signer/[token]/page.tsx` — page publique signature (sans auth)
-- `frontend/app/dashboard/hebergeur/planning/page.tsx` — blocs DevisLibre sur planning
-- `frontend/app/dashboard/hebergeur/clients/page.tsx` — Section 5b événements particuliers
-- `frontend/app/dashboard/hebergeur/devis-libres/nouveau/page.tsx` — formulaire création
-- `frontend/app/dashboard/hebergeur/devis-libres/[id]/page.tsx` — page détail/gestion
+### Points d'attention / bugs connus
+- **Quantité catalogue à 0** : quand ajout depuis catalogue, quantité pré-remplie à 0
+  → Fix simple dans `nouveau/page.tsx` : pré-remplir à 1 au lieu de 0
+- **Mode édition** : `?edit=id` fonctionne ✅
+- **Bloquer signature** si contrat non téléchargé ✅
+- **Arrondis** : round2() appliqué sur tous les montants avant génération PDF ✅
 
-### Routes backend
+### Commits session 13/05
+- `feat(devis-libres): backend module complet`
+- `feat(devis-libres): frontend lib + page signature + planning + CRM` (096ac54)
+- `feat(devis-libres): formulaire création + page détail` (1f52ba3)
+- `fix(backend): retire buildpack LibreOffice` (25a8e86)
+- `feat(devis-libres): contrat PDF react-pdf côté backend` (pushé)
+- `feat(email): fromName configurable` (33ecfaf)
+- `fix(devis-libres): arrondis + paliers + blocage signature + heures` (e38ccfe)
+
+---
+
+## CRM PIPELINE MARIAGE — PROCHAINE FEATURE (À IMPLÉMENTER)
+
+### Vision validée
+La page CRM fiche client est le HUB commercial. La page détail devis est le détail transactionnel pur.
+La page devis a juste un lien "← Voir la fiche client" en haut. Pas de fil d'Ariane sur la page devis.
+
+### Process commercial mariage Sauvageon
 ```
-GET    /devis-libres              → liste hébergeur (HEBERGEUR)
-POST   /devis-libres              → création (HEBERGEUR)
-GET    /devis-libres/:id          → détail (HEBERGEUR)
-PATCH  /devis-libres/:id          → mise à jour (HEBERGEUR)
-DELETE /devis-libres/:id          → suppression (HEBERGEUR)
-POST   /devis-libres/:id/envoyer  → envoi email + contrat PDF (HEBERGEUR)
-POST   /devis-libres/:id/versements → ajout versement (HEBERGEUR)
-GET    /devis-libres/signer/:token → données signature (PUBLIC — pas de guard)
-POST   /devis-libres/signer/:token → signer (PUBLIC — pas de guard)
+1. Premier contact (appel/mail)
+   → Créer fiche client CRM
+   → Bouton "Envoyer les infos" → email Brevo avec brochure PDF en PJ
+   → Tracé automatique dans Activité : "Brochure envoyée le XX/XX"
+
+2. Visite programmée
+   → Bouton "Planifier une visite" → lien Google Agenda (URL construite côté frontend)
+   → Note manuelle dans Activité : "Visite effectuée le XX/XX"
+
+3. Confirmation post-visite
+   → Bouton "+ Nouveau devis événement" → formulaire pré-rempli
+   → Tracé automatique dans Activité : "Devis DL-2026-XXX envoyé"
+
+4. Signature
+   → Tracé automatique : "Devis DL-2026-XXX signé le XX/XX"
+
+5. Acompte + versements
+   → Tracé automatique : "Versement reçu — 2100€"
 ```
 
-### 3 points d'entrée formulaire
-1. Planning → clic sur créneau → bouton "Créer un événement" → `/nouveau?dateDebut=&dateFin=`
-2. CRM fiche client → bouton "+ Nouveau devis événement" → `/nouveau?clientId=`
-3. Direct → `/dashboard/hebergeur/devis-libres/nouveau`
+### Ce qui est à construire
 
-### Points d'attention / TODO
-- Mode édition formulaire `nouveau` : `?edit=id` redirige vers le formulaire
-  mais le mode edit n'est pas encore implémenté — à faire dans une prochaine session
-- LibreOffice (soffice) : fonctionne uniquement en prod Scalingo (buildpack).
-  En dev Windows → try/catch absorbe l'erreur, email part sans PDF contrat
-- Seuil PAYE : montantVerseTotal >= montantTTC * 0.99 (protection arrondi)
-- Section 5b CRM visible pour tous les clients (pas seulement ceux avec devis LIAVO)
-- Variables docxtemplater dans le template contrat :
-  dateDebut, dateFin, nomClient, prenomClient, adresseClient,
-  telClient, emailClient, dateSignature, nomPrenomSignataire
-- IMPORTANT : le template contrat-sauvageon.docx doit avoir les variables
-  docxtemplater insérées manuellement (remplacer les XX par {variable}).
-  Le fichier actuel dans backend/assets/ est le modèle brut non modifié.
+#### A — Model ActiviteClient (migration Prisma)
+```prisma
+model ActiviteClient {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  centreId    String
+  type        String   // APPEL / EMAIL / VISITE / DEVIS / SIGNATURE / VERSEMENT / NOTE
+  description String
+  metadata    Json?    // { devisId, montant, numeroDevis, etc. }
+  createdAt   DateTime @default(now())
+  userId      String?
+}
+```
+Relation inverse sur Client : `activites ActiviteClient[]`
 
-### Commits
-- `feat(devis-libres): backend module complet — migration, schema, controller, service, buildpacks Scalingo`
-- `feat(devis-libres): frontend — lib, page signature publique, planning, CRM clients` (096ac54)
-- `feat(devis-libres): formulaire création + page détail hébergeur` (1f52ba3)
+#### B — Backend
+- `POST /clients/:id/activites` — créer une activité manuelle (HEBERGEUR)
+- `GET /clients/:id/activites` — liste chronologique (HEBERGEUR)
+- Appels automatiques dans `devis-libres.service.ts` :
+  - `envoyer()` → créer activité type=DEVIS description="Devis XX envoyé"
+  - `signer()` → créer activité type=SIGNATURE
+  - `ajouterVersement()` → créer activité type=VERSEMENT
+
+#### C — Frontend fiche client CRM (`clients/page.tsx`)
+Section "Activité" sous la Section 5b DevisLibres :
+- Log chronologique : icon + type + description + date
+- Bouton "Ajouter une note" → modal simple (type + texte)
+- Bouton "Envoyer la brochure" → POST /clients/:id/activites + appel email Brevo
+- Bouton "Planifier une visite" → URL Google Agenda construite côté frontend
+
+#### D — Frontend page détail devis (`devis-libres/[id]/page.tsx`)
+Ajouter en haut : lien "← Voir la fiche client" si devis.clientId présent
+→ router.push(`/dashboard/hebergeur/clients?selected=${devis.clientId}`)
+
+#### E — Brochure
+Fichier : `backend/assets/brochure-sauvageon.pdf` (déjà uploadé ce jour)
+Email brochure : même pattern que contrat, uploadBuffer sur S3 au premier envoi
+puis URL réutilisée (stocker dans CentreHebergement.brochureUrl)
+
+### Ordre d'implémentation recommandé
+1. Migration Prisma ActiviteClient
+2. Backend routes + appels automatiques dans service DevisLibres
+3. Frontend section Activité dans fiche client
+4. Frontend bouton "Envoyer la brochure" + upload brochure S3
+5. Frontend bouton Google Agenda
+6. Frontend lien retour fiche client sur page devis
 
 ---
 
-## CHANTIER A2 — PDF externe devis — 13/05/2026 (COMPLET)
+## AUTRES CHANTIERS ROADMAP
 
-Correctif : quand l'hébergeur uploade un PDF externe comme devis, l'organisateur
-peut maintenant le voir dans l'espace collaboratif et dans la page offres.
+### Court terme
+- Fix quantité catalogue à 0 (DevisLibre formulaire)
+- CloudConvert PDF contrat → remplacé par react-pdf ✅
 
-**Fichiers modifiés :**
-- `frontend/src/lib/devis.ts` — ajout `createDevisWithFile()` (multipart)
-- `frontend/app/dashboard/hebergeur/demandes/page.tsx` — upload PDF → POST /devis
-- `frontend/app/dashboard/organisateur/sejours/[id]/offres/page.tsx` — affiche iframe si documentUrl
-- `frontend/app/dashboard/sejour/[id]/page.tsx` — affiche iframe si documentUrl
+### Moyen terme
+- SC-TRIAL : essai 30 jours hébergeur
+- SC-STRIPE : paiement abonnement
+- SC-CRON : relances trial (pg-boss)
+- Type 3 : séjour gré-à-gré sans enseignant
 
-Commit : `fix(devis): PDF externe visible organisateur — A2`
+### Long terme / Vision
+- Agent IA traitement email : webhook → Claude API → extraction entités →
+  création client CRM → génération devis → human-in-the-loop → envoi
+  Stack : Brevo webhook + NestJS + claude-sonnet-4-6 + LIAVO CRM
 
----
-
-## ÉTAT DES SOUS-CHANTIERS — 13/05/2026
-
-| SC | Nom | Statut |
-|---|---|---|
-| SC0 | Migration Railway → Scalingo | TERMINE |
-| SC1 | Schéma Prisma + backfill Organisations/Memberships | TERMINE |
-| SC1bis | findOrCreateOrganisation / helpers | TERMINE |
-| SC2 | Endpoint autocomplete SIREN | TERMINE |
-| SC3 | Composant StructureSearch frontend | TERMINE |
-| SC4 | Refactor backend services + rôles français | TERMINE |
-| SC4bis | Claim hébergeur + Kbis + validation admin | TERMINE |
-| SC4ter | Flow signataire via Membership+email | TERMINE |
-| SC5 | Refactor frontend dashboards + routes françaises | TERMINE |
-| SC5bis | Routes d'entrée hébergeur + page claim catalogue | TERMINE |
-| SC6 | Flow public catalogue + magic link | TERMINE |
-| SC7 | Notification centres APIDAE non inscrits | SUSPENDU — post-visio |
-| SC8 | Suppression colonnes etablissement* legacy | TERMINE |
-| SC9 | SIGNE_DIRECTION dans StatutDevis | TERMINE |
-| CRM | Client.organisationId + CA calculé + pipeline Kanban | TERMINE |
-| HORS_SCOLAIRE | typeContexte déduit + champs ACM + TAM | TERMINE |
-| A2 | PDF externe devis visible organisateur | TERMINE |
-| DEVIS-LIBRES | Module devis particuliers (mariage etc.) | TERMINE |
-
-### Prochains chantiers
-
-#### SC-TRIAL — Essai 30 jours
-Backend : registerHebergeur() → planAbonnement=COMPLET, actif 30j
-Helper getStatutAbonnement() → { actif, joursRestants, plan }
-findOpen() → masquer email si essai expiré
-Frontend : bannière ocre (essai actif) / rouge (expiré)
-
-#### SC-STRIPE — Paiement abonnement (après SC-TRIAL)
-Comptes Stripe à créer + 4 produits (Essentiel/Complet × mois/an)
-Backend : AbonnementModule + webhook
-Frontend : redirect Stripe Checkout
-
-#### SC-CRON — Relances trial robustes
-Remplacer setTimeout par jobs persistés PostgreSQL (pg-boss)
-Endpoint cron Scalingo toutes les heures
-Déclencher à 3 hébergeurs inscrits en prod
-
-#### DEVIS-LIBRES mode édition
-Formulaire /nouveau?edit=id → charger le devis existant et pré-remplir tout
-
-#### Type 3 — Séjour gré-à-gré scolaire sans enseignant LIAVO
-Champ gereeParHebergeur: Boolean sur Sejour
-Route POST /sejours/hebergeur
-Espace collaboratif sans côté organisateur + import/export participants Excel
-→ Reporté après validation commerciale
-
-#### Chantiers suspendus
-- SC7 : notifications APIDAE (prompt CC prêt)
+### Chantiers suspendus
+- SC7 : notifications APIDAE
+- APIDAE LMDJ (credentials Anaïtis Mangeon)
+- Résilier Railway + Cloudflare R2 (URGENT)
+- Chorus Pro production
 - Refactoring DashboardShell
-- Intégration APIDAE LMDJ (1 ligne dès réception credentials Anaïtis Mangeon)
-- Backfill Client.organisationId pour 270 clients Sauvageon
-- Résilier Railway + Cloudflare R2 (URGENT — 1 semaine de stabilité confirmée)
-- Chorus Pro production (habilitation AIFE)
-- JWT httpOnly cookie migration
 
 ---
 
 ## LEÇONS RETENUES
 
-- SQL Scalingo : noms de tables snake_case
-- Arrays Prisma : toujours { set: [...] }
-- Routes NestJS : statiques AVANT paramétriques (crucial pour /signer/:token avant /:id)
-- Prompts CC longs : découper en parties numérotées, envoyer séquentiellement
-- StorageService.upload() → accepte Multer.File. uploadBuffer() ajouté pour Buffer
-- LibreOffice sur Scalingo : buildpack Soulou dans backend/.buildpacks (PROJECT_DIR=backend)
-- PROJECT_DIR Scalingo : backend=backend, frontend=frontend — .buildpacks dans backend/ seulement
-- DevisLibre.statut est un String (pas enum Prisma) → BROUILLON/ENVOYE/ACCEPTE/REFUSE/PAYE
-- CRM Client.statut : String libre, pas l'enum StatutRelation
-- typeContexte : déduire depuis typeStructure, jamais hardcoder
-- Railway : OBSOLÈTE depuis 29/04 — ignorer les emails de crash
-- str_replace non fiable sur Windows via MCP — utiliser write_file
+- DTOs NestJS : décorateurs class-validator OBLIGATOIRES si whitelist:true global
+- LibreOffice sur Scalingo : IMPOSSIBLE (2.9 GiB) → react-pdf Node.js
+- Routes NestJS : statiques AVANT paramétriques
+- Prompts CC longs : découper en parties numérotées
+- StorageService : uploadBuffer() pour Buffer, upload() pour Multer.File
+- DevisLibre.statut : String → BROUILLON/ENVOYE/ACCEPTE/REFUSE/PAYE
+- Floating point : toujours round2() avant affichage/PDF montants
+- Email fromName : 4e arg optionnel sur sendGenericNotification()
+- Planning LIAVO : séjours/événements physiques uniquement (pas visites)
+- CRM = hub commercial / Page devis = détail transactionnel pur
+- str_replace non fiable Windows → utiliser write_file
+- Railway : OBSOLÈTE depuis 29/04
