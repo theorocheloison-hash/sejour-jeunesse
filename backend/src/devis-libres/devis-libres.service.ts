@@ -303,7 +303,7 @@ export class DevisLibresService {
     );
 
     // ── Mise à jour statut ─────────────────────────────────────────────────
-    return this.prisma.devisLibre.update({
+    const updated = await this.prisma.devisLibre.update({
       where: { id },
       data: {
         statut: 'ENVOYE',
@@ -311,6 +311,23 @@ export class DevisLibresService {
       },
       include: INCLUDE_FULL,
     });
+
+    if (devis.clientId) {
+      try {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: devis.clientId,
+            centreId: devis.centreId,
+            type: 'DEVIS',
+            description: `Devis ${devis.numeroDevis ?? devis.id.substring(0, 8)} envoyé`,
+            metadata: { devisLibreId: devis.id, numeroDevis: devis.numeroDevis, montantTTC: devis.montantTTC },
+            userId: null,
+          },
+        });
+      } catch { /* non bloquant */ }
+    }
+
+    return updated;
   }
 
   async getForSignature(token: string) {
@@ -373,6 +390,21 @@ export class DevisLibresService {
       },
     });
 
+    if (devis.clientId) {
+      try {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: devis.clientId,
+            centreId: devis.centreId,
+            type: 'SIGNATURE',
+            description: `Devis ${devis.numeroDevis ?? devis.id.substring(0, 8)} signé`,
+            metadata: { devisLibreId: devis.id, numeroDevis: devis.numeroDevis },
+            userId: null,
+          },
+        });
+      } catch { /* non bloquant */ }
+    }
+
     const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
     // Email confirmation client
@@ -434,7 +466,7 @@ export class DevisLibresService {
     const montantTTC = devis.montantTTC ?? 0;
     const estPaye = montantTTC > 0 && nouveauTotal >= montantTTC * 0.99;
 
-    return this.prisma.devisLibre.update({
+    const updated = await this.prisma.devisLibre.update({
       where: { id },
       data: {
         montantVerseTotal: nouveauTotal,
@@ -442,5 +474,22 @@ export class DevisLibresService {
       },
       include: INCLUDE_FULL,
     });
+
+    if (devis.clientId) {
+      try {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: devis.clientId,
+            centreId,
+            type: 'VERSEMENT',
+            description: `Versement reçu — ${dto.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
+            metadata: { devisLibreId: devis.id, numeroDevis: devis.numeroDevis, montant: dto.montant, reference: dto.reference ?? null },
+            userId: null,
+          },
+        });
+      } catch { /* non bloquant */ }
+    }
+
+    return updated;
   }
 }

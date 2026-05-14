@@ -562,6 +562,7 @@ model CentreHebergement {
   clients          Client[]
   invitationsAdmin InvitationHebergement[] @relation("InvitationCentreExistant")
   devisLibres      DevisLibre[]
+  activitesClients ActiviteClient[]
   @@map("centres_hebergement")
 }
 
@@ -1057,6 +1058,7 @@ model Client {
   rappels      Rappel[]
   sejours      SejourClient[]
   devisLibres  DevisLibre[]
+  activites    ActiviteClient[]
 
   @@index([centreId])
   @@index([centreId, uai])
@@ -1304,4 +1306,22 @@ model SejourRelation {
 
   @@unique([relationId, sejourId])
   @@map("sejours_relations")
+}
+
+model ActiviteClient {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  centreId    String   @map("centre_id") @db.Uuid
+  type        String   @db.VarChar(30)
+  description String   @db.Text
+  metadata    Json?
+  userId      String?  @map("user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  client Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([centreId])
+  @@map("activites_client")
 }

@@ -15,6 +15,7 @@ import { AbonnementModule } from './abonnements/abonnement.module.js';
 import { DemandeModule } from './demandes/demande.module.js';
 import { DevisModule } from './devis/devis.module.js';
 import { DevisLibresModule } from './devis-libres/devis-libres.module.js';
+import { ActivitesClientModule } from './activites-client/activites-client.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
 import { EmailModule } from './email/email.module.js';
 import { EtablissementsModule } from './etablissements/etablissements.module.js';
@@ -51,6 +52,7 @@ import { PublicModule } from './public/public.module.js';
     DemandeModule,
     DevisModule,
     DevisLibresModule,
+    ActivitesClientModule,
     CollaborationModule,
     EtablissementsModule,
     UsersModule,
