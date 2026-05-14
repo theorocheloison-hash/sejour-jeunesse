@@ -231,7 +231,13 @@ function NouveauDevisLibreContent() {
   const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
     setLignes((prev) => prev.map((l) =>
       l.key === key
-        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireHT), tva: String(produit.tva) }
+        ? {
+            ...l,
+            description: produit.nom,
+            prixUnitaire: String(produit.prixUnitaireHT),
+            tva: String(produit.tva),
+            quantite: (!l.quantite || l.quantite === '0') ? '1' : l.quantite,
+          }
         : l
     ));
     setActiveDescriptionKey(null);

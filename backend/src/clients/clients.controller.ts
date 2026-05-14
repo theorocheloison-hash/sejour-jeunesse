@@ -49,6 +49,11 @@ export class ClientsController {
   @Delete('rappels/:rid')
   deleteRappel(@Param('rid') rid: string, @CurrentUser() u: JwtUser) { return this.service.deleteRappel(rid, u.id); }
 
+  @Post(':id/envoyer-brochure')
+  envoyerBrochure(@Param('id') id: string, @CurrentUser() u: JwtUser) {
+    return this.service.envoyerBrochure(id, u.id);
+  }
+
   // ── Routes paramétrées :id en dernier ────────────────────────────────────
   @Get(':id')
   getClient(@Param('id') id: string, @CurrentUser() u: JwtUser) { return this.service.getClient(id, u.id); }

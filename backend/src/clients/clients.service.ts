@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { StatutDevis } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
@@ -17,7 +18,7 @@ const INCLUDE_FULL = {
 
 @Injectable()
 export class ClientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private email: EmailService) {}
 
   private async getCentreId(userId: string): Promise<string> {
     const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
@@ -535,5 +536,47 @@ export class ClientsService {
     }
 
     return { imported, skipped, clientNotFound, total: lignes.length };
+  }
+
+  async envoyerBrochure(clientId: string, userId: string) {
+    const centreId = await this.getCentreId(userId);
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      include: { contacts: { take: 1 } },
+    });
+    if (!client || client.centreId !== centreId) throw new ForbiddenException();
+
+    const emailDestinataire = client.email ?? client.contacts[0]?.email ?? null;
+    if (!emailDestinataire) {
+      throw new BadRequestException('Aucun email disponible pour ce client');
+    }
+
+    const brochureUrl = process.env.BROCHURE_SAUVAGEON_URL ?? null;
+    if (!brochureUrl) {
+      throw new BadRequestException('Brochure non configurée — contactez l\'administrateur');
+    }
+
+    await this.email.sendGenericNotification(
+      emailDestinataire,
+      'Votre brochure — Chalet Le Sauvageon',
+      `<p>Bonjour ${client.nom},</p>
+       <p>Veuillez trouver ci-dessous notre brochure présentant le Chalet Le Sauvageon.</p>
+       <p><a href="${brochureUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none">📄 Télécharger la brochure</a></p>
+       <p>N'hésitez pas à nous contacter pour toute question.</p>`,
+      'Chalet Le Sauvageon',
+    );
+
+    await this.prisma.activiteClient.create({
+      data: {
+        clientId,
+        centreId,
+        type: 'BROCHURE',
+        description: `Brochure envoyée à ${emailDestinataire}`,
+        metadata: { email: emailDestinataire },
+        userId,
+      },
+    });
+
+    return { success: true };
   }
 }
