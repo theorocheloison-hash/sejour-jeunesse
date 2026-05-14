@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMesClients, createClient, updateClient, deleteClient,
@@ -12,6 +13,8 @@ import {
   STATUT_CLIENT_LABELS, TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
 import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
+import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
+import type { ActiviteClient } from '@/src/lib/clients';
 import { getMesDevisLibres } from '@/src/lib/devis-libres';
 import type { DevisLibre } from '@/src/lib/devis-libres';
 
@@ -57,7 +60,9 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-export default function ClientsPage() {
+function ClientsPage() {
+  const searchParams = useSearchParams();
+  const preselectedId = searchParams.get('selected');
   const { user, isLoading } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,9 +113,20 @@ export default function ClientsPage() {
 
   const [devisLibresMap, setDevisLibresMap] = useState<Record<string, DevisLibre[]>>({});
 
+  const [activites, setActivites] = useState<ActiviteClient[]>([]);
+  const [activitesLoading, setActivitesLoading] = useState(false);
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [noteForm, setNoteForm] = useState({ type: 'NOTE', description: '' });
+  const [sendingBrochure, setSendingBrochure] = useState(false);
+
   useEffect(() => {
     if (!isLoading && user?.role === 'HEBERGEUR') {
-      getMesClients().then(setClients).finally(() => setLoading(false));
+      getMesClients().then((data) => {
+        setClients(data);
+        if (preselectedId && !selectedId) {
+          setSelectedId(preselectedId);
+        }
+      }).finally(() => setLoading(false));
       getMesDevisLibres().then(dls => {
         const map: Record<string, DevisLibre[]> = {};
         dls.forEach(dl => {
@@ -123,6 +139,16 @@ export default function ClientsPage() {
       }).catch(() => {});
     }
   }, [isLoading, user]);
+
+  useEffect(() => {
+    setActivites([]);
+    if (!selectedId) return;
+    setActivitesLoading(true);
+    getActivitesClient(selectedId)
+      .then(setActivites)
+      .catch(() => {})
+      .finally(() => setActivitesLoading(false));
+  }, [selectedId]);
 
   const selected = useMemo(() => clients.find(c => c.id === selectedId) ?? null, [clients, selectedId]);
 
@@ -357,6 +383,42 @@ export default function ClientsPage() {
       await getMesClients().then(setClients);
     } catch { /* ignore */ }
     setContactsImporting(false);
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedId || !noteForm.description.trim()) return;
+    const created = await createActiviteClient(selectedId, {
+      type: noteForm.type,
+      description: noteForm.description,
+    });
+    setActivites(prev => [created, ...prev]);
+    setShowNoteForm(false);
+    setNoteForm({ type: 'NOTE', description: '' });
+  };
+
+  const handleEnvoyerBrochure = async () => {
+    if (!selectedId) return;
+    setSendingBrochure(true);
+    try {
+      await envoyerBrochureClient(selectedId);
+      const updated = await getActivitesClient(selectedId);
+      setActivites(updated);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Erreur envoi brochure');
+    } finally {
+      setSendingBrochure(false);
+    }
+  };
+
+  const ACTIVITE_CONFIG: Record<string, { icon: string; cls: string; label: string }> = {
+    DEVIS:      { icon: '📄', cls: 'bg-blue-50 text-blue-700',       label: 'Devis' },
+    SIGNATURE:  { icon: '✍️', cls: 'bg-green-50 text-green-700',     label: 'Signature' },
+    VERSEMENT:  { icon: '💶', cls: 'bg-emerald-50 text-emerald-700', label: 'Versement' },
+    BROCHURE:   { icon: '📬', cls: 'bg-amber-50 text-amber-700',     label: 'Brochure' },
+    APPEL:      { icon: '📞', cls: 'bg-purple-50 text-purple-700',   label: 'Appel' },
+    EMAIL:      { icon: '✉️', cls: 'bg-indigo-50 text-indigo-700',   label: 'Email' },
+    VISITE:     { icon: '🏠', cls: 'bg-orange-50 text-orange-700',   label: 'Visite' },
+    NOTE:       { icon: '📝', cls: 'bg-gray-50 text-gray-600',       label: 'Note' },
   };
 
   if (isLoading || !user) return null;
@@ -871,6 +933,97 @@ export default function ClientsPage() {
                     + Nouveau devis événement
                   </Link>
                 </div>
+
+                {/* Section 6 — Activité */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900">Activité</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleEnvoyerBrochure}
+                        disabled={sendingBrochure}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {sendingBrochure ? '...' : '📬 Envoyer la brochure'}
+                      </button>
+                      <a
+                        href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Visite — ${selected?.nom ?? ''}`)}&details=${encodeURIComponent('Visite du Chalet Le Sauvageon')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        🗓 Planifier visite
+                      </a>
+                      <button
+                        onClick={() => setShowNoteForm(s => !s)}
+                        className="text-xs text-[var(--color-primary)] hover:underline"
+                      >
+                        {showNoteForm ? 'Annuler' : '+ Note'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showNoteForm && (
+                    <div className="mb-3 flex flex-col gap-2">
+                      <select
+                        value={noteForm.type}
+                        onChange={e => setNoteForm(f => ({ ...f, type: e.target.value }))}
+                        className={inputCls}
+                      >
+                        <option value="NOTE">Note</option>
+                        <option value="APPEL">Appel</option>
+                        <option value="EMAIL">Email</option>
+                        <option value="VISITE">Visite</option>
+                      </select>
+                      <textarea
+                        value={noteForm.description}
+                        onChange={e => setNoteForm(f => ({ ...f, description: e.target.value }))}
+                        placeholder="Description de l'activité..."
+                        rows={2}
+                        className={`${inputCls} resize-none`}
+                      />
+                      <button
+                        onClick={handleAddNote}
+                        disabled={!noteForm.description.trim()}
+                        className="rounded-lg bg-[var(--color-primary)] py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        Ajouter
+                      </button>
+                    </div>
+                  )}
+
+                  {activitesLoading ? (
+                    <div className="flex justify-center py-4">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+                    </div>
+                  ) : activites.length === 0 ? (
+                    <p className="text-xs text-gray-400">Aucune activité enregistrée.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {activites.map(a => {
+                        const cfg = ACTIVITE_CONFIG[a.type] ?? ACTIVITE_CONFIG['NOTE'];
+                        return (
+                          <div key={a.id} className="flex items-start gap-3 rounded-lg border border-gray-100 px-3 py-2.5">
+                            <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${cfg.cls}`}>
+                              {cfg.icon}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-medium text-gray-700 truncate">{a.description}</span>
+                                <span className="shrink-0 text-[10px] text-gray-400">
+                                  {new Date(a.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.cls}`}>
+                                {cfg.label}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1141,5 +1294,17 @@ export default function ClientsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ClientsPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+      </div>
+    }>
+      <ClientsPage />
+    </Suspense>
   );
 }
