@@ -1,9 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
+import { getCatalogue } from '@/src/lib/centre';
+import type { ProduitCatalogue } from '@/src/lib/centre';
+
+type LigneForm = {
+  key: string;
+  description: string;
+  quantite: string;
+  prixUnitaire: string;
+  tva: string;
+};
+let ligneKeyCounter = 0;
+const newLigneKey = () => `dl-${++ligneKeyCounter}`;
+const makeLigne = (): LigneForm => ({ key: newLigneKey(), description: '', quantite: '1', prixUnitaire: '', tva: '10' });
 
 export default function InviterEnseignantPage() {
   const { user } = useAuth();
@@ -30,6 +43,16 @@ export default function InviterEnseignantPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Devis draft
+  const [showDevisDraft, setShowDevisDraft] = useState(false);
+  const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
+  const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
+  const [conditionsAnnulation, setConditionsAnnulation] = useState(
+    "Annulation jusqu'à 9 mois avant : remboursement intégral. Entre 9 et 6 mois : 50% retenu. Moins de 6 mois : intégralité due."
+  );
+  const [description, setDescription] = useState('');
+  const [lignes, setLignes] = useState<LigneForm[]>([makeLigne()]);
+
   // Établissement search
   const [etabNom, setEtabNom] = useState('');
   const [etabVille, setEtabVille] = useState('');
@@ -45,6 +68,27 @@ export default function InviterEnseignantPage() {
       if (etabAbortRef.current) etabAbortRef.current.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!showDevisDraft || catalogue.length > 0) return;
+    getCatalogue().then(setCatalogue).catch(() => {});
+  }, [showDevisDraft, catalogue.length]);
+
+  const calculs = useMemo(() => {
+    let montantHT = 0;
+    let montantTVA = 0;
+    lignes.forEach(l => {
+      const qte = parseFloat(l.quantite) || 0;
+      const pu = parseFloat(l.prixUnitaire) || 0;
+      const tvaRate = parseFloat(l.tva) || 0;
+      const ht = qte * pu;
+      montantHT += ht;
+      montantTVA += ht * (tvaRate / 100);
+    });
+    const montantTTC = montantHT + montantTVA;
+    const montantAcompte = montantTTC * (pourcentageAcompte / 100);
+    return { montantHT, montantTVA, montantTTC, montantAcompte };
+  }, [lignes, pourcentageAcompte]);
 
   const fireEtabSearch = (nom: string, ville: string, cp: string) => {
     if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
@@ -94,6 +138,36 @@ export default function InviterEnseignantPage() {
     setError(null);
     setSuccess(null);
     setIsPending(true);
+
+    const lignesValides = lignes
+      .filter(l => l.description.trim() && (parseFloat(l.prixUnitaire) || 0) > 0)
+      .map(l => {
+        const qte = parseFloat(l.quantite) || 0;
+        const pu = parseFloat(l.prixUnitaire) || 0;
+        const tvaRate = parseFloat(l.tva) || 0;
+        const ht = qte * pu;
+        return {
+          description: l.description,
+          quantite: qte,
+          prixUnitaire: pu,
+          tva: tvaRate,
+          totalHT: Math.round(ht * 100) / 100,
+          totalTTC: Math.round(ht * (1 + tvaRate / 100) * 100) / 100,
+        };
+      });
+
+    const devisDraftJson = showDevisDraft && lignesValides.length > 0 ? {
+      description: description.trim() || undefined,
+      conditionsAnnulation: conditionsAnnulation.trim() || undefined,
+      tauxTva: 10,
+      montantHT: Math.round(calculs.montantHT * 100) / 100,
+      montantTVA: Math.round(calculs.montantTVA * 100) / 100,
+      montantTTC: Math.round(calculs.montantTTC * 100) / 100,
+      pourcentageAcompte,
+      montantAcompte: Math.round(calculs.montantAcompte * 100) / 100,
+      lignes: lignesValides,
+    } : undefined;
+
     try {
       await api.post('/invitation-collaboration', {
         emailEnseignant: form.emailEnseignant,
@@ -113,6 +187,7 @@ export default function InviterEnseignantPage() {
         etablissementNom: form.etablissementNom || undefined,
         etablissementAdresse: form.etablissementAdresse || undefined,
         etablissementVille: form.etablissementVille || undefined,
+        devisDraftJson,
       });
       setSuccess(form.emailEnseignant);
     } catch (err: any) {
@@ -336,6 +411,162 @@ export default function InviterEnseignantPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Message personnalisé <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optionnel)</span></label>
                 <textarea value={form.message} onChange={set('message')} rows={3} placeholder="Bonjour, nous serions ravis de..." className={`${inputCls} resize-none`} />
+              </div>
+
+              {/* Section devis draft — accordéon */}
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDevisDraft(s => !s)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-primary)' }}>
+                      Préparer le devis maintenant
+                    </span>
+                    <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, textAlign: 'left' }}>
+                      Optionnel — l&apos;enseignant verra le devis dès qu&apos;il accepte l&apos;invitation
+                    </p>
+                  </div>
+                  <svg
+                    style={{ width: 20, height: 20, color: 'var(--color-primary)', transition: 'transform 0.2s', transform: showDevisDraft ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+
+                {showDevisDraft && (
+                  <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                    {/* Lignes de prestation */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Prestations</label>
+                      {lignes.map((l) => (
+                        <div key={l.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                          <input
+                            value={l.description}
+                            onChange={e => setLignes(prev => prev.map(x => x.key === l.key ? { ...x, description: e.target.value } : x))}
+                            placeholder="Description"
+                            className={inputCls}
+                          />
+                          <input
+                            type="number" step="any"
+                            value={l.quantite}
+                            onChange={e => setLignes(prev => prev.map(x => x.key === l.key ? { ...x, quantite: e.target.value } : x))}
+                            placeholder="Qté"
+                            className={inputCls}
+                          />
+                          <input
+                            type="number" step="0.01"
+                            value={l.prixUnitaire}
+                            onChange={e => setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prixUnitaire: e.target.value } : x))}
+                            placeholder="PU HT €"
+                            className={inputCls}
+                          />
+                          <input
+                            type="number" step="0.1"
+                            value={l.tva}
+                            onChange={e => setLignes(prev => prev.map(x => x.key === l.key ? { ...x, tva: e.target.value } : x))}
+                            placeholder="TVA %"
+                            className={inputCls}
+                          />
+                          {lignes.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, lineHeight: 1 }}
+                            >×</button>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Boutons ajout ligne */}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setLignes(prev => [...prev, makeLigne()])}
+                          style={{ fontSize: 12, color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          + Ligne libre
+                        </button>
+                        {catalogue.length > 0 && (
+                          <select
+                            onChange={e => {
+                              const p = catalogue.find(c => c.id === e.target.value);
+                              if (!p) return;
+                              setLignes(prev => [...prev, { key: newLigneKey(), description: p.nom, quantite: '1', prixUnitaire: String(p.prixUnitaireHT), tva: String(p.tva) }]);
+                              e.target.value = '';
+                            }}
+                            defaultValue=""
+                            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--color-border)', color: 'var(--color-primary)', cursor: 'pointer' }}
+                          >
+                            <option value="" disabled>+ Depuis le catalogue</option>
+                            {catalogue.map(p => (
+                              <option key={p.id} value={p.id}>{p.nom} — {p.prixUnitaireHT.toFixed(2)} € HT</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Totaux */}
+                    {calculs.montantTTC > 0 && (
+                      <div style={{ backgroundColor: 'var(--color-bg)', borderRadius: 8, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--color-text-muted)' }}>
+                          <span>Total HT</span><span>{calculs.montantHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--color-text-muted)' }}>
+                          <span>TVA</span><span>{calculs.montantTVA.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, color: 'var(--color-primary)', borderTop: '1px solid var(--color-border)', paddingTop: 6, marginTop: 4 }}>
+                          <span>Total TTC</span><span>{calculs.montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#d97706', marginTop: 2 }}>
+                          <span>Acompte ({pourcentageAcompte}%)</span>
+                          <span>{calculs.montantAcompte.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Acompte slider */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Acompte : {pourcentageAcompte}%</label>
+                      <input
+                        type="range" min={10} max={50} step={5}
+                        value={pourcentageAcompte}
+                        onChange={e => setPourcentageAcompte(Number(e.target.value))}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes sur le devis <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(optionnel)</span></label>
+                      <textarea
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        rows={2}
+                        placeholder="Prestations incluses, remarques..."
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+
+                    {/* Conditions annulation */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Conditions d&apos;annulation</label>
+                      <textarea
+                        value={conditionsAnnulation}
+                        onChange={e => setConditionsAnnulation(e.target.value)}
+                        rows={2}
+                        className={`${inputCls} resize-none`}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
