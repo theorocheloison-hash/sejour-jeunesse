@@ -44,6 +44,7 @@ export class InvitationCollaborationService {
         etablissementNom: dto.etablissementNom ?? null,
         etablissementAdresse: dto.etablissementAdresse ?? null,
         etablissementVille: dto.etablissementVille ?? null,
+        devisDraftJson: dto.devisDraftJson ?? undefined,
       },
     });
 
@@ -120,7 +121,7 @@ export class InvitationCollaborationService {
       });
 
       // Demande de devis OUVERTE — visible dans les demandes reçues de l'hébergeur
-      await tx.demandeDevis.create({
+      const demande = await tx.demandeDevis.create({
         data: {
           sejourId: sejour.id,
           enseignantId: user.id,
@@ -141,12 +142,98 @@ export class InvitationCollaborationService {
         },
       });
 
+      // Création du devis pré-rempli si l'hébergeur l'a préparé
+      let devisCree: { id: string } | null = null;
+      if (invitation.devisDraftJson && invitation.centreId) {
+        const draft = invitation.devisDraftJson as {
+          description?: string;
+          conditionsAnnulation?: string;
+          nomEntreprise?: string;
+          adresseEntreprise?: string;
+          siretEntreprise?: string;
+          emailEntreprise?: string;
+          telEntreprise?: string;
+          tauxTva?: number;
+          montantHT?: number;
+          montantTVA?: number;
+          montantTTC?: number;
+          pourcentageAcompte?: number;
+          montantAcompte?: number;
+          lignes?: Array<{
+            description: string;
+            quantite: number;
+            prixUnitaire: number;
+            tva: number;
+            totalHT: number;
+            totalTTC: number;
+          }>;
+        };
+
+        // Générer le numéro de devis inline (pas d'appel à DevisService)
+        const year = new Date().getFullYear();
+        const countDevis = await tx.devis.count({
+          where: {
+            centreId: invitation.centreId,
+            createdAt: {
+              gte: new Date(`${year}-01-01`),
+              lt: new Date(`${year + 1}-01-01`),
+            },
+          },
+        });
+        const numeroDevis = `DEV-${year}-${String(countDevis + 1).padStart(3, '0')}`;
+
+        const montantTTC = draft.montantTTC ?? 0;
+        const nbEleves = Math.max(1, invitation.nbElevesEstime);
+        const montantParEleve = montantTTC / nbEleves;
+
+        const nouveauDevis = await tx.devis.create({
+          data: {
+            demandeId: demande.id,
+            centreId: invitation.centreId,
+            montantTotal: String(montantTTC),
+            montantParEleve: String(montantParEleve),
+            description: draft.description ?? null,
+            conditionsAnnulation: draft.conditionsAnnulation ?? null,
+            nomEntreprise: draft.nomEntreprise ?? null,
+            adresseEntreprise: draft.adresseEntreprise ?? null,
+            siretEntreprise: draft.siretEntreprise ?? null,
+            emailEntreprise: draft.emailEntreprise ?? null,
+            telEntreprise: draft.telEntreprise ?? null,
+            tauxTva: draft.tauxTva ?? 0,
+            montantHT: draft.montantHT ?? null,
+            montantTVA: draft.montantTVA ?? null,
+            montantTTC: montantTTC,
+            pourcentageAcompte: draft.pourcentageAcompte ?? 30,
+            montantAcompte: draft.montantAcompte ?? null,
+            numeroDevis,
+            typeDevis: 'INVITATION',
+            statut: 'EN_ATTENTE',
+          },
+        });
+
+        if (draft.lignes && draft.lignes.length > 0) {
+          await tx.ligneDevis.createMany({
+            data: draft.lignes.map(l => ({
+              devisId: nouveauDevis.id,
+              description: l.description,
+              quantite: l.quantite,
+              prixUnitaire: l.prixUnitaire,
+              tva: l.tva ?? 0,
+              totalHT: l.totalHT,
+              totalTTC: l.totalTTC,
+            })),
+          });
+        }
+
+        devisCree = nouveauDevis;
+      }
+
       await tx.invitationCollaboration.update({
         where: { id: invitation.id },
         data: { acceptedAt: new Date(), sejourId: sejour.id },
       });
 
-      return { sejourId: sejour.id };
+      return { sejourId: sejour.id, devisCree };
     });
 
     // Notifier l'hébergeur qu'une demande l'attend
@@ -157,14 +244,18 @@ export class InvitationCollaborationService {
     if (centreUser) {
       const dateDebut = new Date(invitation.dateDebut).toLocaleDateString('fr-FR');
       const dateFin = new Date(invitation.dateFin).toLocaleDateString('fr-FR');
+      const devisInfo = result.devisCree
+        ? `<p>Votre devis pré-rempli a été automatiquement soumis à l'enseignant.</p>`
+        : `<p>Une demande de devis vous attend dans votre espace.</p>
+           <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`;
+
       await this.email.sendGenericNotification(
         centreUser.email,
-        `L'enseignant a accepté votre invitation — demande de devis en attente`,
+        `L'enseignant a accepté votre invitation — ${invitation.titreSejourSuggere}`,
         `<p>L'enseignant que vous avez invité a accepté votre invitation pour le séjour <strong>${invitation.titreSejourSuggere}</strong>.</p>
          <p><strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
          <strong>Élèves :</strong> ${invitation.nbElevesEstime}</p>
-         <p>Une demande de devis vous attend dans votre espace. Vous pouvez maintenant soumettre votre devis.</p>
-         <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
+         ${devisInfo}`,
       );
     }
 
