@@ -3,8 +3,8 @@ import { AuthProvider } from '@/src/contexts/AuthContext';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Liavo — Coordonnez vos séjours collectifs',
-  description: 'Du projet pédagogique à la facturation finale. LIAVO connecte enseignants, directeurs, rectorat, parents et hébergeurs dans un seul workflow.',
+  title: 'Liavo — La plateforme de coordination des séjours jeunesse',
+  description: 'Hébergeurs, enseignants, organisateurs — LIAVO gère tout le flux administratif, du devis à la convention signée, en un seul outil.',
   metadataBase: new URL('https://liavo.fr'),
   alternates: {
     canonical: 'https://liavo.fr',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
     follow: true,
   },
   openGraph: {
-    title: 'Liavo — Coordonnez vos séjours collectifs',
-    description: 'Du projet pédagogique à la facturation finale. Chorus Pro intégré. Conforme RGPD.',
+    title: 'Liavo — La plateforme de coordination des séjours jeunesse',
+    description: 'Hébergeurs, enseignants, organisateurs — LIAVO gère tout le flux administratif, du devis à la convention signée, en un seul outil.',
     url: 'https://liavo.fr',
     siteName: 'Liavo',
     locale: 'fr_FR',
