@@ -71,6 +71,7 @@ export class AuthService {
         emailVerifie: false,
         tokenVerification: token,
         tokenVerificationExpires: tokenExpires,
+        accompagnateurTokenPending: dto.accompagnateurToken ?? null,
       },
     });
 
@@ -330,6 +331,24 @@ export class AuthService {
         tokenVerification: null,
       },
     });
+
+    if (user.accompagnateurTokenPending) {
+      try {
+        const accompagnateur = await this.prisma.accompagnateurMission.findUnique({
+          where: { tokenAcces: user.accompagnateurTokenPending },
+        });
+        if (accompagnateur && accompagnateur.accesCollaboratif && !accompagnateur.userId) {
+          await this.prisma.accompagnateurMission.update({
+            where: { tokenAcces: user.accompagnateurTokenPending },
+            data: { userId: user.id },
+          });
+        }
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { accompagnateurTokenPending: null },
+        });
+      } catch { /* non bloquant */ }
+    }
 
     return { message: 'Email vérifié avec succès. Vous pouvez maintenant vous connecter.' };
   }

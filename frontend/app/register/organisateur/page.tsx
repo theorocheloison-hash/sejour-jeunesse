@@ -102,6 +102,7 @@ function RegisterOrganisateurContent() {
 
   const searchParams = useSearchParams();
   const redirectAfterLogin = searchParams.get('redirect');
+  const accompagnateurToken = searchParams.get('accompagnateurToken');
 
   const invitationToken = redirectAfterLogin?.startsWith('/rejoindre/')
     ? redirectAfterLogin.replace('/rejoindre/', '')
@@ -174,7 +175,11 @@ function RegisterOrganisateurContent() {
     setError(null);
     setIsPending(true);
     try {
-      const payload = { ...form, typeStructure: typeStructure || undefined };
+      const payload = {
+        ...form,
+        typeStructure: typeStructure || undefined,
+        ...(accompagnateurToken ? { accompagnateurToken } : {}),
+      };
       await api.post('/auth/register/organisateur', payload);
       if (redirectAfterLogin) {
         document.cookie = `liavo_post_verify_redirect=${encodeURIComponent(redirectAfterLogin)};path=/;max-age=86400;samesite=lax`;
@@ -209,6 +214,11 @@ function RegisterOrganisateurContent() {
             Un email de vérification a été envoyé à <strong className="text-gray-700">{form.email}</strong>.
             Cliquez sur le lien dans l&apos;email pour activer votre compte.
           </p>
+          {accompagnateurToken && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 mb-4">
+              Votre accès à l&apos;espace collaboratif sera activé automatiquement après vérification de votre email.
+            </div>
+          )}
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-6">
             Pensez à vérifier vos spams si vous ne trouvez pas l&apos;email.
           </div>

@@ -166,6 +166,7 @@ model User {
   resetPasswordExpires  DateTime? @map("reset_password_expires")
   magicLinkToken   String?   @map("magic_link_token") @db.Uuid
   magicLinkExpires DateTime? @map("magic_link_expires")
+  accompagnateurTokenPending String? @map("accompagnateur_token_pending") @db.Uuid
 
   // Établissement scolaire (données API Éducation Nationale)
   emailRectorat          String?  @map("email_rectorat") @db.VarChar(255)
