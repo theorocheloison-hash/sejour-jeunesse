@@ -84,6 +84,15 @@ export class DevisController {
     return this.devisService.updateDevis(id, dto, user.id, file);
   }
 
+  @Post(':id/notifier-enseignant')
+  @Roles(Role.HEBERGEUR)
+  notifierEnseignant(
+    @Param('id') id: string,
+    @CurrentUser() u: JwtUser,
+  ) {
+    return this.devisService.notifierEnseignantModification(id, u.id);
+  }
+
   @Patch(':id/statut')
   @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   updateStatut(

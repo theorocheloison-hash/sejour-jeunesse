@@ -909,6 +909,30 @@ export class CollaborationService {
     return fullPost;
   }
 
+  async notifierPlanningMisAJour(sejourId: string, userId: string) {
+    const sejour = await this.verifyAccess(sejourId, userId, 'HEBERGEUR');
+
+    if (!sejour.createurId || !sejour.createur?.email) {
+      throw new NotFoundException('Organisateur introuvable');
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+    await this.email.sendGenericNotification(
+      sejour.createur.email,
+      `Le planning de votre séjour a été mis à jour — ${sejour.titre}`,
+      `<p>Bonjour ${sejour.createur.prenom ?? ''},</p>
+       <p>L'hébergeur a mis à jour le planning de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir le planning
+         </a>
+       </p>`,
+    );
+
+    return { success: true };
+  }
+
   async deleteJournalPost(sejourId: string, postId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
     const post = await this.prisma.postJournal.findUnique({

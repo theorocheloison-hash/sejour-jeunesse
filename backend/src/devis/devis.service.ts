@@ -1041,4 +1041,46 @@ export class DevisService {
     });
     return `DEV-${year}-${String(count + 1).padStart(3, '0')}`;
   }
+
+  async notifierEnseignantModification(devisId: string, userId: string) {
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        demande: {
+          include: {
+            enseignant: { select: { email: true, prenom: true, nom: true } },
+            sejour: { select: { id: true, titre: true } },
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException();
+
+    const enseignant = devis.demande?.enseignant;
+    const sejour = devis.demande?.sejour;
+    if (!enseignant || !sejour) throw new NotFoundException('Enseignant introuvable');
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+    await this.email.sendGenericNotification(
+      enseignant.email,
+      `Votre devis a été mis à jour — ${sejour.titre}`,
+      `<p>Bonjour ${enseignant.prenom},</p>
+       <p>L'hébergeur <strong>${centre.nom}</strong> a apporté des modifications au devis <strong>${devis.numeroDevis ?? ''}</strong> pour votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Consulter le devis mis à jour
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Connectez-vous à LIAVO pour voir les détails complets.</p>`,
+    );
+
+    return { success: true };
+  }
 }
