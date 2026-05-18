@@ -114,9 +114,6 @@ export default function HebergeurDevisPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [onglet, setOnglet] = useState<OngletDevis>('attente');
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
-  }, [user, isLoading, router]);
 
   useEffect(() => {
     if (user?.role === 'HEBERGEUR') {

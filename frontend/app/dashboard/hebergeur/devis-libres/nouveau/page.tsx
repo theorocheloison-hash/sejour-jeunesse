@@ -108,10 +108,6 @@ function NouveauDevisLibreContent() {
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
 
-  // ── Auth guard ──
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
-  }, [isLoading, user, router]);
 
   // ── Load clients + catalogue (+ devis si mode édition) ──
   useEffect(() => {

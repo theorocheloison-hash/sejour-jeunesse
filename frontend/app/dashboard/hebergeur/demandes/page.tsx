@@ -21,9 +21,6 @@ export default function HebergeurDemandesPage() {
   const [detailDemande, setDetailDemande] = useState<Demande | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
-  }, [user, isLoading, router]);
 
   const load = async () => {
     try {

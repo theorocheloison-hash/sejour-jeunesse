@@ -85,10 +85,6 @@ function NouveauDevisContent() {
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // ── Auth guard ──
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
-  }, [isLoading, user, router]);
 
   // ── Load data ──
   useEffect(() => {

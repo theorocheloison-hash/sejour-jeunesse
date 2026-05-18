@@ -34,10 +34,6 @@ export default function DevisLibreDetailPage() {
   // Versement form
   const [versForm, setVersForm] = useState({ montant: '', datePaiement: '', reference: '' });
 
-  // ── Auth guard ──
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
-  }, [isLoading, user, router]);
 
   // ── Load devis ──
   useEffect(() => {

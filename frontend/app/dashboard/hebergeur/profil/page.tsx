@@ -92,10 +92,6 @@ export default function HebergeurProfilPage() {
   const [brochureError, setBrochureError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
-  }, [isLoading, user, router]);
-
-  useEffect(() => {
     if (!user || user.role !== 'HEBERGEUR') return;
     getMonProfil()
       .then((c) => {
