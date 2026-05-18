@@ -132,6 +132,15 @@ export class CollaborationController {
     return this.service.genererPlanningIA(sejourId, user.id, user.role, body?.debutActivites, body?.finActivites);
   }
 
+  @Post(':sejourId/notifier-planning')
+  @Roles(Role.HEBERGEUR)
+  notifierPlanning(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.notifierPlanningMisAJour(sejourId, user.id);
+  }
+
   @Get(':sejourId/planning/generer/:jobId')
   getPlanningGenerationStatus(
     @Param('sejourId') sejourId: string,
