@@ -44,6 +44,7 @@ import {
   getJournal,
   createJournalPost,
   deleteJournalPost,
+  notifierPlanningEnseignant,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -574,6 +575,8 @@ export default function CollaborationPage() {
   const calendarBodyRef = useRef<HTMLDivElement>(null);
   const [planningDebutActivites, setPlanningDebutActivites] = useState('');
   const [planningFinActivites, setPlanningFinActivites] = useState('');
+  const [planningNotifying, setPlanningNotifying] = useState(false);
+  const [planningNotified, setPlanningNotified] = useState(false);
   const [planningVue, setPlanningVue] = useState<'semaine' | 'jour'>('semaine');
   const [planningJourSelectionne, setPlanningJourSelectionne] = useState<string>('');
   const [planModal, setPlanModal] = useState<{
@@ -1686,6 +1689,24 @@ export default function CollaborationPage() {
                         }}
                         filename={`planning-${sejour.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`}
                       />
+                    )}
+                    {isHebergeur && (
+                      <button
+                        onClick={async () => {
+                          if (!id) return;
+                          setPlanningNotifying(true);
+                          try {
+                            await notifierPlanningEnseignant(id);
+                            setPlanningNotified(true);
+                            setTimeout(() => setPlanningNotified(false), 5000);
+                          } catch { /* ignore */ }
+                          finally { setPlanningNotifying(false); }
+                        }}
+                        disabled={planningNotifying}
+                        className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      >
+                        {planningNotified ? '✓ Enseignant notifié' : planningNotifying ? 'Envoi...' : '📧 Notifier l\'enseignant'}
+                      </button>
                     )}
                   </div>
               </div>

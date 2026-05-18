@@ -276,3 +276,8 @@ export async function supprimerVersement(devisId: string, versementId: string): 
   await api.patch(`/devis/${devisId}/versements/${versementId}/supprimer`);
 }
 
+export async function notifierEnseignantDevis(devisId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/notifier-enseignant`);
+  return data;
+}
+
