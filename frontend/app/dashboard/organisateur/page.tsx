@@ -351,9 +351,9 @@ function OrganisateurDashboardContent() {
           <div className="flex h-16 items-center justify-between">
 
             {/* Logo */}
-            <div className="flex items-center gap-3">
+            <Link href="/dashboard/organisateur" className="flex items-center gap-3">
               <Logo size="sm" showTagline={false} />
-            </div>
+            </Link>
 
             {/* User + profil + logout */}
             <div className="flex items-center gap-4">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getAllSejours, updateSejourStatus, getSejourDetail, soumettreAuRectorat, getDossierPedagogique, estHorsScolaire } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
@@ -500,9 +501,9 @@ export default function SignataireDashboard() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/dashboard/signataire" className="flex items-center gap-3">
               <Logo size="sm" showTagline={false} />
-            </div>
+            </Link>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
