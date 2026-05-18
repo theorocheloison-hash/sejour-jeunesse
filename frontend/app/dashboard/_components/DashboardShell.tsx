@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { logoutAction } from '../actions';
 import { Logo } from '@/app/components/Logo';
 
@@ -11,6 +12,16 @@ const ROLE_LABELS: Record<string, string> = {
   HEBERGEUR:    'Hébergement',
   ADMIN:        'Admin',
   RESEAU:       'Réseau',
+};
+
+const ROLE_DASHBOARD_PATH: Record<string, string> = {
+  ORGANISATEUR: '/dashboard/organisateur',
+  SIGNATAIRE:   '/dashboard/signataire',
+  AUTORITE:     '/dashboard',
+  PARENT:       '/dashboard/parent',
+  HEBERGEUR:    '/dashboard/hebergeur',
+  ADMIN:        '/dashboard/admin',
+  RESEAU:       '/dashboard/reseau',
 };
 
 interface DashboardShellProps {
@@ -26,9 +37,9 @@ export default function DashboardShell({ role, title, children }: DashboardShell
       {/* Barre de navigation */}
       <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
+          <Link href={ROLE_DASHBOARD_PATH[role] ?? '/dashboard'} className="flex items-center gap-3">
             <Logo size="sm" showTagline={false} />
-          </div>
+          </Link>
 
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)] ring-1 ring-inset ring-[var(--color-primary)]/10">

@@ -106,9 +106,10 @@ export default function HebergeurSidebar({
       style={{ background: '#1B4060' }}
     >
       {/* ── Logo ─────────────────────────────────────────────── */}
-      <div
+      <Link
+        href="/dashboard/hebergeur"
         className="shrink-0 flex items-center gap-2"
-        style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+        style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}
       >
         <div
           className="flex items-center justify-center"
@@ -117,7 +118,7 @@ export default function HebergeurSidebar({
           L
         </div>
         <span style={{ color: '#fff', fontSize: 15, fontWeight: 500 }}>Liavo</span>
-      </div>
+      </Link>
 
       {/* ── Contexte centre ──────────────────────────────────── */}
       <div

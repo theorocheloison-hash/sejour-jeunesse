@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMyReseauStats,
@@ -450,10 +451,10 @@ export default function ReseauDashboardPage() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link href="/dashboard/reseau" className="flex items-center gap-3">
               <span className="text-sm font-bold text-[var(--color-primary)]">Liavo</span>
               <span className="text-xs text-gray-400">Espace réseau</span>
-            </div>
+            </Link>
             <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition">
               Déconnexion
             </button>
