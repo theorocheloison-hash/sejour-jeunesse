@@ -361,10 +361,14 @@ model AccompagnateurMission {
   signeeAt          DateTime? @map("signee_at")
   signatureNom      String?   @map("signature_nom") @db.VarChar(200)
   moyenTransport    String?   @map("moyen_transport") @db.VarChar(50)
+  accesCollaboratif  Boolean  @default(false) @map("acces_collaboratif")
+  roleCollaboratif   String?  @map("role_collaboratif") @db.VarChar(20)
+  userId             String?  @map("user_id") @db.Uuid
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("accompagnateurs_missions")
 }
 

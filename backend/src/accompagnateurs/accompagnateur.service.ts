@@ -33,19 +33,43 @@ export class AccompagnateurService {
         nom: dto.nom,
         email: dto.email,
         telephone: dto.telephone ?? null,
+        accesCollaboratif: dto.accesCollaboratif ?? false,
+        roleCollaboratif: dto.accesCollaboratif ? (dto.roleCollaboratif ?? 'LECTURE') : null,
       },
     });
 
     const lien = `${FRONTEND_URL}/ordre-mission/${accompagnateur.tokenAcces}`;
     console.log(`[ACCOMPAGNATEUR] Envoi email ordre de mission à ${dto.email} — lien: ${lien}`);
     try {
-      await this.email.sendOrdreMission(
-        dto.email,
-        dto.prenom,
-        dto.nom,
-        sejour.titre,
-        lien,
-      );
+      if (dto.accesCollaboratif) {
+        const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+        const lienOM = `${frontendUrl}/ordre-mission/${accompagnateur.tokenAcces}`;
+        const lienCompte = `${frontendUrl}/register/organisateur?accompagnateurToken=${accompagnateur.tokenAcces}`;
+        const roleLabel = dto.roleCollaboratif === 'EDITION' ? 'collaboration (lecture et écriture)' : 'consultation (lecture seule)';
+
+        await this.email.sendGenericNotification(
+          dto.email,
+          `Invitation séjour — ${sejour.titre}`,
+          `<p>Bonjour ${dto.prenom},</p>
+           <p>${sejour.titre ? `Vous avez été ajouté(e) comme accompagnateur(trice) sur le séjour <strong>${sejour.titre}</strong>.` : ''}</p>
+           <p><strong>Étape 1 — Signer votre ordre de mission</strong><br>
+           <a href="${lienOM}" style="color:#1B4060;">Cliquer ici pour signer votre ordre de mission</a></p>
+           <p><strong>Étape 2 — Accéder à l'espace collaboratif</strong><br>
+           Vous avez été invité(e) en mode <strong>${roleLabel}</strong>.<br>
+           <a href="${lienCompte}" style="display:inline-block;background:#1B4060;color:#fff;padding:10px 24px;border-radius:6px;font-weight:600;text-decoration:none;margin-top:8px;">
+             Créer mon compte LIAVO
+           </a></p>
+           <p style="font-size:12px;color:#9ca3af;">Si vous avez déjà un compte, connectez-vous sur liavo.fr — le séjour apparaîtra automatiquement après liaison de votre compte.</p>`,
+        );
+      } else {
+        await this.email.sendOrdreMission(
+          dto.email,
+          dto.prenom,
+          dto.nom,
+          sejour.titre,
+          lien,
+        );
+      }
       console.log(`[ACCOMPAGNATEUR] Email envoyé avec succès à ${dto.email}`);
     } catch (err: any) {
       console.error(`[ACCOMPAGNATEUR] ERREUR envoi email à ${dto.email}:`, err?.message ?? err);
@@ -269,5 +293,23 @@ Le présent ordre de mission est établi conformément au Décret n°2006-781 du
 <div class="footer">Document généré automatiquement par la plateforme Séjour Jeunesse — ${numOM}</div>
 </body></html>`,
     };
+  }
+
+  async lierCompte(tokenAcces: string, userId: string) {
+    const accompagnateur = await this.prisma.accompagnateurMission.findUnique({
+      where: { tokenAcces },
+    });
+    if (!accompagnateur) throw new NotFoundException('Ordre de mission introuvable');
+    if (!accompagnateur.accesCollaboratif) {
+      throw new ForbiddenException('Cet accompagnateur n\'a pas accès à l\'espace collaboratif');
+    }
+    if (accompagnateur.userId && accompagnateur.userId !== userId) {
+      throw new ConflictException('Ce compte est déjà lié à un autre utilisateur');
+    }
+    await this.prisma.accompagnateurMission.update({
+      where: { tokenAcces },
+      data: { userId },
+    });
+    return { success: true, sejourId: accompagnateur.sejourId, roleCollaboratif: accompagnateur.roleCollaboratif };
   }
 }
