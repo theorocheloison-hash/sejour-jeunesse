@@ -84,6 +84,18 @@ export class CentreController {
     return this.centreService.uploadImage(user.id, file);
   }
 
+  @Post('brochure-upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadBrochure(
+    @CurrentUser() user: JwtUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    return this.centreService.uploadBrochure(user.id, file);
+  }
+
   @Post('documents-upload')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)

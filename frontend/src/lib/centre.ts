@@ -21,6 +21,7 @@ export interface Centre {
   capacite: number;
   description: string | null;
   imageUrl: string | null;
+  brochureUrl?: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   siret?: string | null;
   siteWeb?: string | null;
@@ -243,5 +244,16 @@ export async function updateCapacitesProduit(id: string, dto: {
   nbMoniteursMax?: number | null;
 }): Promise<ProduitCatalogue> {
   const { data } = await api.patch<ProduitCatalogue>(`/centres/catalogue/${id}/capacites`, dto);
+  return data;
+}
+
+export async function uploadBrochure(file: File): Promise<{ brochureUrl: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<{ brochureUrl: string }>(
+    '/centres/brochure-upload',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
   return data;
 }

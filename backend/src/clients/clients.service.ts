@@ -551,7 +551,12 @@ export class ClientsService {
       throw new BadRequestException('Aucun email disponible pour ce client');
     }
 
-    const brochureUrl = process.env.BROCHURE_SAUVAGEON_URL ?? null;
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      select: { brochureUrl: true },
+    });
+
+    const brochureUrl = centre?.brochureUrl ?? null;
     if (!brochureUrl) {
       throw new BadRequestException('Brochure non configurée — contactez l\'administrateur');
     }

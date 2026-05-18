@@ -540,6 +540,7 @@ model CentreHebergement {
   apidaeId            String?           @map("apidae_id") @db.VarChar(20)
   source              String?           @map("source") @db.VarChar(20)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
+  brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
   mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
   mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")
   mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)
