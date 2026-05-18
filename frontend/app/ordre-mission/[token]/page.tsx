@@ -12,6 +12,7 @@ import {
 import {
   getAccompagnateurPublique,
   signerAccompagnateur,
+  lierCompteAccompagnateur,
   type AccompagnateurPublique,
 } from '@/src/lib/accompagnateur';
 
@@ -32,6 +33,8 @@ export default function SignerOrdreMissionPage() {
   const [rgpdAccepte, setRgpdAccepte] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [liaisonFaite, setLiaisonFaite] = useState(false);
+  const [liaisonLoading, setLiaisonLoading] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -400,6 +403,59 @@ export default function SignerOrdreMissionPage() {
             <p className="mt-2 text-sm text-[var(--color-success)]">
               Merci. Votre ordre de mission est validé pour ce séjour.
             </p>
+
+            {data?.accesCollaboratif && (
+              <div className="mt-6 pt-6 border-t border-[var(--color-success)]/20">
+                <p className="text-sm font-semibold text-[var(--color-success)] mb-1">
+                  Accès à l&apos;espace collaboratif
+                </p>
+                <p className="text-sm text-[var(--color-success)] mb-4">
+                  Vous avez été invité(e) en mode{' '}
+                  <strong>{data.roleCollaboratif === 'EDITION' ? 'collaboration' : 'consultation'}</strong>{' '}
+                  sur ce séjour.
+                </p>
+                {liaisonFaite ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-sm font-semibold text-[var(--color-success)]">
+                      ✓ Compte lié — vous pouvez accéder au séjour
+                    </p>
+                    <a
+                      href={`/dashboard/sejour/${data.sejourId}`}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-success)] px-6 py-3 text-sm font-bold text-white hover:opacity-90"
+                    >
+                      Accéder à l&apos;espace collaboratif →
+                    </a>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <a
+                      href={`/register/organisateur?accompagnateurToken=${token}`}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-success)] px-6 py-3 text-sm font-bold text-white hover:opacity-90"
+                    >
+                      Créer mon compte LIAVO
+                    </a>
+                    <button
+                      type="button"
+                      disabled={liaisonLoading}
+                      onClick={async () => {
+                        setLiaisonLoading(true);
+                        try {
+                          await lierCompteAccompagnateur(token);
+                          setLiaisonFaite(true);
+                        } catch {
+                          window.location.href = `/login?redirect=/ordre-mission/${token}`;
+                        } finally {
+                          setLiaisonLoading(false);
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[var(--color-success)] px-6 py-3 text-sm font-bold text-[var(--color-success)] hover:bg-[var(--color-success)]/10 disabled:opacity-50"
+                    >
+                      {liaisonLoading ? 'Liaison...' : 'J\'ai déjà un compte'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         ) : (
           <>
