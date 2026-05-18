@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useEffect, useState, useRef, useCallback, type DragEvent } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, type DragEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -593,6 +593,12 @@ export default function CollaborationPage() {
 
   // Accompagnateurs
   const [accompagnateurs, setAccompagnateurs] = useState<AccompagnateurMission[]>([]);
+  const monRoleCollaboratif = useMemo(() => {
+    if (!user || !accompagnateurs) return null;
+    const moi = accompagnateurs.find((a) => a.userId === user.id && a.accesCollaboratif);
+    return moi?.roleCollaboratif ?? null;
+  }, [user, accompagnateurs]);
+  const estLectureSeule = monRoleCollaboratif === 'LECTURE';
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   // Budget
@@ -1349,12 +1355,14 @@ export default function CollaborationPage() {
                 value={msgInput}
                 onChange={(e) => setMsgInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                placeholder="Votre message..."
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-border-strong)]"
+                placeholder={estLectureSeule ? 'Accès en lecture seule' : 'Votre message...'}
+                disabled={estLectureSeule}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-border-strong)] disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 onClick={handleSendMessage}
-                disabled={sending || !msgInput.trim()}
+                disabled={sending || !msgInput.trim() || estLectureSeule}
+                title={estLectureSeule ? 'Accès en lecture seule' : undefined}
                 className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? '...' : 'Envoyer'}
@@ -2551,7 +2559,8 @@ export default function CollaborationPage() {
                   <button
                     type="button"
                     onClick={handlePublishJournal}
-                    disabled={journalSending || !journalContenu.trim()}
+                    disabled={journalSending || !journalContenu.trim() || estLectureSeule}
+                    title={estLectureSeule ? 'Accès en lecture seule' : undefined}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {journalSending ? 'Publication…' : 'Publier'}
@@ -2717,7 +2726,8 @@ export default function CollaborationPage() {
               </div>
 
               <button onClick={handleAddDocument}
-                disabled={!docForm.nom || !docFile || docSending}
+                disabled={!docForm.nom || !docFile || docSending || estLectureSeule}
+                title={estLectureSeule ? 'Accès en lecture seule' : undefined}
                 className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {docSending ? (
                   <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi...</>

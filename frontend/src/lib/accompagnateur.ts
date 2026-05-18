@@ -15,6 +15,9 @@ export interface AccompagnateurMission {
   contactUrgenceNom: string | null;
   contactUrgenceTel: string | null;
   createdAt: string;
+  accesCollaboratif?: boolean;
+  roleCollaboratif?: string | null;
+  userId?: string | null;
 }
 
 export interface AccompagnateurPublique {
@@ -58,6 +61,8 @@ export interface CreateAccompagnateurDto {
   nom: string;
   email: string;
   telephone?: string;
+  accesCollaboratif?: boolean;
+  roleCollaboratif?: 'LECTURE' | 'EDITION';
 }
 
 export interface SignerAccompagnateurDto {

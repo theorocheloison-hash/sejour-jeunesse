@@ -58,6 +58,8 @@ export default function GestionAutorisationsPage() {
   const [accNom, setAccNom] = useState('');
   const [accEmail, setAccEmail] = useState('');
   const [accTelephone, setAccTelephone] = useState('');
+  const [accAccesCollaboratif, setAccAccesCollaboratif] = useState(false);
+  const [accRoleCollaboratif, setAccRoleCollaboratif] = useState<'LECTURE' | 'EDITION'>('LECTURE');
   const [creatingAcc, setCreatingAcc] = useState(false);
   const [accError, setAccError] = useState<string | null>(null);
   const [copiedAccId, setCopiedAccId] = useState<string | null>(null);
@@ -245,11 +247,15 @@ export default function GestionAutorisationsPage() {
         nom: accNom.trim(),
         email: accEmail.trim(),
         telephone: accTelephone.trim() || undefined,
+        accesCollaboratif: accAccesCollaboratif,
+        roleCollaboratif: accAccesCollaboratif ? accRoleCollaboratif : undefined,
       });
       setAccPrenom('');
       setAccNom('');
       setAccEmail('');
       setAccTelephone('');
+      setAccAccesCollaboratif(false);
+      setAccRoleCollaboratif('LECTURE');
       await loadData();
     } catch {
       setAccError("Erreur lors de l'ajout de l'accompagnateur.");
@@ -498,6 +504,31 @@ export default function GestionAutorisationsPage() {
               >
                 {creatingAcc ? 'Envoi…' : 'Ajouter'}
               </button>
+
+              <div className="sm:col-span-5 flex flex-col gap-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={accAccesCollaboratif}
+                    onChange={(e) => {
+                      setAccAccesCollaboratif(e.target.checked);
+                      if (e.target.checked) setAccRoleCollaboratif('LECTURE');
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
+                  />
+                  <span className="text-sm text-gray-700">Accès à l&apos;espace collaboratif</span>
+                </label>
+                {accAccesCollaboratif && (
+                  <select
+                    value={accRoleCollaboratif}
+                    onChange={(e) => setAccRoleCollaboratif(e.target.value as 'LECTURE' | 'EDITION')}
+                    className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    <option value="LECTURE">Consultation — lecture seule</option>
+                    <option value="EDITION">Collaboration — lecture et écriture</option>
+                  </select>
+                )}
+              </div>
             </form>
 
             <p className="text-xs text-gray-400 mb-4">
