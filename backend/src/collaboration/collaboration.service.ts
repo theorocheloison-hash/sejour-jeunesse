@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { EmailService } from '../email/email.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
@@ -17,7 +18,25 @@ export class CollaborationService {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
+    private email: EmailService,
   ) {}
+
+  private async notifierOrganisateur(
+    sejour: { createurId: string | null; titre: string; createur?: { email: string; prenom: string; nom: string } | null },
+    actionAuteurId: string,
+    sujet: string,
+    corps: string,
+  ): Promise<void> {
+    if (!sejour.createurId || sejour.createurId === actionAuteurId) return;
+    if (!sejour.createur?.email) return;
+    try {
+      await this.email.sendGenericNotification(
+        sejour.createur.email,
+        sujet,
+        corps,
+      );
+    } catch { /* non bloquant */ }
+  }
 
   /** Vérifie que le séjour est en CONVENTION et que l'utilisateur y a accès */
   async verifyAccess(sejourId: string, userId: string, role?: string) {
@@ -25,6 +44,7 @@ export class CollaborationService {
       where: { id: sejourId },
       include: {
         hebergementSelectionne: true,
+        createur: { select: { id: true, email: true, prenom: true, nom: true } },
       },
     });
 
@@ -74,8 +94,8 @@ export class CollaborationService {
   }
 
   async createMessage(sejourId: string, userId: string, dto: CreateMessageDto, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
-    return this.prisma.message.create({
+    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const message = await this.prisma.message.create({
       data: {
         sejourId,
         auteurId: userId,
@@ -85,6 +105,23 @@ export class CollaborationService {
         auteur: { select: { id: true, prenom: true, nom: true, role: true } },
       },
     });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    this.notifierOrganisateur(
+      sejour,
+      userId,
+      `Nouveau message sur votre séjour — ${sejour.titre}`,
+      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
+       <p>Un nouveau message a été posté sur l'espace collaboratif de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir le message
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
+    return message;
   }
 
   // ── Planning ──────────────────────────────────────────────────
@@ -138,14 +175,14 @@ export class CollaborationService {
   }
 
   async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role);
 
     let url = dto.url ?? '';
     if (file) {
       url = await this.storage.upload(file, 'documents');
     }
 
-    return this.prisma.documentSejour.create({
+    const document = await this.prisma.documentSejour.create({
       data: {
         sejourId,
         uploaderId: userId,
@@ -157,6 +194,23 @@ export class CollaborationService {
         uploader: { select: { id: true, prenom: true, nom: true } },
       },
     });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    this.notifierOrganisateur(
+      sejour,
+      userId,
+      `Nouveau document sur votre séjour — ${sejour.titre}`,
+      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
+       <p>Un nouveau document <strong>${dto.nom}</strong> a été ajouté sur l'espace collaboratif de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir le document
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
+    return document;
   }
 
   async getDocumentsCentre(sejourId: string, userId: string, role?: string) {
@@ -794,7 +848,7 @@ export class CollaborationService {
     contenu: string,
     files: Express.Multer.File[],
   ) {
-    await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role);
     if (!contenu || !contenu.trim()) {
       throw new ForbiddenException('Le contenu ne peut pas être vide');
     }
@@ -810,13 +864,30 @@ export class CollaborationService {
       });
     }
 
-    return this.prisma.postJournal.findUnique({
+    const fullPost = await this.prisma.postJournal.findUnique({
       where: { id: post.id },
       include: {
         auteur: { select: { id: true, prenom: true, nom: true, role: true } },
         photos: { orderBy: { ordre: 'asc' } },
       },
     });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    this.notifierOrganisateur(
+      sejour,
+      userId,
+      `Nouvelle publication sur votre séjour — ${sejour.titre}`,
+      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
+       <p>Une nouvelle publication a été ajoutée dans le journal de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir la publication
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
+    return fullPost;
   }
 
   async deleteJournalPost(sejourId: string, postId: string, userId: string, role?: string) {
