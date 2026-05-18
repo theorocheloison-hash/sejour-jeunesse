@@ -421,3 +421,8 @@ export async function createJournalPost(
 export async function deleteJournalPost(sejourId: string, postId: string): Promise<void> {
   await api.delete(`/collaboration/${sejourId}/journal/${postId}`);
 }
+
+export async function notifierPlanningEnseignant(sejourId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/collaboration/${sejourId}/notifier-planning`);
+  return data;
+}
