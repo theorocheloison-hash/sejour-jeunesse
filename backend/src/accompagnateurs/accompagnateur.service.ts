@@ -120,6 +120,9 @@ export class AccompagnateurService {
       signeeAt: accompagnateur.signeeAt,
       signatureNom: accompagnateur.signatureNom,
       createdAt: accompagnateur.createdAt,
+      accesCollaboratif: accompagnateur.accesCollaboratif,
+      roleCollaboratif: accompagnateur.roleCollaboratif,
+      sejourId: accompagnateur.sejourId,
       sejour: {
         id: sejour.id,
         titre: sejour.titre,

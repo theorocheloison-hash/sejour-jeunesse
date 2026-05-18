@@ -25,6 +25,9 @@ export interface AccompagnateurPublique {
   signeeAt: string | null;
   signatureNom: string | null;
   createdAt: string;
+  accesCollaboratif?: boolean;
+  roleCollaboratif?: string | null;
+  sejourId?: string;
   sejour: {
     id: string;
     titre: string;
@@ -108,4 +111,11 @@ export async function signerAccompagnateur(
   dto: SignerAccompagnateurDto,
 ): Promise<void> {
   await api.patch(`/accompagnateurs/signer/${token}`, dto);
+}
+
+export async function lierCompteAccompagnateur(
+  tokenAcces: string,
+): Promise<{ success: boolean; sejourId: string; roleCollaboratif: string | null }> {
+  const { data } = await api.post('/accompagnateurs/lier-compte', { tokenAcces });
+  return data;
 }
