@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class CreateAccompagnateurDto {
   @IsUUID()
@@ -18,4 +18,12 @@ export class CreateAccompagnateurDto {
   @IsOptional()
   @IsString()
   telephone?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  accesCollaboratif?: boolean;
+
+  @IsOptional()
+  @IsIn(['LECTURE', 'EDITION'])
+  roleCollaboratif?: 'LECTURE' | 'EDITION';
 }

@@ -57,11 +57,21 @@ export class CollaborationService {
     const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
 
     const isDirector = role === 'SIGNATAIRE';
-    if (!isCreateur && !isHebergeur && !isDirector) {
+
+    const accompagnateurAcces = await this.prisma.accompagnateurMission.findFirst({
+      where: {
+        sejourId,
+        userId,
+        accesCollaboratif: true,
+      },
+      select: { roleCollaboratif: true },
+    });
+
+    if (!isCreateur && !isHebergeur && !isDirector && !accompagnateurAcces) {
       throw new ForbiddenException('Vous n\'avez pas accès à cet espace collaboratif');
     }
 
-    return sejour;
+    return { ...sejour, roleCollaboratif: accompagnateurAcces?.roleCollaboratif ?? null };
   }
 
   // ── Infos séjour ──────────────────────────────────────────────
@@ -95,6 +105,9 @@ export class CollaborationService {
 
   async createMessage(sejourId: string, userId: string, dto: CreateMessageDto, role?: string) {
     const sejour = await this.verifyAccess(sejourId, userId, role);
+    if (sejour.roleCollaboratif === 'LECTURE') {
+      throw new ForbiddenException('Accès en lecture seule');
+    }
     const message = await this.prisma.message.create({
       data: {
         sejourId,
@@ -176,6 +189,9 @@ export class CollaborationService {
 
   async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File, role?: string) {
     const sejour = await this.verifyAccess(sejourId, userId, role);
+    if (sejour.roleCollaboratif === 'LECTURE') {
+      throw new ForbiddenException('Accès en lecture seule');
+    }
 
     let url = dto.url ?? '';
     if (file) {
@@ -849,6 +865,9 @@ export class CollaborationService {
     files: Express.Multer.File[],
   ) {
     const sejour = await this.verifyAccess(sejourId, userId, role);
+    if (sejour.roleCollaboratif === 'LECTURE') {
+      throw new ForbiddenException('Accès en lecture seule');
+    }
     if (!contenu || !contenu.trim()) {
       throw new ForbiddenException('Le contenu ne peut pas être vide');
     }

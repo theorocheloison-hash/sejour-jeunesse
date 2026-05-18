@@ -31,6 +31,15 @@ export class AccompagnateurController {
     return this.service.create(dto, user.id);
   }
 
+  @Post('lier-compte')
+  @UseGuards(JwtAuthGuard)
+  lierCompte(
+    @Body() body: { tokenAcces: string },
+    @CurrentUser() u: JwtUser,
+  ) {
+    return this.service.lierCompte(body.tokenAcces, u.id);
+  }
+
   /** GET /accompagnateurs/sejour/:sejourId — Liste (protégé) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
