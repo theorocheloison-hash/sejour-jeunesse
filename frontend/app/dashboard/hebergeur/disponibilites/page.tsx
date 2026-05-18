@@ -29,9 +29,6 @@ export default function DisponibilitesPage() {
   const [commentaire, setCommentaire] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
-  }, [user, isLoading, router]);
 
   const fetchDispos = useCallback(async () => {
     setLoading(true);

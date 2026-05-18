@@ -16,9 +16,6 @@ export default function AbonnementPage() {
   const [planChoisi, setPlanChoisi] = useState<string | null>(null);
   const [annuelChoisi, setAnnuelChoisi] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
-  }, [user, isLoading, router]);
 
   useEffect(() => {
     if (user?.role === 'HEBERGEUR') {

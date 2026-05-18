@@ -78,6 +78,24 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
 import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
+import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
+
+function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
+  const { centre, demandesCount, rappelsCount, actionsFactCount } = useHebergeurCounts();
+  return (
+    <HebergeurSidebar
+      centre={centre ?? {
+        nom: sejour?.hebergementSelectionne?.nom ?? null,
+        ville: sejour?.hebergementSelectionne?.ville ?? null,
+        imageUrl: null,
+      }}
+      demandesCount={demandesCount}
+      rappelsCount={rappelsCount}
+      actionsFactCount={actionsFactCount}
+      onLogout={logout}
+    />
+  );
+}
 
 // ─── Statut sejour (barre contexte) ────────────────────────────────────────
 
@@ -1030,17 +1048,7 @@ export default function CollaborationPage() {
   return (
     <div className={isHebergeur ? 'flex min-h-screen bg-gray-50' : 'min-h-screen bg-gray-50'}>
       {isHebergeur && (
-        <HebergeurSidebar
-          centre={{
-            nom: sejour?.hebergementSelectionne?.nom ?? null,
-            ville: sejour?.hebergementSelectionne?.ville ?? null,
-            imageUrl: null,
-          }}
-          demandesCount={0}
-          rappelsCount={0}
-          actionsFactCount={0}
-          onLogout={logout}
-        />
+        <HebergeurSidebarWithCounts sejour={sejour} logout={logout} />
       )}
       <div className={isHebergeur ? 'flex-1 min-w-0 flex flex-col' : ''}>
 

@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
@@ -10,11 +9,9 @@ import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import type { RappelToday } from '@/src/lib/clients';
-import HebergeurSidebar from './_components/HebergeurSidebar';
 
 export default function HebergeurDashboard() {
-  const { user, isLoading, logout } = useAuth();
-  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [centre, setCentre] = useState<any>(null);
@@ -27,10 +24,6 @@ export default function HebergeurDashboard() {
   const [essaiActif, setEssaiActif] = useState(false);
   const [essaiExpire, setEssaiExpire] = useState(false);
   const [joursRestants, setJoursRestants] = useState(0);
-
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.replace('/login');
-  }, [isLoading, user, router]);
 
   const loadData = useCallback(async () => {
     try {
@@ -135,16 +128,12 @@ export default function HebergeurDashboard() {
   const abonnementActif = centre?.abonnementStatut === 'ACTIF';
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+  // Note : les variables demandesNonLues, rappelsAujourdhui.length, actionsFacturationUrgentes
+  // restent calculées localement et utilisées dans les cartes KPI ci-dessous.
+  // Le layout charge ses propres compteurs via useHebergeurCounts pour la sidebar.
+
   return (
-    <div className="flex min-h-screen bg-[var(--color-bg)]">
-      <HebergeurSidebar
-        centre={centre ? { nom: centre.nom ?? null, ville: centre.ville ?? null, imageUrl: centre.imageUrl ?? null } : null}
-        demandesCount={demandesNonLues}
-        rappelsCount={rappelsAujourdhui.length}
-        actionsFactCount={actionsFacturationUrgentes}
-        onLogout={logout}
-      />
-      <div className="flex-1 min-w-0 flex flex-col">
+    <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg)]">
 
       {claimStatut === 'EN_ATTENTE_DOCUMENT' && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
@@ -559,7 +548,6 @@ export default function HebergeurDashboard() {
         </div>
 
       </main>
-      </div>
     </div>
   );
 }

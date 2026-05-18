@@ -43,9 +43,6 @@ export default function DocumentsPage() {
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.role !== 'HEBERGEUR')) router.push('/login');
-  }, [user, isLoading, router]);
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
