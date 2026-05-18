@@ -532,6 +532,30 @@ export class CentreService {
     });
   }
 
+  async uploadBrochure(userId: string, file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Fichier manquant');
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Seuls les fichiers PDF sont acceptés');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Fichier trop lourd (max 10 Mo)');
+    }
+
+    const centre = await this.prisma.centreHebergement.findFirst({
+      where: { userId },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const brochureUrl = await this.storage.upload(file, `centres/${centre.id}/brochures`);
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { brochureUrl },
+    });
+
+    return { brochureUrl };
+  }
+
   async uploadDocument(userId: string, file: Express.Multer.File, dto: CreateDocumentDto) {
     const centre = await this.prisma.centreHebergement.findFirst({
       where: { userId },
