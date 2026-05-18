@@ -4,6 +4,7 @@ import {
   MinLength,
   IsOptional,
   IsEnum,
+  IsUUID,
 } from 'class-validator';
 import { TypeStructure } from '@prisma/client';
 
@@ -44,4 +45,8 @@ export class RegisterOrganisateurDto {
   @IsOptional()
   @IsEnum(TypeStructure)
   typeStructure?: TypeStructure;
+
+  @IsOptional()
+  @IsUUID()
+  accompagnateurToken?: string;
 }
