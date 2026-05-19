@@ -159,7 +159,7 @@ export default function ModifierDevisPage() {
     setSending(true);
 
     const lignesData = lignes
-      .filter((l) => l.description && (parseFloat(l.prixUnitaire) || 0) > 0)
+      .filter((l) => l.description.trim().length > 0)
       .map((l) => {
         const qte = parseFloat(l.quantite) || 0;
         const pu = parseFloat(l.prixUnitaire) || 0;
