@@ -46,6 +46,16 @@ export class CollaborationController {
     return this.service.getSejourInfo(sejourId, user.id, user.role);
   }
 
+  @Patch(':sejourId/infos')
+  @Roles(Role.HEBERGEUR)
+  updateInfosSejour(
+    @Param('sejourId') sejourId: string,
+    @Body() body: { titre?: string; dateDebut?: string; dateFin?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.updateInfosSejour(sejourId, body, user.id);
+  }
+
   // ── Participants ─────────────────────────────────────────────
 
   @Get(':sejourId/participants')

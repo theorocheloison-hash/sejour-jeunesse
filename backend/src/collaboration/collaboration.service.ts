@@ -951,4 +951,67 @@ export class CollaborationService {
     await this.prisma.postJournal.delete({ where: { id: postId } });
     return { deleted: true };
   }
+
+  async updateInfosSejour(
+    sejourId: string,
+    dto: { titre?: string; dateDebut?: string; dateFin?: string },
+    userId: string,
+  ) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      include: {
+        hebergementSelectionne: { select: { userId: true } },
+        createur: { select: { email: true, prenom: true, nom: true } },
+        demandes: { where: { statut: { not: 'ANNULEE' } }, select: { id: true }, take: 1 },
+      },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.hebergementSelectionne?.userId !== userId) {
+      throw new ForbiddenException('Seul l\'hébergeur peut modifier les informations du séjour');
+    }
+
+    const updated = await this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: {
+        ...(dto.titre !== undefined && { titre: dto.titre }),
+        ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
+        ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
+      },
+    });
+
+    const demande = sejour.demandes?.[0];
+    if (demande) {
+      await this.prisma.demandeDevis.update({
+        where: { id: demande.id },
+        data: {
+          ...(dto.titre !== undefined && { titre: dto.titre }),
+          ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
+          ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
+        },
+      });
+    }
+
+    if (sejour.createur?.email) {
+      const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+      const changes: string[] = [];
+      if (dto.titre) changes.push(`Titre : <strong>${dto.titre}</strong>`);
+      if (dto.dateDebut) changes.push(`Date de début : <strong>${new Date(dto.dateDebut).toLocaleDateString('fr-FR')}</strong>`);
+      if (dto.dateFin) changes.push(`Date de fin : <strong>${new Date(dto.dateFin).toLocaleDateString('fr-FR')}</strong>`);
+
+      this.email.sendGenericNotification(
+        sejour.createur.email,
+        `Informations de votre séjour mises à jour — ${updated.titre}`,
+        `<p>Bonjour ${sejour.createur.prenom ?? ''},</p>
+         <p>L'hébergeur a mis à jour les informations de votre séjour <strong>${updated.titre}</strong> :</p>
+         <ul>${changes.map(c => `<li>${c}</li>`).join('')}</ul>
+         <p style="margin:24px 0">
+           <a href="${frontendUrl}/dashboard/sejour/${sejourId}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Voir mon séjour
+           </a>
+         </p>`,
+      ).catch(() => {});
+    }
+
+    return updated;
+  }
 }

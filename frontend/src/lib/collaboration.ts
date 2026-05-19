@@ -426,3 +426,11 @@ export async function notifierPlanningEnseignant(sejourId: string): Promise<{ su
   const { data } = await api.post<{ success: boolean }>(`/collaboration/${sejourId}/notifier-planning`);
   return data;
 }
+
+export async function updateInfosSejour(
+  sejourId: string,
+  dto: { titre?: string; dateDebut?: string; dateFin?: string },
+): Promise<{ id: string; titre: string; dateDebut: string; dateFin: string }> {
+  const { data } = await api.patch(`/collaboration/${sejourId}/infos`, dto);
+  return data;
+}
