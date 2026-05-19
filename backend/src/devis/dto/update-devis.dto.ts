@@ -85,4 +85,12 @@ export class UpdateDevisDto {
   @ValidateNested({ each: true })
   @Type(() => LigneDevisDto)
   lignes?: LigneDevisDto[];
+
+  @IsOptional()
+  @IsNumber()
+  nombreEleves?: number;
+
+  @IsOptional()
+  @IsNumber()
+  nombreAccompagnateurs?: number;
 }
