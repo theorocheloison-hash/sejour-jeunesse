@@ -169,12 +169,12 @@ export default function ModifierDevisPage() {
         return { description: l.description, quantite: qte, prixUnitaire: pu, tva: tvaL, totalHT: ht, totalTTC: ttc };
       });
 
-    const nombreEleves = devisOriginal.demande?.nombreEleves || 1;
+    const nbElevesParEleve = nombreEleves > 0 ? nombreEleves : (devisOriginal.demande?.nombreEleves || 1);
 
     try {
       await updateDevis(devisId, {
         montantTotal: calculs.montantTTC.toFixed(2),
-        montantParEleve: (calculs.montantTTC / nombreEleves).toFixed(2),
+        montantParEleve: (calculs.montantTTC / nbElevesParEleve).toFixed(2),
         description: devisOriginal.description ?? undefined,
         conditionsAnnulation,
         nomEntreprise,
