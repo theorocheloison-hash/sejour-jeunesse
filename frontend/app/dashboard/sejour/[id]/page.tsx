@@ -738,6 +738,7 @@ export default function CollaborationPage() {
     if (tab === 'groupes') {
       getGroupes(id).then(setGroupes).catch(() => {});
       getActivitesCatalogue(id).then(setActivitesCatalogue).catch(() => {});
+      loadParticipants();
     }
     if (tab === 'documents') { loadDocs(); loadDocsCentre(); }
     if (tab === 'participants') loadParticipants();
