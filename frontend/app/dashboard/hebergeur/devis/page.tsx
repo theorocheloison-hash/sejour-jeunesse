@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -115,13 +115,18 @@ export default function HebergeurDevisPage() {
   const [onglet, setOnglet] = useState<OngletDevis>('attente');
 
 
-  useEffect(() => {
+  const loadDevis = useCallback(() => {
     if (user?.role === 'HEBERGEUR') {
-      getMesDevis()
-        .then(setDevisList)
-        .catch(() => setError('Impossible de charger les devis.'));
+      getMesDevis().then(setDevisList).catch(() => setError('Impossible de charger les devis.'));
     }
   }, [user]);
+
+  useEffect(() => { loadDevis(); }, [loadDevis]);
+
+  useEffect(() => {
+    window.addEventListener('focus', loadDevis);
+    return () => window.removeEventListener('focus', loadDevis);
+  }, [loadDevis]);
 
   const isSearching = searchQuery.length >= 2;
 
@@ -458,6 +463,7 @@ export default function HebergeurDevisPage() {
                       )}
                     </div>
                     <DevisPDFButton
+                      key={`pdf-${d.id}-${d.demande?.nombreEleves ?? 0}-${d.demande?.nombreAccompagnateurs ?? 0}`}
                       data={buildPdfProps(d)}
                       filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : d.typeDocument === 'FACTURE_SOLDE' ? 'facture-solde' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
                       label="PDF"
@@ -495,6 +501,7 @@ export default function HebergeurDevisPage() {
                           </div>
                         )}
                         <DevisPDFButton
+                          key={`pdf-${d.id}-${d.demande?.nombreEleves ?? 0}-${d.demande?.nombreAccompagnateurs ?? 0}`}
                           data={buildPdfProps(d)}
                           filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
                         />

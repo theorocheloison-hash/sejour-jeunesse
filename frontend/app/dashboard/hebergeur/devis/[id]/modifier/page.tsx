@@ -169,7 +169,7 @@ export default function ModifierDevisPage() {
         return { description: l.description, quantite: qte, prixUnitaire: pu, tva: tvaL, totalHT: ht, totalTTC: ttc };
       });
 
-    const nbElevesParEleve = nombreEleves > 0 ? nombreEleves : (devisOriginal.demande?.nombreEleves || 1);
+    const nbElevesParEleve = nombreEleves > 0 ? nombreEleves : (devisOriginal.demande?.nombreEleves ?? 1);
 
     try {
       await updateDevis(devisId, {
