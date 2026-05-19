@@ -45,6 +45,7 @@ import {
   createJournalPost,
   deleteJournalPost,
   notifierPlanningEnseignant,
+  updateInfosSejour,
 } from '@/src/lib/collaboration';
 import type {
   SejourCollabInfo,
@@ -577,6 +578,9 @@ export default function CollaborationPage() {
   const [planningFinActivites, setPlanningFinActivites] = useState('');
   const [planningNotifying, setPlanningNotifying] = useState(false);
   const [planningNotified, setPlanningNotified] = useState(false);
+  const [editingInfos, setEditingInfos] = useState(false);
+  const [infosForm, setInfosForm] = useState({ titre: '', dateDebut: '', dateFin: '' });
+  const [infosLoading, setInfosLoading] = useState(false);
   const [planningVue, setPlanningVue] = useState<'semaine' | 'jour'>('semaine');
   const [planningJourSelectionne, setPlanningJourSelectionne] = useState<string>('');
   const [planModal, setPlanModal] = useState<{
@@ -652,7 +656,14 @@ export default function CollaborationPage() {
   // ── Load séjour info ──
   useEffect(() => {
     if (!id || !user) return;
-    getSejourCollabInfo(id).then(setSejour).catch(() => setError('Impossible de charger les informations du séjour.'));
+    getSejourCollabInfo(id).then((data) => {
+      setSejour(data);
+      setInfosForm({
+        titre: data.titre ?? '',
+        dateDebut: data.dateDebut ? new Date(data.dateDebut).toISOString().substring(0, 10) : '',
+        dateFin: data.dateFin ? new Date(data.dateFin).toISOString().substring(0, 10) : '',
+      });
+    }).catch(() => setError('Impossible de charger les informations du séjour.'));
   }, [id, user]);
 
   // ── Load tab data ──
@@ -1009,6 +1020,30 @@ export default function CollaborationPage() {
   // Check if ski column relevant
   const showSkiColumn = participants.some((p) => p.niveauSki);
 
+  // ── Save infos séjour (titre + dates) ──
+  const handleSaveInfos = async () => {
+    if (!id) return;
+    setInfosLoading(true);
+    try {
+      const updated = await updateInfosSejour(id, {
+        titre: infosForm.titre || undefined,
+        dateDebut: infosForm.dateDebut || undefined,
+        dateFin: infosForm.dateFin || undefined,
+      });
+      setSejour(prev => prev ? {
+        ...prev,
+        titre: updated.titre,
+        dateDebut: updated.dateDebut,
+        dateFin: updated.dateFin,
+      } : prev);
+      setEditingInfos(false);
+    } catch {
+      // ignore
+    } finally {
+      setInfosLoading(false);
+    }
+  };
+
   // ── Save thématiques ──
   const handleSaveThematiques = async () => {
     if (thematiquesSelectionnees.length === 0) return;
@@ -1068,8 +1103,16 @@ export default function CollaborationPage() {
             </svg>
           </Link>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {sejour?.titre ?? '—'}
+            <p className="text-sm font-semibold text-gray-900 truncate flex items-center">
+              <span className="truncate">{sejour?.titre ?? '—'}</span>
+              {isHebergeur && !editingInfos && (
+                <button
+                  onClick={() => setEditingInfos(true)}
+                  className="text-xs text-gray-400 hover:text-[var(--color-primary)] hover:underline ml-2 shrink-0"
+                >
+                  ✏️ Modifier
+                </button>
+              )}
             </p>
             <p className="text-xs text-gray-400 truncate">
               {sejour?.hebergementSelectionne?.nom ?? '—'}
@@ -1078,6 +1121,45 @@ export default function CollaborationPage() {
               )}
               {sejour?.placesTotales != null && <> · {sejour.placesTotales} participants</>}
             </p>
+            {isHebergeur && editingInfos && (
+              <div className="flex flex-col gap-2 mt-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm max-w-md">
+                <input
+                  value={infosForm.titre}
+                  onChange={e => setInfosForm(f => ({ ...f, titre: e.target.value }))}
+                  placeholder="Titre du séjour"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={infosForm.dateDebut}
+                    onChange={e => setInfosForm(f => ({ ...f, dateDebut: e.target.value }))}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <input
+                    type="date"
+                    value={infosForm.dateFin}
+                    onChange={e => setInfosForm(f => ({ ...f, dateFin: e.target.value }))}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setEditingInfos(false)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleSaveInfos}
+                    disabled={infosLoading}
+                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {infosLoading ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
