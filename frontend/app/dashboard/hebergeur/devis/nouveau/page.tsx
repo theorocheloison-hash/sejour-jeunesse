@@ -104,6 +104,9 @@ function NouveauDevisContent() {
         setEmailEntreprise(infoData.centre.email ?? '');
         setTelEntreprise(infoData.centre.telephone ?? '');
         setLignes([makeLigneForm({ quantite: String(infoData.demande.nombreEleves ?? 1) })]);
+        if (infoData.centre.conditionsAnnulation) {
+          setConditionsAnnulation(infoData.centre.conditionsAnnulation);
+        }
       })
       .catch(() => setLoadError('Impossible de charger les informations de la demande.'));
   }, [user, demandeId]);

@@ -164,6 +164,7 @@ export interface DemandeInfo {
     siret?: string | null;
     telephone?: string | null;
     email?: string | null;
+    conditionsAnnulation?: string | null;
   };
 }
 
