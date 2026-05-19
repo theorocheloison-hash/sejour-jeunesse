@@ -36,7 +36,7 @@ export default function ModifierDevisPage() {
 
   // Data
   const [devisOriginal, setDevisOriginal] = useState<Devis | null>(null);
-  const [centre, setCentre] = useState<{ id: string; nom: string; adresse: string; ville: string; codePostal: string; siret?: string | null; telephone?: string | null; email?: string | null } | null>(null);
+  const [centre, setCentre] = useState<{ id: string; nom: string; adresse: string; ville: string; codePostal: string; siret?: string | null; telephone?: string | null; email?: string | null; conditionsAnnulation?: string | null } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Company info
@@ -86,7 +86,7 @@ export default function ModifierDevisPage() {
         setTelEntreprise(devis.telEntreprise ?? c.telephone ?? '');
         setPourcentageAcompte(devis.pourcentageAcompte ?? 30);
         setNumeroDevis(devis.numeroDevis ?? '');
-        setConditionsAnnulation(devis.conditionsAnnulation ?? '');
+        setConditionsAnnulation(devis.conditionsAnnulation ?? c.conditionsAnnulation ?? '');
         // Pre-fill lignes
         if (devis.lignes && devis.lignes.length > 0) {
           setLignes(devis.lignes.map((l: LigneDevis) =>
