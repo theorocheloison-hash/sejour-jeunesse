@@ -68,6 +68,8 @@ export default function ModifierDevisPage() {
   const [success, setSuccess] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [notified, setNotified] = useState(false);
+  const [nombreEleves, setNombreEleves] = useState<number>(0);
+  const [nombreAccompagnateurs, setNombreAccompagnateurs] = useState<number>(0);
 
 
   // ── Load existing devis ──
@@ -87,6 +89,8 @@ export default function ModifierDevisPage() {
         setPourcentageAcompte(devis.pourcentageAcompte ?? 30);
         setNumeroDevis(devis.numeroDevis ?? '');
         setConditionsAnnulation(devis.conditionsAnnulation ?? c.conditionsAnnulation ?? '');
+        setNombreEleves(devis.demande?.nombreEleves ?? 0);
+        setNombreAccompagnateurs(devis.demande?.nombreAccompagnateurs ?? 0);
         // Pre-fill lignes
         if (devis.lignes && devis.lignes.length > 0) {
           setLignes(devis.lignes.map((l: LigneDevis) =>
@@ -186,6 +190,8 @@ export default function ModifierDevisPage() {
         numeroDevis,
         typeDevis: devisOriginal.typeDevis ?? 'PLATEFORME',
         lignes: lignesData,
+        nombreEleves: nombreEleves > 0 ? nombreEleves : undefined,
+        nombreAccompagnateurs: nombreAccompagnateurs > 0 ? nombreAccompagnateurs : undefined,
       });
       setSuccess(true);
     } catch {
@@ -325,19 +331,47 @@ export default function ModifierDevisPage() {
           {/* ── Section 3 : Objet ─────────────────────────────────────────── */}
           <div className="px-8 py-6 border-b border-gray-100">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Objet</h2>
-            {sejour ? (
-              <div className="space-y-1">
+            <div className="space-y-3">
+              {sejour ? (
                 <p className="text-sm font-semibold text-gray-900">
                   Séjour scolaire — {sejour.titre}
                 </p>
+              ) : demande ? (
+                <p className="text-sm font-semibold text-gray-900">
+                  {demande.titre}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400">Chargement...</p>
+              )}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Élèves</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={nombreEleves}
+                    onChange={e => setNombreEleves(Number(e.target.value))}
+                    className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <span className="text-gray-400 text-sm">+</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Accompagnants</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={nombreAccompagnateurs}
+                    onChange={e => setNombreAccompagnateurs(Number(e.target.value))}
+                    className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                {(nombreEleves > 0 || nombreAccompagnateurs > 0) && (
+                  <span className="text-xs text-gray-400">
+                    = {nombreEleves + nombreAccompagnateurs} personnes
+                  </span>
+                )}
               </div>
-            ) : demande ? (
-              <p className="text-sm font-semibold text-gray-900">
-                {demande.titre} — {demande.villeHebergement} — {demande.nombreEleves} élèves
-              </p>
-            ) : (
-              <p className="text-sm text-gray-400">Chargement...</p>
-            )}
+            </div>
           </div>
 
           {/* ── Section 4 : Lignes de devis ───────────────────────────────── */}

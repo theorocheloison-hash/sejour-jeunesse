@@ -65,6 +65,7 @@ export interface Devis {
     titre: string;
     villeHebergement: string;
     nombreEleves: number;
+    nombreAccompagnateurs?: number | null;
     enseignant?: {
       prenom: string;
       nom: string;
@@ -128,6 +129,8 @@ export interface CreateDevisDto {
   numeroDevis?: string;
   typeDevis?: string;
   lignes?: Omit<LigneDevis, 'id'>[];
+  nombreEleves?: number;
+  nombreAccompagnateurs?: number;
 }
 
 export interface DemandeInfo {

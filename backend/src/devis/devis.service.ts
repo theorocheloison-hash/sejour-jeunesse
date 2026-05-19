@@ -296,6 +296,17 @@ export class DevisService {
       });
     }
 
+    // Synchroniser DemandeDevis si effectif modifié
+    if (dto.nombreEleves !== undefined || dto.nombreAccompagnateurs !== undefined) {
+      await this.prisma.demandeDevis.update({
+        where: { id: devis.demandeId },
+        data: {
+          ...(dto.nombreEleves !== undefined && { nombreEleves: dto.nombreEleves }),
+          ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
+        },
+      });
+    }
+
     // Notifier l'enseignant si le devis était SELECTIONNE
     if (devis.statut === 'SELECTIONNE') {
       const demande = await this.prisma.demandeDevis.findUnique({
