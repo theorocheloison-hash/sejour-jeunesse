@@ -190,8 +190,8 @@ export default function ModifierDevisPage() {
         numeroDevis,
         typeDevis: devisOriginal.typeDevis ?? 'PLATEFORME',
         lignes: lignesData,
-        nombreEleves: nombreEleves > 0 ? nombreEleves : undefined,
-        nombreAccompagnateurs: nombreAccompagnateurs > 0 ? nombreAccompagnateurs : undefined,
+        nombreEleves: nombreEleves !== null && nombreEleves !== undefined ? nombreEleves : undefined,
+        nombreAccompagnateurs: nombreAccompagnateurs !== null && nombreAccompagnateurs !== undefined ? nombreAccompagnateurs : undefined,
       });
       setSuccess(true);
     } catch {
@@ -515,8 +515,8 @@ export default function ModifierDevisPage() {
                                   type="button"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
-                                    const nombreEleves = devisOriginal?.demande?.nombreEleves ?? 1;
-                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nombreEleves), String(p.prixUnitaireHT), String(p.tva))]);
+                                    const nbElevesInitial = devisOriginal?.demande?.nombreEleves ?? 1;
+                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nbElevesInitial), String(p.prixUnitaireHT), String(p.tva))]);
                                     setCatalogueSearch('');
                                     setShowCatalogueSearch(false);
                                   }}
