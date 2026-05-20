@@ -649,7 +649,7 @@ export class CollaborationService {
     // ── Calculer le nb de groupes simultanés par activité ─────────────────────
     // nbGroupesSimultanes(activite) = nbMoniteursMax ?? 1
     const nbGroupesSimultanesMin = Math.min(
-      ...activitesRotationFiltrees.map(a => Math.max(1, (a as any).nbMoniteursMax ?? 1))
+      ...activitesRotationFiltrees.map(a => Math.max(1, a.nbMoniteursMax ?? 1))
     );
     // Taille des clusters = min sur toutes les activités pour cohérence de la rotation
     const nbGroupesParCluster = Math.max(1, nbGroupesSimultanesMin);

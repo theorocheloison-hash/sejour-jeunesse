@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
@@ -89,7 +90,12 @@ export class AdminService {
   async validerHebergeur(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { centres: { select: { id: true, nom: true, ville: true } } },
+      select: {
+        id: true,
+        email: true,
+        prenom: true,
+        centres: { select: { id: true, nom: true, ville: true } },
+      },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
@@ -186,7 +192,12 @@ export class AdminService {
   async refuserHebergeur(id: string, motif?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { centres: { select: { nom: true } } },
+      select: {
+        id: true,
+        email: true,
+        prenom: true,
+        centres: { select: { nom: true } },
+      },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
@@ -236,13 +247,16 @@ export class AdminService {
   }
 
   async updateUtilisateur(id: string, data: { role?: string; compteValide?: boolean }) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
     return this.prisma.user.update({
       where: { id },
       data: {
-        ...(data.role && { role: data.role as any }),
+        ...(data.role && { role: data.role as Role }),
         ...(data.compteValide !== undefined && { compteValide: data.compteValide }),
       },
       select: {
@@ -669,6 +683,7 @@ export class AdminService {
 
       const existingUser = await this.prisma.user.findUnique({
         where: { email: centre.email },
+        select: { id: true },
       });
       if (existingUser) {
         skipped++;

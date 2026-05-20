@@ -1,4 +1,5 @@
 import { Injectable, ConflictException } from '@nestjs/common';
+import { TypeStructure } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { JwtService } from '@nestjs/jwt';
@@ -16,7 +17,7 @@ export interface DemandePubliqueDto {
   prenom: string;
   nom: string;
   email: string;
-  typeStructure?: string;
+  typeStructure?: TypeStructure;
   etablissementNom?: string;
   etablissementVille?: string;
   etablissementUai?: string;
@@ -86,7 +87,7 @@ export class PublicService {
       nom:           dto.etablissementNom ?? `${dto.prenom} ${dto.nom}`,
       ville:         dto.etablissementVille ?? null,
       uai:           dto.etablissementUai ?? null,
-      typeStructure: (dto.typeStructure as any) ?? 'AUTRE',
+      typeStructure: dto.typeStructure ?? TypeStructure.AUTRE,
       source:        'MANUAL',
     });
 

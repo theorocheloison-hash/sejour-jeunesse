@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { StatutDevis } from '@prisma/client';
+import { StatutDevis, StatutRelation } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
@@ -478,7 +478,7 @@ export class ClientsService {
             create: {
               organisationHebergeurId,
               organisationClienteId: created.organisationId,
-              statut: (created.statut as any) ?? 'PROSPECT',
+              statut: (created.statut as StatutRelation) ?? StatutRelation.PROSPECT,
               source: 'IMPORT_CSV',
             },
             update: {},

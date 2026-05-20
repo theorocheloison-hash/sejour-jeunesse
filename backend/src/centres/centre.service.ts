@@ -406,7 +406,7 @@ export class CentreService {
     } | null;
   }> {
     const invitation = await this.prisma.invitationHebergement.findUnique({
-      where: { token: token as any },
+      where: { token },
       include: {
         centreExistant: {
           select: {
