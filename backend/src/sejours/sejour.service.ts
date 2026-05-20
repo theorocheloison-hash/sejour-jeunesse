@@ -434,7 +434,7 @@ export class SejourService {
 
     await this.prisma.sejour.update({
       where: { id: sejourId },
-      data: { statut: 'SOUMIS_RECTORAT' as any },
+      data: { statut: StatutSejour.SOUMIS_RECTORAT },
     });
 
     const destinataire = directeur?.emailRectorat ?? sejour.createur?.email ?? '';
@@ -692,7 +692,7 @@ export class SejourService {
     }
 
     // Déterminer le typeContexte depuis le séjour
-    const typeContexteValue = (sejour as any).typeContexte ?? 'SCOLAIRE';
+    const typeContexteValue = sejour.typeContexte ?? 'SCOLAIRE';
 
     const invitation = await this.prisma.invitationDirecteur.create({
       data: {

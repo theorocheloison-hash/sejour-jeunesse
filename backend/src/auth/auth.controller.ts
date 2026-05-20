@@ -9,6 +9,7 @@ import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { CurrentUser, type JwtUser } from './decorators/current-user.decorator.js';
 
 @Controller('auth')
 export class AuthController {
@@ -79,8 +80,8 @@ export class AuthController {
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  setPassword(@Req() req: Request, @Body() body: { password: string }) {
-    return this.authService.definirMotDePasse((req as any).user.id, body.password);
+  setPassword(@CurrentUser() user: JwtUser, @Body() body: { password: string }) {
+    return this.authService.definirMotDePasse(user.id, body.password);
   }
 
   @Get('sirene/:siret')

@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role, User } from '@prisma/client';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -29,6 +29,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) throw new ConflictException('Cet email est déjà utilisé');
 
@@ -53,6 +54,7 @@ export class AuthService {
   async registerOrganisateur(dto: RegisterOrganisateurDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) throw new ConflictException('Cet email est déjà utilisé');
 
@@ -93,7 +95,7 @@ export class AuthService {
         uai:           dto.etablissementUai ?? null,
         adresse:       dto.etablissementAdresse ?? null,
         ville:         dto.etablissementVille ?? null,
-        typeStructure: (dto.typeStructure as any) ?? null,
+        typeStructure: dto.typeStructure ?? null,
         source:        'MANUAL',
       });
       await findOrCreateMembership(this.prisma, {
@@ -118,6 +120,7 @@ export class AuthService {
   async registerSignataire(dto: RegisterSignataireDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) throw new ConflictException('Cet email est déjà utilisé');
 
@@ -183,6 +186,7 @@ export class AuthService {
   async registerHebergeur(dto: RegisterHebergeurDto, ipAddress?: string, userAgent?: string) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: { id: true },
     });
     if (existing) throw new ConflictException('Cet email est déjà utilisé');
 
@@ -313,6 +317,12 @@ export class AuthService {
   async verifyEmail(token: string) {
     const user = await this.prisma.user.findFirst({
       where: { tokenVerification: token },
+      select: {
+        id: true,
+        emailVerifie: true,
+        tokenVerificationExpires: true,
+        accompagnateurTokenPending: true,
+      },
     });
     if (!user) throw new NotFoundException('Lien de vérification invalide ou expiré');
 
@@ -358,6 +368,7 @@ export class AuthService {
   async resendVerification(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      select: { id: true, email: true, prenom: true, emailVerifie: true },
     });
     if (!user) return { message: 'Si cet email est enregistré, un lien a été envoyé.' };
 
@@ -380,7 +391,10 @@ export class AuthService {
   }
 
   async renvoyerMagicLink(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, prenom: true, compteValide: true },
+    });
     if (!user || user.compteValide) {
       return { message: 'Si cet email correspond à une demande en cours, un lien a été envoyé.' };
     }
@@ -401,6 +415,17 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: {
+        id: true,
+        email: true,
+        prenom: true,
+        nom: true,
+        role: true,
+        motDePasse: true,
+        compteValide: true,
+        emailVerifie: true,
+        reseauNom: true,
+      },
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
 
@@ -458,7 +483,10 @@ export class AuthService {
   }
 
   async demanderResetPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
     // Toujours retourner success même si l'email n'existe pas (sécurité)
     if (!user) return { message: 'Si cet email existe, un lien a été envoyé.' };
 
@@ -493,6 +521,7 @@ export class AuthService {
         resetPasswordToken: token,
         resetPasswordExpires: { gt: new Date() },
       },
+      select: { id: true },
     });
     if (!user) throw new BadRequestException('Lien invalide ou expiré');
 
@@ -518,6 +547,7 @@ export class AuthService {
         magicLinkToken: token,
         magicLinkExpires: { gte: new Date() },
       },
+      select: { id: true, email: true, role: true },
     });
 
     if (!user) {
@@ -544,7 +574,14 @@ export class AuthService {
     );
   }
 
-  private buildAuthResponse(user: User) {
+  private buildAuthResponse(user: {
+    id: string;
+    email: string;
+    prenom: string;
+    nom: string;
+    role: string;
+    reseauNom?: string | null;
+  }) {
     const payload = {
       sub: user.id,
       email: user.email,
