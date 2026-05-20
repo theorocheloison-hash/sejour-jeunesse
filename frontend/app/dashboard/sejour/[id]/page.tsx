@@ -407,7 +407,7 @@ function DevisPDFInline({ data }: { data: DevisPDFProps }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [data.nombreEleves, (data as any).nombreAccompagnateurs]);
+  }, []);
 
   if (loading) return (
     <div className="flex justify-center items-center h-48 rounded-2xl border border-gray-200 bg-white">
@@ -1339,7 +1339,7 @@ export default function CollaborationPage() {
                 lieuSejour: (s as any)?.lieu ?? (s as any)?.ville ?? '',
                 dateDebutSejour: s?.dateDebut,
                 dateFinSejour: s?.dateFin,
-                nombreEleves: (d as any).demande?.nombreEleves ?? s?.placesTotales ?? undefined,
+                nombreEleves: s?.placesTotales ?? undefined,
                 niveauClasse: (s as any)?.niveauClasse ?? undefined,
                 lignes: d.lignes.map((l: any) => ({
                   description: l.description,
