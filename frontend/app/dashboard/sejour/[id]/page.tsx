@@ -407,7 +407,7 @@ function DevisPDFInline({ data }: { data: DevisPDFProps }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, []);
+  }, [data.nombreEleves, (data as any).nombreAccompagnateurs]);
 
   if (loading) return (
     <div className="flex justify-center items-center h-48 rounded-2xl border border-gray-200 bg-white">
