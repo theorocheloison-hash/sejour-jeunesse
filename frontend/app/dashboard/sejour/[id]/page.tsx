@@ -971,7 +971,7 @@ export default function CollaborationPage() {
     if (!id) return;
     try {
       await cloturerInscriptions(id);
-      setSejour(prev => prev ? { ...prev, inscriptionsCloturees: true } as any : prev);
+      setSejour(prev => prev ? { ...prev, inscriptionsCloturees: true } : prev);
     } catch (err) {
       console.error('[handleCloturerInscriptions]', err);
       setMutationError('Une erreur est survenue. Veuillez réessayer.');
@@ -1370,19 +1370,19 @@ export default function CollaborationPage() {
                 siretEmetteur: d.siretEntreprise ?? c?.siret ?? undefined,
                 emailEmetteur: d.emailEntreprise ?? c?.email ?? undefined,
                 telEmetteur: d.telEntreprise ?? c?.telephone ?? undefined,
-                tvaEmetteur: (c as any)?.tvaIntracommunautaire ?? undefined,
-                ibanEmetteur: (c as any)?.iban ?? undefined,
+                tvaEmetteur: c?.tvaIntracommunautaire ?? undefined,
+                ibanEmetteur: c?.iban ?? undefined,
                 nomDestinataire: createur ? `${createur.prenom} ${createur.nom}` : '',
                 etablissementNom: createur?.memberships?.[0]?.organisation.nom ?? undefined,
                 adresseDestinataire: createur?.memberships?.[0]?.organisation.ville ?? undefined,
                 emailDestinataire: createur?.email ?? undefined,
-                telDestinataire: (createur as any)?.telephone ?? undefined,
+                telDestinataire: createur?.telephone ?? undefined,
                 titreSejour: s?.titre ?? '',
-                lieuSejour: (s as any)?.lieu ?? (s as any)?.ville ?? '',
+                lieuSejour: s?.lieu ?? '',
                 dateDebutSejour: s?.dateDebut,
                 dateFinSejour: s?.dateFin,
                 nombreEleves: s?.placesTotales ?? undefined,
-                niveauClasse: (s as any)?.niveauClasse ?? undefined,
+                niveauClasse: s?.niveauClasse ?? undefined,
                 lignes: d.lignes.map((l: any) => ({
                   description: l.description,
                   quantite: Number(l.quantite),
@@ -1397,7 +1397,7 @@ export default function CollaborationPage() {
                 montantAcompte: Number(d.montantAcompte) || undefined,
                 pourcentageAcompte: Number(d.pourcentageAcompte) || undefined,
                 conditionsAnnulation: d.conditionsAnnulation ?? undefined,
-                signatureDirecteur: (d as any).signatureDirecteur ?? null,
+                signatureDirecteur: d.signatureDirecteur ?? null,
               };
 
               return (
@@ -2078,7 +2078,7 @@ export default function CollaborationPage() {
         {tab === 'groupes' && (
           <div className="space-y-6">
             {/* Bandeau clôture inscriptions — ORGANISATEUR uniquement */}
-            {user.role === 'ORGANISATEUR' && !(sejour as any)?.inscriptionsCloturees && (
+            {user.role === 'ORGANISATEUR' && !sejour?.inscriptionsCloturees && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-amber-800">Inscriptions ouvertes</p>
@@ -2090,7 +2090,7 @@ export default function CollaborationPage() {
                 </button>
               </div>
             )}
-            {user.role === 'ORGANISATEUR' && (sejour as any)?.inscriptionsCloturees && (
+            {user.role === 'ORGANISATEUR' && sejour?.inscriptionsCloturees && (
               <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-3 text-sm text-green-700 font-medium">
                 ✓ Inscriptions clôturées — vous pouvez affecter les élèves aux groupes
               </div>
@@ -2159,7 +2159,7 @@ export default function CollaborationPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
               {/* Colonne gauche — élèves non affectés */}
-              {(sejour as any)?.inscriptionsCloturees && (
+              {sejour?.inscriptionsCloturees && (
                 <div className="lg:col-span-1">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                     Élèves non affectés ({participants.filter(p => !groupes.some(g => g.eleves.some(e => e.autorisationId === p.id))).length})
@@ -2187,7 +2187,7 @@ export default function CollaborationPage() {
               )}
 
               {/* Colonne droite — cards groupes */}
-              <div className={`${(sejour as any)?.inscriptionsCloturees ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+              <div className={`${sejour?.inscriptionsCloturees ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                 {groupes.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
                     {user.role === 'HEBERGEUR' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
@@ -2236,7 +2236,7 @@ export default function CollaborationPage() {
                           ))}
                           {g.eleves.length === 0 && (
                             <p className="text-xs text-gray-300 text-center py-2">
-                              {(sejour as any)?.inscriptionsCloturees && user.role === 'ORGANISATEUR' ? 'Glissez des élèves ici' : 'Vide'}
+                              {sejour?.inscriptionsCloturees && user.role === 'ORGANISATEUR' ? 'Glissez des élèves ici' : 'Vide'}
                             </p>
                           )}
                         </div>

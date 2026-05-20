@@ -168,7 +168,7 @@ function SejourCard({
           {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (() => {
             const devisActif = sejour.demandes?.[0]?.devis?.[0];
             if (!devisActif) return null;
-            const estSigne = !!(devisActif as any).signatureDirecteur;
+            const estSigne = !!devisActif.signatureDirecteur;
             return (
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5
                 text-xs font-medium ${estSigne

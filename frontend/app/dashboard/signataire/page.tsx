@@ -490,7 +490,7 @@ export default function SignataireDashboard() {
   const sejoursFiltres = filtre === 'ALL'
     ? sejours
     : filtre === ('ASIGNER' as any)
-      ? sejours.filter((s: any) => s.demandes?.[0]?.devis?.[0] && !(s.demandes[0].devis[0] as any).signatureDirecteur)
+      ? sejours.filter((s: any) => s.demandes?.[0]?.devis?.[0] && !s.demandes[0].devis[0].signatureDirecteur)
       : sejours.filter((s) => s.statut === filtre);
 
   const countByStatut = (s: StatutSejour) => sejours.filter((x) => x.statut === s).length;
@@ -549,7 +549,7 @@ export default function SignataireDashboard() {
         <div className="flex flex-wrap gap-2 mb-6">
           {([
             ['ALL',              'Tous',            sejours.length,                      'bg-gray-100 text-gray-700 ring-gray-300'],
-            ['ASIGNER',         'À signer',        sejours.filter(s => s.demandes?.[0]?.devis?.[0] && !(s.demandes[0].devis[0] as any).signatureDirecteur).length, 'bg-amber-50 text-amber-700 ring-amber-300'],
+            ['ASIGNER',         'À signer',        sejours.filter(s => s.demandes?.[0]?.devis?.[0] && !s.demandes[0].devis[0].signatureDirecteur).length, 'bg-amber-50 text-amber-700 ring-amber-300'],
             ['SIGNE_DIRECTION',  'Signé direction', countByStatut('SIGNE_DIRECTION'),    'bg-purple-50 text-purple-700 ring-purple-300'],
             ['SOUMIS_RECTORAT',  'Soumis',          countByStatut('SOUMIS_RECTORAT'),    'bg-purple-50 text-purple-700 ring-purple-300'],
             ['REJECTED',         'Refusés',         countByStatut('REJECTED'),           'bg-red-50 text-red-700 ring-red-300'],
