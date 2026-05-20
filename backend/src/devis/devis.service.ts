@@ -298,6 +298,11 @@ export class DevisService {
 
     // Synchroniser DemandeDevis si effectif modifié
     if (dto.nombreEleves !== undefined || dto.nombreAccompagnateurs !== undefined) {
+      const demandePourSejour = await this.prisma.demandeDevis.findUnique({
+        where: { id: devis.demandeId },
+        select: { sejourId: true },
+      });
+
       await this.prisma.demandeDevis.update({
         where: { id: devis.demandeId },
         data: {
@@ -305,6 +310,13 @@ export class DevisService {
           ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
         },
       });
+
+      if (dto.nombreEleves !== undefined && demandePourSejour?.sejourId) {
+        await this.prisma.sejour.update({
+          where: { id: demandePourSejour.sejourId },
+          data: { placesTotales: dto.nombreEleves },
+        });
+      }
     }
 
     // Notifier l'enseignant si le devis était SELECTIONNE
