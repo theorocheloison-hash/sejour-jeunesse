@@ -70,17 +70,6 @@ export default function HebergeurDashboard() {
     if (user?.role === 'HEBERGEUR') loadData();
   }, [user, loadData]);
 
-  useEffect(() => {
-    if (user?.role !== 'HEBERGEUR') return;
-    const interval = setInterval(async () => {
-      try {
-        const rappels = await getRappelsToday();
-        setRappelsAujourdhui(rappels);
-      } catch {}
-    }, 60_000);
-    return () => clearInterval(interval);
-  }, [user]);
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

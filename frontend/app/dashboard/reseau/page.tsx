@@ -217,7 +217,7 @@ function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () 
                 <p className="text-xs text-gray-400">{centre.adresse}, {centre.codePostal}</p>
               </div>
 
-              {!(centre.description) && (centre as any).source === 'APIDAE' && (
+              {!(centre.description) && centre.source === 'APIDAE' && (
                 <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
                   <p className="text-xs font-semibold text-blue-700 mb-1">Importé depuis APIDAE</p>
                   <p className="text-xs text-blue-600">
@@ -634,7 +634,7 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">
                             {c.nom}
                             {c.onboardingScore < 4 && <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-amber-400" title="Profil incomplet" />}
-                            {(c as any).source === 'APIDAE' && (
+                            {c.source === 'APIDAE' && (
                               <span className="ml-1.5 inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
                                 APIDAE
                               </span>

@@ -117,6 +117,7 @@ export interface ReseauCentre {
   capacite: number;
   statut: string;
   abonnementStatut: string;
+  source: string | null;
   demandesRecues: number;
   devisEnvoyes: number;
   devisSelectionnes: number;
