@@ -549,6 +549,7 @@ export default function CollaborationPage() {
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Messages
   const [messages, setMessages] = useState<MessageCollab[]>([]);
@@ -816,7 +817,11 @@ export default function CollaborationPage() {
     try {
       await deleteJournalPost(id, postId);
       setJournalPosts((prev) => prev.filter((p) => p.id !== postId));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleDeleteJournalPost]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getJournal(id).then(setJournalPosts).catch(() => {});
+    }
   };
 
   const handleAddPlanning = async () => {
@@ -849,7 +854,11 @@ export default function CollaborationPage() {
     try {
       await deletePlanning(id, planningId);
       setPlanning((prev) => prev.filter((p) => p.id !== planningId));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleDeletePlanning]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      loadPlanning();
+    }
   };
 
   const handleGenererPlanningIA = async () => {
@@ -915,7 +924,11 @@ export default function CollaborationPage() {
         setGroupes(prev => [...prev, created]);
       }
       setGroupeModal(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleSaveGroupe]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getGroupes(id).then(setGroupes).catch(() => {});
+    }
   };
 
   const handleDeleteGroupe = async (groupeId: string) => {
@@ -923,7 +936,11 @@ export default function CollaborationPage() {
     try {
       await deleteGroupe(id, groupeId);
       setGroupes(prev => prev.filter(g => g.id !== groupeId));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleDeleteGroupe]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getGroupes(id).then(setGroupes).catch(() => {});
+    }
   };
 
   const handleAffecterEleve = async (autorisationId: string, groupeId: string) => {
@@ -931,7 +948,11 @@ export default function CollaborationPage() {
     try {
       await affecterEleve(id, groupeId, autorisationId);
       setGroupes(await getGroupes(id));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleAffecterEleve]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getGroupes(id).then(setGroupes).catch(() => {});
+    }
   };
 
   const handleRetirerEleve = async (autorisationId: string) => {
@@ -939,7 +960,11 @@ export default function CollaborationPage() {
     try {
       await retirerEleve(id, autorisationId);
       setGroupes(await getGroupes(id));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleRetirerEleve]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getGroupes(id).then(setGroupes).catch(() => {});
+    }
   };
 
   const handleCloturerInscriptions = async () => {
@@ -947,7 +972,11 @@ export default function CollaborationPage() {
     try {
       await cloturerInscriptions(id);
       setSejour(prev => prev ? { ...prev, inscriptionsCloturees: true } as any : prev);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleCloturerInscriptions]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      getSejourCollabInfo(id).then(setSejour).catch(() => {});
+    }
   };
 
   const handleDocFileSelect = (file: File | undefined) => {
@@ -981,7 +1010,11 @@ export default function CollaborationPage() {
       setDocs((prev) => [doc, ...prev]);
       setDocForm({ nom: '', type: 'AUTRE' });
       setDocFile(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleAddDocument]', err);
+      setMutationError('Une erreur est survenue. Veuillez réessayer.');
+      loadDocs();
+    }
     setDocSending(false);
   };
 
@@ -1174,6 +1207,15 @@ export default function CollaborationPage() {
           </span>
         </div>
       </div>
+
+      {mutationError && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 print:hidden">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 text-sm text-red-700">
+            <span>{mutationError}</span>
+            <button onClick={() => setMutationError(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
       {user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
@@ -3047,7 +3089,7 @@ export default function CollaborationPage() {
                                 <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(l.montant)} &euro;</td>
                                 {isTeacher && (
                                   <td className="py-2 px-1">
-                                    <button onClick={async () => { if (!id) return; try { await deleteLigneCompl(id, l.id); setLignesCompl((prev) => prev.filter((x) => x.id !== l.id)); } catch { /* ignore */ } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                    <button onClick={async () => { if (!id) return; try { await deleteLigneCompl(id, l.id); setLignesCompl((prev) => prev.filter((x) => x.id !== l.id)); } catch (err) { console.error('[deleteLigneCompl]', err); setError('Une erreur est survenue. Veuillez réessayer.'); loadBudget(); } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
                                   </td>
                                 )}
                               </tr>
@@ -3114,7 +3156,7 @@ export default function CollaborationPage() {
                                 <td className="py-2 px-3 text-right text-gray-900 font-medium">{fmt(r.montant)} &euro;</td>
                                 {isTeacher && (
                                   <td className="py-2 px-1">
-                                    <button onClick={async () => { if (!id) return; try { await deleteRecetteBudget(id, r.id); setRecettes((prev) => prev.filter((x) => x.id !== r.id)); } catch { /* ignore */ } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
+                                    <button onClick={async () => { if (!id) return; try { await deleteRecetteBudget(id, r.id); setRecettes((prev) => prev.filter((x) => x.id !== r.id)); } catch (err) { console.error('[deleteRecetteBudget]', err); setError('Une erreur est survenue. Veuillez réessayer.'); loadBudget(); } }} className="print:hidden text-red-400 hover:text-red-600 text-xs">Suppr.</button>
                                   </td>
                                 )}
                               </tr>

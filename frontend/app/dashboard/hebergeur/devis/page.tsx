@@ -190,7 +190,11 @@ export default function HebergeurDevisPage() {
     try {
       const updated = await facturerSolde(devisId);
       setDevisList(prev => prev.map(d => d.id === devisId ? { ...d, ...updated } : d));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleFacturerSolde]', err);
+      setError('Une erreur est survenue. Veuillez réessayer.');
+      loadDevis();
+    }
   };
 
   const handleAjouterVersement = async () => {
@@ -206,7 +210,11 @@ export default function HebergeurDevisPage() {
       setDevisList(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d));
       setVersementForm({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
       setModalVersement(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleAjouterVersement]', err);
+      setError('Une erreur est survenue. Veuillez réessayer.');
+      loadDevis();
+    }
     finally { setVersementLoading(false); }
   };
 
@@ -670,7 +678,11 @@ export default function HebergeurDevisPage() {
                                     : dv
                                 ));
                                 setModalVersement(prev => prev ? { ...prev, devis: { ...prev.devis, versements: updated, montantVerseTotal: updated.reduce((s, vv) => s + vv.montant, 0) } } : null);
-                              } catch { /* ignore */ }
+                              } catch (err) {
+                                console.error('[supprimerVersement]', err);
+                                setError('Une erreur est survenue. Veuillez réessayer.');
+                                loadDevis();
+                              }
                             }}
                             className="ml-2 text-gray-300 hover:text-red-500 transition-colors shrink-0"
                             title="Supprimer ce versement"

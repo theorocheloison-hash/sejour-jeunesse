@@ -420,8 +420,10 @@ export default function SignataireDashboard() {
       }
       setRectoratSuccess('Dossier soumis — email envoyé');
       setTimeout(() => setRectoratSuccess(null), 4000);
-    } catch {
-      // no-op
+    } catch (err) {
+      console.error('[handleSoumettreRectorat]', err);
+      setLoadError('Une erreur est survenue. Veuillez réessayer.');
+      loadSejours().catch(() => {});
     } finally {
       setActingId(null);
     }
@@ -433,7 +435,11 @@ export default function SignataireDashboard() {
       await updateDevisStatut(devisId, statut);
       await Promise.all([loadDevis(), loadSejours(), loadFactures()]);
       setDevisDetail(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleDevisAction]', err);
+      setLoadError('Une erreur est survenue. Veuillez réessayer.');
+      await Promise.all([loadDevis(), loadSejours(), loadFactures()]).catch(() => {});
+    }
     setDevisActingId(null);
   };
 
@@ -443,7 +449,11 @@ export default function SignataireDashboard() {
       await signerDevis(devisId);
       await Promise.all([loadDevis(), loadSejours()]);
       setDevisDetail(null);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleSignerDevis]', err);
+      setLoadError('Une erreur est survenue. Veuillez réessayer.');
+      await Promise.all([loadDevis(), loadSejours()]).catch(() => {});
+    }
     setDevisActingId(null);
   };
 
@@ -452,7 +462,11 @@ export default function SignataireDashboard() {
     try {
       await validerAcompte(devisId);
       await loadFactures();
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleValiderAcompte]', err);
+      setLoadError('Une erreur est survenue. Veuillez réessayer.');
+      await loadFactures().catch(() => {});
+    }
     setFactureActingId(null);
   };
 

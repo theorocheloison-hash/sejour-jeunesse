@@ -118,6 +118,7 @@ function ClientsPage() {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteForm, setNoteForm] = useState({ type: 'NOTE', description: '' });
   const [sendingBrochure, setSendingBrochure] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && user?.role === 'HEBERGEUR') {
@@ -338,7 +339,11 @@ function ClientsPage() {
       setCsvResult({ imported: result.imported, skipped: result.skipped });
       setCsvPreview([]);
       await getMesClients().then(setClients);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[importerClientsCSV]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      await getMesClients().then(setClients).catch(() => {});
+    }
     setCSVImporting(false);
   };
 
@@ -381,7 +386,11 @@ function ClientsPage() {
       setContactsResult({ imported: result.imported, skipped: result.skipped, clientNotFound: result.clientNotFound });
       setContactsCSVPreview([]);
       await getMesClients().then(setClients);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[importerContactsCSV]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      await getMesClients().then(setClients).catch(() => {});
+    }
     setContactsImporting(false);
   };
 
@@ -520,6 +529,12 @@ function ClientsPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {erreur && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <span>{erreur}</span>
+            <button onClick={() => setErreur(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+          </div>
+        )}
         {/* Search + filters + viewMode toggle */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher (nom, ville, UAI)..." className={`flex-1 ${inputCls}`} />
