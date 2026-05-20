@@ -144,6 +144,7 @@ function HebergeursTab() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [motifRefus, setMotifRefus] = useState('');
   const [showRefusModal, setShowRefusModal] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -161,7 +162,11 @@ function HebergeursTab() {
     try {
       await validerHebergeur(id);
       setHebergeurs((prev) => prev.filter((h) => h.id !== id));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleValider]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      fetchData();
+    }
     setActionId(null);
   };
 
@@ -171,7 +176,11 @@ function HebergeursTab() {
     try {
       await refuserHebergeur(showRefusModal, motifRefus || undefined);
       setHebergeurs((prev) => prev.filter((h) => h.id !== showRefusModal));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleRefuser]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      fetchData();
+    }
     setShowRefusModal(null);
     setMotifRefus('');
     setActionId(null);
@@ -179,6 +188,12 @@ function HebergeursTab() {
 
   return (
     <div className="space-y-4">
+      {erreur && (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <span>{erreur}</span>
+          <button onClick={() => setErreur(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+        </div>
+      )}
       {/* Sub-tabs */}
       <div className="flex gap-2">
         {([['EN_ATTENTE', 'En attente'], ['VALIDE', 'Validés'], ['ALL', 'Tous']] as const).map(([val, label]) => (
@@ -295,6 +310,7 @@ function UtilisateursTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -314,11 +330,21 @@ function UtilisateursTab() {
     try {
       const updated = await updateUtilisateur(u.id, { compteValide: !u.compteValide });
       setUtilisateurs((prev) => prev.map((x) => (x.id === u.id ? { ...x, ...updated } : x)));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleToggleValide]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      fetchData();
+    }
   };
 
   return (
     <div className="space-y-4">
+      {erreur && (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <span>{erreur}</span>
+          <button onClick={() => setErreur(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -415,6 +441,7 @@ function CentresTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [customReseau, setCustomReseau] = useState<Record<string, string>>({});
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -439,7 +466,11 @@ function CentresTab() {
     try {
       await updateCentreReseau(centreId, reseau);
       setCentres(prev => prev.map(c => c.id === centreId ? { ...c, reseau } : c));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleReseauChange]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      fetchData();
+    }
   };
 
   const handleCustomReseauSubmit = async (centreId: string) => {
@@ -449,11 +480,21 @@ function CentresTab() {
       await updateCentreReseau(centreId, value);
       setCentres(prev => prev.map(c => c.id === centreId ? { ...c, reseau: value } : c));
       setCustomReseau(prev => { const n = { ...prev }; delete n[centreId]; return n; });
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleCustomReseauSubmit]', err);
+      setErreur('Une erreur est survenue. Veuillez réessayer.');
+      fetchData();
+    }
   };
 
   return (
     <div className="space-y-4">
+      {erreur && (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <span>{erreur}</span>
+          <button onClick={() => setErreur(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+        </div>
+      )}
       <div className="relative">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
