@@ -48,7 +48,8 @@ export interface SejourCollabInfo {
   dateFin: string;
   placesTotales: number;
   statut: string;
-  thematiquesPedagogiques?: string[];
+  inscriptionsCloturees: boolean;
+  thematiquesPedagogiques: string[];
   createur?: { id: string; prenom: string; nom: string; email: string };
   hebergementSelectionne?: { id: string; nom: string; ville: string; userId: string };
 }
@@ -213,6 +214,7 @@ export interface DevisBudget {
   montantAcompte: number | null;
   conditionsAnnulation: string | null;
   description: string | null;
+  signatureDirecteur: string | null;
   createdAt: string;
   centre: {
     nom: string;
@@ -222,6 +224,8 @@ export interface DevisBudget {
     siret: string | null;
     telephone: string | null;
     email: string | null;
+    tvaIntracommunautaire: string | null;
+    iban: string | null;
   } | null;
   documentUrl?: string | null;
   lignes: LigneDevisBudget[];
@@ -245,6 +249,8 @@ export interface RecetteBudget {
 export interface BudgetData {
   sejour: {
     titre: string;
+    lieu: string | null;
+    niveauClasse: string | null;
     dateDebut: string;
     dateFin: string;
     placesTotales: number;

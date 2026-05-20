@@ -278,8 +278,8 @@ export default function HebergeurDevisPage() {
   };
 
   const getEtablissementDisplay = (d: Devis): string => {
-    return (d.demande?.sejour?.createur as any)?.memberships?.[0]?.organisation?.nom
-      ?? (d.demande?.enseignant as any)?.memberships?.[0]?.organisation?.nom
+    return d.demande?.sejour?.createur?.memberships?.[0]?.organisation?.nom
+      ?? d.demande?.enseignant?.memberships?.[0]?.organisation?.nom
       ?? '';
   };
 
