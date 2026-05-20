@@ -1339,7 +1339,7 @@ export default function CollaborationPage() {
                 lieuSejour: (s as any)?.lieu ?? (s as any)?.ville ?? '',
                 dateDebutSejour: s?.dateDebut,
                 dateFinSejour: s?.dateFin,
-                nombreEleves: s?.placesTotales ?? undefined,
+                nombreEleves: (d as any).demande?.nombreEleves ?? s?.placesTotales ?? undefined,
                 niveauClasse: (s as any)?.niveauClasse ?? undefined,
                 lignes: d.lignes.map((l: any) => ({
                   description: l.description,
