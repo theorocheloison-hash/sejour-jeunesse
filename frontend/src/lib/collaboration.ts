@@ -199,6 +199,7 @@ export interface LigneDevisBudget {
 
 export interface DevisBudget {
   id: string;
+  statut: string;
   montantTotal: number | null;
   montantTTC: number | null;
   montantHT: number | null;
@@ -215,6 +216,9 @@ export interface DevisBudget {
   conditionsAnnulation: string | null;
   description: string | null;
   signatureDirecteur: string | null;
+  nomSignataireDirecteur?: string | null;
+  dateSignatureDirecteur?: string | null;
+  signatureDocumentUrl?: string | null;
   createdAt: string;
   centre: {
     nom: string;

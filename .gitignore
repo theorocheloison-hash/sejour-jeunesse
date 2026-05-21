@@ -95,3 +95,8 @@ $RECYCLE.BIN/
 
 # Claude Code
 .claude/
+
+# ========================
+# Données confidentielles LIAVO (RIB, clés, juridique)
+# ========================
+LIAVO/

@@ -16,6 +16,77 @@ export class InvitationsDirecteurService {
       include: { organisation: { select: { id: true, nom: true, uai: true, ville: true } } },
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable ou expirée');
+
+    let devis: any = null;
+    if (invitation.devisId) {
+      devis = await this.prisma.devis.findUnique({
+        where: { id: invitation.devisId },
+        select: {
+          id: true,
+          montantTotal: true,
+          montantTTC: true,
+          montantHT: true,
+          montantTVA: true,
+          montantAcompte: true,
+          pourcentageAcompte: true,
+          numeroDevis: true,
+          statut: true,
+          signatureDirecteur: true,
+          dateSignatureDirecteur: true,
+          nomSignataireDirecteur: true,
+          nomEntreprise: true,
+          adresseEntreprise: true,
+          siretEntreprise: true,
+          emailEntreprise: true,
+          telEntreprise: true,
+          tauxTva: true,
+          conditionsAnnulation: true,
+          createdAt: true,
+          lignes: true,
+          centre: {
+            select: {
+              nom: true,
+              ville: true,
+              adresse: true,
+              codePostal: true,
+              siret: true,
+              telephone: true,
+              email: true,
+            },
+          },
+          demande: {
+            select: {
+              enseignant: {
+                select: {
+                  prenom: true,
+                  nom: true,
+                  email: true,
+                  telephone: true,
+                  memberships: {
+                    where: { isPrimary: true },
+                    select: {
+                      organisation: { select: { nom: true, ville: true, uai: true } },
+                    },
+                    take: 1,
+                  },
+                },
+              },
+              sejour: {
+                select: {
+                  titre: true,
+                  lieu: true,
+                  dateDebut: true,
+                  dateFin: true,
+                  placesTotales: true,
+                  niveauClasse: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
     return {
       etablissementUai:  invitation.etablissementUai,
       etablissementNom:  invitation.etablissementNom,
@@ -24,6 +95,9 @@ export class InvitationsDirecteurService {
       organisationId:    invitation.organisationId ?? null,
       typeContexte:      invitation.typeContexte ?? 'SCOLAIRE',
       organisation:      invitation.organisation ?? null,
+      signeAt:           invitation.signeAt ?? null,
+      nomSignataire:     invitation.nomSignataire ?? null,
+      devis,
     };
   }
 
