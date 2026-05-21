@@ -113,6 +113,17 @@ export class DevisController {
     return this.devisService.signerDevis(id, user, req.ip, req.headers['user-agent'] as string);
   }
 
+  @Post(':id/upload-signature')
+  @Roles(Role.ORGANISATEUR)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSignature(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.devisService.uploadSignatureDocument(id, user.id, file);
+  }
+
   @Patch(':id/facturer-acompte')
   @Roles(Role.HEBERGEUR)
   facturerAcompte(
@@ -132,7 +143,7 @@ export class DevisController {
   }
 
   @Patch(':id/valider-acompte')
-  @Roles(Role.SIGNATAIRE)
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   validerAcompte(@Param('id') id: string) {
     return this.devisService.validerAcompte(id);
   }
