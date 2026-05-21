@@ -1115,7 +1115,7 @@ export default function CollaborationPage() {
     );
   }
 
-  const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur';
+  const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur/planning';
   const isDirector = user.role === 'SIGNATAIRE';
   const isHebergeur = user.role === 'HEBERGEUR';
   const sejourStatut = sejour?.statut ?? 'DRAFT';
