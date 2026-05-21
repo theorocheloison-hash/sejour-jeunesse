@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
@@ -7,7 +7,7 @@ import type { SejourConventionHebergeur } from '@/src/lib/collaboration';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
 import { getMesDevisLibres } from '@/src/lib/devis-libres';
 import type { DevisLibre } from '@/src/lib/devis-libres';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Palette 8 couleurs séjours
 const PALETTE = [
@@ -58,23 +58,93 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+// CORRECT — date locale, sans conversion UTC qui décalait d'un jour
 function dateStr(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getViewDays(view: 'jour' | '5jours' | 'semaine', currentDate: Date): Date[] {
+  if (view === 'jour') {
+    const d = new Date(currentDate);
+    d.setHours(0, 0, 0, 0);
+    return [d];
+  }
+  if (view === '5jours') {
+    const monday = startOfWeek(currentDate);
+    return Array.from({ length: 5 }, (_, i) => addDays(monday, i));
+  }
+  const monday = startOfWeek(currentDate);
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
+
+function normalise(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
 export default function HebergeurPlanningPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-16">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+      </div>
+    }>
+      <PlanningContent />
+    </Suspense>
+  );
+}
+
+function PlanningContent() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [sejours, setSejours] = useState<SejourConventionHebergeur[]>([]);
   const [dispos, setDispos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'semaine' | 'mois'>('semaine');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<'jour' | '5jours' | 'semaine' | 'mois'>(() => {
+    const v = searchParams.get('view');
+    if (v === 'jour' || v === '5jours' || v === 'semaine' || v === 'mois') return v;
+    return 'semaine';
+  });
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const d = searchParams.get('date');
+    if (d && !isNaN(Date.parse(d))) return new Date(d + 'T12:00:00');
+    return new Date();
+  });
   const [filterSejourId, setFilterSejourId] = useState<string | null>(null);
+  const [filterDevisLibreId, setFilterDevisLibreId] = useState<string | null>(null);
   const [showDispoModal, setShowDispoModal] = useState(false);
   const [dispoForm, setDispoForm] = useState({ dateDebut: '', dateFin: '', commentaire: '' });
   const [saving, setSaving] = useState(false);
   const [devisLibres, setDevisLibres] = useState<DevisLibre[]>([]);
-  const router = useRouter();
+
+  // Combobox recherche
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const comboRef = useRef<HTMLDivElement>(null);
+
+  // Fermeture dropdown au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (comboRef.current && !comboRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Persistance URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('view', view);
+    params.set('date', dateStr(currentDate));
+    router.replace(`/dashboard/hebergeur/planning?${params.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentDate]);
 
   const loadData = useCallback(async () => {
     try {
@@ -106,14 +176,28 @@ export default function HebergeurPlanningPage() {
     ? sejours.filter(s => s.id === filterSejourId)
     : sejours;
 
-  // ── VUE SEMAINE ──
-  const weekStart = startOfWeek(currentDate);
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const devisLibresFiltres = filterDevisLibreId
+    ? devisLibres.filter(dl => dl.id === filterDevisLibreId)
+    : devisLibres;
 
-  const prevWeek = () => { setCurrentDate(d => addDays(d, -7)); setFilterSejourId(null); };
-  const nextWeek = () => { setCurrentDate(d => addDays(d, 7)); setFilterSejourId(null); };
-  const prevMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  // Jours à afficher selon la vue
+  const viewDays = view !== 'mois'
+    ? getViewDays(view as 'jour' | '5jours' | 'semaine', currentDate)
+    : [];
+
+  // Navigation unifiée
+  const prev = () => {
+    if (view === 'jour') setCurrentDate(d => addDays(d, -1));
+    else if (view === '5jours') setCurrentDate(d => addDays(d, -7));
+    else if (view === 'semaine') setCurrentDate(d => addDays(d, -7));
+    else setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  };
+  const next = () => {
+    if (view === 'jour') setCurrentDate(d => addDays(d, 1));
+    else if (view === '5jours') setCurrentDate(d => addDays(d, 7));
+    else if (view === 'semaine') setCurrentDate(d => addDays(d, 7));
+    else setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  };
   const goToday = () => setCurrentDate(new Date());
 
   const handleCellClick = (dayStr: string) => {
@@ -179,103 +263,192 @@ export default function HebergeurPlanningPage() {
 
   const totalHeight = HOURS.length * SLOT_HEIGHT;
 
+  // Recherche combobox
+  const q = normalise(searchQuery.trim());
+  const filteredSejours = q
+    ? sejours.filter(s => {
+        return normalise(s.titre).includes(q)
+          || (s.createur && normalise(`${s.createur.prenom} ${s.createur.nom}`).includes(q));
+      })
+    : sejours;
+  const filteredDevisLibres = q
+    ? devisLibres.filter(dl => {
+        return normalise(dl.nomClient).includes(q)
+          || (dl.typeEvenement && normalise(dl.typeEvenement).includes(q));
+      })
+    : devisLibres;
+
+  const selectSejour = (s: SejourConventionHebergeur) => {
+    setFilterSejourId(s.id);
+    setFilterDevisLibreId(null);
+    setCurrentDate(new Date(s.dateDebut.split('T')[0] + 'T12:00:00'));
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
+  const selectDevisLibre = (dl: DevisLibre) => {
+    setFilterDevisLibreId(dl.id);
+    setFilterSejourId(null);
+    setCurrentDate(new Date(dl.dateDebut.split('T')[0] + 'T12:00:00'));
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
+  const resetFilters = () => {
+    setFilterSejourId(null);
+    setFilterDevisLibreId(null);
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
+
+  const fmtRange = (debut: string, fin: string) => {
+    const d1 = new Date(debut.split('T')[0] + 'T12:00:00');
+    const d2 = new Date(fin.split('T')[0] + 'T12:00:00');
+    const f = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    return `${f(d1)} → ${f(d2)}`;
+  };
+
+  // Titre dynamique selon la vue
+  const titreVue = (() => {
+    if (view === 'mois') return fmtMonth(currentDate);
+    if (view === 'jour') {
+      return viewDays[0].toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+    const d1 = viewDays[0];
+    const d2 = viewDays[viewDays.length - 1];
+    return `Semaine du ${d1.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} au ${d2.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  })();
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       {/* Nav */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/hebergeur" className="text-sm text-[var(--color-primary)] hover:underline">&larr; Tableau de bord</Link>
           <h1 className="text-base font-semibold text-gray-900">Planning</h1>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Filtre séjours */}
-          {(() => {
-            const sejoursSemaine = view === 'semaine'
-              ? sejours.filter(s => {
-                  const debut = s.dateDebut.split('T')[0];
-                  const fin = s.dateFin.split('T')[0];
-                  const wStart = dateStr(weekStart);
-                  const wEnd = dateStr(addDays(weekStart, 6));
-                  return debut <= wEnd && fin >= wStart;
-                })
-              : sejours;
-
-            if (sejoursSemaine.length === 0) return null;
-            return (
-              <select
-                value={filterSejourId ?? ''}
-                onChange={e => setFilterSejourId(e.target.value || null)}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Combobox recherche */}
+          <div className="relative" ref={comboRef}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Rechercher un séjour ou un client..."
+              className="w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            />
+            {(filterSejourId || filterDevisLibreId) && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                title="Réinitialiser le filtre"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm"
               >
-                <option value="">Tous les séjours</option>
-                {sejoursSemaine.map(s => (
-                  <option key={s.id} value={s.id}>{s.titre}</option>
-                ))}
-              </select>
-            );
-          })()}
+                ×
+              </button>
+            )}
+            {showDropdown && (
+              <div className="absolute right-0 left-0 top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg max-h-96 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 hover:bg-gray-50 ${!filterSejourId && !filterDevisLibreId ? 'font-semibold text-[var(--color-primary)]' : 'text-gray-700'}`}
+                >
+                  Tous
+                </button>
+                {filteredSejours.length > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">Séjours</p>
+                    {filteredSejours.map(s => {
+                      const c = couleurBySejour[s.id];
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => selectSejour(s)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                        >
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: c?.bg ?? '#999' }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate">{s.titre}</p>
+                            <p className="text-[10px] text-gray-400 truncate">
+                              {s.createur ? `${s.createur.prenom} ${s.createur.nom} · ` : ''}{fmtRange(s.dateDebut, s.dateFin)}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+                {filteredDevisLibres.length > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">Événements</p>
+                    {filteredDevisLibres.map(dl => {
+                      const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
+                      return (
+                        <button
+                          key={dl.id}
+                          type="button"
+                          onClick={() => selectDevisLibre(dl)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                        >
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: c.bg }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate">{dl.typeEvenement ?? 'Événement'} · {dl.nomClient}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{fmtRange(dl.dateDebut, dl.dateFin)}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+                {filteredSejours.length === 0 && filteredDevisLibres.length === 0 && (
+                  <p className="px-3 py-3 text-xs text-gray-400">Aucun résultat</p>
+                )}
+              </div>
+            )}
+          </div>
           {/* Vue */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            {(['semaine', 'mois'] as const).map(v => (
+            {(['jour', '5jours', 'semaine', 'mois'] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === v ? 'bg-[var(--color-primary)] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
               >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
+                {v === 'jour' ? 'Jour' : v === '5jours' ? '5 jours' : v === 'semaine' ? 'Semaine' : 'Mois'}
               </button>
             ))}
           </div>
           {/* Navigation */}
           <div className="flex items-center gap-1">
             <button onClick={goToday} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">Aujourd&apos;hui</button>
-            <button onClick={view === 'semaine' ? prevWeek : prevMonth} className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50">
+            <button onClick={prev} className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
             </button>
-            <button onClick={view === 'semaine' ? nextWeek : nextMonth} className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50">
+            <button onClick={next} className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Légende séjours */}
-      {sejours.length > 0 && (
-        <div className="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-4 overflow-x-auto">
-          {sejours.map(s => {
-            const c = couleurBySejour[s.id];
-            return (
-              <div key={s.id} className="flex items-center gap-1.5 shrink-0">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: c.bg }} />
-                <span className="text-xs text-gray-600">{s.titre}</span>
-                <span className="text-xs text-gray-400">
-                  {new Date(s.dateDebut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} &rarr; {new Date(s.dateFin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       <main className="px-4 py-4">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
           </div>
-        ) : view === 'semaine' ? (
-          // ── VUE SEMAINE ──
+        ) : view !== 'mois' ? (
+          // ── VUES JOUR / 5 JOURS / SEMAINE ──
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            {/* Header titre semaine */}
+            {/* Header titre */}
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Semaine du {weekDays[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} au {weekDays[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </h2>
+              <h2 className="text-sm font-semibold text-gray-900 capitalize">{titreVue}</h2>
             </div>
 
             {/* Bandeau all-day séjours */}
             <div className="flex border-b border-gray-200">
               <div className="w-14 shrink-0 border-r border-gray-100" />
-              {weekDays.map((day, di) => {
+              {viewDays.map((day, di) => {
                 const ds = dateStr(day);
                 const sj = sejoursForDay(ds);
                 return (
@@ -302,7 +475,7 @@ export default function HebergeurPlanningPage() {
                         </Link>
                       );
                     })}
-                    {devisLibres
+                    {devisLibresFiltres
                       .filter(dl => {
                         const s = dl.dateDebut.split('T')[0];
                         const e = dl.dateFin.split('T')[0];
@@ -336,7 +509,7 @@ export default function HebergeurPlanningPage() {
             {/* Header jours */}
             <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="w-14 shrink-0 border-r border-gray-100" />
-              {weekDays.map((day, di) => {
+              {viewDays.map((day, di) => {
                 const isToday = dateStr(new Date()) === dateStr(day);
                 return (
                   <div key={di} className={`flex-1 border-r border-gray-100 last:border-0 text-center py-2 ${isToday ? 'bg-blue-50' : ''}`}>
@@ -363,7 +536,7 @@ export default function HebergeurPlanningPage() {
               </div>
 
               {/* Colonnes jours */}
-              {weekDays.map((day, di) => {
+              {viewDays.map((day, di) => {
                 const ds = dateStr(day);
                 const isToday = dateStr(new Date()) === ds;
                 const disposJour = disposForDay(ds);
@@ -416,7 +589,7 @@ export default function HebergeurPlanningPage() {
                             backgroundColor: c.bg,
                             color: c.text,
                           }}
-                          onClick={e => { e.stopPropagation(); window.location.href = `/dashboard/sejour/${s.id}`; }}
+                          onClick={e => { e.stopPropagation(); router.push(`/dashboard/sejour/${s.id}`); }}
                         >
                           <p className="font-semibold truncate">{a.titre}</p>
                           <p className="opacity-80">{a.heureDebut} - {a.heureFin}</p>
@@ -433,7 +606,7 @@ export default function HebergeurPlanningPage() {
           // ── VUE MOIS ──
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200">
-              <h2 className="text-sm font-semibold text-gray-900 capitalize">{fmtMonth(currentDate)}</h2>
+              <h2 className="text-sm font-semibold text-gray-900 capitalize">{titreVue}</h2>
             </div>
             {/* Jours de la semaine header */}
             <div className="grid grid-cols-7 border-b border-gray-200">
@@ -480,7 +653,7 @@ export default function HebergeurPlanningPage() {
                             </Link>
                           );
                         })}
-                        {devisLibres
+                        {devisLibresFiltres
                           .filter(dl => {
                             const s = dl.dateDebut.split('T')[0];
                             const e = dl.dateFin.split('T')[0];
