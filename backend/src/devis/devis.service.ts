@@ -624,6 +624,72 @@ export class DevisService {
     return updated;
   }
 
+  async uploadSignatureDocument(devisId: string, userId: string, file: Express.Multer.File) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        demande: {
+          select: {
+            enseignantId: true,
+            sejourId: true,
+            sejour: { select: { titre: true } },
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.demande?.enseignantId !== userId) throw new ForbiddenException('Accès refusé');
+    if (devis.statut !== 'SELECTIONNE' && devis.statut !== 'SIGNE_DIRECTION') {
+      throw new ForbiddenException('Le devis doit être sélectionné pour uploader un document');
+    }
+    if (!file || file.mimetype !== 'application/pdf') {
+      throw new ForbiddenException('Seuls les fichiers PDF sont acceptés');
+    }
+
+    const url = await this.storage.upload(file, 'signatures-direction');
+
+    const updated = await this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        signatureDocumentUrl: url,
+        statut: 'SIGNE_DIRECTION',
+        signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+        dateSignatureDirecteur: new Date(),
+      },
+    });
+
+    if (devis.demande?.sejourId) {
+      await this.prisma.sejour.update({
+        where: { id: devis.demande.sejourId },
+        data: { statut: 'SIGNE_DIRECTION' },
+      });
+    }
+
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: devis.centreId },
+      include: { user: { select: { email: true } } },
+    });
+    const sejourTitre = devis.demande?.sejour?.titre ?? 'le séjour';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+    if (centre?.user?.email) {
+      await this.email.sendGenericNotification(
+        centre.user.email,
+        `Devis signé par la direction — ${sejourTitre}`,
+        `<p>Bonjour,</p>
+         <p>L'organisateur a uploadé le devis signé par la direction pour le séjour <strong>« ${sejourTitre} »</strong>.</p>
+         <p>Vous pouvez désormais émettre la facture d'acompte.</p>
+         <p style="margin:24px 0">
+           <a href="${frontendUrl}/dashboard/hebergeur/devis" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Accéder à mes devis
+           </a>
+         </p>`,
+      );
+    }
+
+    return updated;
+  }
+
   async getDevisAValider() {
     return this.prisma.devis.findMany({
       where: {
@@ -716,7 +782,7 @@ export class DevisService {
     const pourcentage = devis.pourcentageAcompte ?? 30;
     const montantAcompte = montantTTC * pourcentage / 100;
 
-    return this.prisma.devis.update({
+    const result = await this.prisma.devis.update({
       where: { id },
       data: {
         typeDocument: 'FACTURE_ACOMPTE',
@@ -728,6 +794,62 @@ export class DevisService {
       },
       include: { lignes: true },
     });
+
+    try {
+      const devisComplet = await this.prisma.devis.findUnique({
+        where: { id },
+        include: {
+          demande: {
+            include: {
+              enseignant: { select: { email: true, prenom: true, nom: true } },
+              sejour: { select: { id: true, titre: true } },
+            },
+          },
+        },
+      });
+
+      const sejourTitre = devisComplet?.demande?.sejour?.titre ?? 'votre séjour';
+      const montantFormate = montantAcompte.toFixed(2).replace('.', ',');
+      const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+      const corpsEmail = `<p>Bonjour,</p>
+        <p>L'hébergeur a émis une <strong>facture d'acompte</strong> pour le séjour <strong>« ${sejourTitre} »</strong>.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Numéro de facture</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${numeroFacture}</td></tr>
+          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant acompte</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montantFormate} €</td></tr>
+        </table>
+        <p>Merci de transmettre cette facture à votre service comptable pour procéder au règlement.</p>
+        <p style="margin:24px 0">
+          <a href="${frontendUrl}/dashboard/sejour/${devisComplet?.demande?.sejour?.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+            Accéder à l'espace collaboratif
+          </a>
+        </p>`;
+
+      if (devisComplet?.demande?.enseignant?.email) {
+        await this.email.sendGenericNotification(
+          devisComplet.demande.enseignant.email,
+          `Facture d'acompte émise — ${sejourTitre}`,
+          corpsEmail,
+        );
+      }
+
+      if (devisComplet?.demande?.sejour?.id) {
+        const invitation = await this.prisma.invitationDirecteur.findFirst({
+          where: { sejourId: devisComplet.demande.sejour.id },
+          select: { emailDirecteur: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (invitation?.emailDirecteur && invitation.emailDirecteur !== devisComplet?.demande?.enseignant?.email) {
+          await this.email.sendGenericNotification(
+            invitation.emailDirecteur,
+            `Facture d'acompte émise — ${sejourTitre}`,
+            corpsEmail,
+          );
+        }
+      }
+    } catch { /* non bloquant */ }
+
+    return result;
   }
 
   async facturerSolde(id: string, userId: string) {

@@ -767,6 +767,7 @@ model Devis {
   // Type de document : DEVIS | FACTURE_ACOMPTE | FACTURE_SOLDE
   typeDocument          String       @default("DEVIS") @map("type_document") @db.VarChar(30)
   signatureDirecteur      String?   @map("signature_directeur") @db.Text
+  signatureDocumentUrl    String?   @map("signature_document_url")
   dateSignatureDirecteur  DateTime? @map("date_signature_directeur")
   nomSignataireDirecteur  String?   @map("nom_signataire_directeur") @db.VarChar(255)
   signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
@@ -1166,6 +1167,10 @@ model InvitationDirecteur {
   organisationId   String?   @map("organisation_id") @db.Uuid
   typeContexte     String?   @map("type_contexte") @db.VarChar(20)
   organisation     Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  nomSignataire      String?   @map("nom_signataire")
+  fonctionSignataire String?   @map("fonction_signataire")
+  signeAt            DateTime? @map("signe_at")
+  signatureIp        String?   @map("signature_ip")
   utilisedAt        DateTime? @map("utilised_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
