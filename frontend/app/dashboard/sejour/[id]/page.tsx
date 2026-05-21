@@ -630,6 +630,8 @@ export default function CollaborationPage() {
     return moi?.roleCollaboratif ?? null;
   }, [user, accompagnateurs]);
   const estLectureSeule = monRoleCollaboratif === 'LECTURE';
+  const estAccompagnateur = monRoleCollaboratif !== null && sejour?.createur?.id !== user?.id;
+  const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'journal'];
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   // Budget
@@ -669,8 +671,16 @@ export default function CollaborationPage() {
         dateDebut: data.dateDebut ? new Date(data.dateDebut).toISOString().substring(0, 10) : '',
         dateFin: data.dateFin ? new Date(data.dateFin).toISOString().substring(0, 10) : '',
       });
+      getAccompagnateursBySejour(id).then(setAccompagnateurs).catch(() => {});
     }).catch(() => setError('Impossible de charger les informations du séjour.'));
   }, [id, user]);
+
+  useEffect(() => {
+    if (estAccompagnateur && !ACCOMPAGNATEUR_TABS.includes(tab)) {
+      setTab('planning');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estAccompagnateur, tab]);
 
   // ── Load tab data ──
   const loadMessages = useCallback(async () => {
@@ -1316,10 +1326,14 @@ export default function CollaborationPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-6">
             {TABS.filter((t) =>
-              (t.key !== 'projet' || user.role === 'ORGANISATEUR') &&
-              (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
-              (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
-              (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR')
+              estAccompagnateur
+                ? ACCOMPAGNATEUR_TABS.includes(t.key)
+                : (
+                  (t.key !== 'projet' || user.role === 'ORGANISATEUR') &&
+                  (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
+                  (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
+                  (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR')
+                )
             ).map((t) => (
               <button
                 key={t.key}
