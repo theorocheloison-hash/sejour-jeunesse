@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
+import StructureSearch from '@/app/components/StructureSearch';
+import type { OrganisationSearchResult } from '@/app/components/StructureSearch';
 
 type LigneForm = {
   key: string;
@@ -53,22 +55,6 @@ export default function InviterEnseignantPage() {
   const [description, setDescription] = useState('');
   const [lignes, setLignes] = useState<LigneForm[]>([makeLigne()]);
 
-  // Établissement search
-  const [etabNom, setEtabNom] = useState('');
-  const [etabVille, setEtabVille] = useState('');
-  const [etabCp, setEtabCp] = useState('');
-  const [etabResults, setEtabResults] = useState<Array<{ uai: string; nom: string; type: string; adresse: string; codePostal: string; commune: string; academie: string }>>([]);
-  const [etabSearching, setEtabSearching] = useState(false);
-  const etabDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const etabAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
-      if (etabAbortRef.current) etabAbortRef.current.abort();
-    };
-  }, []);
-
   useEffect(() => {
     if (!showDevisDraft || catalogue.length > 0) return;
     getCatalogue().then(setCatalogue).catch(() => {});
@@ -90,44 +76,18 @@ export default function InviterEnseignantPage() {
     return { montantHT, montantTVA, montantTTC, montantAcompte };
   }, [lignes, pourcentageAcompte]);
 
-  const fireEtabSearch = (nom: string, ville: string, cp: string) => {
-    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
-    const params: Record<string, string> = {};
-    if (/^\d{5}$/.test(cp.trim())) {
-      params.q = cp.trim();
-    } else {
-      const parts = [nom.trim(), ville.trim()].filter(Boolean);
-      if (parts.length > 0) params.q = parts.join(' ');
+  const handleStructureSelect = (result: OrganisationSearchResult | null) => {
+    if (!result) {
+      setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
+      return;
     }
-    if (!params.q) { setEtabResults([]); return; }
-    if (params.q.length < 3) { setEtabResults([]); return; }
-
-    const doSearch = async () => {
-      if (etabAbortRef.current) etabAbortRef.current.abort();
-      const controller = new AbortController();
-      etabAbortRef.current = controller;
-      setEtabSearching(true);
-      try {
-        const res = await api.get('/etablissements/recherche', { params, signal: controller.signal });
-        setEtabResults(res.data);
-      } catch { /* aborted or error */ }
-      finally { setEtabSearching(false); }
-    };
-
-    etabDebounceRef.current = setTimeout(doSearch, 400);
-  };
-
-  const selectEtab = (e: typeof etabResults[0]) => {
-    setForm(f => ({ ...f, etablissementUai: e.uai, etablissementNom: e.nom, etablissementAdresse: e.adresse ?? '', etablissementVille: e.commune }));
-    setEtabResults([]);
-  };
-
-  const clearEtab = () => {
-    setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
-    setEtabNom('');
-    setEtabVille('');
-    setEtabCp('');
-    setEtabResults([]);
+    setForm(f => ({
+      ...f,
+      etablissementNom: result.nom,
+      etablissementAdresse: result.adresse ?? '',
+      etablissementVille: result.ville ?? '',
+      etablissementUai: '',
+    }));
   };
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -199,10 +159,6 @@ export default function InviterEnseignantPage() {
 
   const resetForm = () => {
     setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', nombreAccompagnateurs: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', activitesSouhaitees: '', budgetMaxParEleve: '', message: '', etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' });
-    setEtabNom('');
-    setEtabVille('');
-    setEtabCp('');
-    setEtabResults([]);
     setSuccess(null);
     setError(null);
   };
@@ -221,10 +177,10 @@ export default function InviterEnseignantPage() {
         </Link>
 
         <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--color-primary)', marginBottom: 8 }}>
-          Inviter un enseignant à collaborer
+          Inviter un organisateur à collaborer
         </h1>
         <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>
-          L&apos;enseignant recevra un email avec les détails du séjour et pourra accepter l&apos;invitation en un clic.
+          L&apos;organisateur recevra un email avec les détails du séjour et pourra accepter l&apos;invitation en un clic.
         </p>
 
         {success ? (
@@ -246,7 +202,7 @@ export default function InviterEnseignantPage() {
               Invitation envoyée
             </h2>
             <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 24 }}>
-              L&apos;enseignant à l&apos;adresse <strong style={{ color: 'var(--color-text)' }}>{success}</strong> recevra un email dans quelques minutes.
+              L&apos;organisateur à l&apos;adresse <strong style={{ color: 'var(--color-text)' }}>{success}</strong> recevra un email dans quelques minutes.
             </p>
             <button onClick={resetForm} style={{
               fontSize: 14, fontWeight: 500, padding: '10px 20px',
@@ -280,12 +236,12 @@ export default function InviterEnseignantPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email de l&apos;enseignant *</label>
-                <input type="email" required value={form.emailEnseignant} onChange={set('emailEnseignant')} placeholder="enseignant@ecole.fr" className={inputCls} />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email de l&apos;organisateur *</label>
+                <input type="email" required value={form.emailEnseignant} onChange={set('emailEnseignant')} placeholder="contact@structure.fr" className={inputCls} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre du séjour *</label>
-                <input type="text" required value={form.titreSejourSuggere} onChange={set('titreSejourSuggere')} placeholder="Séjour ski CM2 — Mars 2026" className={inputCls} />
+                <input type="text" required value={form.titreSejourSuggere} onChange={set('titreSejourSuggere')} placeholder="Séjour ski — Hiver 2027" className={inputCls} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
@@ -298,7 +254,7 @@ export default function InviterEnseignantPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre d&apos;élèves estimé *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre de participants estimé *</label>
                 <input type="number" required min={1} value={form.nbElevesEstime} onChange={set('nbElevesEstime')} placeholder="30" className={inputCls} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -307,8 +263,8 @@ export default function InviterEnseignantPage() {
                   <input type="number" min={0} value={form.nombreAccompagnateurs} onChange={set('nombreAccompagnateurs')} placeholder="3" className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau de classe</label>
-                  <input type="text" value={form.niveauClasse} onChange={set('niveauClasse')} placeholder="6ème, CM2..." className={inputCls} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Niveau / Groupe</label>
+                  <input type="text" value={form.niveauClasse} onChange={set('niveauClasse')} placeholder="6ème, CM2, L3 STAPS, 8-12 ans..." className={inputCls} />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -342,69 +298,26 @@ export default function InviterEnseignantPage() {
                 <input type="text" value={form.activitesSouhaitees} onChange={set('activitesSouhaitees')} placeholder="Ski, randonnée, escalade..." className={inputCls} />
               </div>
 
-              {/* Établissement scolaire */}
+              {/* Structure de l'organisateur */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-0.5">Établissement scolaire</label>
-                <p className="text-xs text-gray-400 mb-1.5">(optionnel — facilite l&apos;inscription de l&apos;enseignant)</p>
+                <label className="block text-sm font-medium text-gray-700 mb-0.5">Structure de l&apos;organisateur</label>
+                <p className="text-xs text-gray-400 mb-1.5">(optionnel — pré-remplit le devis et facilite l&apos;inscription)</p>
                 {form.etablissementNom ? (
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{form.etablissementNom}</p>
-                      <p className="text-xs text-gray-500 truncate">{form.etablissementVille}{form.etablissementUai ? ` — ${form.etablissementUai}` : ''}</p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {[form.etablissementAdresse, form.etablissementVille].filter(Boolean).join(' — ')}
+                      </p>
                     </div>
-                    <button type="button" onClick={clearEtab} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                    <button type="button" onClick={() => handleStructureSelect(null)} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={etabNom}
-                        onChange={e => { setEtabNom(e.target.value); fireEtabSearch(e.target.value, etabVille, etabCp); }}
-                        placeholder="Nom"
-                        autoComplete="off"
-                        className={inputCls}
-                      />
-                      <input
-                        type="text"
-                        value={etabVille}
-                        onChange={e => { setEtabVille(e.target.value); fireEtabSearch(etabNom, e.target.value, etabCp); }}
-                        placeholder="Ville"
-                        autoComplete="off"
-                        className={inputCls}
-                      />
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={etabCp}
-                          onChange={e => { setEtabCp(e.target.value); fireEtabSearch(etabNom, etabVille, e.target.value); }}
-                          placeholder="Code postal"
-                          autoComplete="off"
-                          className={inputCls}
-                        />
-                        {etabSearching && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {etabResults.length > 0 && (
-                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                        {etabResults.map(e => (
-                          <button
-                            key={e.uai}
-                            type="button"
-                            onClick={() => selectEtab(e)}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
-                          >
-                            <p className="text-sm font-medium text-gray-900 truncate">{e.nom}</p>
-                            <p className="text-xs text-gray-500 truncate">{e.commune} — {e.type}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <StructureSearch
+                    onSelect={handleStructureSelect}
+                    allowFreeText
+                    placeholder="Nom de la structure, ville…"
+                  />
                 )}
               </div>
 
@@ -428,7 +341,7 @@ export default function InviterEnseignantPage() {
                       Préparer le devis maintenant
                     </span>
                     <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, textAlign: 'left' }}>
-                      Optionnel — l&apos;enseignant verra le devis dès qu&apos;il accepte l&apos;invitation
+                      Optionnel — l&apos;organisateur verra le devis dès qu&apos;il accepte l&apos;invitation
                     </p>
                   </div>
                   <svg
