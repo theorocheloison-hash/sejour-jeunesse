@@ -9,6 +9,8 @@ import type { Devis, LigneDevis } from '@/src/lib/devis';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 type LigneForm = {
@@ -94,7 +96,7 @@ export default function ModifierDevisPage() {
         // Pre-fill lignes
         if (devis.lignes && devis.lignes.length > 0) {
           setLignes(devis.lignes.map((l: LigneDevis) =>
-            makeLigneForm(l.description, String(l.quantite), String(l.prixUnitaire), String(l.tva))
+            makeLigneForm(l.description, String(l.quantite), String(round2(l.prixUnitaire * (1 + l.tva / 100))), String(l.tva))
           ));
         } else {
           setLignes([makeLigneForm()]);
@@ -115,18 +117,20 @@ export default function ModifierDevisPage() {
   const calculs = useMemo(() => {
     let montantHT = 0;
     let montantTVA = 0;
+    let montantTTC = 0;
     lignes.forEach((l) => {
       const qte = parseFloat(l.quantite) || 0;
-      const pu = parseFloat(l.prixUnitaire) || 0;
+      const puTTC = parseFloat(l.prixUnitaire) || 0;
       const tvaLigne = parseFloat(l.tva) || 0;
-      const ht = qte * pu;
-      const tva = ht * (tvaLigne / 100);
-      montantHT += ht;
-      montantTVA += tva;
+      const puHT = round2(puTTC / (1 + tvaLigne / 100));
+      const ligneHT = round2(puHT * qte);
+      const ligneTTC = round2(puTTC * qte);
+      montantHT += ligneHT;
+      montantTTC += ligneTTC;
     });
-    const montantTTC = montantHT + montantTVA;
-    const montantAcompte = montantTTC * (pourcentageAcompte / 100);
-    const resteAPayer = montantTTC - montantAcompte;
+    montantTVA = round2(montantTTC - montantHT);
+    const montantAcompte = round2(montantTTC * (pourcentageAcompte / 100));
+    const resteAPayer = round2(montantTTC - montantAcompte);
     return { montantHT, montantTVA, montantTTC, montantAcompte, resteAPayer };
   }, [lignes, pourcentageAcompte]);
 
@@ -146,7 +150,7 @@ export default function ModifierDevisPage() {
   const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
     setLignes((prev) => prev.map((l) =>
       l.key === key
-        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireHT), tva: String(produit.tva) }
+        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva) }
         : l
     ));
     setActiveDescriptionKey(null);
@@ -162,11 +166,12 @@ export default function ModifierDevisPage() {
       .filter((l) => l.description.trim().length > 0)
       .map((l) => {
         const qte = parseFloat(l.quantite) || 0;
-        const pu = parseFloat(l.prixUnitaire) || 0;
+        const puTTC = parseFloat(l.prixUnitaire) || 0;
         const tvaL = parseFloat(l.tva) || 0;
-        const ht = qte * pu;
-        const ttc = ht * (1 + tvaL / 100);
-        return { description: l.description, quantite: qte, prixUnitaire: pu, tva: tvaL, totalHT: ht, totalTTC: ttc };
+        const puHT = round2(puTTC / (1 + tvaL / 100));
+        const totalTTC = round2(puTTC * qte);
+        const totalHT = round2(puHT * qte);
+        return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC };
       });
 
     const nbElevesParEleve = nombreEleves > 0 ? nombreEleves : (devisOriginal.demande?.nombreEleves ?? 1);
@@ -334,7 +339,7 @@ export default function ModifierDevisPage() {
             <div className="space-y-3">
               {sejour ? (
                 <p className="text-sm font-semibold text-gray-900">
-                  Séjour scolaire — {sejour.titre}
+                  Séjour — {sejour.titre}
                 </p>
               ) : demande ? (
                 <p className="text-sm font-semibold text-gray-900">
@@ -345,7 +350,7 @@ export default function ModifierDevisPage() {
               )}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 whitespace-nowrap">Élèves</label>
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Participants</label>
                   <input
                     type="number"
                     min={0}
@@ -382,9 +387,9 @@ export default function ModifierDevisPage() {
             <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200 mb-2">
               <div className="col-span-3">Description</div>
               <div className="col-span-2 text-right">Quantité</div>
-              <div className="col-span-2 text-right">PU HT</div>
+              <div className="col-span-2 text-right">PU TTC</div>
               <div className="col-span-1 text-right">TVA %</div>
-              <div className="col-span-1 text-right">PU TTC</div>
+              <div className="col-span-1 text-right">PU HT</div>
               <div className="col-span-2 text-right">Total TTC</div>
               <div className="col-span-1" />
             </div>
@@ -392,11 +397,11 @@ export default function ModifierDevisPage() {
             {/* Lines */}
             {lignes.map((l) => {
               const qte = parseFloat(l.quantite) || 0;
-              const pu = parseFloat(l.prixUnitaire) || 0;
+              const puTTC = parseFloat(l.prixUnitaire) || 0;
               const tvaRate = parseFloat(l.tva) || 0;
-              const puTTC = pu * (1 + tvaRate / 100);
-              const ht = qte * pu;
-              const ttc = ht * (1 + tvaRate / 100);
+              const puHT = round2(puTTC / (1 + tvaRate / 100));
+              const totalTTC = round2(puTTC * qte);
+              const totalHT = round2(puHT * qte);
               return (
                 <div key={l.key} className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
                   <div className="col-span-12 sm:col-span-3 relative">
@@ -434,7 +439,7 @@ export default function ModifierDevisPage() {
                               className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                             >
                               <span className="text-sm text-gray-900 truncate">{p.nom}</span>
-                              <span className="text-xs text-gray-500 shrink-0 ml-2">{p.prixUnitaireHT.toFixed(2)} € HT</span>
+                              <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                             </button>
                           ))}
                         </div>
@@ -454,10 +459,10 @@ export default function ModifierDevisPage() {
                       placeholder="0" type="number" step="0.1" className="w-full text-sm text-right border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent" />
                   </div>
                   <div className="col-span-1 sm:col-span-1 text-right text-sm text-gray-500">
-                    {puTTC > 0 ? fmt(puTTC) : '—'} €
+                    {puHT > 0 ? fmt(puHT) : '—'} €
                   </div>
                   <div className="col-span-1 sm:col-span-2 text-right text-sm font-medium text-gray-900">
-                    {fmt(ttc)} €
+                    {fmt(totalTTC)} €
                   </div>
                   <div className="col-span-1 text-right">
                     {lignes.length > 1 && (
@@ -516,14 +521,14 @@ export default function ModifierDevisPage() {
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
                                     const nbElevesInitial = devisOriginal?.demande?.nombreEleves ?? 1;
-                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nbElevesInitial), String(p.prixUnitaireHT), String(p.tva))]);
+                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nbElevesInitial), String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))), String(p.tva))]);
                                     setCatalogueSearch('');
                                     setShowCatalogueSearch(false);
                                   }}
                                   className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                                 >
                                   <span className="text-sm text-gray-900">{p.nom}</span>
-                                  <span className="text-xs text-gray-500">{p.prixUnitaireHT.toFixed(2)} € HT</span>
+                                  <span className="text-xs text-gray-500">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                                 </button>
                               ))}
                             </div>
