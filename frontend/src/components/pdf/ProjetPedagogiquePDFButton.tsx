@@ -167,7 +167,7 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
           <Text style={s.headerTitle}>Projet pédagogique</Text>
           <Text style={s.headerSub}>{data.titre}</Text>
           <Text style={s.headerMeta}>
-            {data.lieu} — Du {fmtDate(data.dateDebut)} au {fmtDate(data.dateFin)} — {data.placesTotales} élèves
+            {data.lieu} — Du {fmtDate(data.dateDebut)} au {fmtDate(data.dateFin)} — {data.placesTotales} participants
             {data.niveauClasse ? ` — ${data.niveauClasse}` : ''}
           </Text>
           <Text style={s.headerMeta}>Généré le {fmtDate(new Date().toISOString())} via LIAVO</Text>
@@ -175,7 +175,7 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
 
         {/* Établissement */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Établissement scolaire</Text>
+          <Text style={s.sectionTitle}>Structure organisatrice</Text>
           <View style={s.grid2}>
             <View style={s.gridItem}>
               <Text style={s.label}>Établissement</Text>
@@ -184,7 +184,7 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
               {data.createur?.memberships?.[0]?.organisation.ville && <Text style={s.valueLight}>{data.createur.memberships[0].organisation.ville}</Text>}
             </View>
             <View style={s.gridItem}>
-              <Text style={s.label}>Enseignant responsable</Text>
+              <Text style={s.label}>Responsable du séjour</Text>
               <Text style={s.value}>{data.createur?.prenom} {data.createur?.nom}</Text>
               {data.createur?.email && <Text style={s.valueLight}>{data.createur.email}</Text>}
               {data.createur?.telephone && <Text style={s.valueLight}>{data.createur.telephone}</Text>}
@@ -221,7 +221,7 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
         {/* Lien programmes */}
         {lienProgrammes && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Lien avec les programmes scolaires</Text>
+            <Text style={s.sectionTitle}>Lien avec les programmes</Text>
             <Text style={s.valueLight}>{lienProgrammes}</Text>
           </View>
         )}
@@ -251,7 +251,7 @@ function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: {
 
         {/* Élèves */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Élèves participants ({signedAuto}/{data.autorisations.length} autorisations signées)</Text>
+          <Text style={s.sectionTitle}>Participants ({signedAuto}/{data.autorisations.length} autorisations signées)</Text>
           {data.autorisations.length > 0 && (
             <>
               <View style={s.tableHeader}>
