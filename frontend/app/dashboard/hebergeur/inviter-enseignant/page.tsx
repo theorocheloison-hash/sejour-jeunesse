@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
-import StructureSearch from '@/app/components/StructureSearch';
-import type { OrganisationSearchResult } from '@/app/components/StructureSearch';
 
 type LigneForm = {
   key: string;
@@ -55,6 +53,22 @@ export default function InviterEnseignantPage() {
   const [description, setDescription] = useState('');
   const [lignes, setLignes] = useState<LigneForm[]>([makeLigne()]);
 
+  // Recherche structure (SIRENE)
+  const [structNom, setStructNom] = useState('');
+  const [structVille, setStructVille] = useState('');
+  const [structSiret, setStructSiret] = useState('');
+  const [structResults, setStructResults] = useState<Array<{ nom: string; adresse: string | null; ville: string | null; siren: string | null; siret: string | null; source: string }>>([]);
+  const [structSearching, setStructSearching] = useState(false);
+  const structDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const structAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
+      if (structAbortRef.current) structAbortRef.current.abort();
+    };
+  }, []);
+
   useEffect(() => {
     if (!showDevisDraft || catalogue.length > 0) return;
     getCatalogue().then(setCatalogue).catch(() => {});
@@ -76,18 +90,59 @@ export default function InviterEnseignantPage() {
     return { montantHT, montantTVA, montantTTC, montantAcompte };
   }, [lignes, pourcentageAcompte]);
 
-  const handleStructureSelect = (result: OrganisationSearchResult | null) => {
-    if (!result) {
-      setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
-      return;
+  const fireStructSearch = (nom: string, ville: string, siret: string) => {
+    if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
+
+    const siretClean = siret.replace(/\s/g, '');
+    let q = '';
+    if (/^\d{9,14}$/.test(siretClean)) {
+      q = siretClean;
+    } else {
+      q = [nom.trim(), ville.trim()].filter(Boolean).join(' ');
     }
+
+    if (q.length < 2) { setStructResults([]); return; }
+
+    const doSearch = async () => {
+      if (structAbortRef.current) structAbortRef.current.abort();
+      const controller = new AbortController();
+      structAbortRef.current = controller;
+      setStructSearching(true);
+      try {
+        const res = await api.get('/organisations/search', { params: { q }, signal: controller.signal });
+        const data = res.data?.results ?? [];
+        setStructResults(data.map((r: any) => ({
+          nom: r.nom ?? '',
+          adresse: r.adresse ?? null,
+          ville: r.ville ?? null,
+          siren: r.siren ?? null,
+          siret: r.siret ?? null,
+          source: r.source ?? 'API_SIRENE',
+        })));
+      } catch { /* aborted or error */ }
+      finally { if (!controller.signal.aborted) setStructSearching(false); }
+    };
+
+    structDebounceRef.current = setTimeout(doSearch, 300);
+  };
+
+  const selectStruct = (r: typeof structResults[0]) => {
     setForm(f => ({
       ...f,
-      etablissementNom: result.nom,
-      etablissementAdresse: result.adresse ?? '',
-      etablissementVille: result.ville ?? '',
+      etablissementNom: r.nom,
+      etablissementAdresse: r.adresse ?? '',
+      etablissementVille: r.ville ?? '',
       etablissementUai: '',
     }));
+    setStructResults([]);
+  };
+
+  const clearStruct = () => {
+    setForm(f => ({ ...f, etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' }));
+    setStructNom('');
+    setStructVille('');
+    setStructSiret('');
+    setStructResults([]);
   };
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -144,9 +199,9 @@ export default function InviterEnseignantPage() {
         budgetMaxParEleve: form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
         message: form.message || undefined,
         etablissementUai: form.etablissementUai || undefined,
-        etablissementNom: form.etablissementNom || undefined,
+        etablissementNom: form.etablissementNom || structNom.trim() || undefined,
         etablissementAdresse: form.etablissementAdresse || undefined,
-        etablissementVille: form.etablissementVille || undefined,
+        etablissementVille: form.etablissementVille || structVille.trim() || undefined,
         devisDraftJson,
       });
       setSuccess(form.emailEnseignant);
@@ -159,6 +214,10 @@ export default function InviterEnseignantPage() {
 
   const resetForm = () => {
     setForm({ emailEnseignant: '', titreSejourSuggere: '', dateDebut: '', dateFin: '', nbElevesEstime: '', nombreAccompagnateurs: '', niveauClasse: '', heureArrivee: '', heureDepart: '', transportAller: '', activitesSouhaitees: '', budgetMaxParEleve: '', message: '', etablissementUai: '', etablissementNom: '', etablissementAdresse: '', etablissementVille: '' });
+    setStructNom('');
+    setStructVille('');
+    setStructSiret('');
+    setStructResults([]);
     setSuccess(null);
     setError(null);
   };
@@ -310,14 +369,61 @@ export default function InviterEnseignantPage() {
                         {[form.etablissementAdresse, form.etablissementVille].filter(Boolean).join(' — ')}
                       </p>
                     </div>
-                    <button type="button" onClick={() => handleStructureSelect(null)} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
+                    <button type="button" onClick={clearStruct} className="text-xs text-red-500 hover:underline shrink-0">Effacer</button>
                   </div>
                 ) : (
-                  <StructureSearch
-                    onSelect={handleStructureSelect}
-                    allowFreeText
-                    placeholder="Nom de la structure, ville…"
-                  />
+                  <div className="relative">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        value={structNom}
+                        onChange={e => { setStructNom(e.target.value); fireStructSearch(e.target.value, structVille, structSiret); }}
+                        placeholder="Nom"
+                        autoComplete="off"
+                        className={inputCls}
+                      />
+                      <input
+                        type="text"
+                        value={structVille}
+                        onChange={e => { setStructVille(e.target.value); fireStructSearch(structNom, e.target.value, structSiret); }}
+                        placeholder="Ville"
+                        autoComplete="off"
+                        className={inputCls}
+                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={structSiret}
+                          onChange={e => { setStructSiret(e.target.value); fireStructSearch(structNom, structVille, e.target.value); }}
+                          placeholder="SIRET (optionnel)"
+                          autoComplete="off"
+                          className={inputCls}
+                        />
+                        {structSearching && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {structResults.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {structResults.map((r, idx) => (
+                          <button
+                            key={`${r.siren ?? r.nom}-${idx}`}
+                            type="button"
+                            onClick={() => selectStruct(r)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-gray-900 truncate">{r.nom}</p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {[r.ville, r.siret].filter(Boolean).join(' — ')}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
