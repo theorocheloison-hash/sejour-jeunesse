@@ -1,104 +1,222 @@
-**État au 06/05/2026**
+# Roadmap nouvelles features LIAVO
 
-| SC | Statut | Détail |
-|---|---|---|
-| SC0 | ✅ | Scalingo Paris, OVH Gravelines, Brevo FR |
-| SC1 | ✅ | Schéma, backfill BDD, doublons nettoyés |
-| SC1bis | ✅ | findOrCreateOrganisation, helpers |
-| SC2 | ✅ | GET /organisations/search |
-| SC3 | ✅ | StructureSearch.tsx |
-| SC4 | ✅ | Rôles français, passe A+B |
-| SC4bis | ✅ | claim.service.ts, page admin claims |
-| SC4ter | ✅ | getAllSejoursSignataire() via Membership+email, champs etablissement* supprimés |
-| SC5 | ✅ | Dashboards, routes françaises |
-| SC5bis | ✅ | 6 routes hébergeur, /centre/[id]/claim, admin invitations |
-| SC6 | ✅ | /appel-offres, magic link |
-| SC7 | ⏸ SUSPENDU | Validation commerciale |
-| SC8 | ✅ | Colonnes etablissement* supprimées |
-| SC9 | ✅ | StatutDevis FACTURE_ACOMPTE+SOLDE, backfill SQL prod |
-| CRM legacy | ✅ | Pont RelationCommerciale sur Rappel+ContactClient |
-| HORS_SCOLAIRE | ✅ | typeContexte propagé, formulaire bifurqué, récapitulatif TAM |
-| Landing | ✅ | Refactor complet + /a-propos + titre tarifs + ps-cta |
-| Légal | ✅ | Railway→Scalingo/OVH, RGPD, Morillon |
+## SC-PDF-DEVIS-EXTERNE — Affichage PDF devis uploadé depuis outil externe (BUG URGENT)
 
-**Prochaine étape : accord partenariat LMDJ → débloquer A.5, A.6, A.7, SC7**
+Contexte : démo Witmer (lycée Charolles). L'enseignant veut uploader un PDF de devis
+créé hors LIAVO (Henrri, Word, etc.) et le voir correctement dans l'espace collaboratif.
+Actuellement le devis affiché était à 0€ et l'affichage du PDF externe est incorrect.
+
+### Ce qu'il faut faire
+1. Identifier pourquoi le devis uploadé externe affiche 0€ — probablement le montant
+   est lu depuis les champs Prisma (lignesDevis) et non depuis le PDF brut
+2. Corriger l'affichage : si typeDevis='UPLOAD_EXTERNE', afficher le PDF tel quel
+   sans tenter de parser les lignes
+3. Distinguer clairement dans l'UI : "Devis généré par LIAVO" vs "Devis importé"
+
+### Seuil
+Urgent — bloquant pour onboarding Witmer.
 
 ---
 
-## Backlog fonctionnalités nouvelles
+## SC-NOTIF-COLLABORATIF — Notifications email organisateur sur espace collaboratif
 
-### B.1 — Pop-up aide IA contextuelle
+Contexte : démo Witmer. L'organisateur ne va pas sur LIAVO tous les jours.
+Quand l'hébergeur poste un message ou met à jour l'espace collaboratif,
+l'organisateur doit recevoir un email de notification.
 
-Widget flottant sur toutes les pages, tous rôles. Réponses limitées au périmètre LIAVO + séjours jeunesse/scolaires. Stack probable : composant React client, streaming backend NestJS → API Claude avec system prompt étanche. V1 sans persistance BDD. **Estimé : 3-5 jours. Ne pas coder avant validation commerciale.**
+### Ce qu'il faut faire
+- À chaque POST /collaboration/:sejourId/messages → envoyer email à tous les ORGANISATEURS du séjour
+- À chaque upload document hébergeur → email notif organisateur
+- Email sobre : "Le Sauvageon a mis à jour votre espace collaboratif → Voir le séjour"
+- Ne pas notifier l'hébergeur (trop de séjours → trop de notifs, confirmé en démo)
+- Option "Se désabonner des notifications" dans l'email (lien unsubscribe)
 
-### B.2 — Menu intelligent IA
-
-Dans l'espace collaboratif d'un séjour : génération automatique de menus journaliers adaptés aux allergies/régimes déclarés dans les fiches sanitaires. Output : planning repas + liste de courses, export PDF. **Estimé : 3-5 jours. Dépend validation commerciale.**
-
-### A.0 — Phase de commercialisation (priorité haute)
-
-- Onboarding hébergeur guidé : séjour démo pré-créé au 1er login, checklist 5 étapes, emails séquencés J+1/J+3/J+7
-- CRM commercial Théo : tracker Notion/Airtable prospects/démos/statuts (outil externe)
-- LinkedIn LIAVO SASU : page entreprise + calendrier éditorial 12 semaines
-
-### C.0 — Flow colonie complet
-
-Benchmark concurrents (Odoo Nonprofit, Anim'action) avant de coder. Manque : gestion animateurs BAFA/BAFD, ratio encadrement automatique, déclaration sanitaire.
-
-### A.4 — Intégration APIDAE sans partenariat réseau
-
-Contacter support@apidae-tourisme.com avant de coder. Credentials LMDJ en attente d'Anaïtis. Credentials IDDJ déjà en prod.
-
-### A.3bis — Récupération emails centres EN
-
-Options : scraping, enrichissement manuel, prestataire B2B (50-200€), inscription volontaire. Valider cadre légal opt-out avant envoi de masse.
-
-### A.5 — Disponibilités calendrier hébergeur (ajouté 06/05/2026)
-
-**Contexte :** LMDJ utilise APIDAE pour la gestion des disponibilités hébergeurs. La page `/dashboard/hebergeur/disponibilites` existe avec un formulaire de saisie (date début/fin, capacité, commentaire) et les routes backend `getDisponibilites`, `createDisponibilite`, `deleteDisponibilite`. Ce qui manque : une vue calendrier cliquable.
-
-**Ce qui manque :**
-- Vue calendrier mensuel cliquable (bloquer/débloquer des jours directement sur le planning)
-- Synchronisation avec APIDAE via credentials réseau (à spécifier avec LMDJ — nécessite accord partenariat)
-- Affichage des dispos dans le catalogue public (l'organisateur voit si le centre est disponible sur ses dates)
-
-**Estimé :** 3-5 jours frontend + investigation API APIDAE dispos. **Ne pas coder avant accord partenariat LMDJ.**
-
-### A.6 — Grille tarifaire hébergeur (ajouté 06/05/2026)
-
-**Contexte :** LMDJ a une section "Tarifs" dans son extranet adhérent. LIAVO n'a pas de page dédiée à la saisie des tarifs par l'hébergeur.
-
-**Ce qui manque :**
-- Page `/dashboard/hebergeur/tarifs` : saisie de grilles tarifaires par période, capacité, type de prestation
-- Exposition dans le catalogue public (l'organisateur voit les tarifs indicatifs avant de contacter)
-- Pré-remplissage du constructeur de devis depuis la grille tarifaire (évite la ressaisie à chaque devis)
-
-**Estimé :** 2-3 jours. **À faire après A.5 disponibilités calendrier.**
-
-### A.7 — SSO APIDAE + co-branding LMDJ (ajouté 06/05/2026)
-
-**Contexte :** l'extranet LMDJ (`adherent.lamdj.com`) utilise APIDAE OAuth comme méthode d'authentification unique. Un hébergeur LMDJ se connecte à son espace adhérent via APIDAE — il obtient un token APIDAE qui authentifie sa session.
-
-**Ce que ça ouvrirait pour LIAVO :**
-- LIAVO implémente OAuth APIDAE comme méthode de connexion alternative
-- L'hébergeur clique "Se connecter via APIDAE" sur liavo.fr ou un espace co-brandé LMDJ
-- Il arrive directement dans son dashboard LIAVO, reconnu comme adhérent LMDJ, sans créer de nouveau compte
-- Son profil centre est pré-rempli depuis les données APIDAE
-
-**Option A — Co-branding** : interface aux couleurs LMDJ avec "Propulsé par LIAVO" discret. L'hébergeur sait qu'il utilise LIAVO. Meilleur pour la marque LIAVO à long terme.
-
-**Option B — White-label complet** : l'hébergeur ne voit jamais LIAVO, seulement "l'outil LMDJ". Fort pour LMDJ, risqué pour LIAVO — dans 2 ans les hébergeurs connaissent "l'outil LMDJ" pas LIAVO.
-
-**Recommandation :** Option A (co-branding). À discuter explicitement en visio LMDJ avant de coder quoi que ce soit.
-
-**Questions à poser à Anaïtis en visio :**
-- APIDAE peut-il servir de SSO pour accéder à LIAVO depuis votre extranet ?
-- Avez-vous accès à la doc OAuth APIDAE pour votre réseau ?
-- Souhaitez-vous un espace co-brandé LMDJ ou un accès direct à liavo.fr ?
-
-**Dépendances :** accord partenariat LMDJ signé + doc OAuth APIDAE + décision co-branding vs white-label.
-**Estimé :** 5-8 jours après accord. **Ne pas coder avant visio LMDJ.**
+### Seuil
+Prioritaire — bloquant pour adoption organisateur.
 
 ---
 
-*Document à maintenir à jour. Toute déviation documentée ici avec date et raison.*
+## SC-MULTI-ORGANISATEURS — Invitation collègue organisateur sur un séjour
+
+Contexte : démo Witmer. Plusieurs enseignants co-organisent souvent le même séjour.
+Besoin d'inviter un collègue avec accès lecture ou collaboration.
+
+### Ce qu'il faut faire
+- Nouveau rôle sur le séjour : CO_ORGANISATEUR (lecture seule) ou CO_ORGANISATEUR_EDIT
+- Bouton "Inviter un collègue" dans l'espace collaboratif organisateur
+- Email d'invitation → le collègue crée son compte ou se connecte → accès au séjour
+- Dans les guards : vérifier sejourId IN (créateur OU co-organisateur)
+
+### Impact schéma
+```
+model SejourCollaborateur {
+  sejourId  String
+  userId    String
+  role      String // CO_ORGANISATEUR | CO_ORGANISATEUR_EDIT
+}
+```
+
+### Seuil
+Après SC-NOTIF-COLLABORATIF — les deux vont ensemble.
+
+---
+
+## SC-IMPORT-PARTICIPANTS — Import élèves depuis fichier externe (Pronote/CSV)
+
+Contexte : démo Witmer. La gestionnaire et l'académie gèrent les inscriptions via Pronote.
+Les enseignants ont besoin d'importer la liste des élèves depuis un export Pronote/CSV.
+Actuellement seul l'export CSV est disponible, pas l'import.
+
+### Ce qu'il faut faire
+- Bouton "Importer des élèves" dans la section participants du séjour
+- Upload d'un fichier CSV (format Pronote à analyser)
+- Mapping des colonnes : nom, prénom, date naissance, classe, email parent
+- Validation + aperçu avant import définitif
+- Gestion des doublons (élève déjà présent)
+
+### Format Pronote à clarifier
+Demander à Witmer un export CSV Pronote pour analyser le format exact avant de coder.
+
+### Seuil
+Après avoir reçu un exemple de fichier Pronote de Witmer.
+
+---
+
+## SC-PRONOTE-AUTORISATIONS — Autorisations parentales via Pronote
+
+Contexte : démo Witmer. La gestionnaire/académie envoie les autorisations parentales
+via Pronote. Les parents signent dans Pronote avec leur accès parent.
+LIAVO doit s'adapter à ce flux ou proposer une alternative.
+
+### Options
+- Option A : LIAVO reste en parallèle de Pronote — l'enseignant importe les autorisations
+  signées depuis Pronote sous forme de PDF et les attache au séjour
+- Option B : intégration API Pronote (complexe, accès restreint)
+- Option C : LIAVO génère ses propres autorisations parentales indépendamment de Pronote,
+  l'établissement choisit quel outil utiliser
+
+### À clarifier avec Witmer
+Est-ce que Pronote remplace complètement les autorisations LIAVO, ou est-ce complémentaire ?
+Est-ce que d'autres établissements utilisent Pronote de la même façon ?
+
+### Seuil
+Après clarification avec plusieurs établissements — ne pas coder sur un seul retour.
+
+---
+
+## SC-DEVIS-LIBRE — Devis sans séjour (gestion libre hébergeur)
+
+Contexte : l'hébergeur gère des événements hors séjours scolaires (mariages, séminaires,
+groupes privés, etc.).
+
+### Ce qu'il faut faire
+- Rendre Devis.sejourId nullable (migration Prisma)
+- Toggle "Séjour libre" dans le formulaire devis → champs libres (nom client, dates, description)
+- Badge "Événement libre" dans le dashboard
+- Export PDF identique
+
+### Seuil
+Confirmé — mariage en gestion libre au Sauvageon.
+
+---
+
+## SC-INVITATIONS-PLANNING — Invitations en attente visibles dans le planning hébergeur
+
+Pré-requis : SC-DEVIS-LIBRE (sejourId nullable).
+
+### Ce qu'il faut faire
+- Afficher invitations EN ATTENTE dans le planning avec badge "En attente d'acceptation"
+- Bouton "Préparer un devis" → formulaire pré-rempli depuis données invitation
+- Rattachement automatique au séjour quand l'enseignant accepte
+
+### Seuil
+Après onboarding Charolles.
+
+---
+
+## SC-CRM-SIDEBAR — Sidebar navigation dans le CRM hébergeur
+
+Fix : ajouter liens principaux dans la nav top du CRM (Planning, Devis, Catalogue).
+Seuil : prochain chantier UI/UX global.
+
+---
+
+## SC-CHATBOT — Aide contextuelle + onboarding première connexion
+
+### 1. Chatbot d'aide contextuelle
+- Widget flottant, Claude API, contextuel à la page courante
+- À déclencher : 3+ utilisateurs actifs
+
+### 2. Onboarding première connexion par rôle
+- Flag premiereConnexion en base, steps guidés par rôle
+- À déclencher : avant ouverture grand public
+
+---
+
+## SC-AGENT-IA — Agent agentique LIAVO
+
+Claude API avec tool use — agit à la place de l'utilisateur.
+Seuil : 5-10 enseignants actifs en prod.
+
+---
+
+## SC-MENUS-IA — Proposition automatique de menus par IA
+
+Claude API → planning repas jour par jour depuis allergies + nb personnes + activités.
+Seuil : après 1 séjour réel sur l'espace collaboratif.
+
+---
+
+## SC-CRON — Relances trial robustes
+
+pg-boss ou table CronJob. Seuil : 3 hébergeurs inscrits.
+
+---
+
+## SC-IMPORT-HISTORIQUE — Import devis/factures Henrri (Sauvageon)
+
+Format : export PDF Henrri ZIP.
+Seuil : quand le Sauvageon veut basculer sur LIAVO comme outil principal.
+
+---
+
+## SC-STRIPE — Paiement abonnement
+
+Stripe Checkout + webhook + portail client.
+Seuil : après validation commerciale pricing.
+
+---
+
+## SC-PLANNING-DRAG-CREATE — Création séjour/devis par drag sur le planning hébergeur
+
+Contexte : l'hébergeur reçoit un appel, veut bloquer des dates immédiatement.
+Aujourd'hui il doit aller dans le formulaire de création, aucun raccourci depuis le planning.
+
+### Ce qu'il faut faire
+- Drag-to-select sur la grille planning (mousedown → mousemove → mouseup sur cellules jour)
+- Feedback visuel : surlignage bleu des jours sélectionnés pendant le drag
+- Au relâchement : modale de choix → "Créer un séjour" (formulaire rapide) ou "Créer un événement libre" (devis libre)
+- Dates pré-remplies depuis la sélection
+- Fallback mobile : bouton "+" sur chaque cellule jour (le drag touch est peu fiable)
+
+### Alternative simplifiée
+Si le drag est trop lourd : bouton "+" par cellule jour, qui ouvre la même modale de choix.
+Le résultat fonctionnel est identique, le coût est 3× moindre.
+
+### Seuil
+Après refactor planning UX (SC-PLANNING-UX). Les deux se complètent.
+
+---
+
+## SC-DEVIS-CTA — Bouton "Créer un devis" dans la page Devis & Facturation
+
+Contexte : dans le dashboard hébergeur, section "Devis & Facturation", il n'y a aucun moyen
+de créer un devis from scratch. L'hébergeur doit passer par le planning ou l'URL directe.
+
+### Ce qu'il faut faire
+- Ajouter un CTA "Nouveau devis" en haut de la page `/dashboard/hebergeur/devis`
+- Redirige vers `/dashboard/hebergeur/devis-libres/nouveau`
+- Style cohérent avec les autres CTA du dashboard
+
+### Seuil
+Rapide (< 1h). À faire dès que SC-PLANNING-UX est livré.
