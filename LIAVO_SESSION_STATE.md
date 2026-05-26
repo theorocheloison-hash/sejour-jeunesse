@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 21/05/2026 — Session flux direction (signature + facturation)
+> Dernière mise à jour : 26/05/2026 — Session cohérence universelle PDFs + invitation ILEPS
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -211,6 +211,11 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 
 ### LIVRÉ SESSION 26/05/2026 ✅
 - [x] **Formulaire invitation universalisé** — labels neutres + StructureSearch SIRENE (remplace API EN)
+- [x] **Recherche structure 3 champs** (Nom, Ville, SIRET) dans inviter-enseignant/page.tsx
+- [x] **Invitation ILEPS envoyée** — INSTITUT POLYTECHNIQUE SAINT-LOUIS, SIRET 34483642400020, Cergy (Théo BRIOT, t.briot@ileps.fr)
+
+### EN COURS 26/05/2026
+- [ ] **Labels universels PDFs** — prompts CC prêts (Partie 1: DevisPDF+BudgetPDF+PlanningPDF / Partie 2: ProjetPedagogiquePDF)
 
 ### CRITIQUE — en cours
 - [ ] **Liaison Client ↔ User à l'acceptation invitation** (spéc dans section CRM)
@@ -249,6 +254,7 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 **Livrés :**
 - [x] Formulaire invitation hébergeur : labels universels + StructureSearch SIRENE (26/05/2026)
 - [x] Appel d'offres / contact direct : sélecteur type structure + labels adaptatifs (existant)
+- [ ] **Labels universels 4 PDFs** (DevisPDF, BudgetPDF, PlanningPDF, ProjetPedagogiquePDF) — prompts CC prêts, à exécuter
 
 **À faire — Frontend (labels / UX) — VALIDATION THÉO REQUISE :**
 - [ ] **Emails backend invitation** : "Nombre d'élèves estimé" → "Nombre de participants" / "L'enseignant que vous avez invité" → "L'organisateur" — revoir le wording de TOUS les templates emails invitation-collaboration.service.ts
@@ -257,7 +263,8 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - [ ] **Formulaire inscription organisateur** (register/organisateur/page.tsx) : ajouter type ENSEIGNEMENT_SUPERIEUR dans TypeStructure ? Ou suffisant avec "Autre" + StructureSearch ?
 - [ ] **Page /rejoindre/[token]** : vérifier que les labels sont neutres quand l'invitation vient d'une structure non-scolaire
 - [ ] **Espace collaboratif sejour/[id]** : label "Nombre d'élèves" dans les infos séjour → "Nombre de participants" conditionnel
-- [ ] **Devis PDF** : vérifier que le nom de structure apparaît bien (pas un champ vide quand pas d'UAI)
+- [ ] **Devis PDF** : vérifier que le nom de structure apparaît bien (pas un champ vide quand pas d'UAI) — ✅ VÉRIFIÉ 26/05 : chaîne complète SIRENE→Organisation→Membership→getBudgetData→PDF OK. Vérification SQL ILEPS restante.
+- [ ] **Page dashboard/sejour/[id]/page.tsx — labels scolaires à neutraliser** : "Établissement scolaire"→"Structure organisatrice", "Enseignant responsable"→"Responsable du séjour", "Nombre d'élèves"→"Nombre de participants", "Élèves non affectés"→"Participants non affectés", "Clôturez les inscriptions pour affecter les élèves"→ formulation neutre, "Lien avec les programmes scolaires"→"Lien avec les programmes". **À faire APRÈS les 4 PDFs pour cohérence. Fichier de ~3000 lignes — prompt CC dédié, pas en parallèle.**
 
 **À faire — Backend (naming interne) — DETTE, PAS PRIORITAIRE :**
 - [ ] Renommer champs Prisma : emailEnseignant → emailOrganisateur, nbElevesEstime → nbParticipantsEstime (migration + DTO + tous les endpoints) — **à faire seulement lors d'un chantier dédié, pas en parallèle d'autre chose**
