@@ -126,7 +126,7 @@ function PlanningPDF(props: PlanningPDFProps) {
             <>
               <Text style={s.title}>Planning — {props.titreSejour}</Text>
               <Text style={s.subtitle}>
-                Du {fmtDate(props.dateDebut)} au {fmtDate(props.dateFin)} — {props.nombreEleves} élèves
+                Du {fmtDate(props.dateDebut)} au {fmtDate(props.dateFin)} — {props.nombreEleves} participants
                 {props.centreName ? ` — ${props.centreName}` : ''}
               </Text>
             </>

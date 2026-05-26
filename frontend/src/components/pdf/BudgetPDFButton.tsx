@@ -60,7 +60,7 @@ function BudgetPDF(props: BudgetPDFProps) {
       <Page size="A4" style={s.page}>
         <Text style={s.title}>Budget prévisionnel</Text>
         <Text style={s.subtitle}>
-          {props.titreSejour} — {fmtDate(props.dateDebut)} au {fmtDate(props.dateFin)} — {props.nombreEleves} élèves
+          {props.titreSejour} — {fmtDate(props.dateDebut)} au {fmtDate(props.dateFin)} — {props.nombreEleves} participants
           {props.etablissementNom ? `\n${props.etablissementNom}` : ''}
           {props.enseignantNom ? ` — ${props.enseignantNom}` : ''}
         </Text>

@@ -198,10 +198,10 @@ export default function DevisPDF(props: DevisPDFProps) {
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
           <Text style={s.objetText}>
-            Séjour scolaire — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
+            Séjour — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
           </Text>
           <Text style={s.objetSub}>
-            {nombreEleves ? `${nombreEleves} élève${nombreEleves > 1 ? 's' : ''}` : ''}
+            {nombreEleves ? `${nombreEleves} participant${nombreEleves > 1 ? 's' : ''}` : ''}
             {niveauClasse ? ` — ${niveauClasse}` : ''}
           </Text>
         </View>
