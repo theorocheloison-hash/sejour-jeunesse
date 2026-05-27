@@ -17,4 +17,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const centreId = localStorage.getItem('liavo-centre-actif');
+    if (centreId) {
+      config.headers['X-Centre-Id'] = centreId;
+    }
+  }
+  return config;
+});
+
 export default api;

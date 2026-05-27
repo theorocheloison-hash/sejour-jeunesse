@@ -19,7 +19,19 @@ import type { User, LoginDto, OrganisationResume } from '@/src/types/auth';
 const COOKIE_TOKEN = 'token';
 const LS_USER      = 'sj_user_v2';
 const LS_USER_OLD  = 'sj_user';
+const LS_CENTRE_ACTIF = 'liavo-centre-actif';
 const COOKIE_OPTS  = { expires: 7, sameSite: 'lax' as const };
+
+// ─── Multi-centre ─────────────────────────────────────────────────────────────
+
+interface CentreResume {
+  id: string;
+  nom: string;
+  ville: string;
+  capacite: number;
+  imageUrl: string | null;
+  statut: string;
+}
 
 const ROLE_ROUTES: Record<string, string> = {
   ORGANISATEUR: '/dashboard/organisateur',
@@ -38,6 +50,10 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (dto: LoginDto, redirectTo?: string) => Promise<void>;
   logout: () => void;
+  centres: CentreResume[];
+  centreActif: string | null;
+  setCentreActif: (id: string) => void;
+  isMultiCentre: boolean;
 }
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -49,6 +65,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]         = useState<User | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [centres, setCentres]   = useState<CentreResume[]>([]);
+  const [centreActif, setCentreActifState] = useState<string | null>(null);
   const router                  = useRouter();
 
   // Restaure la session depuis le cookie + localStorage au montage
@@ -74,6 +92,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // localStorage corrompu — on ignore
     }
     setLoading(false);
+  }, []);
+
+  // Charge les centres de l'hébergeur — réagit aux changements d'utilisateur
+  useEffect(() => {
+    if (!user || user.role !== 'HEBERGEUR') {
+      setCentres([]);
+      setCentreActifState(null);
+      return;
+    }
+    let cancelled = false;
+    api.get<CentreResume[]>('/centres/mes-centres')
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCentres(data);
+        const stored = typeof window !== 'undefined'
+          ? localStorage.getItem(LS_CENTRE_ACTIF)
+          : null;
+        const validStored = stored && data.some(c => c.id === stored) ? stored : null;
+        const next = validStored ?? data[0]?.id ?? null;
+        setCentreActifState(next);
+        if (typeof window !== 'undefined' && next && next !== stored) {
+          localStorage.setItem(LS_CENTRE_ACTIF, next);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCentres([]);
+        setCentreActifState(null);
+      });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const setCentreActif = useCallback((id: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LS_CENTRE_ACTIF, id);
+      window.location.reload();
+    }
   }, []);
 
   const login = useCallback(async (dto: LoginDto, redirectTo?: string) => {
@@ -112,12 +167,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     Cookies.remove(COOKIE_TOKEN);
     localStorage.removeItem(LS_USER);
+    if (typeof window !== 'undefined') localStorage.removeItem(LS_CENTRE_ACTIF);
     setUser(null);
+    setCentres([]);
+    setCentreActifState(null);
     router.push('/login');
   }, [router]);
 
+  const isMultiCentre = centres.length > 1;
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{
+      user, isLoading, login, logout,
+      centres, centreActif, setCentreActif, isMultiCentre,
+    }}>
       {children}
     </AuthContext.Provider>
   );
