@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 export type TypeActivite = 'APPEL' | 'EMAIL' | 'VISITE' | 'DEVIS' | 'SIGNATURE' | 'VERSEMENT' | 'NOTE' | 'BROCHURE';
 
@@ -38,17 +39,15 @@ export class ActivitesClientService {
     });
   }
 
-  async createActiviteManuelle(clientId: string, userId: string, dto: CreateActiviteDto) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new ForbiddenException('Centre introuvable');
+  async createActiviteManuelle(clientId: string, userId: string, dto: CreateActiviteDto, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centre.id) throw new ForbiddenException();
     return this.createActivite(clientId, centre.id, { ...dto, userId });
   }
 
-  async getActivitesForUser(clientId: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new ForbiddenException('Centre introuvable');
+  async getActivitesForUser(clientId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.getActivites(clientId, centre.id);
   }
 }

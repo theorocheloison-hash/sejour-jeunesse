@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 const INCLUDE_FULL = {
   contacts: true,
@@ -20,14 +21,13 @@ const INCLUDE_FULL = {
 export class ClientsService {
   constructor(private prisma: PrismaService, private email: EmailService) {}
 
-  private async getCentreId(userId: string): Promise<string> {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new ForbiddenException('Centre introuvable');
+  private async getCentreId(userId: string, centreId?: string | null): Promise<string> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return centre.id;
   }
 
-  async getRappelsToday(userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async getRappelsToday(userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const debutAujourdhui = new Date();
     debutAujourdhui.setHours(0, 0, 0, 0);
     const finAujourdhui = new Date();
@@ -46,8 +46,8 @@ export class ClientsService {
     });
   }
 
-  async getMesClients(userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async getMesClients(userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
 
     const clients = await this.prisma.client.findMany({
       where: { centreId },
@@ -117,8 +117,8 @@ export class ClientsService {
     });
   }
 
-  async getClient(id: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async getClient(id: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({
       where: { id },
       include: { contacts: true, rappels: { orderBy: { dateEcheance: 'asc' } }, sejours: true },
@@ -128,8 +128,8 @@ export class ClientsService {
     return client;
   }
 
-  async createClient(dto: CreateClientDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async createClient(dto: CreateClientDto, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     if (dto.uai) {
       const existing = await this.prisma.client.findFirst({ where: { centreId, uai: dto.uai } });
       if (existing) return existing;
@@ -140,32 +140,29 @@ export class ClientsService {
     });
   }
 
-  async updateClient(id: string, dto: Partial<CreateClientDto>, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async updateClient(id: string, dto: Partial<CreateClientDto>, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({ where: { id } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.client.update({ where: { id }, data: dto, include: { contacts: true, rappels: true, sejours: true } });
   }
 
-  async deleteClient(id: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async deleteClient(id: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({ where: { id } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.client.delete({ where: { id } });
   }
 
-  async addContact(clientId: string, dto: CreateContactDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async addContact(clientId: string, dto: CreateContactDto, userId: string, centreIdHeader?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreIdHeader);
+    const centreId = centre.id;
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
 
     // Récupère la RelationCommerciale si elle existe (pont legacy)
     let relationId: string | undefined;
     try {
-      const centre = await this.prisma.centreHebergement.findFirst({
-        where: { userId },
-        select: { organisationId: true },
-      });
       if (client.organisationId && centre?.organisationId) {
         const rel = await this.prisma.relationCommerciale.findUnique({
           where: {
@@ -183,32 +180,29 @@ export class ClientsService {
     return this.prisma.contactClient.create({ data: { ...dto, clientId, relationId: relationId ?? undefined } });
   }
 
-  async updateContact(contactId: string, dto: Partial<CreateContactDto>, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async updateContact(contactId: string, dto: Partial<CreateContactDto>, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const contact = await this.prisma.contactClient.findUnique({ where: { id: contactId }, include: { client: true } });
     if (!contact || contact.client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.contactClient.update({ where: { id: contactId }, data: dto });
   }
 
-  async deleteContact(contactId: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async deleteContact(contactId: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const contact = await this.prisma.contactClient.findUnique({ where: { id: contactId }, include: { client: true } });
     if (!contact || contact.client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.contactClient.delete({ where: { id: contactId } });
   }
 
-  async addRappel(clientId: string, dto: CreateRappelDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async addRappel(clientId: string, dto: CreateRappelDto, userId: string, centreIdHeader?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreIdHeader);
+    const centreId = centre.id;
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
 
     // Récupère la RelationCommerciale si elle existe (pont legacy)
     let relationId: string | undefined;
     try {
-      const centre = await this.prisma.centreHebergement.findFirst({
-        where: { userId },
-        select: { organisationId: true },
-      });
       if (client.organisationId && centre?.organisationId) {
         const rel = await this.prisma.relationCommerciale.findUnique({
           where: {
@@ -235,22 +229,22 @@ export class ClientsService {
     });
   }
 
-  async updateRappelStatut(rappelId: string, statut: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async updateRappelStatut(rappelId: string, statut: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const rappel = await this.prisma.rappel.findUnique({ where: { id: rappelId }, include: { client: true } });
     if (!rappel || rappel.client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.rappel.update({ where: { id: rappelId }, data: { statut } });
   }
 
-  async deleteRappel(rappelId: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async deleteRappel(rappelId: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const rappel = await this.prisma.rappel.findUnique({ where: { id: rappelId }, include: { client: true } });
     if (!rappel || rappel.client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.rappel.delete({ where: { id: rappelId } });
   }
 
-  async rattacherSejour(clientId: string, sejourId: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async rattacherSejour(clientId: string, sejourId: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.centreId !== centreId) throw new ForbiddenException();
     return this.prisma.sejourClient.upsert({
@@ -359,8 +353,8 @@ export class ClientsService {
     }
   }
 
-  async importerProspects(academie: string, typesEtablissement: string[], userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async importerProspects(academie: string, typesEtablissement: string[], userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const API_BASE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records';
     const FIELDS = 'identifiant_de_l_etablissement,nom_etablissement,type_etablissement,adresse_1,code_postal,nom_commune,mail,telephone,libelle_academie';
     const whereParts = [`libelle_academie="${academie}"`];
@@ -434,8 +428,9 @@ export class ClientsService {
     lignes: Array<Record<string, string | undefined>>,
     userId: string,
     organisationHebergeurId?: string,
+    centreIdHeader?: string | null,
   ) {
-    const centreId = await this.getCentreId(userId);
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     let imported = 0;
     let skipped = 0;
 
@@ -494,8 +489,9 @@ export class ClientsService {
   async importerContactsCSV(
     lignes: Array<Record<string, string>>,
     userId: string,
+    centreIdHeader?: string | null,
   ): Promise<{ imported: number; skipped: number; clientNotFound: number; total: number }> {
-    const centreId = await this.getCentreId(userId);
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     let imported = 0;
     let skipped = 0;
     let clientNotFound = 0;
@@ -538,8 +534,8 @@ export class ClientsService {
     return { imported, skipped, clientNotFound, total: lignes.length };
   }
 
-  async envoyerBrochure(clientId: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async envoyerBrochure(clientId: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
       include: { contacts: { take: 1 } },

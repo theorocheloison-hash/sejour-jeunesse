@@ -22,8 +22,10 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { CentreService } from './centre.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
+import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { CentreId } from './centre-id.decorator.js';
 
 @Controller('centres')
 export class CentreController {
@@ -33,6 +35,34 @@ export class CentreController {
   @Get('search-public')
   searchPublic(@Query('search') search?: string) {
     return this.centreService.searchPublic(search ?? '');
+  }
+
+  /** GET /centres/mes-centres — Liste des centres de l'hébergeur connecté. MUST be before any :param route. */
+  @Get('mes-centres')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getMesCentres(@CurrentUser() user: JwtUser) {
+    return this.centreService.getMesCentres(user.id);
+  }
+
+  /** GET /centres/dashboard-global — KPIs consolidés multi-centre. MUST be before any :param route. */
+  @Get('dashboard-global')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getDashboardGlobal(
+    @CurrentUser() user: JwtUser,
+    @Query('periodeDebut') periodeDebut?: string,
+    @Query('periodeFin') periodeFin?: string,
+  ) {
+    return this.centreService.getDashboardGlobal(user.id, periodeDebut, periodeFin);
+  }
+
+  /** POST /centres — Créer un centre additionnel sur un compte HEBERGEUR existant. */
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  createCentre(@CurrentUser() user: JwtUser, @Body() dto: CreateCentreDto) {
+    return this.centreService.createCentre(user.id, dto);
   }
 
   @Get('check-invitation/:token')
@@ -61,15 +91,15 @@ export class CentreController {
   @Get('mon-profil')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getMonProfil(@CurrentUser() user: JwtUser) {
-    return this.centreService.getMonProfil(user.id);
+  getMonProfil(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getMonProfil(user.id, centreId);
   }
 
   @Patch('mon-profil')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  updateMonProfil(@CurrentUser() user: JwtUser, @Body() dto: UpdateCentreDto) {
-    return this.centreService.updateMonProfil(user.id, dto);
+  updateMonProfil(@CurrentUser() user: JwtUser, @Body() dto: UpdateCentreDto, @CentreId() centreId: string | null) {
+    return this.centreService.updateMonProfil(user.id, dto, centreId);
   }
 
   @Post('image')
@@ -79,9 +109,10 @@ export class CentreController {
   uploadImage(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
+    @CentreId() centreId: string | null,
   ) {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    return this.centreService.uploadImage(user.id, file);
+    return this.centreService.uploadImage(user.id, file, centreId);
   }
 
   @Post('brochure-upload')
@@ -91,9 +122,10 @@ export class CentreController {
   uploadBrochure(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
+    @CentreId() centreId: string | null,
   ) {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    return this.centreService.uploadBrochure(user.id, file);
+    return this.centreService.uploadBrochure(user.id, file, centreId);
   }
 
   @Post('documents-upload')
@@ -104,60 +136,61 @@ export class CentreController {
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: CreateDocumentDto,
+    @CentreId() centreId: string | null,
   ) {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    return this.centreService.uploadDocument(user.id, file, dto);
+    return this.centreService.uploadDocument(user.id, file, dto, centreId);
   }
 
   @Patch('mandat-facturation')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  accepterMandatFacturation(@CurrentUser() user: JwtUser, @Req() req: any) {
+  accepterMandatFacturation(@CurrentUser() user: JwtUser, @Req() req: any, @CentreId() centreId: string | null) {
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip ?? null;
     const ua = (req.headers['user-agent'] as string) ?? null;
-    return this.centreService.accepterMandatFacturation(user.id, ip, ua);
+    return this.centreService.accepterMandatFacturation(user.id, ip, ua, centreId);
   }
 
   @Get('disponibilites')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getDisponibilites(@CurrentUser() user: JwtUser) {
-    return this.centreService.getDisponibilites(user.id);
+  getDisponibilites(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getDisponibilites(user.id, centreId);
   }
 
   @Post('disponibilites')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  createDisponibilite(@CurrentUser() user: JwtUser, @Body() dto: CreateDisponibiliteDto) {
-    return this.centreService.createDisponibilite(user.id, dto);
+  createDisponibilite(@CurrentUser() user: JwtUser, @Body() dto: CreateDisponibiliteDto, @CentreId() centreId: string | null) {
+    return this.centreService.createDisponibilite(user.id, dto, centreId);
   }
 
   @Delete('disponibilites/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  deleteDisponibilite(@CurrentUser() user: JwtUser, @Param('id') id: string) {
-    return this.centreService.deleteDisponibilite(user.id, id);
+  deleteDisponibilite(@CurrentUser() user: JwtUser, @Param('id') id: string, @CentreId() centreId: string | null) {
+    return this.centreService.deleteDisponibilite(user.id, id, centreId);
   }
 
   @Get('documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getDocuments(@CurrentUser() user: JwtUser) {
-    return this.centreService.getDocuments(user.id);
+  getDocuments(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getDocuments(user.id, centreId);
   }
 
   @Post('documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  createDocument(@CurrentUser() user: JwtUser, @Body() dto: CreateDocumentDto) {
-    return this.centreService.createDocument(user.id, dto);
+  createDocument(@CurrentUser() user: JwtUser, @Body() dto: CreateDocumentDto, @CentreId() centreId: string | null) {
+    return this.centreService.createDocument(user.id, dto, centreId);
   }
 
   @Get('catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getCatalogue(@CurrentUser() user: JwtUser) {
-    return this.centreService.getProduitsCatalogue(user.id);
+  getCatalogue(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getProduitsCatalogue(user.id, centreId);
   }
 
   @Post('catalogue')
@@ -166,8 +199,9 @@ export class CentreController {
   createProduit(
     @CurrentUser() user: JwtUser,
     @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string },
+    @CentreId() centreId: string | null,
   ) {
-    return this.centreService.createProduit(user.id, dto);
+    return this.centreService.createProduit(user.id, dto, centreId);
   }
 
   @Post('catalogue/import')
@@ -176,8 +210,9 @@ export class CentreController {
   importProduits(
     @CurrentUser() user: JwtUser,
     @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string }[] },
+    @CentreId() centreId: string | null,
   ) {
-    return this.centreService.importProduits(user.id, body.produits);
+    return this.centreService.importProduits(user.id, body.produits, centreId);
   }
 
   @Patch('catalogue/:id')
@@ -187,8 +222,9 @@ export class CentreController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: { nom?: string; description?: string; type?: string; prixUnitaireHT?: number; prixUnitaireTTC?: number; tva?: number; unite?: string },
+    @CentreId() centreId: string | null,
   ) {
-    return this.centreService.updateProduit(user.id, id, dto);
+    return this.centreService.updateProduit(user.id, id, dto, centreId);
   }
 
   @Delete('catalogue/:id')
@@ -197,8 +233,9 @@ export class CentreController {
   archiveProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @CentreId() centreId: string | null,
   ) {
-    return this.centreService.archiveProduit(user.id, id);
+    return this.centreService.archiveProduit(user.id, id, centreId);
   }
 
   @Patch('catalogue/:id/capacites')
@@ -208,8 +245,9 @@ export class CentreController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: { capaciteParGroupe?: number; encadrementParGroupe?: number; simultaneitePossible?: boolean; dureeMinutes?: number },
+    @CentreId() centreId: string | null,
   ) {
-    return this.centreService.updateCapacitesProduit(user.id, id, dto);
+    return this.centreService.updateCapacitesProduit(user.id, id, dto, centreId);
   }
 
 }

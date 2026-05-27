@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 // Département → Région mapping (code postal → région)
 const DEPT_TO_REGION: Record<string, string> = {
@@ -122,19 +123,8 @@ export class DemandeService {
     return demande;
   }
 
-  async findOpen(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-      select: {
-        id: true,
-        ville: true,
-        codePostal: true,
-        planAbonnement: true,
-        abonnementStatut: true,
-        abonnementActifJusquAu: true,
-      },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async findOpen(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const now = new Date();
     const accesComplet =
@@ -264,12 +254,8 @@ export class DemandeService {
     });
   }
 
-  async ignorerDemande(userId: string, demandeId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async ignorerDemande(userId: string, demandeId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.demandeIgnoree.upsert({
       where: { demandeId_centreId: { demandeId, centreId: centre.id } },
       create: { demandeId, centreId: centre.id },

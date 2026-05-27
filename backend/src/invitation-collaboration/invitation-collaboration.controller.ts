@@ -7,6 +7,7 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { InvitationCollaborationService } from './invitation-collaboration.service.js';
 import { CreateInvitationCollaborationDto } from './dto/create-invitation.dto.js';
 import { InviterCentreExterneDto } from './dto/inviter-centre-externe.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('invitation-collaboration')
 export class InvitationCollaborationController {
@@ -18,8 +19,9 @@ export class InvitationCollaborationController {
   create(
     @Body() dto: CreateInvitationCollaborationDto,
     @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
   ) {
-    return this.service.create(dto, user);
+    return this.service.create(dto, user, centreId);
   }
 
   @Post('centre-externe')
