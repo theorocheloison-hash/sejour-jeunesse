@@ -235,8 +235,33 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - [x] **Labels universels formulaires devis** — "Séjour scolaire"→"Séjour", "élèves"→"participants" dans nouveau + modifier
 
 ### EN COURS 27/05/2026
-- [ ] **Labels universels ProjetPedagogiquePDF** — prompt CC Partie 2 prêt, à exécuter
+- [x] **Labels universels ProjetPedagogiquePDF** — prompt CC Partie 2 prêt, à exécuter
+- [x] **Multi-centre backend** — commit 0ee8f62 : helper getCentreForUser + dashboard-global + migration 11 services
+- [x] **Multi-centre frontend** — commits 6bf0f2b + 8189f9e + dashboard global : AuthContext + intercepteur + CentreSelector + page /global
 - [ ] **Conditions annulation Sauvageon** — champ conditions_annulation NULL en base → à remplir
+- [ ] **Onboarding multi-centre complet** — page /centres/nouveau (recherche catalogue + claim + création manuelle) + validation admin + `POST /centres` en PENDING + inscription hébergeur libre
+
+### PARCOURS ONBOARDING HÉBERGEUR — SPÉCIFIÉS 27/05/2026
+
+**Parcours 1 (self-service, centres dans le catalogue)** : inscription 1er centre + claim RNA/Kbis → dashboard mono → /centres/nouveau → recherche catalogue → revendication 2ème centre + claim → validation admin → multi-centre
+**Parcours 2 (self-service, mix catalogue + hors catalogue)** : idem P1 pour les centres trouvés + formulaire création manuelle pour les autres → PENDING → validation admin
+**Parcours 3 (self-service, aucun centre dans le catalogue)** : inscription libre sans invitation (register/hebergeur step 1.5 → pas trouvé → formulaire manuel) → PENDING → puis /centres/nouveau pour les suivants
+**Parcours 4 (accompagné par admin)** : admin crée invitation → hébergeur s'inscrit avec 1 centre → ajoute les autres depuis /centres/nouveau. OU admin crée tout + reset password.
+
+**Briques existantes :**
+- register/hebergeur : steps 1 → 1.5 (recherche catalogue) → 2 (formulaire manuel) → 3 (types). Gère invitation token cas 1/2/3.
+- GET /centres/search-public : recherche catalogue
+- GET /auth/sirene/:siret : lookup SIRENE
+- POST /centres : création centre additionnel (statut à changer ACTIVE → PENDING)
+- Schema Membership : claimStatut + champs claim en base, jamais utilisés
+- registerHebergeur : crée User + Centre + Organisation + Membership PROPRIETAIRE, statut PENDING
+
+**Briques manquantes :**
+- Page /dashboard/hebergeur/centres/nouveau (user connecté) : recherche + claim + création manuelle
+- Backend endpoint revendication centre existant (rattacher centreId à userId + upload claim doc)
+- Admin : liste claims en attente + approuver/refuser
+- Invitation qui détecte email existant → rattache au lieu de recréer (V2)
+
 
 ### CRITIQUE — en cours
 - [ ] **Liaison Client ↔ User à l'acceptation invitation** (spéc dans section CRM)
@@ -251,12 +276,75 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 ### Court terme — PRIORITÉ HAUTE
 - [ ] **Planning hébergeur — options/devis en attente** : quand un devis est envoyé (EN_ATTENTE), les dates + nb personnes apparaissent au planning en mode "option" (visuellement distinct des séjours confirmés). L'hébergeur voit la capacité totale = confirmés + options. CRITIQUE pour gestion capacité multi-séjours. Données déjà en base (DemandeDevis.dateDebut/dateFin + nombreEleves). Estimé 2-3 jours. **PRIORITÉ #1 pour démo Yves Massard.**
 - [ ] **Import Excel participants** : template LIAVO fixe téléchargeable (.xlsx) avec colonnes standardisées (nom, prénom, date naissance, taille, poids, pointure, allergies, régime). Organisateur remplit offline → uploade dans espace collaboratif → participants créés en base. Fallback pour organisateurs qui ne veulent pas utiliser les inscriptions en ligne. Même pattern que l'import catalogue existant. Estimé 3-4 jours.
+- [ ] **Widget embeddable "Demander un devis"** : script JS/iframe que l'hébergeur colle sur son propre site web (WordPress etc). Formulaire structuré (dates, nb participants, centre préféré, thématique, email). La demande atterrit dans LIAVO comme une DemandeDevis/InvitationCollaboration. Endpoint public POST `/demandes/widget` + script embed `<script src="https://liavo.fr/widget.js" data-centre="xxx">`. Killer feature pour le pitch Yves (son formulaire contact actuel = champ libre non structuré). Estimé 3-5 jours. **Pour le RDV : montrer en wireframe, développer après.**
 - [ ] **Invitations parents** → 2 parents/tuteurs par enfant
 - [ ] **Bouton "Nouveau séjour pour client existant"** depuis fiche CRM
+- [ ] **Opportunités CRM / liste d'attente** : quand une demande arrive pour des dates non disponibles, l'hébergeur crée une opportunité sur le client avec dates souhaitées + nb participants. Si un séjour s'annule ou un créneau se libère, LIAVO notifie l'hébergeur des contacts en attente qui matchent. Nouveau modèle `OpportuniteCRM` (clientId, centreId, dateDebutSouhaitee, dateFinSouhaitee, nombreParticipants, statut EN_ATTENTE/CONTACTE/CONVERTI/EXPIRE). Estimé 2 jours. **Use case réel Sauvageon 27/05/2026.**
 
 ### Scalabilité
 - [ ] **Multi-centre hébergeur** : un utilisateur hébergeur gère N centres. Dashboard unifié avec switch entre centres. Catalogue, dispos, planning par centre. Devis émis depuis un centre spécifique. Lié au refactor Organisations v3 (Organisation type ENTREPRISE → N CentreHebergement). **PROSPECT RÉEL : Yves Massard (3 centres, Les Gets + Bellevaux, RDV semaine du 02/06/2026).** Options : (A) wireframe + discours roadmap pour le RDV, (B) quick hack sélecteur centre même userId, (C) accélérer sous-chantier 1 Organisations. Recommandation : A pour le RDV, C en parallèle.
+
+### DÉCISIONS MULTI-CENTRE — VALIDÉES 27/05/2026
+
+| Point | Décision |
+|---|---|
+| Routing | Header `X-Centre-Id` + guard NestJS `getCentreForUser()`. Si header absent → findFirst (rétrocompatible mono-centre) |
+| Catalogue | Per-centre + bouton "Dupliquer depuis" |
+| Dispos | Per-centre |
+| Annulation | Per-centre + bouton "Copier depuis" |
+| CRM | Différé — hybride probable (centreId + organisationId), feedback Yves d'abord |
+| Pricing | Early adopter gratuit 3 centres. Ensuite : 49€/mois premier centre (annuel) + 39€/centre supplémentaire |
+| Flow inscription | Inscription 1 centre → "+ Ajouter un centre" depuis dashboard global |
+| Mandat | Un seul SIRET Pôle Montagne (440246106) → un mandat par Organisation, pas par centre |
+
+**Dashboard global multi-centre — structure validée :**
+- Header : nom de l'organisation
+- KPIs (4 cartes ACTIONNABLES, chaque clic → liste filtrée) :
+  1. "À traiter" (orange) : demandes sans devis + devis en attente réponse. Badge urgence < 7j. Sous-texte explicatif.
+  2. "À facturer" (rouge si > 0) : devis signés sans facture acompte + séjours terminés sans facture solde. Montant total.
+  3. "Paiements en attente" (orange si > 0) : factures émises non totalement payées. Montant total.
+  4. "Chiffre d'affaires" (vert) : encaissé + prévisionnel. Sélecteur période.
+- Planning consolidé : 3 lignes (1/centre), 8 semaines, séjours + options
+- Cartes centres : photo + KPIs par centre + CTA "Gérer ce centre"
+
+**Données facturation en base :**
+- Devis : statut FACTURE_ACOMPTE/FACTURE_SOLDE, estFacture, dateFacture, montantVerseTotal
+- VersementPaiement : devisId + montant + datePaiement → encaissements réels
+- CA encaissé = somme VersementPaiement.datePaiement sur période
+- CA prévisionnel = somme (montantTTC - montantVerseTotal) des devis signés
+
+**Implémentation : 4 prompts CC séquentiels (P1 backend, P2 AuthContext+intercepteur, P3 CentreSelector, P4 page dashboard global)**
+
+**Pôle Montagne — audit prospect :**
+- Asso loi 1901, SIREN 440246106, un seul SIRET actif (00064), Les Gets
+- 3 chalets : Yaka (86p, agrément EN+DDCS), Florimont (Bellevaux, 100p), Nants (Les Gets, 70p, gestion libre possible)
+- Référencé catalogue LMDJ + répertoire EN Grenoble
+
 - [ ] **Facturation multi-centre** : un abonnement par centre ? Un abonnement entreprise couvrant N centres avec tarif dégressif ? À décider avant RDV Yves.
+
+### Accès multi-utilisateurs hébergeur (V2 — post multi-centre)
+
+**Profils identifiés (cas Pôle Montagne, 6 personnes) :**
+- Gestionnaire (Yves) : accès total, dashboard global, tous centres, devis, facturation, CRM, paramètres
+- Commercial (Thomas) : devis/demandes, CRM, planning lecture, pas facturation ni paramètres
+- Opérationnel (Christelle, Mansour) : planning lecture + participants lecture (allergies, régimes, tailles). Use case Mansour = combien de couverts + régimes spéciaux cette semaine
+- Pédagogique (Anne, Laure) : espace collaboratif côté hébergeur, planning activités modifiable, pas de commercial ni facturation
+
+**Architecture cible :** MembershipCentre (user + centre + rôle + modules accessibles). Pattern existant : `ongletVisibles` des accompagnateurs.
+**Timing :** V2 post-onboarding Yves. Pas au premier RDV. Mentionner en roadmap pour montrer la scalabilité.
+
+### Tarification hébergeurs — RÉFLEXION EN COURS 27/05/2026
+
+**Plans validés précédemment :**
+- Découverte : gratuit (profil + dispo + aperçu demandes, pas de détail enseignant)
+- Essentiel : 29€ HT/mois ou 290€/an
+- Complet : 59€ HT/mois ou 590€/an
+
+**Multi-centre ajouté :** 49€/mois premier centre (annuel), 39€/mois par centre supplémentaire.
+
+**Question ouverte :** est-ce qu'on est trop cheap ? Benchmark à faire vs PMS/outils de gestion centres de vacances. Le potentiel de l'outil (devis structurés, espace collaboratif, planning, CRM, facturation Chorus Pro, multi-centre) justifie potentiellement un pricing plus élevé.
+**Facturation :** per-centre, pas per-utilisateur. L'accès multi-utilisateurs est inclus dans le plan du centre.
+
 - [ ] **Freemium hébergeur** + Stripe + Trial
 - [ ] **SC7 notifications APIDAE** (suspendu)
 
