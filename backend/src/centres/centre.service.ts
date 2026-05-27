@@ -32,7 +32,7 @@ export class CentreService {
 
   async getMesCentres(userId: string) {
     return this.prisma.centreHebergement.findMany({
-      where: { userId },
+      where: { userId, statut: 'ACTIVE' },
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
         capacite: true, imageUrl: true, statut: true,
