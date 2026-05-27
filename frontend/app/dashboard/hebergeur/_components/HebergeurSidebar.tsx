@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
+import CentreSelector from '@/src/components/hebergeur/CentreSelector';
 
 interface HebergeurSidebarProps {
   centre: {
@@ -78,7 +79,7 @@ export default function HebergeurSidebar({
   onLogout,
 }: HebergeurSidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isMultiCentre } = useAuth();
 
   const groups: NavGroup[] = NAV_GROUPS_BASE.map((g) => ({
     ...g,
@@ -121,34 +122,74 @@ export default function HebergeurSidebar({
       </Link>
 
       {/* ── Contexte centre ──────────────────────────────────── */}
-      <div
-        className="shrink-0"
-        style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
-      >
-        <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>
-          Centre
-        </p>
-        <p
-          className="truncate"
-          style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}
+      {isMultiCentre ? (
+        <CentreSelector />
+      ) : (
+        <div
+          className="shrink-0"
+          style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
         >
-          {centre?.nom ?? '—'}
-        </p>
-        {centre?.ville && (
+          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>
+            Centre
+          </p>
           <p
             className="truncate"
-            style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}
+            style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}
           >
-            {centre.ville}
+            {centre?.nom ?? '—'}
           </p>
-        )}
-      </div>
+          {centre?.ville && (
+            <p
+              className="truncate"
+              style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}
+            >
+              {centre.ville}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Navigation ───────────────────────────────────────── */}
       <nav
         className="flex-1 overflow-y-auto"
         style={{ padding: '12px 8px' }}
       >
+        {isMultiCentre && (() => {
+          const href = '/dashboard/hebergeur/global';
+          const active = pathname === href;
+          return (
+            <Link
+              href={href}
+              className="hover:!bg-white/15 hover:!text-white"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '9px 10px',
+                borderRadius: 7,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                color: active ? '#fff' : 'rgba(255,255,255,0.85)',
+                background: active ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                marginBottom: 12,
+              }}
+            >
+              <svg
+                width={16}
+                height={16}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.7}
+                style={{ flexShrink: 0 }}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.squares2x2} />
+              </svg>
+              <span className="truncate">Vue globale</span>
+            </Link>
+          );
+        })()}
         {groups.map((group, gIdx) => (
           <div key={group.label} style={{ marginTop: gIdx === 0 ? 0 : 16 }}>
             <p
