@@ -800,6 +800,11 @@ function ClaimsCentresTab() {
                         {c.organisation.ville ?? '—'}
                         {c.organisation.siret && <span className="ml-2">SIRET&nbsp;: {c.organisation.siret}</span>}
                       </p>
+                      {c.claimSiretExtrait && c.claimSiretExtrait !== c.organisation.siret && (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          SIRET déclaré par l&apos;hébergeur&nbsp;: {c.claimSiretExtrait}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {c.claimDocumentUrl ? (
@@ -962,7 +967,7 @@ function CentresPendingTab() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{c.siret ?? '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{c.capacite}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{c.capacite} places</td>
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatDate(c.createdAt)}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button

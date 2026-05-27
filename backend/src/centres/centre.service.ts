@@ -87,6 +87,13 @@ export class CentreService {
       console.error('[createCentre] Echec rattachement Organisation/Membership', err);
     }
 
+    this.email.sendGenericNotification(
+      'contact@liavo.fr',
+      'Nouveau centre à valider',
+      `Un hébergeur a créé un nouveau centre.<br><br>Centre&nbsp;: ${dto.nom}<br>Ville&nbsp;: ${dto.ville}<br>SIRET&nbsp;: ${dto.siret ?? 'Non renseigné'}<br>Capacité&nbsp;: ${dto.capacite} places<br>Hébergeur&nbsp;: user ID ${userId}<br><br>Connectez-vous au dashboard admin pour valider ou refuser.`,
+      'LIAVO Admin',
+    ).catch(err => console.error('[createCentre] Echec email admin', err));
+
     return centre;
   }
 
@@ -160,6 +167,13 @@ export class CentreService {
       },
     });
 
+    this.email.sendGenericNotification(
+      'contact@liavo.fr',
+      'Nouveau claim centre à valider',
+      `Un hébergeur revendique un centre existant.<br><br>Centre&nbsp;: ${centre.nom} (${centre.ville})<br>Document&nbsp;: ${documentUrl ? 'Oui (uploadé)' : 'Non fourni'}<br>SIRET extrait&nbsp;: ${dto.siretExtrait ?? 'Non renseigné'}<br>Hébergeur&nbsp;: user ID ${userId}<br><br>Connectez-vous au dashboard admin pour valider ou refuser.`,
+      'LIAVO Admin',
+    ).catch(err => console.error('[claimCentre] Echec email admin', err));
+
     return {
       message: documentUrl
         ? 'Votre demande a été soumise. Nous vérifierons votre document dans les plus brefs délais.'
@@ -232,7 +246,7 @@ export class CentreService {
     return this.prisma.centreHebergement.findMany({
       where: { statut: 'PENDING' },
       include: {
-        user: { select: { id: true, prenom: true, nom: true, email: true } },
+        user: { select: { id: true, prenom: true, nom: true, email: true, telephone: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
