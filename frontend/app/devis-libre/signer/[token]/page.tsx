@@ -20,6 +20,7 @@ export default function SignerDevisLibrePage() {
       .then((d) => {
         setDevis(d);
         if (!d.contratUrl) setContratTelecharge(true);
+        if ((d as { signed?: boolean }).signed) setSigned(true);
       })
       .catch(() => setError('Ce lien de signature est invalide ou a déjà été utilisé.'))
       .finally(() => setLoading(false));
