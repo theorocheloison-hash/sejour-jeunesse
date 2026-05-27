@@ -342,16 +342,12 @@ export class DevisLibresService {
       },
     });
     if (!devis) throw new NotFoundException('Lien de signature invalide');
-    if (devis.statut !== 'ENVOYE') {
-      throw new ForbiddenException(
-        devis.statut === 'ACCEPTE'
-          ? 'Ce devis a déjà été signé'
-          : 'Ce lien de signature n\'est plus actif',
-      );
+    if (devis.statut !== 'ENVOYE' && devis.statut !== 'ACCEPTE') {
+      throw new ForbiddenException('Ce lien de signature n\'est plus actif');
     }
     // Ne pas exposer les données sensibles
     const { notesInternes, signatureIp, signatureUserAgent, ...safe } = devis as any;
-    return safe;
+    return { ...safe, signed: devis.statut === 'ACCEPTE' };
   }
 
   async signer(token: string, dto: SignerDevisDto, req: Request) {
@@ -405,6 +401,8 @@ export class DevisLibresService {
 
     const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
     // Email confirmation client
     if (devis.emailClient) {
       await this.email.sendGenericNotification(
@@ -418,6 +416,11 @@ export class DevisLibresService {
          <strong>Date :</strong> ${fmt(now)}</p>
          <p>Un acompte de <strong>${Number(devis.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</strong>
          est à régler par virement dans un délai d'un mois.</p>
+         <p style="margin:24px 0">
+           <a href="${frontendUrl}/devis-libre/signer/${token}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Accéder à mon contrat
+           </a>
+         </p>
          <p>À bientôt au Chalet Le Sauvageon !</p>`,
         devis.centre?.nom,
       );
@@ -432,7 +435,12 @@ export class DevisLibresService {
          <p><strong>Client :</strong> ${dto.nomSignataire}<br>
          <strong>Événement :</strong> ${devis.typeEvenement ?? '—'}<br>
          <strong>Dates :</strong> ${fmt(new Date(devis.dateDebut))} → ${fmt(new Date(devis.dateFin))}<br>
-         <strong>Montant TTC :</strong> ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p>`,
+         <strong>Montant TTC :</strong> ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p>
+         <p style="margin:24px 0">
+           <a href="${frontendUrl}/dashboard/hebergeur/devis" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Voir le devis
+           </a>
+         </p>`,
       );
     }
 
