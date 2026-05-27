@@ -190,7 +190,7 @@ export default function DashboardGlobalPage() {
   };
 
   const handleNouveauCentre = () => {
-    alert('Bientôt disponible — création d\'un centre additionnel');
+    router.push('/dashboard/hebergeur/centres/nouveau');
   };
 
   const handleGererCentre = (centreId: string) => {
