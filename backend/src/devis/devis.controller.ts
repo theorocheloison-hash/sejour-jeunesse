@@ -10,6 +10,7 @@ import { DevisService } from './devis.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('devis')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,21 +23,22 @@ export class DevisController {
   create(
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateDevisDto,
+    @CentreId() centreId: string | null,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.devisService.create(dto, user.id, file);
+    return this.devisService.create(dto, user.id, file, centreId);
   }
 
   @Get('mes-devis')
   @Roles(Role.HEBERGEUR)
-  getMesDevis(@CurrentUser() user: JwtUser) {
-    return this.devisService.getMesDevis(user.id);
+  getMesDevis(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.devisService.getMesDevis(user.id, centreId);
   }
 
   @Get('next-numero')
   @Roles(Role.HEBERGEUR)
-  getNextNumeroDevis(@CurrentUser() user: JwtUser) {
-    return this.devisService.getNextNumeroDevis(user.id);
+  getNextNumeroDevis(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.devisService.getNextNumeroDevis(user.id, centreId);
   }
 
   @Get('a-valider')
@@ -59,8 +61,8 @@ export class DevisController {
 
   @Get('demande-info/:demandeId')
   @Roles(Role.HEBERGEUR)
-  getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string) {
-    return this.devisService.getDemandeInfo(demandeId, user.id);
+  getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string, @CentreId() centreId: string | null) {
+    return this.devisService.getDemandeInfo(demandeId, user.id, centreId);
   }
 
   @Get(':id/detail')
@@ -68,8 +70,9 @@ export class DevisController {
   getDevisById(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @CentreId() centreId: string | null,
   ) {
-    return this.devisService.getDevisById(id, user.id);
+    return this.devisService.getDevisById(id, user.id, centreId);
   }
 
   @Patch(':id')
@@ -79,9 +82,10 @@ export class DevisController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: UpdateDevisDto,
+    @CentreId() centreId: string | null,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.devisService.updateDevis(id, dto, user.id, file);
+    return this.devisService.updateDevis(id, dto, user.id, file, centreId);
   }
 
   @Post(':id/notifier-enseignant')
@@ -89,8 +93,9 @@ export class DevisController {
   notifierEnseignant(
     @Param('id') id: string,
     @CurrentUser() u: JwtUser,
+    @CentreId() centreId: string | null,
   ) {
-    return this.devisService.notifierEnseignantModification(id, u.id);
+    return this.devisService.notifierEnseignantModification(id, u.id, centreId);
   }
 
   @Patch(':id/statut')
@@ -129,8 +134,9 @@ export class DevisController {
   facturerAcompte(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @CentreId() centreId: string | null,
   ) {
-    return this.devisService.facturerAcompte(id, user.id);
+    return this.devisService.facturerAcompte(id, user.id, centreId);
   }
 
   @Patch(':id/facturer-solde')
@@ -138,8 +144,9 @@ export class DevisController {
   facturerSolde(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @CentreId() centreId: string | null,
   ) {
-    return this.devisService.facturerSolde(id, user.id);
+    return this.devisService.facturerSolde(id, user.id, centreId);
   }
 
   @Patch(':id/valider-acompte')

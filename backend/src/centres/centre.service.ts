@@ -13,8 +13,10 @@ import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
+import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { getCentreForUser } from './centre.helper.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
 
@@ -26,6 +28,253 @@ export class CentreService {
     private storage: StorageService,
     private email: EmailService,
   ) {}
+
+  async getMesCentres(userId: string) {
+    return this.prisma.centreHebergement.findMany({
+      where: { userId },
+      select: {
+        id: true, nom: true, ville: true, adresse: true, codePostal: true,
+        capacite: true, imageUrl: true, statut: true,
+        abonnementStatut: true, planAbonnement: true,
+      },
+      orderBy: { nom: 'asc' },
+    });
+  }
+
+  async createCentre(userId: string, dto: CreateCentreDto) {
+    return this.prisma.centreHebergement.create({
+      data: {
+        nom: dto.nom,
+        adresse: dto.adresse,
+        ville: dto.ville,
+        codePostal: dto.codePostal,
+        capacite: dto.capacite,
+        telephone: dto.telephone ?? null,
+        siret: dto.siret ?? null,
+        email: dto.email ?? null,
+        description: dto.description ?? null,
+        userId,
+        statut: 'ACTIVE',
+      },
+    });
+  }
+
+  async getDashboardGlobal(userId: string, periodeDebut?: string, periodeFin?: string) {
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: { userId },
+      select: { id: true, nom: true, ville: true, capacite: true, imageUrl: true },
+    });
+    if (centres.length === 0) return null;
+    const centreIds = centres.map(c => c.id);
+
+    const now = new Date();
+    const debut = periodeDebut ? new Date(periodeDebut) : new Date(now.getFullYear(), 0, 1);
+    const fin = periodeFin ? new Date(periodeFin) : new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+
+    // KPI 1 : À traiter
+    const demandesOuvertes = await this.prisma.demandeDevis.findMany({
+      where: {
+        statut: 'OUVERTE',
+        OR: [
+          { centreDestinataireId: { in: centreIds } },
+          { centreDestinataireId: null },
+        ],
+        NOT: { devis: { some: { centreId: { in: centreIds } } } },
+        demandesIgnorees: { none: { centreId: { in: centreIds } } },
+      },
+      select: {
+        id: true, titre: true, dateDebut: true, dateFin: true, nombreEleves: true,
+        dateButoireReponse: true, centreDestinataireId: true,
+        enseignant: { select: { prenom: true, nom: true } },
+      },
+      orderBy: { dateButoireReponse: 'asc' },
+      take: 20,
+    });
+
+    const devisEnAttenteReponse = await this.prisma.devis.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: { in: ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'] },
+      },
+      select: {
+        id: true, centreId: true, montantTTC: true, createdAt: true, statut: true,
+        demande: { select: { titre: true, dateButoireReponse: true, dateDebut: true, dateFin: true, nombreEleves: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const urgences7j = new Date();
+    urgences7j.setDate(urgences7j.getDate() + 7);
+    const nbUrgents = [...demandesOuvertes, ...devisEnAttenteReponse].filter(item => {
+      const butoire = 'dateButoireReponse' in item ? item.dateButoireReponse : item.demande?.dateButoireReponse;
+      return butoire && new Date(butoire) <= urgences7j;
+    }).length;
+
+    // KPI 2 : À facturer
+    const aFacturerAcompte = await this.prisma.devis.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        estFacture: false,
+      },
+      select: {
+        id: true, centreId: true, montantTTC: true, montantAcompte: true, statut: true,
+        demande: { select: { titre: true, dateDebut: true, dateFin: true } },
+      },
+    });
+
+    const aFacturerSolde = await this.prisma.devis.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: 'FACTURE_ACOMPTE',
+        acompteVerse: true,
+        demande: { dateFin: { lt: now } },
+      },
+      select: {
+        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, statut: true,
+        demande: { select: { titre: true, dateDebut: true, dateFin: true } },
+      },
+    });
+
+    const montantAFacturer = [
+      ...aFacturerAcompte.map(d => d.montantAcompte ?? 0),
+      ...aFacturerSolde.map(d => (d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)),
+    ].reduce((sum, m) => sum + m, 0);
+
+    // KPI 3 : Paiements en attente
+    const paiementsEnAttente = await this.prisma.devis.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: { in: ['FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+      },
+      select: {
+        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, statut: true,
+        dateFacture: true, numeroFacture: true,
+        demande: { select: { titre: true } },
+      },
+    });
+    const facturesImpayees = paiementsEnAttente.filter(d => (d.montantVerseTotal ?? 0) < (d.montantTTC ?? 0));
+    const montantEnAttente = facturesImpayees.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
+
+    const devisLibresImpayees = await this.prisma.devisLibre.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: 'ACCEPTE',
+      },
+      select: {
+        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, numeroDevis: true,
+        client: { select: { nom: true } },
+      },
+    });
+    const dlImpayees = devisLibresImpayees.filter(d => (d.montantVerseTotal ?? 0) < (d.montantTTC ?? 0));
+    const montantDLEnAttente = dlImpayees.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
+
+    // KPI 4 : CA
+    const caEncaisse = await this.prisma.versementPaiement.aggregate({
+      where: {
+        devis: { centreId: { in: centreIds } },
+        datePaiement: { gte: debut, lte: fin },
+      },
+      _sum: { montant: true },
+    });
+
+    const caEncaisseDL = await this.prisma.versementDevisLibre.aggregate({
+      where: {
+        devisLibre: { centreId: { in: centreIds } },
+        datePaiement: { gte: debut, lte: fin },
+      },
+      _sum: { montant: true },
+    });
+
+    const previsionnel = await this.prisma.devis.findMany({
+      where: {
+        centreId: { in: centreIds },
+        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+      },
+      select: { montantTTC: true, montantVerseTotal: true },
+    });
+    const caPrevisionnel = previsionnel.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
+
+    // Planning consolidé
+    const dans60j = new Date();
+    dans60j.setDate(dans60j.getDate() + 60);
+    const il30j = new Date();
+    il30j.setDate(il30j.getDate() - 30);
+
+    const sejoursPlanning = await this.prisma.sejour.findMany({
+      where: {
+        hebergementSelectionneId: { in: centreIds },
+        dateFin: { gte: il30j },
+        dateDebut: { lte: dans60j },
+        statut: { notIn: ['DRAFT', 'REJECTED'] },
+      },
+      select: {
+        id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
+        statut: true, hebergementSelectionneId: true,
+      },
+    });
+
+    const optionsPlanning = devisEnAttenteReponse
+      .filter(d => d.demande?.dateDebut && d.demande?.dateFin)
+      .map(d => ({
+        id: d.id,
+        titre: d.demande!.titre,
+        dateDebut: d.demande!.dateDebut,
+        dateFin: d.demande!.dateFin,
+        participants: d.demande!.nombreEleves,
+        centreId: d.centreId,
+        type: 'OPTION' as const,
+      }));
+
+    const compteursCentres = await Promise.all(centres.map(async (c) => {
+      const devisEnAttente = await this.prisma.devis.count({
+        where: { centreId: c.id, statut: { in: ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'] } },
+      });
+      const sejoursActifs = await this.prisma.sejour.count({
+        where: {
+          hebergementSelectionneId: c.id,
+          statut: { in: ['CONVENTION', 'SOUMIS_RECTORAT', 'SIGNE_DIRECTION', 'DECLARE_TAM'] },
+        },
+      });
+      return { centreId: c.id, devisEnAttente, sejoursActifs };
+    }));
+
+    return {
+      centres: centres.map(c => ({
+        ...c,
+        ...(compteursCentres.find(cc => cc.centreId === c.id) ?? {}),
+      })),
+      kpis: {
+        aTraiter: {
+          total: demandesOuvertes.length + devisEnAttenteReponse.length,
+          urgents: nbUrgents,
+          description: 'Demandes et devis en attente de votre réponse',
+        },
+        aFacturer: {
+          total: aFacturerAcompte.length + aFacturerSolde.length,
+          montant: Math.round(montantAFacturer * 100) / 100,
+          description: 'Séjours à facturer (acompte ou solde)',
+        },
+        paiementsEnAttente: {
+          total: facturesImpayees.length + dlImpayees.length,
+          montant: Math.round((montantEnAttente + montantDLEnAttente) * 100) / 100,
+          description: 'Factures émises en attente de règlement',
+        },
+        chiffreAffaires: {
+          encaisse: Math.round(((caEncaisse._sum.montant ?? 0) + (caEncaisseDL._sum.montant ?? 0)) * 100) / 100,
+          previsionnel: Math.round(caPrevisionnel * 100) / 100,
+          periodeDebut: debut.toISOString(),
+          periodeFin: fin.toISOString(),
+          description: 'CA encaissé et prévisionnel sur la période',
+        },
+      },
+      aTraiterDetail: { demandes: demandesOuvertes, devis: devisEnAttenteReponse },
+      aFacturerDetail: { acomptes: aFacturerAcompte, soldes: aFacturerSolde },
+      paiementsDetail: { factures: facturesImpayees, devisLibres: dlImpayees },
+      planning: { sejours: sejoursPlanning, options: optionsPlanning },
+    };
+  }
 
   async searchPublic(search: string) {
     if (!search || search.length < 2) return [];
@@ -481,19 +730,12 @@ export class CentreService {
     };
   }
 
-  async getMonProfil(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-    return centre;
+  async getMonProfil(userId: string, centreId?: string | null) {
+    return getCentreForUser(this.prisma, userId, centreId);
   }
 
-  async updateMonProfil(userId: string, dto: UpdateCentreDto) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async updateMonProfil(userId: string, dto: UpdateCentreDto, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
@@ -506,11 +748,8 @@ export class CentreService {
     });
   }
 
-  async uploadImage(userId: string, file: Express.Multer.File) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async uploadImage(userId: string, file: Express.Multer.File, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
@@ -532,7 +771,7 @@ export class CentreService {
     });
   }
 
-  async uploadBrochure(userId: string, file: Express.Multer.File) {
+  async uploadBrochure(userId: string, file: Express.Multer.File, centreId?: string | null) {
     if (!file) throw new BadRequestException('Fichier manquant');
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Seuls les fichiers PDF sont acceptés');
@@ -541,10 +780,7 @@ export class CentreService {
       throw new BadRequestException('Fichier trop lourd (max 10 Mo)');
     }
 
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const brochureUrl = await this.storage.upload(file, `centres/${centre.id}/brochures`);
 
@@ -556,11 +792,8 @@ export class CentreService {
     return { brochureUrl };
   }
 
-  async uploadDocument(userId: string, file: Express.Multer.File, dto: CreateDocumentDto) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async uploadDocument(userId: string, file: Express.Multer.File, dto: CreateDocumentDto, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const url = await this.storage.upload(file, 'documents-centre');
 
@@ -575,16 +808,16 @@ export class CentreService {
     });
   }
 
-  async getDisponibilites(userId: string) {
-    const centre = await this.getMonProfil(userId);
+  async getDisponibilites(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.disponibilite.findMany({
       where: { centreId: centre.id },
       orderBy: { dateDebut: 'asc' },
     });
   }
 
-  async createDisponibilite(userId: string, dto: CreateDisponibiliteDto) {
-    const centre = await this.getMonProfil(userId);
+  async createDisponibilite(userId: string, dto: CreateDisponibiliteDto, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.disponibilite.create({
       data: {
         centreId: centre.id,
@@ -596,8 +829,8 @@ export class CentreService {
     });
   }
 
-  async deleteDisponibilite(userId: string, id: string) {
-    const centre = await this.getMonProfil(userId);
+  async deleteDisponibilite(userId: string, id: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     const dispo = await this.prisma.disponibilite.findUnique({ where: { id } });
     if (!dispo || dispo.centreId !== centre.id) {
       throw new ForbiddenException('Disponibilité introuvable ou non autorisée');
@@ -605,16 +838,16 @@ export class CentreService {
     return this.prisma.disponibilite.delete({ where: { id } });
   }
 
-  async getDocuments(userId: string) {
-    const centre = await this.getMonProfil(userId);
+  async getDocuments(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.document.findMany({
       where: { centreId: centre.id },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createDocument(userId: string, dto: CreateDocumentDto) {
-    const centre = await this.getMonProfil(userId);
+  async createDocument(userId: string, dto: CreateDocumentDto, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.document.create({
       data: {
         centreId: centre.id,
@@ -625,11 +858,8 @@ export class CentreService {
     });
   }
 
-  async getProduitsCatalogue(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async getProduitsCatalogue(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const existants = await this.prisma.produitCatalogue.findMany({
       where: { centreId: centre.id },
@@ -702,11 +932,8 @@ export class CentreService {
     tva: number;
     unite: string;
     nbMoniteursMax?: number;
-  }) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  }, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return this.prisma.produitCatalogue.create({
       data: { centreId: centre.id, ...dto },
     });
@@ -720,11 +947,8 @@ export class CentreService {
     prixUnitaireTTC?: number;
     tva: number;
     unite: string;
-  }[]) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  }[], centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const valides = produits.filter(p =>
       p.nom &&
@@ -762,11 +986,8 @@ export class CentreService {
     prixUnitaireTTC?: number;
     tva?: number;
     unite?: string;
-  }) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  }, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     const produit = await this.prisma.produitCatalogue.findUnique({ where: { id: produitId } });
     if (!produit || produit.centreId !== centre.id) throw new ForbiddenException('Produit introuvable');
     return this.prisma.produitCatalogue.update({
@@ -775,11 +996,8 @@ export class CentreService {
     });
   }
 
-  async accepterMandatFacturation(userId: string, ipAddress: string | null = null, userAgent: string | null = null) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async accepterMandatFacturation(userId: string, ipAddress: string | null = null, userAgent: string | null = null, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     if (centre.mandatFacturationAccepte) {
       return centre; // Déjà accepté — ne pas écraser ip/ua
     }
@@ -817,11 +1035,8 @@ export class CentreService {
     return updated;
   }
 
-  async archiveProduit(userId: string, produitId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async archiveProduit(userId: string, produitId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     const produit = await this.prisma.produitCatalogue.findUnique({ where: { id: produitId } });
     if (!produit || produit.centreId !== centre.id) throw new ForbiddenException('Produit introuvable');
     return this.prisma.produitCatalogue.update({
@@ -836,9 +1051,8 @@ export class CentreService {
     simultaneitePossible?: boolean;
     dureeMinutes?: number | null;
     nbMoniteursMax?: number | null;
-  }) {
-    const centre = await this.prisma.centreHebergement.findFirst({ where: { userId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  }, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     const produit = await this.prisma.produitCatalogue.findUnique({ where: { id: produitId } });
     if (!produit || produit.centreId !== centre.id) throw new ForbiddenException('Produit introuvable');
     return this.prisma.produitCatalogue.update({

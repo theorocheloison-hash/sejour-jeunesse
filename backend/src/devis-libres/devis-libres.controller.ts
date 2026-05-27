@@ -13,6 +13,7 @@ import {
   CreateDevisLibreDto, UpdateDevisLibreDto,
   AjouterVersementDto, SignerDevisDto,
 } from './dto/create-devis-libre.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('devis-libres')
 export class DevisLibresController {
@@ -39,22 +40,22 @@ export class DevisLibresController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getMesDevisLibres(@CurrentUser() user: JwtUser) {
-    return this.service.getMesDevisLibres(user.id);
+  getMesDevisLibres(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.getMesDevisLibres(user.id, centreId);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  create(@CurrentUser() user: JwtUser, @Body() dto: CreateDevisLibreDto) {
-    return this.service.create(dto, user.id);
+  create(@CurrentUser() user: JwtUser, @Body() dto: CreateDevisLibreDto, @CentreId() centreId: string | null) {
+    return this.service.create(dto, user.id, centreId);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  getOne(@CurrentUser() user: JwtUser, @Param('id') id: string) {
-    return this.service.getOne(id, user.id);
+  getOne(@CurrentUser() user: JwtUser, @Param('id') id: string, @CentreId() centreId: string | null) {
+    return this.service.getOne(id, user.id, centreId);
   }
 
   @Patch(':id')
@@ -64,22 +65,23 @@ export class DevisLibresController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: UpdateDevisLibreDto,
+    @CentreId() centreId: string | null,
   ) {
-    return this.service.update(id, dto, user.id);
+    return this.service.update(id, dto, user.id, centreId);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  remove(@CurrentUser() user: JwtUser, @Param('id') id: string) {
-    return this.service.remove(id, user.id);
+  remove(@CurrentUser() user: JwtUser, @Param('id') id: string, @CentreId() centreId: string | null) {
+    return this.service.remove(id, user.id, centreId);
   }
 
   @Post(':id/envoyer')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  envoyer(@CurrentUser() user: JwtUser, @Param('id') id: string) {
-    return this.service.envoyer(id, user.id);
+  envoyer(@CurrentUser() user: JwtUser, @Param('id') id: string, @CentreId() centreId: string | null) {
+    return this.service.envoyer(id, user.id, centreId);
   }
 
   @Post(':id/versements')
@@ -89,7 +91,8 @@ export class DevisLibresController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @Body() dto: AjouterVersementDto,
+    @CentreId() centreId: string | null,
   ) {
-    return this.service.ajouterVersement(id, dto, user.id);
+    return this.service.ajouterVersement(id, dto, user.id, centreId);
   }
 }

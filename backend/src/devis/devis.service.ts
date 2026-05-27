@@ -12,6 +12,7 @@ import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 @Injectable()
 export class DevisService {
@@ -22,11 +23,8 @@ export class DevisService {
     private clientsService: ClientsService,
   ) {}
 
-  async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     // TODO: ABONNEMENT — réactiver la vérification d'abonnement
 
     const demande = await this.prisma.demandeDevis.findUnique({
@@ -139,11 +137,8 @@ export class DevisService {
     return fullDevis;
   }
 
-  async getMesDevis(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async getMesDevis(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     return this.prisma.devis.findMany({
       where: { centreId: centre.id },
@@ -195,11 +190,8 @@ export class DevisService {
     });
   }
 
-  async getDevisById(id: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async getDevisById(id: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
       where: { id },
@@ -228,11 +220,8 @@ export class DevisService {
     return { devis, centre };
   }
 
-  async updateDevis(id: string, dto: UpdateDevisDto, userId: string, file?: Express.Multer.File) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async updateDevis(id: string, dto: UpdateDevisDto, userId: string, file?: Express.Multer.File, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
       where: { id },
@@ -710,19 +699,13 @@ export class DevisService {
     });
   }
 
-  async getNextNumeroDevis(userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async getNextNumeroDevis(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return { numero: await this.generateNumeroDevis(centre.id) };
   }
 
-  async getDemandeInfo(demandeId: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async getDemandeInfo(demandeId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const demande = await this.prisma.demandeDevis.findUnique({
       where: { id: demandeId },
@@ -756,11 +739,8 @@ export class DevisService {
     return { demande, centre };
   }
 
-  async facturerAcompte(id: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async facturerAcompte(id: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
       where: { id },
@@ -852,11 +832,8 @@ export class DevisService {
     return result;
   }
 
-  async facturerSolde(id: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async facturerSolde(id: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
       where: { id },
@@ -1187,11 +1164,8 @@ export class DevisService {
     return `DEV-${year}-${String(count + 1).padStart(3, '0')}`;
   }
 
-  async notifierEnseignantModification(devisId: string, userId: string) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new NotFoundException('Centre introuvable');
+  async notifierEnseignantModification(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },

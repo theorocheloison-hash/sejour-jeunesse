@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { AbonnementService } from './abonnement.service.js';
 import { SimulerAbonnementDto } from './dto/simuler-abonnement.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('abonnements')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -14,13 +15,13 @@ export class AbonnementController {
 
   @Post('simuler')
   @Roles(Role.HEBERGEUR)
-  simuler(@CurrentUser() user: JwtUser, @Body() dto: SimulerAbonnementDto) {
-    return this.abonnementService.simuler(user.id, dto.type, dto.plan);
+  simuler(@CurrentUser() user: JwtUser, @Body() dto: SimulerAbonnementDto, @CentreId() centreId: string | null) {
+    return this.abonnementService.simuler(user.id, dto.type, dto.plan, centreId);
   }
 
   @Get('statut')
   @Roles(Role.HEBERGEUR)
-  getStatut(@CurrentUser() user: JwtUser) {
-    return this.abonnementService.getStatut(user.id);
+  getStatut(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.abonnementService.getStatut(user.id, centreId);
   }
 }

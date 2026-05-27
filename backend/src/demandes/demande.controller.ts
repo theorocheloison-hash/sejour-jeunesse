@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { DemandeService } from './demande.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('demandes')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -20,8 +21,8 @@ export class DemandeController {
 
   @Get()
   @Roles(Role.HEBERGEUR)
-  findOpen(@CurrentUser() user: JwtUser) {
-    return this.demandeService.findOpen(user.id);
+  findOpen(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.demandeService.findOpen(user.id, centreId);
   }
 
   @Get('mes-demandes')
@@ -35,8 +36,9 @@ export class DemandeController {
   ignorerDemande(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
+    @CentreId() centreId: string | null,
   ) {
-    return this.demandeService.ignorerDemande(user.id, id);
+    return this.demandeService.ignorerDemande(user.id, id, centreId);
   }
 
   @Get(':id')

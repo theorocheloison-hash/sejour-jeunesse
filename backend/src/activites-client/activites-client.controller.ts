@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { ActivitesClientService, type CreateActiviteDto } from './activites-client.service.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('clients/:clientId/activites')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -13,8 +14,8 @@ export class ActivitesClientController {
   constructor(private readonly service: ActivitesClientService) {}
 
   @Get()
-  getActivites(@Param('clientId') clientId: string, @CurrentUser() u: JwtUser) {
-    return this.service.getActivitesForUser(clientId, u.id);
+  getActivites(@Param('clientId') clientId: string, @CurrentUser() u: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.getActivitesForUser(clientId, u.id, centreId);
   }
 
   @Post()
@@ -22,7 +23,8 @@ export class ActivitesClientController {
     @Param('clientId') clientId: string,
     @Body() dto: CreateActiviteDto,
     @CurrentUser() u: JwtUser,
+    @CentreId() centreId: string | null,
   ) {
-    return this.service.createActiviteManuelle(clientId, u.id, dto);
+    return this.service.createActiviteManuelle(clientId, u.id, dto, centreId);
   }
 }

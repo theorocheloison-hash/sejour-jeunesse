@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateInvitationCollaborationDto } from './dto/create-invitation.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 @Injectable()
 export class InvitationCollaborationService {
@@ -16,11 +17,8 @@ export class InvitationCollaborationService {
     private email: EmailService,
   ) {}
 
-  async create(dto: CreateInvitationCollaborationDto, user: JwtUser) {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId: user.id },
-    });
-    if (!centre) throw new ForbiddenException('Aucun centre associé à votre compte');
+  async create(dto: CreateInvitationCollaborationDto, user: JwtUser, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, user.id, centreId);
 
     const invitation = await this.prisma.invitationCollaboration.create({
       data: {

@@ -10,6 +10,7 @@ import type {
   CreateDevisLibreDto, UpdateDevisLibreDto,
   AjouterVersementDto, SignerDevisDto,
 } from './dto/create-devis-libre.dto.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 const INCLUDE_FULL = {
   lignes: true,
@@ -33,11 +34,8 @@ export class DevisLibresService {
     private email: EmailService,
   ) {}
 
-  private async getCentreId(userId: string): Promise<string> {
-    const centre = await this.prisma.centreHebergement.findFirst({
-      where: { userId },
-    });
-    if (!centre) throw new ForbiddenException('Centre introuvable');
+  private async getCentreId(userId: string, centreId?: string | null): Promise<string> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
     return centre.id;
   }
 
@@ -55,8 +53,8 @@ export class DevisLibresService {
     return `DL-${year}-${String(count + 1).padStart(3, '0')}`;
   }
 
-  async create(dto: CreateDevisLibreDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async create(dto: CreateDevisLibreDto, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     let clientId = dto.clientId ?? null;
 
     // Auto-création client si pas de clientId
@@ -128,8 +126,8 @@ export class DevisLibresService {
     });
   }
 
-  async getMesDevisLibres(userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async getMesDevisLibres(userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     return this.prisma.devisLibre.findMany({
       where: { centreId },
       include: INCLUDE_FULL,
@@ -137,8 +135,8 @@ export class DevisLibresService {
     });
   }
 
-  async getOne(id: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async getOne(id: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const devis = await this.prisma.devisLibre.findUnique({
       where: { id },
       include: INCLUDE_FULL,
@@ -148,8 +146,8 @@ export class DevisLibresService {
     return devis;
   }
 
-  async update(id: string, dto: UpdateDevisLibreDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async update(id: string, dto: UpdateDevisLibreDto, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const devis = await this.prisma.devisLibre.findUnique({ where: { id } });
     if (!devis) throw new NotFoundException();
     if (devis.centreId !== centreId) throw new ForbiddenException();
@@ -194,8 +192,8 @@ export class DevisLibresService {
     });
   }
 
-  async remove(id: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async remove(id: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const devis = await this.prisma.devisLibre.findUnique({ where: { id } });
     if (!devis) throw new NotFoundException();
     if (devis.centreId !== centreId) throw new ForbiddenException();
@@ -205,8 +203,8 @@ export class DevisLibresService {
     return this.prisma.devisLibre.delete({ where: { id } });
   }
 
-  async envoyer(id: string, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async envoyer(id: string, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const devis = await this.prisma.devisLibre.findUnique({
       where: { id },
       include: { ...INCLUDE_FULL },
@@ -441,8 +439,8 @@ export class DevisLibresService {
     return { success: true, message: 'Devis signé avec succès' };
   }
 
-  async ajouterVersement(id: string, dto: AjouterVersementDto, userId: string) {
-    const centreId = await this.getCentreId(userId);
+  async ajouterVersement(id: string, dto: AjouterVersementDto, userId: string, centreIdHeader?: string | null) {
+    const centreId = await this.getCentreId(userId, centreIdHeader);
     const devis = await this.prisma.devisLibre.findUnique({
       where: { id },
       include: { versements: true },
