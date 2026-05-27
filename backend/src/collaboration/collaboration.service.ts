@@ -367,14 +367,23 @@ export class CollaborationService {
 
   // ── Vue hébergeur : mes séjours en convention ─────────────────
 
-  async getMesSejoursConvention(userId: string) {
-    const centres = await this.prisma.centreHebergement.findMany({
-      where: { userId },
-      select: { id: true },
-    });
-    const centreIds = centres.map((c) => c.id);
-
-    if (centreIds.length === 0) return [];
+  async getMesSejoursConvention(userId: string, centreId?: string | null) {
+    let centreIds: string[];
+    if (centreId) {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { id: centreId, userId },
+        select: { id: true },
+      });
+      if (!centre) return [];
+      centreIds = [centre.id];
+    } else {
+      const centres = await this.prisma.centreHebergement.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      centreIds = centres.map((c) => c.id);
+      if (centreIds.length === 0) return [];
+    }
 
     return this.prisma.sejour.findMany({
       where: {
