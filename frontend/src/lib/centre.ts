@@ -257,3 +257,39 @@ export async function uploadBrochure(file: File): Promise<{ brochureUrl: string 
   );
   return data;
 }
+
+// ─── Multi-centre ───────────────────────────────────────────────────────────
+
+export interface CentreResume {
+  id: string;
+  nom: string;
+  ville: string;
+  adresse: string;
+  codePostal: string;
+  capacite: number;
+  imageUrl: string | null;
+  statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  abonnementStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU';
+  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET';
+}
+
+export async function getMesCentres(): Promise<CentreResume[]> {
+  const { data } = await api.get<CentreResume[]>('/centres/mes-centres');
+  return data;
+}
+
+export async function getDashboardGlobal(periodeDebut?: string, periodeFin?: string) {
+  const params = new URLSearchParams();
+  if (periodeDebut) params.set('periodeDebut', periodeDebut);
+  if (periodeFin) params.set('periodeFin', periodeFin);
+  const { data } = await api.get(`/centres/dashboard-global?${params.toString()}`);
+  return data;
+}
+
+export async function createCentre(dto: {
+  nom: string; adresse: string; ville: string; codePostal: string;
+  capacite: number; telephone?: string; siret?: string; email?: string; description?: string;
+}): Promise<Centre> {
+  const { data } = await api.post<Centre>('/centres', dto);
+  return data;
+}
