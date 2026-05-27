@@ -180,7 +180,7 @@ export default function NouveauCentrePage() {
       });
       setSuccess({
         kind: 'manual',
-        message: 'Votre centre a été créé et est en attente de validation. Vous pourrez l\'utiliser dès qu\'un administrateur aura vérifié les informations.',
+        message: 'Votre centre est en attente de validation par notre équipe. Vous recevrez une notification dès qu\'il sera activé. En attendant, vous pouvez continuer à utiliser vos centres existants.',
       });
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Erreur lors de la création du centre.');
@@ -207,7 +207,7 @@ export default function NouveauCentrePage() {
               </svg>
             </div>
             <h2 className="text-lg mb-2" style={{ color: 'var(--color-success)', fontWeight: 500 }}>
-              {success.kind === 'claim' ? 'Demande envoyée' : 'Centre créé'}
+              {success.kind === 'claim' ? 'Demande envoyée' : 'Centre créé avec succès ✓'}
             </h2>
             <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>{success.message}</p>
             <Link

@@ -306,6 +306,13 @@ export class AuthService {
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
     await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
 
+    this.email.sendGenericNotification(
+      'contact@liavo.fr',
+      'Nouvel hébergeur inscrit — compte à valider',
+      `Un nouvel hébergeur vient de s'inscrire.<br><br>Nom&nbsp;: ${dto.prenom} ${dto.nom}<br>Email&nbsp;: ${dto.email}<br>Centre&nbsp;: ${dto.nomCentre}<br>Ville&nbsp;: ${dto.ville}<br>SIRET&nbsp;: ${dto.siret ?? 'Non renseigné'}<br><br>Connectez-vous au dashboard admin pour valider.`,
+      'LIAVO Admin',
+    ).catch(err => console.error('[registerHebergeur] Echec email admin', err));
+
     return {
       message: 'Inscription réussie. Votre compte est en attente de validation.',
       user: { id: user.id, email: user.email, role: user.role },
