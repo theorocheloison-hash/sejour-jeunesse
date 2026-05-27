@@ -171,3 +171,62 @@ export async function getReseauCentreDetail(centreId: string): Promise<any> {
   const { data } = await api.get(`/reseau/centres/${centreId}`);
   return data;
 }
+
+// ─── Multi-centre — Claims + centres PENDING ──────────────────────────────
+
+export interface CentreClaim {
+  id: string;
+  claimStatut: 'EN_ATTENTE_VALIDATION' | 'EN_ATTENTE_DOCUMENT' | 'VALIDE' | 'REFUSE' | 'NON_APPLICABLE';
+  claimDocumentUrl: string | null;
+  claimSiretExtrait: string | null;
+  claimSubmittedAt: string | null;
+  user: { id: string; prenom: string; nom: string; email: string };
+  organisation: { id: string; nom: string; siret: string | null; ville: string | null };
+}
+
+export interface CentrePendingItem {
+  id: string;
+  nom: string;
+  adresse: string;
+  ville: string;
+  codePostal: string;
+  capacite: number;
+  siret: string | null;
+  description: string | null;
+  createdAt: string;
+  statut: string;
+  user: { id: string; prenom: string; nom: string; email: string } | null;
+}
+
+export async function getCentreClaimsPending(): Promise<CentreClaim[]> {
+  const { data } = await api.get<CentreClaim[]>('/centres/admin/claims');
+  return data;
+}
+
+export async function validateCentreClaim(
+  membershipId: string,
+  action: 'VALIDE' | 'REFUSE',
+  raison?: string,
+): Promise<{ message: string }> {
+  const { data } = await api.patch<{ message: string }>(
+    `/centres/admin/claims/${membershipId}`,
+    { action, raison },
+  );
+  return data;
+}
+
+export async function getCentresPending(): Promise<CentrePendingItem[]> {
+  const { data } = await api.get<CentrePendingItem[]>('/centres/admin/pending');
+  return data;
+}
+
+export async function validateCentrePending(
+  centreId: string,
+  action: 'ACTIVE' | 'SUSPENDED',
+): Promise<{ message: string }> {
+  const { data } = await api.patch<{ message: string }>(
+    `/centres/admin/pending/${centreId}`,
+    { action },
+  );
+  return data;
+}
