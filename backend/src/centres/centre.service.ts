@@ -14,6 +14,7 @@ import { EmailService } from '../email/email.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
+import { ClaimCentreDto } from './dto/claim-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getCentreForUser } from './centre.helper.js';
@@ -42,7 +43,9 @@ export class CentreService {
   }
 
   async createCentre(userId: string, dto: CreateCentreDto) {
-    return this.prisma.centreHebergement.create({
+    const centresExistants = await this.prisma.centreHebergement.count({ where: { userId } });
+
+    const centre = await this.prisma.centreHebergement.create({
       data: {
         nom: dto.nom,
         adresse: dto.adresse,
@@ -54,9 +57,198 @@ export class CentreService {
         email: dto.email ?? null,
         description: dto.description ?? null,
         userId,
-        statut: 'ACTIVE',
+        statut: 'PENDING',
       },
     });
+
+    try {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom: dto.nom,
+        adresse: dto.adresse,
+        ville: dto.ville,
+        codePostal: dto.codePostal,
+        siret: dto.siret ?? null,
+        siren: dto.siret ? dto.siret.substring(0, 9) : null,
+        typeStructure: null,
+        source: 'MANUAL',
+      });
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { organisationId: organisation.id },
+      });
+      await findOrCreateMembership(this.prisma, {
+        userId,
+        organisationId: organisation.id,
+        role: 'PROPRIETAIRE',
+        isPrimary: centresExistants === 0,
+        claimStatut: 'NON_APPLICABLE',
+      });
+    } catch (err) {
+      console.error('[createCentre] Echec rattachement Organisation/Membership', err);
+    }
+
+    return centre;
+  }
+
+  async claimCentre(userId: string, dto: ClaimCentreDto, file?: Express.Multer.File) {
+    const centre = await this.prisma.centreHebergement.findUnique({ where: { id: dto.centreId } });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    if (centre.userId && centre.userId !== userId) {
+      throw new ForbiddenException(
+        'Ce centre est déjà géré par un autre hébergeur. Contactez contact@liavo.fr si vous pensez qu\'il s\'agit d\'une erreur.',
+      );
+    }
+
+    if (centre.organisationId) {
+      const existingClaim = await this.prisma.membership.findFirst({
+        where: {
+          userId,
+          organisationId: centre.organisationId,
+          claimStatut: { in: ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION'] },
+        },
+      });
+      if (existingClaim) {
+        throw new ForbiddenException('Vous avez déjà une demande en cours pour ce centre.');
+      }
+    }
+
+    let documentUrl: string | null = null;
+    if (file) {
+      documentUrl = await this.storage.upload(file, 'claims');
+    }
+
+    const siretEffectif = centre.siret ?? dto.siretExtrait ?? null;
+    let organisationId = centre.organisationId;
+    if (!organisationId) {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom: centre.nom,
+        adresse: centre.adresse,
+        ville: centre.ville,
+        codePostal: centre.codePostal,
+        siret: siretEffectif,
+        siren: siretEffectif ? siretEffectif.substring(0, 9) : null,
+        typeStructure: null,
+        source: 'MANUAL',
+      });
+      organisationId = organisation.id;
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { organisationId },
+      });
+    }
+
+    const claimStatut: 'EN_ATTENTE_VALIDATION' | 'EN_ATTENTE_DOCUMENT' = documentUrl
+      ? 'EN_ATTENTE_VALIDATION'
+      : 'EN_ATTENTE_DOCUMENT';
+
+    const { membership } = await findOrCreateMembership(this.prisma, {
+      userId,
+      organisationId,
+      role: 'PROPRIETAIRE',
+      isPrimary: false,
+      claimStatut,
+    });
+
+    await this.prisma.membership.update({
+      where: { id: membership.id },
+      data: {
+        claimStatut,
+        claimDocumentUrl: documentUrl,
+        claimSiretExtrait: dto.siretExtrait ?? null,
+        claimSubmittedAt: new Date(),
+      },
+    });
+
+    return {
+      message: documentUrl
+        ? 'Votre demande a été soumise. Nous vérifierons votre document dans les plus brefs délais.'
+        : 'Veuillez fournir un justificatif (Kbis, récépissé RNA ou attestation) pour valider votre demande.',
+      claimStatut,
+      membershipId: membership.id,
+    };
+  }
+
+  async getClaimsPending() {
+    return this.prisma.membership.findMany({
+      where: { claimStatut: { in: ['EN_ATTENTE_VALIDATION', 'EN_ATTENTE_DOCUMENT'] } },
+      include: {
+        user: { select: { id: true, prenom: true, nom: true, email: true } },
+        organisation: { select: { id: true, nom: true, siret: true, ville: true } },
+      },
+      orderBy: { claimSubmittedAt: 'asc' },
+    });
+  }
+
+  async validateClaim(membershipId: string, adminId: string, action: 'VALIDE' | 'REFUSE', raison?: string) {
+    const membership = await this.prisma.membership.findUnique({
+      where: { id: membershipId },
+      include: { organisation: { include: { centresHebergement: true } } },
+    });
+    if (!membership) throw new NotFoundException('Claim introuvable');
+    if (!['EN_ATTENTE_VALIDATION', 'EN_ATTENTE_DOCUMENT'].includes(membership.claimStatut)) {
+      throw new ForbiddenException('Ce claim a déjà été traité');
+    }
+
+    if (action === 'VALIDE') {
+      await this.prisma.membership.update({
+        where: { id: membershipId },
+        data: {
+          claimStatut: 'VALIDE',
+          claimValidatedById: adminId,
+          claimValidatedAt: new Date(),
+        },
+      });
+
+      const centresOrphelins = membership.organisation.centresHebergement.filter(c => !c.userId);
+      for (const centre of centresOrphelins) {
+        await this.prisma.centreHebergement.update({
+          where: { id: centre.id },
+          data: { userId: membership.userId, statut: 'ACTIVE' },
+        });
+      }
+
+      await this.prisma.centreHebergement.updateMany({
+        where: { userId: membership.userId, statut: 'PENDING' },
+        data: { statut: 'ACTIVE' },
+      });
+
+      return { message: 'Claim validé. Les centres ont été rattachés.' };
+    }
+
+    await this.prisma.membership.update({
+      where: { id: membershipId },
+      data: {
+        claimStatut: 'REFUSE',
+        claimValidatedById: adminId,
+        claimValidatedAt: new Date(),
+        claimRefuseRaison: raison ?? null,
+      },
+    });
+    return { message: 'Claim refusé.' };
+  }
+
+  async getCentresPending() {
+    return this.prisma.centreHebergement.findMany({
+      where: { statut: 'PENDING' },
+      include: {
+        user: { select: { id: true, prenom: true, nom: true, email: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async validateCentrePending(centreId: string, action: 'ACTIVE' | 'SUSPENDED') {
+    const centre = await this.prisma.centreHebergement.findUnique({ where: { id: centreId } });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.statut !== 'PENDING') throw new ForbiddenException('Ce centre n\'est pas en attente');
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: { statut: action },
+    });
+
+    return { message: action === 'ACTIVE' ? 'Centre validé et activé.' : 'Centre suspendu.' };
   }
 
   async getDashboardGlobal(userId: string, periodeDebut?: string, periodeFin?: string) {

@@ -23,6 +23,7 @@ import { CentreService } from './centre.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
+import { ClaimCentreDto } from './dto/claim-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { CentreId } from './centre-id.decorator.js';
@@ -63,6 +64,61 @@ export class CentreController {
   @Roles(Role.HEBERGEUR)
   createCentre(@CurrentUser() user: JwtUser, @Body() dto: CreateCentreDto) {
     return this.centreService.createCentre(user.id, dto);
+  }
+
+  /** POST /centres/claim — Revendiquer un centre existant du catalogue. */
+  @Post('claim')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  @UseInterceptors(FileInterceptor('document'))
+  claimCentre(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: ClaimCentreDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (file) {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    }
+    return this.centreService.claimCentre(user.id, dto, file);
+  }
+
+  /** GET /centres/admin/claims — Liste des claims en attente (admin). */
+  @Get('admin/claims')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  getClaimsPending() {
+    return this.centreService.getClaimsPending();
+  }
+
+  /** PATCH /centres/admin/claims/:membershipId — Valider ou refuser un claim (admin). */
+  @Patch('admin/claims/:membershipId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  validateClaim(
+    @Param('membershipId') membershipId: string,
+    @CurrentUser() admin: JwtUser,
+    @Body() body: { action: 'VALIDE' | 'REFUSE'; raison?: string },
+  ) {
+    return this.centreService.validateClaim(membershipId, admin.id, body.action, body.raison);
+  }
+
+  /** GET /centres/admin/pending — Liste des centres en attente de validation (admin). */
+  @Get('admin/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  getCentresPending() {
+    return this.centreService.getCentresPending();
+  }
+
+  /** PATCH /centres/admin/pending/:centreId — Activer ou suspendre un centre PENDING (admin). */
+  @Patch('admin/pending/:centreId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  validateCentrePending(
+    @Param('centreId') centreId: string,
+    @Body() body: { action: 'ACTIVE' | 'SUSPENDED' },
+  ) {
+    return this.centreService.validateCentrePending(centreId, body.action);
   }
 
   @Get('check-invitation/:token')
