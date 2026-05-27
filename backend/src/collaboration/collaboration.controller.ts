@@ -22,6 +22,7 @@ import { CollaborationService } from './collaboration.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('collaboration')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -32,8 +33,8 @@ export class CollaborationController {
   // ── Route statique AVANT :sejourId ────────────────────────────
 
   @Get('mes-sejours')
-  getMesSejoursConvention(@CurrentUser() user: JwtUser) {
-    return this.service.getMesSejoursConvention(user.id);
+  getMesSejoursConvention(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.getMesSejoursConvention(user.id, centreId);
   }
 
   // ── Infos séjour ──────────────────────────────────────────────
