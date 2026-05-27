@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 26/05/2026 — Session cohérence universelle PDFs + invitation ILEPS
+> Dernière mise à jour : 27/05/2026 — Session devis TTC + planning options + multi-centre + roadmap
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -185,6 +185,19 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 
 ---
 
+## PROSPECTS / CONTACTS ACTIFS
+
+### Yves Massard — 3 centres (Les Gets + Bellevaux)
+- **Source** : LinkedIn inbound (message 27/05/2026)
+- **Profil** : RSE, Tourisme et Sensibilisation en Savoie Mont-Blanc — Facilitateur pour une Montagne de Transition
+- **Centres** : 3 centres de vacances aux Gets et à Bellevaux
+- **Besoin** : outil de gestion adapté aux gestionnaires de centre, plus de professionnalisme et d'efficacité
+- **Statut** : RDV téléphonique à caler semaine du 02/06/2026
+- **Enjeu LIAVO** : premier prospect multi-centre → force la priorisation du refactor Organisations + facturation multi-centre
+- **Prépa RDV** : wireframe multi-centre + discours planning options + tarification multi-centre à définir
+
+---
+
 ## SÉJOURS EN COURS
 
 ### Christophe Migevant — Lycée Julien Witmer Charolles
@@ -214,23 +227,36 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - [x] **Recherche structure 3 champs** (Nom, Ville, SIRET) dans inviter-enseignant/page.tsx
 - [x] **Invitation ILEPS envoyée** — INSTITUT POLYTECHNIQUE SAINT-LOUIS, SIRET 34483642400020, Cergy (Théo BRIOT, t.briot@ileps.fr)
 
-### EN COURS 26/05/2026
-- [ ] **Labels universels PDFs** — prompts CC prêts (Partie 1: DevisPDF+BudgetPDF+PlanningPDF / Partie 2: ProjetPedagogiquePDF)
+### LIVRÉ SESSION 27/05/2026 ✅
+- [x] **Labels universels 3 PDFs** (DevisPDF, BudgetPDF, PlanningPDF) — commit 8ec73f8
+- [x] **Labels universels ProjetPedagogiquePDF** — 5 remplacements (structure organisatrice, responsable du séjour, participants, programmes)
+- [x] **Devis nouveau — saisie PU TTC** — commit fdfe82c — l'hébergeur saisit le TTC, le HT est calculé automatiquement via round2()
+- [x] **Devis modifier — saisie PU TTC** — commit f4ea1b3 — même logique + conversion HT→TTC au chargement devis existants
+- [x] **Labels universels formulaires devis** — "Séjour scolaire"→"Séjour", "élèves"→"participants" dans nouveau + modifier
+
+### EN COURS 27/05/2026
+- [ ] **Labels universels ProjetPedagogiquePDF** — prompt CC Partie 2 prêt, à exécuter
+- [ ] **Conditions annulation Sauvageon** — champ conditions_annulation NULL en base → à remplir
 
 ### CRITIQUE — en cours
 - [ ] **Liaison Client ↔ User à l'acceptation invitation** (spéc dans section CRM)
 
 ### Features devis
+- [ ] **Devis libre sans compte** — envoi devis PDF signable à un organisateur sans compte LIAVO, lien public `/devis/[token]` avec bouton Accepter, pas d'espace collaboratif. Nécessite : rendre `demandeId` optionnel dans schema Devis OU créer DemandeDevis fantôme. Estimé 1-2 semaines. Cas d'usage : client régulier au téléphone, pas envie de créer un compte.
 - [ ] **Refactoring DevisBuilder** (3 fichiers dupliqués — faire AVANT drag&drop)
 - [ ] **Drag & drop lignes** (dnd-kit installé)
 - [ ] **Titres de section**
 - [ ] **Auto-signature organisateur** (cas colo où l'organisateur est aussi signataire)
 
-### Court terme
+### Court terme — PRIORITÉ HAUTE
+- [ ] **Planning hébergeur — options/devis en attente** : quand un devis est envoyé (EN_ATTENTE), les dates + nb personnes apparaissent au planning en mode "option" (visuellement distinct des séjours confirmés). L'hébergeur voit la capacité totale = confirmés + options. CRITIQUE pour gestion capacité multi-séjours. Données déjà en base (DemandeDevis.dateDebut/dateFin + nombreEleves). Estimé 2-3 jours. **PRIORITÉ #1 pour démo Yves Massard.**
+- [ ] **Import Excel participants** : template LIAVO fixe téléchargeable (.xlsx) avec colonnes standardisées (nom, prénom, date naissance, taille, poids, pointure, allergies, régime). Organisateur remplit offline → uploade dans espace collaboratif → participants créés en base. Fallback pour organisateurs qui ne veulent pas utiliser les inscriptions en ligne. Même pattern que l'import catalogue existant. Estimé 3-4 jours.
 - [ ] **Invitations parents** → 2 parents/tuteurs par enfant
 - [ ] **Bouton "Nouveau séjour pour client existant"** depuis fiche CRM
 
 ### Scalabilité
+- [ ] **Multi-centre hébergeur** : un utilisateur hébergeur gère N centres. Dashboard unifié avec switch entre centres. Catalogue, dispos, planning par centre. Devis émis depuis un centre spécifique. Lié au refactor Organisations v3 (Organisation type ENTREPRISE → N CentreHebergement). **PROSPECT RÉEL : Yves Massard (3 centres, Les Gets + Bellevaux, RDV semaine du 02/06/2026).** Options : (A) wireframe + discours roadmap pour le RDV, (B) quick hack sélecteur centre même userId, (C) accélérer sous-chantier 1 Organisations. Recommandation : A pour le RDV, C en parallèle.
+- [ ] **Facturation multi-centre** : un abonnement par centre ? Un abonnement entreprise couvrant N centres avec tarif dégressif ? À décider avant RDV Yves.
 - [ ] **Freemium hébergeur** + Stripe + Trial
 - [ ] **SC7 notifications APIDAE** (suspendu)
 
@@ -326,4 +352,6 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - select Prisma User : motDePasse UNIQUEMENT dans login/reinitialiserMotDePasse — jamais dans les retours client
 - Catch silencieux sur mutations : toujours setErreur + rechargement données pour resynchroniser l'UI
 - buildAuthResponse : ne jamais passer User complet — utiliser un type structurel minimal
-- BREVO_SENDER_EMAIL=contact@liavo.fr ✅ FRONTEND_URL=https://liavo.fr ✅ (vérifiés 20/05/2026)
+- Saisie devis : toujours TTC en entrée, HT calculé. L'hébergeur pense en TTC. round2(puTTC / (1 + tva/100)) pour le HT.
+- Conditions annulation : champ centre, fallback hardcodé si NULL. Toujours vérifier en base avant de supposer un bug.
+- Tables PostgreSQL : TOUJOURS snake_case. Prisma model PascalCase ≠ nom de table. Vérifier avec la table de correspondance.
