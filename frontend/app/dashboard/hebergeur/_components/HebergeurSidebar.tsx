@@ -261,6 +261,38 @@ export default function HebergeurSidebar({
             </ul>
           </div>
         ))}
+
+        {/* ── Ajouter un centre (toujours visible) ──────────── */}
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <Link
+            href="/dashboard/hebergeur/centres/nouveau"
+            className="hover:!bg-white/10 hover:!text-white/80"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 8px',
+              borderRadius: 7,
+              fontSize: 13,
+              textDecoration: 'none',
+              color: 'rgba(255,255,255,0.5)',
+              transition: 'background 120ms, color 120ms',
+            }}
+          >
+            <svg
+              width={15}
+              height={15}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              style={{ opacity: 0.85, flexShrink: 0 }}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span className="truncate">Ajouter un centre</span>
+          </Link>
+        </div>
       </nav>
 
       {/* ── Footer user ─────────────────────────────────────── */}
