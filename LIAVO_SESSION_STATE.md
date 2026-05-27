@@ -257,10 +257,12 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - registerHebergeur : crée User + Centre + Organisation + Membership PROPRIETAIRE, statut PENDING
 
 **Briques manquantes :**
+- [x] Lien "Ajouter un centre" toujours visible dans sidebar hébergeur (mono ET multi-centre)
 - Page /dashboard/hebergeur/centres/nouveau (user connecté) : recherche + claim + création manuelle
 - Backend endpoint revendication centre existant (rattacher centreId à userId + upload claim doc)
 - Admin : liste claims en attente + approuver/refuser
 - Invitation qui détecte email existant → rattache au lieu de recréer (V2)
+- **Question "Combien de centres gérez-vous ?" dans le flow d'inscription** (après step 3) → si > 1, boucle ajout centres supplémentaires avant fin inscription. V2 post-stabilisation multi-centre.
 
 
 ### CRITIQUE — en cours
@@ -397,6 +399,7 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - [ ] **Gestionnaire François** : attendre retour validation inscriptions parents
 
 ### Dette technique secondaire
+- [ ] **Harmonisation visuelle dashboard global vs mono-centre** : divergences typo/taille/spacing entre les deux dashboards. Prompt CC dédié avec captures. À faire quand le multi-centre est fonctionnellement stable.
 - [ ] DashboardShell organisateur/signataire
 - [ ] Migration selects Prisma etablissement* → Organisation
 - [ ] tokenAcces journal public : ajouter expiration ou nonce (risque fuite lien)
