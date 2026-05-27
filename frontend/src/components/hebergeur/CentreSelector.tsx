@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 const truncate = (s: string, n = 20) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -10,6 +11,8 @@ export default function CentreSelector() {
   const { centres, centreActif, setCentreActif, isMultiCentre } = useAuth();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+  const isGlobalView = pathname?.startsWith('/dashboard/hebergeur/global') ?? false;
 
   useEffect(() => {
     if (!open) return;
@@ -27,7 +30,7 @@ export default function CentreSelector() {
   return (
     <div ref={containerRef} className="relative" style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>
-        Centre actif
+        {isGlobalView ? 'Vue' : 'Centre actif'}
       </p>
       <button
         type="button"
@@ -44,7 +47,16 @@ export default function CentreSelector() {
           cursor: 'pointer',
         }}
       >
-        <span className="flex-1 truncate">{current ? truncate(current.nom) : '—'}</span>
+        {isGlobalView ? (
+          <>
+            <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} style={{ opacity: 0.85, flexShrink: 0 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+            </svg>
+            <span className="flex-1 truncate">Vue globale</span>
+          </>
+        ) : (
+          <span className="flex-1 truncate">{current ? truncate(current.nom) : '—'}</span>
+        )}
         <svg
           width={14}
           height={14}
