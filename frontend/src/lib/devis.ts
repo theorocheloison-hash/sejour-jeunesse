@@ -310,3 +310,8 @@ export async function envoyerDevisDirect(devisId: string): Promise<{ success: bo
   return data;
 }
 
+export async function getDevisForSejourDirect(sejourDirectId: string): Promise<Devis[]> {
+  const { data } = await api.get<Devis[]>('/devis/mes-devis');
+  return data.filter(d => d.sejourDirectId === sejourDirectId);
+}
+
