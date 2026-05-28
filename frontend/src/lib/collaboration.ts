@@ -52,6 +52,14 @@ export interface SejourCollabInfo {
   thematiquesPedagogiques: string[];
   createur?: { id: string; prenom: string; nom: string; email: string };
   hebergementSelectionne?: { id: string; nom: string; ville: string; userId: string };
+  modeGestion?: string;
+  natureSejour?: string;
+  typeSejour?: string | null;
+  clientNom?: string | null;
+  clientPrenom?: string | null;
+  clientEmail?: string | null;
+  clientTelephone?: string | null;
+  clientOrganisation?: string | null;
 }
 
 export interface SejourConventionHebergeur {

@@ -25,7 +25,9 @@ export interface LigneDevis {
 
 export interface Devis {
   id: string;
-  demandeId: string;
+  demandeId: string | null;
+  sejourDirectId?: string | null;
+  tokenSignature?: string | null;
   centreId: string;
   montantTotal: string;
   montantParEleve: string;
@@ -58,6 +60,16 @@ export interface Devis {
   acompteVerse?: boolean;
   dateVersementAcompte?: string | null;
   lignes?: LigneDevis[];
+  sejourDirect?: {
+    id: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    clientNom: string | null;
+    clientEmail: string | null;
+    clientOrganisation: string | null;
+    modeGestion: string;
+  } | null;
   versements?: VersementPaiement[];
   montantVerseTotal?: number;
   demande?: {
@@ -109,7 +121,8 @@ export interface Devis {
 }
 
 export interface CreateDevisDto {
-  demandeId: string;
+  demandeId?: string;
+  sejourDirectId?: string;
   montantTotal: string;
   montantParEleve: string;
   description?: string;
@@ -282,6 +295,18 @@ export async function supprimerVersement(devisId: string, versementId: string): 
 
 export async function notifierEnseignantDevis(devisId: string): Promise<{ success: boolean }> {
   const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/notifier-enseignant`);
+  return data;
+}
+
+// ── Séjour DIRECT ────────────────────────────────────────────────────────
+
+export async function createDirectDevis(dto: CreateDevisDto & { sejourDirectId: string }): Promise<Devis> {
+  const { data } = await api.post<Devis>('/devis/direct', dto);
+  return data;
+}
+
+export async function envoyerDevisDirect(devisId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/envoyer-direct`);
   return data;
 }
 
