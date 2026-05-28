@@ -61,7 +61,8 @@ function parseCSVLine(line: string): string[] {
 function ClientsPage() {
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get('selected');
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, centres, centreActif } = useAuth();
+  const centreNom = centres.find(c => c.id === centreActif)?.nom ?? centres[0]?.nom ?? 'notre centre';
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -901,7 +902,7 @@ function ClientsPage() {
                         {sendingBrochure ? '...' : '📬 Envoyer la brochure'}
                       </button>
                       <a
-                        href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Visite — ${selected?.nom ?? ''}`)}&details=${encodeURIComponent('Visite du Chalet Le Sauvageon')}`}
+                        href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Visite — ${selected?.nom ?? ''}`)}&details=${encodeURIComponent(`Visite de ${centreNom}`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
