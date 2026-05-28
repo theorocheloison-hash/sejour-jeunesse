@@ -46,7 +46,10 @@ import {
   deleteJournalPost,
   notifierPlanningEnseignant,
   updateInfosSejour,
+  deleteSejourDirect,
 } from '@/src/lib/collaboration';
+import { getDevisForSejourDirect, envoyerDevisDirect } from '@/src/lib/devis';
+import type { Devis as DevisType } from '@/src/lib/devis';
 import type {
   SejourCollabInfo,
   MessageCollab,
@@ -555,6 +558,12 @@ export default function CollaborationPage() {
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
+  // Devis DIRECT
+  const [directDevis, setDirectDevis] = useState<DevisType | null>(null);
+  const [directDevisLoading, setDirectDevisLoading] = useState(false);
+  const [envoyerLoading, setEnvoyerLoading] = useState(false);
+  const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
+
   // Messages
   const [messages, setMessages] = useState<MessageCollab[]>([]);
   const [msgInput, setMsgInput] = useState('');
@@ -752,8 +761,15 @@ export default function CollaborationPage() {
   }, [id]);
 
   useEffect(() => {
-    if (tab === 'devis') loadBudget();
-    if (tab === 'messages') loadMessages();
+    if (tab === 'devis' && !isDirect) loadBudget();
+    if (tab === 'devis' && isDirect && id) {
+      setDirectDevisLoading(true);
+      getDevisForSejourDirect(id)
+        .then(devis => setDirectDevis(devis[0] ?? null))
+        .catch(() => {})
+        .finally(() => setDirectDevisLoading(false));
+    }
+    if (tab === 'messages' && !isDirect) loadMessages();
     if (tab === 'planning') loadPlanning();
     if (tab === 'groupes') {
       getGroupes(id).then(setGroupes).catch(() => {});
@@ -764,8 +780,8 @@ export default function CollaborationPage() {
     if (tab === 'participants') loadParticipants();
     if (tab === 'budget') loadBudget();
     if (tab === 'projet') loadDossier();
-    if (tab === 'journal') { getJournal(id).then(setJournalPosts).catch(() => {}); }
-  }, [tab, loadMessages, loadPlanning, loadDocs, loadDocsCentre, loadParticipants, loadBudget, loadDossier]);
+    if (tab === 'journal' && !isDirect) { getJournal(id).then(setJournalPosts).catch(() => {}); }
+  }, [tab, isDirect, id, loadMessages, loadPlanning, loadDocs, loadDocsCentre, loadParticipants, loadBudget, loadDossier]);
 
   // ── Polling messages 10s ──
   useEffect(() => {
@@ -1166,6 +1182,22 @@ export default function CollaborationPage() {
                   ✏️ Modifier
                 </button>
               )}
+              {isHebergeur && isDirect && !editingInfos && (
+                <button
+                  onClick={async () => {
+                    if (!confirm('Supprimer ce séjour ? Le client CRM sera conservé.')) return;
+                    try {
+                      await deleteSejourDirect(id);
+                      router.push('/dashboard/hebergeur/planning');
+                    } catch {
+                      setMutationError('Erreur lors de la suppression');
+                    }
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2 shrink-0"
+                >
+                  Supprimer
+                </button>
+              )}
             </p>
             <p className="text-xs text-gray-400 truncate">
               {sejour?.hebergementSelectionne?.nom ?? '—'}
@@ -1376,13 +1408,142 @@ export default function CollaborationPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
 
-        {/* ── Devis DIRECT — lien création ─── */}
+        {/* ── Devis DIRECT — rendu dynamique ─── */}
         {tab === 'devis' && isDirect && (
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Devis</h3>
-              <p className="text-xs text-gray-500 mb-4">Créez un devis pour ce séjour et envoyez-le au client pour signature.</p>
-              <div className="flex items-center gap-3">
+            {directDevisLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              </div>
+            ) : directDevis ? (
+              <>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        Devis {directDevis.numeroDevis ?? ''}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Créé le {new Date(directDevis.createdAt).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                      directDevis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
+                      directDevis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
+                      directDevis.statut === 'SIGNE_DIRECTION' ? 'bg-purple-100 text-purple-700' :
+                      directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
+                      directDevis.statut === 'FACTURE_ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
+                      directDevis.statut === 'FACTURE_SOLDE' ? 'bg-teal-100 text-teal-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {directDevis.statut === 'EN_ATTENTE' ? 'Brouillon' :
+                       directDevis.statut === 'SELECTIONNE' ? 'Signé' :
+                       directDevis.statut === 'SIGNE_DIRECTION' ? 'Signé direction' :
+                       directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
+                       directDevis.statut === 'FACTURE_ACOMPTE' ? 'Facture acompte' :
+                       directDevis.statut === 'FACTURE_SOLDE' ? 'Facture solde' :
+                       directDevis.statut}
+                    </span>
+                  </div>
+
+                  {(directDevis.lignes ?? []).length > 0 && (
+                    <table className="w-full text-xs mb-4">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 text-gray-500 font-medium">Description</th>
+                          <th className="text-right py-2 text-gray-500 font-medium">Qté</th>
+                          <th className="text-right py-2 text-gray-500 font-medium">PU TTC</th>
+                          <th className="text-right py-2 text-gray-500 font-medium">Total TTC</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(directDevis.lignes ?? []).map((l, i) => (
+                          <tr key={i} className="border-b border-gray-50">
+                            <td className="py-2">{l.description}</td>
+                            <td className="py-2 text-right">{l.quantite}</td>
+                            <td className="py-2 text-right">{(l.prixUnitaire + l.prixUnitaire * (l.tva / 100)).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                            <td className="py-2 text-right font-medium">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
+                    {directDevis.montantHT != null && (
+                      <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{Number(directDevis.montantHT).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                    )}
+                    {directDevis.montantTVA != null && (
+                      <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{Number(directDevis.montantTVA).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                    )}
+                    <div className="flex justify-between font-bold">
+                      <span>Total TTC</span>
+                      <span className="text-[var(--color-primary)]">{Number(directDevis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                    </div>
+                    {directDevis.montantAcompte != null && Number(directDevis.montantAcompte) > 0 && (
+                      <div className="flex justify-between text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+                        <span>Acompte ({directDevis.pourcentageAcompte ?? 30}%)</span>
+                        <span className="font-semibold">{Number(directDevis.montantAcompte).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  {sejour?.clientEmail && directDevis.statut === 'EN_ATTENTE' && (
+                    <button
+                      onClick={async () => {
+                        setEnvoyerLoading(true);
+                        setEnvoyerSuccess(false);
+                        try {
+                          await envoyerDevisDirect(directDevis.id);
+                          setEnvoyerSuccess(true);
+                          const devis = await getDevisForSejourDirect(id);
+                          setDirectDevis(devis[0] ?? null);
+                        } catch { setMutationError('Erreur lors de l\'envoi du devis'); }
+                        finally { setEnvoyerLoading(false); }
+                      }}
+                      disabled={envoyerLoading}
+                      className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {envoyerLoading ? 'Envoi en cours…' : `📨 Envoyer à ${sejour.clientEmail}`}
+                    </button>
+                  )}
+
+                  {!sejour?.clientEmail && directDevis.statut === 'EN_ATTENTE' && (
+                    <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                      Renseignez l&apos;email du client pour pouvoir envoyer le devis par email.
+                    </p>
+                  )}
+
+                  {envoyerSuccess && (
+                    <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                      ✅ Devis envoyé par email ! Le client recevra un lien pour consulter et signer le devis.
+                    </p>
+                  )}
+
+                  <Link
+                    href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${id}`}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Modifier le devis
+                  </Link>
+                </div>
+
+                {(directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION') && directDevis.nomSignataireDirecteur && (
+                  <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                    <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      Signé par {directDevis.nomSignataireDirecteur}
+                      {directDevis.dateSignatureDirecteur && ` le ${new Date(directDevis.dateSignatureDirecteur).toLocaleDateString('fr-FR')}`}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Devis</h3>
+                <p className="text-xs text-gray-500 mb-4">Créez un devis pour ce séjour et envoyez-le au client pour signature.</p>
                 <Link
                   href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${id}`}
                   className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
@@ -1390,7 +1551,7 @@ export default function CollaborationPage() {
                   Créer un devis
                 </Link>
               </div>
-            </div>
+            )}
           </div>
         )}
 
