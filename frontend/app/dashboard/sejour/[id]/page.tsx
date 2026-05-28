@@ -48,6 +48,7 @@ import {
   updateInfosSejour,
   deleteSejourDirect,
   inviterOrganisateurDirect,
+  marquerVisite,
 } from '@/src/lib/collaboration';
 import { getDevisForSejourDirect, envoyerDevisDirect } from '@/src/lib/devis';
 import type { Devis as DevisType } from '@/src/lib/devis';
@@ -571,6 +572,13 @@ export default function CollaborationPage() {
   const [inviteOrgaEmail, setInviteOrgaEmail] = useState('');
   const [inviteOrgaSending, setInviteOrgaSending] = useState(false);
   const [inviteOrgaSuccess, setInviteOrgaSuccess] = useState(false);
+
+  // ── Tracking visite onglet (notifications hébergeur) ────────
+  useEffect(() => {
+    const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
+    if (!user || user.role !== 'HEBERGEUR' || !id || !ONGLETS_TRACKING.includes(tab)) return;
+    marquerVisite(id, tab).catch(() => {});
+  }, [tab, user, id]);
 
   // Messages
   const [messages, setMessages] = useState<MessageCollab[]>([]);
