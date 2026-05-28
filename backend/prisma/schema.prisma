@@ -190,6 +190,7 @@ model User {
 
   memberships         Membership[]
   membershipsValidees Membership[] @relation("MembershipValidateur")
+  visitesSejourHebergeur SejourVisiteHebergeur[]
 
   @@map("utilisateurs")
 }
@@ -279,6 +280,7 @@ model Sejour {
   groupesSejour          GroupeSejour[]
   postsJournal           PostJournal[]
   sejourRelations        SejourRelation[]
+  visitesHebergeur       SejourVisiteHebergeur[]
 
   @@index([createurId])
   @@index([statut])
@@ -1352,4 +1354,21 @@ model ActiviteClient {
   @@index([clientId, createdAt(sort: Desc)])
   @@index([centreId])
   @@map("activites_client")
+}
+
+// ============================================================
+// MODEL : SejourVisiteHebergeur (tracking dernière visite par onglet)
+// ============================================================
+model SejourVisiteHebergeur {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  sejourId  String   @map("sejour_id") @db.Uuid
+  onglet    String   @db.VarChar(30)
+  visitedAt DateTime @map("visited_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sejourId, onglet])
+  @@map("sejour_visites_hebergeur")
 }

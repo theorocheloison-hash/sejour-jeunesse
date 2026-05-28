@@ -42,6 +42,21 @@ export class CollaborationController {
     return this.service.getMesSejoursPlanning(user.id, centreId);
   }
 
+  @Get('mes-non-lus')
+  @Roles(Role.HEBERGEUR)
+  getMesNonLus(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.getMesNonLus(user.id, centreId);
+  }
+
+  @Post('marquer-visite')
+  @Roles(Role.HEBERGEUR)
+  marquerVisite(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { sejourId: string; onglet: string },
+  ) {
+    return this.service.marquerVisite(user.id, body.sejourId, body.onglet);
+  }
+
   // ── Infos séjour ──────────────────────────────────────────────
 
   @Get(':sejourId')
