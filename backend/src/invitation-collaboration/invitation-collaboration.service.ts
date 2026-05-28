@@ -17,6 +17,87 @@ export class InvitationCollaborationService {
     private email: EmailService,
   ) {}
 
+  /**
+   * Lie un séjour au CRM hébergeur : cherche ou crée un Client,
+   * crée SejourClient + ActiviteClient. Fire-and-forget, non bloquant.
+   */
+  private async linkSejourToCRM(params: {
+    centreId: string;
+    sejourId: string;
+    sejourTitre: string;
+    emailOrganisateur: string;
+    etablissementNom?: string | null;
+    etablissementUai?: string | null;
+    etablissementVille?: string | null;
+  }): Promise<void> {
+    try {
+      const { centreId, sejourId, sejourTitre, emailOrganisateur, etablissementNom, etablissementUai, etablissementVille } = params;
+
+      let client = await this.prisma.client.findFirst({
+        where: { centreId, email: emailOrganisateur },
+      });
+
+      if (!client && etablissementUai) {
+        client = await this.prisma.client.findFirst({
+          where: { centreId, uai: etablissementUai },
+        });
+      }
+
+      if (!client && etablissementNom) {
+        client = await this.prisma.client.findFirst({
+          where: { centreId, nom: etablissementNom },
+        });
+      }
+
+      if (!client) {
+        client = await this.prisma.client.create({
+          data: {
+            centreId,
+            nom: etablissementNom || emailOrganisateur,
+            type: 'ETABLISSEMENT_SCOLAIRE',
+            statut: 'CLIENT',
+            email: emailOrganisateur,
+            uai: etablissementUai ?? undefined,
+            ville: etablissementVille ?? undefined,
+            source: 'INVITATION',
+          },
+        });
+      } else {
+        if (!client.email && emailOrganisateur) {
+          await this.prisma.client.update({
+            where: { id: client.id },
+            data: { email: emailOrganisateur },
+          });
+        }
+        if (client.statut === 'PROSPECT') {
+          await this.prisma.client.update({
+            where: { id: client.id },
+            data: { statut: 'CLIENT' },
+          });
+        }
+      }
+
+      await this.prisma.sejourClient.upsert({
+        where: {
+          clientId_sejourId: { clientId: client.id, sejourId },
+        },
+        update: {},
+        create: { clientId: client.id, sejourId },
+      });
+
+      await this.prisma.activiteClient.create({
+        data: {
+          clientId: client.id,
+          centreId,
+          type: 'NOTE',
+          description: `Séjour "${sejourTitre}" créé via invitation collaborative`,
+        },
+      });
+    } catch (err) {
+      console.error('[CRM linkSejourToCRM] Erreur non bloquante:', err);
+    }
+  }
+
   async create(dto: CreateInvitationCollaborationDto, user: JwtUser, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, user.id, centreId);
 
@@ -257,6 +338,17 @@ export class InvitationCollaborationService {
 
       return { sejourId: sejour.id, devisCree };
     });
+
+    // ── Liaison CRM (non bloquant) ──
+    this.linkSejourToCRM({
+      centreId: invitation.centreId,
+      sejourId: result.sejourId,
+      sejourTitre: invitation.titreSejourSuggere,
+      emailOrganisateur: invitation.emailEnseignant,
+      etablissementNom: invitation.etablissementNom,
+      etablissementUai: invitation.etablissementUai,
+      etablissementVille: invitation.etablissementVille,
+    }).catch(() => {});
 
     // Notifier l'hébergeur qu'une demande l'attend
     const centreUser = await this.prisma.user.findUnique({
