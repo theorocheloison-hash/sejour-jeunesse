@@ -15,8 +15,6 @@ import {
 import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
 import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
 import type { ActiviteClient } from '@/src/lib/clients';
-import { getMesDevisLibres } from '@/src/lib/devis-libres';
-import type { DevisLibre } from '@/src/lib/devis-libres';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -111,8 +109,6 @@ function ClientsPage() {
   const [contactsImporting, setContactsImporting] = useState(false);
   const [contactsResult, setContactsResult] = useState<{ imported: number; skipped: number; clientNotFound: number } | null>(null);
 
-  const [devisLibresMap, setDevisLibresMap] = useState<Record<string, DevisLibre[]>>({});
-
   const [activites, setActivites] = useState<ActiviteClient[]>([]);
   const [activitesLoading, setActivitesLoading] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -128,16 +124,6 @@ function ClientsPage() {
           setSelectedId(preselectedId);
         }
       }).finally(() => setLoading(false));
-      getMesDevisLibres().then(dls => {
-        const map: Record<string, DevisLibre[]> = {};
-        dls.forEach(dl => {
-          if (dl.clientId) {
-            if (!map[dl.clientId]) map[dl.clientId] = [];
-            map[dl.clientId].push(dl);
-          }
-        });
-        setDevisLibresMap(map);
-      }).catch(() => {});
     }
   }, [isLoading, user]);
 
@@ -901,53 +887,6 @@ function ClientsPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Section 5b — Événements particuliers (toujours visible) */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                    Événements particuliers
-                  </h3>
-                  {(devisLibresMap[selected.id] ?? []).length > 0 ? (
-                    <div className="space-y-1">
-                      {(devisLibresMap[selected.id] ?? []).map(dl => (
-                        <div key={dl.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2.5">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                dl.statut === 'PAYE'    ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' :
-                                dl.statut === 'ACCEPTE' ? 'bg-[var(--color-success-light)] text-[var(--color-success)]' :
-                                dl.statut === 'ENVOYE'  ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-500'
-                              }`}>{dl.statut}</span>
-                              <span className="text-xs font-mono text-gray-500">{dl.numeroDevis}</span>
-                            </div>
-                            <p className="text-xs text-gray-500 truncate">
-                              {dl.typeEvenement ?? '—'} · {new Date(dl.dateDebut).toLocaleDateString('fr-FR')}
-                              {dl.dateFin !== dl.dateDebut && ` → ${new Date(dl.dateFin).toLocaleDateString('fr-FR')}`}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right ml-3">
-                            <p className="text-sm font-semibold text-gray-900">
-                              {Number(dl.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                            </p>
-                            <Link href={`/dashboard/hebergeur/devis-libres/${dl.id}`}
-                              className="text-xs text-[var(--color-primary)] hover:underline">
-                              Voir &rarr;
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500">Aucun devis événement pour ce client.</p>
-                  )}
-                  <Link
-                    href={`/dashboard/hebergeur/devis-libres/nouveau?clientId=${selected.id}`}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
-                  >
-                    + Nouveau devis événement
-                  </Link>
-                </div>
 
                 {/* Section 6 — Activité */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
