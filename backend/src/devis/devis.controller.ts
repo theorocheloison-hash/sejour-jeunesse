@@ -195,7 +195,7 @@ export class DevisController {
   }
 
   @Patch(':id/versements/:versementId/supprimer')
-  @Roles(Role.SIGNATAIRE)
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   supprimerVersement(
     @Param('id') id: string,
     @Param('versementId') versementId: string,
