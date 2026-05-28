@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 28/05/2026 — Session séjour en gestion directe (DIRECT) + migration DevisLibres
+> Dernière mise à jour : 28/05/2026 — Session Tier 1 post-séjour DIRECT + notifications + CRM + nettoyage + fix contrat
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -39,6 +39,7 @@
 | RelationCommerciale       | relations_commerciales          |
 | SejourRelation            | sejours_relations               |
 | InvitationDirecteur       | invitations_directeur           |
+| SejourVisiteHebergeur     | sejour_visites_hebergeur        |
 
 ### StatutDevis
 EN_ATTENTE | EN_ATTENTE_VALIDATION | SELECTIONNE | SIGNE_DIRECTION | NON_RETENU | FACTURE_ACOMPTE | FACTURE_SOLDE
@@ -154,17 +155,13 @@ Spéc : `ongletVisibles: string[]` sur `accompagnateurs_missions`. Rétrocompati
 
 ---
 
-## ARCHITECTURE CRM — DETTE
+## ARCHITECTURE CRM — LIVRÉ (commit 061f84d)
 
-### Fix à implémenter
-Dans `invitation-collaboration.service.ts` méthode `accepter()` :
-1. Chercher client par `client.email === invitation.emailEnseignant` ou UAI
-2. Si trouvé : créer `SejourClient` + mettre à jour `client.organisationId`
+### Fix livré
+Dans `invitation-collaboration.service.ts` méthode `accepter()` : `linkSejourToCRM()` cherche Client par email → UAI → nom, crée si pas trouvé, upsert SejourClient + ActiviteClient. Fire-and-forget, non bloquant.
 
-### Backfill existants
-Script SQL : UPDATE clients SET organisation_id = (SELECT o.id FROM organisations o
-JOIN memberships m ON m.organisation_id = o.id JOIN utilisateurs u ON u.id = m.user_id
-WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
+### Backfill fait
+3 liaisons créées en prod (Croquette Altkirch + 2 Loué). Vérifié via SQL.
 
 ---
 
@@ -184,6 +181,44 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 ### Flux direction — backend (21/05/2026) ✅ — commit 28c372a
 
 ### Séjour en gestion directe — CHANTIER COMPLET (28/05/2026) ✅
+
+### Chantier Tier 1 — Session 28/05/2026 ✅
+
+**Chantier 1 — Notifications hébergeur (badge non-lus)** — commits a3affb0, af5363b, ed3f73a
+- Modèle `SejourVisiteHebergeur` (tracking dernière visite par onglet messages/documents/journal)
+- `GET /collaboration/mes-non-lus` : count par séjour, exclut messages de l'hébergeur lui-même
+- `POST /collaboration/marquer-visite` : upsert visitedAt au changement d'onglet
+- Badge rouge sur "Planning" dans la sidebar (via `useHebergeurCounts` + `sejoursNonLusCount`)
+- Fire-and-forget `marquerVisite()` dans useEffect sur tab change (page sejour/[id])
+- **⚠️ UX INCOMPLÈTE** : le badge existe mais cliquer sur Planning amène au calendrier sans indication du séjour concerné. À traiter dans le chantier global refonte dashboard/page séjour.
+
+**Chantier 2 — Liaison CRM ↔ séjours collaboratifs** — commit 061f84d + backfill SQL
+- Méthode `linkSejourToCRM()` dans `invitation-collaboration.service.ts` : cherche Client par email → UAI → nom → crée si pas trouvé
+- Appel fire-and-forget après `accepter()` (couvre branches DIRECT et standard)
+- Upsert SejourClient + création ActiviteClient
+- Backfill SQL exécuté en prod : 3 liaisons créées (Croquette + 2 Loué)
+- Séjour test "flux direction" supprimé (hard delete)
+
+**Chantier 3 — Nettoyage code mort DevisLibres** — commit 87c7a20
+- Supprimé : `backend/src/devis-libres/` (controller, service, module, DTOs, contrat PDF)
+- Retiré `DevisLibresModule` de `app.module.ts`
+- Supprimé : `frontend/app/devis-libre/`, `frontend/app/dashboard/hebergeur/devis-libres/`, `frontend/src/lib/devis-libres.ts`
+- Conservé : interface `DevisLibreImpayee` dans `global/page.tsx` (backend retourne encore cette shape)
+- Redirect `/devis-libre/signer/:token` → `/devis/signer/:token` déjà en place dans next.config.ts
+- **Tables DevisLibre en base NON supprimées** → dette technique, DROP après 2 semaines stabilité
+
+**Chantier 4 — Labels universels page séjour** — REPORTÉ (cosmétique, pas bloquant)
+
+**Fix régression contrat PDF Sauvageon** — commit 44cc73f
+- `contrat-sauvageon.pdf.tsx` restauré depuis git history, déplacé dans `backend/src/devis/`
+- Branché sur `envoyerDevisDirect()` : génère le contrat PDF si `isEvenement && centre.iban`
+- Contrat uploadé sur OVH Object Storage, lien inclus dans l'email au client
+- Non-bloquant : si erreur PDF, l'email part sans contrat
+
+**Fix recherche structure 3 champs** — commit f984820
+- Modale création séjour DIRECT : ajout champ Code postal (grid 3 colonnes)
+- Texte d'aide : "Renseignez les 3 champs pour trouver plus facilement la structure."
+- `fireStructSearch(nom, ville, cp)` : query = [nom, cp, ville].join(' ')
 
 **Architecture** : `docs/ARCHITECTURE_SEJOUR_DIRECT.md` (source de vérité)
 **10 prompts CC exécutés** : Phase 1 P1/P2, Phase 2 P1/P2, Phase 3A, Phase 3B-1/B-2, Phase final (cosmétique + Phase 4 + Phase 5)
@@ -332,11 +367,8 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 
 ### CRITIQUE — en cours
 - [ ] **Badge notifications séjours : dernier kilomètre** — L'endpoint `mes-non-lus` et le tracking visites fonctionnent (Chantier 1 livré). Le badge apparaît sur "Planning" dans la sidebar mais ne mène nulle part d'utile. Il faut : (1) une page liste séjours hébergeur avec badges non-lus par séjour, (2) un item "Séjours" dans la sidebar, (3) la carte aperçu top 3 sur le dashboard, (4) déplacer le badge de "Planning" vers "Séjours". **À traiter dans le chantier global refonte page séjour / dashboard hébergeur.** En attendant le badge est visible mais l'UX est incomplète.
-- [x] **Liaison Client ↔ User à l'acceptation invitation** — LIVRÉ commit 061f84d + backfill SQL (spéc dans section CRM). Use case réel : François Croquette / Collège Lucien Herr a un séjour en cours avec devis + espace collaboratif, mais la fiche client CRM du collège n'a aucun séjour lié ni activité. Les étapes devis signé/acompte/etc. n'apparaissent pas dans le CRM. Double silo : le flow collaboratif et le CRM ne communiquent pas. Fix : à l'acceptation de l'invitation, chercher le Client par email ou UAI, créer SejourClient + ActiviteClient pour chaque étape. Backfill des séjours existants. **Bloquant pour la crédibilité CRM auprès d'Yves.**
-- [ ] **Notifications hébergeur sur nouveaux messages collaboratifs** : quand un enseignant poste un message dans l'espace collaboratif, l'hébergeur ne reçoit AUCUNE notification dans LIAVO. L'email de notification existe (backend collaboration.service.ts notifierOrganisateur) mais il notifie l'organisateur, pas l'hébergeur. Et il n'y a aucun système de notification in-app (badge, cloche, compteur). **Deux fix nécessaires :**
-  - *Fix 1 (rapide, 1h)* : quand un ORGANISATEUR poste un message, envoyer aussi un email à l'hébergeur (centre.email ou user hébergeur). Symétrique de notifierOrganisateur. Créer notifierHebergeur dans collaboration.service.ts.
-  - *Fix 2 (moyen terme, 2-3j)* : système de notifications in-app. Modèle Notification (userId, type, titre, lien, lu/non-lu, createdAt). Badge compteur dans le header/sidebar. Couvre messages, devis reçus, signatures, paiements, etc. **Indispensable pour que l'hébergeur ne rate pas les messages de ses clients.**
-  - **Use case réel Sauvageon 27/05/2026 : un enseignant écrit dans l'espace collaboratif, Théo ne le voit pas.**
+- [x] **Liaison Client ↔ User à l'acceptation invitation** — LIVRÉ commit 061f84d + backfill SQL
+- [ ] **Notifications hébergeur sur nouveaux messages collaboratifs** : Chantier 1 livré (backend tracking + badge sidebar). **UX incomplète** : le badge sur Planning ne mène nulle part d'utile. Nécessite : page liste séjours hébergeur + item "Séjours" dans sidebar + carte aperçu dashboard. **À traiter dans le chantier global refonte dashboard.**
 
 ### Features devis
 - [ ] **Devis libre sans compte** — envoi devis PDF signable à un organisateur sans compte LIAVO, lien public `/devis/[token]` avec bouton Accepter, pas d'espace collaboratif. Nécessite : rendre `demandeId` optionnel dans schema Devis OU créer DemandeDevis fantôme. Estimé 1-2 semaines. Cas d'usage : client régulier au téléphone, pas envie de créer un compte.
@@ -344,6 +376,31 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 - [ ] **Drag & drop lignes** (dnd-kit installé)
 - [ ] **Titres de section**
 - [ ] **Auto-signature organisateur** (cas colo où l'organisateur est aussi signataire)
+
+### CHANTIER GLOBAL — Refonte page séjour + facturation + planning couleurs (identifié 28/05/2026)
+
+**Constat** : La page séjour, le CRM et le planning sont trois silos. Pour gérer un mariage ou un séjour de bout en bout, l'hébergeur navigue entre les trois. La facturation n'existe pas côté UI (backend existe). Le planning utilise une palette de couleurs incohérente.
+
+**Volume Sauvageon** : ~60 séjours/an (2/semaine x 30 semaines) + 35 mariages/an. L'outil doit être utilisable à ce volume.
+
+**Parcours cible mariage** : Premier contact (CRM) → Brochure (CRM) → Visite → Création événement (planning ou CRM) → Devis + contrat PDF → Signature → Acompte → Mariage → Facture solde → Soldé. Tout doit être gérable depuis la page séjour une fois le dossier créé.
+
+**Décisions prises :**
+- **Couleurs planning = statut uniquement** (convention marché PMS). Supprimer la PALETTE 8 couleurs. Orange = option, Bleu = confirmé, Vert = acompte versé, Gris = soldé, Rouge hachures = indispo.
+- **Page séjour = centre de gestion unique.** Le CRM reste la vue transversale (tous clients), pas le point de gestion d'un séjour individuel.
+- **Layout événement allégé** : même page mais masque Budget/Participants/Groupes/Projet, met en avant client + devis + facturation + notes.
+- **Brochure accessible depuis les deux** (CRM pour prospect sans dossier, page séjour pour client avec dossier).
+- **Bouton "Nouvel événement" depuis fiche CRM** : prospect → dossier en un clic, infos pré-remplies.
+
+**Sous-chantiers (ordre de priorité) :**
+1. Facturation sur page séjour (bouton acompte/solde, versements, PDF facture) — 2-3j
+2. Bouton "Nouvel événement/séjour" depuis fiche CRM — 0.5j
+3. Couleurs planning par statut — 0.5j
+4. Layout événement allégé + infos client éditables — 0.5j
+5. Section Notes & suivi sur page séjour — 1-2j
+6. Page liste séjours hébergeur + badge notifications dernier km — 1j
+
+**Théo gère la réflexion globale avant de coder.** Ne pas commencer sans validation.
 
 ### Court terme — PRIORITÉ HAUTE
 - [ ] **Planning hébergeur — options/devis en attente** : quand un devis est envoyé (EN_ATTENTE), les dates + nb personnes apparaissent au planning en mode "option" (visuellement distinct des séjours confirmés). L'hébergeur voit la capacité totale = confirmés + options. CRITIQUE pour gestion capacité multi-séjours. Données déjà en base (DemandeDevis.dateDebut/dateFin + nombreEleves). Estimé 2-3 jours. **PRIORITÉ #1 pour démo Yves Massard.**
@@ -522,3 +579,9 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 - Saisie devis : toujours TTC en entrée, HT calculé. L'hébergeur pense en TTC. round2(puTTC / (1 + tva/100)) pour le HT.
 - Conditions annulation : champ centre, fallback hardcodé si NULL. Toujours vérifier en base avant de supposer un bug.
 - Tables PostgreSQL : TOUJOURS snake_case. Prisma model PascalCase ≠ nom de table. Vérifier avec la table de correspondance.
+- Ne JAMAIS supprimer du code sans vérifier que toutes les fonctionnalités sont couvertes par le nouveau flux. Le contrat PDF Sauvageon (370 lignes, clauses juridiques, eIDAS) a été supprimé par erreur lors du nettoyage DevisLibres — régression critique rattrapée en session.
+- Badge sidebar sans destination = UX cassée. Toujours penser le parcours clic par clic avant de coder un indicateur visuel.
+- Couleurs planning : convention marché PMS = couleur par statut (pas par identité séjour). La PALETTE 8 couleurs est instable (change à chaque ajout/suppression de séjour).
+- Un événement (mariage) et un séjour scolaire n'ont pas les mêmes besoins d'interface même s'ils partagent le même modèle de données. Unifier le modèle = bien, unifier l'UX = à challenger.
+- Le CRM est la vue transversale (tous clients), la page séjour est le centre de gestion (un dossier). Ne pas obliger l'hébergeur à naviguer entre les deux pour gérer un même client/séjour.
+- Volume Sauvageon : 60 séjours + 35 mariages/an. L'interface doit supporter ce volume sans friction.
