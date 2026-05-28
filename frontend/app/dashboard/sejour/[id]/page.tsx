@@ -47,6 +47,7 @@ import {
   notifierPlanningEnseignant,
   updateInfosSejour,
   deleteSejourDirect,
+  inviterOrganisateurDirect,
 } from '@/src/lib/collaboration';
 import { getDevisForSejourDirect, envoyerDevisDirect } from '@/src/lib/devis';
 import type { Devis as DevisType } from '@/src/lib/devis';
@@ -563,6 +564,12 @@ export default function CollaborationPage() {
   const [directDevisLoading, setDirectDevisLoading] = useState(false);
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
   const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
+
+  // Invitation organisateur
+  const [showInviteOrga, setShowInviteOrga] = useState(false);
+  const [inviteOrgaEmail, setInviteOrgaEmail] = useState('');
+  const [inviteOrgaSending, setInviteOrgaSending] = useState(false);
+  const [inviteOrgaSuccess, setInviteOrgaSuccess] = useState(false);
 
   // Messages
   const [messages, setMessages] = useState<MessageCollab[]>([]);
@@ -1745,9 +1752,45 @@ export default function CollaborationPage() {
             </div>
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Messagerie</h3>
             <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur à collaborer pour échanger des messages.</p>
-            <button className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white opacity-50 cursor-not-allowed" disabled>
-              Inviter l&apos;organisateur (bientôt)
-            </button>
+            <div className="flex items-center justify-center gap-2">
+              {!showInviteOrga ? (
+                <button
+                  onClick={() => setShowInviteOrga(true)}
+                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Inviter l&apos;organisateur
+                </button>
+              ) : inviteOrgaSuccess ? (
+                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                  ✅ Invitation envoyée à {inviteOrgaEmail}
+                </p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={inviteOrgaEmail}
+                    onChange={e => setInviteOrgaEmail(e.target.value)}
+                    placeholder="email@organisateur.fr"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!inviteOrgaEmail.trim()) return;
+                      setInviteOrgaSending(true);
+                      try {
+                        await inviterOrganisateurDirect(id, inviteOrgaEmail.trim());
+                        setInviteOrgaSuccess(true);
+                      } catch { setMutationError('Erreur lors de l\'envoi de l\'invitation'); }
+                      finally { setInviteOrgaSending(false); }
+                    }}
+                    disabled={inviteOrgaSending || !inviteOrgaEmail.trim()}
+                    className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {inviteOrgaSending ? 'Envoi…' : 'Envoyer'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -2966,9 +3009,45 @@ export default function CollaborationPage() {
             </div>
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Journal de séjour</h3>
             <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur pour publier dans le journal du séjour.</p>
-            <button className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white opacity-50 cursor-not-allowed" disabled>
-              Inviter l&apos;organisateur (bientôt)
-            </button>
+            <div className="flex items-center justify-center gap-2">
+              {!showInviteOrga ? (
+                <button
+                  onClick={() => setShowInviteOrga(true)}
+                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Inviter l&apos;organisateur
+                </button>
+              ) : inviteOrgaSuccess ? (
+                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                  ✅ Invitation envoyée à {inviteOrgaEmail}
+                </p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={inviteOrgaEmail}
+                    onChange={e => setInviteOrgaEmail(e.target.value)}
+                    placeholder="email@organisateur.fr"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!inviteOrgaEmail.trim()) return;
+                      setInviteOrgaSending(true);
+                      try {
+                        await inviterOrganisateurDirect(id, inviteOrgaEmail.trim());
+                        setInviteOrgaSuccess(true);
+                      } catch { setMutationError('Erreur lors de l\'envoi de l\'invitation'); }
+                      finally { setInviteOrgaSending(false); }
+                    }}
+                    disabled={inviteOrgaSending || !inviteOrgaEmail.trim()}
+                    className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {inviteOrgaSending ? 'Envoi…' : 'Envoyer'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

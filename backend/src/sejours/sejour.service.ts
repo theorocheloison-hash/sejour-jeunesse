@@ -1198,4 +1198,71 @@ export class SejourService {
 
     return { deleted: true };
   }
+
+  /**
+   * Envoie une invitation à un organisateur pour collaborer sur un séjour DIRECT.
+   * À l'acceptation, modeGestion passe DIRECT → COLLABORATIF, createurId est set.
+   */
+  async inviterOrganisateur(
+    sejourId: string,
+    emailOrganisateur: string,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: {
+        id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
+        modeGestion: true, hebergementSelectionneId: true, deletedAt: true,
+        clientNom: true, clientOrganisation: true,
+      },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.modeGestion !== 'DIRECT') {
+      throw new ForbiddenException('Ce séjour n\'est pas en gestion directe');
+    }
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    const invitation = await this.prisma.invitationCollaboration.create({
+      data: {
+        centreId: centre.id,
+        emailEnseignant: emailOrganisateur.trim(),
+        titreSejourSuggere: sejour.titre,
+        dateDebut: sejour.dateDebut,
+        dateFin: sejour.dateFin,
+        nbElevesEstime: sejour.placesTotales,
+        message: `${centre.nom} vous invite à collaborer sur le séjour "${sejour.titre}".`,
+        sejourId: sejour.id,
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const lien = `${frontendUrl}/rejoindre/${invitation.token}`;
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    await this.email.sendGenericNotification(
+      emailOrganisateur.trim(),
+      `${centre.nom} vous invite à collaborer sur un séjour`,
+      `<p>Bonjour,</p>
+       <p><strong>${centre.nom}</strong> vous invite à rejoindre l'espace collaboratif pour le séjour :</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.placesTotales}</td></tr>
+       </table>
+       <p>En rejoignant, vous aurez accès à l'espace collaboratif : messagerie, documents partagés, planning, journal de séjour.</p>
+       <p style="margin:24px 0">
+         <a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Rejoindre le séjour
+         </a>
+       </p>`,
+      centre.nom,
+    );
+
+    return { success: true, message: 'Invitation envoyée' };
+  }
 }

@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 27/05/2026 — Session devis TTC + planning options + multi-centre + roadmap
+> Dernière mise à jour : 28/05/2026 — Session séjour en gestion directe (DIRECT) + migration DevisLibres
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.

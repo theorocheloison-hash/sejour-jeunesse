@@ -93,6 +93,30 @@ export class InvitationCollaborationService {
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // ── Si l'invitation est liée à un séjour DIRECT existant → rattacher au lieu de créer ──
+      if (invitation.sejourId) {
+        const existingSejour = await tx.sejour.findUnique({
+          where: { id: invitation.sejourId },
+          select: { id: true, modeGestion: true, createurId: true },
+        });
+        if (existingSejour && existingSejour.modeGestion === 'DIRECT' && !existingSejour.createurId) {
+          await tx.sejour.update({
+            where: { id: existingSejour.id },
+            data: {
+              createurId: user.id,
+              modeGestion: 'COLLABORATIF',
+            },
+          });
+
+          await tx.invitationCollaboration.update({
+            where: { id: invitation.id },
+            data: { acceptedAt: new Date(), sejourId: existingSejour.id },
+          });
+
+          return { sejourId: existingSejour.id, devisCree: null };
+        }
+      }
+
       // Séjour en DRAFT sans hébergeur lié — l'enseignant doit choisir via le workflow devis normal
       const sejour = await tx.sejour.create({
         data: {

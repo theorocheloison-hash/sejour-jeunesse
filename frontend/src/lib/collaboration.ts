@@ -232,6 +232,11 @@ export async function deleteSejourDirect(sejourId: string): Promise<void> {
   await api.delete(`/sejours/${sejourId}`);
 }
 
+export async function inviterOrganisateurDirect(sejourId: string, emailOrganisateur: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/sejours/${sejourId}/inviter-organisateur`, { emailOrganisateur });
+  return data;
+}
+
 // ── Documents centre (conformité) ────────────────────────────────────────────
 
 export interface DocumentCentreFiche {

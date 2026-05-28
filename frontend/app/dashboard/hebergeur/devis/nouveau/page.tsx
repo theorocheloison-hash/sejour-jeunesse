@@ -8,6 +8,7 @@ import { createDevis, createDirectDevis, getNextNumeroDevis, getDemandeInfo } fr
 import type { DemandeInfo, LigneDevis } from '@/src/lib/devis';
 import { getCatalogue, getMonProfil } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
+import { getSejourCollabInfo } from '@/src/lib/collaboration';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -89,6 +90,13 @@ function NouveauDevisContent() {
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Données séjour DIRECT (pour afficher Destinataire + Objet)
+  const [directSejour, setDirectSejour] = useState<{
+    titre: string; dateDebut: string; dateFin: string; placesTotales: number;
+    clientNom: string | null; clientEmail: string | null; clientOrganisation: string | null;
+    lieu: string;
+  } | null>(null);
+
 
   // ── Load data ──
   useEffect(() => {
@@ -113,6 +121,19 @@ function NouveauDevisContent() {
           }
         })
         .catch(() => setLoadError('Impossible de charger les informations du centre.'));
+      // Charger aussi les données du séjour pour Destinataire/Objet
+      getSejourCollabInfo(sejourDirectId)
+        .then(s => setDirectSejour({
+          titre: s.titre,
+          dateDebut: s.dateDebut,
+          dateFin: s.dateFin,
+          placesTotales: s.placesTotales,
+          clientNom: s.clientNom ?? null,
+          clientEmail: s.clientEmail ?? null,
+          clientOrganisation: s.clientOrganisation ?? null,
+          lieu: s.lieu,
+        }))
+        .catch(() => {});
       return;
     }
     // Mode collaboratif : demandeId obligatoire
@@ -379,7 +400,20 @@ function NouveauDevisContent() {
           {/* ── Section 2 : Destinataire ──────────────────────────────────── */}
           <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Destinataire</h2>
-            {demande ? (
+            {isDirect ? (
+              directSejour ? (
+                <div className="text-sm text-gray-700 space-y-1">
+                  {directSejour.clientNom && <p className="font-semibold">{directSejour.clientNom}</p>}
+                  {directSejour.clientOrganisation && <p className="font-medium text-gray-600">{directSejour.clientOrganisation}</p>}
+                  {directSejour.clientEmail && <p className="text-gray-500">{directSejour.clientEmail}</p>}
+                  {!directSejour.clientNom && !directSejour.clientOrganisation && (
+                    <p className="text-gray-400 italic">Client non renseigné</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Chargement...</p>
+              )
+            ) : demande ? (
               <div className="text-sm text-gray-700 space-y-1">
                 {demande.enseignant && (
                   <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
@@ -401,7 +435,20 @@ function NouveauDevisContent() {
           {/* ── Section 3 : Objet ─────────────────────────────────────────── */}
           <div className="px-8 py-6 border-b border-gray-100">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Objet</h2>
-            {sejour ? (
+            {isDirect ? (
+              directSejour ? (
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {directSejour.titre} — {directSejour.lieu} — du {new Date(directSejour.dateDebut).toLocaleDateString('fr-FR')} au {new Date(directSejour.dateFin).toLocaleDateString('fr-FR')}
+                  </p>
+                  <div className="flex gap-4 text-xs text-gray-500">
+                    <span>{directSejour.placesTotales} participant{directSejour.placesTotales > 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Chargement...</p>
+              )
+            ) : sejour ? (
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-gray-900">
                   Séjour — {sejour.lieu} — du {new Date(sejour.dateDebut).toLocaleDateString('fr-FR')} au {new Date(sejour.dateFin).toLocaleDateString('fr-FR')}
@@ -699,8 +746,10 @@ function NouveauDevisContent() {
 
           {/* ── Actions ───────────────────────────────────────────────────── */}
           <div className="px-8 py-6 flex flex-col sm:flex-row gap-3 justify-end">
-            <Link href="/dashboard/hebergeur/demandes"
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors text-center">
+            <Link
+              href={isDirect ? `/dashboard/sejour/${sejourDirectId}` : '/dashboard/hebergeur/demandes'}
+              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors text-center"
+            >
               Annuler
             </Link>
             <button onClick={handleSubmit}
