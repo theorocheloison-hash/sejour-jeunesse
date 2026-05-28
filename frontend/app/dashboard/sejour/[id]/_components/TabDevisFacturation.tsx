@@ -2,8 +2,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { getDevisForSejourDirect, envoyerDevisDirect } from '@/src/lib/devis';
-import type { Devis as DevisType } from '@/src/lib/devis';
+import {
+  getDevisForSejourDirect,
+  envoyerDevisDirect,
+  facturerAcompte,
+  facturerSolde,
+  ajouterVersement,
+  getVersements,
+  supprimerVersement,
+} from '@/src/lib/devis';
+import type { Devis as DevisType, VersementPaiement } from '@/src/lib/devis';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import api from '@/src/lib/api';
@@ -90,6 +98,14 @@ export default function TabDevisFacturation({
   const [invitationSent, setInvitationSent] = useState(false);
   const signatureFileRef = useRef<HTMLInputElement>(null);
 
+  // ── Pipeline facturation ──────────────────────────────────
+  const [versements, setVersements] = useState<VersementPaiement[]>([]);
+  const [versementsLoading, setVersementsLoading] = useState(false);
+  const [facturerLoading, setFacturerLoading] = useState(false);
+  const [showAddVersement, setShowAddVersement] = useState(false);
+  const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '' });
+  const [versementSaving, setVersementSaving] = useState(false);
+
   useEffect(() => {
     if (!isDirect) return;
     setDirectDevisLoading(true);
@@ -98,6 +114,285 @@ export default function TabDevisFacturation({
       .catch(() => {})
       .finally(() => setDirectDevisLoading(false));
   }, [isDirect, sejourId]);
+
+  // Devis actif (DIRECT ou COLLAB) normalisé pour le pipeline facturation
+  const activeDevisForFacturation = isDirect
+    ? directDevis
+      ? {
+          id: directDevis.id,
+          statut: directDevis.statut,
+          montantTTC: Number(directDevis.montantTTC ?? 0),
+          montantAcompte: Number(directDevis.montantAcompte ?? 0),
+          pourcentageAcompte: Number(directDevis.pourcentageAcompte ?? 30),
+        }
+      : null
+    : budgetData?.devis
+      ? {
+          id: budgetData.devis.id,
+          statut: budgetData.devis.statut,
+          montantTTC: Number(budgetData.devis.montantTTC ?? budgetData.devis.montantTotal ?? 0),
+          montantAcompte: Number(budgetData.devis.montantAcompte ?? 0),
+          pourcentageAcompte: Number(budgetData.devis.pourcentageAcompte ?? 30),
+        }
+      : null;
+
+  const activeDevisId = activeDevisForFacturation?.id ?? null;
+  const activeDevisStatut = activeDevisForFacturation?.statut ?? null;
+
+  useEffect(() => {
+    if (!activeDevisId || !activeDevisStatut) return;
+    const FACTURATION_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
+    if (!FACTURATION_STATUTS.includes(activeDevisStatut)) return;
+    setVersementsLoading(true);
+    getVersements(activeDevisId)
+      .then(setVersements)
+      .catch(() => {})
+      .finally(() => setVersementsLoading(false));
+  }, [activeDevisId, activeDevisStatut]);
+
+  const handleFacturerAcompte = async () => {
+    if (!activeDevisId) return;
+    setFacturerLoading(true);
+    try {
+      await facturerAcompte(activeDevisId);
+      if (isDirect) {
+        const devis = await getDevisForSejourDirect(sejourId);
+        setDirectDevis(devis[0] ?? null);
+      } else {
+        await onBudgetReload();
+      }
+    } catch {
+      onError('Erreur lors de la facturation de l\'acompte');
+    } finally {
+      setFacturerLoading(false);
+    }
+  };
+
+  const handleFacturerSolde = async () => {
+    if (!activeDevisId) return;
+    setFacturerLoading(true);
+    try {
+      await facturerSolde(activeDevisId);
+      if (isDirect) {
+        const devis = await getDevisForSejourDirect(sejourId);
+        setDirectDevis(devis[0] ?? null);
+      } else {
+        await onBudgetReload();
+      }
+    } catch {
+      onError('Erreur lors de la facturation du solde');
+    } finally {
+      setFacturerLoading(false);
+    }
+  };
+
+  const handleAjouterVersement = async () => {
+    if (!activeDevisId || !versementForm.montant || !versementForm.datePaiement) return;
+    setVersementSaving(true);
+    try {
+      await ajouterVersement(
+        activeDevisId,
+        parseFloat(versementForm.montant),
+        versementForm.datePaiement,
+        versementForm.reference || undefined,
+      );
+      setVersements(await getVersements(activeDevisId));
+      setVersementForm({ montant: '', datePaiement: '', reference: '' });
+      setShowAddVersement(false);
+    } catch {
+      onError('Erreur lors de l\'ajout du versement');
+    } finally {
+      setVersementSaving(false);
+    }
+  };
+
+  const handleSupprimerVersement = async (versementId: string) => {
+    if (!activeDevisId) return;
+    try {
+      await supprimerVersement(activeDevisId, versementId);
+      setVersements(await getVersements(activeDevisId));
+    } catch {
+      onError('Erreur lors de la suppression du versement');
+    }
+  };
+
+  const renderFacturationPipeline = () => {
+    if (user.role !== 'HEBERGEUR') return null;
+    if (!activeDevisForFacturation) return null;
+    const FACTURATION_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
+    if (!FACTURATION_STATUTS.includes(activeDevisForFacturation.statut)) return null;
+
+    const ad = activeDevisForFacturation;
+    const totalVerse = versements.reduce((sum, v) => sum + v.montant, 0);
+    const resteDu = ad.montantTTC - totalVerse;
+    const pctVerse = ad.montantTTC > 0 ? Math.min(100, Math.round((totalVerse / ad.montantTTC) * 100)) : 0;
+
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-900">Facturation</h3>
+
+        <div className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${
+            ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION' ? 'bg-amber-400' :
+            ad.statut === 'FACTURE_ACOMPTE' ? 'bg-blue-500' :
+            'bg-green-500'
+          }`} />
+          <span className="text-sm text-gray-700">
+            {ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION' ? 'En attente d\'acompte' :
+             ad.statut === 'FACTURE_ACOMPTE' ? 'Acompte facturé' :
+             'Soldé'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-gray-500">Total TTC</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {ad.montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-gray-500">Acompte ({ad.pourcentageAcompte}%)</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {ad.montantAcompte.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-gray-500">Déjà versé</p>
+            <p className="text-sm font-semibold text-green-700 mt-0.5">
+              {totalVerse.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-gray-500">Reste dû</p>
+            <p className="text-sm font-semibold text-amber-700 mt-0.5">
+              {resteDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Versements</span>
+            <span>{pctVerse}%</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pctVerse}%` }} />
+          </div>
+        </div>
+
+        {versementsLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
+          </div>
+        ) : versements.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-500">Versements</p>
+            {versements.map(v => (
+              <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-500">{new Date(v.datePaiement).toLocaleDateString('fr-FR')}</span>
+                  <span className="font-medium text-gray-900">{v.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                  {v.reference && <span className="text-gray-400">Réf: {v.reference}</span>}
+                </div>
+                <button
+                  onClick={() => handleSupprimerVersement(v.id)}
+                  className="text-red-400 hover:text-red-600 transition-colors"
+                  title="Supprimer ce versement"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Aucun versement enregistré</p>
+        )}
+
+        {showAddVersement && (
+          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-700">Nouveau versement</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Montant (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={versementForm.montant}
+                  onChange={e => setVersementForm(f => ({ ...f, montant: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="1440.00"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={versementForm.datePaiement}
+                  onChange={e => setVersementForm(f => ({ ...f, datePaiement: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Référence</label>
+                <input
+                  type="text"
+                  value={versementForm.reference}
+                  onChange={e => setVersementForm(f => ({ ...f, reference: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="VIR-2026-001"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowAddVersement(false); setVersementForm({ montant: '', datePaiement: '', reference: '' }); }}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAjouterVersement}
+                disabled={versementSaving || !versementForm.montant || !versementForm.datePaiement}
+                className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {versementSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap pt-2">
+          {ad.statut !== 'FACTURE_SOLDE' && (
+            <button
+              onClick={() => setShowAddVersement(true)}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              + Ajouter un versement
+            </button>
+          )}
+          {(ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION') && (
+            <button
+              onClick={handleFacturerAcompte}
+              disabled={facturerLoading}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {facturerLoading ? 'Facturation...' : '📄 Facturer l\'acompte'}
+            </button>
+          )}
+          {ad.statut === 'FACTURE_ACOMPTE' && (
+            <button
+              onClick={handleFacturerSolde}
+              disabled={facturerLoading}
+              className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {facturerLoading ? 'Facturation...' : '📄 Facturer le solde'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -232,6 +527,8 @@ export default function TabDevisFacturation({
                   </p>
                 </div>
               )}
+
+              {renderFacturationPipeline()}
             </>
           ) : (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -422,6 +719,7 @@ export default function TabDevisFacturation({
                 ) : (
                   <DevisPDFInline data={pdfProps} />
                 )}
+                {renderFacturationPipeline()}
               </div>
             );
           })()}
