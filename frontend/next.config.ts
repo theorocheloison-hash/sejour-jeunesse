@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       { source: '/register/teacher', destination: '/register/organisateur', permanent: true },
       { source: '/register/venue', destination: '/register/hebergeur', permanent: true },
       { source: '/register/director', destination: '/register/signataire', permanent: true },
+      // DevisLibres → Devis unifié (Phase 5 migration)
+      { source: '/devis-libre/signer/:token', destination: '/devis/signer/:token', permanent: true },
     ];
   },
 };

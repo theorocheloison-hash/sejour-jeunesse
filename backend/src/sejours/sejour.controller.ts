@@ -67,6 +67,18 @@ export class SejourController {
     return this.sejourService.softDeleteSejour(id, user.id, centreId);
   }
 
+  /** POST /sejours/:id/inviter-organisateur — Inviter un organisateur sur un séjour DIRECT */
+  @Post(':id/inviter-organisateur')
+  @Roles(Role.HEBERGEUR)
+  inviterOrganisateur(
+    @Param('id') id: string,
+    @Body() body: { emailOrganisateur: string },
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.inviterOrganisateur(id, body.emailOrganisateur, user.id, centreId);
+  }
+
   /** GET /sejours/me — Séjours de l'enseignant connecté */
   @Get('me')
   @Roles(Role.ORGANISATEUR)
