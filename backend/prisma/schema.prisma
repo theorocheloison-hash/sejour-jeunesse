@@ -263,6 +263,7 @@ model Sejour {
   clientOrganisation String?  @map("client_organisation") @db.VarChar(255)
   clientOrganisationId String? @map("client_organisation_id") @db.Uuid
   deletedAt         DateTime? @map("deleted_at")
+  notesInternes     String?   @map("notes_internes") @db.Text
 
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)
@@ -281,6 +282,8 @@ model Sejour {
   postsJournal           PostJournal[]
   sejourRelations        SejourRelation[]
   visitesHebergeur       SejourVisiteHebergeur[]
+  rappels                Rappel[]
+  activitesClient        ActiviteClient[] @relation("ActivitesClientSejour")
 
   @@index([createurId])
   @@index([statut])
@@ -1124,6 +1127,8 @@ model Rappel {
   statut       String   @default("A_FAIRE") @db.VarChar(20)
   createdAt    DateTime @default(now()) @map("created_at")
   notifiedAt   DateTime? @map("notified_at")
+  sejourId     String?  @map("sejour_id") @db.Uuid
+  sejour       Sejour?  @relation(fields: [sejourId], references: [id], onDelete: SetNull)
 
   client   Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   relation RelationCommerciale?  @relation("RappelsRelation", fields: [relationId], references: [id], onDelete: SetNull)
@@ -1346,6 +1351,8 @@ model ActiviteClient {
   description String   @db.Text
   metadata    Json?
   userId      String?  @map("user_id") @db.Uuid
+  sejourId    String?  @map("sejour_id") @db.Uuid
+  sejour      Sejour?  @relation("ActivitesClientSejour", fields: [sejourId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
 
   client Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
