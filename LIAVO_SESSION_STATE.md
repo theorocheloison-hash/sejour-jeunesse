@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 28/05/2026 — Session Tier 1 post-séjour DIRECT + notifications + CRM + nettoyage + fix contrat
+> Dernière mise à jour : 28/05/2026 soir — Chantier refonte page séjour : architecture UX validée, sous-chantiers #1 et #2 livrés
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -377,30 +377,46 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 - [ ] **Titres de section**
 - [ ] **Auto-signature organisateur** (cas colo où l'organisateur est aussi signataire)
 
-### CHANTIER GLOBAL — Refonte page séjour + facturation + planning couleurs (identifié 28/05/2026)
+### CHANTIER GLOBAL — Refonte page séjour + facturation + planning couleurs
 
-**Constat** : La page séjour, le CRM et le planning sont trois silos. Pour gérer un mariage ou un séjour de bout en bout, l'hébergeur navigue entre les trois. La facturation n'existe pas côté UI (backend existe). Le planning utilise une palette de couleurs incohérente.
+**Doc de référence** : `docs/ARCHITECTURE_UX_SEJOUR_FINAL.md` (validé 28/05/2026)
 
-**Volume Sauvageon** : ~60 séjours/an (2/semaine x 30 semaines) + 35 mariages/an. L'outil doit être utilisable à ce volume.
+**Décisions clés validées :**
+- Pipeline CRM : statut client dérivé automatiquement du devis le plus avancé (plus de pipeline manuel PROSPECT/CONTACTE/INTERESSE/EN_NEGOCIATION)
+- Override manuel : PERDU uniquement, reset si nouveau dossier créé
+- Couleurs planning : 5 statuts (Option orange, Confirmé bleu, Acompte vert, Soldé gris, Indispo rouge). Pas de distinction séjour/événement par couleur.
+- Source couleur facturation : dérivation frontend depuis statut devis (Option A)
+- Refactor page.tsx : extraction ciblée (Option B) — Devis/Facturation + Notes + Header uniquement
+- Notes internes : textarea simple sur Sejour + timeline ActiviteClient horodatée
+- Rappels/Activités : sejourId optionnel ajouté (migration livrée)
+- Bouton Retour : page liste séjours (point d'entrée principal, remplace le planning)
+- Planifier visite : bouton dans CRM (existant) + header page séjour (à ajouter), centre.nom dynamique
+- Contrat PDF : visible et téléchargeable depuis header page séjour (vue hébergeur)
+- Bouton CRM → séjour : [+ Nouveau séjour] / [+ Nouvel événement] dans fiche client, pré-remplit infos
+- Conformité facturation française : chantier dédié séparé
+- Chorus Pro : séjours scolaires uniquement, audit getChorusXml() dans chantier conformité
 
-**Parcours cible mariage** : Premier contact (CRM) → Brochure (CRM) → Visite → Création événement (planning ou CRM) → Devis + contrat PDF → Signature → Acompte → Mariage → Facture solde → Soldé. Tout doit être gérable depuis la page séjour une fois le dossier créé.
+**Sous-chantiers — Avancement :**
 
-**Décisions prises :**
-- **Couleurs planning = statut uniquement** (convention marché PMS). Supprimer la PALETTE 8 couleurs. Orange = option, Bleu = confirmé, Vert = acompte versé, Gris = soldé, Rouge hachures = indispo.
-- **Page séjour = centre de gestion unique.** Le CRM reste la vue transversale (tous clients), pas le point de gestion d'un séjour individuel.
-- **Layout événement allégé** : même page mais masque Budget/Participants/Groupes/Projet, met en avant client + devis + facturation + notes.
-- **Brochure accessible depuis les deux** (CRM pour prospect sans dossier, page séjour pour client avec dossier).
-- **Bouton "Nouvel événement" depuis fiche CRM** : prospect → dossier en un clic, infos pré-remplies.
+| # | Sous-chantier | Estimation | Statut |
+|---|---|---|---|
+| 1 | Fix supprimerVersement @Roles + "Sauvageon" hardcodé calendar | 15 min | ✅ Livré |
+| 2 | Migration Prisma notesInternes + sejourId Rappel/ActiviteClient + fix brochure hardcodée | 0.5j | ✅ Livré |
+| 3 | Extraction TabDevisFacturation.tsx (code devis existant déplacé) | 1j | ⬜ Prochain |
+| 4 | Pipeline facturation UI (Section B de l'onglet) | 1j | ⬜ |
+| 5 | TabNotes.tsx : textarea + timeline activités + rappels filtrés par séjour | 1j | ⬜ |
+| 6 | SejourHeader.tsx : header extrait, infos client éditables, liens agenda/contrat/CRM | 0.5j | ⬜ |
+| 7 | Planning couleurs par statut + include devis dans mes-sejours-planning | 0.5j | ⬜ |
+| 8 | Pipeline CRM dérivé : suppression pipeline manuel, calcul frontend, kanban 5 colonnes | 1j | ⬜ |
+| 9 | Enrichir section Séjours liés CRM : titre/dates/badge + boutons [+ Nouveau séjour/événement] | 0.5j | ⬜ |
+| 10 | Page liste séjours /dashboard/hebergeur/sejours + item sidebar + badge non-lu | 1j | ⬜ |
 
-**Sous-chantiers (ordre de priorité) :**
-1. Facturation sur page séjour (bouton acompte/solde, versements, PDF facture) — 2-3j
-2. Bouton "Nouvel événement/séjour" depuis fiche CRM — 0.5j
-3. Couleurs planning par statut — 0.5j
-4. Layout événement allégé + infos client éditables — 0.5j
-5. Section Notes & suivi sur page séjour — 1-2j
-6. Page liste séjours hébergeur + badge notifications dernier km — 1j
+Chemin critique : 3 → 4 → 5
+Parallélisable : #7 (planning) + #8 (CRM) dès maintenant
 
-**Théo gère la réflexion globale avant de coder.** Ne pas commencer sans validation.
+Commits livrés :
+- Sous-chantier #1 : fix: @Roles HEBERGEUR supprimerVersement + Google Calendar centre.nom dynamique
+- Sous-chantier #2 : feat: migration notesInternes + sejourId sur Rappel/ActiviteClient + fix brochure centre.nom dynamique
 
 ### Court terme — PRIORITÉ HAUTE
 - [ ] **Planning hébergeur — options/devis en attente** : quand un devis est envoyé (EN_ATTENTE), les dates + nb personnes apparaissent au planning en mode "option" (visuellement distinct des séjours confirmés). L'hébergeur voit la capacité totale = confirmés + options. CRITIQUE pour gestion capacité multi-séjours. Données déjà en base (DemandeDevis.dateDebut/dateFin + nombreEleves). Estimé 2-3 jours. **PRIORITÉ #1 pour démo Yves Massard.**
@@ -539,6 +555,8 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 - [ ] APIDAE_IDDJ_API_KEY ?? '' : throw au démarrage si vide (admin.service.ts)
 - [ ] OG tag "649 centres référencés" à supprimer (Option A validée, pas appliquée)
 - [ ] JWT_SECRET=dev-secret-2024 en production → changer avant déploiement majeur
+- [ ] "Sauvageon" hardcodé dans a-propos/page.tsx : page marketing, contenu éditorial. Légitime, pas de fix nécessaire.
+- [ ] contrat-sauvageon.pdf.tsx : template contrat PDF spécifique Sauvageon. À généraliser en template configurable par centre à terme.
 
 ---
 
@@ -584,4 +602,7 @@ Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer
 - Couleurs planning : convention marché PMS = couleur par statut (pas par identité séjour). La PALETTE 8 couleurs est instable (change à chaque ajout/suppression de séjour).
 - Un événement (mariage) et un séjour scolaire n'ont pas les mêmes besoins d'interface même s'ils partagent le même modèle de données. Unifier le modèle = bien, unifier l'UX = à challenger.
 - Le CRM est la vue transversale (tous clients), la page séjour est le centre de gestion (un dossier). Ne pas obliger l'hébergeur à naviguer entre les deux pour gérer un même client/séjour.
+- Pipeline CRM généraliste (PROSPECT/CONTACTE/INTERESSE/EN_NEGOCIATION) = vocabulaire commercial B2B inadapté aux hébergeurs. Le statut client doit être dérivé du devis, pas maintenu manuellement.
+- Toujours grep les hardcodages (noms de centre, URLs spécifiques) avant de considérer un fix comme complet.
+- Les rappels et activités CRM non liés au séjour = silo inutilisable à 95 dossiers/an. Le sejourId optionnel résout sans casser l'existant.
 - Volume Sauvageon : 60 séjours + 35 mariages/an. L'interface doit supporter ce volume sans friction.
