@@ -33,8 +33,13 @@ export class LigneDevisDto {
 }
 
 export class CreateDevisDto {
+  @IsOptional()
   @IsUUID()
-  demandeId!: string;
+  demandeId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  sejourDirectId?: string;
 
   @IsString()
   @MinLength(1)
