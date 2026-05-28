@@ -4,6 +4,7 @@ import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import { getMesDevis } from '@/src/lib/devis';
 import { getMonProfil } from '@/src/lib/centre';
+import { getMesNonLus } from '@/src/lib/collaboration';
 import type { Centre } from '@/src/lib/centre';
 
 export function useHebergeurCounts() {
@@ -11,15 +12,17 @@ export function useHebergeurCounts() {
   const [demandesCount, setDemandesCount] = useState(0);
   const [rappelsCount, setRappelsCount] = useState(0);
   const [actionsFactCount, setActionsFactCount] = useState(0);
+  const [sejoursNonLusCount, setSejoursNonLusCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [profil, demandes, rappels, devis] = await Promise.all([
+      const [profil, demandes, rappels, devis, nonLus] = await Promise.all([
         getMonProfil().catch(() => null),
         getDemandesOuvertes().catch(() => []),
         getRappelsToday().catch(() => []),
         getMesDevis().catch(() => []),
+        getMesNonLus().catch(() => ({ total: 0, parSejour: [] })),
       ]);
       setCentre(profil);
       setDemandesCount(demandes.length);
@@ -35,11 +38,12 @@ export function useHebergeurCounts() {
         (!d.typeDocument || d.typeDocument === 'DEVIS')
       ).length;
       setActionsFactCount(devisSignesAFacturer + acomptesAttente);
+      setSejoursNonLusCount(nonLus.total);
     } catch { /* ignore */ }
     finally { setLoaded(true); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  return { centre, demandesCount, rappelsCount, actionsFactCount, loaded, reload: load };
+  return { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount, loaded, reload: load };
 }

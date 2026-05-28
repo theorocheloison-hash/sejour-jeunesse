@@ -8,7 +8,7 @@ import { useHebergeurCounts } from './_components/useHebergeurCounts';
 export default function HebergeurLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
-  const { centre, demandesCount, rappelsCount, actionsFactCount } = useHebergeurCounts();
+  const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) {
@@ -25,6 +25,7 @@ export default function HebergeurLayout({ children }: { children: React.ReactNod
         demandesCount={demandesCount}
         rappelsCount={rappelsCount}
         actionsFactCount={actionsFactCount}
+        sejoursNonLusCount={sejoursNonLusCount}
         onLogout={logout}
       />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">

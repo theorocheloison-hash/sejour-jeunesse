@@ -87,7 +87,7 @@ import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSid
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
-  const { centre, demandesCount, rappelsCount, actionsFactCount } = useHebergeurCounts();
+  const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
   return (
     <HebergeurSidebar
       centre={centre ?? {
@@ -98,6 +98,7 @@ function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabIn
       demandesCount={demandesCount}
       rappelsCount={rappelsCount}
       actionsFactCount={actionsFactCount}
+      sejoursNonLusCount={sejoursNonLusCount}
       onLogout={logout}
     />
   );

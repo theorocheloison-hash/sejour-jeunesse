@@ -14,6 +14,7 @@ interface HebergeurSidebarProps {
   demandesCount: number;
   rappelsCount: number;
   actionsFactCount: number;
+  sejoursNonLusCount: number;
   onLogout: () => void;
 }
 
@@ -76,6 +77,7 @@ export default function HebergeurSidebar({
   demandesCount,
   rappelsCount,
   actionsFactCount,
+  sejoursNonLusCount,
   onLogout,
 }: HebergeurSidebarProps) {
   const pathname = usePathname();
@@ -91,6 +93,8 @@ export default function HebergeurSidebar({
         badge = { count: actionsFactCount, color: 'orange' };
       } else if (item.href === '/dashboard/hebergeur/clients' && rappelsCount > 0) {
         badge = { count: rappelsCount, color: 'red' };
+      } else if (item.href === '/dashboard/hebergeur/planning' && sejoursNonLusCount > 0) {
+        badge = { count: sejoursNonLusCount, color: 'red' };
       }
       return { ...item, badge };
     }),
