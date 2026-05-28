@@ -103,6 +103,7 @@ function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabIn
 
 const STATUT_LABEL: Record<string, string> = {
   DRAFT: 'Brouillon',
+  OPTION: 'Option',
   SUBMITTED: 'Soumis',
   CONVENTION: 'Convention',
   SOUMIS_RECTORAT: 'Soumis rectorat',
@@ -114,6 +115,7 @@ const STATUT_LABEL: Record<string, string> = {
 
 const STATUT_BADGE_CLS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
+  OPTION: 'bg-amber-100 text-amber-700',
   SUBMITTED: 'bg-orange-100 text-orange-700',
   CONVENTION: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
   SOUMIS_RECTORAT: 'bg-purple-100 text-purple-700',
