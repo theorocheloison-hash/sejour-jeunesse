@@ -29,6 +29,19 @@ export class DevisController {
     return this.devisService.create(dto, user.id, file, centreId);
   }
 
+  /** POST /devis/direct — Créer un devis sur séjour DIRECT */
+  @Post('direct')
+  @Roles(Role.HEBERGEUR)
+  @UseInterceptors(FileInterceptor('file'))
+  createDirect(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateDevisDto,
+    @CentreId() centreId: string | null,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.devisService.createDirectDevis(dto, user.id, file, centreId);
+  }
+
   @Get('mes-devis')
   @Roles(Role.HEBERGEUR)
   getMesDevis(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
@@ -162,6 +175,17 @@ export class DevisController {
     @Body() body: { montant: number; datePaiement: string; reference?: string },
   ) {
     return this.devisService.ajouterVersement(id, body.montant, body.datePaiement, body.reference);
+  }
+
+  /** POST /devis/:id/envoyer-direct — Envoyer un devis DIRECT par email */
+  @Post(':id/envoyer-direct')
+  @Roles(Role.HEBERGEUR)
+  envoyerDirect(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.envoyerDevisDirect(id, user.id, centreId);
   }
 
   @Get(':id/versements')

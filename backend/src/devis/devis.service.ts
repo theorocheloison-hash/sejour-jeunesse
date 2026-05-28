@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import type { Request } from 'express';
 import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -24,11 +25,15 @@ export class DevisService {
   ) {}
 
   async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File, centreId?: string | null) {
+    if (!dto.demandeId) {
+      throw new ForbiddenException('demandeId est requis. Utilisez POST /devis/direct pour un séjour en gestion directe.');
+    }
+    const demandeId: string = dto.demandeId;
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     // TODO: ABONNEMENT — réactiver la vérification d'abonnement
 
     const demande = await this.prisma.demandeDevis.findUnique({
-      where: { id: dto.demandeId },
+      where: { id: demandeId },
     });
     if (!demande) throw new NotFoundException('Demande introuvable');
     if (demande.statut !== 'OUVERTE') {
@@ -43,7 +48,7 @@ export class DevisService {
     // Vérifier qu'un devis actif n'existe pas déjà pour ce couple demande/centre
     const devisExistant = await this.prisma.devis.findFirst({
       where: {
-        demandeId: dto.demandeId,
+        demandeId,
         centreId: centre.id,
         statut: {
           in: [
@@ -71,7 +76,7 @@ export class DevisService {
 
     const devis = await this.prisma.devis.create({
       data: {
-        demandeId: dto.demandeId,
+        demandeId,
         centreId: centre.id,
         montantTotal: dto.montantTotal,
         montantParEleve: dto.montantParEleve,
@@ -1214,5 +1219,520 @@ export class DevisService {
     );
 
     return { success: true };
+  }
+
+  // ── Devis DIRECT (gestion hébergeur sans DemandeDevis) ────────────────────
+
+  /**
+   * Créer un devis sur un séjour en gestion DIRECT (pas de DemandeDevis).
+   */
+  async createDirectDevis(
+    dto: CreateDevisDto,
+    userId: string,
+    file?: Express.Multer.File,
+    centreId?: string | null,
+  ) {
+    if (!dto.sejourDirectId) {
+      throw new ForbiddenException('sejourDirectId est requis pour un devis direct');
+    }
+    const sejourDirectId = dto.sejourDirectId;
+
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourDirectId },
+      select: {
+        id: true,
+        modeGestion: true,
+        hebergementSelectionneId: true,
+        titre: true,
+        clientNom: true,
+        clientEmail: true,
+        deletedAt: true,
+      },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.modeGestion !== 'DIRECT') {
+      throw new ForbiddenException('Ce séjour n\'est pas en gestion directe');
+    }
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    const devisExistant = await this.prisma.devis.findFirst({
+      where: {
+        sejourDirectId,
+        statut: {
+          in: [
+            StatutDevis.EN_ATTENTE,
+            StatutDevis.EN_ATTENTE_VALIDATION,
+            StatutDevis.SELECTIONNE,
+          ],
+        },
+      },
+    });
+    if (devisExistant) {
+      throw new ForbiddenException('Un devis actif existe déjà pour ce séjour');
+    }
+
+    const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
+
+    let documentUrl: string | null = null;
+    if (file && file.mimetype === 'application/pdf') {
+      documentUrl = await this.storage.upload(file, 'devis');
+    }
+
+    const devis = await this.prisma.devis.create({
+      data: {
+        sejourDirectId,
+        demandeId: null,
+        centreId: centre.id,
+        montantTotal: dto.montantTotal ?? '0',
+        montantParEleve: dto.montantParEleve ?? '0',
+        description: dto.description,
+        conditionsAnnulation: dto.conditionsAnnulation,
+        documentUrl,
+        nomEntreprise: dto.nomEntreprise,
+        adresseEntreprise: dto.adresseEntreprise,
+        siretEntreprise: dto.siretEntreprise,
+        emailEntreprise: dto.emailEntreprise,
+        telEntreprise: dto.telEntreprise,
+        tauxTva: dto.tauxTva,
+        montantHT: dto.montantHT,
+        montantTVA: dto.montantTVA,
+        montantTTC: dto.montantTTC,
+        pourcentageAcompte: dto.pourcentageAcompte,
+        montantAcompte: dto.montantAcompte,
+        numeroDevis,
+        typeDevis: 'PLATEFORME',
+      },
+    });
+
+    if (dto.lignes && dto.lignes.length > 0) {
+      await this.prisma.ligneDevis.createMany({
+        data: dto.lignes.map((l) => ({
+          devisId: devis.id,
+          description: l.description,
+          quantite: l.quantite,
+          prixUnitaire: l.prixUnitaire,
+          tva: l.tva ?? 0,
+          totalHT: l.totalHT,
+          totalTTC: l.totalTTC,
+        })),
+      });
+    }
+
+    return this.prisma.devis.findUnique({
+      where: { id: devis.id },
+      include: { lignes: true },
+    });
+  }
+
+  /**
+   * Envoie un devis DIRECT par email au client avec lien de signature.
+   */
+  async envoyerDevisDirect(
+    devisId: string,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        lignes: true,
+        sejourDirect: {
+          select: {
+            id: true, titre: true, dateDebut: true, dateFin: true,
+            clientNom: true, clientEmail: true, clientOrganisation: true,
+            modeGestion: true, placesTotales: true,
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException();
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new ForbiddenException('Ce devis n\'est pas un devis direct');
+    }
+    if (devis.sejourDirect.modeGestion !== 'DIRECT') {
+      throw new ForbiddenException('Le séjour n\'est pas en gestion directe');
+    }
+
+    const clientEmail = devis.sejourDirect.clientEmail;
+    if (!clientEmail) {
+      throw new ForbiddenException('L\'email du client est requis pour envoyer le devis');
+    }
+
+    if (devis.statut !== 'EN_ATTENTE') {
+      await this.prisma.devis.update({
+        where: { id: devisId },
+        data: { statut: StatutDevis.EN_ATTENTE },
+      });
+    }
+
+    const token = devis.tokenSignature;
+    if (!token) {
+      throw new ForbiddenException('Token de signature manquant sur le devis');
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const sejour = devis.sejourDirect;
+
+    await this.email.sendGenericNotification(
+      clientEmail,
+      `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
+      `<p>Bonjour${sejour.clientNom ? ` ${sejour.clientNom}` : ''},</p>
+       <p>Veuillez trouver ci-joint le devis pour :</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.placesTotales}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
+       </table>
+       <p>Consultez le devis complet et signez-le en ligne :</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/devis/signer/${token}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir et signer le devis
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${frontendUrl}/devis/signer/${token}</p>`,
+      centre.nom,
+    );
+
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            type: 'DEVIS',
+            description: `Devis ${devis.numeroDevis ?? ''} envoyé — ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
+            metadata: { devisId, sejourId: sejour.id },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { success: true, message: 'Devis envoyé par email' };
+  }
+
+  /**
+   * Retourne les données publiques d'un devis via son token de signature.
+   */
+  async getDevisPublicByToken(token: string) {
+    const devis = await this.prisma.devis.findUnique({
+      where: { tokenSignature: token },
+      include: {
+        lignes: true,
+        centre: {
+          select: {
+            nom: true, ville: true, adresse: true, codePostal: true,
+            siret: true, telephone: true, email: true,
+            tvaIntracommunautaire: true, iban: true,
+            brochureUrl: true, conditionsAnnulation: true,
+          },
+        },
+        sejourDirect: {
+          select: {
+            id: true, titre: true, lieu: true,
+            dateDebut: true, dateFin: true, placesTotales: true,
+            clientNom: true, clientPrenom: true, clientEmail: true,
+            clientOrganisation: true, natureSejour: true, typeSejour: true,
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Lien de signature invalide');
+    if (!devis.sejourDirectId) {
+      throw new NotFoundException('Ce devis n\'utilise pas la signature par lien');
+    }
+
+    const isSigned = devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION'
+      || devis.statut === 'FACTURE_ACOMPTE' || devis.statut === 'FACTURE_SOLDE';
+
+    return {
+      id: devis.id,
+      numeroDevis: devis.numeroDevis,
+      statut: devis.statut,
+      montantHT: devis.montantHT,
+      montantTVA: devis.montantTVA,
+      montantTTC: devis.montantTTC,
+      tauxTva: devis.tauxTva,
+      pourcentageAcompte: devis.pourcentageAcompte,
+      montantAcompte: devis.montantAcompte,
+      description: devis.description,
+      conditionsAnnulation: devis.conditionsAnnulation,
+      nomEntreprise: devis.nomEntreprise,
+      adresseEntreprise: devis.adresseEntreprise,
+      siretEntreprise: devis.siretEntreprise,
+      emailEntreprise: devis.emailEntreprise,
+      telEntreprise: devis.telEntreprise,
+      createdAt: devis.createdAt,
+      lignes: devis.lignes,
+      centre: devis.centre,
+      sejour: devis.sejourDirect,
+      isSigned,
+      signatureDirecteur: devis.signatureDirecteur,
+      nomSignataireDirecteur: devis.nomSignataireDirecteur,
+      dateSignatureDirecteur: devis.dateSignatureDirecteur,
+      signatureDocumentUrl: devis.signatureDocumentUrl,
+    };
+  }
+
+  /**
+   * Signature directe par le client (option 1 de la page publique).
+   */
+  async signerDevisDirect(
+    token: string,
+    body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
+    req: Request,
+  ) {
+    if (!body.confirmation) {
+      throw new ForbiddenException('Vous devez accepter les conditions pour signer');
+    }
+    if (!body.nomSignataire?.trim()) {
+      throw new ForbiddenException('Le nom du signataire est requis');
+    }
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { tokenSignature: token },
+      include: {
+        centre: { select: { nom: true, email: true } },
+        sejourDirect: { select: { id: true, titre: true, clientEmail: true, clientNom: true, dateDebut: true, dateFin: true, modeGestion: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Lien invalide');
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new NotFoundException('Devis non éligible à la signature par lien');
+    }
+    if (devis.statut !== 'EN_ATTENTE') {
+      throw new ForbiddenException('Ce devis ne peut plus être signé (statut actuel : ' + devis.statut + ')');
+    }
+
+    const now = new Date();
+    const hash = createHash('sha256')
+      .update(`${token}${body.nomSignataire}${now.toISOString()}${devis.montantTTC ?? '0'}`)
+      .digest('hex');
+
+    await this.prisma.devis.update({
+      where: { id: devis.id },
+      data: {
+        statut: StatutDevis.SELECTIONNE,
+        signatureDirecteur: `Signé électroniquement par ${body.nomSignataire}${body.fonctionSignataire ? ` (${body.fonctionSignataire})` : ''} — ${now.toLocaleDateString('fr-FR')}`,
+        nomSignataireDirecteur: body.nomSignataire.trim(),
+        dateSignatureDirecteur: now,
+        signatureIpAddress: req.ip ?? null,
+        signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
+        signatureHash: hash,
+      },
+    });
+
+    await this.prisma.sejour.update({
+      where: { id: devis.sejourDirect.id },
+      data: {
+        statut: StatutSejour.CONVENTION,
+        hebergementSelectionneId: devis.centreId,
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const sejour = devis.sejourDirect;
+
+    if (sejour.clientEmail) {
+      try {
+        await this.email.sendGenericNotification(
+          sejour.clientEmail,
+          `Confirmation de réservation — ${sejour.titre}`,
+          `<p>Bonjour${sejour.clientNom ? ` ${sejour.clientNom}` : ''},</p>
+           <p>Nous confirmons la signature du devis <strong>${devis.numeroDevis}</strong> pour <strong>${sejour.titre}</strong>
+           du ${fmt(sejour.dateDebut)} au ${fmt(sejour.dateFin)}.</p>
+           <p><strong>Signé par :</strong> ${body.nomSignataire}<br>
+           <strong>Date :</strong> ${fmt(now)}</p>
+           <p>Un acompte de <strong>${Number(devis.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</strong>
+           est à régler selon les conditions convenues.</p>`,
+          devis.centre?.nom,
+        );
+      } catch { /* non bloquant */ }
+    }
+
+    if (devis.centre?.email) {
+      try {
+        await this.email.sendGenericNotification(
+          devis.centre.email,
+          `Devis signé — ${sejour.titre} · ${sejour.clientNom ?? 'Client'}`,
+          `<p>Le devis <strong>${devis.numeroDevis}</strong> a été signé électroniquement.</p>
+           <p><strong>Signataire :</strong> ${body.nomSignataire}<br>
+           <strong>Séjour :</strong> ${sejour.titre}<br>
+           <strong>Dates :</strong> ${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}<br>
+           <strong>Montant TTC :</strong> ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p>
+           <p style="margin:24px 0">
+             <a href="${frontendUrl}/dashboard/hebergeur/planning" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+               Voir le planning
+             </a>
+           </p>`,
+        );
+      } catch { /* non bloquant */ }
+    }
+
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: devis.centreId,
+            type: 'SIGNATURE',
+            description: `Devis ${devis.numeroDevis ?? ''} signé par ${body.nomSignataire}`,
+            metadata: { devisId: devis.id, sejourId: sejour.id },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { success: true, message: 'Devis signé avec succès' };
+  }
+
+  /**
+   * Déléguer la signature à la direction (option 2).
+   */
+  async envoyerADirection(
+    token: string,
+    body: { emailDirecteur: string; nomDirecteur?: string },
+  ) {
+    if (!body.emailDirecteur?.trim()) {
+      throw new ForbiddenException('L\'email du signataire est requis');
+    }
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { tokenSignature: token },
+      include: {
+        sejourDirect: {
+          select: {
+            id: true, titre: true, clientNom: true,
+            clientOrganisation: true, clientOrganisationId: true,
+          },
+        },
+        centre: { select: { nom: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Lien invalide');
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new NotFoundException('Devis non éligible');
+    }
+    if (devis.statut !== 'EN_ATTENTE') {
+      throw new ForbiddenException('Ce devis ne peut plus être envoyé à la direction');
+    }
+
+    const { randomUUID } = await import('crypto');
+    const invToken = randomUUID();
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const sejour = devis.sejourDirect;
+
+    await this.prisma.invitationDirecteur.create({
+      data: {
+        token: invToken,
+        sejourId: sejour.id,
+        devisId: devis.id,
+        emailDirecteur: body.emailDirecteur.trim(),
+        enseignantPrenom: sejour.clientNom ?? 'L\'organisateur',
+        sejourTitre: sejour.titre,
+        etablissementNom: sejour.clientOrganisation ?? null,
+        organisationId: sejour.clientOrganisationId ?? null,
+        typeContexte: 'SCOLAIRE',
+      },
+    });
+
+    await this.prisma.devis.update({
+      where: { id: devis.id },
+      data: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
+    });
+
+    await this.email.sendGenericNotification(
+      body.emailDirecteur.trim(),
+      `Devis à valider — ${sejour.titre}`,
+      `<p>Bonjour,</p>
+       <p>${sejour.clientNom ?? 'Un organisateur'} vous invite à consulter et signer le devis pour le séjour <strong>${sejour.titre}</strong> au centre <strong>${devis.centre?.nom ?? ''}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/invitation-direction/${invToken}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Consulter et signer le devis
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Si vous n'êtes pas concerné par cette demande, vous pouvez ignorer cet email.</p>`,
+      devis.centre?.nom,
+    );
+
+    return { success: true, message: 'Invitation envoyée à la direction' };
+  }
+
+  /**
+   * Upload scan signé par le client (option 3).
+   */
+  async uploadSignaturePublic(token: string, file: Express.Multer.File, req: Request) {
+    if (!file || file.mimetype !== 'application/pdf') {
+      throw new ForbiddenException('Un fichier PDF est requis');
+    }
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { tokenSignature: token },
+      include: {
+        sejourDirect: { select: { id: true, titre: true, modeGestion: true } },
+        centre: { select: { nom: true, email: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Lien invalide');
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new NotFoundException('Devis non éligible');
+    }
+    if (devis.statut !== 'EN_ATTENTE' && devis.statut !== 'EN_ATTENTE_VALIDATION') {
+      throw new ForbiddenException('Ce devis ne peut plus recevoir de document signé');
+    }
+
+    const documentUrl = await this.storage.upload(file, 'signatures');
+
+    await this.prisma.devis.update({
+      where: { id: devis.id },
+      data: {
+        statut: StatutDevis.SELECTIONNE,
+        signatureDocumentUrl: documentUrl,
+        signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+        dateSignatureDirecteur: new Date(),
+        signatureIpAddress: req.ip ?? null,
+        signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
+      },
+    });
+
+    await this.prisma.sejour.update({
+      where: { id: devis.sejourDirect.id },
+      data: { statut: StatutSejour.CONVENTION },
+    });
+
+    if (devis.centre?.email) {
+      try {
+        const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+        await this.email.sendGenericNotification(
+          devis.centre.email,
+          `Document signé reçu — ${devis.sejourDirect.titre}`,
+          `<p>Un document signé a été uploadé pour le devis <strong>${devis.numeroDevis}</strong>.</p>
+           <p style="margin:24px 0">
+             <a href="${frontendUrl}/dashboard/hebergeur/planning" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+               Voir le planning
+             </a>
+           </p>`,
+        );
+      } catch { /* non bloquant */ }
+    }
+
+    return { success: true, message: 'Document signé reçu' };
   }
 }
