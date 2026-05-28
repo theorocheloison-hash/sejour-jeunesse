@@ -513,6 +513,30 @@ export async function updateInfosSejour(
   return data;
 }
 
+// ── Notifications hébergeur ─────────────────────────────────
+
+export interface NonLusSejour {
+  sejourId: string;
+  titre: string;
+  messages: number;
+  documents: number;
+  journal: number;
+}
+
+export interface NonLusResponse {
+  total: number;
+  parSejour: NonLusSejour[];
+}
+
+export async function getMesNonLus(): Promise<NonLusResponse> {
+  const res = await api.get('/collaboration/mes-non-lus');
+  return res.data;
+}
+
+export async function marquerVisite(sejourId: string, onglet: string): Promise<void> {
+  await api.post('/collaboration/marquer-visite', { sejourId, onglet });
+}
+
 // ── Devis public (signature sans compte) ─────────────────────────────────
 
 const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.liavo.fr';
