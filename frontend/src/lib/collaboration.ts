@@ -75,6 +75,33 @@ export interface SejourConventionHebergeur {
   }[];
 }
 
+export interface SejourPlanning {
+  id: string;
+  titre: string;
+  lieu: string;
+  dateDebut: string;
+  dateFin: string;
+  placesTotales: number;
+  statut: string;
+  modeGestion: string;
+  natureSejour: string;
+  typeSejour: string | null;
+  clientNom: string | null;
+  clientOrganisation: string | null;
+  createur?: { prenom: string; nom: string } | null;
+  hebergementSelectionne?: { nom: string } | null;
+  planningActivites: {
+    id: string;
+    date: string;
+    heureDebut: string;
+    heureFin: string;
+    titre: string;
+    description: string | null;
+    responsable: string | null;
+    couleur: string | null;
+  }[];
+}
+
 export interface Participant {
   id: string;
   eleveNom: string;
@@ -167,6 +194,34 @@ export async function getParticipants(sejourId: string): Promise<Participant[]> 
 export async function getMesSejoursConvention(): Promise<SejourConventionHebergeur[]> {
   const { data } = await api.get<SejourConventionHebergeur[]>('/collaboration/mes-sejours');
   return data;
+}
+
+export async function getMesSejoursPlanning(): Promise<SejourPlanning[]> {
+  const { data } = await api.get<SejourPlanning[]>('/collaboration/mes-sejours-planning');
+  return data;
+}
+
+export async function createSejourDirect(dto: {
+  titre: string;
+  natureSejour: string;
+  typeSejour?: string;
+  dateDebut: string;
+  dateFin: string;
+  nombreParticipants: number;
+  clientNom?: string;
+  clientPrenom?: string;
+  clientEmail?: string;
+  clientTelephone?: string;
+  clientOrganisation?: string;
+  clientOrganisationId?: string;
+  description?: string;
+}): Promise<SejourPlanning> {
+  const { data } = await api.post<SejourPlanning>('/sejours/direct', dto);
+  return data;
+}
+
+export async function deleteSejourDirect(sejourId: string): Promise<void> {
+  await api.delete(`/sejours/${sejourId}`);
 }
 
 // ── Documents centre (conformité) ────────────────────────────────────────────

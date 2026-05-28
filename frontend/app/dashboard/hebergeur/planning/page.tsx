@@ -2,11 +2,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesSejoursConvention } from '@/src/lib/collaboration';
-import type { SejourConventionHebergeur } from '@/src/lib/collaboration';
+import { getMesSejoursPlanning, createSejourDirect } from '@/src/lib/collaboration';
+import type { SejourPlanning } from '@/src/lib/collaboration';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
-import { getMesDevisLibres } from '@/src/lib/devis-libres';
-import type { DevisLibre } from '@/src/lib/devis-libres';
+import api from '@/src/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // Palette 8 couleurs séjours
@@ -21,11 +20,15 @@ const PALETTE = [
   { bg: '#2C3E50', text: '#fff' },
 ];
 
-const COULEUR_DL: Record<string, { bg: string; text: string }> = {
-  ENVOYE:  { bg: '#F59E0B', text: '#fff' },
-  ACCEPTE: { bg: '#16A34A', text: '#fff' },
-  PAYE:    { bg: '#1B4060', text: '#fff' },
+// Couleurs par statut planning
+const COULEUR_STATUT: Record<string, { bg: string; text: string }> = {
+  OPTION:           { bg: '#F59E0B', text: '#fff' },
+  CONVENTION:       { bg: '', text: '#fff' },
+  SIGNE_DIRECTION:  { bg: '', text: '#fff' },
 };
+
+// Couleur spécifique événements en OPTION
+const COULEUR_EVENEMENT_OPTION = { bg: '#7B3FA0', text: '#fff' };
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 06h → 21h
 const SLOT_HEIGHT = 60; // px par heure
@@ -101,7 +104,7 @@ function PlanningContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [sejours, setSejours] = useState<SejourConventionHebergeur[]>([]);
+  const [sejours, setSejours] = useState<SejourPlanning[]>([]);
   const [dispos, setDispos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'jour' | '5jours' | 'semaine' | 'mois'>(() => {
@@ -115,11 +118,11 @@ function PlanningContent() {
     return new Date();
   });
   const [filterSejourId, setFilterSejourId] = useState<string | null>(null);
-  const [filterDevisLibreId, setFilterDevisLibreId] = useState<string | null>(null);
   const [showDispoModal, setShowDispoModal] = useState(false);
   const [dispoForm, setDispoForm] = useState({ dateDebut: '', dateFin: '', commentaire: '' });
   const [saving, setSaving] = useState(false);
-  const [devisLibres, setDevisLibres] = useState<DevisLibre[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createType, setCreateType] = useState<'SEJOUR' | 'EVENEMENT'>('SEJOUR');
 
   // Combobox recherche
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,14 +151,12 @@ function PlanningContent() {
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d, dl] = await Promise.all([
-        getMesSejoursConvention(),
+      const [s, d] = await Promise.all([
+        getMesSejoursPlanning(),
         getDisponibilites(),
-        getMesDevisLibres(),
       ]);
       setSejours(s);
       setDispos(d);
-      setDevisLibres(dl.filter(dl => dl.statut !== 'BROUILLON' && dl.statut !== 'REFUSE'));
     } catch {} finally {
       setLoading(false);
     }
@@ -169,16 +170,18 @@ function PlanningContent() {
 
   // Couleurs par séjour
   const couleurBySejour = Object.fromEntries(
-    sejours.map((s, i) => [s.id, PALETTE[i % PALETTE.length]])
+    sejours.map((s, i) => {
+      if (s.statut === 'OPTION') {
+        if (s.natureSejour === 'EVENEMENT') return [s.id, COULEUR_EVENEMENT_OPTION];
+        return [s.id, COULEUR_STATUT.OPTION];
+      }
+      return [s.id, PALETTE[i % PALETTE.length]];
+    })
   );
 
   const sejoursFiltres = filterSejourId
     ? sejours.filter(s => s.id === filterSejourId)
     : sejours;
-
-  const devisLibresFiltres = filterDevisLibreId
-    ? devisLibres.filter(dl => dl.id === filterDevisLibreId)
-    : devisLibres;
 
   // Jours à afficher selon la vue
   const viewDays = view !== 'mois'
@@ -205,14 +208,14 @@ function PlanningContent() {
     setShowDispoModal(true);
   };
 
-  const handleAddDispo = async () => {
+  const handleAddDispoQuick = async () => {
     setSaving(true);
     try {
       await createDisponibilite({
         dateDebut: dispoForm.dateDebut,
         dateFin: dispoForm.dateFin,
         capaciteDisponible: 0,
-        commentaire: dispoForm.commentaire || 'Indisponible',
+        commentaire: 'Indisponible',
       });
       await loadData();
       setShowDispoModal(false);
@@ -263,38 +266,33 @@ function PlanningContent() {
 
   const totalHeight = HOURS.length * SLOT_HEIGHT;
 
-  // Recherche combobox
+  // Recherche combobox : séparer séjours et événements
   const q = normalise(searchQuery.trim());
-  const filteredSejours = q
-    ? sejours.filter(s => {
-        return normalise(s.titre).includes(q)
-          || (s.createur && normalise(`${s.createur.prenom} ${s.createur.nom}`).includes(q));
-      })
-    : sejours;
-  const filteredDevisLibres = q
-    ? devisLibres.filter(dl => {
-        return normalise(dl.nomClient).includes(q)
-          || (dl.typeEvenement && normalise(dl.typeEvenement).includes(q));
-      })
-    : devisLibres;
+  const filteredSejoursList = q
+    ? sejours.filter(s => s.natureSejour === 'SEJOUR').filter(s =>
+        normalise(s.titre).includes(q) ||
+        (s.createur && normalise(`${s.createur.prenom} ${s.createur.nom}`).includes(q)) ||
+        (s.clientNom && normalise(s.clientNom).includes(q)) ||
+        (s.clientOrganisation && normalise(s.clientOrganisation).includes(q))
+      )
+    : sejours.filter(s => s.natureSejour === 'SEJOUR');
 
-  const selectSejour = (s: SejourConventionHebergeur) => {
+  const filteredEvenements = q
+    ? sejours.filter(s => s.natureSejour === 'EVENEMENT').filter(s =>
+        normalise(s.titre).includes(q) ||
+        (s.clientNom && normalise(s.clientNom).includes(q)) ||
+        (s.clientOrganisation && normalise(s.clientOrganisation).includes(q))
+      )
+    : sejours.filter(s => s.natureSejour === 'EVENEMENT');
+
+  const selectSejour = (s: SejourPlanning) => {
     setFilterSejourId(s.id);
-    setFilterDevisLibreId(null);
     setCurrentDate(new Date(s.dateDebut.split('T')[0] + 'T12:00:00'));
-    setSearchQuery('');
-    setShowDropdown(false);
-  };
-  const selectDevisLibre = (dl: DevisLibre) => {
-    setFilterDevisLibreId(dl.id);
-    setFilterSejourId(null);
-    setCurrentDate(new Date(dl.dateDebut.split('T')[0] + 'T12:00:00'));
     setSearchQuery('');
     setShowDropdown(false);
   };
   const resetFilters = () => {
     setFilterSejourId(null);
-    setFilterDevisLibreId(null);
     setSearchQuery('');
     setShowDropdown(false);
   };
@@ -336,7 +334,7 @@ function PlanningContent() {
               placeholder="Rechercher un séjour ou un client..."
               className="w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
             />
-            {(filterSejourId || filterDevisLibreId) && (
+            {filterSejourId && (
               <button
                 type="button"
                 onClick={resetFilters}
@@ -351,15 +349,18 @@ function PlanningContent() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 hover:bg-gray-50 ${!filterSejourId && !filterDevisLibreId ? 'font-semibold text-[var(--color-primary)]' : 'text-gray-700'}`}
+                  className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 hover:bg-gray-50 ${!filterSejourId ? 'font-semibold text-[var(--color-primary)]' : 'text-gray-700'}`}
                 >
                   Tous
                 </button>
-                {filteredSejours.length > 0 && (
+                {filteredSejoursList.length > 0 && (
                   <>
                     <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">Séjours</p>
-                    {filteredSejours.map(s => {
+                    {filteredSejoursList.map(s => {
                       const c = couleurBySejour[s.id];
+                      const sub = s.createur
+                        ? `${s.createur.prenom} ${s.createur.nom}`
+                        : s.clientOrganisation || s.clientNom || '';
                       return (
                         <button
                           key={s.id}
@@ -371,7 +372,7 @@ function PlanningContent() {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-900 truncate">{s.titre}</p>
                             <p className="text-[10px] text-gray-400 truncate">
-                              {s.createur ? `${s.createur.prenom} ${s.createur.nom} · ` : ''}{fmtRange(s.dateDebut, s.dateFin)}
+                              {sub ? `${sub} · ` : ''}{fmtRange(s.dateDebut, s.dateFin)}
                             </p>
                           </div>
                         </button>
@@ -379,29 +380,30 @@ function PlanningContent() {
                     })}
                   </>
                 )}
-                {filteredDevisLibres.length > 0 && (
+                {filteredEvenements.length > 0 && (
                   <>
                     <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400">Événements</p>
-                    {filteredDevisLibres.map(dl => {
-                      const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
+                    {filteredEvenements.map(s => {
+                      const c = couleurBySejour[s.id];
+                      const sub = s.clientOrganisation || s.clientNom || '';
                       return (
                         <button
-                          key={dl.id}
+                          key={s.id}
                           type="button"
-                          onClick={() => selectDevisLibre(dl)}
+                          onClick={() => selectSejour(s)}
                           className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0"
                         >
-                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: c.bg }} />
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: c?.bg ?? '#999' }} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-900 truncate">{dl.typeEvenement ?? 'Événement'} · {dl.nomClient}</p>
-                            <p className="text-[10px] text-gray-400 truncate">{fmtRange(dl.dateDebut, dl.dateFin)}</p>
+                            <p className="text-xs font-medium text-gray-900 truncate">{s.titre}{sub ? ` · ${sub}` : ''}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{fmtRange(s.dateDebut, s.dateFin)}</p>
                           </div>
                         </button>
                       );
                     })}
                   </>
                 )}
-                {filteredSejours.length === 0 && filteredDevisLibres.length === 0 && (
+                {filteredSejoursList.length === 0 && filteredEvenements.length === 0 && (
                   <p className="px-3 py-3 text-xs text-gray-400">Aucun résultat</p>
                 )}
               </div>
@@ -457,50 +459,26 @@ function PlanningContent() {
                       const c = couleurBySejour[s.id];
                       const isStart = s.dateDebut.split('T')[0] === ds;
                       const isEnd = s.dateFin.split('T')[0] === ds;
+                      const isOption = s.statut === 'OPTION';
                       return (
                         <Link
                           key={s.id}
                           href={`/dashboard/sejour/${s.id}`}
                           onClick={e => e.stopPropagation()}
-                          className="block text-xs px-1.5 py-0.5 truncate"
+                          className={`block text-xs px-1.5 py-0.5 truncate ${isOption ? 'border border-dashed' : ''}`}
                           style={{
-                            backgroundColor: c.bg,
-                            color: c.text,
+                            backgroundColor: isOption ? `${c.bg}33` : c.bg,
+                            color: isOption ? c.bg : c.text,
+                            borderColor: isOption ? c.bg : 'transparent',
                             marginLeft: isStart ? 2 : 0,
                             marginRight: isEnd ? 2 : 0,
                             borderRadius: isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : '0',
                           }}
                         >
-                          {isStart ? s.titre : ''}
+                          {isStart ? `${isOption ? '⏳ ' : ''}${s.titre}` : ''}
                         </Link>
                       );
                     })}
-                    {devisLibresFiltres
-                      .filter(dl => {
-                        const s = dl.dateDebut.split('T')[0];
-                        const e = dl.dateFin.split('T')[0];
-                        return ds >= s && ds <= e;
-                      })
-                      .map(dl => {
-                        const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
-                        const isStart = dl.dateDebut.split('T')[0] === ds;
-                        return (
-                          <div
-                            key={dl.id}
-                            className="block text-xs px-1.5 py-0.5 truncate cursor-pointer hover:opacity-90"
-                            style={{
-                              backgroundColor: c.bg,
-                              color: c.text,
-                              marginLeft: isStart ? 2 : 0,
-                              borderRadius: isStart ? '4px 0 0 4px' : '0',
-                            }}
-                            onClick={() => router.push(`/dashboard/hebergeur/devis-libres/${dl.id}`)}
-                            title={`${dl.typeEvenement ?? 'Événement'} — ${dl.nomClient}`}
-                          >
-                            {isStart ? `${dl.typeEvenement ?? 'Événement'} · ${dl.nomClient}` : ''}
-                          </div>
-                        );
-                      })}
                   </div>
                 );
               })}
@@ -647,31 +625,23 @@ function PlanningContent() {
                         )}
                         {sj.map(s => {
                           const c = couleurBySejour[s.id];
+                          const isOption = s.statut === 'OPTION';
                           return (
-                            <Link key={s.id} href={`/dashboard/sejour/${s.id}`} onClick={e => e.stopPropagation()} className="block text-xs px-1 rounded truncate mb-0.5" style={{ backgroundColor: c.bg, color: c.text }}>
-                              {s.titre}
+                            <Link
+                              key={s.id}
+                              href={`/dashboard/sejour/${s.id}`}
+                              onClick={e => e.stopPropagation()}
+                              className={`block text-xs px-1 rounded truncate mb-0.5 ${isOption ? 'border border-dashed' : ''}`}
+                              style={{
+                                backgroundColor: isOption ? `${c.bg}33` : c.bg,
+                                color: isOption ? c.bg : c.text,
+                                borderColor: isOption ? c.bg : 'transparent',
+                              }}
+                            >
+                              {isOption ? '⏳ ' : ''}{s.titre}
                             </Link>
                           );
                         })}
-                        {devisLibresFiltres
-                          .filter(dl => {
-                            const s = dl.dateDebut.split('T')[0];
-                            const e = dl.dateFin.split('T')[0];
-                            return ds >= s && ds <= e;
-                          })
-                          .map(dl => {
-                            const c = COULEUR_DL[dl.statut] ?? COULEUR_DL.ENVOYE;
-                            return (
-                              <div
-                                key={dl.id}
-                                className="block text-xs px-1 rounded truncate mb-0.5 cursor-pointer"
-                                style={{ backgroundColor: c.bg, color: c.text }}
-                                onClick={e => { e.stopPropagation(); router.push(`/dashboard/hebergeur/devis-libres/${dl.id}`); }}
-                              >
-                                {dl.typeEvenement ?? 'Événement'} · {dl.nomClient}
-                              </div>
-                            );
-                          })}
                       </div>
                     );
                   })}
@@ -682,52 +652,359 @@ function PlanningContent() {
         )}
       </main>
 
-      {/* Modale indisponibilité */}
-      {showDispoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDispoModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Marquer comme indisponible</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Date début</label>
-                <input type="date" value={dispoForm.dateDebut} onChange={e => setDispoForm(f => ({ ...f, dateDebut: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Date fin</label>
-                <input type="date" value={dispoForm.dateFin} onChange={e => setDispoForm(f => ({ ...f, dateFin: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Motif (optionnel)</label>
-                <input type="text" value={dispoForm.commentaire} onChange={e => setDispoForm(f => ({ ...f, commentaire: e.target.value }))}
-                  placeholder="ex: Maintenance, Fermeture..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
+      {/* Légende */}
+      {!loading && (
+        <div className="px-4 pb-4">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-[#F59E0B]" style={{ backgroundColor: '#F59E0B33' }} />
+              Option (séjour)
             </div>
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => {
-                  setShowDispoModal(false);
-                  router.push(
-                    `/dashboard/hebergeur/devis-libres/nouveau?dateDebut=${dispoForm.dateDebut}&dateFin=${dispoForm.dateFin}`
-                  );
-                }}
-                className="flex-1 rounded-lg bg-[#1B4060] py-2 text-sm font-semibold text-white hover:opacity-90"
-              >
-                + Créer un événement
-              </button>
-              <button onClick={handleAddDispo} disabled={saving || !dispoForm.dateDebut || !dispoForm.dateFin}
-                className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
-                {saving ? 'Enregistrement...' : 'Marquer indisponible'}
-              </button>
-              <button onClick={() => setShowDispoModal(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                Annuler
-              </button>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-[#7B3FA0]" style={{ backgroundColor: '#7B3FA033' }} />
+              Option (événement)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#1B6CA8' }} />
+              Confirmé
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 2px, #fef2f2 2px, #fef2f2 4px)' }} />
+              Indisponible
             </div>
           </div>
         </div>
       )}
+
+      {/* Modale choix action planning */}
+      {showDispoModal && !showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDispoModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">
+              {dispoForm.dateDebut ? new Date(dispoForm.dateDebut + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+            </h2>
+            <p className="text-xs text-gray-400 mb-5">Que souhaitez-vous faire ?</p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => { setCreateType('SEJOUR'); setShowCreateModal(true); }}
+                className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-[var(--color-primary)] hover:bg-blue-50/50 transition-colors"
+              >
+                <span className="text-2xl">🏫</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Nouveau séjour</p>
+                  <p className="text-xs text-gray-400">Classe de découverte, colonie, camp sportif…</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setCreateType('EVENEMENT'); setShowCreateModal(true); }}
+                className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-[#7B3FA0] hover:bg-purple-50/50 transition-colors"
+              >
+                <span className="text-2xl">🎉</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Nouvel événement</p>
+                  <p className="text-xs text-gray-400">Mariage, séminaire, anniversaire, team building…</p>
+                </div>
+              </button>
+
+              <button
+                onClick={handleAddDispoQuick}
+                disabled={saving}
+                className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-red-400 hover:bg-red-50/50 transition-colors disabled:opacity-50"
+              >
+                <span className="text-2xl">🚫</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Marquer indisponible</p>
+                  <p className="text-xs text-gray-400">Maintenance, fermeture, réservé…</p>
+                </div>
+              </button>
+            </div>
+
+            <button onClick={() => setShowDispoModal(false)} className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modale création séjour / événement DIRECT */}
+      {showCreateModal && (
+        <CreateSejourDirectModal
+          natureSejour={createType}
+          dateDebut={dispoForm.dateDebut}
+          dateFin={dispoForm.dateFin}
+          onClose={() => { setShowCreateModal(false); setShowDispoModal(false); }}
+          onCreated={(sejour) => {
+            setShowCreateModal(false);
+            setShowDispoModal(false);
+            loadData();
+            router.push(`/dashboard/sejour/${sejour.id}`);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── CreateSejourDirectModal ──────────────────────────────────────────────
+
+const SOUS_TYPES_SEJOUR = [
+  { value: 'CLASSE_DECOUVERTE', label: 'Classe de découverte' },
+  { value: 'COLONIE_VACANCES', label: 'Colonie de vacances' },
+  { value: 'CAMP_SPORTIF', label: 'Camp sportif' },
+  { value: 'SEJOUR_LINGUISTIQUE', label: 'Séjour linguistique' },
+  { value: 'AUTRE_SEJOUR', label: 'Autre séjour' },
+];
+
+const SOUS_TYPES_EVENEMENT = [
+  { value: 'MARIAGE', label: 'Mariage' },
+  { value: 'ANNIVERSAIRE', label: 'Anniversaire' },
+  { value: 'SEMINAIRE', label: 'Séminaire' },
+  { value: 'TEAM_BUILDING', label: 'Team building' },
+  { value: 'REUNION_FAMILLE', label: 'Réunion de famille' },
+  { value: 'AUTRE_EVENEMENT', label: 'Autre événement' },
+];
+
+interface StructResult {
+  nom: string;
+  adresse: string | null;
+  ville: string | null;
+  siren: string | null;
+  siret: string | null;
+  source: string;
+}
+
+function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, onCreated }: {
+  natureSejour: 'SEJOUR' | 'EVENEMENT';
+  dateDebut: string;
+  dateFin: string;
+  onClose: () => void;
+  onCreated: (sejour: SejourPlanning) => void;
+}) {
+  const [form, setForm] = useState({
+    titre: '',
+    typeSejour: natureSejour === 'SEJOUR' ? 'CLASSE_DECOUVERTE' : 'MARIAGE',
+    dateDebut,
+    dateFin,
+    nombreParticipants: '',
+    clientNom: '',
+    clientPrenom: '',
+    clientEmail: '',
+    clientTelephone: '',
+    description: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [structNom, setStructNom] = useState('');
+  const [structVille, setStructVille] = useState('');
+  const [structResults, setStructResults] = useState<StructResult[]>([]);
+  const [structSearching, setStructSearching] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<{ nom: string; adresse: string | null; ville: string | null } | null>(null);
+  const structDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const structAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
+      if (structAbortRef.current) structAbortRef.current.abort();
+    };
+  }, []);
+
+  const fireStructSearch = (nom: string, ville: string) => {
+    if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
+    const q = [nom.trim(), ville.trim()].filter(Boolean).join(' ');
+    if (q.length < 2) { setStructResults([]); return; }
+
+    structDebounceRef.current = setTimeout(async () => {
+      if (structAbortRef.current) structAbortRef.current.abort();
+      const controller = new AbortController();
+      structAbortRef.current = controller;
+      setStructSearching(true);
+      try {
+        const res = await api.get('/organisations/search', { params: { q }, signal: controller.signal });
+        setStructResults(res.data?.results ?? []);
+      } catch { /* aborted */ }
+      finally { if (!controller.signal.aborted) setStructSearching(false); }
+    }, 300);
+  };
+
+  const selectStruct = (r: StructResult) => {
+    setSelectedOrg({ nom: r.nom, adresse: r.adresse, ville: r.ville });
+    setStructResults([]);
+    setStructNom(r.nom);
+    setStructVille(r.ville ?? '');
+  };
+
+  const clearStruct = () => {
+    setSelectedOrg(null);
+    setStructNom('');
+    setStructVille('');
+    setStructResults([]);
+  };
+
+  const sousTypes = natureSejour === 'SEJOUR' ? SOUS_TYPES_SEJOUR : SOUS_TYPES_EVENEMENT;
+  const labelParticipants = natureSejour === 'SEJOUR' ? 'Nombre de participants' : 'Nombre de personnes';
+  const labelContact = natureSejour === 'SEJOUR' ? 'Structure organisatrice' : 'Client';
+
+  const handleSubmit = async () => {
+    if (!form.titre.trim()) { setError('Le titre est obligatoire'); return; }
+    if (!form.dateDebut || !form.dateFin) { setError('Les dates sont obligatoires'); return; }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const sejour = await createSejourDirect({
+        titre: form.titre.trim(),
+        natureSejour,
+        typeSejour: form.typeSejour,
+        dateDebut: form.dateDebut,
+        dateFin: form.dateFin,
+        nombreParticipants: parseInt(form.nombreParticipants) || 0,
+        clientNom: form.clientNom.trim() || undefined,
+        clientPrenom: form.clientPrenom.trim() || undefined,
+        clientEmail: form.clientEmail.trim() || undefined,
+        clientTelephone: form.clientTelephone.trim() || undefined,
+        clientOrganisation: selectedOrg?.nom || undefined,
+      });
+      onCreated(sejour);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Erreur lors de la création');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">
+          {natureSejour === 'SEJOUR' ? '📋 Nouveau séjour' : '🎉 Nouvel événement'}
+        </h2>
+        <p className="text-xs text-gray-400 mb-5">Les dates seront bloquées au planning dès la création.</p>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">{error}</div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+            <select value={form.typeSejour} onChange={set('typeSejour')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+              {sousTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Titre</label>
+            <input type="text" value={form.titre} onChange={set('titre')}
+              placeholder={natureSejour === 'SEJOUR' ? 'ex: Classe de neige 4ème' : 'ex: Mariage Dupont-Martin'}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date début</label>
+              <input type="date" value={form.dateDebut} onChange={set('dateDebut')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date fin</label>
+              <input type="date" value={form.dateFin} onChange={set('dateFin')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{labelParticipants}</label>
+            <input type="number" min="0" value={form.nombreParticipants} onChange={set('nombreParticipants')}
+              placeholder="ex: 48"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-700 mb-3">{labelContact}</p>
+          </div>
+
+          {!selectedOrg ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" value={structNom} placeholder="Nom de la structure"
+                  onChange={e => { setStructNom(e.target.value); fireStructSearch(e.target.value, structVille); }}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                <input type="text" value={structVille} placeholder="Ville"
+                  onChange={e => { setStructVille(e.target.value); fireStructSearch(structNom, e.target.value); }}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              </div>
+              {structSearching && <p className="text-xs text-gray-400">Recherche en cours…</p>}
+              {structResults.length > 0 && (
+                <div className="rounded-lg border border-gray-200 max-h-40 overflow-y-auto">
+                  {structResults.map((r, i) => (
+                    <button key={i} type="button" onClick={() => selectStruct(r)}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                      <span className="font-medium text-gray-900">{r.nom}</span>
+                      {r.ville && <span className="text-gray-400"> — {r.ville}</span>}
+                      <span className="text-gray-300 ml-1">({r.source === 'API_SIRENE' ? 'SIRENE' : r.source})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{selectedOrg.nom}</p>
+                {selectedOrg.ville && <p className="text-xs text-gray-400">{selectedOrg.adresse ? `${selectedOrg.adresse}, ` : ''}{selectedOrg.ville}</p>}
+              </div>
+              <button type="button" onClick={clearStruct} className="text-xs text-red-500 hover:underline">Changer</button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom du contact</label>
+              <input type="text" value={form.clientNom} onChange={set('clientNom')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
+              <input type="text" value={form.clientPrenom} onChange={set('clientPrenom')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" value={form.clientEmail} onChange={set('clientEmail')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
+              <input type="tel" value={form.clientTelephone} onChange={set('clientTelephone')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !form.titre.trim()}
+            className="flex-1 rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? 'Création…' : natureSejour === 'SEJOUR' ? 'Créer le séjour' : 'Créer l\'événement'}
+          </button>
+          <button onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+            Annuler
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
