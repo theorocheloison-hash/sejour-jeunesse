@@ -233,6 +233,10 @@ export class DevisService {
     if (devis.statut !== 'EN_ATTENTE' && devis.statut !== 'SELECTIONNE') {
       throw new ForbiddenException('Seul un devis en attente ou sélectionné peut être modifié');
     }
+    if (!devis.demandeId) {
+      throw new ForbiddenException('Cette action n\'est pas disponible pour les séjours en gestion directe');
+    }
+    const demandeId: string = devis.demandeId;
 
     // Upload nouveau PDF si fourni
     let documentUrl = devis.documentUrl;
@@ -288,12 +292,12 @@ export class DevisService {
     // Synchroniser DemandeDevis si effectif modifié
     if (dto.nombreEleves !== undefined || dto.nombreAccompagnateurs !== undefined) {
       const demandePourSejour = await this.prisma.demandeDevis.findUnique({
-        where: { id: devis.demandeId },
+        where: { id: demandeId },
         select: { sejourId: true },
       });
 
       await this.prisma.demandeDevis.update({
-        where: { id: devis.demandeId },
+        where: { id: demandeId },
         data: {
           ...(dto.nombreEleves !== undefined && { nombreEleves: dto.nombreEleves }),
           ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
@@ -311,7 +315,7 @@ export class DevisService {
     // Notifier l'enseignant si le devis était SELECTIONNE
     if (devis.statut === 'SELECTIONNE') {
       const demande = await this.prisma.demandeDevis.findUnique({
-        where: { id: devis.demandeId },
+        where: { id: demandeId },
         include: {
           enseignant: { select: { email: true, prenom: true, nom: true } },
           sejour: { select: { titre: true } },
@@ -404,10 +408,15 @@ export class DevisService {
       include: { demande: true },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
+    if (!devis.demande || !devis.demandeId) {
+      throw new ForbiddenException('Cette action n\'est pas disponible pour les séjours en gestion directe');
+    }
+    const demande = devis.demande;
+    const demandeId: string = devis.demandeId;
 
     // ORGANISATEUR can submit for validation or accept/refuse
     if (userRole === Role.ORGANISATEUR) {
-      if (devis.demande.enseignantId !== userId) {
+      if (demande.enseignantId !== userId) {
         throw new ForbiddenException('Accès refusé');
       }
     }
@@ -439,13 +448,13 @@ export class DevisService {
 
       // 2. Fermer la demande de devis
       await this.prisma.demandeDevis.update({
-        where: { id: devis.demandeId },
+        where: { id: demandeId },
         data: { statut: 'FERMEE' },
       });
 
       // 3. Mettre à jour le séjour : appel d'offres fermé + centre sélectionné + statut CONVENTION
       await this.prisma.sejour.update({
-        where: { id: devis.demande.sejourId },
+        where: { id: demande.sejourId },
         data: {
           appelOffreStatut: AppelOffreStatut.FERME,
           hebergementSelectionneId: devis.centreId,
@@ -459,7 +468,7 @@ export class DevisService {
         include: { user: { select: { email: true } } },
       });
       const sejour = await this.prisma.sejour.findUnique({
-        where: { id: devis.demande.sejourId },
+        where: { id: demande.sejourId },
         select: { titre: true },
       });
       if (centre?.user?.email && sejour) {
@@ -472,12 +481,12 @@ export class DevisService {
 
       // Auto-rattacher client CRM
       try {
-        const orgaEnseignant = devis.demande.enseignantId
-          ? await getOrganisationPrincipale(devis.demande.enseignantId, this.prisma)
+        const orgaEnseignant = demande.enseignantId
+          ? await getOrganisationPrincipale(demande.enseignantId, this.prisma)
           : null;
         if (orgaEnseignant?.nom) {
           const clientCree = await this.clientsService.autoRattacherDepuisDevis(
-            devis.demande.sejourId,
+            demande.sejourId,
             devis.centreId,
             orgaEnseignant.uai ?? undefined,
             orgaEnseignant.nom,
@@ -497,25 +506,25 @@ export class DevisService {
     // Quand le directeur refuse un devis — passer le séjour en REJECTED
     // et notifier l'enseignant
     if (statut === StatutDevis.NON_RETENU && userRole === Role.SIGNATAIRE) {
-      const demande = await this.prisma.demandeDevis.findUnique({
-        where: { id: devis.demandeId },
+      const demandeFull = await this.prisma.demandeDevis.findUnique({
+        where: { id: demandeId },
         include: {
           sejour: { select: { id: true, titre: true } },
           enseignant: { select: { email: true, prenom: true, nom: true } },
         },
       });
-      if (demande?.sejour?.id) {
+      if (demandeFull?.sejour?.id) {
         await this.prisma.sejour.update({
-          where: { id: demande.sejour.id },
+          where: { id: demandeFull.sejour.id },
           data: { statut: StatutSejour.REJECTED },
         });
       }
-      if (demande?.enseignant && demande?.sejour) {
+      if (demandeFull?.enseignant && demandeFull?.sejour) {
         await this.email.sendGenericNotification(
-          demande.enseignant.email,
-          `Devis refusé par la direction — ${demande.sejour.titre}`,
-          `<p>Bonjour ${demande.enseignant.prenom},</p>
-           <p>Le directeur a refusé le devis pour le séjour <strong>${demande.sejour.titre}</strong>.</p>
+          demandeFull.enseignant.email,
+          `Devis refusé par la direction — ${demandeFull.sejour.titre}`,
+          `<p>Bonjour ${demandeFull.enseignant.prenom},</p>
+           <p>Le directeur a refusé le devis pour le séjour <strong>${demandeFull.sejour.titre}</strong>.</p>
            <p>Vous pouvez consulter un autre devis ou soumettre une nouvelle demande depuis votre tableau de bord.</p>`,
         );
       }
@@ -536,6 +545,10 @@ export class DevisService {
     if (devis.statut !== 'SELECTIONNE' && devis.statut !== StatutDevis.EN_ATTENTE_VALIDATION) {
       throw new ForbiddenException('Seul un devis sélectionné ou en attente de validation peut être signé');
     }
+    if (!devis.demandeId) {
+      throw new ForbiddenException('Cette action n\'est pas disponible pour les séjours en gestion directe');
+    }
+    const demandeId: string = devis.demandeId;
 
     if (devis.statut === StatutDevis.EN_ATTENTE_VALIDATION) {
       await this.prisma.devis.update({
@@ -544,14 +557,14 @@ export class DevisService {
       });
       await this.prisma.devis.updateMany({
         where: {
-          demandeId: devis.demandeId,
+          demandeId,
           id: { not: devisId },
           statut: { not: StatutDevis.NON_RETENU },
         },
         data: { statut: StatutDevis.NON_RETENU },
       });
       await this.prisma.demandeDevis.update({
-        where: { id: devis.demandeId },
+        where: { id: demandeId },
         data: { statut: 'FERMEE' },
       });
       if (devis.demande?.sejour?.id) {

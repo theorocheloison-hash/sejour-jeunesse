@@ -143,7 +143,9 @@ export class DemandeService {
       where: { centreId: centre.id },
       select: { demandeId: true },
     });
-    const dejaReponduIds = dejarepondus.map(d => d.demandeId);
+    const dejaReponduIds = dejarepondus
+      .map(d => d.demandeId)
+      .filter((id): id is string => id !== null);
 
     const demandes = await this.prisma.demandeDevis.findMany({
       where: {

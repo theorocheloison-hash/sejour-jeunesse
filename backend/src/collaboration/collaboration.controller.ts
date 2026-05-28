@@ -37,6 +37,11 @@ export class CollaborationController {
     return this.service.getMesSejoursConvention(user.id, centreId);
   }
 
+  @Get('mes-sejours-planning')
+  getMesSejoursPlanning(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.getMesSejoursPlanning(user.id, centreId);
+  }
+
   // ── Infos séjour ──────────────────────────────────────────────
 
   @Get(':sejourId')

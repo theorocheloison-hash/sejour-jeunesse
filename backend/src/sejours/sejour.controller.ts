@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -14,8 +15,10 @@ import { Roles }         from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { SejourService }    from './sejour.service.js';
 import { CreateSejourDto }  from './dto/create-sejour.dto.js';
+import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateStatusDto }  from './dto/update-status.dto.js';
 import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
+import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('sejours')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -40,6 +43,28 @@ export class SejourController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.sejourService.creerDepuisCatalogue(dto, user.id);
+  }
+
+  /** POST /sejours/direct — Créer un séjour en gestion directe (HEBERGEUR) */
+  @Post('direct')
+  @Roles(Role.HEBERGEUR)
+  createDirect(
+    @Body() dto: CreateSejourDirectDto,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.createDirect(dto, user.id, centreId);
+  }
+
+  /** DELETE /sejours/:id — Soft delete d'un séjour (HEBERGEUR) */
+  @Delete(':id')
+  @Roles(Role.HEBERGEUR)
+  softDelete(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.softDeleteSejour(id, user.id, centreId);
   }
 
   /** GET /sejours/me — Séjours de l'enseignant connecté */

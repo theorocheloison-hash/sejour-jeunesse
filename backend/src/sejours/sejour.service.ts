@@ -3,9 +3,11 @@ import { Role, StatutSejour, AppelOffreStatut, TypeContexteSejour } from '@prism
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
+import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { getCentreForUser } from '../centres/centre.helper.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -1031,5 +1033,169 @@ export class SejourService {
     }
 
     return updated;
+  }
+
+  // ── Séjour DIRECT (gestion hébergeur sans compte organisateur) ────────────
+
+  async createDirect(
+    dto: CreateSejourDirectDto,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    if (!['SEJOUR', 'EVENEMENT'].includes(dto.natureSejour)) {
+      throw new ForbiddenException('natureSejour doit être SEJOUR ou EVENEMENT');
+    }
+
+    const sejour = await this.prisma.sejour.create({
+      data: {
+        titre: dto.titre,
+        description: dto.description ?? null,
+        lieu: centre.ville,
+        dateDebut: new Date(dto.dateDebut),
+        dateFin: new Date(dto.dateFin),
+        placesTotales: dto.nombreParticipants,
+        placesRestantes: dto.nombreParticipants,
+        statut: 'OPTION',
+        modeGestion: 'DIRECT',
+        natureSejour: dto.natureSejour,
+        typeSejour: dto.typeSejour ?? null,
+        createurId: null,
+        hebergementSelectionneId: centre.id,
+        clientNom: dto.clientNom ?? null,
+        clientPrenom: dto.clientPrenom ?? null,
+        clientEmail: dto.clientEmail ?? null,
+        clientTelephone: dto.clientTelephone ?? null,
+        clientOrganisation: dto.clientOrganisation ?? null,
+        clientOrganisationId: dto.clientOrganisationId ?? null,
+      },
+    });
+
+    if (dto.clientEmail || dto.clientNom) {
+      try {
+        await this.linkSejourToClient(sejour, centre.id);
+      } catch (err) {
+        console.error('[SEJOUR_DIRECT] Erreur liaison CRM:', err);
+      }
+    }
+
+    return sejour;
+  }
+
+  /**
+   * Lie un séjour DIRECT à un Client CRM.
+   * Cherche par email+centreId, puis par organisationId+centreId, sinon crée le client.
+   */
+  private async linkSejourToClient(
+    sejour: {
+      id: string;
+      clientEmail: string | null;
+      clientNom: string | null;
+      clientOrganisation: string | null;
+      clientOrganisationId: string | null;
+      clientTelephone: string | null;
+      titre: string;
+      dateDebut: Date;
+      dateFin: Date;
+    },
+    centreId: string,
+  ) {
+    let client: { id: string } | null = null;
+
+    if (sejour.clientEmail) {
+      client = await this.prisma.client.findFirst({
+        where: { centreId, email: sejour.clientEmail },
+        select: { id: true },
+      });
+    }
+
+    if (!client && sejour.clientOrganisationId) {
+      client = await this.prisma.client.findFirst({
+        where: { centreId, organisationId: sejour.clientOrganisationId },
+        select: { id: true },
+      });
+    }
+
+    if (!client) {
+      client = await this.prisma.client.create({
+        data: {
+          centreId,
+          nom: sejour.clientOrganisation || sejour.clientNom || 'Client inconnu',
+          email: sejour.clientEmail ?? undefined,
+          telephone: sejour.clientTelephone ?? undefined,
+          type: 'ETABLISSEMENT_SCOLAIRE',
+          statut: 'EN_NEGOCIATION',
+          organisationId: sejour.clientOrganisationId ?? undefined,
+        },
+      });
+    }
+
+    await this.prisma.sejourClient.upsert({
+      where: {
+        clientId_sejourId: { clientId: client.id, sejourId: sejour.id },
+      },
+      update: {},
+      create: { clientId: client.id, sejourId: sejour.id },
+    });
+
+    const fmtDate = (d: Date) =>
+      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    await this.prisma.activiteClient.create({
+      data: {
+        clientId: client.id,
+        centreId,
+        type: 'NOTE',
+        description: `Séjour "${sejour.titre}" créé — ${fmtDate(sejour.dateDebut)} → ${fmtDate(sejour.dateFin)}`,
+        metadata: { sejourId: sejour.id },
+      },
+    });
+  }
+
+  async softDeleteSejour(sejourId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: {
+        id: true,
+        hebergementSelectionneId: true,
+        modeGestion: true,
+        titre: true,
+        deletedAt: true,
+        clientEmail: true,
+      },
+    });
+
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.deletedAt) throw new NotFoundException('Séjour déjà supprimé');
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    await this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { deletedAt: new Date() },
+    });
+
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            type: 'NOTE',
+            description: `Séjour "${sejour.titre}" annulé`,
+            metadata: { sejourId },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { deleted: true };
   }
 }
