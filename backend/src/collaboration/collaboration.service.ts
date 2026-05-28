@@ -49,13 +49,22 @@ export class CollaborationService {
     });
 
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (!['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut)) {
-      throw new ForbiddenException('Le séjour n\'est pas en statut CONVENTION');
+    if (sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+
+    const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
+
+    // Statuts autorisés selon le mode de gestion
+    const STATUTS_COLLABORATIFS = ['CONVENTION', 'SIGNE_DIRECTION'];
+    const STATUTS_DIRECT = ['OPTION', ...STATUTS_COLLABORATIFS];
+    const statutsAutorises = (sejour.modeGestion === 'DIRECT' && isHebergeur)
+      ? STATUTS_DIRECT
+      : STATUTS_COLLABORATIFS;
+
+    if (!statutsAutorises.includes(sejour.statut)) {
+      throw new ForbiddenException('Le séjour n\'est pas dans un statut accessible');
     }
 
     const isCreateur = sejour.createurId === userId;
-    const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
-
     const isDirector = role === 'SIGNATAIRE';
 
     const accompagnateurAcces = await this.prisma.accompagnateurMission.findFirst({
@@ -77,7 +86,7 @@ export class CollaborationService {
   // ── Infos séjour ──────────────────────────────────────────────
 
   async getSejourInfo(sejourId: string, userId: string, role?: string) {
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role);
 
     const full = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
