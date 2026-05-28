@@ -499,3 +499,100 @@ export async function updateInfosSejour(
   const { data } = await api.patch(`/collaboration/${sejourId}/infos`, dto);
   return data;
 }
+
+// ── Devis public (signature sans compte) ─────────────────────────────────
+
+const PUBLIC_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.liavo.fr';
+
+export interface DevisPublic {
+  id: string;
+  numeroDevis: string | null;
+  statut: string;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  tauxTva: number | null;
+  pourcentageAcompte: number | null;
+  montantAcompte: number | null;
+  description: string | null;
+  conditionsAnnulation: string | null;
+  nomEntreprise: string | null;
+  adresseEntreprise: string | null;
+  siretEntreprise: string | null;
+  emailEntreprise: string | null;
+  telEntreprise: string | null;
+  createdAt: string;
+  isSigned: boolean;
+  signatureDirecteur: string | null;
+  nomSignataireDirecteur: string | null;
+  dateSignatureDirecteur: string | null;
+  signatureDocumentUrl: string | null;
+  lignes: { description: string; quantite: number; prixUnitaire: number; tva: number; totalHT: number; totalTTC: number }[];
+  centre: {
+    nom: string; ville: string; adresse: string; codePostal: string | null;
+    siret: string | null; telephone: string | null; email: string | null;
+    tvaIntracommunautaire: string | null; iban: string | null;
+    brochureUrl: string | null; conditionsAnnulation: string | null;
+  } | null;
+  sejour: {
+    id: string; titre: string; lieu: string;
+    dateDebut: string; dateFin: string; placesTotales: number;
+    clientNom: string | null; clientPrenom: string | null; clientEmail: string | null;
+    clientOrganisation: string | null; natureSejour: string; typeSejour: string | null;
+  } | null;
+}
+
+export async function getDevisPublic(token: string): Promise<DevisPublic> {
+  const res = await fetch(`${PUBLIC_API}/devis/public/${token}`);
+  if (!res.ok) throw new Error('Lien invalide');
+  return res.json();
+}
+
+export async function signerDevisPublic(
+  token: string,
+  body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${PUBLIC_API}/devis/public/${token}/signer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Erreur lors de la signature');
+  }
+  return res.json();
+}
+
+export async function envoyerDevisDirection(
+  token: string,
+  body: { emailDirecteur: string; nomDirecteur?: string },
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${PUBLIC_API}/devis/public/${token}/envoyer-direction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Erreur lors de l\'envoi');
+  }
+  return res.json();
+}
+
+export async function uploadSignaturePublic(
+  token: string,
+  file: File,
+): Promise<{ success: boolean }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${PUBLIC_API}/devis/public/${token}/upload-signature`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Erreur lors de l\'upload');
+  }
+  return res.json();
+}
