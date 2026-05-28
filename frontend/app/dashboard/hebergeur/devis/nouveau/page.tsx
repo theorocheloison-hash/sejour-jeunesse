@@ -4,9 +4,9 @@ import { Suspense, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { createDevis, getNextNumeroDevis, getDemandeInfo } from '@/src/lib/devis';
+import { createDevis, createDirectDevis, getNextNumeroDevis, getDemandeInfo } from '@/src/lib/devis';
 import type { DemandeInfo, LigneDevis } from '@/src/lib/devis';
-import { getCatalogue } from '@/src/lib/centre';
+import { getCatalogue, getMonProfil } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -48,6 +48,8 @@ function NouveauDevisContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const demandeId = searchParams.get('demandeId') ?? '';
+  const sejourDirectId = searchParams.get('sejourDirectId') ?? '';
+  const isDirect = !!sejourDirectId;
   const { user, isLoading } = useAuth();
 
   // Data
@@ -90,7 +92,31 @@ function NouveauDevisContent() {
 
   // ── Load data ──
   useEffect(() => {
-    if (!user || !demandeId) return;
+    if (!user) return;
+    // Mode DIRECT : pas de demandeId, on charge le centre + numéro
+    if (isDirect) {
+      Promise.all([
+        getNextNumeroDevis(),
+        getCatalogue().catch(() => [] as ProduitCatalogue[]),
+        getMonProfil(),
+      ])
+        .then(([numData, cat, centre]) => {
+          setNumeroDevis(numData.numero);
+          setCatalogue(cat);
+          setNomEntreprise(centre.nom ?? '');
+          setAdresseEntreprise(`${centre.adresse ?? ''}, ${centre.codePostal ?? ''} ${centre.ville ?? ''}`);
+          setSiretEntreprise(centre.siret ?? '');
+          setEmailEntreprise(centre.email ?? '');
+          setTelEntreprise(centre.telephone ?? '');
+          if (centre.conditionsAnnulation) {
+            setConditionsAnnulation(centre.conditionsAnnulation);
+          }
+        })
+        .catch(() => setLoadError('Impossible de charger les informations du centre.'));
+      return;
+    }
+    // Mode collaboratif : demandeId obligatoire
+    if (!demandeId) return;
     Promise.all([
       getDemandeInfo(demandeId),
       getNextNumeroDevis(),
@@ -100,7 +126,6 @@ function NouveauDevisContent() {
         setInfo(infoData);
         setNumeroDevis(numData.numero);
         setCatalogue(cat);
-        // Pre-fill company info from centre
         setNomEntreprise(infoData.centre.nom);
         setAdresseEntreprise(`${infoData.centre.adresse}, ${infoData.centre.codePostal} ${infoData.centre.ville}`);
         setEmailEntreprise(infoData.centre.email ?? '');
@@ -111,7 +136,7 @@ function NouveauDevisContent() {
         }
       })
       .catch(() => setLoadError('Impossible de charger les informations de la demande.'));
-  }, [user, demandeId]);
+  }, [user, demandeId, isDirect, sejourDirectId]);
 
   // ── Close catalogue dropdown on outside click ──
   useEffect(() => {
@@ -163,7 +188,6 @@ function NouveauDevisContent() {
 
   // ── Submit ──
   const handleSubmit = async () => {
-    if (!demandeId || !info) return;
     setSending(true);
 
     const lignesData = lignes
@@ -177,6 +201,44 @@ function NouveauDevisContent() {
         const totalHT = round2(puHT * qte);
         return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC };
       });
+
+    // Mode DIRECT : appeler createDirectDevis
+    if (isDirect && sejourDirectId) {
+      const qteFirst = parseFloat(lignes[0]?.quantite) || 1;
+      try {
+        await createDirectDevis({
+          sejourDirectId,
+          montantTotal: calculs.montantTTC.toFixed(2),
+          montantParEleve: (calculs.montantTTC / qteFirst).toFixed(2),
+          conditionsAnnulation,
+          nomEntreprise,
+          adresseEntreprise,
+          siretEntreprise: siretEntreprise || undefined,
+          emailEntreprise: emailEntreprise || undefined,
+          telEntreprise: telEntreprise || undefined,
+          tauxTva: calculs.montantHT > 0 ? round2((calculs.montantTVA / calculs.montantHT) * 100) : 0,
+          montantHT: calculs.montantHT,
+          montantTVA: calculs.montantTVA,
+          montantTTC: calculs.montantTTC,
+          pourcentageAcompte,
+          montantAcompte: calculs.montantAcompte,
+          numeroDevis: numeroDevis || undefined,
+          lignes: lignesData,
+        });
+        setSuccess(true);
+        setTimeout(() => router.push(`/dashboard/sejour/${sejourDirectId}`), 1500);
+      } catch (err: any) {
+        setLoadError(err?.response?.data?.message ?? 'Erreur lors de la création du devis');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    if (!demandeId || !info) {
+      setSending(false);
+      return;
+    }
 
     const nombreEleves = info.demande.nombreEleves || 1;
 
@@ -218,10 +280,10 @@ function NouveauDevisContent() {
     );
   }
 
-  if (!demandeId) {
+  if (!demandeId && !isDirect) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-red-600">Paramètre demandeId manquant.</div>
+        <div className="text-sm text-red-600">Paramètre demandeId ou sejourDirectId manquant.</div>
       </div>
     );
   }
@@ -235,10 +297,17 @@ function NouveauDevisContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Devis envoyé !</h2>
-          <p className="text-sm text-gray-500 mb-6">Votre devis {numeroDevis} a été transmis à l&apos;enseignant.</p>
-          <Link href="/dashboard/hebergeur/devis" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors">
-            Voir mes devis
+          <h2 className="text-lg font-bold text-gray-900 mb-2">{isDirect ? 'Devis créé !' : 'Devis envoyé !'}</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            {isDirect
+              ? `Le devis ${numeroDevis} a été créé. Vous pouvez maintenant l'envoyer au client depuis la page du séjour.`
+              : `Votre devis ${numeroDevis} a été transmis à l'enseignant.`}
+          </p>
+          <Link
+            href={isDirect ? `/dashboard/sejour/${sejourDirectId}` : '/dashboard/hebergeur/devis'}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors"
+          >
+            {isDirect ? 'Retour au séjour' : 'Voir mes devis'}
           </Link>
         </div>
       </div>
@@ -260,7 +329,12 @@ function NouveauDevisContent() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard/hebergeur/demandes" className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium">&larr; Retour aux demandes</Link>
+              <Link
+                href={isDirect ? `/dashboard/sejour/${sejourDirectId}` : '/dashboard/hebergeur/demandes'}
+                className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)] font-medium"
+              >
+                {isDirect ? '← Retour au séjour' : '← Retour aux demandes'}
+              </Link>
             </div>
             <span className="text-sm font-semibold text-gray-700">Créateur de devis</span>
           </div>

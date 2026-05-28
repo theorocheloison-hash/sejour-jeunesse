@@ -549,6 +549,8 @@ export default function CollaborationPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
+  const isDirect = sejour?.modeGestion === 'DIRECT';
+  const isEvenement = sejour?.natureSejour === 'EVENEMENT';
   const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -1172,6 +1174,12 @@ export default function CollaborationPage() {
               )}
               {sejour?.placesTotales != null && <> · {sejour.placesTotales} participants</>}
             </p>
+            {isDirect && (
+              <p className="text-xs text-gray-500 truncate">
+                {sejour?.clientOrganisation ?? sejour?.clientNom ?? 'Client non renseigné'}
+                {sejour?.clientEmail && <> · {sejour.clientEmail}</>}
+              </p>
+            )}
             {isHebergeur && editingInfos && (
               <div className="flex flex-col gap-2 mt-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm max-w-md">
                 <input
@@ -1336,19 +1344,30 @@ export default function CollaborationPage() {
                   (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
                   (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR')
                 )
-            ).map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t.key
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+            )
+            .filter((t) => {
+              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants')) return false;
+              if (isDirect && (t.key === 'budget' || t.key === 'projet')) return false;
+              return true;
+            })
+            .map((t) => {
+              const isLockedTab = isDirect && (t.key === 'messages' || t.key === 'journal');
+              const label = t.key === 'planning' && isEvenement ? 'Programme' : t.label;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => { if (isLockedTab) return; setTab(t.key); }}
+                  disabled={isLockedTab}
+                  className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+                    tab === t.key
+                      ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isLockedTab ? 'opacity-40 cursor-not-allowed' : ''}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1357,8 +1376,26 @@ export default function CollaborationPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
 
-        {/* ── Devis ─── */}
-        {tab === 'devis' && (
+        {/* ── Devis DIRECT — lien création ─── */}
+        {tab === 'devis' && isDirect && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Devis</h3>
+              <p className="text-xs text-gray-500 mb-4">Créez un devis pour ce séjour et envoyez-le au client pour signature.</p>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${id}`}
+                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Créer un devis
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Devis collaboratif ─── */}
+        {tab === 'devis' && !isDirect && (
           <div>
             {budgetLoading && (
               <div className="flex justify-center py-12">
@@ -1538,7 +1575,22 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Messages ─── */}
-        {tab === 'messages' && (
+        {tab === 'messages' && isDirect && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+              <svg className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Messagerie</h3>
+            <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur à collaborer pour échanger des messages.</p>
+            <button className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white opacity-50 cursor-not-allowed" disabled>
+              Inviter l&apos;organisateur (bientôt)
+            </button>
+          </div>
+        )}
+
+        {tab === 'messages' && !isDirect && (
           <div className="flex flex-col h-[calc(100vh-220px)]">
             <div className="flex-1 overflow-y-auto space-y-3 pb-4">
               {messages.length === 0 && (
@@ -2744,7 +2796,22 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Journal ─── */}
-        {tab === 'journal' && (
+        {tab === 'journal' && isDirect && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+              <svg className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Journal de séjour</h3>
+            <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur pour publier dans le journal du séjour.</p>
+            <button className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white opacity-50 cursor-not-allowed" disabled>
+              Inviter l&apos;organisateur (bientôt)
+            </button>
+          </div>
+        )}
+
+        {tab === 'journal' && !isDirect && (
           <div>
             {/* Zone de publication */}
             {(user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') && (
