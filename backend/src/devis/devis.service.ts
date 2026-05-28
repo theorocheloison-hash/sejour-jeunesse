@@ -1345,8 +1345,9 @@ export class DevisService {
         sejourDirect: {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
-            clientNom: true, clientEmail: true, clientOrganisation: true,
-            modeGestion: true, placesTotales: true,
+            clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true,
+            clientOrganisation: true, modeGestion: true, placesTotales: true,
+            natureSejour: true, typeSejour: true,
           },
         },
       },
@@ -1381,6 +1382,61 @@ export class DevisService {
     const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const sejour = devis.sejourDirect;
 
+    // ── Génération contrat PDF (si centre a un IBAN — spécifique événements) ──
+    let contratUrl: string | null = null;
+    const isEvenement = sejour.natureSejour === 'EVENEMENT'
+      || sejour.typeSejour?.includes('MARIAGE')
+      || sejour.typeSejour?.includes('ANNIVERSAIRE')
+      || sejour.typeSejour?.includes('SEMINAIRE')
+      || sejour.typeSejour?.includes('TEAM_BUILDING')
+      || sejour.typeSejour?.includes('REUNION_FAMILLE');
+    if (isEvenement && centre.iban) {
+      try {
+        const { generateContratSauvageonPdf } = await import('./contrat-sauvageon.pdf.js');
+
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+        const montantTTC = devis.montantTTC ?? 0;
+        const montantAcompte = devis.montantAcompte ?? (montantTTC * ((devis.pourcentageAcompte ?? 30) / 100));
+        const resteAPayer = montantTTC - montantAcompte;
+
+        const pdfBuffer = await generateContratSauvageonPdf({
+          nomClient: sejour.clientNom ?? '',
+          prenomClient: sejour.clientPrenom,
+          adresseClient: null,
+          telClient: sejour.clientTelephone,
+          emailClient: clientEmail,
+          typeEvenement: sejour.typeSejour?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) ?? sejour.titre,
+          dateDebut: fmt(sejour.dateDebut),
+          dateFin: fmt(sejour.dateFin),
+          lignes: (devis.lignes ?? []).map(l => ({
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: round2(Number(l.prixUnitaire)),
+            tva: l.tva,
+            totalTTC: round2(Number(l.totalTTC)),
+          })),
+          montantHT: round2(devis.montantHT ?? 0),
+          montantTVA: round2(devis.montantTVA ?? 0),
+          montantTTC: round2(montantTTC),
+          pourcentageAcompte: devis.pourcentageAcompte ?? 30,
+          montantAcompte: round2(montantAcompte),
+          resteAPayer: round2(resteAPayer),
+          dateSignature: fmt(new Date()),
+          numeroDevis: devis.numeroDevis,
+        });
+
+        contratUrl = await this.storage.uploadBuffer(
+          pdfBuffer,
+          `contrat-${devis.numeroDevis ?? devis.id}.pdf`,
+          'contrats',
+          'application/pdf',
+        );
+      } catch (err) {
+        console.error('Erreur génération contrat PDF:', err);
+        // non-bloquant : l'email part sans contrat si erreur
+      }
+    }
+
     await this.email.sendGenericNotification(
       clientEmail,
       `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
@@ -1392,6 +1448,7 @@ export class DevisService {
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.placesTotales}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
        </table>
+       ${contratUrl ? `<p style="margin:16px 0">📄 <a href="${contratUrl}" style="color:#1B4060;font-weight:600;text-decoration:underline">Télécharger le contrat PDF</a></p>` : ''}
        <p>Consultez le devis complet et signez-le en ligne :</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/devis/signer/${token}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
