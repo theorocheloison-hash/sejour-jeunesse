@@ -47,7 +47,7 @@ EN_ATTENTE | EN_ATTENTE_VALIDATION | SELECTIONNE | SIGNE_DIRECTION | NON_RETENU 
 BROUILLON | ENVOYE | ACCEPTE | REFUSE | PAYE
 
 ### StatutSejour
-DRAFT | SUBMITTED | APPROVED | REJECTED | CONVENTION | SOUMIS_RECTORAT | SIGNE_DIRECTION | DECLARE_TAM
+DRAFT | OPTION | SUBMITTED | APPROVED | REJECTED | CONVENTION | SOUMIS_RECTORAT | SIGNE_DIRECTION | DECLARE_TAM
 
 ### TypeActivite
 APPEL | EMAIL | VISITE | DEVIS | SIGNATURE | VERSEMENT | NOTE | BROCHURE
@@ -182,6 +182,63 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 ### Devis — améliorations nombreEleves (19/05/2026) ✅
 ### Audit qualité codebase (20/05/2026) ✅
 ### Flux direction — backend (21/05/2026) ✅ — commit 28c372a
+
+### Séjour en gestion directe — CHANTIER COMPLET (28/05/2026) ✅
+
+**Architecture** : `docs/ARCHITECTURE_SEJOUR_DIRECT.md` (source de vérité)
+**10 prompts CC exécutés** : Phase 1 P1/P2, Phase 2 P1/P2, Phase 3A, Phase 3B-1/B-2, Phase final (cosmétique + Phase 4 + Phase 5)
+
+**Concept** : L'hébergeur crée un séjour depuis son planning sans que le client ait besoin d'un compte. L'invitation à collaborer est un upgrade, pas un prérequis. Le modèle DevisLibre est migré vers le modèle unifié.
+
+**Schema Prisma** :
+- Enum `StatutSejour` : ajout `OPTION` (dates bloquées, devis en cours)
+- Sejour : 11 nouveaux champs (`modeGestion` DIRECT/COLLABORATIF, `natureSejour` SEJOUR/EVENEMENT, `typeSejour`, `clientNom/Prenom/Email/Telephone/Organisation/OrganisationId`, `deletedAt` soft delete)
+- Devis : `demandeId` nullable, `sejourDirectId` (lien direct sans DemandeDevis), `tokenSignature` (signature par lien)
+- Relation bidirectionnelle `Sejour.devisDirect[] ↔ Devis.sejourDirect`
+
+**Backend livré** :
+- `POST /sejours/direct` — création séjour DIRECT + auto-création Client CRM + SejourClient + ActiviteClient
+- `DELETE /sejours/:id` — soft delete (deletedAt) + log CRM
+- `GET /collaboration/mes-sejours-planning` — séjours OPTION+CONVENTION+SIGNE_DIRECTION pour le planning
+- `POST /devis/direct` — création devis sur séjour DIRECT (sans DemandeDevis)
+- `POST /devis/:id/envoyer-direct` — envoi email client avec lien signature
+- 4 endpoints publics `GET/POST /devis/public/:token/*` — signature sans compte (signer, direction, upload scan)
+- `POST /sejours/:id/inviter-organisateur` — invite organisateur, upgrade DIRECT → COLLABORATIF
+- `verifyAccess()` élargi : accepte OPTION pour hébergeur en mode DIRECT + filtre soft delete
+- `accepter()` adapté : si invitation liée à séjour DIRECT → rattache createurId au lieu de créer nouveau séjour
+
+**Frontend livré** :
+- Planning : 3 couleurs (OPTION orange/violet, CONVENTION palette, indispo rouge) + légende
+- Modale planning : 3 boutons (Nouveau séjour / Nouvel événement / Indisponible)
+- Formulaire création séjour DIRECT avec StructureSearch (SIRENE + API EN + LIAVO)
+- Page `/devis/signer/[token]` publique : PDF détail + 3 onglets signature (en ligne / direction / upload scan)
+- Page `/dashboard/sejour/[id]` universelle : onglets conditionnels selon modeGestion + natureSejour
+  - DIRECT : onglets Messages/Journal grisés avec CTA "Inviter l'organisateur"
+  - EVENEMENT : masque Groupes/Participants/Projet
+  - Label "Programme" au lieu de "Planning" pour événements
+- Onglet Devis DIRECT : affichage dynamique (loading / devis existant avec lignes+montants+badge / placeholder création)
+- Bouton "📨 Envoyer à {email}" + bouton "Supprimer" + bouton "Inviter l'organisateur"
+- Fix cosmétique Destinataire/Objet sur page devis/nouveau en mode DIRECT
+- Redirect `/devis-libre/signer/:token` → `/devis/signer/:token`
+
+**Migration DevisLibres** :
+- Script SQL PL/pgSQL : chaque DevisLibre → Séjour DIRECT (EVENEMENT) + Devis standard + lignes + versements + SejourClient
+- Mapping type_evenement → typeSejour (MARIAGE/SEMINAIRE/ANNIVERSAIRE/AUTRE_EVENEMENT)
+- Tables originales conservées pour vérification, code mort non supprimé (nettoyage manuel après validation)
+
+**Taxonomie** :
+- `natureSejour` : SEJOUR (collectif) | EVENEMENT (ponctuel)
+- `typeSejour` (sous-types) : CLASSE_DECOUVERTE, COLONIE_VACANCES, CAMP_SPORTIF, SEJOUR_LINGUISTIQUE, AUTRE_SEJOUR | MARIAGE, ANNIVERSAIRE, SEMINAIRE, TEAM_BUILDING, REUNION_FAMILLE, AUTRE_EVENEMENT
+
+**Flow complet testé en prod** :
+Planning → Créer séjour DIRECT → Page séjour → Créer devis → Envoyer au client → Email reçu → Page publique signature → Signer → Séjour CONVENTION ✅
+
+**Leçons retenues** :
+- verifyAccess() : ne jamais modifier la logique existante, créer un branchement conditionnel (modeGestion)
+- Fichier 5000 lignes (sejour/[id]/page.tsx) : modifications chirurgicales uniquement, jamais de refactoring complet dans un prompt CC
+- Découper les prompts en backend/frontend séparés pour éviter les erreurs de contexte
+- getMesDevis retourne tous les scalaires (dont sejourDirectId) car pas de select restrictif → filtre client-side OK
+- Le soft delete (deletedAt) doit être ajouté dans CHAQUE query existante qui touche aux séjours
 
 ---
 

@@ -463,6 +463,118 @@ export class CollaborationService {
     });
   }
 
+  /**
+   * Retourne le nombre de messages/documents/posts journal non lus
+   * par l'hébergeur, agrégé et par séjour.
+   */
+  async getMesNonLus(userId: string, centreId?: string | null) {
+    let centreIds: string[];
+    if (centreId) {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { id: centreId, userId },
+        select: { id: true },
+      });
+      if (!centre) return { total: 0, parSejour: [] };
+      centreIds = [centre.id];
+    } else {
+      const centres = await this.prisma.centreHebergement.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      centreIds = centres.map((c) => c.id);
+      if (centreIds.length === 0) return { total: 0, parSejour: [] };
+    }
+
+    const sejours = await this.prisma.sejour.findMany({
+      where: {
+        hebergementSelectionneId: { in: centreIds },
+        statut: { in: ['CONVENTION', 'SIGNE_DIRECTION'] },
+        deletedAt: null,
+        createurId: { not: null },
+      },
+      select: { id: true, titre: true },
+    });
+
+    if (sejours.length === 0) return { total: 0, parSejour: [] };
+
+    const sejourIds = sejours.map((s) => s.id);
+
+    const visites = await this.prisma.sejourVisiteHebergeur.findMany({
+      where: { userId, sejourId: { in: sejourIds } },
+    });
+    const visiteMap = new Map<string, Date>();
+    for (const v of visites) {
+      visiteMap.set(`${v.sejourId}:${v.onglet}`, v.visitedAt);
+    }
+
+    const parSejour: { sejourId: string; titre: string; messages: number; documents: number; journal: number }[] = [];
+    let total = 0;
+
+    for (const sej of sejours) {
+      const lastMessages = visiteMap.get(`${sej.id}:messages`);
+      const lastDocuments = visiteMap.get(`${sej.id}:documents`);
+      const lastJournal = visiteMap.get(`${sej.id}:journal`);
+
+      const [msgCount, docCount, journalCount] = await Promise.all([
+        this.prisma.message.count({
+          where: {
+            sejourId: sej.id,
+            ...(lastMessages ? { createdAt: { gt: lastMessages } } : {}),
+            auteurId: { not: userId },
+          },
+        }),
+        this.prisma.documentSejour.count({
+          where: {
+            sejourId: sej.id,
+            ...(lastDocuments ? { createdAt: { gt: lastDocuments } } : {}),
+            uploaderId: { not: userId },
+          },
+        }),
+        this.prisma.postJournal.count({
+          where: {
+            sejourId: sej.id,
+            ...(lastJournal ? { createdAt: { gt: lastJournal } } : {}),
+            auteurId: { not: userId },
+          },
+        }),
+      ]);
+
+      const sejourTotal = msgCount + docCount + journalCount;
+      if (sejourTotal > 0) {
+        parSejour.push({
+          sejourId: sej.id,
+          titre: sej.titre,
+          messages: msgCount,
+          documents: docCount,
+          journal: journalCount,
+        });
+        total += sejourTotal;
+      }
+    }
+
+    return { total, parSejour };
+  }
+
+  /**
+   * Marque un onglet comme visité par l'hébergeur (upsert visitedAt = NOW).
+   */
+  async marquerVisite(userId: string, sejourId: string, onglet: string) {
+    const ONGLETS_VALIDES = ['messages', 'documents', 'journal'];
+    if (!ONGLETS_VALIDES.includes(onglet)) {
+      throw new ForbiddenException(`Onglet invalide : ${onglet}`);
+    }
+
+    await this.prisma.sejourVisiteHebergeur.upsert({
+      where: {
+        userId_sejourId_onglet: { userId, sejourId, onglet },
+      },
+      update: { visitedAt: new Date() },
+      create: { userId, sejourId, onglet, visitedAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
   async getActivitesCatalogue(sejourId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
 
