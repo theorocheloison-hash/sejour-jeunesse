@@ -1,0 +1,63 @@
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsInt,
+  IsEmail,
+  IsUUID,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateSejourDirectDto {
+  @IsString()
+  @MinLength(1)
+  titre!: string;
+
+  @IsString()
+  natureSejour!: string; // "SEJOUR" | "EVENEMENT"
+
+  @IsOptional()
+  @IsString()
+  typeSejour?: string; // sous-type (CLASSE_DECOUVERTE, MARIAGE, etc.)
+
+  @IsDateString()
+  dateDebut!: string;
+
+  @IsDateString()
+  dateFin!: string;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  nombreParticipants!: number;
+
+  @IsOptional()
+  @IsString()
+  clientNom?: string;
+
+  @IsOptional()
+  @IsString()
+  clientPrenom?: string;
+
+  @IsOptional()
+  @IsEmail()
+  clientEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  clientTelephone?: string;
+
+  @IsOptional()
+  @IsString()
+  clientOrganisation?: string;
+
+  @IsOptional()
+  @IsUUID()
+  clientOrganisationId?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}

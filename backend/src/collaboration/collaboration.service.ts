@@ -389,8 +389,61 @@ export class CollaborationService {
       where: {
         statut: { in: ['CONVENTION', 'SIGNE_DIRECTION'] },
         hebergementSelectionneId: { in: centreIds },
+        deletedAt: null,
       },
       include: {
+        createur: { select: { prenom: true, nom: true } },
+        hebergementSelectionne: { select: { nom: true } },
+        planningActivites: {
+          orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
+        },
+      },
+      orderBy: { dateDebut: 'asc' },
+    });
+  }
+
+  /**
+   * Retourne les séjours du centre pour le planning hébergeur.
+   * Inclut OPTION (gestion directe), CONVENTION, SIGNE_DIRECTION.
+   * Exclut les séjours soft-deleted.
+   */
+  async getMesSejoursPlanning(userId: string, centreId?: string | null) {
+    let centreIds: string[];
+    if (centreId) {
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { id: centreId, userId },
+        select: { id: true },
+      });
+      if (!centre) return [];
+      centreIds = [centre.id];
+    } else {
+      const centres = await this.prisma.centreHebergement.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      centreIds = centres.map((c) => c.id);
+      if (centreIds.length === 0) return [];
+    }
+
+    return this.prisma.sejour.findMany({
+      where: {
+        statut: { in: ['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'] },
+        hebergementSelectionneId: { in: centreIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        titre: true,
+        lieu: true,
+        dateDebut: true,
+        dateFin: true,
+        placesTotales: true,
+        statut: true,
+        modeGestion: true,
+        natureSejour: true,
+        typeSejour: true,
+        clientNom: true,
+        clientOrganisation: true,
         createur: { select: { prenom: true, nom: true } },
         hebergementSelectionne: { select: { nom: true } },
         planningActivites: {

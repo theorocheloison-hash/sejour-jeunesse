@@ -195,6 +195,14 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 - **Statut** : RDV téléphonique à caler semaine du 02/06/2026
 - **Enjeu LIAVO** : premier prospect multi-centre → force la priorisation du refactor Organisations + facturation multi-centre
 - **Prépa RDV** : wireframe multi-centre + discours planning options + tarification multi-centre à définir
+### Quentin Dervaux — UFCV, 120 lits, tout compris
+- **Source** : LinkedIn inbound (message 27/05/2026, suite à commentaire sur post LIAVO)
+- **Profil** : "Leader engagé", dirige un lieu d'hébergement 120 lits, propose du tout compris
+- **Organisation** : UFCV (Union Française des Centres de Vacances) — association nationale fondée en 1907, reconnue d'utilité publique, agréée Éducation Populaire. Gère des centres partout en France (Clair Matin en Auvergne, Haut-Peyron à Saint-Raphaël, etc.). Séjours scolaires, colos, vacances adaptées, formation BAFA/BAFD. **Potentiel énorme : si Quentin adopte LIAVO pour son centre, c'est un pied dans le réseau UFCV national.**
+- **Équipe** : a une coordinatrice (en congés jusqu'au ~15/06)
+- **Besoin** : intéressé par LIAVO pour améliorer le quotidien de sa coordinatrice
+- **Statut** : visio à caler après le 15/06/2026 (avec la coordinatrice)
+- **Enjeu LIAVO** : 2ème prospect inbound. Si Quentin est satisfait → présentation au réseau UFCV = scaling national. Même logique que LMDJ/IDDJ mais à l'échelle France entière.
 
 ---
 
@@ -266,7 +274,11 @@ WHERE u.email = clients.email LIMIT 1) WHERE organisation_id IS NULL
 
 
 ### CRITIQUE — en cours
-- [ ] **Liaison Client ↔ User à l'acceptation invitation** (spéc dans section CRM)
+- [ ] **Liaison Client ↔ User à l'acceptation invitation** (spéc dans section CRM). Use case réel : François Croquette / Collège Lucien Herr a un séjour en cours avec devis + espace collaboratif, mais la fiche client CRM du collège n'a aucun séjour lié ni activité. Les étapes devis signé/acompte/etc. n'apparaissent pas dans le CRM. Double silo : le flow collaboratif et le CRM ne communiquent pas. Fix : à l'acceptation de l'invitation, chercher le Client par email ou UAI, créer SejourClient + ActiviteClient pour chaque étape. Backfill des séjours existants. **Bloquant pour la crédibilité CRM auprès d'Yves.**
+- [ ] **Notifications hébergeur sur nouveaux messages collaboratifs** : quand un enseignant poste un message dans l'espace collaboratif, l'hébergeur ne reçoit AUCUNE notification dans LIAVO. L'email de notification existe (backend collaboration.service.ts notifierOrganisateur) mais il notifie l'organisateur, pas l'hébergeur. Et il n'y a aucun système de notification in-app (badge, cloche, compteur). **Deux fix nécessaires :**
+  - *Fix 1 (rapide, 1h)* : quand un ORGANISATEUR poste un message, envoyer aussi un email à l'hébergeur (centre.email ou user hébergeur). Symétrique de notifierOrganisateur. Créer notifierHebergeur dans collaboration.service.ts.
+  - *Fix 2 (moyen terme, 2-3j)* : système de notifications in-app. Modèle Notification (userId, type, titre, lien, lu/non-lu, createdAt). Badge compteur dans le header/sidebar. Couvre messages, devis reçus, signatures, paiements, etc. **Indispensable pour que l'hébergeur ne rate pas les messages de ses clients.**
+  - **Use case réel Sauvageon 27/05/2026 : un enseignant écrit dans l'espace collaboratif, Théo ne le voit pas.**
 
 ### Features devis
 - [ ] **Devis libre sans compte** — envoi devis PDF signable à un organisateur sans compte LIAVO, lien public `/devis/[token]` avec bouton Accepter, pas d'espace collaboratif. Nécessite : rendre `demandeId` optionnel dans schema Devis OU créer DemandeDevis fantôme. Estimé 1-2 semaines. Cas d'usage : client régulier au téléphone, pas envie de créer un compte.
