@@ -799,6 +799,7 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
 
   const [structNom, setStructNom] = useState('');
   const [structVille, setStructVille] = useState('');
+  const [structCodePostal, setStructCodePostal] = useState('');
   const [structResults, setStructResults] = useState<StructResult[]>([]);
   const [structSearching, setStructSearching] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<{ nom: string; adresse: string | null; ville: string | null } | null>(null);
@@ -812,9 +813,9 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     };
   }, []);
 
-  const fireStructSearch = (nom: string, ville: string) => {
+  const fireStructSearch = (nom: string, ville: string, cp: string) => {
     if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
-    const q = [nom.trim(), ville.trim()].filter(Boolean).join(' ');
+    const q = [nom.trim(), cp.trim(), ville.trim()].filter(Boolean).join(' ');
     if (q.length < 2) { setStructResults([]); return; }
 
     structDebounceRef.current = setTimeout(async () => {
@@ -841,6 +842,7 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     setSelectedOrg(null);
     setStructNom('');
     setStructVille('');
+    setStructCodePostal('');
     setStructResults([]);
   };
 
@@ -933,12 +935,16 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
 
           {!selectedOrg ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" value={structNom} placeholder="Nom de la structure"
-                  onChange={e => { setStructNom(e.target.value); fireStructSearch(e.target.value, structVille); }}
+              <p className="text-xs text-gray-400">Renseignez les 3 champs pour trouver plus facilement la structure.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <input type="text" value={structNom} placeholder="Nom"
+                  onChange={e => { setStructNom(e.target.value); fireStructSearch(e.target.value, structVille, structCodePostal); }}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                <input type="text" value={structCodePostal} placeholder="Code postal"
+                  onChange={e => { setStructCodePostal(e.target.value); fireStructSearch(structNom, structVille, e.target.value); }}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
                 <input type="text" value={structVille} placeholder="Ville"
-                  onChange={e => { setStructVille(e.target.value); fireStructSearch(structNom, e.target.value); }}
+                  onChange={e => { setStructVille(e.target.value); fireStructSearch(structNom, e.target.value, structCodePostal); }}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
               </div>
               {structSearching && <p className="text-xs text-gray-400">Recherche en cours…</p>}
