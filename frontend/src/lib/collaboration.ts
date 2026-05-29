@@ -60,6 +60,7 @@ export interface SejourCollabInfo {
   clientEmail?: string | null;
   clientTelephone?: string | null;
   clientOrganisation?: string | null;
+  notesInternes?: string | null;
 }
 
 export interface SejourConventionHebergeur {
@@ -535,6 +536,65 @@ export async function getMesNonLus(): Promise<NonLusResponse> {
 
 export async function marquerVisite(sejourId: string, onglet: string): Promise<void> {
   await api.post('/collaboration/marquer-visite', { sejourId, onglet });
+}
+
+// ── Notes & suivi (onglet TabNotes) ───────────────────────────────────────────
+
+export type TypeActiviteClient =
+  | 'APPEL' | 'EMAIL' | 'VISITE' | 'NOTE'
+  | 'DEVIS' | 'SIGNATURE' | 'VERSEMENT' | 'BROCHURE';
+
+export interface ActiviteSejour {
+  id: string;
+  clientId: string;
+  centreId: string;
+  type: string;
+  description: string;
+  metadata?: Record<string, unknown> | null;
+  userId?: string | null;
+  sejourId?: string | null;
+  createdAt: string;
+}
+
+export interface RappelSejour {
+  id: string;
+  clientId: string;
+  type: string;
+  dateEcheance: string;
+  description: string;
+  statut: string;
+  sejourId?: string | null;
+  createdAt: string;
+}
+
+export async function updateNotesInternes(sejourId: string, notesInternes: string): Promise<void> {
+  await api.patch(`/collaboration/sejour/${sejourId}/notes-internes`, { notesInternes });
+}
+
+export async function getActivitesSejour(sejourId: string): Promise<ActiviteSejour[]> {
+  const { data } = await api.get<ActiviteSejour[]>(`/collaboration/sejour/${sejourId}/activites`);
+  return data;
+}
+
+export async function createActiviteSejour(
+  sejourId: string,
+  dto: { type: string; description: string },
+): Promise<ActiviteSejour> {
+  const { data } = await api.post<ActiviteSejour>(`/collaboration/sejour/${sejourId}/activites`, dto);
+  return data;
+}
+
+export async function getRappelsSejour(sejourId: string): Promise<RappelSejour[]> {
+  const { data } = await api.get<RappelSejour[]>(`/collaboration/sejour/${sejourId}/rappels`);
+  return data;
+}
+
+export async function createRappelSejour(
+  sejourId: string,
+  dto: { type: string; dateRappel: string; description: string },
+): Promise<RappelSejour> {
+  const { data } = await api.post<RappelSejour>(`/collaboration/sejour/${sejourId}/rappels`, dto);
+  return data;
 }
 
 // ── Devis public (signature sans compte) ─────────────────────────────────
