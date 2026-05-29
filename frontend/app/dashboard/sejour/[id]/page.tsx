@@ -3,7 +3,6 @@
 import React from 'react';
 import { useEffect, useState, useRef, useCallback, useMemo, type DragEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   DndContext,
   useDraggable,
@@ -45,8 +44,6 @@ import {
   createJournalPost,
   deleteJournalPost,
   notifierPlanningEnseignant,
-  updateInfosSejour,
-  deleteSejourDirect,
   inviterOrganisateurDirect,
   marquerVisite,
 } from '@/src/lib/collaboration';
@@ -84,6 +81,7 @@ import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSid
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
 import TabDevisFacturation from './_components/TabDevisFacturation';
 import TabNotes from './_components/TabNotes';
+import SejourHeader from './_components/SejourHeader';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
   const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
@@ -102,32 +100,6 @@ function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabIn
     />
   );
 }
-
-// ─── Statut sejour (barre contexte) ────────────────────────────────────────
-
-const STATUT_LABEL: Record<string, string> = {
-  DRAFT: 'Brouillon',
-  OPTION: 'Option',
-  SUBMITTED: 'Soumis',
-  CONVENTION: 'Convention',
-  SOUMIS_RECTORAT: 'Soumis rectorat',
-  SIGNE_DIRECTION: 'Signé direction',
-  DECLARE_TAM: 'Déclaré TAM',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
-};
-
-const STATUT_BADGE_CLS: Record<string, string> = {
-  DRAFT: 'bg-gray-100 text-gray-600',
-  OPTION: 'bg-amber-100 text-amber-700',
-  SUBMITTED: 'bg-orange-100 text-orange-700',
-  CONVENTION: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]',
-  SOUMIS_RECTORAT: 'bg-purple-100 text-purple-700',
-  SIGNE_DIRECTION: 'bg-purple-100 text-purple-700',
-  DECLARE_TAM: 'bg-teal-100 text-teal-700',
-  APPROVED: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-  REJECTED: 'bg-red-100 text-red-700',
-};
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -555,9 +527,6 @@ export default function CollaborationPage() {
   const [planningFinActivites, setPlanningFinActivites] = useState('');
   const [planningNotifying, setPlanningNotifying] = useState(false);
   const [planningNotified, setPlanningNotified] = useState(false);
-  const [editingInfos, setEditingInfos] = useState(false);
-  const [infosForm, setInfosForm] = useState({ titre: '', dateDebut: '', dateFin: '' });
-  const [infosLoading, setInfosLoading] = useState(false);
   const [planningVue, setPlanningVue] = useState<'semaine' | 'jour'>('semaine');
   const [planningJourSelectionne, setPlanningJourSelectionne] = useState<string>('');
   const [planModal, setPlanModal] = useState<{
@@ -637,11 +606,6 @@ export default function CollaborationPage() {
     if (!id || !user) return;
     getSejourCollabInfo(id).then((data) => {
       setSejour(data);
-      setInfosForm({
-        titre: data.titre ?? '',
-        dateDebut: data.dateDebut ? new Date(data.dateDebut).toISOString().substring(0, 10) : '',
-        dateFin: data.dateFin ? new Date(data.dateFin).toISOString().substring(0, 10) : '',
-      });
       getAccompagnateursBySejour(id).then(setAccompagnateurs).catch(() => {});
     }).catch(() => setError('Impossible de charger les informations du séjour.'));
   }, [id, user]);
@@ -1040,30 +1004,6 @@ export default function CollaborationPage() {
   // Check if ski column relevant
   const showSkiColumn = participants.some((p) => p.niveauSki);
 
-  // ── Save infos séjour (titre + dates) ──
-  const handleSaveInfos = async () => {
-    if (!id) return;
-    setInfosLoading(true);
-    try {
-      const updated = await updateInfosSejour(id, {
-        titre: infosForm.titre || undefined,
-        dateDebut: infosForm.dateDebut || undefined,
-        dateFin: infosForm.dateFin || undefined,
-      });
-      setSejour(prev => prev ? {
-        ...prev,
-        titre: updated.titre,
-        dateDebut: updated.dateDebut,
-        dateFin: updated.dateFin,
-      } : prev);
-      setEditingInfos(false);
-    } catch {
-      // ignore
-    } finally {
-      setInfosLoading(false);
-    }
-  };
-
   // ── Save thématiques ──
   const handleSaveThematiques = async () => {
     if (thematiquesSelectionnees.length === 0) return;
@@ -1099,9 +1039,6 @@ export default function CollaborationPage() {
   const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur/planning';
   const isDirector = user.role === 'SIGNATAIRE';
   const isHebergeur = user.role === 'HEBERGEUR';
-  const sejourStatut = sejour?.statut ?? 'DRAFT';
-
-  const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
   return (
     <div className={isHebergeur ? 'flex min-h-screen bg-gray-50' : 'min-h-screen bg-gray-50'}>
@@ -1110,111 +1047,20 @@ export default function CollaborationPage() {
       )}
       <div className={isHebergeur ? 'flex-1 min-w-0 flex flex-col' : ''}>
 
-      {/* ── Barre de contexte sticky (remplace l'ancienne topbar pour tous les rôles) */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href={retourHref}
-            className="shrink-0 text-gray-400 hover:text-gray-700 transition-colors"
-            aria-label="Retour"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-          </Link>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate flex items-center">
-              <span className="truncate">{sejour?.titre ?? '—'}</span>
-              {isHebergeur && !editingInfos && (
-                <button
-                  onClick={() => setEditingInfos(true)}
-                  className="text-xs text-gray-400 hover:text-[var(--color-primary)] hover:underline ml-2 shrink-0"
-                >
-                  ✏️ Modifier
-                </button>
-              )}
-              {isHebergeur && isDirect && !editingInfos && (
-                <button
-                  onClick={async () => {
-                    if (!confirm('Supprimer ce séjour ? Le client CRM sera conservé.')) return;
-                    try {
-                      await deleteSejourDirect(id);
-                      router.push('/dashboard/hebergeur/planning');
-                    } catch {
-                      setMutationError('Erreur lors de la suppression');
-                    }
-                  }}
-                  className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2 shrink-0"
-                >
-                  Supprimer
-                </button>
-              )}
-            </p>
-            <p className="text-xs text-gray-400 truncate">
-              {sejour?.hebergementSelectionne?.nom ?? '—'}
-              {sejour?.dateDebut && sejour?.dateFin && (
-                <> · {fmtCtx(sejour.dateDebut)} → {fmtCtx(sejour.dateFin)}</>
-              )}
-              {sejour?.placesTotales != null && <> · {sejour.placesTotales} participants</>}
-            </p>
-            {isDirect && (
-              <p className="text-xs text-gray-500 truncate">
-                {sejour?.clientOrganisation ?? sejour?.clientNom ?? 'Client non renseigné'}
-                {sejour?.clientEmail && <> · {sejour.clientEmail}</>}
-              </p>
-            )}
-            {isHebergeur && editingInfos && (
-              <div className="flex flex-col gap-2 mt-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm max-w-md">
-                <input
-                  value={infosForm.titre}
-                  onChange={e => setInfosForm(f => ({ ...f, titre: e.target.value }))}
-                  placeholder="Titre du séjour"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={infosForm.dateDebut}
-                    onChange={e => setInfosForm(f => ({ ...f, dateDebut: e.target.value }))}
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
-                  <input
-                    type="date"
-                    value={infosForm.dateFin}
-                    onChange={e => setInfosForm(f => ({ ...f, dateFin: e.target.value }))}
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => setEditingInfos(false)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleSaveInfos}
-                    disabled={infosLoading}
-                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {infosLoading ? 'Enregistrement...' : 'Enregistrer'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isDirector && (
-            <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
-              Vue direction
-            </span>
-          )}
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUT_BADGE_CLS[sejourStatut] ?? 'bg-gray-100 text-gray-600'}`}>
-            {STATUT_LABEL[sejourStatut] ?? sejourStatut}
-          </span>
-        </div>
-      </div>
+      {/* ── Barre de contexte sticky (header séjour) ─── */}
+      {sejour && user && (
+        <SejourHeader
+          sejourId={id}
+          sejour={sejour}
+          user={user}
+          isDirect={isDirect}
+          isEvenement={isEvenement}
+          retourHref={retourHref}
+          onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
+          onError={setMutationError}
+          onDeleted={() => router.push('/dashboard/hebergeur/planning')}
+        />
+      )}
 
       {mutationError && (
         <div className="bg-red-50 border-b border-red-200 px-6 py-3 print:hidden">
