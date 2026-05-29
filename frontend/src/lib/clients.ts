@@ -197,6 +197,9 @@ export const deleteContact = (id: string) => api.delete(`/clients/contacts/${id}
 export const addRappel = (clientId: string, dto: { type: string; dateEcheance: string; description: string }) => api.post<Rappel>(`/clients/${clientId}/rappels`, dto).then(r => r.data);
 export const updateRappelStatut = (id: string, statut: string) => api.patch<Rappel>(`/clients/rappels/${id}/statut`, { statut }).then(r => r.data);
 export const deleteRappel = (id: string) => api.delete(`/clients/rappels/${id}`);
+export async function rattacherSejour(clientId: string, sejourId: string): Promise<void> {
+  await api.post(`/clients/${clientId}/sejours/${sejourId}`);
+}
 export const importerProspects = (academie: string, types: string[]) => api.post<{ imported: number; skipped: number; total: number }>('/clients/import/prospects', { academie, types }).then(r => r.data);
 
 export function downloadTemplateClients(): void {
