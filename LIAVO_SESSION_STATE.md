@@ -183,6 +183,38 @@ INTERDIT : contact@chalet-sauvageon.fr = INEXISTANT
 
 ---
 
+## CHANTIER COHÉRENCE PLANNING — ✅ TERMINÉ 29/05/2026 — en test prod
+
+**Objectif** : couleur planning = devis le plus AVANCÉ (pas le plus récent) ; palette
+partagée mono-centre + global.
+
+**Décisions** : D1 = option A stricte (le flux "demandes en attente sur le mono" est
+reporté — cf. note PRIORITÉ #1). D2 = palette 5+1 (Option/Confirmé/Acompte/Soldé/
+Indispo + Demande-en-attente séparé). D3 = aucune couleur dédiée rectorat/TAM (statuts
+organisateur) → tombent en Confirmé bleu.
+
+**Fichiers** :
+- planning-statut.ts : RANG_FACTURATION + statutDevisLePlusAvance() + derivePlanningStatut
+  réécrit (collecte tous les statuts devis, prend le plus avancé) + COULEUR_DEMANDE_ATTENTE
+  exporté SÉPARÉMENT de PLANNING_COULEURS (sinon fuite dans la légende mono).
+- collaboration.service.ts (getMesSejoursPlanning) : tous les devis (retrait take:1) +
+  filtre where centreId in centreIds sur les devis de demandes.
+- centre.service.ts (getDashboardGlobal) : sejoursPlanning enrichi de devisDirect +
+  demandes.devis (filtrés centre).
+- global/page.tsx : palette partagée + légende 5 états, STATUT_CONFIRME supprimé.
+
+**Consommateurs derivePlanningStatut** (tous via endpoints enrichis, vérifiés) :
+planning/page.tsx, sejours/page.tsx (liste + filtre statut), global/page.tsx.
+
+**À tester prod (Sauvageon)** : smoke-test chemin argent option→devis→acompte→solde ;
+vérifier couleurs sur les 3 surfaces + cohérence avec le kanban CRM en parallèle.
+
+**À garder en tête** : la granularité acompte (vert) / soldé (gris) sur le global
+8 semaines est ajustable (vit dans PLANNING_COULEURS) — à valider à l'œil sur données
+multi-centre réelles, ramener à Option/Confirmé/Demande-attente si trop chargé.
+
+---
+
 ## FLUX DIRECTION — LIVRÉ PARTIELLEMENT (21/05/2026)
 
 ### Backend livré ✅ — commit 28c372a
