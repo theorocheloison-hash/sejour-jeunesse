@@ -248,25 +248,25 @@ export default function TabDevisFacturation({
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Total TTC</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {ad.montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              {ad.montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Acompte ({ad.pourcentageAcompte}%)</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {ad.montantAcompte.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              {ad.montantAcompte.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Déjà versé</p>
             <p className="text-sm font-semibold text-green-700 mt-0.5">
-              {totalVerse.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              {totalVerse.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Reste dû</p>
             <p className="text-sm font-semibold text-amber-700 mt-0.5">
-              {resteDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              {resteDu.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
             </p>
           </div>
         </div>
@@ -292,7 +292,7 @@ export default function TabDevisFacturation({
               <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs">
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500">{new Date(v.datePaiement).toLocaleDateString('fr-FR')}</span>
-                  <span className="font-medium text-gray-900">{v.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                  <span className="font-medium text-gray-900">{v.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                   {v.reference && <span className="text-gray-400">Réf: {v.reference}</span>}
                 </div>
                 <button
