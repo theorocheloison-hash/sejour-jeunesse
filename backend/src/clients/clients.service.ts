@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { StatutDevis, StatutRelation } from '@prisma/client';
+import { StatutDevis, StatutRelation, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
@@ -64,52 +64,94 @@ export class ClientsService {
       return clients.map(c => ({ ...c, devis: [], montantCA: 0, nombreSejours: c.sejours.length }));
     }
 
-    const devis = await this.prisma.devis.findMany({
-      where: {
-        centreId,
-        demande: { sejourId: { in: sejourIds } },
-        statut: {
-          in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION],
-        },
-      },
+    // ── Détails des séjours liés (SejourClient n'a pas de relation `sejour`) ──
+    const sejoursDetails = await this.prisma.sejour.findMany({
+      where: { id: { in: sejourIds } },
       select: {
         id: true,
-        numeroDevis: true,
-        numeroFacture: true,
-        typeDocument: true,
+        titre: true,
         statut: true,
-        montantTotal: true,
-        montantTTC: true,
-        montantAcompte: true,
-        acompteVerse: true,
-        dateFacture: true,
-        createdAt: true,
-        demande: {
-          select: {
-            sejourId: true,
-            sejour: { select: { titre: true, dateDebut: true, dateFin: true } },
-          },
+        dateDebut: true,
+        dateFin: true,
+        natureSejour: true,
+        modeGestion: true,
+      },
+    });
+    const sejourById = new Map(sejoursDetails.map(s => [s.id, s]));
+
+    // Statuts de devis pertinents pour le pipeline CRM (exclut REFUSE/ACCEPTE legacy)
+    const STATUTS_PERTINENTS: StatutDevis[] = [
+      StatutDevis.EN_ATTENTE,
+      StatutDevis.EN_ATTENTE_VALIDATION,
+      StatutDevis.SELECTIONNE,
+      StatutDevis.SIGNE_DIRECTION,
+      StatutDevis.NON_RETENU,
+      StatutDevis.FACTURE_ACOMPTE,
+      StatutDevis.FACTURE_SOLDE,
+    ];
+
+    const devisSelect = {
+      id: true,
+      numeroDevis: true,
+      numeroFacture: true,
+      typeDocument: true,
+      statut: true,
+      montantTotal: true,
+      montantTTC: true,
+      montantAcompte: true,
+      acompteVerse: true,
+      dateFacture: true,
+      createdAt: true,
+      sejourDirectId: true,
+      demande: {
+        select: {
+          sejourId: true,
+          sejour: { select: { titre: true, dateDebut: true, dateFin: true } },
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true } },
+    } satisfies Prisma.DevisSelect;
 
-    const devisBySejourId = new Map<string, typeof devis>();
-    for (const d of devis) {
-      const sid = d.demande?.sejourId;
-      if (!sid) continue;
+    // Devis COLLAB (liés via demande → sejourId) + devis DIRECT (liés via sejourDirectId)
+    const [devisCollab, devisDirect] = await Promise.all([
+      this.prisma.devis.findMany({
+        where: { centreId, demande: { sejourId: { in: sejourIds } }, statut: { in: STATUTS_PERTINENTS } },
+        select: devisSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.devis.findMany({
+        where: { centreId, sejourDirectId: { in: sejourIds }, statut: { in: STATUTS_PERTINENTS } },
+        select: devisSelect,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    type DevisRow = (typeof devisCollab)[number];
+    const devisBySejourId = new Map<string, DevisRow[]>();
+    const pushDevis = (sid: string | null | undefined, d: DevisRow) => {
+      if (!sid) return;
       if (!devisBySejourId.has(sid)) devisBySejourId.set(sid, []);
       devisBySejourId.get(sid)!.push(d);
-    }
+    };
+    for (const d of devisCollab) pushDevis(d.demande?.sejourId, d);
+    for (const d of devisDirect) pushDevis(d.sejourDirectId, d);
+
+    // CA = uniquement les devis confirmés/facturés (évite de gonfler avec EN_ATTENTE/NON_RETENU)
+    const CA_STATUTS: string[] = [
+      StatutDevis.SELECTIONNE,
+      StatutDevis.SIGNE_DIRECTION,
+      StatutDevis.FACTURE_ACOMPTE,
+      StatutDevis.FACTURE_SOLDE,
+    ];
 
     return clients.map(c => {
       const devisClient = c.sejours.flatMap(s => devisBySejourId.get(s.sejourId) ?? []);
-      const montantCA = devisClient.reduce(
-        (sum, d) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0),
-        0,
-      );
+      const montantCA = devisClient
+        .filter(d => CA_STATUTS.includes(d.statut))
+        .reduce((sum, d) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
       return {
         ...c,
+        sejours: c.sejours.map(sc => ({ ...sc, sejour: sejourById.get(sc.sejourId) ?? null })),
         devis: devisClient,
         montantCA,
         nombreSejours: c.sejours.length,

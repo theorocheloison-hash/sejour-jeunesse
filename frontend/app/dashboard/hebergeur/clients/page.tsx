@@ -10,7 +10,8 @@ import {
   addRappel, updateRappelStatut, deleteRappel,
   importerProspects, downloadTemplateClients, importerClientsCSV, downloadTemplateContacts, importerContactsCSV,
   searchEtablissement,
-  STATUT_CLIENT_LABELS, TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
+  STATUT_CLIENT_LABELS, STATUT_DERIVE_LABELS, deriveClientStatus,
+  TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
 import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
 import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
@@ -18,7 +19,7 @@ import type { ActiviteClient } from '@/src/lib/clients';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
-const PIPELINE_COLONNES = ['PROSPECT', 'CONTACTE', 'INTERESSE', 'EN_NEGOCIATION', 'CLIENT', 'INACTIF'] as const;
+const PIPELINE_COLONNES = ['PROSPECT', 'EN_COURS', 'DEVIS_ENVOYE', 'CONFIRME', 'ACOMPTE_VERSE', 'SOLDE'] as const;
 
 function matchesSearch(c: Client, query: string): boolean {
   if (query.length < 2) return true;
@@ -140,18 +141,28 @@ function ClientsPage() {
 
   const selected = useMemo(() => clients.find(c => c.id === selectedId) ?? null, [clients, selectedId]);
 
+  // Statut dérivé (pipeline) calculé une fois par client
+  const statutDerive = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of clients) m[c.id] = deriveClientStatus(c);
+    return m;
+  }, [clients]);
+
   const filtered = useMemo(() => {
     let list = clients;
-    if (filtreStatut !== 'ALL') list = list.filter(c => c.statut === filtreStatut);
+    if (filtreStatut !== 'ALL') list = list.filter(c => statutDerive[c.id] === filtreStatut);
     if (searchQuery.length >= 2) list = list.filter(c => matchesSearch(c, searchQuery));
     return list;
-  }, [clients, filtreStatut, searchQuery]);
+  }, [clients, filtreStatut, searchQuery, statutDerive]);
 
   const statutCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    clients.forEach(c => { counts[c.statut] = (counts[c.statut] ?? 0) + 1; });
+    for (const c of clients) {
+      const s = statutDerive[c.id];
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
     return counts;
-  }, [clients]);
+  }, [clients, statutDerive]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -419,8 +430,8 @@ function ClientsPage() {
 
   if (isLoading || !user) return null;
 
-  const clientCount = clients.filter(c => c.statut === 'CLIENT').length;
-  const prospectCount = clients.filter(c => c.statut === 'PROSPECT').length;
+  const prospectCount = clients.filter(c => statutDerive[c.id] === 'PROSPECT').length;
+  const clientCount = clients.filter(c => !['PROSPECT', 'PERDU'].includes(statutDerive[c.id])).length;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
@@ -547,7 +558,7 @@ function ClientsPage() {
             <button onClick={() => setFiltreStatut('ALL')} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === 'ALL' ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
               Tous ({clients.length})
             </button>
-            {Object.entries(STATUT_CLIENT_LABELS).map(([key, { label }]) => (
+            {Object.entries(STATUT_DERIVE_LABELS).map(([key, { label }]) => (
               <button key={key} onClick={() => setFiltreStatut(key)} className={`rounded-full px-3 py-1 text-xs font-medium ${filtreStatut === key ? 'bg-[var(--color-primary)] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
                 {label} ({statutCounts[key] ?? 0})
               </button>
@@ -575,7 +586,7 @@ function ClientsPage() {
               ) : filtered.length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-8">Aucun client.</p>
               ) : filtered.map(c => {
-                const st = STATUT_CLIENT_LABELS[c.statut] ?? STATUT_CLIENT_LABELS.PROSPECT;
+                const st = STATUT_DERIVE_LABELS[statutDerive[c.id]] ?? STATUT_DERIVE_LABELS.PROSPECT;
                 const overdueRappels = c.rappels.filter(r => r.statut === 'A_FAIRE' && r.dateEcheance.split('T')[0] < today).length;
                 return (
                   <div key={c.id} onClick={() => { setSelectedId(c.id); setEditMode(false); }} className={`rounded-xl border px-4 py-3 cursor-pointer transition-all ${selectedId === c.id ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
@@ -595,9 +606,9 @@ function ClientsPage() {
             ) : (
               <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${(showPerdus ? PIPELINE_COLONNES.length + 1 : PIPELINE_COLONNES.length)}, minmax(180px, 1fr))` }}>
                 {(showPerdus ? [...PIPELINE_COLONNES, 'PERDU'] : [...PIPELINE_COLONNES]).map(colonne => {
-                  const cfg = STATUT_CLIENT_LABELS[colonne] ?? STATUT_CLIENT_LABELS.PROSPECT;
+                  const cfg = STATUT_DERIVE_LABELS[colonne] ?? STATUT_DERIVE_LABELS.PROSPECT;
                   const clientsColonne = clients.filter(c =>
-                    c.statut === colonne &&
+                    statutDerive[c.id] === colonne &&
                     (searchQuery.length < 2 || matchesSearch(c, searchQuery))
                   );
                   return (
@@ -674,7 +685,17 @@ function ClientsPage() {
                   {editMode ? (
                     <div className="grid grid-cols-2 gap-3">
                       <div><label className="block text-xs text-gray-500 mb-1">Nom *</label><input value={editForm.nom ?? ''} onChange={e => setEditForm(f => ({ ...f, nom: e.target.value }))} className={inputCls} /></div>
-                      <div><label className="block text-xs text-gray-500 mb-1">Statut</label><select value={editForm.statut ?? ''} onChange={e => setEditForm(f => ({ ...f, statut: e.target.value }))} className={inputCls}>{Object.entries(STATUT_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
+                      <div className="flex items-end pb-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={editForm.statut === 'PERDU'}
+                            onChange={e => setEditForm(f => ({ ...f, statut: e.target.checked ? 'PERDU' : 'PROSPECT' }))}
+                            className="rounded border-gray-300"
+                          />
+                          Marquer comme perdu
+                        </label>
+                      </div>
                       <div><label className="block text-xs text-gray-500 mb-1">Type</label><select value={editForm.type ?? ''} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>{Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
                       <div><label className="block text-xs text-gray-500 mb-1">Ville</label><input value={editForm.ville ?? ''} onChange={e => setEditForm(f => ({ ...f, ville: e.target.value }))} className={inputCls} /></div>
                       <div><label className="block text-xs text-gray-500 mb-1">Téléphone</label><input value={editForm.telephone ?? ''} onChange={e => setEditForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} /></div>
@@ -685,7 +706,7 @@ function ClientsPage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div><p className="text-xs text-gray-400">Type</p><p className="font-medium">{TYPE_CLIENT_LABELS[selected.type] ?? selected.type}</p></div>
-                      <div><p className="text-xs text-gray-400">Statut</p><p><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${(STATUT_CLIENT_LABELS[selected.statut] ?? STATUT_CLIENT_LABELS.PROSPECT).cls}`}>{(STATUT_CLIENT_LABELS[selected.statut] ?? STATUT_CLIENT_LABELS.PROSPECT).label}</span></p></div>
+                      <div><p className="text-xs text-gray-400">Statut</p><p><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${(STATUT_DERIVE_LABELS[statutDerive[selected.id]] ?? STATUT_DERIVE_LABELS.PROSPECT).cls}`}>{(STATUT_DERIVE_LABELS[statutDerive[selected.id]] ?? STATUT_DERIVE_LABELS.PROSPECT).label}</span></p></div>
                       {selected.ville && <div><p className="text-xs text-gray-400">Ville</p><p className="font-medium">{selected.ville}</p></div>}
                       {selected.telephone && <div><p className="text-xs text-gray-400">Téléphone</p><p className="font-medium">{selected.telephone}</p></div>}
                       {selected.email && <div><p className="text-xs text-gray-400">Email</p><p className="font-medium">{selected.email}</p></div>}
@@ -1035,14 +1056,9 @@ function ClientsPage() {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <select value={newForm.type} onChange={e => setNewForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
-                  {Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-                <select value={newForm.statut} onChange={e => setNewForm(f => ({ ...f, statut: e.target.value }))} className={inputCls}>
-                  {Object.entries(STATUT_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </div>
+              <select value={newForm.type} onChange={e => setNewForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
+                {Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
               <div className="grid grid-cols-2 gap-3">
                 <input placeholder="Ville" value={newForm.ville} onChange={e => setNewForm(f => ({ ...f, ville: e.target.value }))} className={inputCls} />
                 <input

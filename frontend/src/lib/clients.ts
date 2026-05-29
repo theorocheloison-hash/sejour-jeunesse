@@ -1,5 +1,6 @@
 import api from './api';
 
+// Statuts legacy en base (Client.statut) \u2014 conserv\u00e9s pour l'import CSV historique
 export const STATUT_CLIENT_LABELS: Record<string, { label: string; cls: string }> = {
   PROSPECT:       { label: 'Prospect',        cls: 'bg-gray-100 text-gray-600' },
   CONTACTE:       { label: 'Contact\u00e9',   cls: 'bg-blue-100 text-blue-700' },
@@ -7,6 +8,17 @@ export const STATUT_CLIENT_LABELS: Record<string, { label: string; cls: string }
   EN_NEGOCIATION: { label: 'En n\u00e9gociation', cls: 'bg-orange-100 text-orange-700' },
   CLIENT:         { label: 'Client',           cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
   INACTIF:        { label: 'Inactif',          cls: 'bg-gray-100 text-gray-400' },
+  PERDU:          { label: 'Perdu',            cls: 'bg-red-100 text-red-600' },
+};
+
+// Statuts d\u00e9riv\u00e9s automatiquement du devis le plus avanc\u00e9 (pipeline CRM)
+export const STATUT_DERIVE_LABELS: Record<string, { label: string; cls: string }> = {
+  PROSPECT:       { label: 'Prospect',        cls: 'bg-gray-100 text-gray-600' },
+  EN_COURS:       { label: 'En cours',        cls: 'bg-blue-100 text-blue-700' },
+  DEVIS_ENVOYE:   { label: 'Devis envoy\u00e9',    cls: 'bg-amber-100 text-amber-700' },
+  CONFIRME:       { label: 'Confirm\u00e9',         cls: 'bg-indigo-100 text-indigo-700' },
+  ACOMPTE_VERSE:  { label: 'Acompte vers\u00e9',   cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
+  SOLDE:          { label: 'Sold\u00e9',            cls: 'bg-gray-100 text-gray-500' },
   PERDU:          { label: 'Perdu',            cls: 'bg-red-100 text-red-600' },
 };
 
@@ -60,6 +72,15 @@ export interface Rappel {
 export interface SejourClient {
   id: string;
   sejourId: string;
+  sejour?: {
+    id: string;
+    titre: string;
+    statut: string;
+    dateDebut: string;
+    dateFin: string;
+    natureSejour?: string;
+    modeGestion?: string;
+  } | null;
 }
 
 export interface DevisClient {
@@ -102,6 +123,40 @@ export interface Client {
   devis: DevisClient[];
   montantCA?: number;
   nombreSejours?: number;
+}
+
+/**
+ * Dérive le statut pipeline d'un client à partir du devis le plus avancé
+ * parmi ses séjours. L'override manuel "PERDU" (Client.statut) prime tant
+ * qu'aucun dossier actif n'existe.
+ */
+export function deriveClientStatus(client: Client): string {
+  // Override PERDU manuel : seulement si aucun dossier actif
+  const hasActiveDossier = client.sejours.some(s => {
+    const statut = s.sejour?.statut;
+    return statut && !['DRAFT', 'REJECTED'].includes(statut);
+  });
+  if (client.statut === 'PERDU' && !hasActiveDossier) return 'PERDU';
+
+  const devisStatuts = client.devis.map(d => d.statut);
+
+  // Du plus avancé au moins avancé
+  if (devisStatuts.some(s => s === 'FACTURE_SOLDE')) {
+    // Tous soldés ou non retenus → Soldé ; sinon le statut actif prime (plus bas)
+    const activeDevis = devisStatuts.filter(s => !['FACTURE_SOLDE', 'NON_RETENU'].includes(s));
+    if (activeDevis.length === 0) return 'SOLDE';
+  }
+  if (devisStatuts.some(s => s === 'FACTURE_ACOMPTE')) return 'ACOMPTE_VERSE';
+  if (devisStatuts.some(s => s === 'SELECTIONNE' || s === 'SIGNE_DIRECTION')) return 'CONFIRME';
+  if (devisStatuts.some(s => s === 'EN_ATTENTE' || s === 'EN_ATTENTE_VALIDATION')) return 'DEVIS_ENVOYE';
+
+  // Devis présents mais tous non retenus → Perdu
+  if (devisStatuts.length > 0 && devisStatuts.every(s => s === 'NON_RETENU')) return 'PERDU';
+
+  // Des séjours existent (OPTION ou plus) sans devis pertinent → En cours
+  if (client.sejours.length > 0) return 'EN_COURS';
+
+  return 'PROSPECT';
 }
 
 export interface RappelToday {
