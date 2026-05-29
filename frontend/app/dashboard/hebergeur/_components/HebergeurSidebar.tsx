@@ -41,6 +41,7 @@ const ICONS = {
   folderOpen:        'M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776',
   buildingStorefront:'M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z',
   creditCard:        'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 005.25 21z',
+  clipboardDocList:  'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z',
   arrowRightOnRect:  'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
 };
 
@@ -63,6 +64,7 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
     label: 'Mon centre',
     items: [
       { href: '/dashboard/hebergeur/planning',         label: 'Planning',           icon: ICONS.calendarDays },
+      { href: '/dashboard/hebergeur/sejours',          label: 'Séjours',            icon: ICONS.clipboardDocList },
       { href: '/dashboard/hebergeur/catalogue',        label: 'Catalogue & tarifs', icon: ICONS.bars3BottomLeft },
       { href: '/dashboard/hebergeur/disponibilites',   label: 'Disponibilités',     icon: ICONS.calendarDays },
       { href: '/dashboard/hebergeur/documents',        label: 'Documents',          icon: ICONS.folderOpen },
@@ -93,7 +95,7 @@ export default function HebergeurSidebar({
         badge = { count: actionsFactCount, color: 'orange' };
       } else if (item.href === '/dashboard/hebergeur/clients' && rappelsCount > 0) {
         badge = { count: rappelsCount, color: 'red' };
-      } else if (item.href === '/dashboard/hebergeur/planning' && sejoursNonLusCount > 0) {
+      } else if (item.href === '/dashboard/hebergeur/sejours' && sejoursNonLusCount > 0) {
         badge = { count: sejoursNonLusCount, color: 'red' };
       }
       return { ...item, badge };
