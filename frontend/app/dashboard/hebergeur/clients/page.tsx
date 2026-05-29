@@ -2,17 +2,18 @@
 
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMesClients, createClient, updateClient, deleteClient,
   addContact, deleteContact,
-  addRappel, updateRappelStatut, deleteRappel,
+  addRappel, updateRappelStatut, deleteRappel, rattacherSejour,
   importerProspects, downloadTemplateClients, importerClientsCSV, downloadTemplateContacts, importerContactsCSV,
   searchEtablissement,
   STATUT_CLIENT_LABELS, STATUT_DERIVE_LABELS, deriveClientStatus,
   TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
+import { createSejourDirect } from '@/src/lib/collaboration';
 import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
 import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
 import type { ActiviteClient } from '@/src/lib/clients';
@@ -61,6 +62,7 @@ function parseCSVLine(line: string): string[] {
 
 function ClientsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const preselectedId = searchParams.get('selected');
   const { user, isLoading, centres, centreActif } = useAuth();
   const centreNom = centres.find(c => c.id === centreActif)?.nom ?? centres[0]?.nom ?? 'notre centre';
@@ -832,19 +834,109 @@ function ClientsPage() {
                   )}
                 </div>
 
-                {/* Section 4 — Séjours */}
+                {/* Section 4 — Séjours liés */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Séjours liés ({selected.sejours.length})</h3>
-                  {selected.sejours.length === 0 ? <p className="text-xs text-gray-400">Aucun séjour lié.</p> : (
-                    <div className="space-y-2">
-                      {selected.sejours.map(sc => (
-                        <div key={sc.id} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                          <p className="text-xs text-gray-600">Séjour {sc.sejourId.substring(0, 8)}...</p>
-                          <Link href={`/dashboard/sejour/${sc.sejourId}`} className="text-xs text-[var(--color-primary)] hover:underline">Espace collab &rarr;</Link>
-                        </div>
-                      ))}
+
+                  {selected.sejours.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">Aucun séjour lié</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {selected.sejours.map(sc => {
+                        const sej = sc.sejour;
+                        if (!sej) return (
+                          <div key={sc.id} className="text-xs text-gray-400 italic">Séjour supprimé</div>
+                        );
+
+                        const STATUT_SEJOUR_BADGE: Record<string, { label: string; cls: string }> = {
+                          OPTION: { label: 'Option', cls: 'bg-amber-100 text-amber-700' },
+                          CONVENTION: { label: 'Convention', cls: 'bg-blue-100 text-blue-700' },
+                          SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
+                          DRAFT: { label: 'Brouillon', cls: 'bg-gray-100 text-gray-500' },
+                        };
+                        const badge = STATUT_SEJOUR_BADGE[sej.statut] ?? { label: sej.statut, cls: 'bg-gray-100 text-gray-500' };
+                        const dateDebut = sej.dateDebut ? new Date(sej.dateDebut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+                        const dateFin = sej.dateFin ? new Date(sej.dateFin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                        const isEvenement = sej.natureSejour === 'EVENEMENT';
+
+                        return (
+                          <Link
+                            key={sc.id}
+                            href={`/dashboard/sejour/${sej.id}`}
+                            className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {isEvenement ? '🎉 ' : ''}{sej.titre}
+                              </p>
+                              {dateDebut && (
+                                <p className="text-xs text-gray-400">{dateDebut} → {dateFin}</p>
+                              )}
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
+
+                  {/* Boutons création */}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={async () => {
+                        if (!selected) return;
+                        try {
+                          const newSejour = await createSejourDirect({
+                            titre: `Séjour ${selected.nom}`,
+                            natureSejour: 'SEJOUR',
+                            dateDebut: new Date().toISOString().split('T')[0],
+                            dateFin: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
+                            nombreParticipants: 30,
+                            clientNom: selected.nom,
+                            clientEmail: selected.email ?? selected.contacts[0]?.email ?? undefined,
+                            clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
+                            clientOrganisation: selected.nom,
+                            clientOrganisationId: selected.organisationId ?? undefined,
+                          });
+                          await rattacherSejour(selected.id, newSejour.id);
+                          router.push(`/dashboard/sejour/${newSejour.id}`);
+                        } catch {
+                          setErreur('Erreur lors de la création du séjour');
+                        }
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      + Nouveau séjour
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!selected) return;
+                        try {
+                          const newSejour = await createSejourDirect({
+                            titre: `Événement ${selected.nom}`,
+                            natureSejour: 'EVENEMENT',
+                            dateDebut: new Date().toISOString().split('T')[0],
+                            dateFin: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+                            nombreParticipants: 50,
+                            clientNom: selected.nom,
+                            clientEmail: selected.email ?? selected.contacts[0]?.email ?? undefined,
+                            clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
+                            clientOrganisation: selected.nom,
+                            clientOrganisationId: selected.organisationId ?? undefined,
+                          });
+                          await rattacherSejour(selected.id, newSejour.id);
+                          router.push(`/dashboard/sejour/${newSejour.id}`);
+                        } catch {
+                          setErreur('Erreur lors de la création de l\'événement');
+                        }
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      + Nouvel événement
+                    </button>
+                  </div>
                 </div>
 
                 {/* Section 5 — Devis & Factures */}
