@@ -109,6 +109,8 @@ export interface SejourPlanning {
     responsable: string | null;
     couleur: string | null;
   }[];
+  devisDirect?: Array<{ statut: string }>;
+  demandes?: Array<{ devis?: Array<{ statut: string }> }>;
 }
 
 export interface Participant {

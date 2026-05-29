@@ -8,27 +8,30 @@ import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/s
 import api from '@/src/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-// Palette 8 couleurs séjours
-const PALETTE = [
-  { bg: '#1B6CA8', text: '#fff' },
-  { bg: '#2E8B57', text: '#fff' },
-  { bg: '#C87D2E', text: '#fff' },
-  { bg: '#7B3FA0', text: '#fff' },
-  { bg: '#C0392B', text: '#fff' },
-  { bg: '#16A085', text: '#fff' },
-  { bg: '#D35400', text: '#fff' },
-  { bg: '#2C3E50', text: '#fff' },
-];
-
-// Couleurs par statut planning
-const COULEUR_STATUT: Record<string, { bg: string; text: string }> = {
-  OPTION:           { bg: '#F59E0B', text: '#fff' },
-  CONVENTION:       { bg: '', text: '#fff' },
-  SIGNE_DIRECTION:  { bg: '', text: '#fff' },
+// Palette planning par statut (convention PMS — docs/ARCHITECTURE_UX_SEJOUR_FINAL.md §4)
+const PLANNING_COULEURS: Record<string, { bg: string; text: string; hachures?: boolean }> = {
+  OPTION:          { bg: '#F59E0B', text: '#fff', hachures: true },
+  CONFIRME:        { bg: '#2563EB', text: '#fff' },
+  ACOMPTE_VERSE:   { bg: '#16A34A', text: '#fff' },
+  SOLDE:           { bg: '#6B7280', text: '#fff' },
+  INDISPONIBLE:    { bg: '#DC2626', text: '#fff', hachures: true },
 };
 
-// Couleur spécifique événements en OPTION
-const COULEUR_EVENEMENT_OPTION = { bg: '#7B3FA0', text: '#fff' };
+// Style de hachures diagonales appliqué aux statuts OPTION / INDISPONIBLE
+const HACHURES_BG = `repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)`;
+
+function derivePlanningStatut(sejour: SejourPlanning): keyof typeof PLANNING_COULEURS {
+  // Statut du devis le plus avancé (DIRECT via devisDirect, COLLAB via demandes[0].devis[0])
+  const devisStatut = sejour.devisDirect?.[0]?.statut
+    ?? sejour.demandes?.[0]?.devis?.[0]?.statut
+    ?? null;
+
+  if (sejour.statut === 'OPTION') return 'OPTION';
+  // CONVENTION ou SIGNE_DIRECTION → vérifier le statut du devis
+  if (devisStatut === 'FACTURE_SOLDE') return 'SOLDE';
+  if (devisStatut === 'FACTURE_ACOMPTE') return 'ACOMPTE_VERSE';
+  return 'CONFIRME'; // CONVENTION ou SIGNE_DIRECTION sans facturation
+}
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 06h → 21h
 const SLOT_HEIGHT = 60; // px par heure
@@ -168,14 +171,11 @@ function PlanningContent() {
 
   if (isLoading || !user) return null;
 
-  // Couleurs par séjour
+  // Couleurs par séjour — dérivées du statut (séjour + devis)
   const couleurBySejour = Object.fromEntries(
-    sejours.map((s, i) => {
-      if (s.statut === 'OPTION') {
-        if (s.natureSejour === 'EVENEMENT') return [s.id, COULEUR_EVENEMENT_OPTION];
-        return [s.id, COULEUR_STATUT.OPTION];
-      }
-      return [s.id, PALETTE[i % PALETTE.length]];
+    sejours.map((s) => {
+      const statut = derivePlanningStatut(s);
+      return [s.id, PLANNING_COULEURS[statut]];
     })
   );
 
@@ -460,22 +460,23 @@ function PlanningContent() {
                       const isStart = s.dateDebut.split('T')[0] === ds;
                       const isEnd = s.dateFin.split('T')[0] === ds;
                       const isOption = s.statut === 'OPTION';
+                      const isEvenement = s.natureSejour === 'EVENEMENT';
                       return (
                         <Link
                           key={s.id}
                           href={`/dashboard/sejour/${s.id}`}
                           onClick={e => e.stopPropagation()}
-                          className={`block text-xs px-1.5 py-0.5 truncate ${isOption ? 'border border-dashed' : ''}`}
+                          className="block text-xs px-1.5 py-0.5 truncate"
                           style={{
-                            backgroundColor: isOption ? `${c.bg}33` : c.bg,
-                            color: isOption ? c.bg : c.text,
-                            borderColor: isOption ? c.bg : 'transparent',
+                            backgroundColor: c?.bg ?? '#6B7280',
+                            color: c?.text ?? '#fff',
+                            ...(c?.hachures && { backgroundImage: HACHURES_BG }),
                             marginLeft: isStart ? 2 : 0,
                             marginRight: isEnd ? 2 : 0,
                             borderRadius: isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : '0',
                           }}
                         >
-                          {isStart ? `${isOption ? '⏳ ' : ''}${s.titre}` : ''}
+                          {isStart ? `${isOption ? '⏳ ' : ''}${isEvenement ? '🎉 ' : ''}${s.titre}` : ''}
                         </Link>
                       );
                     })}
@@ -537,7 +538,12 @@ function PlanningContent() {
                       <div
                         key={d.id}
                         className="absolute inset-x-0 flex items-center justify-between px-1 z-10"
-                        style={{ top: 0, height: totalHeight, background: 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 4px, #fef2f2 4px, #fef2f2 12px)' }}
+                        style={{
+                          top: 0,
+                          height: totalHeight,
+                          backgroundColor: `${PLANNING_COULEURS.INDISPONIBLE.bg}26`,
+                          backgroundImage: HACHURES_BG,
+                        }}
                         onClick={e => { e.stopPropagation(); handleDeleteDispo(d.id); }}
                       >
                         <span className="text-xs text-red-600 font-medium bg-red-50 px-1 rounded">
@@ -564,8 +570,9 @@ function PlanningContent() {
                             height: heightPx(a.heureDebut, a.heureFin),
                             left: `calc(${colLeft}% + 1px)`,
                             width: `calc(${colWidth}% - 2px)`,
-                            backgroundColor: c.bg,
-                            color: c.text,
+                            backgroundColor: c?.bg ?? '#6B7280',
+                            color: c?.text ?? '#fff',
+                            ...(c?.hachures && { backgroundImage: HACHURES_BG }),
                           }}
                           onClick={e => { e.stopPropagation(); router.push(`/dashboard/sejour/${s.id}`); }}
                         >
@@ -621,24 +628,34 @@ function PlanningContent() {
                           {day.getDate()}
                         </p>
                         {disposJour.length > 0 && (
-                          <div className="text-xs bg-red-100 text-red-600 rounded px-1 truncate mb-0.5">Indisponible</div>
+                          <div
+                            className="text-xs rounded px-1 truncate mb-0.5"
+                            style={{
+                              backgroundColor: PLANNING_COULEURS.INDISPONIBLE.bg,
+                              color: PLANNING_COULEURS.INDISPONIBLE.text,
+                              backgroundImage: HACHURES_BG,
+                            }}
+                          >
+                            Indisponible
+                          </div>
                         )}
                         {sj.map(s => {
                           const c = couleurBySejour[s.id];
                           const isOption = s.statut === 'OPTION';
+                          const isEvenement = s.natureSejour === 'EVENEMENT';
                           return (
                             <Link
                               key={s.id}
                               href={`/dashboard/sejour/${s.id}`}
                               onClick={e => e.stopPropagation()}
-                              className={`block text-xs px-1 rounded truncate mb-0.5 ${isOption ? 'border border-dashed' : ''}`}
+                              className="block text-xs px-1 rounded truncate mb-0.5"
                               style={{
-                                backgroundColor: isOption ? `${c.bg}33` : c.bg,
-                                color: isOption ? c.bg : c.text,
-                                borderColor: isOption ? c.bg : 'transparent',
+                                backgroundColor: c?.bg ?? '#6B7280',
+                                color: c?.text ?? '#fff',
+                                ...(c?.hachures && { backgroundImage: HACHURES_BG }),
                               }}
                             >
-                              {isOption ? '⏳ ' : ''}{s.titre}
+                              {isOption ? '⏳ ' : ''}{isEvenement ? '🎉 ' : ''}{s.titre}
                             </Link>
                           );
                         })}
@@ -655,23 +672,26 @@ function PlanningContent() {
       {/* Légende */}
       {!loading && (
         <div className="px-4 pb-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-[#F59E0B]" style={{ backgroundColor: '#F59E0B33' }} />
-              Option (séjour)
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-[#7B3FA0]" style={{ backgroundColor: '#7B3FA033' }} />
-              Option (événement)
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#1B6CA8' }} />
-              Confirmé
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 2px, #fef2f2 2px, #fef2f2 4px)' }} />
-              Indisponible
-            </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+            <span className="font-medium text-gray-700">Légende :</span>
+            {Object.entries(PLANNING_COULEURS).map(([key, val]) => (
+              <span key={key} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block w-3 h-3 rounded-sm"
+                  style={{
+                    backgroundColor: val.bg,
+                    ...(val.hachures && {
+                      backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.3) 2px, rgba(255,255,255,0.3) 4px)`,
+                    }),
+                  }}
+                />
+                {key === 'OPTION' ? 'Option' :
+                 key === 'CONFIRME' ? 'Confirmé' :
+                 key === 'ACOMPTE_VERSE' ? 'Acompte versé' :
+                 key === 'SOLDE' ? 'Soldé' :
+                 'Indisponible'}
+              </span>
+            ))}
           </div>
         </div>
       )}
