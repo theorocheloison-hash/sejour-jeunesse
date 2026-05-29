@@ -1135,6 +1135,186 @@ export class CollaborationService {
     return { deleted: true };
   }
 
+  // ── Notes & suivi (HEBERGEUR) ─────────────────────────────────
+
+  /**
+   * Vérifie que l'utilisateur est bien l'hébergeur propriétaire du centre
+   * sélectionné pour ce séjour. Retourne le séjour complet + le centreId.
+   * Réservé aux données privées hébergeur (notes, activités, rappels).
+   */
+  private async verifyHebergeur(sejourId: string, userId: string) {
+    const sejour = await this.verifyAccess(sejourId, userId, 'HEBERGEUR');
+    const centreId = sejour.hebergementSelectionneId;
+    if (!centreId || sejour.hebergementSelectionne?.userId !== userId) {
+      throw new ForbiddenException('Réservé à l\'hébergeur du centre');
+    }
+    return { sejour, centreId };
+  }
+
+  /**
+   * Résout (ou crée) le Client CRM rattaché à un séjour, pour pouvoir
+   * y attacher une activité ou un rappel (clientId requis en base).
+   *  1. Réutilise un lien SejourClient existant si présent.
+   *  2. Sinon, déduit un nom de client depuis le séjour (inline DIRECT
+   *     ou organisation/createur en COLLAB) et crée le Client + le lien.
+   */
+  private async resolveClientIdForSejour(
+    sejour: {
+      id: string;
+      titre: string;
+      modeGestion: string;
+      natureSejour: string;
+      clientNom: string | null;
+      clientPrenom: string | null;
+      clientEmail: string | null;
+      clientTelephone: string | null;
+      clientOrganisation: string | null;
+      clientOrganisationId: string | null;
+      createurId: string | null;
+      createur?: { prenom: string; nom: string } | null;
+    },
+    centreId: string,
+  ): Promise<string> {
+    // 1. Lien existant
+    const lien = await this.prisma.sejourClient.findFirst({
+      where: { sejourId: sejour.id, client: { centreId } },
+      select: { clientId: true },
+    });
+    if (lien) return lien.clientId;
+
+    // 2. Déduire un nom de client
+    let nom: string | null = null;
+    let organisationId: string | null = sejour.clientOrganisationId ?? null;
+
+    if (sejour.modeGestion === 'DIRECT') {
+      nom =
+        sejour.clientOrganisation?.trim() ||
+        [sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ').trim() ||
+        sejour.clientNom?.trim() ||
+        null;
+    }
+
+    if (!nom && sejour.createurId) {
+      const orga = await getOrganisationPrincipale(sejour.createurId, this.prisma);
+      if (orga?.nom) {
+        nom = orga.nom;
+        organisationId = organisationId ?? orga.id;
+      } else if (sejour.createur) {
+        nom = `${sejour.createur.prenom} ${sejour.createur.nom}`.trim();
+      }
+    }
+
+    if (!nom) nom = sejour.titre ? `Client — ${sejour.titre}` : 'Client séjour';
+
+    // 3. Trouver un client existant par nom dans le centre, sinon créer
+    let client = await this.prisma.client.findFirst({ where: { centreId, nom } });
+    if (!client) {
+      client = await this.prisma.client.create({
+        data: {
+          centreId,
+          nom,
+          type: sejour.natureSejour === 'EVENEMENT' ? 'PARTICULIER' : 'ETABLISSEMENT_SCOLAIRE',
+          statut: 'CLIENT',
+          source: 'LIAVO',
+          organisationId: organisationId ?? undefined,
+          email: sejour.clientEmail ?? undefined,
+          telephone: sejour.clientTelephone ?? undefined,
+        },
+      });
+    }
+
+    // 4. Lier le client au séjour (idempotent)
+    await this.prisma.sejourClient.upsert({
+      where: { clientId_sejourId: { clientId: client.id, sejourId: sejour.id } },
+      create: { clientId: client.id, sejourId: sejour.id },
+      update: {},
+    });
+
+    return client.id;
+  }
+
+  /** Vérifie qu'un clientId (fourni par le frontend) appartient bien au centre. */
+  private async assertClientInCentre(clientId: string, centreId: string): Promise<string> {
+    const client = await this.prisma.client.findUnique({ where: { id: clientId }, select: { centreId: true } });
+    if (!client || client.centreId !== centreId) {
+      throw new ForbiddenException('Client introuvable pour ce centre');
+    }
+    return clientId;
+  }
+
+  async updateNotesInternes(sejourId: string, userId: string, notesInternes: string) {
+    await this.verifyHebergeur(sejourId, userId);
+    return this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { notesInternes },
+      select: { id: true, notesInternes: true },
+    });
+  }
+
+  async getActivitesSejour(sejourId: string, userId: string) {
+    const { centreId } = await this.verifyHebergeur(sejourId, userId);
+    return this.prisma.activiteClient.findMany({
+      where: { sejourId, centreId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createActiviteSejour(
+    sejourId: string,
+    userId: string,
+    dto: { type: string; description: string; clientId?: string },
+  ) {
+    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId);
+    if (!dto.type || !dto.description?.trim()) {
+      throw new ForbiddenException('Type et description requis');
+    }
+    const clientId = dto.clientId
+      ? await this.assertClientInCentre(dto.clientId, centreId)
+      : await this.resolveClientIdForSejour(sejour, centreId);
+    return this.prisma.activiteClient.create({
+      data: {
+        clientId,
+        centreId,
+        sejourId,
+        type: dto.type,
+        description: dto.description.trim(),
+        userId,
+      },
+    });
+  }
+
+  async getRappelsSejour(sejourId: string, userId: string) {
+    await this.verifyHebergeur(sejourId, userId);
+    return this.prisma.rappel.findMany({
+      where: { sejourId },
+      orderBy: { dateEcheance: 'asc' },
+    });
+  }
+
+  async createRappelSejour(
+    sejourId: string,
+    userId: string,
+    dto: { type: string; dateRappel: string; description: string; clientId?: string },
+  ) {
+    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId);
+    if (!dto.type || !dto.dateRappel || !dto.description?.trim()) {
+      throw new ForbiddenException('Type, date et description requis');
+    }
+    const clientId = dto.clientId
+      ? await this.assertClientInCentre(dto.clientId, centreId)
+      : await this.resolveClientIdForSejour(sejour, centreId);
+    return this.prisma.rappel.create({
+      data: {
+        clientId,
+        sejourId,
+        type: dto.type,
+        dateEcheance: new Date(dto.dateRappel),
+        description: dto.description.trim(),
+        statut: 'A_FAIRE',
+      },
+    });
+  }
+
   async updateInfosSejour(
     sejourId: string,
     dto: { titre?: string; dateDebut?: string; dateFin?: string },

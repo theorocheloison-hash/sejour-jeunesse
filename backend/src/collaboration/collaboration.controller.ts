@@ -57,6 +57,50 @@ export class CollaborationController {
     return this.service.marquerVisite(user.id, body.sejourId, body.onglet);
   }
 
+  // ── Notes & suivi (HEBERGEUR) — routes préfixées AVANT :sejourId ──
+
+  @Patch('sejour/:id/notes-internes')
+  @Roles(Role.HEBERGEUR)
+  updateNotesInternes(
+    @Param('id') id: string,
+    @Body() body: { notesInternes: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.updateNotesInternes(id, user.id, body.notesInternes ?? '');
+  }
+
+  @Get('sejour/:id/activites')
+  @Roles(Role.HEBERGEUR)
+  getActivitesSejour(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getActivitesSejour(id, user.id);
+  }
+
+  @Post('sejour/:id/activites')
+  @Roles(Role.HEBERGEUR)
+  createActiviteSejour(
+    @Param('id') id: string,
+    @Body() body: { type: string; description: string; clientId?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.createActiviteSejour(id, user.id, body);
+  }
+
+  @Get('sejour/:id/rappels')
+  @Roles(Role.HEBERGEUR)
+  getRappelsSejour(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getRappelsSejour(id, user.id);
+  }
+
+  @Post('sejour/:id/rappels')
+  @Roles(Role.HEBERGEUR)
+  createRappelSejour(
+    @Param('id') id: string,
+    @Body() body: { type: string; dateRappel: string; description: string; clientId?: string },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.createRappelSejour(id, user.id, body);
+  }
+
   // ── Infos séjour ──────────────────────────────────────────────
 
   @Get(':sejourId')

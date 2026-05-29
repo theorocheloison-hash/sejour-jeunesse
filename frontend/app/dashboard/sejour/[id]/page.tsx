@@ -83,6 +83,7 @@ import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
 import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
 import TabDevisFacturation from './_components/TabDevisFacturation';
+import TabNotes from './_components/TabNotes';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
   const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
@@ -130,7 +131,7 @@ const STATUT_BADGE_CLS: Record<string, string> = {
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'participants' | 'documents' | 'budget' | 'projet' | 'journal';
+type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'participants' | 'documents' | 'budget' | 'projet' | 'journal' | 'notes';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -150,6 +151,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'journal', label: 'Journal' },
   { key: 'budget', label: 'Budget prévisionnel' },
   { key: 'projet', label: 'Projet pédagogique' },
+  { key: 'notes', label: 'Notes & suivi' },
 ];
 
 const CATEGORIES_COMPL = ['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
@@ -1323,7 +1325,8 @@ export default function CollaborationPage() {
                   (t.key !== 'projet' || user.role === 'ORGANISATEUR') &&
                   (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
                   (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR')
+                  (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
+                  (t.key !== 'notes' || user.role === 'HEBERGEUR')
                 )
             )
             .filter((t) => {
@@ -3632,6 +3635,15 @@ export default function CollaborationPage() {
             </div>
           </div>
         )}
+        {/* ── Notes & suivi (tous modes / natures, hébergeur seul) ─── */}
+        {tab === 'notes' && sejour && (
+          <TabNotes
+            sejourId={id}
+            initialNotes={sejour.notesInternes ?? ''}
+            onError={setMutationError}
+          />
+        )}
+
         {/* ── Modale planning (création/édition) ─── */}
         {planModal?.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
