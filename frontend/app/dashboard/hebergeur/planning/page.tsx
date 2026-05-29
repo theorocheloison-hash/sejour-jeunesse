@@ -4,34 +4,13 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejoursPlanning, createSejourDirect } from '@/src/lib/collaboration';
 import type { SejourPlanning } from '@/src/lib/collaboration';
+import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
 import api from '@/src/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-// Palette planning par statut (convention PMS — docs/ARCHITECTURE_UX_SEJOUR_FINAL.md §4)
-const PLANNING_COULEURS: Record<string, { bg: string; text: string; hachures?: boolean }> = {
-  OPTION:          { bg: '#F59E0B', text: '#fff', hachures: true },
-  CONFIRME:        { bg: '#2563EB', text: '#fff' },
-  ACOMPTE_VERSE:   { bg: '#16A34A', text: '#fff' },
-  SOLDE:           { bg: '#6B7280', text: '#fff' },
-  INDISPONIBLE:    { bg: '#DC2626', text: '#fff', hachures: true },
-};
-
 // Style de hachures diagonales appliqué aux statuts OPTION / INDISPONIBLE
 const HACHURES_BG = `repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)`;
-
-function derivePlanningStatut(sejour: SejourPlanning): keyof typeof PLANNING_COULEURS {
-  // Statut du devis le plus avancé (DIRECT via devisDirect, COLLAB via demandes[0].devis[0])
-  const devisStatut = sejour.devisDirect?.[0]?.statut
-    ?? sejour.demandes?.[0]?.devis?.[0]?.statut
-    ?? null;
-
-  if (sejour.statut === 'OPTION') return 'OPTION';
-  // CONVENTION ou SIGNE_DIRECTION → vérifier le statut du devis
-  if (devisStatut === 'FACTURE_SOLDE') return 'SOLDE';
-  if (devisStatut === 'FACTURE_ACOMPTE') return 'ACOMPTE_VERSE';
-  return 'CONFIRME'; // CONVENTION ou SIGNE_DIRECTION sans facturation
-}
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 06h → 21h
 const SLOT_HEIGHT = 60; // px par heure
