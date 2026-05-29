@@ -418,6 +418,11 @@ export class CentreService {
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
         statut: true, hebergementSelectionneId: true,
+        // Tous les devis du centre — couleur planning = devis le PLUS AVANCÉ
+        devisDirect: { where: { centreId: { in: centreIds } }, select: { statut: true } },
+        demandes: {
+          select: { devis: { where: { centreId: { in: centreIds } }, select: { statut: true } } },
+        },
       },
     });
 
