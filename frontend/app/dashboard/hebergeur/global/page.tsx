@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDashboardGlobal } from '@/src/lib/centre';
+import { PLANNING_COULEURS, COULEUR_DEMANDE_ATTENTE, derivePlanningStatut } from '@/src/lib/planning-statut';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -77,6 +78,8 @@ interface SejourPlanning {
   placesTotales: number;
   statut: string;
   hebergementSelectionneId: string;
+  devisDirect?: Array<{ statut: string }>;
+  demandes?: Array<{ devis?: Array<{ statut: string }> }>;
 }
 
 interface OptionPlanning {
@@ -140,8 +143,6 @@ const computePeriode = (p: Periode): { debut: string; fin: string } => {
     fin: new Date(now.getFullYear(), 11, 31, 23, 59, 59).toISOString(),
   };
 };
-
-const STATUT_CONFIRME = new Set(['CONVENTION', 'SIGNE_DIRECTION', 'DECLARE_TAM']);
 
 // ─── Page ────────────────────────────────────────────────────────────────
 
@@ -460,19 +461,20 @@ export default function DashboardGlobalPage() {
                           {sejoursCentre.map(s => {
                             const pos = planning.positionBlock(s.dateDebut, s.dateFin);
                             if (!pos) return null;
-                            const confirme = STATUT_CONFIRME.has(s.statut);
+                            const couleur = PLANNING_COULEURS[derivePlanningStatut(s)] ?? PLANNING_COULEURS.CONFIRME;
                             return (
                               <div
                                 key={s.id}
-                                title={`${s.titre}\n${fmtDate(s.dateDebut)} → ${fmtDate(s.dateFin)}\n${s.placesTotales} participants\nStatut : ${s.statut}`}
-                                className="absolute rounded-md px-2 py-1 text-xs text-white truncate shadow-sm"
+                                title={`${s.titre}\n${fmtDate(s.dateDebut)} → ${fmtDate(s.dateFin)}\n${s.placesTotales} participants\nStatut : ${couleur.label}`}
+                                className="absolute rounded-md px-2 py-1 text-xs truncate shadow-sm"
                                 style={{
                                   left: `${pos.leftPct}%`,
                                   width: `calc(${pos.widthPct}% - 4px)`,
                                   top: 8,
                                   height: 22,
-                                  background: confirme ? 'var(--color-primary)' : 'var(--color-primary-hover)',
-                                  opacity: confirme ? 1 : 0.65,
+                                  background: couleur.bg,
+                                  ...(couleur.hachures && { backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)' }),
+                                  color: couleur.text,
                                   fontWeight: 500,
                                   lineHeight: '14px',
                                   cursor: 'help',
@@ -489,16 +491,16 @@ export default function DashboardGlobalPage() {
                             return (
                               <div
                                 key={o.id}
-                                title={`${o.titre}\n${fmtDate(o.dateDebut)} → ${fmtDate(o.dateFin)}\n${o.participants} participants\nOption (devis en attente)`}
+                                title={`${o.titre}\n${fmtDate(o.dateDebut)} → ${fmtDate(o.dateFin)}\n${o.participants} participants\nDemande en attente`}
                                 className="absolute rounded-md px-2 py-1 text-xs truncate"
                                 style={{
                                   left: `${pos.leftPct}%`,
                                   width: `calc(${pos.widthPct}% - 4px)`,
                                   top: 36,
                                   height: 22,
-                                  background: 'repeating-linear-gradient(45deg, #F59E0B, #F59E0B 4px, #FBBF24 4px, #FBBF24 8px)',
-                                  color: '#fff',
-                                  opacity: 0.7,
+                                  background: COULEUR_DEMANDE_ATTENTE.bg,
+                                  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)',
+                                  color: COULEUR_DEMANDE_ATTENTE.text,
                                   fontWeight: 500,
                                   lineHeight: '14px',
                                   cursor: 'help',
@@ -515,19 +517,25 @@ export default function DashboardGlobalPage() {
                 </div>
               </div>
               {/* Légende */}
-              <div className="flex items-center gap-4 px-4 py-3" style={{ borderTop: '1px solid #F3F4F6', background: '#FAFAF9' }}>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded" style={{ background: 'var(--color-primary)' }} />
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Séjour confirmé</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded" style={{ background: 'var(--color-primary-hover)', opacity: 0.65 }} />
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>En cours de validation</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded" style={{ background: 'repeating-linear-gradient(45deg, #F59E0B, #F59E0B 2px, #FBBF24 2px, #FBBF24 4px)', opacity: 0.7 }} />
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Option (devis en attente)</span>
-                </div>
+              <div className="flex items-center gap-4 px-4 py-3 flex-wrap" style={{ borderTop: '1px solid #F3F4F6', background: '#FAFAF9' }}>
+                {[
+                  PLANNING_COULEURS.OPTION,
+                  PLANNING_COULEURS.CONFIRME,
+                  PLANNING_COULEURS.ACOMPTE_VERSE,
+                  PLANNING_COULEURS.SOLDE,
+                  COULEUR_DEMANDE_ATTENTE,
+                ].map(val => (
+                  <div key={val.label} className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded"
+                      style={{
+                        background: val.bg,
+                        ...(val.hachures && { backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.4) 2px, rgba(255,255,255,0.4) 4px)' }),
+                      }}
+                    />
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{val.label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

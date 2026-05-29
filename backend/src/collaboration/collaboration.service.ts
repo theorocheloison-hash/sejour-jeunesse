@@ -458,21 +458,17 @@ export class CollaborationService {
         planningActivites: {
           orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
         },
-        // Devis le plus récent — pour dériver la couleur planning (statut facturation)
+        // Tous les devis du centre — la couleur planning dérive du devis le PLUS AVANCÉ
         devisDirect: {
           select: { statut: true },
-          orderBy: { createdAt: 'desc' as const },
-          take: 1,
         },
         demandes: {
           select: {
             devis: {
+              where: { centreId: { in: centreIds } },
               select: { statut: true },
-              orderBy: { createdAt: 'desc' as const },
-              take: 1,
             },
           },
-          take: 1,
         },
       },
       orderBy: { dateDebut: 'asc' },

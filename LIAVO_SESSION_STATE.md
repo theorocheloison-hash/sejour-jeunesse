@@ -249,6 +249,18 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 
 ### Court terme — PRIORITÉ HAUTE
 - [ ] **Planning hébergeur — options/devis en attente** : PRIORITÉ #1 pour démo Yves Massard
+
+  > NOTE (chantier cohérence planning 29/05) : le flux "demandes/devis en attente"
+  > existe DÉJÀ sur le dashboard GLOBAL multi-centre (planning.options, rendu hachures
+  > ambre "Demande en attente"). Il N'existe PAS sur le planning MONO-centre
+  > (getMesSejoursPlanning ne renvoie que les séjours OPTION/CONVENTION/SIGNE_DIRECTION,
+  > pas les demandes ouvertes). La PRIORITÉ #1 "options/devis en attente sur le planning
+  > hébergeur" = porter ce flux sur le mono-centre. Implique : enrichir
+  > getMesSejoursPlanning (ou un endpoint dédié) pour retourner les demandes OUVERTES
+  > sans devis du centre, + ajouter une 2e couche de blocs provisoires dans
+  > planning/page.tsx. Chantier séparé, non inclus dans la cohérence couleur.
+  > État partagé "DEMANDE_ATTENTE" déjà défini dans planning-statut.ts → réutilisable.
+
 - [ ] **Import Excel participants**
 - [ ] **Widget embeddable "Demander un devis"**
 - [ ] **Invitations parents** → 2 parents/tuteurs par enfant
