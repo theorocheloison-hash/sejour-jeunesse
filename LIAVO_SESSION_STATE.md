@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 29/05/2026 après-midi — Chantier refonte page séjour : **10/10 sous-chantiers livrés**, en test prod
+> Dernière mise à jour : 30/05/2026 — Chantier conformité facturation **Lot 0 livré** (numérotation séquentielle + fix montantAcompte)
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
