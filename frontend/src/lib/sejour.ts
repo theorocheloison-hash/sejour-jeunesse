@@ -49,6 +49,8 @@ export interface DevisSelectionne {
   pourcentageAcompte: number | null;
   signatureDirecteur: string | null;
   centre?: { nom: string };
+  // Lot 1 : facture d'acompte liée (le devis ne mute plus vers FACTURE_ACOMPTE)
+  factures?: Array<{ numero: string; montantFacture: number; pourcentageAcompte: number | null }>;
 }
 
 export interface SejourDemande {

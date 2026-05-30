@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesDevis, facturerAcompte, facturerSolde, getChorusXml, ajouterVersement, getVersements, supprimerVersement } from '@/src/lib/devis';
-import type { Devis, StatutDevis, VersementPaiement } from '@/src/lib/devis';
+import { getMesDevis, emettreFactureAcompte, emettreFactureSolde, getChorusXml, ajouterVersement, supprimerVersement, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
+import type { Devis, StatutDevis, VersementPaiement, Facture } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
@@ -74,25 +74,23 @@ function matchesSearch(d: Devis, query: string): boolean {
   return fields.some((f) => f && normalize(f).includes(q));
 }
 
+// Lot 1 : la facturation se lit sur les Factures liées (le devis ne mute plus son statut).
 function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
+  const hasAcompte = !!getFactureAcompte(d);
+  const hasSolde = !!getFactureSolde(d);
   switch (onglet) {
     case 'attente':
       return d.statut === 'EN_ATTENTE';
-    case 'selectionnes': {
-      const isFactureStatut = d.statut === 'FACTURE_ACOMPTE' || d.statut === 'FACTURE_SOLDE';
-      return d.statut === 'SELECTIONNE'
-        && !d.signatureDirecteur
-        && !isFactureStatut;
-    }
+    case 'selectionnes':
+      // Sélectionné, pas encore signé direction, pas encore facturé
+      return d.statut === 'SELECTIONNE' && !d.signatureDirecteur && !hasAcompte && !hasSolde;
     case 'signes':
-      return d.statut === 'SIGNE_DIRECTION'
-        || (!!d.signatureDirecteur
-            && d.statut !== 'FACTURE_ACOMPTE'
-            && d.statut !== 'FACTURE_SOLDE');
+      // Signé direction (ou signature présente) mais pas encore facturé
+      return (d.statut === 'SIGNE_DIRECTION' || !!d.signatureDirecteur) && !hasAcompte && !hasSolde;
     case 'acompte':
-      return d.statut === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_ACOMPTE';
+      return hasAcompte && !hasSolde;
     case 'solde':
-      return d.statut === 'FACTURE_SOLDE' || d.typeDocument === 'FACTURE_SOLDE';
+      return hasSolde;
   }
 }
 
@@ -106,7 +104,7 @@ export default function HebergeurDevisPage() {
   const [facturantId, setFacturantId] = useState<string | null>(null);
   const [chorusXml, setChorusXml] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [modalVersement, setModalVersement] = useState<{ devis: Devis } | null>(null);
+  const [modalVersement, setModalVersement] = useState<{ facture: Facture } | null>(null);
   const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
   const [versementLoading, setVersementLoading] = useState(false);
 
@@ -138,13 +136,12 @@ export default function HebergeurDevisPage() {
 
   const actionsUrgentes = useMemo(() => {
     const aFacturer = devisList.filter(d =>
-      d.statut === 'SIGNE_DIRECTION' &&
-      (!d.typeDocument || d.typeDocument === 'DEVIS')
+      d.statut === 'SIGNE_DIRECTION' && !getFactureAcompte(d)
     );
-    const aValider = devisList.filter(d =>
-      (d.statut === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_ACOMPTE') &&
-      !d.acompteVerse
-    );
+    const aValider = devisList.filter(d => {
+      const fa = getFactureAcompte(d);
+      return !!fa && !fa.acompteVerse;
+    });
     return { aFacturer, aValider, total: aFacturer.length + aValider.length };
   }, [devisList]);
 
@@ -161,10 +158,11 @@ export default function HebergeurDevisPage() {
   const handleFacturerAcompte = async (id: string) => {
     setFacturantId(id);
     try {
-      const updated = await facturerAcompte(id);
-      setDevisList((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
+      // Lot 1 : émet une Facture immuable (le devis n'est pas muté) → on recharge la liste.
+      await emettreFactureAcompte(id);
+      loadDevis();
     } catch {
-      setError('Erreur lors de la conversion en facture.');
+      setError('Erreur lors de l\'émission de la facture d\'acompte.');
     } finally {
       setFacturantId(null);
     }
@@ -188,8 +186,9 @@ export default function HebergeurDevisPage() {
 
   const handleFacturerSolde = async (devisId: string) => {
     try {
-      const updated = await facturerSolde(devisId);
-      setDevisList(prev => prev.map(d => d.id === devisId ? { ...d, ...updated } : d));
+      // Lot 1 : émet la facture de solde (total révisé − acompte déjà facturé).
+      await emettreFactureSolde(devisId);
+      loadDevis();
     } catch (err) {
       console.error('[handleFacturerSolde]', err);
       setError('Une erreur est survenue. Veuillez réessayer.');
@@ -201,15 +200,16 @@ export default function HebergeurDevisPage() {
     if (!modalVersement || !versementForm.montant || !versementForm.datePaiement) return;
     setVersementLoading(true);
     try {
+      // Lot 1 : le versement est rattaché à la Facture (pas au devis).
       const updated = await ajouterVersement(
-        modalVersement.devis.id,
+        modalVersement.facture.id,
         parseFloat(versementForm.montant),
         versementForm.datePaiement,
         versementForm.reference || undefined,
       );
-      setDevisList(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d));
+      setModalVersement({ facture: updated });
       setVersementForm({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
-      setModalVersement(null);
+      loadDevis();
     } catch (err) {
       console.error('[handleAjouterVersement]', err);
       setError('Une erreur est survenue. Veuillez réessayer.');
@@ -419,6 +419,9 @@ export default function HebergeurDevisPage() {
               const badge = STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE;
               const enseignant = getEnseignantDisplay(d);
               const etablissement = getEtablissementDisplay(d);
+              // Lot 1 : factures liées (le devis ne mute plus son typeDocument).
+              const fa = getFactureAcompte(d);
+              const fs = getFactureSolde(d);
               const sejourTitre = d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Demande';
               return (
                 <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
@@ -431,12 +434,17 @@ export default function HebergeurDevisPage() {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}>
                           {badge.label}
                         </span>
-                        {d.typeDocument === 'FACTURE_ACOMPTE' && (
+                        {fa && (
                           <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                            Facture {d.numeroFacture && <Highlight text={d.numeroFacture} query={searchQuery} />}
+                            Facture <Highlight text={fa.numero} query={searchQuery} />
                           </span>
                         )}
-                        {d.numeroDevis && d.typeDocument !== 'FACTURE_ACOMPTE' && (
+                        {fs && (
+                          <span className="inline-flex items-center rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-medium text-teal-700">
+                            Solde <Highlight text={fs.numero} query={searchQuery} />
+                          </span>
+                        )}
+                        {d.numeroDevis && !fa && (
                           <span className="text-xs text-gray-400">
                             <Highlight text={d.numeroDevis} query={searchQuery} />
                           </span>
@@ -514,18 +522,19 @@ export default function HebergeurDevisPage() {
                           data={buildPdfProps(d)}
                           filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
                         />
-                        {d.typeDocument === 'FACTURE_ACOMPTE' ? (
+                        {fa ? (
                           <div className="flex flex-col gap-2">
                             <div className="rounded-lg border border-[var(--color-success)]/20 bg-[var(--color-success-light)] px-4 py-2 text-xs text-[var(--color-success)] font-semibold">
-                              Facture acompte — {d.numeroFacture} — {Number(d.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
-                              {(d.montantVerseTotal ?? 0) > 0 && (
+                              Facture acompte — {fa.numero} — {fa.montantFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                              {(fa.montantVerseTotal ?? 0) > 0 && (
                                 <span className="ml-2 text-[var(--color-success)]">
-                                  · Reçu : {Number(d.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                  · Reçu : {Number(fa.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                                 </span>
                               )}
+                              {fa.acompteVerse && <span className="ml-2">· Acompte validé ✓</span>}
                             </div>
                             <button
-                              onClick={() => setModalVersement({ devis: d })}
+                              onClick={() => setModalVersement({ facture: fa })}
                               className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                             >
                               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -534,7 +543,7 @@ export default function HebergeurDevisPage() {
                               Suivi paiement
                             </button>
                           </div>
-                        ) : (!d.typeDocument || d.typeDocument === 'DEVIS') && (
+                        ) : (
                           <button
                             onClick={() => handleFacturerAcompte(d.id)}
                             disabled={facturantId === d.id}
@@ -543,12 +552,12 @@ export default function HebergeurDevisPage() {
                             {facturantId === d.id ? (
                               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                             ) : null}
-                            Convertir en facture d&apos;acompte
+                            Émettre la facture d&apos;acompte
                           </button>
                         )}
 
-                        {/* Facture solde */}
-                        {d.statut === 'SELECTIONNE' && d.typeDocument === 'FACTURE_ACOMPTE' && d.acompteVerse && (
+                        {/* Facture solde — possible une fois l'acompte validé */}
+                        {fa?.acompteVerse && !fs && (
                           <button
                             onClick={() => handleFacturerSolde(d.id)}
                             className="mt-2 w-full rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
@@ -557,19 +566,19 @@ export default function HebergeurDevisPage() {
                           </button>
                         )}
 
-                        {d.typeDocument === 'FACTURE_SOLDE' && (
+                        {fs && (
                           <div className="flex flex-col gap-2">
                             <div className="mt-2 flex items-center gap-2 rounded-lg bg-purple-50 border border-purple-200 px-3 py-2">
                               <span className="text-xs font-semibold text-purple-700">Facture solde émise</span>
-                              <span className="text-xs text-purple-500">{d.numeroFacture}</span>
-                              {(d.montantVerseTotal ?? 0) > 0 && (
+                              <span className="text-xs text-purple-500">{fs.numero}</span>
+                              {(fs.montantVerseTotal ?? 0) > 0 && (
                                 <span className="text-xs text-[var(--color-success)] font-medium">
-                                  · Reçu : {Number(d.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                                  · Reçu : {Number(fs.montantVerseTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
                                 </span>
                               )}
                             </div>
                             <button
-                              onClick={() => setModalVersement({ devis: d })}
+                              onClick={() => setModalVersement({ facture: fs })}
                               className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                             >
                               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -581,9 +590,9 @@ export default function HebergeurDevisPage() {
                         )}
 
                         {/* Boutons Chorus Pro */}
-                        {(d.typeDocument === 'FACTURE_ACOMPTE' || d.typeDocument === 'FACTURE_SOLDE') && (
+                        {(fa || fs) && (
                           <button
-                            onClick={() => handleChorusXml(d.id)}
+                            onClick={() => handleChorusXml((fs ?? fa)!.id)}
                             className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] px-3 py-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)]"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -604,14 +613,12 @@ export default function HebergeurDevisPage() {
 
       {/* ── Modale versement paiement ── */}
       {modalVersement && (() => {
-        const d = modalVersement.devis;
-        const montantAttendu = d.typeDocument === 'FACTURE_ACOMPTE'
-          ? (d.montantAcompte ?? 0)
-          : (d.montantSolde ?? ((d.montantTTC ?? Number(d.montantTotal)) - (d.montantAcompte ?? 0)));
-        const montantVerse = d.montantVerseTotal ?? 0;
+        const facture = modalVersement.facture;
+        const montantAttendu = facture.montantFacture;
+        const montantVerse = facture.montantVerseTotal ?? 0;
         const resteAPayer = Math.max(0, montantAttendu - montantVerse);
         const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const versements = d.versements ?? [];
+        const versements = facture.versements ?? [];
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -624,7 +631,7 @@ export default function HebergeurDevisPage() {
                 <div>
                   <h2 className="text-base font-bold text-gray-900">Suivi du paiement</h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {d.typeDocument === 'FACTURE_ACOMPTE' ? `Facture acompte — ${d.numeroFacture}` : `Facture solde — ${d.numeroFacture}`}
+                    {facture.typeFacture === 'ACOMPTE' ? `Facture acompte — ${facture.numero}` : `Facture solde — ${facture.numero}`}
                   </p>
                 </div>
                 <button onClick={() => setModalVersement(null)} className="text-gray-400 hover:text-gray-600">
@@ -671,14 +678,10 @@ export default function HebergeurDevisPage() {
                           <button
                             onClick={async () => {
                               try {
-                                await supprimerVersement(d.id, v.id);
-                                const updated = await getVersements(d.id);
-                                setDevisList(prev => prev.map(dv =>
-                                  dv.id === d.id
-                                    ? { ...dv, versements: updated, montantVerseTotal: updated.reduce((s, vv) => s + vv.montant, 0) }
-                                    : dv
-                                ));
-                                setModalVersement(prev => prev ? { ...prev, devis: { ...prev.devis, versements: updated, montantVerseTotal: updated.reduce((s, vv) => s + vv.montant, 0) } } : null);
+                                // Lot 1 : suppression ciblée par factureId → renvoie la Facture à jour.
+                                const updated = await supprimerVersement(facture.id, v.id);
+                                setModalVersement({ facture: updated });
+                                loadDevis();
                               } catch (err) {
                                 console.error('[supprimerVersement]', err);
                                 setError('Une erreur est survenue. Veuillez réessayer.');

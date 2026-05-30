@@ -101,6 +101,9 @@ export class ClientsService {
       montantAcompte: true,
       montantSolde: true,
       acompteVerse: true,
+      factures: {
+        select: { id: true, typeFacture: true, numero: true, montantFacture: true, acompteVerse: true },
+      },
       dateFacture: true,
       createdAt: true,
       sejourDirectId: true,

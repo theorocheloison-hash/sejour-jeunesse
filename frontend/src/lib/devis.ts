@@ -7,10 +7,73 @@ export type StatutDevis = 'EN_ATTENTE' | 'EN_ATTENTE_VALIDATION' | 'SELECTIONNE'
 export interface VersementPaiement {
   id: string;
   devisId: string;
+  factureId?: string | null;
   montant: number;
   datePaiement: string;
   reference?: string | null;
   createdAt: string;
+}
+
+// ── Facture (entité immuable — Lot 1) ────────────────────────────────────────
+export interface LigneFacture {
+  id: string;
+  description: string;
+  quantite: number;
+  prixUnitaire: number;
+  tva: number;
+  totalHT: number;
+  totalTTC: number;
+}
+
+export interface Facture {
+  id: string;
+  devisId: string;
+  sejourId: string | null;
+  numero: string;
+  typeFacture: 'ACOMPTE' | 'SOLDE';
+  dateEmission: string;
+  emetteurNom: string;
+  emetteurAdresse: string | null;
+  emetteurSiret: string | null;
+  emetteurTva: string | null;
+  emetteurEmail: string | null;
+  emetteurTel: string | null;
+  emetteurIban: string | null;
+  destinataireNom: string;
+  destinataireAdresse: string | null;
+  destinataireSiret: string | null;
+  destinataireEmail: string | null;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  tauxTva: number;
+  montantFacture: number;
+  pourcentageAcompte: number | null;
+  factureAcompteId: string | null;
+  montantAcompteDejaFacture: number | null;
+  montantVerseTotal: number;
+  acompteVerse: boolean;
+  dateVersement: string | null;
+  conditionsAnnulation: string | null;
+  pdfUrl: string | null;
+  createdAt: string;
+  lignes?: LigneFacture[];
+  versements?: VersementPaiement[];
+}
+
+/** Facture d'acompte liée à un devis (ou null). */
+export function getFactureAcompte(devis: { factures?: Facture[] | null }): Facture | null {
+  return devis.factures?.find(f => f.typeFacture === 'ACOMPTE') ?? null;
+}
+/** Facture de solde liée à un devis (ou null). */
+export function getFactureSolde(devis: { factures?: Facture[] | null }): Facture | null {
+  return devis.factures?.find(f => f.typeFacture === 'SOLDE') ?? null;
+}
+/** État de facturation dérivé des factures liées (plus le statut du devis). */
+export function etatFacturation(devis: { factures?: Facture[] | null }): 'AUCUNE' | 'ACOMPTE' | 'SOLDE' {
+  if (getFactureSolde(devis)) return 'SOLDE';
+  if (getFactureAcompte(devis)) return 'ACOMPTE';
+  return 'AUCUNE';
 }
 
 export interface LigneDevis {
@@ -72,6 +135,7 @@ export interface Devis {
     modeGestion: string;
   } | null;
   versements?: VersementPaiement[];
+  factures?: Facture[];
   montantVerseTotal?: number;
   demande?: {
     id: string;
@@ -245,18 +309,24 @@ export async function getDemandeInfo(demandeId: string): Promise<DemandeInfo> {
   return data;
 }
 
-export async function getFacturesAcompte(): Promise<Devis[]> {
-  const { data } = await api.get<Devis[]>('/devis/factures-acompte');
+/**
+ * Factures d'acompte à valider (dashboard SIGNATAIRE).
+ * Lot 1 : renvoie des Factures (type ACOMPTE non validées) avec leur devis imbriqué.
+ */
+export async function getFacturesAcompte(): Promise<Facture[]> {
+  const { data } = await api.get<Facture[]>('/devis/factures-acompte');
   return data;
 }
 
-export async function validerAcompte(id: string): Promise<Devis> {
-  const { data } = await api.patch<Devis>(`/devis/${id}/valider-acompte`);
+/** Valide le règlement d'une facture d'acompte (Lot 1 : id = factureId). */
+export async function validerAcompte(factureId: string): Promise<Facture> {
+  const { data } = await api.patch<Facture>(`/factures/${factureId}/valider-acompte`);
   return data;
 }
 
-export async function getChorusXml(id: string): Promise<{ xml: string }> {
-  const { data } = await api.get<{ xml: string }>(`/devis/${id}/chorus-xml`);
+/** Génère le XML Chorus Pro d'une facture (Lot 1 : id = factureId). */
+export async function getChorusXml(factureId: string): Promise<{ xml: string }> {
+  const { data } = await api.get<{ xml: string }>(`/factures/${factureId}/chorus-xml`);
   return data;
 }
 
@@ -270,28 +340,36 @@ export async function updateDevis(id: string, dto: Omit<CreateDevisDto, 'demande
   return data;
 }
 
-export async function facturerAcompte(id: string): Promise<Devis> {
-  const { data } = await api.patch<Devis>(`/devis/${id}/facturer-acompte`);
+// ── Facturation (Lot 1 : routes /factures, entité Facture immuable) ──────────
+
+/** Émet la facture d'acompte d'un devis. Le devis n'est PAS muté. */
+export async function emettreFactureAcompte(devisId: string): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/acompte', { devisId });
   return data;
 }
 
-export async function facturerSolde(id: string): Promise<Devis> {
-  const { data } = await api.patch<Devis>(`/devis/${id}/facturer-solde`);
+/** Émet la facture de solde (total révisé du devis − acompte déjà facturé). */
+export async function emettreFactureSolde(devisId: string): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/solde', { devisId });
   return data;
 }
 
-export async function ajouterVersement(devisId: string, montant: number, datePaiement: string, reference?: string): Promise<Devis> {
-  const { data } = await api.post<Devis>(`/devis/${devisId}/versements`, { montant, datePaiement, reference });
+/** Factures liées à un devis. */
+export async function getFacturesForDevis(devisId: string): Promise<Facture[]> {
+  const { data } = await api.get<Facture[]>(`/factures/devis/${devisId}`);
   return data;
 }
 
-export async function getVersements(devisId: string): Promise<VersementPaiement[]> {
-  const { data } = await api.get<VersementPaiement[]>(`/devis/${devisId}/versements`);
+/** Enregistre un versement sur une facture (Lot 1 : ciblé par factureId). */
+export async function ajouterVersement(factureId: string, montant: number, datePaiement: string, reference?: string): Promise<Facture> {
+  const { data } = await api.post<Facture>(`/factures/${factureId}/versements`, { montant, datePaiement, reference });
   return data;
 }
 
-export async function supprimerVersement(devisId: string, versementId: string): Promise<void> {
-  await api.patch(`/devis/${devisId}/versements/${versementId}/supprimer`);
+/** Supprime un versement d'une facture. */
+export async function supprimerVersement(factureId: string, versementId: string): Promise<Facture> {
+  const { data } = await api.patch<Facture>(`/factures/${factureId}/versements/${versementId}/supprimer`);
+  return data;
 }
 
 export async function notifierEnseignantDevis(devisId: string): Promise<{ success: boolean }> {

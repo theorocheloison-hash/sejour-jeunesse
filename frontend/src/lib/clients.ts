@@ -96,6 +96,13 @@ export interface DevisClient {
   acompteVerse: boolean;
   dateFacture?: string | null;
   createdAt: string;
+  factures?: Array<{
+    id: string;
+    typeFacture: 'ACOMPTE' | 'SOLDE';
+    numero: string;
+    montantFacture: number;
+    acompteVerse: boolean;
+  }> | null;
   demande?: {
     sejourId: string;
     sejour?: { titre: string; dateDebut: string; dateFin: string } | null;
@@ -140,14 +147,21 @@ export function deriveClientStatus(client: Client): string {
   if (client.statut === 'PERDU' && !hasActiveDossier) return 'PERDU';
 
   const devisStatuts = client.devis.map(d => d.statut);
+  // Lot 1 : la facturation vient des Factures liées (le devis ne mute plus vers FACTURE_*).
+  // Repli legacy : ancien typeDocument FACTURE_* (données antérieures au Lot 1).
+  const aFactureType = (d: DevisClient, type: 'ACOMPTE' | 'SOLDE') =>
+    (d.factures ?? []).some(f => f.typeFacture === type)
+    || d.typeDocument === `FACTURE_${type}`;
+  const devisAvecSolde = client.devis.some(d => aFactureType(d, 'SOLDE'));
+  const devisAvecAcompte = client.devis.some(d => aFactureType(d, 'ACOMPTE'));
 
   // Du plus avancé au moins avancé
-  if (devisStatuts.some(s => s === 'FACTURE_SOLDE')) {
+  if (devisAvecSolde) {
     // Tous soldés ou non retenus → Soldé ; sinon le statut actif prime (plus bas)
-    const activeDevis = devisStatuts.filter(s => !['FACTURE_SOLDE', 'NON_RETENU'].includes(s));
+    const activeDevis = client.devis.filter(d => !aFactureType(d, 'SOLDE') && d.statut !== 'NON_RETENU');
     if (activeDevis.length === 0) return 'SOLDE';
   }
-  if (devisStatuts.some(s => s === 'FACTURE_ACOMPTE')) return 'ACOMPTE_VERSE';
+  if (devisAvecAcompte) return 'ACOMPTE_VERSE';
   if (devisStatuts.some(s => s === 'SELECTIONNE' || s === 'SIGNE_DIRECTION')) return 'CONFIRME';
   if (devisStatuts.some(s => s === 'EN_ATTENTE' || s === 'EN_ATTENTE_VALIDATION')) return 'DEVIS_ENVOYE';
 

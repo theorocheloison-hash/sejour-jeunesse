@@ -17,7 +17,18 @@ import {
 } from '@/src/lib/devis';
 import type { SejourDirecteur, StatutSejour, SejourDetail } from '@/src/lib/sejour';
 import { Logo } from '@/app/components/Logo';
-import type { Devis, LigneDevis } from '@/src/lib/devis';
+import type { Devis, LigneDevis, Facture } from '@/src/lib/devis';
+
+// Facture d'acompte renvoyée par /devis/factures-acompte (devis + centre + séjour imbriqués).
+type FactureAcompte = Facture & {
+  devis?: {
+    id: string;
+    centre?: { id: string; nom: string; ville: string } | null;
+    demande?: {
+      sejour?: { id: string; titre: string; dateDebut: string; dateFin: string } | null;
+    } | null;
+  } | null;
+};
 import { getBudgetData } from '@/src/lib/collaboration';
 import type { BudgetData } from '@/src/lib/collaboration';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
@@ -296,8 +307,8 @@ export default function SignataireDashboard() {
   const [devisAValider, setDevisAValider] = useState<Devis[]>([]);
   const [devisActingId, setDevisActingId] = useState<string | null>(null);
 
-  // Factures
-  const [factures, setFactures] = useState<Devis[]>([]);
+  // Factures (Lot 1 : entité Facture immuable, type ACOMPTE non validée)
+  const [factures, setFactures] = useState<FactureAcompte[]>([]);
   const [factureActingId, setFactureActingId] = useState<string | null>(null);
   const [chorusXml, setChorusXml] = useState<string | null>(null);
 
@@ -458,10 +469,11 @@ export default function SignataireDashboard() {
     setDevisActingId(null);
   };
 
-  const handleValiderAcompte = async (devisId: string) => {
-    setFactureActingId(devisId);
+  // Lot 1 : validation ciblée par factureId → PATCH /factures/:id/valider-acompte
+  const handleValiderAcompte = async (factureId: string) => {
+    setFactureActingId(factureId);
     try {
-      await validerAcompte(devisId);
+      await validerAcompte(factureId);
       await loadFactures();
     } catch (err) {
       console.error('[handleValiderAcompte]', err);
@@ -471,9 +483,10 @@ export default function SignataireDashboard() {
     setFactureActingId(null);
   };
 
-  const handleChorusXml = async (devisId: string) => {
+  // Lot 1 : XML Chorus Pro ciblé par factureId → GET /factures/:id/chorus-xml
+  const handleChorusXml = async (factureId: string) => {
     try {
-      const { xml } = await getChorusXml(devisId);
+      const { xml } = await getChorusXml(factureId);
       setChorusXml(xml);
     } catch { /* ignore */ }
   };
@@ -615,21 +628,21 @@ export default function SignataireDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900">
-                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'Séjour'}
+                          {f.devis?.demande?.sejour?.titre ?? 'Séjour'}
                         </h3>
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                          {f.numeroFacture}
+                          {f.numero}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>Hébergeur : {f.centre?.nom ?? '—'}</span>
+                        <span>Hébergeur : {f.devis?.centre?.nom ?? '—'}</span>
                         <span>
                           Montant acompte :{' '}
-                          <span className="font-bold text-amber-700">{fmt(Number(f.montantAcompte ?? 0))} €</span>
+                          <span className="font-bold text-amber-700">{fmt(f.montantFacture)} €</span>
                         </span>
-                        <span>Total TTC : {fmt(Number(f.montantTTC ?? f.montantTotal))} €</span>
-                        {f.dateFacture && (
-                          <span>Date : {new Date(f.dateFacture).toLocaleDateString('fr-FR')}</span>
+                        <span>Total TTC : {fmt(f.montantTTC)} €</span>
+                        {f.dateEmission && (
+                          <span>Date : {new Date(f.dateEmission).toLocaleDateString('fr-FR')}</span>
                         )}
                       </div>
                     </div>
@@ -676,17 +689,17 @@ export default function SignataireDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold text-gray-900">
-                          {f.demande?.sejour?.titre ?? f.demande?.titre ?? 'Séjour'}
+                          {f.devis?.demande?.sejour?.titre ?? 'Séjour'}
                         </h3>
                         <span className="inline-flex items-center rounded-full bg-[var(--color-success-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-success)]">
-                          Acompte versé — {f.numeroFacture}
+                          Acompte versé — {f.numero}
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                        <span>Hébergeur : {f.centre?.nom ?? '—'}</span>
-                        <span>Montant : {fmt(Number(f.montantAcompte ?? 0))} €</span>
-                        {f.dateVersementAcompte && (
-                          <span>Versé le : {new Date(f.dateVersementAcompte).toLocaleDateString('fr-FR')}</span>
+                        <span>Hébergeur : {f.devis?.centre?.nom ?? '—'}</span>
+                        <span>Montant : {fmt(f.montantFacture)} €</span>
+                        {f.dateVersement && (
+                          <span>Versé le : {new Date(f.dateVersement).toLocaleDateString('fr-FR')}</span>
                         )}
                       </div>
                     </div>

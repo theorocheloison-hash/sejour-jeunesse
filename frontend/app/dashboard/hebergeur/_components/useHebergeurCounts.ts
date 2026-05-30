@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
-import { getMesDevis } from '@/src/lib/devis';
+import { getMesDevis, getFactureAcompte } from '@/src/lib/devis';
 import { getMonProfil } from '@/src/lib/centre';
 import { getMesNonLus } from '@/src/lib/collaboration';
 import type { Centre } from '@/src/lib/centre';
@@ -27,15 +27,17 @@ export function useHebergeurCounts() {
       setCentre(profil);
       setDemandesCount(demandes.length);
       setRappelsCount(rappels.length);
-      const acomptesAttente = devis.filter((d: any) =>
-        d.statut === 'SELECTIONNE' &&
-        d.typeDocument === 'FACTURE_ACOMPTE' &&
-        !d.acompteVerse
-      ).length;
+      // Lot 1 : facturation lue depuis les Factures liées (le devis ne mute plus).
+      // Acompte émis mais pas encore validé/versé → action en attente.
+      const acomptesAttente = devis.filter((d: any) => {
+        const fa = getFactureAcompte(d);
+        return fa && !fa.acompteVerse;
+      }).length;
+      // Devis signé/sélectionné SANS facture acompte → acompte à émettre.
       const devisSignesAFacturer = devis.filter((d: any) =>
-        d.statut === 'SELECTIONNE' &&
+        (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') &&
         d.signatureDirecteur &&
-        (!d.typeDocument || d.typeDocument === 'DEVIS')
+        !getFactureAcompte(d)
       ).length;
       setActionsFactCount(devisSignesAFacturer + acomptesAttente);
       setSejoursNonLusCount(nonLus.total);

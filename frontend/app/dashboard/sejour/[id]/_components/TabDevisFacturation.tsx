@@ -5,13 +5,13 @@ import Link from 'next/link';
 import {
   getDevisForSejourDirect,
   envoyerDevisDirect,
-  facturerAcompte,
-  facturerSolde,
+  emettreFactureAcompte,
+  emettreFactureSolde,
   ajouterVersement,
-  getVersements,
+  getFacturesForDevis,
   supprimerVersement,
 } from '@/src/lib/devis';
-import type { Devis as DevisType, VersementPaiement } from '@/src/lib/devis';
+import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import api from '@/src/lib/api';
@@ -98,9 +98,9 @@ export default function TabDevisFacturation({
   const [invitationSent, setInvitationSent] = useState(false);
   const signatureFileRef = useRef<HTMLInputElement>(null);
 
-  // ── Pipeline facturation ──────────────────────────────────
-  const [versements, setVersements] = useState<VersementPaiement[]>([]);
-  const [versementsLoading, setVersementsLoading] = useState(false);
+  // ── Pipeline facturation (Lot 1 : entités Facture immuables) ─
+  const [factures, setFactures] = useState<Facture[]>([]);
+  const [facturesLoading, setFacturesLoading] = useState(false);
   const [facturerLoading, setFacturerLoading] = useState(false);
   const [showAddVersement, setShowAddVersement] = useState(false);
   const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '' });
@@ -124,6 +124,7 @@ export default function TabDevisFacturation({
           montantTTC: Number(directDevis.montantTTC ?? 0),
           montantAcompte: Number(directDevis.montantAcompte ?? 0),
           pourcentageAcompte: Number(directDevis.pourcentageAcompte ?? 30),
+          factures: directDevis.factures ?? null,
         }
       : null
     : budgetData?.devis
@@ -133,34 +134,61 @@ export default function TabDevisFacturation({
           montantTTC: Number(budgetData.devis.montantTTC ?? budgetData.devis.montantTotal ?? 0),
           montantAcompte: Number(budgetData.devis.montantAcompte ?? 0),
           pourcentageAcompte: Number(budgetData.devis.pourcentageAcompte ?? 30),
+          factures: (budgetData.devis as { factures?: Facture[] }).factures ?? null,
         }
       : null;
 
   const activeDevisId = activeDevisForFacturation?.id ?? null;
   const activeDevisStatut = activeDevisForFacturation?.statut ?? null;
+  // factures incluses dans la réponse devis (Lot 1 backend) si présentes
+  const activeDevisFactures = activeDevisForFacturation?.factures ?? null;
+
+  // Recharge les factures du devis depuis l'API (source de vérité après chaque action).
+  const reloadFactures = async () => {
+    if (!activeDevisId) return;
+    try {
+      setFactures(await getFacturesForDevis(activeDevisId));
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (!activeDevisId || !activeDevisStatut) return;
     const FACTURATION_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
     if (!FACTURATION_STATUTS.includes(activeDevisStatut)) return;
-    setVersementsLoading(true);
-    getVersements(activeDevisId)
-      .then(setVersements)
+    // Factures déjà incluses dans la réponse devis → on les utilise sans appel réseau.
+    if (activeDevisFactures) {
+      setFactures(activeDevisFactures);
+      return;
+    }
+    setFacturesLoading(true);
+    getFacturesForDevis(activeDevisId)
+      .then(setFactures)
       .catch(() => {})
-      .finally(() => setVersementsLoading(false));
+      .finally(() => setFacturesLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDevisId, activeDevisStatut]);
+
+  // Factures dérivées
+  const factureAcompte = factures.find(f => f.typeFacture === 'ACOMPTE') ?? null;
+  const factureSolde = factures.find(f => f.typeFacture === 'SOLDE') ?? null;
+  const etatFacturation: 'AUCUNE' | 'ACOMPTE' | 'SOLDE' =
+    factureSolde ? 'SOLDE' : factureAcompte ? 'ACOMPTE' : 'AUCUNE';
+  // Facture cible des versements : la dernière émise (solde si présent, sinon acompte).
+  const factureActive = factureSolde ?? factureAcompte;
+  const versements: VersementPaiement[] = factures.flatMap(f => f.versements ?? []);
 
   const handleFacturerAcompte = async () => {
     if (!activeDevisId) return;
     setFacturerLoading(true);
     try {
-      await facturerAcompte(activeDevisId);
+      await emettreFactureAcompte(activeDevisId);
       if (isDirect) {
         const devis = await getDevisForSejourDirect(sejourId);
         setDirectDevis(devis[0] ?? null);
       } else {
         await onBudgetReload();
       }
+      await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation de l\'acompte');
     } finally {
@@ -172,13 +200,14 @@ export default function TabDevisFacturation({
     if (!activeDevisId) return;
     setFacturerLoading(true);
     try {
-      await facturerSolde(activeDevisId);
+      await emettreFactureSolde(activeDevisId);
       if (isDirect) {
         const devis = await getDevisForSejourDirect(sejourId);
         setDirectDevis(devis[0] ?? null);
       } else {
         await onBudgetReload();
       }
+      await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation du solde');
     } finally {
@@ -187,16 +216,16 @@ export default function TabDevisFacturation({
   };
 
   const handleAjouterVersement = async () => {
-    if (!activeDevisId || !versementForm.montant || !versementForm.datePaiement) return;
+    if (!factureActive || !versementForm.montant || !versementForm.datePaiement) return;
     setVersementSaving(true);
     try {
       await ajouterVersement(
-        activeDevisId,
+        factureActive.id,
         parseFloat(versementForm.montant),
         versementForm.datePaiement,
         versementForm.reference || undefined,
       );
-      setVersements(await getVersements(activeDevisId));
+      await reloadFactures();
       setVersementForm({ montant: '', datePaiement: '', reference: '' });
       setShowAddVersement(false);
     } catch {
@@ -206,11 +235,12 @@ export default function TabDevisFacturation({
     }
   };
 
-  const handleSupprimerVersement = async (versementId: string) => {
-    if (!activeDevisId) return;
+  const handleSupprimerVersement = async (versement: VersementPaiement) => {
+    const factureId = versement.factureId ?? factureActive?.id;
+    if (!factureId) return;
     try {
-      await supprimerVersement(activeDevisId, versementId);
-      setVersements(await getVersements(activeDevisId));
+      await supprimerVersement(factureId, versement.id);
+      await reloadFactures();
     } catch {
       onError('Erreur lors de la suppression du versement');
     }
@@ -231,17 +261,23 @@ export default function TabDevisFacturation({
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
         <h3 className="text-sm font-semibold text-gray-900">Facturation</h3>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`h-2.5 w-2.5 rounded-full ${
-            ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION' ? 'bg-amber-400' :
-            ad.statut === 'FACTURE_ACOMPTE' ? 'bg-blue-500' :
+            etatFacturation === 'AUCUNE' ? 'bg-amber-400' :
+            etatFacturation === 'ACOMPTE' ? 'bg-blue-500' :
             'bg-green-500'
           }`} />
           <span className="text-sm text-gray-700">
-            {ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION' ? 'En attente d\'acompte' :
-             ad.statut === 'FACTURE_ACOMPTE' ? 'Acompte facturé' :
+            {etatFacturation === 'AUCUNE' ? 'En attente d\'acompte' :
+             etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
              'Soldé'}
           </span>
+          {factureAcompte && (
+            <span className="text-[11px] text-gray-400">· Acompte {factureAcompte.numero}</span>
+          )}
+          {factureSolde && (
+            <span className="text-[11px] text-gray-400">· Solde {factureSolde.numero}</span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -281,7 +317,7 @@ export default function TabDevisFacturation({
           </div>
         </div>
 
-        {versementsLoading ? (
+        {facturesLoading ? (
           <div className="flex justify-center py-4">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
           </div>
@@ -296,7 +332,7 @@ export default function TabDevisFacturation({
                   {v.reference && <span className="text-gray-400">Réf: {v.reference}</span>}
                 </div>
                 <button
-                  onClick={() => handleSupprimerVersement(v.id)}
+                  onClick={() => handleSupprimerVersement(v)}
                   className="text-red-400 hover:text-red-600 transition-colors"
                   title="Supprimer ce versement"
                 >
@@ -311,7 +347,14 @@ export default function TabDevisFacturation({
 
         {showAddVersement && (
           <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-700">Nouveau versement</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Nouveau versement</p>
+              {factureActive && (
+                <p className="text-[11px] text-gray-500">
+                  Montant attendu : <span className="font-semibold text-gray-700">{factureActive.montantFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Montant (€)</label>
@@ -363,7 +406,7 @@ export default function TabDevisFacturation({
         )}
 
         <div className="flex items-center gap-2 flex-wrap pt-2">
-          {ad.statut !== 'FACTURE_SOLDE' && (
+          {factureActive && etatFacturation !== 'SOLDE' && (
             <button
               onClick={() => setShowAddVersement(true)}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -371,7 +414,7 @@ export default function TabDevisFacturation({
               + Ajouter un versement
             </button>
           )}
-          {(ad.statut === 'SELECTIONNE' || ad.statut === 'SIGNE_DIRECTION') && (
+          {etatFacturation === 'AUCUNE' && (
             <button
               onClick={handleFacturerAcompte}
               disabled={facturerLoading}
@@ -380,10 +423,11 @@ export default function TabDevisFacturation({
               {facturerLoading ? 'Facturation...' : '📄 Facturer l\'acompte'}
             </button>
           )}
-          {ad.statut === 'FACTURE_ACOMPTE' && (
+          {etatFacturation === 'ACOMPTE' && (
             <button
               onClick={handleFacturerSolde}
-              disabled={facturerLoading}
+              disabled={facturerLoading || !factureAcompte?.acompteVerse}
+              title={!factureAcompte?.acompteVerse ? 'L\'acompte doit être validé avant la facture de solde' : undefined}
               className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
               {facturerLoading ? 'Facturation...' : '📄 Facturer le solde'}

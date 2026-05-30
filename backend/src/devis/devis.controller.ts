@@ -142,40 +142,11 @@ export class DevisController {
     return this.devisService.uploadSignatureDocument(id, user.id, file);
   }
 
-  @Patch(':id/facturer-acompte')
-  @Roles(Role.HEBERGEUR)
-  facturerAcompte(
-    @CurrentUser() user: JwtUser,
-    @Param('id') id: string,
-    @CentreId() centreId: string | null,
-  ) {
-    return this.devisService.facturerAcompte(id, user.id, centreId);
-  }
-
-  @Patch(':id/facturer-solde')
-  @Roles(Role.HEBERGEUR)
-  facturerSolde(
-    @CurrentUser() user: JwtUser,
-    @Param('id') id: string,
-    @CentreId() centreId: string | null,
-  ) {
-    return this.devisService.facturerSolde(id, user.id, centreId);
-  }
-
-  @Patch(':id/valider-acompte')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  validerAcompte(@Param('id') id: string) {
-    return this.devisService.validerAcompte(id);
-  }
-
-  @Post(':id/versements')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  ajouterVersement(
-    @Param('id') id: string,
-    @Body() body: { montant: number; datePaiement: string; reference?: string },
-  ) {
-    return this.devisService.ajouterVersement(id, body.montant, body.datePaiement, body.reference);
-  }
+  // ── Facturation migrée vers FactureModule (Lot 1) ──
+  // Routes supprimées : PATCH facturer-acompte/facturer-solde/valider-acompte,
+  // POST versements, PATCH versements/:vid/supprimer, GET chorus-xml.
+  // Désormais : POST /factures/acompte, POST /factures/solde,
+  // POST /factures/:id/versements, PATCH /factures/:id/valider-acompte, etc.
 
   /** POST /devis/:id/envoyer-direct — Envoyer un devis DIRECT par email */
   @Post(':id/envoyer-direct')
@@ -192,20 +163,5 @@ export class DevisController {
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getVersements(@Param('id') id: string) {
     return this.devisService.getVersements(id);
-  }
-
-  @Patch(':id/versements/:versementId/supprimer')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  supprimerVersement(
-    @Param('id') id: string,
-    @Param('versementId') versementId: string,
-  ) {
-    return this.devisService.supprimerVersement(versementId, id);
-  }
-
-  @Get(':id/chorus-xml')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  getChorusXml(@Param('id') id: string) {
-    return this.devisService.getChorusXml(id);
   }
 }

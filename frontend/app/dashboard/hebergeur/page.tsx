@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
-import { getMesDevis } from '@/src/lib/devis';
+import { getMesDevis, getFactureAcompte } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
@@ -105,12 +105,16 @@ export default function HebergeurDashboard() {
   const caPrevi = devis
     .filter(d => d.statut === 'SELECTIONNE')
     .reduce((sum: number, d: any) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
-  const acomptesAttente = devis.filter(d => d.statut === 'SELECTIONNE' && d.typeDocument === 'FACTURE_ACOMPTE' && !d.acompteVerse).length;
-  // Devis signés par la direction en attente de conversion en facture acompte
+  // Lot 1 : facturation lue depuis les Factures liées (le devis ne mute plus).
+  const acomptesAttente = devis.filter((d: any) => {
+    const fa = getFactureAcompte(d);
+    return fa && !fa.acompteVerse;
+  }).length;
+  // Devis signé/sélectionné SANS facture acompte → acompte à émettre.
   const devisSignesAFacturer = devis.filter((d: any) =>
-    d.statut === 'SELECTIONNE' &&
+    (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') &&
     d.signatureDirecteur &&
-    (!d.typeDocument || d.typeDocument === 'DEVIS')
+    !getFactureAcompte(d)
   ).length;
   // Total actions facturation urgentes
   const actionsFacturationUrgentes = devisSignesAFacturer + acomptesAttente;
