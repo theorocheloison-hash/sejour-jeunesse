@@ -45,6 +45,7 @@ export interface DevisSelectionne {
   estFacture: boolean;
   numeroFacture: string | null;
   montantAcompte: number | null;
+  montantSolde: number | null;
   pourcentageAcompte: number | null;
   signatureDirecteur: string | null;
   centre?: { nom: string };

@@ -121,6 +121,7 @@ export default function OrganisateurDemandesPage() {
       montantTVA: tvaCalc,
       montantTTC: ttcCalc,
       montantAcompte: dv.montantAcompte != null ? Number(dv.montantAcompte) : undefined,
+      montantSolde: dv.montantSolde != null ? Number(dv.montantSolde) : undefined,
       pourcentageAcompte: dv.pourcentageAcompte ?? undefined,
       conditionsAnnulation: dv.conditionsAnnulation ?? dv.centre?.conditionsAnnulation ?? undefined,
       signatureDirecteur: dv.signatureDirecteur ?? undefined,

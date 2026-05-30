@@ -604,6 +604,7 @@ export default function TabDevisFacturation({
               montantTVA: tvaCalc,
               montantTTC: ttcCalc,
               montantAcompte: Number(d.montantAcompte) || undefined,
+              montantSolde: Number(d.montantSolde) || undefined,
               pourcentageAcompte: Number(d.pourcentageAcompte) || undefined,
               conditionsAnnulation: d.conditionsAnnulation ?? undefined,
               signatureDirecteur: d.signatureDirecteur ?? null,

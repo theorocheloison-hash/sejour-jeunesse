@@ -284,6 +284,7 @@ export interface DevisBudget {
   numeroDevis: string | null;
   pourcentageAcompte: number | null;
   montantAcompte: number | null;
+  montantSolde: number | null;
   conditionsAnnulation: string | null;
   description: string | null;
   signatureDirecteur: string | null;
@@ -613,6 +614,7 @@ export interface DevisPublic {
   tauxTva: number | null;
   pourcentageAcompte: number | null;
   montantAcompte: number | null;
+  montantSolde: number | null;
   description: string | null;
   conditionsAnnulation: string | null;
   nomEntreprise: string | null;

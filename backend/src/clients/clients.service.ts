@@ -99,6 +99,7 @@ export class ClientsService {
       montantTotal: true,
       montantTTC: true,
       montantAcompte: true,
+      montantSolde: true,
       acompteVerse: true,
       dateFacture: true,
       createdAt: true,

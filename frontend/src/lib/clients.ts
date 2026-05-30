@@ -92,6 +92,7 @@ export interface DevisClient {
   montantTotal: string;
   montantTTC?: number | null;
   montantAcompte?: number | null;
+  montantSolde?: number | null;
   acompteVerse: boolean;
   dateFacture?: string | null;
   createdAt: string;

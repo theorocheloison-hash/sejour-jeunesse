@@ -65,8 +65,9 @@ export class DevisService {
       );
     }
 
-    // Auto-generate numero devis if not provided
-    const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
+    // Numéro de devis séquentiel atomique par émetteur (non overridable)
+    const emetteurId = centre.organisationId ?? centre.id;
+    const numeroDevis = await this.formaterNumeroDevis(emetteurId);
 
     // Save uploaded PDF file if present
     let documentUrl: string | null = null;
@@ -78,6 +79,7 @@ export class DevisService {
       data: {
         demandeId,
         centreId: centre.id,
+        emetteurId,
         montantTotal: dto.montantTotal,
         montantParEleve: dto.montantParEleve,
         description: dto.description,
@@ -274,7 +276,7 @@ export class DevisService {
         montantTTC: dto.montantTTC ?? devis.montantTTC,
         pourcentageAcompte: dto.pourcentageAcompte ?? devis.pourcentageAcompte,
         montantAcompte: dto.montantAcompte ?? devis.montantAcompte,
-        numeroDevis: dto.numeroDevis ?? devis.numeroDevis,
+        // numeroDevis non overridable : conservé tel quel (attribué à la création)
         typeDevis: dto.typeDevis ?? devis.typeDevis,
       },
     });
@@ -717,9 +719,21 @@ export class DevisService {
     });
   }
 
+  /**
+   * Aperçu du prochain numéro de devis — LECTURE SEULE, ne consomme PAS le compteur.
+   * Le numéro réel est attribué atomiquement à la création (peut donc différer en cas
+   * de création concurrente entre l'aperçu et la soumission).
+   */
   async getNextNumeroDevis(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
-    return { numero: await this.generateNumeroDevis(centre.id) };
+    const emetteurId = centre.organisationId ?? centre.id;
+    const annee = new Date().getFullYear();
+    const seq = await this.prisma.sequenceNumero.findUnique({
+      where: { emetteurId_annee_typeDoc: { emetteurId, annee, typeDoc: 'DEVIS' } },
+      select: { dernierNumero: true },
+    });
+    const prochain = (seq?.dernierNumero ?? 0) + 1;
+    return { numero: `DEV-${annee}-${String(prochain).padStart(4, '0')}`, apercu: true };
   }
 
   async getDemandeInfo(demandeId: string, userId: string, centreId?: string | null) {
@@ -774,8 +788,10 @@ export class DevisService {
       throw new ForbiddenException('Ce devis a déjà été converti en facture');
     }
 
+    // Émetteur légal résolu à la facturation + numéro de facture séquentiel atomique
+    const emetteurId = centre.organisationId ?? centre.id;
     const year = new Date().getFullYear();
-    const numeroFacture = `FA-${year}-${id.substring(0, 4).toUpperCase()}`;
+    const numeroFacture = `FA-${year}-${String(await this.genererNumero(emetteurId, 'FACTURE')).padStart(4, '0')}`;
     const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
     const pourcentage = devis.pourcentageAcompte ?? 30;
     const montantAcompte = montantTTC * pourcentage / 100;
@@ -788,6 +804,7 @@ export class DevisService {
         estFacture: true,
         dateFacture: new Date(),
         numeroFacture,
+        emetteurId,
         montantAcompte,
       },
       include: { lignes: true },
@@ -863,19 +880,23 @@ export class DevisService {
     if (devis.typeDocument !== 'FACTURE_ACOMPTE') throw new ForbiddenException('La facture d\'acompte doit être générée en premier');
     if (!devis.acompteVerse) throw new ForbiddenException('L\'acompte doit être validé avant de générer la facture de solde');
 
+    // Émetteur légal + numéro de facture séquentiel atomique (même séquence FACTURE que l'acompte)
+    const emetteurId = centre.organisationId ?? centre.id;
     const year = new Date().getFullYear();
-    const numeroFacture = `FS-${year}-${id.substring(0, 4).toUpperCase()}`;
+    const numeroFacture = `FS-${year}-${String(await this.genererNumero(emetteurId, 'FACTURE')).padStart(4, '0')}`;
     const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
     const montantAcompte = devis.montantAcompte ?? 0;
     const montantSolde = montantTTC - montantAcompte;
 
+    // 0.2 : on écrit montantSolde et on NE TOUCHE PLUS montantAcompte (qui reste l'acompte réel)
     return this.prisma.devis.update({
       where: { id },
       data: {
         typeDocument: 'FACTURE_SOLDE',
         statut: StatutDevis.FACTURE_SOLDE,
         numeroFacture,
-        montantAcompte: montantSolde,
+        emetteurId,
+        montantSolde,
         dateFacture: new Date(),
       },
       include: { lignes: true },
@@ -969,9 +990,10 @@ export class DevisService {
     });
 
     const nouveauTotal = (devis.montantVerseTotal ?? 0) + montant;
+    // FACTURE_ACOMPTE → montant de l'acompte ; FACTURE_SOLDE → montant du solde
     const montantAttendu = devis.typeDocument === 'FACTURE_ACOMPTE'
       ? (devis.montantAcompte ?? 0)
-      : ((devis.montantTTC ?? Number(devis.montantTotal)) - (devis.montantAcompte ?? 0));
+      : (devis.montantSolde ?? ((devis.montantTTC ?? Number(devis.montantTotal)) - (devis.montantAcompte ?? 0)));
     const acompteVerse = nouveauTotal >= montantAttendu * 0.99;
 
     const updated = await this.prisma.devis.update({
@@ -1012,9 +1034,10 @@ export class DevisService {
     const nouveauTotal = versementsRestants.reduce((sum, v) => sum + v.montant, 0);
 
     const devis = await this.prisma.devis.findUnique({ where: { id: devisId } });
+    // FACTURE_ACOMPTE → montant de l'acompte ; FACTURE_SOLDE → montant du solde
     const montantAttendu = devis?.typeDocument === 'FACTURE_ACOMPTE'
       ? (devis.montantAcompte ?? 0)
-      : ((devis?.montantTTC ?? 0) - (devis?.montantAcompte ?? 0));
+      : (devis?.montantSolde ?? ((devis?.montantTTC ?? 0) - (devis?.montantAcompte ?? 0)));
 
     return this.prisma.devis.update({
       where: { id: devisId },
@@ -1149,8 +1172,8 @@ export class DevisService {
     <cbc:LineExtensionAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:LineExtensionAmount>
     <cbc:TaxExclusiveAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxExclusiveAmount>
     <cbc:TaxInclusiveAmount currencyID="EUR">${(devis.montantTTC ?? 0).toFixed(2)}</cbc:TaxInclusiveAmount>
-    <cbc:PrepaidAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0)).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
-    <cbc:PayableAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0)).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
+    <cbc:PrepaidAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
+    <cbc:PayableAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? (devis.montantSolde ?? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0))).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
 
   <!-- Lignes -->${lignesXml}
@@ -1168,18 +1191,44 @@ export class DevisService {
       .replace(/'/g, '&apos;');
   }
 
-  private async generateNumeroDevis(centreId: string): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.devis.count({
-      where: {
-        centreId,
-        createdAt: {
-          gte: new Date(`${year}-01-01`),
-          lt: new Date(`${year + 1}-01-01`),
-        },
-      },
-    });
-    return `DEV-${year}-${String(count + 1).padStart(3, '0')}`;
+  /**
+   * Génère un numéro séquentiel atomique pour un émetteur et un type de document.
+   * typeDoc : 'DEVIS' | 'FACTURE' (acompte ET solde partagent la séquence FACTURE,
+   * numérotation continue). Incrément atomique via upsert en transaction.
+   * Retourne la valeur entière consommée du compteur.
+   */
+  private async genererNumero(
+    emetteurId: string,
+    typeDoc: 'DEVIS' | 'FACTURE',
+  ): Promise<number> {
+    const annee = new Date().getFullYear();
+
+    const consommer = () =>
+      this.prisma.$transaction(async (tx) => {
+        const seq = await tx.sequenceNumero.upsert({
+          where: { emetteurId_annee_typeDoc: { emetteurId, annee, typeDoc } },
+          create: { emetteurId, annee, typeDoc, dernierNumero: 1 },
+          update: { dernierNumero: { increment: 1 } },
+        });
+        return seq.dernierNumero;
+      });
+
+    try {
+      return await consommer();
+    } catch (e: unknown) {
+      // P2002 : collision sur un create concurrent → la ligne existe désormais, on réessaie (update)
+      if (typeof e === 'object' && e !== null && (e as { code?: string }).code === 'P2002') {
+        return consommer();
+      }
+      throw e;
+    }
+  }
+
+  /** Numéro de devis formaté DEV-{annee}-{NNNN} (consomme la séquence DEVIS). */
+  private async formaterNumeroDevis(emetteurId: string): Promise<string> {
+    const annee = new Date().getFullYear();
+    const numero = await this.genererNumero(emetteurId, 'DEVIS');
+    return `DEV-${annee}-${String(numero).padStart(4, '0')}`;
   }
 
   async notifierEnseignantModification(devisId: string, userId: string, centreId?: string | null) {
@@ -1275,7 +1324,9 @@ export class DevisService {
       throw new ForbiddenException('Un devis actif existe déjà pour ce séjour');
     }
 
-    const numeroDevis = dto.numeroDevis ?? await this.generateNumeroDevis(centre.id);
+    // Numéro de devis séquentiel atomique par émetteur (non overridable)
+    const emetteurId = centre.organisationId ?? centre.id;
+    const numeroDevis = await this.formaterNumeroDevis(emetteurId);
 
     let documentUrl: string | null = null;
     if (file && file.mimetype === 'application/pdf') {
@@ -1287,6 +1338,7 @@ export class DevisService {
         sejourDirectId,
         demandeId: null,
         centreId: centre.id,
+        emetteurId,
         montantTotal: dto.montantTotal ?? '0',
         montantParEleve: dto.montantParEleve ?? '0',
         description: dto.description,
