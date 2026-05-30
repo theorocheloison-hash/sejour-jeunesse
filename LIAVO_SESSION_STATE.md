@@ -91,6 +91,39 @@ INTERDIT : contact@chalet-sauvageon.fr = INEXISTANT
 
 ---
 
+## CHANTIER CONFORMITÉ FACTURATION — Lot 0 ✅ TERMINÉ 30/05/2026
+
+> Cadrage complet (décisions D1-D3, calendrier légal, lots 1-4, bugs actifs) dans LIAVO_STATUS.md.
+> Quick-fix à la source, briques réutilisées par l'entité Facture (Lot 1). On reste sur le modèle Devis actuel.
+
+### Décisions actées Lot 0 (implémentées — ne pas re-débattre)
+- **Émetteur légal** résolu à la facturation : `emetteurId = centre.organisationId ?? centre.id`.
+- **Table `SequenceNumero`** : `emetteurId (Uuid)`, `annee (Int)`, `typeDoc ('DEVIS'|'FACTURE')`,
+  `dernierNumero (Int @default 0)`, `@@unique([emetteurId, annee, typeDoc])`.
+- **Une seule séquence FACTURE** par émetteur/année (acompte ET solde → `typeDoc=FACTURE`, numérotation continue) ;
+  séquence DEVIS séparée. Formats `DEV-/FA-/FS-{annee}-{NNNN}` (padStart 4).
+- **`Devis.emetteurId`** stocké à la facturation + index unique partiel `[emetteurId, numeroFacture] WHERE numero_facture IS NOT NULL`.
+- **`Devis.montantSolde (Float?)`** ajouté ; `facturerSolde` écrit `montantSolde` et **ne corrompt plus `montantAcompte`** (= acompte réel).
+- **Numéros non overridables** : `dto.numeroDevis ??` retiré, plus aucun `id.substring` pour un numéro.
+
+### Implémentation (commits `feat(facturation): Lot 0` + doc)
+- `genererNumero(emetteurId, typeDoc)` : upsert atomique en `$transaction` + retry P2002 ; `generateNumeroDevis` (COUNT) supprimée.
+- `facturerAcompte`/`facturerSolde`/`create`/`createDirectDevis` migrés vers le compteur ; `emetteurId` stocké.
+- `getNextNumeroDevis` = aperçu **lecture seule** (ne consomme pas le compteur ; le numéro réel est attribué à la création, peut différer si concurrence).
+- Lecteurs `montantAcompte` corrigés selon `typeDocument` (FACTURE_SOLDE → `montantSolde`, sinon `montantAcompte`) :
+  `getChorusXml` (PayableAmount), `ajouter/supprimerVersement`, types + mappers PDF frontend (`DevisPDF` attendait déjà `montantSolde`).
+  Dashboard global (`centre.service.ts`) & select `sejour.service.ts` = safe (acompte lu uniquement sur devis pré-facturation).
+- Migration `20260530120000_lot0_facturation` = **DDL seul** (pas de `prisma migrate dev` ; Scalingo applique via `migrate deploy`).
+- **Backfill : non nécessaire** — diagnostic prod 30/05 = 0 FACTURE_SOLDE (1 FACTURE_ACOMPTE), zéro montantAcompte corrompu.
+- **Builds** : backend `npm run build` 0 erreur, frontend `tsc --noEmit` 0 erreur.
+
+### À savoir / reste à faire
+- DTO `create-devis.dto.ts` garde `numeroDevis` mais il est **ignoré** côté serveur (retrait = 400 tant que le front l'envoie).
+- `DevisLibre` quasi-mort (aucun controller/service ; lu seul par 1 KPI legacy dans `centre.service.ts`) — non touché.
+- **Lots 1-4** restants : entité `Facture` immuable, PDF mentions légales, avoirs, Factur-X CII/PDF-A3 + dépôt Chorus Pro via PISTE.
+
+---
+
 ## CHANTIER GLOBAL — Refonte page séjour + facturation + planning couleurs — ✅ TERMINÉ 29/05/2026
 
 **Doc de référence** : `docs/ARCHITECTURE_UX_SEJOUR_FINAL.md` (validé 28/05/2026)
