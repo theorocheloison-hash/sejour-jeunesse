@@ -233,20 +233,20 @@ function SejourCard({
         </div>
       </div>
 
-      {/* Bandeau facture acompte — bloc séparé en bas de carte */}
-      {devisSelectionne?.typeDocument === 'FACTURE_ACOMPTE' && (
+      {/* Bandeau facture acompte — Lot 1 : lit la facture liée (le devis ne mute plus) */}
+      {devisSelectionne?.factures?.[0] && (
         <div className="border-t border-amber-200 bg-amber-50 px-5 py-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
             <span className="font-semibold text-amber-800">
-              Facture d&apos;acompte {devisSelectionne.numeroFacture}
+              Facture d&apos;acompte {devisSelectionne.factures[0].numero}
             </span>
             {devisSelectionne.centre?.nom && (
               <span className="text-amber-700">{devisSelectionne.centre.nom}</span>
             )}
             <span className="text-amber-700">
-              Acompte ({devisSelectionne.pourcentageAcompte ?? 30}%) :{' '}
+              Acompte ({devisSelectionne.factures[0].pourcentageAcompte ?? 30}%) :{' '}
               <span className="font-bold">
-                {Number(devisSelectionne.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} EUR
+                {Number(devisSelectionne.factures[0].montantFacture ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} EUR
               </span>
             </span>
             <span className="text-amber-600">

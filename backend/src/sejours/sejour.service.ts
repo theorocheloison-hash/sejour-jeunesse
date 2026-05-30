@@ -154,6 +154,12 @@ export class SejourService {
                 montantAcompte: true,
                 pourcentageAcompte: true,
                 centre: { select: { nom: true } },
+                // Lot 1 : facture d'acompte liée (le devis ne mute plus vers FACTURE_ACOMPTE)
+                factures: {
+                  where: { typeFacture: 'ACOMPTE' },
+                  select: { numero: true, montantFacture: true, pourcentageAcompte: true },
+                  take: 1,
+                },
               },
               take: 1,
             },

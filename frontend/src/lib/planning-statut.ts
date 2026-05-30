@@ -28,20 +28,42 @@ export function statutDevisLePlusAvance(statuts: string[]): string | null {
   );
 }
 
+// Lot 1 : la facturation vit dans l'entité Facture (le devis ne mute plus vers FACTURE_*).
+interface DevisPourCouleur {
+  statut: string;
+  factures?: Array<{ typeFacture: string }> | null;
+}
+
 // Type structurel minimal — accepté par le SejourPlanning mono ET le type local global
 interface SejourPourCouleur {
   statut: string;
-  devisDirect?: Array<{ statut: string }>;
-  demandes?: Array<{ devis?: Array<{ statut: string }> }>;
+  devisDirect?: Array<DevisPourCouleur>;
+  demandes?: Array<{ devis?: Array<DevisPourCouleur> }>;
+}
+
+// Détecte le type de facture le plus avancé parmi les factures d'un devis,
+// avec repli legacy sur l'ancien statut FACTURE_* (données antérieures au Lot 1).
+function etatFacturationDevis(d: DevisPourCouleur): 'SOLDE' | 'ACOMPTE' | null {
+  const types = (d.factures ?? []).map(f => f.typeFacture);
+  if (types.includes('SOLDE') || d.statut === 'FACTURE_SOLDE') return 'SOLDE';
+  if (types.includes('ACOMPTE') || d.statut === 'FACTURE_ACOMPTE') return 'ACOMPTE';
+  return null;
 }
 
 export function derivePlanningStatut(sejour: SejourPourCouleur): string {
-  const statuts = [
-    ...(sejour.devisDirect ?? []).map(d => d.statut),
-    ...(sejour.demandes ?? []).flatMap(dem => (dem.devis ?? []).map(d => d.statut)),
+  const devisListe: DevisPourCouleur[] = [
+    ...(sejour.devisDirect ?? []),
+    ...(sejour.demandes ?? []).flatMap(dem => dem.devis ?? []),
   ];
-  const best = statutDevisLePlusAvance(statuts);
-  if (best === 'FACTURE_SOLDE') return 'SOLDE';
+
+  // 1. Facturation (Facture liée) — rang max
+  const etats = devisListe.map(etatFacturationDevis);
+  if (etats.includes('SOLDE')) return 'SOLDE';
+  if (etats.includes('ACOMPTE')) return 'ACOMPTE_VERSE';
+
+  // 2. Sinon, statut devis le plus avancé (signé/sélectionné → Confirmé)
+  const best = statutDevisLePlusAvance(devisListe.map(d => d.statut));
+  if (best === 'FACTURE_SOLDE') return 'SOLDE';        // ceinture+bretelles legacy
   if (best === 'FACTURE_ACOMPTE') return 'ACOMPTE_VERSE';
   if (sejour.statut === 'OPTION') return 'OPTION';
   return 'CONFIRME'; // CONVENTION/SIGNE_DIRECTION/SOUMIS_RECTORAT/DECLARE_TAM/APPROVED/SUBMITTED

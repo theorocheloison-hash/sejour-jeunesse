@@ -317,51 +317,84 @@ export class CentreService {
       return butoire && new Date(butoire) <= urgences7j;
     }).length;
 
-    // KPI 2 : À facturer
-    const aFacturerAcompte = await this.prisma.devis.findMany({
+    // KPI 2 : À facturer (Lot 1 : la facturation vit dans l'entité Facture, le devis ne mute plus)
+    // 2a. Acompte à émettre : devis signé/sélectionné SANS facture ACOMPTE.
+    const aFacturerAcompteRaw = await this.prisma.devis.findMany({
       where: {
         centreId: { in: centreIds },
         statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
-        estFacture: false,
+        factures: { none: { typeFacture: 'ACOMPTE' } },
       },
       select: {
-        id: true, centreId: true, montantTTC: true, montantAcompte: true, statut: true,
+        id: true, centreId: true, montantTTC: true, montantTotal: true,
+        montantAcompte: true, pourcentageAcompte: true, statut: true,
         demande: { select: { titre: true, dateDebut: true, dateFin: true } },
       },
+    });
+    const aFacturerAcompte = aFacturerAcompteRaw.map(d => {
+      const ttc = d.montantTTC ?? Number(d.montantTotal);
+      const montantAcompte = d.montantAcompte ?? (ttc * (d.pourcentageAcompte ?? 30) / 100);
+      return {
+        id: d.id, centreId: d.centreId, montantTTC: d.montantTTC,
+        montantAcompte, statut: d.statut, demande: d.demande,
+      };
     });
 
-    const aFacturerSolde = await this.prisma.devis.findMany({
+    // 2b. Solde à émettre : facture ACOMPTE validée, séjour terminé, SANS facture SOLDE.
+    const acomptesValides = await this.prisma.facture.findMany({
       where: {
-        centreId: { in: centreIds },
-        statut: 'FACTURE_ACOMPTE',
+        typeFacture: 'ACOMPTE',
         acompteVerse: true,
-        demande: { dateFin: { lt: now } },
+        devis: { centreId: { in: centreIds }, demande: { dateFin: { lt: now } } },
+        facturesSolde: { none: {} }, // pas de facture SOLDE pointant vers cet acompte
       },
       select: {
-        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, statut: true,
-        demande: { select: { titre: true, dateDebut: true, dateFin: true } },
+        id: true, montantTTC: true, montantFacture: true,
+        devis: {
+          select: {
+            id: true, centreId: true, montantVerseTotal: true, statut: true,
+            demande: { select: { titre: true, dateDebut: true, dateFin: true } },
+          },
+        },
       },
     });
+    const aFacturerSolde = acomptesValides.map(f => ({
+      id: f.devis.id, centreId: f.devis.centreId, montantTTC: f.montantTTC,
+      montantVerseTotal: f.montantFacture, // acompte déjà facturé (= versé)
+      statut: f.devis.statut, demande: f.devis.demande,
+    }));
 
     const montantAFacturer = [
       ...aFacturerAcompte.map(d => d.montantAcompte ?? 0),
       ...aFacturerSolde.map(d => (d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)),
     ].reduce((sum, m) => sum + m, 0);
 
-    // KPI 3 : Paiements en attente
-    const paiementsEnAttente = await this.prisma.devis.findMany({
-      where: {
-        centreId: { in: centreIds },
-        statut: { in: ['FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
-      },
+    // KPI 3 : Paiements en attente — factures émises dont le règlement reste incomplet.
+    const facturesEmises = await this.prisma.facture.findMany({
+      where: { devis: { centreId: { in: centreIds } } },
       select: {
-        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, statut: true,
-        dateFacture: true, numeroFacture: true,
-        demande: { select: { titre: true } },
+        id: true, numero: true, typeFacture: true, montantFacture: true,
+        montantVerseTotal: true, dateEmission: true,
+        devis: {
+          select: {
+            centreId: true,
+            demande: { select: { titre: true } },
+            sejourDirect: { select: { titre: true } },
+          },
+        },
       },
     });
-    const facturesImpayees = paiementsEnAttente.filter(d => (d.montantVerseTotal ?? 0) < (d.montantTTC ?? 0));
-    const montantEnAttente = facturesImpayees.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
+    const facturesImpayees = facturesEmises
+      .filter(f => (f.montantVerseTotal ?? 0) < f.montantFacture)
+      .map(f => ({
+        id: f.id, centreId: f.devis.centreId,
+        montantTTC: f.montantFacture, // "dû" = montant de CETTE facture
+        montantVerseTotal: f.montantVerseTotal ?? 0,
+        statut: f.typeFacture,
+        dateFacture: f.dateEmission, numeroFacture: f.numero,
+        demande: { titre: f.devis.demande?.titre ?? f.devis.sejourDirect?.titre ?? '—' },
+      }));
+    const montantEnAttente = facturesImpayees.reduce((sum, f) => sum + (f.montantTTC - f.montantVerseTotal), 0);
 
     const devisLibresImpayees = await this.prisma.devisLibre.findMany({
       where: {
@@ -402,6 +435,13 @@ export class CentreService {
     });
     const caPrevisionnel = previsionnel.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
 
+    // KPI 5 (Lot 1) : factures émises (nombre + montant total facturé) sur le périmètre.
+    const facturesEmisesAgg = await this.prisma.facture.aggregate({
+      where: { devis: { centreId: { in: centreIds } } },
+      _count: { _all: true },
+      _sum: { montantFacture: true },
+    });
+
     // Planning consolidé
     const dans60j = new Date();
     dans60j.setDate(dans60j.getDate() + 60);
@@ -418,10 +458,19 @@ export class CentreService {
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
         statut: true, hebergementSelectionneId: true,
-        // Tous les devis du centre — couleur planning = devis le PLUS AVANCÉ
-        devisDirect: { where: { centreId: { in: centreIds } }, select: { statut: true } },
+        // Tous les devis du centre — couleur planning = devis le PLUS AVANCÉ.
+        // Lot 1 : factures incluses (la facturation ne mute plus le statut du devis).
+        devisDirect: {
+          where: { centreId: { in: centreIds } },
+          select: { statut: true, factures: { select: { typeFacture: true } } },
+        },
         demandes: {
-          select: { devis: { where: { centreId: { in: centreIds } }, select: { statut: true } } },
+          select: {
+            devis: {
+              where: { centreId: { in: centreIds } },
+              select: { statut: true, factures: { select: { typeFacture: true } } },
+            },
+          },
         },
       },
     });
@@ -478,6 +527,11 @@ export class CentreService {
           periodeDebut: debut.toISOString(),
           periodeFin: fin.toISOString(),
           description: 'CA encaissé et prévisionnel sur la période',
+        },
+        facturesEmises: {
+          total: facturesEmisesAgg._count._all,
+          montant: Math.round((facturesEmisesAgg._sum.montantFacture ?? 0) * 100) / 100,
+          description: 'Factures émises (acompte + solde)',
         },
       },
       aTraiterDetail: { demandes: demandesOuvertes, devis: devisEnAttenteReponse },

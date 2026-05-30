@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 30/05/2026 — Chantier conformité facturation **Lot 0 livré** (numérotation séquentielle + fix montantAcompte)
+> Dernière mise à jour : 30/05/2026 — Chantier conformité facturation **Lot 1 livré** (entité Facture immuable + scission module facturation)
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -88,6 +88,40 @@ APPEL | EMAIL | VISITE | DEVIS | SIGNATURE | VERSEMENT | NOTE | BROCHURE
 
 Centre Sauvageon ID : 3a710674-d580-4ffd-9d9a-f739bae82154
 INTERDIT : contact@chalet-sauvageon.fr = INEXISTANT
+
+---
+
+## CHANTIER CONFORMITÉ FACTURATION — Lot 1 ✅ TERMINÉ 30/05/2026
+
+> Entité **Facture immuable** (snapshot figé à l'émission). Le Devis ne mute plus (statut/typeDocument inchangés, reste modifiable). Briques Lot 0 (compteur séquentiel, `emetteurId`) réutilisées.
+
+### Modèle de données (migration DDL `20260530140000_lot1_facture`)
+- **`Facture`** (table `factures`) : snapshot émetteur + destinataire + montants figés, `typeFacture ('ACOMPTE'|'SOLDE')`, `montantFacture`, `montantVerseTotal`, `acompteVerse`, `dateVersement`, `factureAcompteId` (self-relation), `@@unique([emetteurId, numero])`, index `[devisId]`/`[sejourId]`.
+- **`LigneFacture`** (table `lignes_facture`) : lignes figées, FK `factureId` ON DELETE CASCADE.
+- **`VersementPaiement.factureId`** (FK nullable) : nouveaux versements rattachés à la Facture. `montantVerseTotal` toujours resynchronisé sur le Devis (somme de tous les versements) car le front le lit.
+- **`Devis.factures[]`** relation.
+
+### Backend — module `facture/` (scission depuis `devis`)
+- `SequenceService` extrait dans `sequence/` (`generer(emetteurId, typeDoc)` atomique, retry P2002), partagé Devis + Facture.
+- `FactureService` : `emettreAcompte` (unifié collab + direct), `emettreFactureSolde` (total révisé − acompte déjà facturé, refusé si acompte non validé), `ajouterVersement`/`supprimerVersement` (par factureId), `validerAcompte`, `getChorusXml` (lit Facture), `getFacturesForDevis`.
+- Routes `FactureController` : `POST /factures/acompte|solde`, `POST /factures/:id/versements`, `PATCH /factures/:id/versements/:vid/supprimer`, `PATCH /factures/:id/valider-acompte`, `GET /factures/:id/chorus-xml`, `GET /factures/devis/:devisId`.
+- `DevisService` nettoyé (1859 → 1448 lignes) : SUPPRIMÉS `facturerAcompte/facturerSolde/validerAcompte/ajouterVersement/supprimerVersement/getChorusXml/escapeXml/genererNumero`. `getMesDevis`/`getDevisById` incluent `factures` ; `getFacturesAcompte` lit la table Facture ; `updateDevis` déverrouillé (SIGNE_DIRECTION + devis directs, `demandeId` nullable-safe). Anciennes routes `PATCH /devis/:id/facturer-*` supprimées (pas d'alias).
+- Statuts `FACTURE_ACOMPTE/SOLDE` gardés dans l'enum (deprecated) mais **jamais mutés**.
+
+### Frontend — bascule sur les factures liées
+- `lib/devis.ts` : types `Facture`/`LigneFacture`, helpers `getFactureAcompte/getFactureSolde/etatFacturation`, `emettreFactureAcompte/Solde`, `getFacturesForDevis`, `ajouterVersement/supprimerVersement` (signature factureId), `validerAcompte`/`getChorusXml` → `/factures/:id/...`.
+- `planning-statut.ts` (B1) + `deriveClientStatus` (CRM) dérivent l'état depuis `factures[].typeFacture` (repli legacy `typeDocument`).
+- `TabDevisFacturation.tsx` : pipeline lit `devis.factures[]` (sinon `getFacturesForDevis`), machine à états `etatFacturation`, versements ciblés par factureId, `montantAttendu = facture.montantFacture`, rechargement après chaque action.
+- `hebergeur/devis/page.tsx` : badges / boutons acompte-solde-Chorus / modale « Suivi paiement » migrés sur Facture (state `{ facture }`).
+- `signataire/page.tsx` : factures typées `Facture` (devis imbriqué), validation acompte + Chorus Pro par factureId.
+
+### Vérifs
+- Grep `facturerAcompte|facturerSolde|getVersements|/devis/.../versements` dans `frontend` = **0**.
+- Builds : backend `npm run build` **0 erreur**, frontend `tsc --noEmit` **0 erreur**.
+
+### À savoir / reste à faire
+- `getFacturesAcompte` (signataire) ne renvoie que `acompteVerse: false` → la section « Acomptes validés » du dashboard signataire reste vide (comportement backend Lot 1).
+- **Lots 2-4** restants : PDF mentions légales (PDF/A-3), avoirs, Factur-X CII + dépôt Chorus Pro via PISTE.
 
 ---
 

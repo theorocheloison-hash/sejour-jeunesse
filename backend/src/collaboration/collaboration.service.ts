@@ -458,15 +458,16 @@ export class CollaborationService {
         planningActivites: {
           orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
         },
-        // Tous les devis du centre — la couleur planning dérive du devis le PLUS AVANCÉ
+        // Tous les devis du centre — la couleur planning dérive du devis le PLUS AVANCÉ.
+        // Lot 1 : on inclut les factures liées (la facturation ne mute plus le statut du devis).
         devisDirect: {
-          select: { statut: true },
+          select: { statut: true, factures: { select: { typeFacture: true } } },
         },
         demandes: {
           select: {
             devis: {
               where: { centreId: { in: centreIds } },
-              select: { statut: true },
+              select: { statut: true, factures: { select: { typeFacture: true } } },
             },
           },
         },

@@ -806,6 +806,7 @@ model Devis {
   centre  CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
   lignes  LigneDevis[]
   versements VersementPaiement[]
+  factures   Facture[]
 
   @@index([centreId])
   @@index([statut])
@@ -839,14 +840,89 @@ model SequenceNumero {
 model VersementPaiement {
   id            String   @id @default(uuid()) @db.Uuid
   devisId       String   @map("devis_id") @db.Uuid
+  factureId     String?  @map("facture_id") @db.Uuid
   montant       Float
   datePaiement  DateTime @map("date_paiement") @db.Date
   reference     String?  @db.VarChar(255)
   createdAt     DateTime @default(now()) @map("created_at")
 
-  devis Devis @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  devis   Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+  facture Facture? @relation(fields: [factureId], references: [id])
 
+  @@index([factureId])
   @@map("versements_paiement")
+}
+
+// ============================================================
+// MODEL : Facture (snapshot immuable — Lot 1)
+// Émise depuis un Devis, fige émetteur/destinataire/montants au moment de l'émission.
+// Le Devis reste modifiable après l'acompte ; le solde se calcule sur le total révisé − acompte.
+// ============================================================
+model Facture {
+  id               String   @id @default(uuid()) @db.Uuid
+  devisId          String   @map("devis_id") @db.Uuid
+  sejourId         String?  @map("sejour_id") @db.Uuid
+  emetteurId       String   @map("emetteur_id") @db.Uuid
+  numero           String   @db.VarChar(50)
+  typeFacture      String   @map("type_facture") @db.VarChar(20) // ACOMPTE | SOLDE
+  dateEmission     DateTime @map("date_emission")
+  // Snapshot émetteur (figé)
+  emetteurNom      String   @map("emetteur_nom") @db.VarChar(255)
+  emetteurAdresse  String?  @map("emetteur_adresse") @db.Text
+  emetteurSiret    String?  @map("emetteur_siret") @db.VarChar(14)
+  emetteurTva      String?  @map("emetteur_tva") @db.VarChar(20)
+  emetteurEmail    String?  @map("emetteur_email") @db.VarChar(255)
+  emetteurTel      String?  @map("emetteur_tel") @db.VarChar(20)
+  emetteurIban     String?  @map("emetteur_iban") @db.VarChar(34)
+  // Snapshot destinataire (figé)
+  destinataireNom     String   @map("destinataire_nom") @db.VarChar(255)
+  destinataireAdresse String?  @map("destinataire_adresse") @db.Text
+  destinataireSiret   String?  @map("destinataire_siret") @db.VarChar(14)
+  destinataireEmail   String?  @map("destinataire_email") @db.VarChar(255)
+  // Montants figés du devis AU MOMENT de l'émission
+  montantHT        Float    @map("montant_ht")
+  montantTVA       Float    @map("montant_tva")
+  montantTTC       Float    @map("montant_ttc")
+  tauxTva          Float    @map("taux_tva")
+  // Montant de CETTE facture
+  montantFacture   Float    @map("montant_facture")
+  pourcentageAcompte Float? @map("pourcentage_acompte")
+  // Lien acompte → solde
+  factureAcompteId String?  @map("facture_acompte_id") @db.Uuid
+  montantAcompteDejaFacture Float? @map("montant_acompte_deja_facture")
+  // Suivi paiement de CETTE facture
+  montantVerseTotal Float   @default(0) @map("montant_verse_total")
+  acompteVerse      Boolean @default(false) @map("acompte_verse")
+  dateVersement     DateTime? @map("date_versement")
+  // Conditions
+  conditionsAnnulation String? @map("conditions_annulation") @db.Text
+  pdfUrl           String?  @map("pdf_url") @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  devis            Devis    @relation(fields: [devisId], references: [id])
+  factureAcompte   Facture? @relation("FactureAcompte", fields: [factureAcompteId], references: [id])
+  facturesSolde    Facture[] @relation("FactureAcompte")
+  lignes           LigneFacture[]
+  versements       VersementPaiement[]
+
+  @@unique([emetteurId, numero])
+  @@index([devisId])
+  @@index([sejourId])
+  @@map("factures")
+}
+
+model LigneFacture {
+  id           String  @id @default(uuid()) @db.Uuid
+  factureId    String  @map("facture_id") @db.Uuid
+  description  String  @db.Text
+  quantite     Float
+  prixUnitaire Float   @map("prix_unitaire")
+  tva          Float   @default(0)
+  totalHT      Float   @map("total_ht")
+  totalTTC     Float   @map("total_ttc")
+  facture      Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
+
+  @@map("lignes_facture")
 }
 
 // ============================================================

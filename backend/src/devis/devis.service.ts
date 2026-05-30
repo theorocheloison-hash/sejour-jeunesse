@@ -14,6 +14,7 @@ import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { SequenceService } from '../sequence/sequence.service.js';
 
 @Injectable()
 export class DevisService {
@@ -22,6 +23,7 @@ export class DevisService {
     private email: EmailService,
     private storage: StorageService,
     private clientsService: ClientsService,
+    private sequence: SequenceService,
   ) {}
 
   async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File, centreId?: string | null) {
@@ -152,6 +154,10 @@ export class DevisService {
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' as const } },
+        factures: {
+          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          orderBy: { dateEmission: 'asc' as const },
+        },
         centre: {
           select: {
             id: true, nom: true, ville: true, adresse: true, codePostal: true,
@@ -204,6 +210,10 @@ export class DevisService {
       where: { id },
       include: {
         lignes: true,
+        factures: {
+          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          orderBy: { dateEmission: 'asc' as const },
+        },
         demande: {
           include: {
             enseignant: {
@@ -237,13 +247,14 @@ export class DevisService {
     if (devis.centreId !== centre.id) {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
-    if (devis.statut !== 'EN_ATTENTE' && devis.statut !== 'SELECTIONNE') {
-      throw new ForbiddenException('Seul un devis en attente ou sélectionné peut être modifié');
+    // Lot 1 : modifiable jusqu'à la signature direction incluse — les prestations
+    // changent pendant le séjour, la facture de solde se calcule sur le total révisé.
+    if (!['EN_ATTENTE', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut)) {
+      throw new ForbiddenException('Ce devis ne peut plus être modifié à ce stade');
     }
-    if (!devis.demandeId) {
-      throw new ForbiddenException('Cette action n\'est pas disponible pour les séjours en gestion directe');
-    }
-    const demandeId: string = devis.demandeId;
+    // Lot 1 : les devis directs (mariages/événements) sont aussi modifiables.
+    // La vérification de propriété (centreId) ci-dessus suffit. demandeId reste optionnel.
+    const demandeId: string | null = devis.demandeId;
 
     // Upload nouveau PDF si fourni
     let documentUrl = devis.documentUrl;
@@ -296,8 +307,8 @@ export class DevisService {
       });
     }
 
-    // Synchroniser DemandeDevis si effectif modifié
-    if (dto.nombreEleves !== undefined || dto.nombreAccompagnateurs !== undefined) {
+    // Synchroniser DemandeDevis si effectif modifié (devis collab uniquement)
+    if (demandeId && (dto.nombreEleves !== undefined || dto.nombreAccompagnateurs !== undefined)) {
       const demandePourSejour = await this.prisma.demandeDevis.findUnique({
         where: { id: demandeId },
         select: { sejourId: true },
@@ -319,8 +330,8 @@ export class DevisService {
       }
     }
 
-    // Notifier l'enseignant si le devis était SELECTIONNE
-    if (devis.statut === 'SELECTIONNE') {
+    // Notifier l'enseignant si le devis était SELECTIONNE (devis collab uniquement)
+    if (demandeId && devis.statut === 'SELECTIONNE') {
       const demande = await this.prisma.demandeDevis.findUnique({
         where: { id: demandeId },
         include: {
@@ -771,246 +782,39 @@ export class DevisService {
     return { demande, centre };
   }
 
-  async facturerAcompte(id: string, userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-
-    const devis = await this.prisma.devis.findUnique({
-      where: { id },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.centreId !== centre.id) {
-      throw new ForbiddenException('Ce devis ne vous appartient pas');
-    }
-    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
-      throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
-    }
-    if (devis.typeDocument !== 'DEVIS') {
-      throw new ForbiddenException('Ce devis a déjà été converti en facture');
-    }
-
-    // Émetteur légal résolu à la facturation + numéro de facture séquentiel atomique
-    const emetteurId = centre.organisationId ?? centre.id;
-    const year = new Date().getFullYear();
-    const numeroFacture = `FA-${year}-${String(await this.genererNumero(emetteurId, 'FACTURE')).padStart(4, '0')}`;
-    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
-    const pourcentage = devis.pourcentageAcompte ?? 30;
-    const montantAcompte = montantTTC * pourcentage / 100;
-
-    const result = await this.prisma.devis.update({
-      where: { id },
-      data: {
-        typeDocument: 'FACTURE_ACOMPTE',
-        statut: StatutDevis.FACTURE_ACOMPTE,
-        estFacture: true,
-        dateFacture: new Date(),
-        numeroFacture,
-        emetteurId,
-        montantAcompte,
-      },
-      include: { lignes: true },
-    });
-
-    try {
-      const devisComplet = await this.prisma.devis.findUnique({
-        where: { id },
-        include: {
-          demande: {
-            include: {
-              enseignant: { select: { email: true, prenom: true, nom: true } },
-              sejour: { select: { id: true, titre: true } },
-            },
-          },
-        },
-      });
-
-      const sejourTitre = devisComplet?.demande?.sejour?.titre ?? 'votre séjour';
-      const montantFormate = montantAcompte.toFixed(2).replace('.', ',');
-      const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-
-      const corpsEmail = `<p>Bonjour,</p>
-        <p>L'hébergeur a émis une <strong>facture d'acompte</strong> pour le séjour <strong>« ${sejourTitre} »</strong>.</p>
-        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Numéro de facture</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${numeroFacture}</td></tr>
-          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant acompte</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montantFormate} €</td></tr>
-        </table>
-        <p>Merci de transmettre cette facture à votre service comptable pour procéder au règlement.</p>
-        <p style="margin:24px 0">
-          <a href="${frontendUrl}/dashboard/sejour/${devisComplet?.demande?.sejour?.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-            Accéder à l'espace collaboratif
-          </a>
-        </p>`;
-
-      if (devisComplet?.demande?.enseignant?.email) {
-        await this.email.sendGenericNotification(
-          devisComplet.demande.enseignant.email,
-          `Facture d'acompte émise — ${sejourTitre}`,
-          corpsEmail,
-        );
-      }
-
-      if (devisComplet?.demande?.sejour?.id) {
-        const invitation = await this.prisma.invitationDirecteur.findFirst({
-          where: { sejourId: devisComplet.demande.sejour.id },
-          select: { emailDirecteur: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (invitation?.emailDirecteur && invitation.emailDirecteur !== devisComplet?.demande?.enseignant?.email) {
-          await this.email.sendGenericNotification(
-            invitation.emailDirecteur,
-            `Facture d'acompte émise — ${sejourTitre}`,
-            corpsEmail,
-          );
-        }
-      }
-    } catch { /* non bloquant */ }
-
-    return result;
-  }
-
-  async facturerSolde(id: string, userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-
-    const devis = await this.prisma.devis.findUnique({
-      where: { id },
-      include: { lignes: true },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
-    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
-    if (devis.typeDocument !== 'FACTURE_ACOMPTE') throw new ForbiddenException('La facture d\'acompte doit être générée en premier');
-    if (!devis.acompteVerse) throw new ForbiddenException('L\'acompte doit être validé avant de générer la facture de solde');
-
-    // Émetteur légal + numéro de facture séquentiel atomique (même séquence FACTURE que l'acompte)
-    const emetteurId = centre.organisationId ?? centre.id;
-    const year = new Date().getFullYear();
-    const numeroFacture = `FS-${year}-${String(await this.genererNumero(emetteurId, 'FACTURE')).padStart(4, '0')}`;
-    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
-    const montantAcompte = devis.montantAcompte ?? 0;
-    const montantSolde = montantTTC - montantAcompte;
-
-    // 0.2 : on écrit montantSolde et on NE TOUCHE PLUS montantAcompte (qui reste l'acompte réel)
-    return this.prisma.devis.update({
-      where: { id },
-      data: {
-        typeDocument: 'FACTURE_SOLDE',
-        statut: StatutDevis.FACTURE_SOLDE,
-        numeroFacture,
-        emetteurId,
-        montantSolde,
-        dateFacture: new Date(),
-      },
-      include: { lignes: true },
-    });
-  }
-
+  /**
+   * Factures d'acompte en attente de validation (dashboard SIGNATAIRE).
+   * Lot 1 : lit l'entité Facture (type ACOMPTE non encore validée), plus le devis.
+   */
   async getFacturesAcompte() {
-    return this.prisma.devis.findMany({
-      where: {
-        typeDocument: 'FACTURE_ACOMPTE',
-        statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
-      },
+    return this.prisma.facture.findMany({
+      where: { typeFacture: 'ACOMPTE', acompteVerse: false },
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' as const } },
-        centre: { select: { id: true, nom: true, ville: true } },
-        demande: {
+        devis: {
           include: {
-            sejour: {
-              select: {
-                id: true,
-                titre: true,
-                dateDebut: true,
-                dateFin: true,
-                createur: {
-                  select: { prenom: true, nom: true },
+            centre: { select: { id: true, nom: true, ville: true } },
+            demande: {
+              include: {
+                sejour: {
+                  select: {
+                    id: true,
+                    titre: true,
+                    dateDebut: true,
+                    dateFin: true,
+                    createur: {
+                      select: { prenom: true, nom: true },
+                    },
+                  },
                 },
               },
             },
           },
         },
       },
-      orderBy: { dateFacture: 'desc' },
+      orderBy: { dateEmission: 'desc' },
     });
-  }
-
-  async validerAcompte(id: string) {
-    const devis = await this.prisma.devis.findUnique({
-      where: { id },
-      include: {
-        centre: { include: { user: { select: { email: true } } } },
-        demande: { include: { sejour: { select: { titre: true } } } },
-      },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.typeDocument !== 'FACTURE_ACOMPTE') {
-      throw new ForbiddenException('Ce document n\'est pas une facture d\'acompte');
-    }
-    if (devis.acompteVerse) {
-      throw new ForbiddenException('L\'acompte a déjà été validé');
-    }
-
-    const updated = await this.prisma.devis.update({
-      where: { id },
-      data: {
-        acompteVerse: true,
-        dateVersementAcompte: new Date(),
-      },
-      include: { lignes: true, centre: { select: { nom: true } } },
-    });
-
-    // Notifier l'hébergeur
-    if (devis.centre?.user?.email && devis.demande?.sejour?.titre) {
-      await this.email.sendGenericNotification(
-        devis.centre.user.email,
-        'Acompte validé',
-        `L'acompte de ${Number(devis.montantAcompte ?? 0).toFixed(2)} € pour le séjour "${devis.demande.sejour.titre}" a été validé par le directeur. Facture ${devis.numeroFacture}.`,
-      );
-    }
-
-    return updated;
-  }
-
-  async ajouterVersement(devisId: string, montant: number, datePaiement: string, reference?: string) {
-    const devis = await this.prisma.devis.findUnique({
-      where: { id: devisId },
-      include: { versements: true },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.typeDocument !== 'FACTURE_ACOMPTE' && devis.typeDocument !== 'FACTURE_SOLDE') {
-      throw new ForbiddenException('Seule une facture peut recevoir un versement');
-    }
-
-    await this.prisma.versementPaiement.create({
-      data: {
-        devisId,
-        montant,
-        datePaiement: new Date(datePaiement),
-        reference: reference ?? null,
-      },
-    });
-
-    const nouveauTotal = (devis.montantVerseTotal ?? 0) + montant;
-    // FACTURE_ACOMPTE → montant de l'acompte ; FACTURE_SOLDE → montant du solde
-    const montantAttendu = devis.typeDocument === 'FACTURE_ACOMPTE'
-      ? (devis.montantAcompte ?? 0)
-      : (devis.montantSolde ?? ((devis.montantTTC ?? Number(devis.montantTotal)) - (devis.montantAcompte ?? 0)));
-    const acompteVerse = nouveauTotal >= montantAttendu * 0.99;
-
-    const updated = await this.prisma.devis.update({
-      where: { id: devisId },
-      data: {
-        montantVerseTotal: nouveauTotal,
-        acompteVerse,
-        ...(acompteVerse && !devis.acompteVerse ? { dateVersementAcompte: new Date() } : {}),
-      },
-      include: {
-        lignes: true,
-        versements: { orderBy: { datePaiement: 'asc' } },
-        centre: { select: { nom: true } },
-      },
-    });
-
-    return updated;
   }
 
   async getVersements(devisId: string) {
@@ -1020,214 +824,10 @@ export class DevisService {
     });
   }
 
-  async supprimerVersement(versementId: string, devisId: string) {
-    const versement = await this.prisma.versementPaiement.findUnique({
-      where: { id: versementId },
-    });
-    if (!versement || versement.devisId !== devisId) throw new NotFoundException('Versement introuvable');
-
-    await this.prisma.versementPaiement.delete({ where: { id: versementId } });
-
-    const versementsRestants = await this.prisma.versementPaiement.findMany({
-      where: { devisId },
-    });
-    const nouveauTotal = versementsRestants.reduce((sum, v) => sum + v.montant, 0);
-
-    const devis = await this.prisma.devis.findUnique({ where: { id: devisId } });
-    // FACTURE_ACOMPTE → montant de l'acompte ; FACTURE_SOLDE → montant du solde
-    const montantAttendu = devis?.typeDocument === 'FACTURE_ACOMPTE'
-      ? (devis.montantAcompte ?? 0)
-      : (devis?.montantSolde ?? ((devis?.montantTTC ?? 0) - (devis?.montantAcompte ?? 0)));
-
-    return this.prisma.devis.update({
-      where: { id: devisId },
-      data: {
-        montantVerseTotal: nouveauTotal,
-        acompteVerse: nouveauTotal >= montantAttendu * 0.99,
-      },
-    });
-  }
-
-  async getChorusXml(id: string) {
-    const devis = await this.prisma.devis.findUnique({
-      where: { id },
-      include: {
-        lignes: true,
-        centre: true,
-        demande: {
-          include: {
-            sejour: {
-              include: {
-                createur: { select: { id: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.typeDocument !== 'FACTURE_ACOMPTE' && devis.typeDocument !== 'FACTURE_SOLDE') {
-      throw new ForbiddenException('Seule une facture d\'acompte peut être exportée');
-    }
-    if (!devis.centre?.mandatFacturationAccepte) {
-      throw new ForbiddenException(
-        'Mandat de facturation non accepté. Veuillez l\'accepter dans vos paramètres avant de générer des factures Chorus Pro.'
-      );
-    }
-
-    const sejour = devis.demande?.sejour;
-    const createurId = devis.demande?.sejour?.createur?.id ?? null;
-    const orgaCreateur = createurId
-      ? await getOrganisationPrincipale(createurId, this.prisma)
-      : null;
-    const dateFacture = devis.dateFacture
-      ? new Date(devis.dateFacture).toISOString().substring(0, 10)
-      : new Date().toISOString().substring(0, 10);
-
-    const lignesXml = devis.lignes.map((l, i) => `
-    <cac:InvoiceLine>
-      <cbc:ID>${i + 1}</cbc:ID>
-      <cbc:InvoicedQuantity unitCode="C62">${l.quantite}</cbc:InvoicedQuantity>
-      <cbc:LineExtensionAmount currencyID="EUR">${l.totalHT.toFixed(2)}</cbc:LineExtensionAmount>
-      <cac:Item>
-        <cbc:Name>${this.escapeXml(l.description)}</cbc:Name>
-        <cac:ClassifiedTaxCategory>
-          <cbc:Percent>${l.tva}</cbc:Percent>
-          <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
-        </cac:ClassifiedTaxCategory>
-      </cac:Item>
-      <cac:Price>
-        <cbc:PriceAmount currencyID="EUR">${l.prixUnitaire.toFixed(2)}</cbc:PriceAmount>
-      </cac:Price>
-    </cac:InvoiceLine>`).join('');
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
-         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
-         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
-  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
-  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0</cbc:CustomizationID>
-  <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
-  <cbc:ID>${this.escapeXml(devis.numeroFacture ?? '')}</cbc:ID>
-  <cbc:IssueDate>${dateFacture}</cbc:IssueDate>
-  <cbc:InvoiceTypeCode>${devis.typeDocument === 'FACTURE_SOLDE' ? '380' : '381'}</cbc:InvoiceTypeCode>
-  <cbc:Note>${devis.typeDocument === 'FACTURE_SOLDE' ? 'Facture de solde' : 'Facture d\'acompte'} - ${this.escapeXml(sejour?.titre ?? '')}</cbc:Note>
-  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
-
-  <!-- Émetteur (hébergeur) -->
-  <cac:AccountingSupplierParty>
-    <cac:Party>
-      <cac:PartyName>
-        <cbc:Name>${this.escapeXml(devis.nomEntreprise ?? devis.centre?.nom ?? '')}</cbc:Name>
-      </cac:PartyName>
-      <cac:PostalAddress>
-        <cbc:StreetName>${this.escapeXml(devis.adresseEntreprise ?? devis.centre?.adresse ?? '')}</cbc:StreetName>
-        <cbc:CityName>${this.escapeXml(devis.centre?.ville ?? '')}</cbc:CityName>
-        <cbc:PostalZone>${this.escapeXml(devis.centre?.codePostal ?? '')}</cbc:PostalZone>
-        <cac:Country><cbc:IdentificationCode>FR</cbc:IdentificationCode></cac:Country>
-      </cac:PostalAddress>
-      <cac:PartyTaxScheme>
-        <cbc:CompanyID>${this.escapeXml(devis.siretEntreprise ?? '')}</cbc:CompanyID>
-        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
-      </cac:PartyTaxScheme>
-      <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${this.escapeXml(devis.nomEntreprise ?? devis.centre?.nom ?? '')}</cbc:RegistrationName>
-        <cbc:CompanyID schemeID="0002">${this.escapeXml(devis.siretEntreprise ?? '')}</cbc:CompanyID>
-      </cac:PartyLegalEntity>
-    </cac:Party>
-  </cac:AccountingSupplierParty>
-
-  <!-- Destinataire (établissement scolaire) -->
-  <cac:AccountingCustomerParty>
-    <cac:Party>
-      <cac:PartyName>
-        <cbc:Name>${this.escapeXml(orgaCreateur?.nom ?? '')}</cbc:Name>
-      </cac:PartyName>
-      <cac:PostalAddress>
-        <cbc:StreetName>${this.escapeXml(orgaCreateur?.adresse ?? '')}</cbc:StreetName>
-        <cbc:CityName>${this.escapeXml(orgaCreateur?.ville ?? '')}</cbc:CityName>
-        <cac:Country><cbc:IdentificationCode>FR</cbc:IdentificationCode></cac:Country>
-      </cac:PostalAddress>
-      <cac:PartyLegalEntity>
-        <cbc:RegistrationName>${this.escapeXml(orgaCreateur?.nom ?? '')}</cbc:RegistrationName>
-        <cbc:CompanyID schemeID="0009">${this.escapeXml(orgaCreateur?.uai ?? '')}</cbc:CompanyID>
-      </cac:PartyLegalEntity>
-    </cac:Party>
-  </cac:AccountingCustomerParty>
-
-  <!-- Montants -->
-  <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="EUR">${(devis.montantTVA ?? 0).toFixed(2)}</cbc:TaxAmount>
-    <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="EUR">${(devis.montantTVA ?? 0).toFixed(2)}</cbc:TaxAmount>
-      <cac:TaxCategory>
-        <cbc:Percent>${devis.tauxTva ?? 0}</cbc:Percent>
-        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
-      </cac:TaxCategory>
-    </cac:TaxSubtotal>
-  </cac:TaxTotal>
-
-  <cac:LegalMonetaryTotal>
-    <cbc:LineExtensionAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:LineExtensionAmount>
-    <cbc:TaxExclusiveAmount currencyID="EUR">${(devis.montantHT ?? 0).toFixed(2)}</cbc:TaxExclusiveAmount>
-    <cbc:TaxInclusiveAmount currencyID="EUR">${(devis.montantTTC ?? 0).toFixed(2)}</cbc:TaxInclusiveAmount>
-    <cbc:PrepaidAmount currencyID="EUR">${(devis.montantAcompte ?? 0).toFixed(2)}</cbc:PrepaidAmount>
-    <cbc:PayableAmount currencyID="EUR">${devis.typeDocument === 'FACTURE_SOLDE' ? (devis.montantSolde ?? ((devis.montantTTC ?? 0) - (devis.montantAcompte ?? 0))).toFixed(2) : (devis.montantAcompte ?? 0).toFixed(2)}</cbc:PayableAmount>
-  </cac:LegalMonetaryTotal>
-
-  <!-- Lignes -->${lignesXml}
-</Invoice>`;
-
-    return { xml };
-  }
-
-  private escapeXml(str: string): string {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
-
-  /**
-   * Génère un numéro séquentiel atomique pour un émetteur et un type de document.
-   * typeDoc : 'DEVIS' | 'FACTURE' (acompte ET solde partagent la séquence FACTURE,
-   * numérotation continue). Incrément atomique via upsert en transaction.
-   * Retourne la valeur entière consommée du compteur.
-   */
-  private async genererNumero(
-    emetteurId: string,
-    typeDoc: 'DEVIS' | 'FACTURE',
-  ): Promise<number> {
-    const annee = new Date().getFullYear();
-
-    const consommer = () =>
-      this.prisma.$transaction(async (tx) => {
-        const seq = await tx.sequenceNumero.upsert({
-          where: { emetteurId_annee_typeDoc: { emetteurId, annee, typeDoc } },
-          create: { emetteurId, annee, typeDoc, dernierNumero: 1 },
-          update: { dernierNumero: { increment: 1 } },
-        });
-        return seq.dernierNumero;
-      });
-
-    try {
-      return await consommer();
-    } catch (e: unknown) {
-      // P2002 : collision sur un create concurrent → la ligne existe désormais, on réessaie (update)
-      if (typeof e === 'object' && e !== null && (e as { code?: string }).code === 'P2002') {
-        return consommer();
-      }
-      throw e;
-    }
-  }
-
   /** Numéro de devis formaté DEV-{annee}-{NNNN} (consomme la séquence DEVIS). */
   private async formaterNumeroDevis(emetteurId: string): Promise<string> {
     const annee = new Date().getFullYear();
-    const numero = await this.genererNumero(emetteurId, 'DEVIS');
+    const numero = await this.sequence.generer(emetteurId, 'DEVIS');
     return `DEV-${annee}-${String(numero).padStart(4, '0')}`;
   }
 
