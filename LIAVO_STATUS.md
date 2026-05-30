@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 04/05/2026 (session complète — SC8, SC5bis, audit bugs)
+> Dernière mise à jour : 30/05/2026 (cadrage chantier conformité facturation + rattrapage chantiers 29/05)
 
 ---
 
@@ -81,6 +81,45 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ---
 
+## Chantiers récents livrés (29/05/2026)
+
+> Détail complet dans LIAVO_SESSION_STATE.md.
+
+- **Refonte page séjour** : extraction TabDevisFacturation, TabNotes, SejourHeader ; page liste séjours `/hebergeur/sejours` ; planning 5 couleurs statut (`planning-statut.ts` partagé) ; CRM dérivé auto (kanban). page.tsx ~5000 → ~3200 lignes. Réf : `ARCHITECTURE_UX_SEJOUR_FINAL.md`.
+- **Cohérence planning** : la couleur planning reflète le devis le plus AVANCÉ (plus le plus récent) ; palette partagée mono-centre + global ; `derivePlanningStatut` durci + `statutDevisLePlusAvance()` ; backend `getMesSejoursPlanning` et `getDashboardGlobal` renvoient tous les devis (filtre centre). Consommateurs vérifiés : planning, sejours (liste + filtre), global.
+- **JWT_SECRET prod** : confirmé RÉGLÉ (secret aléatoire long). Code lit via `config.getOrThrow('JWT_SECRET')` dans `auth.module.ts` + `jwt.strategy.ts`, aucun fallback faible. Plus une dette de sécurité.
+
+---
+
+## Chantier conformité facturation (cadrage 30/05/2026)
+
+**Contexte** : Sauvageon organise déjà de vrais séjours → besoin de facturer en conforme (particuliers/mariages ET scolaires/collectivités).
+
+**Décisions de cadrage :**
+- **D1** — Quick-fix à la source (Lot 0) AVANT le gros chantier, limité aux briques réutilisables (rien de jetable).
+- **D2** — Entité **Facture séparée et immuable** (snapshot figé à l'émission). Plus de mutation du devis en facture.
+- **D3** — Format **Factur-X profil EN 16931** (PDF/A-3 lisible + XML CII embarqué). Couvre B2B, B2G et sert de facture lisible B2C.
+- **Émetteur** = l'entité juridique au SIRET (numérotation séquentielle UNIQUE par émetteur). L'adresse affichée = celle de l'établissement (le centre) concerné. LIAVO = tiers via mandat de facturation.
+- **Transmission** : LIAVO ne devient PAS PDP. Dépôt sur **Chorus Pro via PISTE** (compte à créer / habilitation AIFE) pour le **B2G** (collèges publics, mairies/colos). B2B (PDP) = hors scope pour l'instant. B2C (mariages) = facture conforme + e-reporting, pas de plateforme.
+
+**Calendrier légal (sourcé) :** réception e-invoice obligatoire pour tous le 01/09/2026 ; émission PME/TPE/micro le 01/09/2027 ; **Chorus Pro B2G déjà obligatoire depuis le 01/01/2020 sans seuil** (= échéance réelle dès qu'on facture une collectivité/EPLE). Cadre : art. 91 LF 2024 + décret 25/03/2024.
+
+**Bugs actifs diagnostiqués (à corriger Lot 0) :**
+- `numeroFacture = FA-${year}-${id.substring(0,4)}` (fragment d'UUID) → non séquentiel + risque de collision (~50% vers ~300 factures). `FS-` réutilise le même fragment.
+- `facturerSolde` écrase `montantAcompte` par le montant du solde → donnée corrompue, relue par `getChorusXml` (PrepaidAmount) et le dashboard global.
+- `generateNumeroDevis` = COUNT par centre → trous si suppression, race condition, overridable par le client.
+
+**Lots :**
+- **Lot 0 (urgent, réutilisable)** : compteur séquentiel atomique par émetteur (transaction, sans trou, non overridable) + fix `montantAcompte` (champ distinct `montantSolde`).
+- **Lot 1** : entité `Facture` immuable (snapshot lignes/montants/émetteur/destinataire) ; acompte ET solde coexistent.
+- **Lot 2** : génération PDF facture avec mentions légales (produit directement en PDF/A-3, support Factur-X).
+- **Lot 3** : annulation par avoir (jamais de suppression).
+- **Lot 4** : Factur-X EN 16931 (CII embarqué dans PDF/A-3) + dépôt Chorus Pro via PISTE (B2G d'abord).
+
+**À garder en tête :** `getChorusXml` actuel génère de l'UBL EN 16931 (réutilisable comme base) mais Factur-X exige du **CII** embarqué dans un **PDF/A-3** ; React-PDF ne produit pas du PDF/A-3 nativement → lib dédiée à trancher au Lot 4. Argument de vente à cadrer : LIAVO génère un Factur-X conforme « prêt pour Chorus Pro », PAS la conformité de transmission de bout en bout.
+
+---
+
 ## État produit — 04/05/2026
 
 ### Ce qui est en production ✅
@@ -140,6 +179,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - App SANDBOX validée, Client ID : `13b4b067-aab9-4bd9-b3f4-c2cd737c96f5`
 - Export XML PEPPOL UBL 2.1 fonctionnel (`devis.service.ts → getChorusXml()`)
 - **Pending :** habilitation tiers mandaté AIFE
+- **Décision 30/05** : transmission Chorus Pro via PISTE = le canal retenu pour le B2G (pas de PDP). À finaliser au Lot 4 du chantier conformité (compte PISTE prod + habilitation AIFE).
 
 ---
 
@@ -160,6 +200,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - Intégration APIDAE LMDJ
 - RC Pro Hiscox
 - Éditeur devis colonnes configurables
+- **Chantier facturation abonnements LIAVO → hébergeur** (échéance ~août-sept 2026) : abonnements payants prévus ~dans 3 mois, AUCUNE facture émise à ce jour. Réutilise le socle Facture du chantier conformité (entité immuable, compteur séquentiel par émetteur = LIAVO SASU SIRET 102 994 910 00010, Factur-X). Mécanique propre à construire séparément : récurrence mensuelle/annuelle, Stripe, TVA SaaS 20%, relances impayés. NON URGENT, ne pas mélanger au chantier conformité.
 
 ---
 

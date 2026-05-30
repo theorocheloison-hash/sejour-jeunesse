@@ -260,6 +260,7 @@ export default function HebergeurDevisPage() {
       montantTVA: tvaCalc,
       montantTTC: ttcCalc,
       montantAcompte: d.montantAcompte != null ? Number(d.montantAcompte) : undefined,
+      montantSolde: d.montantSolde != null ? Number(d.montantSolde) : undefined,
       pourcentageAcompte: d.pourcentageAcompte ?? undefined,
       conditionsAnnulation: d.conditionsAnnulation ?? d.centre?.conditionsAnnulation ?? undefined,
       dateValidite: d.dateFacture
@@ -606,7 +607,7 @@ export default function HebergeurDevisPage() {
         const d = modalVersement.devis;
         const montantAttendu = d.typeDocument === 'FACTURE_ACOMPTE'
           ? (d.montantAcompte ?? 0)
-          : ((d.montantTTC ?? Number(d.montantTotal)) - (d.montantAcompte ?? 0));
+          : (d.montantSolde ?? ((d.montantTTC ?? Number(d.montantTotal)) - (d.montantAcompte ?? 0)));
         const montantVerse = d.montantVerseTotal ?? 0;
         const resteAPayer = Math.max(0, montantAttendu - montantVerse);
         const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -48,6 +48,7 @@ export interface Devis {
   montantTTC?: number | null;
   pourcentageAcompte?: number | null;
   montantAcompte?: number | null;
+  montantSolde?: number | null;
   numeroDevis?: string | null;
   numeroFacture?: string | null;
   typeDevis?: string;

@@ -773,6 +773,7 @@ model Devis {
   // Acompte
   pourcentageAcompte    Float?       @default(30) @map("pourcentage_acompte")
   montantAcompte        Float?       @map("montant_acompte")
+  montantSolde          Float?       @map("montant_solde")
   acompteVerse          Boolean      @default(false) @map("acompte_verse")
   dateVersementAcompte  DateTime?    @map("date_versement_acompte")
 
@@ -781,6 +782,8 @@ model Devis {
   dateFacture           DateTime?    @map("date_facture")
   numeroDevis           String?      @map("numero_devis") @db.VarChar(50)
   numeroFacture         String?      @map("numero_facture") @db.VarChar(50)
+  // Émetteur légal résolu à la facturation : organisationId ?? centreId (rempli à la facturation)
+  emetteurId            String?      @map("emetteur_id") @db.Uuid
 
   // Type de soumission
   typeDevis             String       @default("PLATEFORME") @map("type_devis") @db.VarChar(20)
@@ -806,7 +809,28 @@ model Devis {
 
   @@index([centreId])
   @@index([statut])
+  @@index([emetteurId])
+  // Garde-fou unicité numéro de facture par émetteur : index unique partiel créé en SQL
+  // (CREATE UNIQUE INDEX ... WHERE numero_facture IS NOT NULL) — non exprimable en Prisma.
   @@map("devis")
+}
+
+// ============================================================
+// MODEL : SequenceNumero (compteur séquentiel atomique par émetteur)
+// Table technique sans relation. Une séquence par (emetteur, année, type de doc).
+// typeDoc : 'DEVIS' | 'FACTURE' (acompte ET solde partagent la séquence FACTURE).
+// ============================================================
+model SequenceNumero {
+  id            String   @id @default(uuid()) @db.Uuid
+  emetteurId    String   @map("emetteur_id") @db.Uuid
+  annee         Int
+  typeDoc       String   @map("type_doc") @db.VarChar(20)
+  dernierNumero Int      @default(0) @map("dernier_numero")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([emetteurId, annee, typeDoc])
+  @@map("sequence_numero")
 }
 
 // ============================================================

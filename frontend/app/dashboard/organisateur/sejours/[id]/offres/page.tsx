@@ -103,6 +103,7 @@ export default function OffresPage() {
       montantTVA: tvaCalc,
       montantTTC: ttcCalc,
       montantAcompte: d.montantAcompte != null ? Number(d.montantAcompte) : undefined,
+      montantSolde: d.montantSolde != null ? Number(d.montantSolde) : undefined,
       pourcentageAcompte: d.pourcentageAcompte ?? undefined,
       conditionsAnnulation: d.conditionsAnnulation ?? undefined,
       dateValidite: new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
