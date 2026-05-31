@@ -10,6 +10,7 @@ import {
   ajouterVersement,
   getFacturesForDevis,
   supprimerVersement,
+  regenererFacturePdf,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
@@ -72,6 +73,50 @@ function DevisPDFInline({ data }: { data: DevisPDFProps }) {
       style={{ height: '80vh', minHeight: 600 }}
       title="Aperçu du devis"
     />
+  );
+}
+
+/**
+ * Lien de téléchargement du PDF d'une facture (généré serveur, stocké sur OVH).
+ * - pdfUrl présent → lien direct vers l'URL OVH publique (pas d'auth requise).
+ * - pdfUrl null (génération échouée) → bouton « Régénérer le PDF ».
+ */
+function FacturePdfLink({ facture, onReload }: { facture: Facture; onReload: () => Promise<void> }) {
+  const [regenerating, setRegenerating] = useState(false);
+  const label = facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte" : 'Facture de solde';
+
+  if (facture.pdfUrl) {
+    return (
+      <a
+        href={facture.pdfUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        {label} — {facture.numero}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      onClick={async () => {
+        setRegenerating(true);
+        try {
+          await regenererFacturePdf(facture.id);
+          await onReload();
+        } catch { /* ignore */ }
+        finally { setRegenerating(false); }
+      }}
+      disabled={regenerating}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+      title="Le PDF n'a pas pu être généré à l'émission — relancer la génération"
+    >
+      {regenerating ? 'Génération…' : `Régénérer le PDF (${label})`}
+    </button>
   );
 }
 
@@ -279,6 +324,13 @@ export default function TabDevisFacturation({
             <span className="text-[11px] text-gray-400">· Solde {factureSolde.numero}</span>
           )}
         </div>
+
+        {(factureAcompte || factureSolde) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {factureAcompte && <FacturePdfLink facture={factureAcompte} onReload={reloadFactures} />}
+            {factureSolde && <FacturePdfLink facture={factureSolde} onReload={reloadFactures} />}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="bg-gray-50 rounded-lg p-3">

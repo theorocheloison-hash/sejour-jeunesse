@@ -372,6 +372,23 @@ export async function supprimerVersement(factureId: string, versementId: string)
   return data;
 }
 
+// ── PDF facture (Lot 2 : généré côté serveur, stocké sur OVH) ────────────────
+
+/**
+ * URL de téléchargement PDF d'une facture via le backend (redirect 302 → OVH).
+ * Note : préférer `facture.pdfUrl` (URL OVH publique) pour un lien <a> direct,
+ * car cette route est protégée et un <a target=_blank> n'envoie pas le token.
+ */
+export function getFacturePdfUrl(factureId: string): string {
+  return `${process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr'}/factures/${factureId}/pdf`;
+}
+
+/** Régénère le PDF d'une facture (si génération initiale échouée). */
+export async function regenererFacturePdf(factureId: string): Promise<{ pdfUrl: string | null }> {
+  const { data } = await api.post<{ pdfUrl: string | null }>(`/factures/${factureId}/regenerer-pdf`);
+  return data;
+}
+
 export async function notifierEnseignantDevis(devisId: string): Promise<{ success: boolean }> {
   const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/notifier-enseignant`);
   return data;

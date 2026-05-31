@@ -3,10 +3,11 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { StatutDevis } from '@prisma/client';
+import { StatutDevis, type Facture, type LigneFacture } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
@@ -22,7 +23,69 @@ export class FactureService {
     private prisma: PrismaService,
     private email: EmailService,
     private sequence: SequenceService,
+    private storage: StorageService,
   ) {}
+
+  // ── Génération PDF (Lot 2) ─────────────────────────────────────────────────
+
+  /**
+   * Génère le PDF d'une facture et le stocke sur OVH, puis renseigne pdfUrl.
+   * NON BLOQUANT : toute erreur est loggée et la méthode retourne null —
+   * l'émission de la facture ne doit jamais échouer à cause du PDF.
+   */
+  private async generateAndStorePdf(
+    facture: Facture & { lignes: LigneFacture[] },
+    titreSejour: string,
+  ): Promise<string | null> {
+    try {
+      const { mapFactureToPdfProps } = await import('./pdf/facture-pdf.mapper.js');
+      const { generateFacturePdf } = await import('./pdf/facture-pdf.generator.js');
+      const props = mapFactureToPdfProps(facture, titreSejour);
+      const buffer = await generateFacturePdf(props);
+      const filename = `${facture.numero}.pdf`;
+      const url = await this.storage.uploadBuffer(buffer, filename, 'factures', 'application/pdf');
+      await this.prisma.facture.update({
+        where: { id: facture.id },
+        data: { pdfUrl: url },
+      });
+      return url;
+    } catch (e) {
+      console.error('generateAndStorePdf error:', e instanceof Error ? e.stack : String(e));
+      return null;
+    }
+  }
+
+  /** Régénère le PDF d'une facture (cas où la génération initiale a échoué). */
+  async regenererPdf(
+    factureId: string,
+    userId: string,
+    centreId?: string | null,
+  ): Promise<{ pdfUrl: string | null }> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const facture = await this.prisma.facture.findUnique({
+      where: { id: factureId },
+      include: {
+        lignes: true,
+        devis: {
+          include: {
+            demande: { include: { sejour: { select: { titre: true } } } },
+            sejourDirect: { select: { titre: true } },
+          },
+        },
+      },
+    });
+    if (!facture) throw new NotFoundException('Facture introuvable');
+    if (facture.devis.centreId !== centre.id) throw new ForbiddenException('Accès refusé');
+    const titreSejour =
+      facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'Non renseigné';
+    const pdfUrl = await this.generateAndStorePdf(facture, titreSejour);
+    return { pdfUrl };
+  }
+
+  /** Facture brute par id (utilisé par la route de téléchargement PDF). */
+  async getFactureById(factureId: string) {
+    return this.prisma.facture.findUnique({ where: { id: factureId } });
+  }
 
   // ── Helpers internes ──────────────────────────────────────────────────────
 
@@ -201,6 +264,9 @@ export class FactureService {
       include: { lignes: true, versements: true },
     });
 
+    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
+
     await this.loggerActivite(
       destinataire.sejourId,
       centre.id,
@@ -300,6 +366,9 @@ export class FactureService {
       },
       include: { lignes: true, versements: true },
     });
+
+    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
 
     await this.loggerActivite(
       destinataire.sejourId,
