@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -77,5 +78,27 @@ export class FactureController {
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getChorusXml(@Param('id') id: string) {
     return this.factureService.getChorusXml(id);
+  }
+
+  /** GET /factures/:id/pdf — redirige (302) vers l'URL OVH du PDF de la facture */
+  @Get(':id/pdf')
+  @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)
+  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
+    const facture = await this.factureService.getFactureById(id);
+    if (!facture?.pdfUrl) {
+      throw new NotFoundException('PDF non disponible pour cette facture');
+    }
+    res.redirect(302, facture.pdfUrl);
+  }
+
+  /** POST /factures/:id/regenerer-pdf — régénère le PDF (si génération initiale échouée) */
+  @Post(':id/regenerer-pdf')
+  @Roles(Role.HEBERGEUR)
+  regenererPdf(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.regenererPdf(id, user.id, centreId);
   }
 }
