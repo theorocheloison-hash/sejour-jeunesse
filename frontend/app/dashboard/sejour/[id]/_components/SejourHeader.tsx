@@ -60,7 +60,15 @@ export default function SejourHeader({
   const sejourStatut = sejour?.statut ?? 'DRAFT';
 
   const [editingInfos, setEditingInfos] = useState(false);
-  const [infosForm, setInfosForm] = useState({ titre: '', dateDebut: '', dateFin: '' });
+  const [infosForm, setInfosForm] = useState({
+    titre: '',
+    dateDebut: '',
+    dateFin: '',
+    clientNom: '',
+    clientPrenom: '',
+    clientEmail: '',
+    clientTelephone: '',
+  });
   const [infosLoading, setInfosLoading] = useState(false);
 
   // Synchronise le formulaire d'édition avec le séjour (initialisation + rechargement parent)
@@ -69,8 +77,15 @@ export default function SejourHeader({
       titre: sejour.titre ?? '',
       dateDebut: sejour.dateDebut ? new Date(sejour.dateDebut).toISOString().substring(0, 10) : '',
       dateFin: sejour.dateFin ? new Date(sejour.dateFin).toISOString().substring(0, 10) : '',
+      clientNom: sejour.clientNom ?? '',
+      clientPrenom: sejour.clientPrenom ?? '',
+      clientEmail: sejour.clientEmail ?? '',
+      clientTelephone: sejour.clientTelephone ?? '',
     });
-  }, [sejour.titre, sejour.dateDebut, sejour.dateFin]);
+  }, [
+    sejour.titre, sejour.dateDebut, sejour.dateFin,
+    sejour.clientNom, sejour.clientPrenom, sejour.clientEmail, sejour.clientTelephone,
+  ]);
 
   const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
@@ -83,11 +98,25 @@ export default function SejourHeader({
         titre: infosForm.titre || undefined,
         dateDebut: infosForm.dateDebut || undefined,
         dateFin: infosForm.dateFin || undefined,
+        // Champs client (séjour DIRECT uniquement) — string vide → undefined
+        // pour ne pas écraser une valeur existante.
+        ...(isDirect && {
+          clientNom: infosForm.clientNom || undefined,
+          clientPrenom: infosForm.clientPrenom || undefined,
+          clientEmail: infosForm.clientEmail || undefined,
+          clientTelephone: infosForm.clientTelephone || undefined,
+        }),
       });
       onSejourUpdate({
         titre: updated.titre,
         dateDebut: updated.dateDebut,
         dateFin: updated.dateFin,
+        ...(isDirect && {
+          clientNom: updated.clientNom,
+          clientPrenom: updated.clientPrenom,
+          clientEmail: updated.clientEmail,
+          clientTelephone: updated.clientTelephone,
+        }),
       });
       setEditingInfos(false);
     } catch {
@@ -173,6 +202,38 @@ export default function SejourHeader({
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
               </div>
+              {isDirect && (
+                <>
+                  <p className="text-xs font-semibold text-gray-500 mt-2">Informations client</p>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Nom"
+                      value={infosForm.clientNom}
+                      onChange={e => setInfosForm(f => ({ ...f, clientNom: e.target.value }))}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    />
+                    <input
+                      placeholder="Prénom"
+                      value={infosForm.clientPrenom}
+                      onChange={e => setInfosForm(f => ({ ...f, clientPrenom: e.target.value }))}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={infosForm.clientEmail}
+                    onChange={e => setInfosForm(f => ({ ...f, clientEmail: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <input
+                    placeholder="Téléphone"
+                    value={infosForm.clientTelephone}
+                    onChange={e => setInfosForm(f => ({ ...f, clientTelephone: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </>
+              )}
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => setEditingInfos(false)}

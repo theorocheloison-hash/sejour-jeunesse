@@ -1330,7 +1330,15 @@ export class CollaborationService {
 
   async updateInfosSejour(
     sejourId: string,
-    dto: { titre?: string; dateDebut?: string; dateFin?: string },
+    dto: {
+      titre?: string;
+      dateDebut?: string;
+      dateFin?: string;
+      clientNom?: string;
+      clientPrenom?: string;
+      clientEmail?: string;
+      clientTelephone?: string;
+    },
     userId: string,
   ) {
     const sejour = await this.prisma.sejour.findUnique({
@@ -1352,8 +1360,55 @@ export class CollaborationService {
         ...(dto.titre !== undefined && { titre: dto.titre }),
         ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
         ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
+        ...(dto.clientNom !== undefined && { clientNom: dto.clientNom }),
+        ...(dto.clientPrenom !== undefined && { clientPrenom: dto.clientPrenom }),
+        ...(dto.clientEmail !== undefined && { clientEmail: dto.clientEmail }),
+        ...(dto.clientTelephone !== undefined && { clientTelephone: dto.clientTelephone }),
       },
     });
+
+    // Propagation vers la fiche Client CRM liée (NON BLOQUANTE).
+    const clientFieldsFournis =
+      dto.clientNom !== undefined ||
+      dto.clientPrenom !== undefined ||
+      dto.clientEmail !== undefined ||
+      dto.clientTelephone !== undefined;
+    if (clientFieldsFournis) {
+      try {
+        const sejourClient = await this.prisma.sejourClient.findFirst({
+          where: { sejourId },
+          select: { clientId: true },
+        });
+        if (sejourClient) {
+          const clientData: {
+            nom?: string;
+            email?: string;
+            telephone?: string;
+          } = {};
+          if (dto.clientEmail !== undefined) clientData.email = dto.clientEmail;
+          if (dto.clientTelephone !== undefined) clientData.telephone = dto.clientTelephone;
+          // nom : même priorité qu'à la création (organisation > particulier),
+          // recalculé uniquement si nom/prénom fournis (cf. linkSejourToClient).
+          if (dto.clientNom !== undefined || dto.clientPrenom !== undefined) {
+            const nomParticulier = [updated.clientNom, updated.clientPrenom]
+              .filter(Boolean)
+              .join(' ')
+              .trim();
+            const nom = updated.clientOrganisation || nomParticulier;
+            if (nom) clientData.nom = nom;
+          }
+          if (Object.keys(clientData).length > 0) {
+            await this.prisma.client.update({
+              where: { id: sejourClient.clientId },
+              data: clientData,
+            });
+          }
+        }
+      } catch (err) {
+        // Non bloquant : une erreur côté CRM ne doit jamais faire échouer la maj du séjour.
+        console.error('updateInfosSejour: sync CRM Client échouée:', err instanceof Error ? err.message : String(err));
+      }
+    }
 
     const demande = sejour.demandes?.[0];
     if (demande) {
