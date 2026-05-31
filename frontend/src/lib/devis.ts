@@ -11,6 +11,7 @@ export interface VersementPaiement {
   montant: number;
   datePaiement: string;
   reference?: string | null;
+  modePaiement?: string | null;
   createdAt: string;
 }
 
@@ -361,8 +362,8 @@ export async function getFacturesForDevis(devisId: string): Promise<Facture[]> {
 }
 
 /** Enregistre un versement sur une facture (Lot 1 : ciblé par factureId). */
-export async function ajouterVersement(factureId: string, montant: number, datePaiement: string, reference?: string): Promise<Facture> {
-  const { data } = await api.post<Facture>(`/factures/${factureId}/versements`, { montant, datePaiement, reference });
+export async function ajouterVersement(factureId: string, montant: number, datePaiement: string, reference?: string, modePaiement?: string): Promise<Facture> {
+  const { data } = await api.post<Facture>(`/factures/${factureId}/versements`, { montant, datePaiement, reference, modePaiement });
   return data;
 }
 

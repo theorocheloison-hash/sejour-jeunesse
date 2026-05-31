@@ -35,7 +35,22 @@ export interface FacturePDFProps {
   montantAcompteDejaFacture: number | null; // SOLDE uniquement
   conditionsAnnulation: string | null;
   tauxTva: number;
+  versements?: Array<{
+    datePaiement: string; // ISO
+    montant: number;
+    reference: string | null;
+    modePaiement: string | null;
+  }>;
 }
+
+// Libellés français des modes de règlement (PDF)
+const LABEL_MODE: Record<string, string> = {
+  VIREMENT: 'Virement',
+  CHEQUE: 'Chèque',
+  CARTE: 'Carte bancaire',
+  ESPECES: 'Espèces',
+  CHEQUES_VACANCES: 'Chèques-vacances / ANCV',
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,6 +118,14 @@ const s = StyleSheet.create({
   totauxTTCValue: { fontSize: 11, fontWeight: 'bold', color: PRIMARY },
   totauxAccent: { fontSize: 10, color: ACCENT, fontWeight: 'bold' },
   totauxSolde: { fontSize: 11, fontWeight: 'bold', color: PRIMARY },
+  // Règlements reçus
+  versBlock: { marginTop: 16 },
+  versTitle: { fontSize: 9, fontWeight: 'bold', color: GREY_TEXT, marginBottom: 6 },
+  versRow: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: BORDER },
+  versDate: { width: '22%', fontSize: 9, color: GREY_TEXT },
+  versMode: { width: '33%', fontSize: 9, color: GREY_TEXT },
+  versRef: { width: '25%', fontSize: 9, color: '#6B7280' },
+  versMontant: { width: '20%', fontSize: 9, color: GREY_TEXT, fontWeight: 'bold', textAlign: 'right' },
   // Conditions
   condBlock: { marginTop: 16 },
   condTitle: { fontSize: 9, fontWeight: 'bold', color: GREY_TEXT, marginBottom: 4 },
@@ -128,7 +151,7 @@ export default function FacturePDF(props: FacturePDFProps) {
     destinataireNom, destinataireAdresse, destinataireSiret, destinataireEmail,
     titreSejour, lignes, montantHT, montantTVA, montantTTC,
     montantFacture, pourcentageAcompte, montantAcompteDejaFacture,
-    conditionsAnnulation,
+    conditionsAnnulation, versements,
   } = props;
 
   const titre = typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE" : 'FACTURE DE SOLDE';
@@ -232,6 +255,21 @@ export default function FacturePDF(props: FacturePDFProps) {
           <View style={s.ibanBlock}>
             <Text style={s.ibanTitle}>Coordonnées bancaires</Text>
             <Text style={s.ibanText}>IBAN : {emetteurIban}</Text>
+          </View>
+        )}
+
+        {/* Règlements reçus (présents uniquement après versement / régénération) */}
+        {versements && versements.length > 0 && (
+          <View style={s.versBlock}>
+            <Text style={s.versTitle}>Règlements reçus</Text>
+            {versements.map((v, i) => (
+              <View key={i} style={s.versRow}>
+                <Text style={s.versDate}>{fmtDate(v.datePaiement)}</Text>
+                <Text style={s.versMode}>{v.modePaiement ? LABEL_MODE[v.modePaiement] ?? v.modePaiement : '—'}</Text>
+                <Text style={s.versRef}>{v.reference ?? ''}</Text>
+                <Text style={s.versMontant}>{fmtMontant(v.montant)} €</Text>
+              </View>
+            ))}
           </View>
         )}
 

@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { StatutDevis, type Facture, type LigneFacture } from '@prisma/client';
+import { StatutDevis, MethodePaiement, type Facture, type LigneFacture, type VersementPaiement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
@@ -34,7 +34,7 @@ export class FactureService {
    * l'émission de la facture ne doit jamais échouer à cause du PDF.
    */
   private async generateAndStorePdf(
-    facture: Facture & { lignes: LigneFacture[] },
+    facture: Facture & { lignes: LigneFacture[]; versements?: VersementPaiement[] },
     titreSejour: string,
   ): Promise<string | null> {
     try {
@@ -66,6 +66,7 @@ export class FactureService {
       where: { id: factureId },
       include: {
         lignes: true,
+        versements: { orderBy: { datePaiement: 'asc' } },
         devis: {
           include: {
             demande: { include: { sejour: { select: { titre: true } } } },
@@ -432,7 +433,7 @@ export class FactureService {
 
   async ajouterVersement(
     factureId: string,
-    dto: { montant: number; datePaiement: string; reference?: string },
+    dto: { montant: number; datePaiement: string; reference?: string; modePaiement?: string },
     userId: string,
     centreId?: string | null,
   ) {
@@ -446,6 +447,7 @@ export class FactureService {
         montant: dto.montant,
         datePaiement: new Date(dto.datePaiement),
         reference: dto.reference ?? null,
+        modePaiement: (dto.modePaiement as MethodePaiement) ?? null,
       },
     });
 

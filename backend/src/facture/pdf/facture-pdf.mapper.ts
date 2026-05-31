@@ -1,7 +1,10 @@
-import type { Facture, LigneFacture } from '@prisma/client';
+import type { Facture, LigneFacture, VersementPaiement } from '@prisma/client';
 import type { FacturePDFProps } from './FacturePDF.js';
 
-type FactureWithLignes = Facture & { lignes: LigneFacture[] };
+type FactureWithLignes = Facture & {
+  lignes: LigneFacture[];
+  versements?: VersementPaiement[];
+};
 
 /** Mappe une Facture (snapshot figé + ses lignes) vers les props du template PDF. */
 export function mapFactureToPdfProps(facture: FactureWithLignes, titreSejour: string): FacturePDFProps {
@@ -42,5 +45,11 @@ export function mapFactureToPdfProps(facture: FactureWithLignes, titreSejour: st
     montantAcompteDejaFacture: facture.montantAcompteDejaFacture ?? null,
     conditionsAnnulation: facture.conditionsAnnulation ?? null,
     tauxTva: facture.tauxTva,
+    versements: (facture.versements ?? []).map((v) => ({
+      datePaiement: v.datePaiement.toISOString(),
+      montant: v.montant,
+      reference: v.reference,
+      modePaiement: v.modePaiement,
+    })),
   };
 }
