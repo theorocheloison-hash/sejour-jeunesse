@@ -148,7 +148,7 @@ export default function TabDevisFacturation({
   const [facturesLoading, setFacturesLoading] = useState(false);
   const [facturerLoading, setFacturerLoading] = useState(false);
   const [showAddVersement, setShowAddVersement] = useState(false);
-  const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '' });
+  const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
   const [versementSaving, setVersementSaving] = useState(false);
 
   useEffect(() => {
@@ -269,9 +269,10 @@ export default function TabDevisFacturation({
         parseFloat(versementForm.montant),
         versementForm.datePaiement,
         versementForm.reference || undefined,
+        versementForm.modePaiement || undefined,
       );
       await reloadFactures();
-      setVersementForm({ montant: '', datePaiement: '', reference: '' });
+      setVersementForm({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
       setShowAddVersement(false);
     } catch {
       onError('Erreur lors de l\'ajout du versement');
@@ -381,6 +382,17 @@ export default function TabDevisFacturation({
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500">{new Date(v.datePaiement).toLocaleDateString('fr-FR')}</span>
                   <span className="font-medium text-gray-900">{v.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                  {v.modePaiement && (
+                    <span className="text-gray-400">
+                      {({
+                        VIREMENT: 'Virement',
+                        CHEQUE: 'Chèque',
+                        CARTE: 'Carte',
+                        ESPECES: 'Espèces',
+                        CHEQUES_VACANCES: 'Chèques-vacances',
+                      } as Record<string, string>)[v.modePaiement] ?? v.modePaiement}
+                    </span>
+                  )}
                   {v.reference && <span className="text-gray-400">Réf: {v.reference}</span>}
                 </div>
                 <button
@@ -407,7 +419,7 @@ export default function TabDevisFacturation({
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Montant (€)</label>
                 <input
@@ -429,6 +441,21 @@ export default function TabDevisFacturation({
                 />
               </div>
               <div>
+                <label className="block text-xs text-gray-500 mb-1">Mode de règlement</label>
+                <select
+                  value={versementForm.modePaiement}
+                  onChange={e => setVersementForm(f => ({ ...f, modePaiement: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="">— Sélectionner —</option>
+                  <option value="VIREMENT">Virement</option>
+                  <option value="CHEQUE">Chèque</option>
+                  <option value="CARTE">Carte bancaire</option>
+                  <option value="ESPECES">Espèces</option>
+                  <option value="CHEQUES_VACANCES">Chèques-vacances / ANCV</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs text-gray-500 mb-1">Référence</label>
                 <input
                   type="text"
@@ -441,7 +468,7 @@ export default function TabDevisFacturation({
             </div>
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => { setShowAddVersement(false); setVersementForm({ montant: '', datePaiement: '', reference: '' }); }}
+                onClick={() => { setShowAddVersement(false); setVersementForm({ montant: '', datePaiement: '', reference: '', modePaiement: '' }); }}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
               >
                 Annuler

@@ -48,7 +48,7 @@ export class FactureController {
   ajouterVersement(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body() body: { montant: number; datePaiement: string; reference?: string },
+    @Body() body: { montant: number; datePaiement: string; reference?: string; modePaiement?: string },
     @CentreId() centreId: string | null,
   ) {
     return this.factureService.ajouterVersement(id, body, user.id, centreId);

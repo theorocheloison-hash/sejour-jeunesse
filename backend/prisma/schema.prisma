@@ -68,10 +68,11 @@ enum StatutPaiement {
 // ENUM : méthode de paiement
 // ============================================================
 enum MethodePaiement {
-  carte
-  virement
-  cheque
-  especes
+  CARTE
+  VIREMENT
+  CHEQUE
+  ESPECES
+  CHEQUES_VACANCES
 }
 
 // ============================================================
@@ -844,6 +845,7 @@ model VersementPaiement {
   montant       Float
   datePaiement  DateTime @map("date_paiement") @db.Date
   reference     String?  @db.VarChar(255)
+  modePaiement  MethodePaiement? @map("mode_paiement")
   createdAt     DateTime @default(now()) @map("created_at")
 
   devis   Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
