@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 30/05/2026 — Chantier conformité facturation **Lot 1 livré** (entité Facture immuable + scission module facturation)
+> Dernière mise à jour : 31/05/2026 — Chantier conformité facturation **Lot 2 livré** (génération PDF facture côté serveur + stockage OVH) + fix édition infos client inline depuis page séjour avec sync CRM
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -376,15 +376,19 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - [ ] **Chorus Pro** : vérifier si getChorusXml() est stub ou fonctionnel
 
 ### Conformité facturation (chantier dédié)
-- [ ] Numérotation séquentielle factures
-- [ ] Mentions légales obligatoires
-- [ ] PDF non modifiable (verrouillage)
-- [ ] Annulation par avoir
-- [ ] Chorus Pro séjours scolaires
+- [x] Lot 0 ✅ — Compteur séquentiel atomique + fix montantAcompte (30/05/2026)
+- [x] Lot 1 ✅ — Entité Facture immuable + scission module facture/ (30/05/2026)
+- [x] Lot 2 ✅ — Génération PDF côté serveur (NestJS/react-pdf) + stockage OVH + URL permanente Facture.pdfUrl (31/05/2026)
+  - FacturePDF.tsx backend, generateFacturePdf(), mapFactureToPdfProps()
+  - fire-and-forget non bloquant, route GET /factures/:id/pdf + POST /factures/:id/regenerer-pdf
+  - Validé en prod : FA-2026-0001 généré et accessible sur OVH
+  - Point ouvert : SIRET Sauvageon = 9 chiffres (SIREN) → vérifier champ siret centre en prod
+- [ ] Lot 3 — Annulation par avoir
+- [ ] Lot 4 — Factur-X EN16931 (PDF/A-3 + XML CII) + dépôt Chorus Pro via PISTE
 
 ### Dette technique
 - [ ] Supprimer tables DevisLibres en base (2 semaines stabilité écoulées)
-- [ ] JWT_SECRET=dev-secret-2024 en production → changer
+- [ ] JWT_SECRET=dev-secret-2024 en production → changer (**SOLDÉ 29/05/2026**)
 - [ ] OG tag "649 centres référencés" → supprimer
 - [ ] Refactoring DevisBuilder (3 fichiers dupliqués)
 - [ ] Labels universels scolaire/colos (cohérence UX)

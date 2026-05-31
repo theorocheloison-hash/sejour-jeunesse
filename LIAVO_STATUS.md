@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 30/05/2026 (Lot 1 conformité facturation — entité Facture immuable — TERMINÉ)
+> Dernière mise à jour : 31/05/2026 (Lot 2 conformité facturation — génération PDF facture côté serveur — TERMINÉ)
 
 ---
 
@@ -100,6 +100,15 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - **Diagnostic prod** : 0 FACTURE_SOLDE, 1 FACTURE_ACOMPTE (test). Aucun montant corrompu. Migration DDL seule, pas de backfill.
 - **Logo retour dashboard** : vérifié fonctionnel tous rôles (organisateur, signataire, hébergeur via DashboardShell). `ROLE_DASHBOARD_PATH` déjà en place. Point fermé.
 
+### 31/05/2026 — Lot 2 conformité facturation (PDF serveur + OVH)
+
+- **FacturePDF.tsx** côté backend (NestJS/react-pdf) : template complet (mentions légales art. L441-10, pénalités 3× taux légal, escompte néant, dateEcheance +30j, IBAN/SIRET/TVA conditionnels).
+- **generateAndStorePdf()** : fire-and-forget non bloquant après chaque émission. `StorageService.uploadBuffer()` → OVH → `Facture.pdfUrl`.
+- **Routes** : `GET /factures/:id/pdf` (redirect 302 OVH) + `POST /factures/:id/regenerer-pdf`.
+- **Frontend** : lien direct OVH dans `TabDevisFacturation` (pas via route backend — JWT non transmis par `<a target=_blank>`). `getFacturePdfUrl()` + `regenererFacturePdf()` disponibles pour Lot 4.
+- **Fix édition infos client inline** : `PATCH /collaboration/:id/infos` étendu (clientNom/Prenom/Email/Telephone), sync CRM non bloquante via SejourClient. `SejourHeader` formulaire étendu (mode DIRECT uniquement).
+- **Validé en prod** : FA-2026-0001 généré, PDF accessible OVH, mentions conformes.
+
 ### 30/05/2026 — Lot 1 conformité facturation (entité Facture immuable)
 
 > Détail complet dans LIAVO_SESSION_STATE.md.
@@ -127,7 +136,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 **Lots :**
 - **Lot 0** ✅ TERMINÉ 30/05/2026 — compteur séquentiel + fix montantAcompte.
 - **Lot 1** ✅ TERMINÉ 30/05/2026 — Entité `Facture` immuable (snapshot lignes/montants/émetteur/destinataire) + scission module `facture/` + bascule frontend.
-- **Lot 2** — Génération PDF facture avec mentions légales (produit directement en PDF/A-3).
+- **Lot 2** ✅ TERMINÉ 31/05/2026 — Génération PDF facture côté serveur (NestJS/react-pdf), stockage OVH, URL permanente `Facture.pdfUrl`. Fire-and-forget non bloquant. Routes `GET /factures/:id/pdf` + `POST /factures/:id/regenerer-pdf`. Validé en prod (FA-2026-0001). Point ouvert : SIRET Sauvageon = 9 chiffres (SIREN) → vérifier champ `siret` centre.
 - **Lot 3** — Annulation par avoir (jamais de suppression).
 - **Lot 4** — Factur-X EN 16931 (CII embarqué dans PDF/A-3) + dépôt Chorus Pro via PISTE.
 
@@ -207,9 +216,10 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ## Roadmap
 
-### Conformité facturation (Lots 1-4)
+### Conformité facturation (Lots 0-4)
+- Lot 0 : compteur séquentiel + fix montantAcompte ✅ TERMINÉ 30/05/2026
 - Lot 1 : entité Facture immuable ✅ TERMINÉ 30/05/2026
-- Lot 2 : PDF facture mentions légales (~1-2j)
+- Lot 2 : PDF facture serveur + OVH ✅ TERMINÉ 31/05/2026
 - Lot 3 : annulation par avoir (~1j)
 - Lot 4 : Factur-X EN16931 + dépôt Chorus Pro via PISTE (~2-3j)
 
