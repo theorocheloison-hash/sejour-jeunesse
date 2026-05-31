@@ -511,8 +511,25 @@ export async function notifierPlanningEnseignant(sejourId: string): Promise<{ su
 
 export async function updateInfosSejour(
   sejourId: string,
-  dto: { titre?: string; dateDebut?: string; dateFin?: string },
-): Promise<{ id: string; titre: string; dateDebut: string; dateFin: string }> {
+  dto: {
+    titre?: string;
+    dateDebut?: string;
+    dateFin?: string;
+    clientNom?: string;
+    clientPrenom?: string;
+    clientEmail?: string;
+    clientTelephone?: string;
+  },
+): Promise<{
+  id: string;
+  titre: string;
+  dateDebut: string;
+  dateFin: string;
+  clientNom: string | null;
+  clientPrenom: string | null;
+  clientEmail: string | null;
+  clientTelephone: string | null;
+}> {
   const { data } = await api.patch(`/collaboration/${sejourId}/infos`, dto);
   return data;
 }

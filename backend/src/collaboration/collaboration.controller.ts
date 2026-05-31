@@ -22,6 +22,7 @@ import { CollaborationService } from './collaboration.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { UpdateInfosSejourDto } from './dto/update-infos-sejour.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('collaboration')
@@ -115,7 +116,7 @@ export class CollaborationController {
   @Roles(Role.HEBERGEUR)
   updateInfosSejour(
     @Param('sejourId') sejourId: string,
-    @Body() body: { titre?: string; dateDebut?: string; dateFin?: string },
+    @Body() body: UpdateInfosSejourDto,
     @CurrentUser() user: JwtUser,
   ) {
     return this.service.updateInfosSejour(sejourId, body, user.id);
