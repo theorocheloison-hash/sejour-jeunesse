@@ -591,19 +591,21 @@ export class CollaborationService {
   async getActivitesCatalogue(sejourId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
 
-    // Trouver le devis sélectionné pour ce séjour
-    const demande = await this.prisma.demandeDevis.findFirst({
-      where: { sejourId },
-      include: {
-        devis: {
-          where: { statut: 'SELECTIONNE' },
-          include: { lignes: { select: { description: true } } },
-          take: 1,
-        },
+    // Chercher le devis SELECTIONNE (ou SIGNE_DIRECTION) lié à ce séjour —
+    // mode COLLAB : via DemandeDevis → devis.demandeId
+    // mode DIRECT  : via devis.sejourDirectId
+    const devisSelectionne = await this.prisma.devis.findFirst({
+      where: {
+        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        OR: [
+          { demande: { sejourId } },
+          { sejourDirectId: sejourId },
+        ],
       },
+      include: { lignes: { select: { description: true } } },
     });
 
-    const lignesDevis = demande?.devis?.[0]?.lignes ?? [];
+    const lignesDevis = devisSelectionne?.lignes ?? [];
     if (lignesDevis.length === 0) return [];
 
     // Descriptions des lignes du devis (noms des produits facturés)
@@ -779,21 +781,18 @@ export class CollaborationService {
 
     const sejour = await this.verifyAccess(sejourId, userId, role);
 
-    const demande = await this.prisma.demandeDevis.findFirst({
-      where: { sejourId },
-      include: {
-        devis: {
-          where: { statut: 'SELECTIONNE' },
-          include: {
-            lignes: { select: { description: true, quantite: true, prixUnitaire: true } },
-          },
-          take: 1,
-        },
+    const devisSelectionne = await this.prisma.devis.findFirst({
+      where: {
+        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        OR: [
+          { demande: { sejourId } },
+          { sejourDirectId: sejourId },
+        ],
       },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        lignes: { select: { description: true, quantite: true, prixUnitaire: true } },
+      },
     });
-
-    const devisSelectionne = demande?.devis?.[0];
     if (!devisSelectionne) {
       throw new Error('Aucun devis sélectionné — impossible de générer le planning');
     }

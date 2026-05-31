@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 31/05/2026 — Chantier conformité facturation **Lot 2 livré** (génération PDF facture côté serveur + stockage OVH) + fix édition infos client inline depuis page séjour avec sync CRM
+> Dernière mise à jour : 31/05/2026 — Fixes produit : mode paiement versements + fix planning DIRECT + fix notifier-planning
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -430,7 +430,10 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - Couleurs planning : convention PMS = couleur par statut, pas par identité séjour
 - Pipeline CRM généraliste inadapté → statut dérivé du devis
 - SejourClient n'a pas de relation Prisma `sejour` → query séparée pour enrichir
-- Devis DIRECT passent par sejourDirectId, pas par demande.sejourId → query COLLAB seule = données manquantes
+- Devis DIRECT passent par sejourDirectId, pas par demande.sejourId → query COLLAB seule = données manquantes. Fix : OR [demande.sejourId, sejourDirectId] dans getActivitesCatalogue + genererPlanningIA
+- MethodePaiement enum : valeurs en MAJUSCULES (CARTE/VIREMENT/CHEQUE/ESPECES/CHEQUES_VACANCES) — le changement de casse nécessite rename/recreate en PostgreSQL (pas d'ALTER TYPE ADD VALUE dans une transaction)
+- PDF facture snapshot immuable → versements absents à l'émission, visibles après régénération (POST /factures/:id/regenerer-pdf)
+- Route NestJS en doublon apparent : vérifier l'emplacement dans le controller avant d'ajouter
 - Extraction ciblée > refactoring big bang sur un fichier 5000 lignes sans tests
 - States exclusifs à un composant extrait → internaliser, pas passer en props
 - budgetData partagé entre onglets → passer en props, pas re-fetcher

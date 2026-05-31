@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 31/05/2026 (Lot 2 conformité facturation — génération PDF facture côté serveur — TERMINÉ)
+> Dernière mise à jour : 31/05/2026 (mode paiement versements + fix planning DIRECT + fix notifier-planning)
 
 ---
 
@@ -105,9 +105,15 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - **FacturePDF.tsx** côté backend (NestJS/react-pdf) : template complet (mentions légales art. L441-10, pénalités 3× taux légal, escompte néant, dateEcheance +30j, IBAN/SIRET/TVA conditionnels).
 - **generateAndStorePdf()** : fire-and-forget non bloquant après chaque émission. `StorageService.uploadBuffer()` → OVH → `Facture.pdfUrl`.
 - **Routes** : `GET /factures/:id/pdf` (redirect 302 OVH) + `POST /factures/:id/regenerer-pdf`.
-- **Frontend** : lien direct OVH dans `TabDevisFacturation` (pas via route backend — JWT non transmis par `<a target=_blank>`). `getFacturePdfUrl()` + `regenererFacturePdf()` disponibles pour Lot 4.
+- **Frontend** : lien direct OVH dans `TabDevisFacturation`. `getFacturePdfUrl()` + `regenererFacturePdf()` disponibles pour Lot 4.
 - **Fix édition infos client inline** : `PATCH /collaboration/:id/infos` étendu (clientNom/Prenom/Email/Telephone), sync CRM non bloquante via SejourClient. `SejourHeader` formulaire étendu (mode DIRECT uniquement).
 - **Validé en prod** : FA-2026-0001 généré, PDF accessible OVH, mentions conformes.
+
+### 31/05/2026 — Fixes produit
+
+- **Mode paiement versements** : enum `MethodePaiement` standardisé MAJUSCULES + `CHEQUES_VACANCES`. Champ `modePaiement` nullable sur `VersementPaiement`. Migration DDL (rename/recreate enum + ADD COLUMN). `ajouterVersement()` accepte `modePaiement?`. Section "Règlements reçus" dans PDF facture (rendue si versements présents au moment de la régénération). Select mode de règlement dans `TabDevisFacturation` (grille 2×2). (bc430be)
+- **Fix planning DIRECT** : `getActivitesCatalogue()` et `genererPlanningIA()` cherchaient les lignes de devis via `DemandeDevis` uniquement — silencieusement vides pour les séjours DIRECT. Fix : requête `OR [demande.sejourId, sejourDirectId]` + couvre `SELECTIONNE` et `SIGNE_DIRECTION`.
+- **Fix route notifier-planning** : route `POST /collaboration/:sejourId/notifier-planning` existait déjà dans le controller (section Planning IA) — non dupliquée, fonctionnelle.
 
 ### 30/05/2026 — Lot 1 conformité facturation (entité Facture immuable)
 
