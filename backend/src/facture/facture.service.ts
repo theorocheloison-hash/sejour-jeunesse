@@ -56,8 +56,12 @@ export class FactureService {
       const { generateFacturePdf } = await import('./pdf/facture-pdf.generator.js');
       const props = mapFactureToPdfProps(facture, titreSejour);
       const buffer = await generateFacturePdf(props);
+      // Lot 4A : embedding Factur-X (PDF/A-3 + CII XML). Import dynamique.
+      // embedFacturX est non bloquant : retourne le buffer original en cas d'échec.
+      const { embedFacturX } = await import('./facture-x.js');
+      const facturXBuffer = await embedFacturX(buffer, facture, titreSejour);
       const filename = `${facture.numero}.pdf`;
-      const url = await this.storage.uploadBuffer(buffer, filename, 'factures', 'application/pdf');
+      const url = await this.storage.uploadBuffer(facturXBuffer, filename, 'factures', 'application/pdf');
       await this.prisma.facture.update({
         where: { id: facture.id },
         data: { pdfUrl: url },
