@@ -127,6 +127,16 @@ export class InvitationsDirecteurService {
       throw new ForbiddenException('Accès refusé');
     }
 
+    // Résoudre l'organisationId du créateur du séjour (pour le Membership signataire)
+    let resolvedOrganisationId: string | null = dto.organisationId ?? null;
+    if (!resolvedOrganisationId && sejour.createurId) {
+      const membership = await this.prisma.membership.findFirst({
+        where: { userId: sejour.createurId, isPrimary: true },
+        select: { organisationId: true },
+      });
+      resolvedOrganisationId = membership?.organisationId ?? null;
+    }
+
     const devis = await this.prisma.devis.findUnique({
       where: { id: dto.devisId },
       select: { id: true, statut: true },
@@ -148,7 +158,7 @@ export class InvitationsDirecteurService {
         sejourTitre: dto.sejourTitre,
         etablissementUai: dto.etablissementUai ?? null,
         etablissementNom: dto.etablissementNom ?? null,
-        organisationId: dto.organisationId ?? null,
+        organisationId: resolvedOrganisationId,
         typeContexte: dto.typeContexte ?? 'SCOLAIRE',
       },
     });

@@ -1348,6 +1348,12 @@ export class DevisService {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const sejour = devis.sejourDirect;
 
+    // Résoudre l'organisationId pour le Membership signataire (SC4ter).
+    // Séjour DIRECT : pas de createurId → clientOrganisationId est la source principale.
+    // Fallback null : la source 2 d'getAllSejoursSignataire fonctionne par email.
+    const organisationIdPourInvitation: string | null =
+      sejour.clientOrganisationId ?? null;
+
     await this.prisma.invitationDirecteur.create({
       data: {
         token: invToken,
@@ -1357,7 +1363,7 @@ export class DevisService {
         enseignantPrenom: sejour.clientNom ?? 'L\'organisateur',
         sejourTitre: sejour.titre,
         etablissementNom: sejour.clientOrganisation ?? null,
-        organisationId: sejour.clientOrganisationId ?? null,
+        organisationId: organisationIdPourInvitation,
         typeContexte: 'SCOLAIRE',
       },
     });
