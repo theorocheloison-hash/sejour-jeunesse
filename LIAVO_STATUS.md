@@ -248,6 +248,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - Planning IA, import CSV élèves, journal séjour parents, planning PDF
 
 **Modèle de données :**
+- `StatutSejour` : DRAFT | OPTION | SUBMITTED | CONVENTION | SIGNE_DIRECTION | SOUMIS_RECTORAT | DECLARE_TAM (APPROVED/REJECTED supprimés 01/06/2026)
 - Organisation + Membership : tous les users hébergeurs/organisateurs rattachés
 - Colonnes `etablissement*` supprimées de `utilisateurs` (SC8)
 - `InvitationHebergement` enrichie (10 nouveaux champs SC5bis)
@@ -335,6 +336,7 @@ Différenciateur fort sur le marché ACM une fois obtenu.
 Onboarding /centre/[id]/claim + facturation multi-centre. Levier commercial fort (Yves Massard 3 centres, Quentin Dervaux/UFCV national).
 
 ### Dette technique
+- [x] StatutSejour nettoyé ✅ — APPROVED et REJECTED supprimés (enum DDL + 13 fichiers, 0 ligne affectée en prod, 01/06/2026)
 - DashboardShell : migrer toutes les pages (teacher, director, sejour) — estimé 4-6j, risque régression
 - DevisLibre : DROP tables (devis_libres, lignes_devis_libre, versements_devis_libre) + retirer model Prisma — migration données faite le 28/05, tables vides en prod, code ne les utilise plus. DDL + schema à nettoyer (~0.5j, risque nul)
 - DTO cleanup : retirer `numeroDevis` du front (envoyé mais ignoré)
