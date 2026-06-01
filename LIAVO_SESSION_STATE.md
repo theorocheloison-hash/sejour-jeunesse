@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 01/06/2026 — Lot 3 conformité facturation (avoir)
+> Dernière mise à jour : 01/06/2026 — Lot 4A Factur-X EN 16931
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -384,7 +384,8 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
   - Validé en prod : FA-2026-0001 généré et accessible sur OVH
   - Point ouvert : SIRET Sauvageon = 9 chiffres (SIREN) → vérifier champ siret centre en prod
 - [x] Lot 3 ✅ — Annulation par avoir (01/06/2026)
-- [ ] Lot 4 — Factur-X EN16931 (PDF/A-3 + XML CII) + dépôt Chorus Pro via PISTE
+- [x] Lot 4A ✅ — Factur-X EN 16931 (01/06/2026)
+- [ ] Lot 4B — Chorus Pro PISTE (habilitation AIFE requise)
 
 ### Dette technique
 - [ ] Supprimer tables DevisLibres en base (2 semaines stabilité écoulées)
@@ -446,3 +447,10 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - Lignes avoir pré-remplies depuis FA (quantites/totaux négatifs) ; frontend valide sum(lignes) ≈ montant ±0.02 €
 - getChorusXml() : guard typeFacture AVOIR → ForbiddenException + TODO Lot 4 (code UBL 381, pas 380/386)
 - annulerDevis() : route POST /devis/:id/annuler HEBERGEUR uniquement — ne pas ouvrir PATCH /:id/statut à HEBERGEUR (logique collab incompatible)
+- pdf-lib embedding Factur-X : useObjectStreams:false obligatoire (AF/Filespec inspectables par validateurs)
+- catalog.lookup(key, PDFDict) lève si absent → utiliser lookupMaybe
+- CII D22B : InvoiceReferencedDocument (avoir) va dans ApplicableHeaderTradeSettlement, pas ExchangedDocument
+- Adresse CII structurée : sérialiser "adresse||CP||ville" dans emetteurAdresse (snapshot Facture) ; parseAdresse() split || ; formatAdressePdf() pour le PDF
+- TypeCode CII : 380 = solde, 386 = acompte, 381 = avoir (≠ UBL : 380/386/381 identiques mais syntaxe différente)
+- Validation Factur-X : invoiceverify.eu fonctionne (GDPR-compliant, drag & drop, ZUGFeRD v2 EN16931)
+- Limites PDF/A-3b non bloquantes pour usage réel : ICC sRGB OutputIntent absent + Helvetica non embarquée → veraPDF partiel, Mustang/Chorus Pro non impactés

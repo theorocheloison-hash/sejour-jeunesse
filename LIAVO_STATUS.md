@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 01/06/2026 (Lot 3 conformité facturation — avoir)
+> Dernière mise à jour : 01/06/2026 (Lot 4A Factur-X EN 16931)
 
 ---
 
@@ -82,6 +82,26 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ---
 
 ## Chantiers récents livrés
+
+### 01/06/2026 — Lot 4A conformité facturation (Factur-X EN 16931)
+- **Factur-X EN 16931** : les PDFs factures sont désormais des PDF/A-3b
+  avec XML CII D22B embarqué (profil EN 16931). Validé invoiceverify.eu.
+- **pdf-lib** ajouté aux dépendances backend. Zéro migration DDL,
+  zéro nouvelle route API, zéro champ en base.
+- **buildCiiXml()** : génération CII D22B depuis snapshot Facture LIAVO.
+  TypeCode 380 (solde) / 386 (acompte) / 381 (avoir).
+- **embedFacturX()** : embedding XML dans buffer react-pdf →
+  PDF/A-3b avec XMP pdfaid:part=3/conformance=B, EmbeddedFiles,
+  AF/AFRelationship=Alternative. useObjectStreams:false.
+- **Adresse structurée** : sérialisation adresse||CP||ville dans
+  emetteurAdresse/destinataireAdresse. parseAdresse() côté CII,
+  formatAdressePdf() côté mapper PDF.
+- **Limites connues** (non bloquantes) : OutputIntent/ICC sRGB absent,
+  fonts Helvetica non embarquées (veraPDF partiel). adresseEntreprise
+  libre sans CP/ville = PostCode/City vides dans CII.
+- **TODO Lot 4B** : dépôt Chorus Pro via PISTE (habilitation AIFE requise).
+  getChorusXml() reste en UBL en attente.
+- Commits : b79f5da (embedding) · 7a6fc86 (adresse CII)
 
 ### 29/05/2026
 
@@ -166,7 +186,8 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
   - Cas A/B/C/D couverts. Séquence AV- indépendante. PDF avoir conforme.
   - Frontend : modale lignes éditables (Option A+). Boutons contextuels pipeline.
   - TODO Lot 4 tracé dans getChorusXml() : InvoiceTypeCode 381 pour avoirs.
-- **Lot 4** — Factur-X EN 16931 (CII embarqué dans PDF/A-3) + dépôt Chorus Pro via PISTE.
+- **Lot 4A** ✅ TERMINÉ 01/06/2026 — Factur-X EN 16931 (PDF/A-3 + CII XML embarqué).
+- **Lot 4B** — Dépôt Chorus Pro via PISTE (habilitation AIFE requise).
 
 **À garder en tête :** `getChorusXml` actuel génère de l'UBL EN 16931 (réutilisable comme base) mais Factur-X exige du **CII** embarqué dans un **PDF/A-3** ; React-PDF ne produit pas du PDF/A-3 nativement → lib dédiée à trancher au Lot 4.
 
@@ -249,7 +270,8 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - Lot 1 : entité Facture immuable ✅ TERMINÉ 30/05/2026
 - Lot 2 : PDF facture serveur + OVH ✅ TERMINÉ 31/05/2026
 - Lot 3 : annulation par avoir ✅ TERMINÉ 01/06/2026
-- Lot 4 : Factur-X EN16931 + dépôt Chorus Pro via PISTE (~2-3j)
+- Lot 4A : Factur-X EN16931 (PDF/A-3 + CII XML embarqué) ✅ TERMINÉ 01/06/2026
+- Lot 4B : dépôt Chorus Pro via PISTE — habilitation AIFE requise (~1-2j)
 
 ### UX restant
 - Invitations parents : 2 parents/tuteurs par enfant (modèle actuel = 1)
