@@ -66,5 +66,5 @@ export function derivePlanningStatut(sejour: SejourPourCouleur): string {
   if (best === 'FACTURE_SOLDE') return 'SOLDE';        // ceinture+bretelles legacy
   if (best === 'FACTURE_ACOMPTE') return 'ACOMPTE_VERSE';
   if (sejour.statut === 'OPTION') return 'OPTION';
-  return 'CONFIRME'; // CONVENTION/SIGNE_DIRECTION/SOUMIS_RECTORAT/DECLARE_TAM/APPROVED/SUBMITTED
+  return 'CONFIRME'; // CONVENTION/SIGNE_DIRECTION/SOUMIS_RECTORAT/DECLARE_TAM/SUBMITTED
 }

@@ -55,11 +55,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 const STATUT_SEJOUR_LABELS: Record<string, string> = {
   DRAFT: 'Brouillon',
+  OPTION: 'Option',
   SUBMITTED: 'Soumis',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Rejeté',
-  IN_PROGRESS: 'En cours',
-  COMPLETED: 'Terminé',
+  CONVENTION: 'Convention',
+  SOUMIS_RECTORAT: 'Soumis au rectorat',
+  SIGNE_DIRECTION: 'Signé direction',
+  DECLARE_TAM: 'Déclaré TAM',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -142,7 +142,7 @@ export function deriveClientStatus(client: Client): string {
   // Override PERDU manuel : seulement si aucun dossier actif
   const hasActiveDossier = client.sejours.some(s => {
     const statut = s.sejour?.statut;
-    return statut && !['DRAFT', 'REJECTED'].includes(statut);
+    return statut && !['DRAFT'].includes(statut);
   });
   if (client.statut === 'PERDU' && !hasActiveDossier) return 'PERDU';
 
