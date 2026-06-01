@@ -423,17 +423,35 @@ export default function HebergeurDevisPage() {
               const fa = getFactureAcompte(d);
               const fs = getFactureSolde(d);
               const sejourTitre = d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Demande';
+              const sejourId = d.sejourDirectId ?? d.demande?.sejour?.id ?? null;
               return (
                 <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-gray-900">
-                          <Highlight text={sejourTitre} query={searchQuery} />
+                          {sejourId ? (
+                            <Link href={`/dashboard/sejour/${sejourId}`} className="hover:text-[var(--color-primary)] hover:underline">
+                              <Highlight text={sejourTitre} query={searchQuery} />
+                            </Link>
+                          ) : (
+                            <Highlight text={sejourTitre} query={searchQuery} />
+                          )}
                         </h3>
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.cls}`}>
                           {badge.label}
                         </span>
+                        {sejourId && (
+                          <Link
+                            href={`/dashboard/sejour/${sejourId}`}
+                            className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                          >
+                            Ouvrir le dossier
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                            </svg>
+                          </Link>
+                        )}
                         {fa && (
                           <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                             Facture <Highlight text={fa.numero} query={searchQuery} />
