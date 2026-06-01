@@ -328,12 +328,28 @@ export class FactureService {
 
     const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
     const acompte = factureAcompte.montantFacture;
+    let acompteNet = acompte;
     if (montantTTC <= acompte) {
-      throw new ForbiddenException(
-        'Le total révisé du devis est inférieur ou égal à l\'acompte déjà facturé — un avoir est nécessaire (Lot 3).',
-      );
+      // Chercher un avoir sur la facture d'acompte (relation 1-1 via factureAnnuleeId)
+      const avoir = await this.prisma.facture.findUnique({
+        where: { factureAnnuleeId: factureAcompte.id },
+      });
+      if (!avoir) {
+        throw new ForbiddenException(
+          'Le total révisé du devis est inférieur ou égal à l\'acompte déjà facturé. ' +
+          'Émettez d\'abord un avoir sur la facture d\'acompte depuis l\'onglet ' +
+          'Devis & Facturation.'
+        );
+      }
+      // avoir.montantFacture est négatif (ex : -240) → réduit l'acompte net
+      acompteNet = acompte + avoir.montantFacture; // ex : 1440 + (-240) = 1200
+      if (acompteNet < 0) {
+        throw new ForbiddenException(
+          'L\'avoir dépasse le montant de l\'acompte — situation comptable incohérente.'
+        );
+      }
     }
-    const montantFacture = montantTTC - acompte;
+    const montantFacture = Math.max(0, montantTTC - acompteNet);
 
     const emetteur = await this.construireEmetteur(devis);
     const destinataire = await this.construireDestinataire(devis);
@@ -367,7 +383,7 @@ export class FactureService {
         montantFacture,
         pourcentageAcompte: devis.pourcentageAcompte,
         factureAcompteId: factureAcompte.id,
-        montantAcompteDejaFacture: acompte,
+        montantAcompteDejaFacture: acompteNet,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
           create: devis.lignes.map((l) => ({

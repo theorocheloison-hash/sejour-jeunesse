@@ -1444,4 +1444,76 @@ export class DevisService {
 
     return { success: true, message: 'Document signé reçu' };
   }
+
+  /** Annule un devis (statut → NON_RETENU). Bloque si une FA est émise sans avoir. */
+  async annulerDevis(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        sejourDirect: { select: { id: true } },
+        factures: { select: { id: true, typeFacture: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+
+    const statutsAnnulables: StatutDevis[] = [
+      StatutDevis.EN_ATTENTE,
+      StatutDevis.SELECTIONNE,
+      StatutDevis.SIGNE_DIRECTION,
+    ];
+    if (!statutsAnnulables.includes(devis.statut)) {
+      throw new ForbiddenException(
+        'Ce devis ne peut pas être annulé à ce stade. ' +
+        'Si une facture a déjà été émise, utilisez la procédure d\'avoir.'
+      );
+    }
+
+    // Si une FA existe sans avoir → bloquer, orienter vers l'avoir
+    const fa = devis.factures.find((f) => f.typeFacture === 'ACOMPTE');
+    if (fa) {
+      const avoir = await this.prisma.facture.findUnique({
+        where: { factureAnnuleeId: fa.id },
+      });
+      if (!avoir) {
+        throw new ForbiddenException(
+          'Une facture d\'acompte a été émise. Émettez d\'abord un avoir ' +
+          'depuis l\'onglet Devis & Facturation avant d\'annuler.'
+        );
+      }
+    }
+
+    await this.prisma.devis.update({
+      where: { id: devisId },
+      data: { statut: StatutDevis.NON_RETENU },
+    });
+
+    // Log CRM non bloquant
+    try {
+      const sejourId = devis.sejourDirectId;
+      if (sejourId) {
+        const sejourClient = await this.prisma.sejourClient.findFirst({
+          where: { sejourId },
+          select: { clientId: true },
+        });
+        if (sejourClient) {
+          await this.prisma.activiteClient.create({
+            data: {
+              clientId: sejourClient.clientId,
+              centreId: centre.id,
+              type: 'ANNULATION',
+              description: `Devis ${devis.numeroDevis ?? devisId} annulé`,
+              metadata: { devisId },
+            },
+          });
+        }
+      }
+    } catch { /* non bloquant */ }
+
+    return { success: true };
+  }
 }

@@ -11,6 +11,8 @@ import {
   getFacturesForDevis,
   supprimerVersement,
   regenererFacturePdf,
+  emettreAvoir,
+  annulerDevis,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
@@ -83,7 +85,10 @@ function DevisPDFInline({ data }: { data: DevisPDFProps }) {
  */
 function FacturePdfLink({ facture, onReload }: { facture: Facture; onReload: () => Promise<void> }) {
   const [regenerating, setRegenerating] = useState(false);
-  const label = facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte" : 'Facture de solde';
+  const label =
+    facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte"
+    : facture.typeFacture === 'SOLDE' ? 'Facture de solde'
+    : "Facture d'avoir";
 
   if (facture.pdfUrl) {
     return (
@@ -150,6 +155,19 @@ export default function TabDevisFacturation({
   const [showAddVersement, setShowAddVersement] = useState(false);
   const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
   const [versementSaving, setVersementSaving] = useState(false);
+
+  // ── Modale avoir ────────────────────────────────────────────
+  const [showModalAvoir, setShowModalAvoir] = useState(false);
+  const [avoirFactureSource, setAvoirFactureSource] = useState<Facture | null>(null);
+  const [avoirMontant, setAvoirMontant] = useState(0);
+  const [avoirMotif, setAvoirMotif] = useState('');
+  const [avoirLignes, setAvoirLignes] = useState<Array<{
+    description: string; quantite: number; prixUnitaire: number;
+    tva: number; totalHT: number; totalTTC: number; selected: boolean;
+  }>>([]);
+  const [avoirLoading, setAvoirLoading] = useState(false);
+  const [avoirError, setAvoirError] = useState<string | null>(null);
+  const [annulerLoading, setAnnulerLoading] = useState(false);
 
   useEffect(() => {
     if (!isDirect) return;
@@ -292,6 +310,97 @@ export default function TabDevisFacturation({
     }
   };
 
+  const openModalAvoir = async (fa: Facture) => {
+    // Si les lignes ne sont pas chargées, recharger d'abord
+    let lignesSource = fa.lignes ?? [];
+    if (!lignesSource.length && fa.id) {
+      await reloadFactures();
+      // Récupérer la FA mise à jour depuis le state
+      const faUpdated = factures.find(f => f.id === fa.id);
+      lignesSource = faUpdated?.lignes ?? [];
+    }
+    const lignesMapped = lignesSource.map(l => ({
+      description: l.description,
+      quantite: -Math.abs(l.quantite),
+      prixUnitaire: l.prixUnitaire,
+      tva: l.tva,
+      totalHT: -Math.abs(l.totalHT),
+      totalTTC: -Math.abs(l.totalTTC),
+      selected: true,
+    }));
+    setAvoirLignes(lignesMapped);
+    setAvoirFactureSource(fa);
+    const total = lignesMapped.reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
+    setAvoirMontant(Math.round(total * 100) / 100);
+    setAvoirMotif('');
+    setAvoirError(null);
+    setShowModalAvoir(true);
+  };
+
+  const handleToggleLigneAvoir = (index: number) => {
+    setAvoirLignes(prev => {
+      const next = prev.map((l, i) => i === index ? { ...l, selected: !l.selected } : l);
+      const total = next.filter(l => l.selected).reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
+      setAvoirMontant(Math.round(total * 100) / 100);
+      return next;
+    });
+  };
+
+  const handleSubmitAvoir = async () => {
+    if (!avoirFactureSource) return;
+    if (!avoirMotif.trim()) {
+      setAvoirError('Le motif est obligatoire');
+      return;
+    }
+    if (avoirMontant <= 0) {
+      setAvoirError('Sélectionnez au moins une ligne');
+      return;
+    }
+    const lignesSelectionnees = avoirLignes
+      .filter(l => l.selected)
+      .map(({ selected: _, ...l }) => l);
+    setAvoirLoading(true);
+    setAvoirError(null);
+    try {
+      await emettreAvoir(avoirFactureSource.id, avoirMontant, avoirMotif, lignesSelectionnees);
+      setShowModalAvoir(false);
+      await reloadFactures();
+      if (isDirect) {
+        const devis = await getDevisForSejourDirect(sejourId);
+        setDirectDevis(devis[0] ?? null);
+      } else {
+        await onBudgetReload();
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de l\'émission de l\'avoir';
+      setAvoirError(msg);
+    } finally {
+      setAvoirLoading(false);
+    }
+  };
+
+  const handleAnnulerDevis = async () => {
+    if (!activeDevisId) return;
+    if (!confirm('Confirmer l\'annulation de ce devis ?')) return;
+    setAnnulerLoading(true);
+    try {
+      await annulerDevis(activeDevisId);
+      if (isDirect) {
+        const devis = await getDevisForSejourDirect(sejourId);
+        setDirectDevis(devis[0] ?? null);
+      } else {
+        await onBudgetReload();
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de l\'annulation';
+      onError(msg);
+    } finally {
+      setAnnulerLoading(false);
+    }
+  };
+
   const renderFacturationPipeline = () => {
     if (user.role !== 'HEBERGEUR') return null;
     if (!activeDevisForFacturation) return null;
@@ -302,6 +411,7 @@ export default function TabDevisFacturation({
     const totalVerse = versements.reduce((sum, v) => sum + v.montant, 0);
     const resteDu = ad.montantTTC - totalVerse;
     const pctVerse = ad.montantTTC > 0 ? Math.min(100, Math.round((totalVerse / ad.montantTTC) * 100)) : 0;
+    const avoirSurAcompte = factures.find(f => f.typeFacture === 'AVOIR') ?? null;
 
     return (
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
@@ -326,10 +436,26 @@ export default function TabDevisFacturation({
           )}
         </div>
 
-        {(factureAcompte || factureSolde) && (
+        {(factureAcompte || factureSolde || avoirSurAcompte) && (
           <div className="flex items-center gap-2 flex-wrap">
             {factureAcompte && <FacturePdfLink facture={factureAcompte} onReload={reloadFactures} />}
             {factureSolde && <FacturePdfLink facture={factureSolde} onReload={reloadFactures} />}
+            {avoirSurAcompte && <FacturePdfLink facture={avoirSurAcompte} onReload={reloadFactures} />}
+          </div>
+        )}
+
+        {avoirSurAcompte && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs">
+            <span className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0" />
+            <span className="font-medium text-red-700">Avoir {avoirSurAcompte.numero}</span>
+            <span className="text-red-600">
+              −{Math.abs(avoirSurAcompte.montantFacture).toLocaleString('fr-FR', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+              })} €
+            </span>
+            {avoirSurAcompte.motifAvoir && (
+              <span className="text-red-400">· {avoirSurAcompte.motifAvoir}</span>
+            )}
           </div>
         )}
 
@@ -510,6 +636,27 @@ export default function TabDevisFacturation({
               className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
               {facturerLoading ? 'Facturation...' : '📄 Facturer le solde'}
+            </button>
+          )}
+
+          {/* Bouton avoir sur FA — visible si FA émise et pas encore d'avoir */}
+          {etatFacturation === 'ACOMPTE' && !avoirSurAcompte && (
+            <button
+              onClick={() => factureAcompte && openModalAvoir(factureAcompte)}
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              Émettre un avoir
+            </button>
+          )}
+
+          {/* Bouton annuler devis — visible si pas de FA (ou FA couverte par avoir) */}
+          {isDirect && activeDevisStatut && ['EN_ATTENTE', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (
+            <button
+              onClick={handleAnnulerDevis}
+              disabled={annulerLoading}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {annulerLoading ? 'Annulation...' : 'Annuler ce devis'}
             </button>
           )}
         </div>
@@ -931,6 +1078,102 @@ export default function TabDevisFacturation({
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modale avoir ─── */}
+      {showModalAvoir && avoirFactureSource && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setShowModalAvoir(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Émettre un avoir</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Annule partiellement ou totalement la facture {avoirFactureSource.numero}
+              </p>
+            </div>
+
+            {/* Liste des lignes */}
+            <div>
+              <p className="text-xs font-semibold text-gray-600 mb-2">Lignes à inclure dans l'avoir</p>
+              {avoirLignes.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Aucune ligne disponible</p>
+              ) : (
+                <div className="space-y-1">
+                  {avoirLignes.map((l, i) => (
+                    <label
+                      key={i}
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer text-xs transition-colors ${
+                        l.selected
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-gray-200 bg-gray-50 opacity-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={l.selected}
+                        onChange={() => handleToggleLigneAvoir(i)}
+                        className="rounded"
+                      />
+                      <span className="flex-1 text-gray-700">{l.description}</span>
+                      <span className="text-gray-500">{l.quantite} × {l.prixUnitaire.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                      <span className="font-semibold text-red-600 min-w-[70px] text-right">
+                        {l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Récapitulatif montant */}
+            <div className="flex items-center justify-between rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+              <span className="text-sm font-medium text-red-700">Montant de l'avoir</span>
+              <span className="text-lg font-bold text-red-700">
+                −{avoirMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </span>
+            </div>
+
+            {/* Motif */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                Motif <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={avoirMotif}
+                onChange={(e) => setAvoirMotif(e.target.value)}
+                rows={2}
+                placeholder="Ex : annulation d'une activité, réduction suite à effectif moindre…"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+              />
+            </div>
+
+            {avoirError && (
+              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{avoirError}</p>
+            )}
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowModalAvoir(false)}
+                disabled={avoirLoading}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSubmitAvoir}
+                disabled={avoirLoading || avoirMontant <= 0 || !avoirMotif.trim()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {avoirLoading ? 'Émission...' : 'Émettre l\'avoir'}
+              </button>
+            </div>
           </div>
         </div>
       )}

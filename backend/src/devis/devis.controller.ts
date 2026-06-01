@@ -111,6 +111,16 @@ export class DevisController {
     return this.devisService.notifierEnseignantModification(id, u.id, centreId);
   }
 
+  @Post(':id/annuler')
+  @Roles(Role.HEBERGEUR)
+  annulerDevis(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.annulerDevis(id, user.id, centreId);
+  }
+
   @Patch(':id/statut')
   @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
   updateStatut(

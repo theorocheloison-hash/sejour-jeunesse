@@ -31,7 +31,7 @@ export interface Facture {
   devisId: string;
   sejourId: string | null;
   numero: string;
-  typeFacture: 'ACOMPTE' | 'SOLDE';
+  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR';
   dateEmission: string;
   emetteurNom: string;
   emetteurAdresse: string | null;
@@ -58,6 +58,11 @@ export interface Facture {
   conditionsAnnulation: string | null;
   pdfUrl: string | null;
   createdAt: string;
+  // Avoir (Lot 3)
+  factureAnnuleeId?: string | null;
+  motifAvoir?: string | null;
+  factureAnnulee?: { numero: string; dateEmission: string } | null;
+  avoirAssocie?: { id: string; numero: string; montantFacture: number; pdfUrl: string | null } | null;
   lignes?: LigneFacture[];
   versements?: VersementPaiement[];
 }
@@ -69,6 +74,32 @@ export function getFactureAcompte(devis: { factures?: Facture[] | null }): Factu
 /** Facture de solde liée à un devis (ou null). */
 export function getFactureSolde(devis: { factures?: Facture[] | null }): Facture | null {
   return devis.factures?.find(f => f.typeFacture === 'SOLDE') ?? null;
+}
+/** Avoir lié à un devis (ou null). */
+export function getFactureAvoir(devis: { factures?: Facture[] | null }): Facture | null {
+  return devis.factures?.find(f => f.typeFacture === 'AVOIR') ?? null;
+}
+
+/** Émet un avoir sur une facture existante (ACOMPTE ou SOLDE). Montant passé positif. */
+export async function emettreAvoir(
+  factureAnnuleeId: string,
+  montant: number,
+  motif: string,
+  lignes: Array<{
+    description: string; quantite: number; prixUnitaire: number;
+    tva: number; totalHT: number; totalTTC: number;
+  }>,
+): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/avoir', {
+    factureAnnuleeId, montant, motif, lignes,
+  });
+  return data;
+}
+
+/** Annule un devis (statut → NON_RETENU). Bloque si une FA est émise sans avoir. */
+export async function annulerDevis(devisId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/annuler`);
+  return data;
 }
 /** État de facturation dérivé des factures liées (plus le statut du devis). */
 export function etatFacturation(devis: { factures?: Facture[] | null }): 'AUCUNE' | 'ACOMPTE' | 'SOLDE' {
