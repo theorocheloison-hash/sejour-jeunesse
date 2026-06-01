@@ -387,6 +387,10 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - [x] Lot 4A ✅ — Factur-X EN 16931 (01/06/2026)
 - [ ] Lot 4B — Chorus Pro PISTE (habilitation AIFE requise)
 
+### Signataire / Membership
+- [x] SC4ter ✅ TERMINÉ 01/06/2026 — getAllSejoursSignataire() via Membership (organisationId transmis dans InvitationDirecteur, creer() + envoyerADirection())
+- [ ] InvitationCollaboration.organisationCibleId (reste de SC4ter)
+
 ### Dette technique
 - [ ] Supprimer tables DevisLibres en base (2 semaines stabilité écoulées)
 - [ ] JWT_SECRET=dev-secret-2024 en production → changer (**SOLDÉ 29/05/2026**)
@@ -454,3 +458,6 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - TypeCode CII : 380 = solde, 386 = acompte, 381 = avoir (≠ UBL : 380/386/381 identiques mais syntaxe différente)
 - Validation Factur-X : invoiceverify.eu fonctionne (GDPR-compliant, drag & drop, ZUGFeRD v2 EN16931)
 - Limites PDF/A-3b non bloquantes pour usage réel : ICC sRGB OutputIntent absent + Helvetica non embarquée → veraPDF partiel, Mustang/Chorus Pro non impactés
+- getAllSejoursSignataire() : deux sources (Membership collegues + InvitationDirecteur par email) — les deux doivent être alimentées pour que la vue signataire soit complète
+- InvitationDirecteur.organisationId : résoudre depuis Membership.isPrimary du créateur séjour (COLLAB) ou clientOrganisationId du séjourDirect (DIRECT)
+- registerSignataire() crée le Membership automatiquement si organisationId fourni dans le DTO — ne pas modifier
