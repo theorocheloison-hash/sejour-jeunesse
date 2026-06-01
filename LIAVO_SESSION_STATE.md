@@ -392,9 +392,8 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - [ ] InvitationCollaboration.organisationCibleId (reste de SC4ter)
 
 ### Dette technique
-- [ ] Supprimer tables DevisLibres en base (2 semaines stabilité écoulées)
+- [ ] DevisLibre : DROP tables (devis_libres, lignes_devis_libre, versements_devis_libre) + retirer model Prisma — migration données faite le 28/05, tables vides en prod, code ne les utilise plus. DDL + schema à nettoyer (~0.5j, risque nul)
 - [ ] JWT_SECRET=dev-secret-2024 en production → changer (**SOLDÉ 29/05/2026**)
-- [ ] OG tag "649 centres référencés" → supprimer
 - [ ] Refactoring DevisBuilder (3 fichiers dupliqués)
 - [ ] Labels universels scolaire/colos (cohérence UX)
 - [ ] Flux direction frontend (page publique + boutons dans TabDevisFacturation)

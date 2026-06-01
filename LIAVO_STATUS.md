@@ -303,9 +303,8 @@ Onboarding /centre/[id]/claim + facturation multi-centre. Levier commercial fort
 
 ### Dette technique
 - DashboardShell : migrer toutes les pages (teacher, director, sejour) — estimé 4-6j, risque régression
-- DevisLibre : supprimer le modèle/table (quasi-mort, confirmé)
+- DevisLibre : DROP tables (devis_libres, lignes_devis_libre, versements_devis_libre) + retirer model Prisma — migration données faite le 28/05, tables vides en prod, code ne les utilise plus. DDL + schema à nettoyer (~0.5j, risque nul)
 - DTO cleanup : retirer `numeroDevis` du front (envoyé mais ignoré)
-- Résiliation Railway + Cloudflare R2
 - Migration GitHub → forge française (non prioritaire tant que solo)
 - JWT httpOnly cookie migration
 
