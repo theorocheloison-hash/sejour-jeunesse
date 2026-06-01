@@ -83,6 +83,25 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ## Chantiers récents livrés
 
+### 01/06/2026 — TAM Phase 1 + qualifications encadrants
+
+**Qualification encadrant (AccompagnateurMission)**
+- Migration : diplome VARCHAR(50) + qualification_autre VARCHAR(255) +
+  index partiel WHERE diplome IS NOT NULL
+- Backend : create() persiste les 2 champs, getByToken() projection enrichie
+- Frontend : select dans formulaire invitation (BAFA/BAFD/BPJEPS/DEJEPS/
+  DESJEPS/CPJEPS/PSC1/AUTRE) + champ libre conditionnel si AUTRE
+
+**PDF Préparation TAM (Phase 1)**
+- getDossierPedagogique() : select accompagnateurs enrichi diplome +
+  qualificationAutre
+- DossierPedagogiqueData : 6 champs ACM + diplome/qualificationAutre
+  accompagnateurs
+- PreparationTamPDFButton.tsx : PDF 5 sections, même design system que
+  ProjetPedagogiquePDFButton, bouton conditionnel HORS_SCOLAIRE uniquement
+- Vision Phase 2 : intégration automatique TAM via convention DJEPVA
+  (6-12 mois, conditionné au volume hébergeurs)
+
 ### 01/06/2026 — SC4ter + Lot 4A Factur-X
 - SC4ter : organisationId transmis dans InvitationDirecteur (creer() +
   envoyerADirection()). Le signataire qui s'inscrit est désormais rattaché
@@ -237,12 +256,10 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ### Ce qui manque encore ❌
 
 **Avant visio LMDJ (dans l'ordre) :**
-1. ✅ Page `/centre/[id]/claim` — flow "C'est mon centre" depuis le catalogue (fin SC5bis) — livré, vérifié en session
-2. ✅ TERMINÉ 01/06/2026 — SC4ter : `getAllSejoursSignataire()` via Membership (organisationId transmis dans InvitationDirecteur). Reste : `InvitationCollaboration.organisationCibleId`.
-3. SC9 : `StatutDevis` étendu + backfill (badges cohérents sur devis)
-4. Migration `Client` → `RelationCommerciale` (CRM legacy)
-5. `typeContexte HORS_SCOLAIRE` dans `soumettreDemandePublique()`
-6. `DECLARE_TAM` dans `StatutSejour` (flow colo)
+1. SC9 : `StatutDevis` étendu + backfill (badges cohérents sur devis)
+2. Migration `Client` → `RelationCommerciale` (CRM legacy)
+3. `typeContexte HORS_SCOLAIRE` dans `soumettreDemandePublique()`
+4. `DECLARE_TAM` dans `StatutSejour` (flow colo)
 
 **Suspendus à validation commerciale :**
 - SC7 : notifications APIDAE (prompt CC prêt)
@@ -282,6 +299,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ### UX restant
 - Invitations parents : 2 parents/tuteurs par enfant (modèle actuel = 1)
 - [x] Flux direction ✅ — page publique /invitation-direction/[token] complète, 3 chemins signature (directe/direction/upload), SC4ter Membership signataire (01/06/2026)
+- [x] PDF préparation TAM ✅ — bouton conditionnel HORS_SCOLAIRE dans onglet Projet pédagogique, 5 sections (organisateur, accueil ACM, encadrants + qualifications, projet éducatif, checklist délais FI J-60 / FC J-8) (01/06/2026)
 - SejourHeader : adapter lien retour au rôle de l'utilisateur (mineur)
 
 ### Commercial
@@ -300,11 +318,11 @@ Abonnements payants prévus ~dans 3 mois, AUCUNE facture émise à ce jour. Réu
 
 ### Intégration TAM — Déclaration accueils de mineurs
 
-**Phase 1 (en cours) — PDF de préparation TAM**
+**Phase 1 ✅ TERMINÉ 01/06/2026 — PDF de préparation TAM**
 Génération d'un PDF récapitulatif depuis les données LIAVO (séjour, encadrants,
 hébergement, projet éducatif, tranches d'âge) que l'organisateur utilise comme
 support pour remplir manuellement la téléprocédure TAM.
-Prérequis : champ `qualification` sur AccompagnateurMission.
+Prérequis livré : champ `diplome` + `qualificationAutre` sur AccompagnateurMission.
 
 **Phase 2 (6-12 mois) — Intégration automatique TAM**
 Convention avec la DJEPVA (Direction de la Jeunesse et de la Vie Associative)
