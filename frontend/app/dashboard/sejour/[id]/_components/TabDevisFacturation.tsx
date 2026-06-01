@@ -686,20 +686,21 @@ export default function TabDevisFacturation({
                     </p>
                   </div>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                    etatFacturation === 'SOLDE' ? 'bg-teal-100 text-teal-700' :
+                    etatFacturation === 'ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
                     directDevis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
                     directDevis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
                     directDevis.statut === 'SIGNE_DIRECTION' ? 'bg-purple-100 text-purple-700' :
                     directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
-                    directDevis.statut === 'FACTURE_ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
-                    directDevis.statut === 'FACTURE_SOLDE' ? 'bg-teal-100 text-teal-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
-                    {directDevis.statut === 'EN_ATTENTE' ? 'Brouillon' :
+                    {etatFacturation === 'SOLDE' ? 'Soldé' :
+                     etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
+                     directDevis.statut === 'EN_ATTENTE' ? 'Brouillon' :
                      directDevis.statut === 'SELECTIONNE' ? 'Signé' :
                      directDevis.statut === 'SIGNE_DIRECTION' ? 'Signé direction' :
                      directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
-                     directDevis.statut === 'FACTURE_ACOMPTE' ? 'Facture acompte' :
-                     directDevis.statut === 'FACTURE_SOLDE' ? 'Facture solde' :
+                     directDevis.statut === 'NON_RETENU' ? 'Non retenu' :
                      directDevis.statut}
                   </span>
                 </div>
