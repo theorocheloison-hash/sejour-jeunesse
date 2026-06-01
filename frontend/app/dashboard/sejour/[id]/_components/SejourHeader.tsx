@@ -16,8 +16,6 @@ const STATUT_LABEL: Record<string, string> = {
   SOUMIS_RECTORAT: 'Soumis rectorat',
   SIGNE_DIRECTION: 'Signé direction',
   DECLARE_TAM: 'Déclaré TAM',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
 };
 
 const STATUT_BADGE_CLS: Record<string, string> = {
@@ -28,8 +26,6 @@ const STATUT_BADGE_CLS: Record<string, string> = {
   SOUMIS_RECTORAT: 'bg-purple-100 text-purple-700',
   SIGNE_DIRECTION: 'bg-purple-100 text-purple-700',
   DECLARE_TAM: 'bg-teal-100 text-teal-700',
-  APPROVED: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-  REJECTED: 'bg-red-100 text-red-700',
 };
 
 interface SejourHeaderProps {

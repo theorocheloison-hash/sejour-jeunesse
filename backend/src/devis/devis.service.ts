@@ -521,8 +521,9 @@ export class DevisService {
       } catch { /* ne pas bloquer */ }
     }
 
-    // Quand le directeur refuse un devis — passer le séjour en REJECTED
-    // et notifier l'enseignant
+    // Quand le directeur refuse un devis — notifier l'enseignant.
+    // (Le séjour n'est PAS muté : le statut REJECTED a été retiré de StatutSejour ;
+    //  le devis porte déjà NON_RETENU, le séjour reste dans son statut courant.)
     if (statut === StatutDevis.NON_RETENU && userRole === Role.SIGNATAIRE) {
       const demandeFull = await this.prisma.demandeDevis.findUnique({
         where: { id: demandeId },
@@ -531,12 +532,6 @@ export class DevisService {
           enseignant: { select: { email: true, prenom: true, nom: true } },
         },
       });
-      if (demandeFull?.sejour?.id) {
-        await this.prisma.sejour.update({
-          where: { id: demandeFull.sejour.id },
-          data: { statut: StatutSejour.REJECTED },
-        });
-      }
       if (demandeFull?.enseignant && demandeFull?.sejour) {
         await this.email.sendGenericNotification(
           demandeFull.enseignant.email,

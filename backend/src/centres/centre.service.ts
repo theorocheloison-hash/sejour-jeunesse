@@ -453,7 +453,7 @@ export class CentreService {
         hebergementSelectionneId: { in: centreIds },
         dateFin: { gte: il30j },
         dateDebut: { lte: dans60j },
-        statut: { notIn: ['DRAFT', 'REJECTED'] },
+        statut: { notIn: ['DRAFT'] },
       },
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,

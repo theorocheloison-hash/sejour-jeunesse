@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAllSejours, updateSejourStatus, getSejourDetail, soumettreAuRectorat, getDossierPedagogique, estHorsScolaire } from '@/src/lib/sejour';
+import { getAllSejours, getSejourDetail, soumettreAuRectorat, getDossierPedagogique, estHorsScolaire } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import api from '@/src/lib/api';
 import {
@@ -38,9 +38,8 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',  cls: 'bg-gray-100 text-gray-600' },
+  OPTION:     { label: 'Option',     cls: 'bg-amber-100 text-amber-700' },
   SUBMITTED:  { label: 'En attente', cls: 'bg-orange-100 text-orange-700' },
-  APPROVED:   { label: 'Approuvé',   cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-  REJECTED:   { label: 'Refusé',     cls: 'bg-red-100 text-red-700' },
   CONVENTION:      { label: 'Convention',       cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
   SOUMIS_RECTORAT: { label: 'Soumis rectorat', cls: 'bg-purple-100 text-purple-700' },
   SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
@@ -303,7 +302,7 @@ export default function SignataireDashboard() {
   const [sejours, setSejours]     = useState<SejourDirecteur[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actingId, setActingId]   = useState<string | null>(null);
-  const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('APPROVED');
+  const [filtre, setFiltre]       = useState<StatutSejour | 'ALL'>('ALL');
   const [devisAValider, setDevisAValider] = useState<Devis[]>([]);
   const [devisActingId, setDevisActingId] = useState<string | null>(null);
 
@@ -369,39 +368,6 @@ export default function SignataireDashboard() {
       // fallback: ignore
     } finally {
       setSejourDetailLoading(false);
-    }
-  };
-
-  const handleApprove = async (id: string) => {
-    setActingId(id);
-    try {
-      await updateSejourStatus(id, 'APPROVED');
-      await loadSejours();
-      // Refresh detail modal if open
-      if (sejourDetail?.id === id) {
-        const updated = await getSejourDetail(id);
-        setSejourDetail(updated);
-      }
-    } catch {
-      // no-op
-    } finally {
-      setActingId(null);
-    }
-  };
-
-  const handleReject = async (id: string, _motif: string) => {
-    setActingId(id);
-    try {
-      await updateSejourStatus(id, 'REJECTED');
-      await loadSejours();
-      if (sejourDetail?.id === id) {
-        const updated = await getSejourDetail(id);
-        setSejourDetail(updated);
-      }
-    } catch {
-      // no-op
-    } finally {
-      setActingId(null);
     }
   };
 
@@ -566,7 +532,6 @@ export default function SignataireDashboard() {
             ['ASIGNER',         'À signer',        sejours.filter(s => s.demandes?.[0]?.devis?.[0] && !s.demandes[0].devis[0].signatureDirecteur).length, 'bg-amber-50 text-amber-700 ring-amber-300'],
             ['SIGNE_DIRECTION',  'Signé direction', countByStatut('SIGNE_DIRECTION'),    'bg-purple-50 text-purple-700 ring-purple-300'],
             ['SOUMIS_RECTORAT',  'Soumis',          countByStatut('SOUMIS_RECTORAT'),    'bg-purple-50 text-purple-700 ring-purple-300'],
-            ['REJECTED',         'Refusés',         countByStatut('REJECTED'),           'bg-red-50 text-red-700 ring-red-300'],
           ] as const).map(([val, label, count, cls]) => (
             <button
               key={val}
