@@ -1,5 +1,19 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 01/06/2026 — Lot 4A Factur-X EN 16931
+> Dernière mise à jour : 01/06/2026 — TAM Phase 1 + qualifications encadrants
+
+## COMMITS NON POUSSÉS
+- **31bb80f** : feat(tam): PDF préparation TAM Phase 1
+- (+ le commit docs de clôture de session, une fois créé)
+
+> Note : `5488c2e` (feat(accompagnateur): champ qualification TAM) est **déjà poussé** sur origin/main.
+
+## PROCHAINS CHANTIERS (ordre)
+1. Push commits de la session (SC4ter + TAM + docs) — Théo valide et pousse
+2. SC9 badges devis cohérents (~0.5j)
+3. HORS_SCOLAIRE dans soumettreDemandePublique() formulaire public (~0.5j)
+4. DECLARE_TAM backend stub → implémentation réelle (~2h)
+5. Invitations parents 2 tuteurs (~1j)
+6. DevisLibre DROP tables + retirer model Prisma (~0.5j)
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -391,6 +405,10 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - [x] SC4ter ✅ TERMINÉ 01/06/2026 — getAllSejoursSignataire() via Membership (organisationId transmis dans InvitationDirecteur, creer() + envoyerADirection())
 - [ ] InvitationCollaboration.organisationCibleId (reste de SC4ter)
 
+### HORS_SCOLAIRE / TAM
+- [x] TAM Phase 1 ✅ TERMINÉ 01/06/2026 — champ qualification encadrant + PDF de préparation TAM (bouton conditionnel HORS_SCOLAIRE)
+- [ ] TAM Phase 2 (suspendu, validation commerciale) — convention DJEPVA + intégration automatique (6-12 mois, conditionné au volume hébergeurs)
+
 ### Dette technique
 - [ ] DevisLibre : DROP tables (devis_libres, lignes_devis_libre, versements_devis_libre) + retirer model Prisma — migration données faite le 28/05, tables vides en prod, code ne les utilise plus. DDL + schema à nettoyer (~0.5j, risque nul)
 - [ ] JWT_SECRET=dev-secret-2024 en production → changer (**SOLDÉ 29/05/2026**)
@@ -460,3 +478,6 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - getAllSejoursSignataire() : deux sources (Membership collegues + InvitationDirecteur par email) — les deux doivent être alimentées pour que la vue signataire soit complète
 - InvitationDirecteur.organisationId : résoudre depuis Membership.isPrimary du créateur séjour (COLLAB) ou clientOrganisationId du séjourDirect (DIRECT)
 - registerSignataire() crée le Membership automatiquement si organisationId fourni dans le DTO — ne pas modifier
+- getDossierPedagogique() : pas de select restrictif sur le séjour principal → les champs ACM (ageMin/Max, moinsde6ans, typeAccueilACM, projetEducatif) arrivent via { ...sejour } sans changement backend
+- TAM : pas d'API publique → PDF de préparation Phase 1, convention DJEPVA Phase 2. Les deux phases sont documentées en roadmap.
+- PDF conditionnel HORS_SCOLAIRE : utiliser d.typeContexte (state dossier) pas sejour?.typeContexte (variable non exposée dans page.tsx séjour)
