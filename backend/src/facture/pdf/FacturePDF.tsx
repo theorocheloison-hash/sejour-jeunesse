@@ -3,7 +3,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface FacturePDFProps {
-  typeFacture: 'ACOMPTE' | 'SOLDE';
+  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR';
   numero: string;
   dateEmission: string; // ISO
   dateEcheance: string; // ISO (= dateEmission + 30 jours)
@@ -35,6 +35,10 @@ export interface FacturePDFProps {
   montantAcompteDejaFacture: number | null; // SOLDE uniquement
   conditionsAnnulation: string | null;
   tauxTva: number;
+  // Avoir (Lot 3)
+  factureAnnuleeNumero?: string | null;
+  factureAnnuleeDate?: string | null;
+  motifAvoir?: string | null;
   versements?: Array<{
     datePaiement: string; // ISO
     montant: number;
@@ -152,9 +156,13 @@ export default function FacturePDF(props: FacturePDFProps) {
     titreSejour, lignes, montantHT, montantTVA, montantTTC,
     montantFacture, pourcentageAcompte, montantAcompteDejaFacture,
     conditionsAnnulation, versements,
+    factureAnnuleeNumero, factureAnnuleeDate,
   } = props;
 
-  const titre = typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE" : 'FACTURE DE SOLDE';
+  const titre =
+    typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE"
+    : typeFacture === 'SOLDE' ? 'FACTURE DE SOLDE'
+    : "FACTURE D'AVOIR";
 
   return (
     <Document>
@@ -192,6 +200,12 @@ export default function FacturePDF(props: FacturePDFProps) {
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
           <Text style={s.objetText}>Séjour — {titreSejour}</Text>
+          {typeFacture === 'AVOIR' && (
+            <Text style={s.objetText}>
+              Annule et remplace la facture {factureAnnuleeNumero}
+              {factureAnnuleeDate ? ` du ${fmtDate(factureAnnuleeDate)}` : ''}
+            </Text>
+          )}
         </View>
 
         {/* Tableau */}
@@ -248,10 +262,19 @@ export default function FacturePDF(props: FacturePDFProps) {
               </View>
             </>
           )}
+
+          {typeFacture === 'AVOIR' && (
+            <View style={s.totauxRow}>
+              <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>Net à déduire</Text>
+              <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>
+                {fmtMontant(Math.abs(montantFacture))} €
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Coordonnées bancaires */}
-        {emetteurIban && (
+        {/* Coordonnées bancaires — pas sur un avoir (aucun paiement entrant) */}
+        {emetteurIban && typeFacture !== 'AVOIR' && (
           <View style={s.ibanBlock}>
             <Text style={s.ibanTitle}>Coordonnées bancaires</Text>
             <Text style={s.ibanText}>IBAN : {emetteurIban}</Text>
@@ -281,14 +304,21 @@ export default function FacturePDF(props: FacturePDFProps) {
           </View>
         )}
 
-        {/* Mentions légales — toujours affichées */}
+        {/* Mentions légales */}
         <View style={s.mentionsBlock}>
-          <Text style={s.mentionsText}>
-            Conformément à l'art. L441-10 du Code de commerce, tout retard de paiement entraîne
-            des pénalités au taux de 3 fois le taux d'intérêt légal en vigueur, ainsi qu'une
-            indemnité forfaitaire pour frais de recouvrement de 40 €. Escompte pour paiement
-            anticipé : néant.
-          </Text>
+          {typeFacture === 'AVOIR' ? (
+            <Text style={s.mentionsText}>
+              Document d'avoir émis conformément à la réglementation française.
+              Motif : {props.motifAvoir ?? '—'}
+            </Text>
+          ) : (
+            <Text style={s.mentionsText}>
+              Conformément à l'art. L441-10 du Code de commerce, tout retard de paiement entraîne
+              des pénalités au taux de 3 fois le taux d'intérêt légal en vigueur, ainsi qu'une
+              indemnité forfaitaire pour frais de recouvrement de 40 €. Escompte pour paiement
+              anticipé : néant.
+            </Text>
+          )}
         </View>
 
         {/* Footer */}
