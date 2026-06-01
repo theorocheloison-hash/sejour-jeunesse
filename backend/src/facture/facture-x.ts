@@ -39,6 +39,20 @@ function pdfDate(d: Date): string {
     `${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
 }
 
+/**
+ * Découpe l'adresse snapshot en champs CII distincts (PostCode + City requis EN 16931).
+ * Convention de sérialisation (construireEmetteur/Destinataire) : "adresse||codePostal||ville".
+ * Fallback : adresse brute (anciennes factures sans séparateur).
+ */
+function parseAdresse(raw: string | null): { lineOne: string; postCode: string; city: string } {
+  if (!raw) return { lineOne: '', postCode: '', city: '' };
+  const parts = raw.split('||');
+  if (parts.length === 3) {
+    return { lineOne: parts[0], postCode: parts[1], city: parts[2] };
+  }
+  return { lineOne: raw, postCode: '', city: '' };
+}
+
 // ─── CII D22B (EN 16931) ────────────────────────────────────────────────────
 
 export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): string {
@@ -126,6 +140,10 @@ export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): st
         </ram:InvoiceReferencedDocument>`
       : '';
 
+  // Adresses structurées (PostCode + City requis EN 16931)
+  const adrEmetteur = parseAdresse(facture.emetteurAdresse);
+  const adrDestinataire = parseAdresse(facture.destinataireAdresse);
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
   xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -154,14 +172,18 @@ ${lignesXml}
       <ram:SellerTradeParty>
         <ram:Name>${escXml(facture.emetteurNom)}</ram:Name>${sellerSiret}
         <ram:PostalTradeAddress>
-          <ram:LineOne>${escXml(facture.emetteurAdresse ?? '')}</ram:LineOne>
+          <ram:PostcodeCode>${escXml(adrEmetteur.postCode)}</ram:PostcodeCode>
+          <ram:LineOne>${escXml(adrEmetteur.lineOne)}</ram:LineOne>
+          <ram:CityName>${escXml(adrEmetteur.city)}</ram:CityName>
           <ram:CountryID>FR</ram:CountryID>
         </ram:PostalTradeAddress>${sellerTva}
       </ram:SellerTradeParty>
       <ram:BuyerTradeParty>
         <ram:Name>${escXml(facture.destinataireNom)}</ram:Name>${buyerSiret}
         <ram:PostalTradeAddress>
-          <ram:LineOne>${escXml(facture.destinataireAdresse ?? '')}</ram:LineOne>
+          <ram:PostcodeCode>${escXml(adrDestinataire.postCode)}</ram:PostcodeCode>
+          <ram:LineOne>${escXml(adrDestinataire.lineOne)}</ram:LineOne>
+          <ram:CityName>${escXml(adrDestinataire.city)}</ram:CityName>
           <ram:CountryID>FR</ram:CountryID>
         </ram:PostalTradeAddress>
       </ram:BuyerTradeParty>

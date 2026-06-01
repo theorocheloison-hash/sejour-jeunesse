@@ -144,9 +144,15 @@ export class FactureService {
       ? await this.prisma.organisation.findUnique({ where: { id: centre.organisationId } })
       : null;
 
-    const adresseCentre = [centre.adresse, centre.codePostal, centre.ville].filter(Boolean).join(', ');
+    // Sérialisation structurée "adresse||codePostal||ville" pour le CII Factur-X
+    // (parseAdresse() côté facture-x.ts / formatAdressePdf() côté mapper).
+    const adresseCentre = (centre.adresse && centre.codePostal && centre.ville)
+      ? `${centre.adresse}||${centre.codePostal}||${centre.ville}`
+      : [centre.adresse, centre.codePostal, centre.ville].filter(Boolean).join(', ');
     const adresseOrga = orga
-      ? [orga.adresse, orga.codePostal, orga.ville].filter(Boolean).join(', ')
+      ? (orga.adresse && orga.codePostal && orga.ville)
+        ? `${orga.adresse}||${orga.codePostal}||${orga.ville}`
+        : [orga.adresse, orga.codePostal, orga.ville].filter(Boolean).join(', ')
       : '';
 
     return {
@@ -168,8 +174,11 @@ export class FactureService {
       const enseignant = devis.demande.enseignant;
       const createurId = devis.demande.sejour?.createurId ?? null;
       const orga = createurId ? await getOrganisationPrincipale(createurId, this.prisma) : null;
+      // Sérialisation structurée "adresse||codePostal||ville" pour le CII Factur-X.
       const adresseOrga = orga
-        ? [orga.adresse, orga.codePostal, orga.ville].filter(Boolean).join(', ')
+        ? (orga.adresse && orga.codePostal && orga.ville)
+          ? `${orga.adresse}||${orga.codePostal}||${orga.ville}`
+          : [orga.adresse, orga.codePostal, orga.ville].filter(Boolean).join(', ')
         : '';
       return {
         sejourId: devis.demande.sejour?.id ?? null,
