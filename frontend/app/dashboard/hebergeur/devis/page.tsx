@@ -416,12 +416,17 @@ export default function HebergeurDevisPage() {
         ) : (
           <div className="space-y-4">
             {filteredDevis.map((d) => {
-              const badge = STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE;
               const enseignant = getEnseignantDisplay(d);
               const etablissement = getEtablissementDisplay(d);
               // Lot 1 : factures liées (le devis ne mute plus son typeDocument).
               const fa = getFactureAcompte(d);
               const fs = getFactureSolde(d);
+              // SC9 : le badge dérive des factures liées (le devis reste SELECTIONNE/SIGNE_DIRECTION).
+              const badge = fs
+                ? { label: 'Soldé', cls: 'bg-teal-100 text-teal-700' }
+                : fa
+                ? { label: 'Acompte facturé', cls: 'bg-indigo-100 text-indigo-700' }
+                : (STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE);
               const sejourTitre = d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Demande';
               const sejourId = d.sejourDirectId ?? d.demande?.sejour?.id ?? null;
               return (
