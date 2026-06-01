@@ -386,6 +386,11 @@ model AccompagnateurMission {
   roleCollaboratif   String?  @map("role_collaboratif") @db.VarChar(20)
   userId             String?  @map("user_id") @db.Uuid
   createdAt         DateTime  @default(now()) @map("created_at")
+  // TAM Phase 1 : qualification encadrant
+  // Valeurs diplome : BAFA | BAFD | PSC1 | BPJEPS | DEJEPS | DESJEPS | CPJEPS | AUTRE | null
+  // qualificationAutre : précision libre si diplome = AUTRE ou complément
+  diplome             String?  @map("diplome") @db.VarChar(50)
+  qualificationAutre  String?  @map("qualification_autre") @db.VarChar(255)
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 

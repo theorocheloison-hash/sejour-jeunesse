@@ -26,4 +26,12 @@ export class CreateAccompagnateurDto {
   @IsOptional()
   @IsIn(['LECTURE', 'EDITION'])
   roleCollaboratif?: 'LECTURE' | 'EDITION';
+
+  @IsOptional()
+  @IsString()
+  diplome?: string;
+
+  @IsOptional()
+  @IsString()
+  qualificationAutre?: string;
 }

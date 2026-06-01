@@ -60,6 +60,8 @@ export default function GestionAutorisationsPage() {
   const [accTelephone, setAccTelephone] = useState('');
   const [accAccesCollaboratif, setAccAccesCollaboratif] = useState(false);
   const [accRoleCollaboratif, setAccRoleCollaboratif] = useState<'LECTURE' | 'EDITION'>('LECTURE');
+  const [accDiplome, setAccDiplome] = useState('');
+  const [accQualificationAutre, setAccQualificationAutre] = useState('');
   const [creatingAcc, setCreatingAcc] = useState(false);
   const [accError, setAccError] = useState<string | null>(null);
   const [copiedAccId, setCopiedAccId] = useState<string | null>(null);
@@ -249,6 +251,8 @@ export default function GestionAutorisationsPage() {
         telephone: accTelephone.trim() || undefined,
         accesCollaboratif: accAccesCollaboratif,
         roleCollaboratif: accAccesCollaboratif ? accRoleCollaboratif : undefined,
+        diplome: accDiplome || undefined,
+        qualificationAutre: accDiplome === 'AUTRE' ? (accQualificationAutre.trim() || undefined) : undefined,
       });
       setAccPrenom('');
       setAccNom('');
@@ -256,6 +260,8 @@ export default function GestionAutorisationsPage() {
       setAccTelephone('');
       setAccAccesCollaboratif(false);
       setAccRoleCollaboratif('LECTURE');
+      setAccDiplome('');
+      setAccQualificationAutre('');
       await loadData();
     } catch {
       setAccError("Erreur lors de l'ajout de l'accompagnateur.");
@@ -504,6 +510,34 @@ export default function GestionAutorisationsPage() {
               >
                 {creatingAcc ? 'Envoi…' : 'Ajouter'}
               </button>
+
+              <div className="sm:col-span-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  value={accDiplome}
+                  onChange={(e) => setAccDiplome(e.target.value)}
+                  className="w-full sm:w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                  aria-label="Diplôme / Qualification"
+                >
+                  <option value="">Diplôme / Qualification (optionnel)</option>
+                  <option value="BAFA">BAFA</option>
+                  <option value="BAFD">BAFD</option>
+                  <option value="BPJEPS">BPJEPS</option>
+                  <option value="DEJEPS">DEJEPS</option>
+                  <option value="DESJEPS">DESJEPS</option>
+                  <option value="CPJEPS">CPJEPS</option>
+                  <option value="PSC1">PSC1</option>
+                  <option value="AUTRE">Autre…</option>
+                </select>
+                {accDiplome === 'AUTRE' && (
+                  <input
+                    type="text"
+                    placeholder="Préciser la qualification"
+                    value={accQualificationAutre}
+                    onChange={(e) => setAccQualificationAutre(e.target.value)}
+                    className="w-full sm:flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
+                  />
+                )}
+              </div>
 
               <div className="sm:col-span-5 flex flex-col gap-2">
                 <label className="flex items-center gap-3 cursor-pointer">

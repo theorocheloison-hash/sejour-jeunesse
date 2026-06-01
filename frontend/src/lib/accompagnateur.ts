@@ -18,6 +18,8 @@ export interface AccompagnateurMission {
   accesCollaboratif?: boolean;
   roleCollaboratif?: string | null;
   userId?: string | null;
+  diplome?: string | null;
+  qualificationAutre?: string | null;
 }
 
 export interface AccompagnateurPublique {
@@ -30,6 +32,8 @@ export interface AccompagnateurPublique {
   createdAt: string;
   accesCollaboratif?: boolean;
   roleCollaboratif?: string | null;
+  diplome?: string | null;
+  qualificationAutre?: string | null;
   sejourId?: string;
   sejour: {
     id: string;
@@ -63,6 +67,8 @@ export interface CreateAccompagnateurDto {
   telephone?: string;
   accesCollaboratif?: boolean;
   roleCollaboratif?: 'LECTURE' | 'EDITION';
+  diplome?: string;
+  qualificationAutre?: string;
 }
 
 export interface SignerAccompagnateurDto {
