@@ -83,6 +83,12 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ## Chantiers récents livrés
 
+### 01/06/2026 — SC4ter + Lot 4A Factur-X
+- SC4ter : organisationId transmis dans InvitationDirecteur (creer() +
+  envoyerADirection()). Le signataire qui s'inscrit est désormais rattaché
+  au bon Membership → getAllSejoursSignataire() source 1 fonctionnelle.
+- Lot 4A : Factur-X EN 16931 livré (voir bloc dédié ci-dessous).
+
 ### 01/06/2026 — Lot 4A conformité facturation (Factur-X EN 16931)
 - **Factur-X EN 16931** : les PDFs factures sont désormais des PDF/A-3b
   avec XML CII D22B embarqué (profil EN 16931). Validé invoiceverify.eu.
@@ -231,8 +237,8 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ### Ce qui manque encore ❌
 
 **Avant visio LMDJ (dans l'ordre) :**
-1. Page `/centre/[id]/claim` — flow "C'est mon centre" depuis le catalogue (fin SC5bis)
-2. SC4ter : `getAllSejoursSignataire()` via Membership, `InvitationCollaboration.organisationCibleId`
+1. ✅ Page `/centre/[id]/claim` — flow "C'est mon centre" depuis le catalogue (fin SC5bis) — livré, vérifié en session
+2. ✅ TERMINÉ 01/06/2026 — SC4ter : `getAllSejoursSignataire()` via Membership (organisationId transmis dans InvitationDirecteur). Reste : `InvitationCollaboration.organisationCibleId`.
 3. SC9 : `StatutDevis` étendu + backfill (badges cohérents sur devis)
 4. Migration `Client` → `RelationCommerciale` (CRM legacy)
 5. `typeContexte HORS_SCOLAIRE` dans `soumettreDemandePublique()`
@@ -275,7 +281,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ### UX restant
 - Invitations parents : 2 parents/tuteurs par enfant (modèle actuel = 1)
-- Flux direction : page publique de signature + boutons dans TabDevisFacturation
+- [x] Flux direction ✅ — page publique /invitation-direction/[token] complète, 3 chemins signature (directe/direction/upload), SC4ter Membership signataire (01/06/2026)
 - SejourHeader : adapter lien retour au rôle de l'utilisateur (mineur)
 
 ### Commercial
