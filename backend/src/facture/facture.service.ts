@@ -11,6 +11,16 @@ import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
+/** Ligne d'un avoir (Lot 3). Quantités/totaux NÉGATIFS, prixUnitaire positif. */
+interface LigneAvoirDto {
+  description: string;
+  quantite: number;       // NÉGATIF — ex. -2
+  prixUnitaire: number;   // positif
+  tva: number;
+  totalHT: number;        // NÉGATIF
+  totalTTC: number;       // NÉGATIF
+}
+
 /**
  * Module facturation (Lot 1). La Facture est un snapshot IMMUABLE émis depuis un Devis :
  * émetteur, destinataire et montants sont figés au moment de l'émission.
@@ -34,7 +44,11 @@ export class FactureService {
    * l'émission de la facture ne doit jamais échouer à cause du PDF.
    */
   private async generateAndStorePdf(
-    facture: Facture & { lignes: LigneFacture[]; versements?: VersementPaiement[] },
+    facture: Facture & {
+      lignes: LigneFacture[];
+      versements?: VersementPaiement[];
+      factureAnnulee?: { numero: string; dateEmission: Date } | null;
+    },
     titreSejour: string,
   ): Promise<string | null> {
     try {
@@ -67,6 +81,7 @@ export class FactureService {
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' } },
+        factureAnnulee: { select: { numero: true, dateEmission: true } },
         devis: {
           include: {
             demande: { include: { sejour: { select: { titre: true } } } },
@@ -392,6 +407,139 @@ export class FactureService {
     return facture;
   }
 
+  /**
+   * Émet un avoir (note de crédit) sur une facture ACOMPTE ou SOLDE existante.
+   * Snapshot émetteur/destinataire copié DIRECTEMENT depuis la facture annulée (déjà figé).
+   * Montants stockés NÉGATIFS en base ; dto.montant est passé positif.
+   */
+  async emettreAvoir(
+    factureAnnuleeId: string,
+    dto: { montant: number; motif: string; lignes: LigneAvoirDto[] },
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Vérifie la propriété (lève si la facture n'appartient pas au centre)
+    await this.chargerFactureProprietaire(factureAnnuleeId, centre.id);
+
+    // Recharge avec lignes + contexte séjour (chargerFactureProprietaire ne renvoie pas les lignes)
+    const factureAnnulee = await this.prisma.facture.findUnique({
+      where: { id: factureAnnuleeId },
+      include: {
+        lignes: true,
+        devis: {
+          select: {
+            id: true,
+            centreId: true,
+            demande: { include: { sejour: { select: { id: true, titre: true } } } },
+            sejourDirect: { select: { id: true, titre: true } },
+          },
+        },
+      },
+    });
+    if (!factureAnnulee) throw new NotFoundException('Facture introuvable');
+
+    // a. Pas d'avoir sur un avoir
+    if (factureAnnulee.typeFacture !== 'ACOMPTE' && factureAnnulee.typeFacture !== 'SOLDE') {
+      throw new ForbiddenException('Un avoir ne peut annuler qu\'une facture d\'acompte ou de solde');
+    }
+    // b. Un seul avoir par facture
+    const avoirExistant = await this.prisma.facture.findUnique({
+      where: { factureAnnuleeId },
+    });
+    if (avoirExistant) {
+      throw new ForbiddenException('Un avoir a déjà été émis pour cette facture');
+    }
+    // c. Montant strictement positif
+    if (!(dto.montant > 0)) {
+      throw new ForbiddenException('Le montant de l\'avoir doit être strictement positif');
+    }
+    // d. Montant <= montant de la facture annulée (arrondi 2 décimales)
+    if (Math.round(dto.montant * 100) > Math.round(factureAnnulee.montantFacture * 100)) {
+      throw new ForbiddenException('Le montant de l\'avoir dépasse le montant de la facture annulée');
+    }
+    // e. Cohérence des lignes (somme |totalTTC| ≈ montant, tolérance ±0,02 €)
+    const sommeTTC = dto.lignes.reduce((acc, l) => acc + l.totalTTC, 0);
+    if (Math.abs(Math.abs(sommeTTC) - dto.montant) > 0.02) {
+      throw new ForbiddenException('Le total des lignes ne correspond pas au montant de l\'avoir');
+    }
+
+    const annee = new Date().getFullYear();
+    const numero = `AV-${annee}-${String(await this.sequence.generer(factureAnnulee.emetteurId, 'AVOIR')).padStart(4, '0')}`;
+
+    // Montants de l'avoir (négatifs)
+    const montantHT = dto.lignes.reduce((acc, l) => acc + l.totalHT, 0);
+    const montantTTC = dto.lignes.reduce((acc, l) => acc + l.totalTTC, 0);
+    const montantTVA = montantTTC - montantHT;
+    const montantFacture = -dto.montant;
+
+    const avoir = await this.prisma.facture.create({
+      data: {
+        devisId: factureAnnulee.devisId,
+        sejourId: factureAnnulee.sejourId,
+        emetteurId: factureAnnulee.emetteurId,
+        numero,
+        typeFacture: 'AVOIR',
+        dateEmission: new Date(),
+        factureAnnuleeId,
+        motifAvoir: dto.motif,
+        // Snapshot copié depuis la facture annulée (déjà figé)
+        emetteurNom: factureAnnulee.emetteurNom,
+        emetteurAdresse: factureAnnulee.emetteurAdresse,
+        emetteurSiret: factureAnnulee.emetteurSiret,
+        emetteurTva: factureAnnulee.emetteurTva,
+        emetteurEmail: factureAnnulee.emetteurEmail,
+        emetteurTel: factureAnnulee.emetteurTel,
+        emetteurIban: null, // un avoir ne génère pas de paiement entrant
+        destinataireNom: factureAnnulee.destinataireNom,
+        destinataireAdresse: factureAnnulee.destinataireAdresse,
+        destinataireSiret: factureAnnulee.destinataireSiret,
+        destinataireEmail: factureAnnulee.destinataireEmail,
+        montantHT,
+        montantTVA,
+        montantTTC,
+        tauxTva: factureAnnulee.tauxTva,
+        montantFacture,
+        montantVerseTotal: 0,
+        acompteVerse: false,
+        conditionsAnnulation: factureAnnulee.conditionsAnnulation,
+        lignes: {
+          create: dto.lignes.map((l) => ({
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.prixUnitaire,
+            tva: l.tva,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+          })),
+        },
+      },
+      include: {
+        lignes: true,
+        versements: true,
+        factureAnnulee: { select: { numero: true, dateEmission: true } },
+      },
+    });
+
+    const titreSejour =
+      factureAnnulee.devis.demande?.sejour?.titre ??
+      factureAnnulee.devis.sejourDirect?.titre ??
+      'Non renseigné';
+
+    // Génération PDF + stockage OVH (fire-and-forget — non bloquant)
+    void this.generateAndStorePdf(avoir, titreSejour);
+
+    await this.loggerActivite(
+      factureAnnulee.sejourId,
+      centre.id,
+      `Avoir ${numero} émis — −${dto.montant.toFixed(2)} € (annule ${factureAnnulee.numero})`,
+      { factureId: avoir.id, factureAnnuleeId, type: 'AVOIR' },
+    );
+
+    return avoir;
+  }
+
   // ── Consultation ──────────────────────────────────────────────────────────
 
   async getFacturesForDevis(devisId: string) {
@@ -400,6 +548,9 @@ export class FactureService {
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' } },
+        // Avoir lié (Lot 3) : permet à l'UI de signaler qu'une facture a été annulée.
+        // factureAnnuleeId + motifAvoir sont des scalaires déjà renvoyés par include.
+        avoirAssocie: { select: { id: true, numero: true, dateEmission: true, montantFacture: true } },
       },
       orderBy: { dateEmission: 'asc' },
     });
@@ -546,6 +697,11 @@ export class FactureService {
       include: { lignes: true, devis: { include: { centre: { select: { mandatFacturationAccepte: true } } } } },
     });
     if (!facture) throw new NotFoundException('Facture introuvable');
+    if (facture.typeFacture === 'AVOIR') {
+      throw new ForbiddenException(
+        'Chorus Pro pour les avoirs (InvoiceTypeCode 381) sera implémenté au Lot 4.',
+      );
+    }
     if (!facture.devis.centre?.mandatFacturationAccepte) {
       throw new ForbiddenException(
         'Mandat de facturation non accepté. Veuillez l\'accepter dans vos paramètres avant de générer des factures Chorus Pro.',

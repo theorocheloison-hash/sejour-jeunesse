@@ -35,6 +35,34 @@ export class FactureController {
     return this.factureService.emettreFactureSolde(body.devisId, user.id, centreId);
   }
 
+  /** POST /factures/avoir — émet un avoir sur une facture existante (ACOMPTE ou SOLDE) */
+  @Post('avoir')
+  @Roles(Role.HEBERGEUR)
+  emettreAvoir(
+    @CurrentUser() user: JwtUser,
+    @Body() body: {
+      factureAnnuleeId: string;
+      montant: number;
+      motif: string;
+      lignes: Array<{
+        description: string;
+        quantite: number;
+        prixUnitaire: number;
+        tva: number;
+        totalHT: number;
+        totalTTC: number;
+      }>;
+    },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.emettreAvoir(
+      body.factureAnnuleeId,
+      { montant: body.montant, motif: body.motif, lignes: body.lignes },
+      user.id,
+      centreId,
+    );
+  }
+
   /** GET /factures/devis/:devisId — factures liées à un devis */
   @Get('devis/:devisId')
   @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)

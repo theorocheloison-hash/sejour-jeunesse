@@ -14,7 +14,7 @@ export class SequenceService {
    * Incrémente atomiquement le compteur (emetteurId, annee courante, typeDoc) et
    * retourne la valeur consommée. Retry simple sur collision P2002 (create concurrent).
    */
-  async generer(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE'): Promise<number> {
+  async generer(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE' | 'AVOIR'): Promise<number> {
     const annee = new Date().getFullYear();
 
     const consommer = () =>
@@ -42,7 +42,7 @@ export class SequenceService {
    * Aperçu du prochain numéro — LECTURE SEULE, ne consomme PAS le compteur.
    * Le numéro réel est attribué par generer() au moment de la création.
    */
-  async apercu(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE'): Promise<number> {
+  async apercu(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE' | 'AVOIR'): Promise<number> {
     const annee = new Date().getFullYear();
     const seq = await this.prisma.sequenceNumero.findUnique({
       where: { emetteurId_annee_typeDoc: { emetteurId, annee, typeDoc } },
