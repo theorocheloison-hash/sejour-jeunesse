@@ -7,6 +7,18 @@ type FactureWithLignesEtendue = Facture & {
   factureAnnulee?: { numero: string; dateEmission: Date } | null;
 };
 
+/**
+ * Reconstitue une adresse lisible pour l'affichage PDF depuis la sérialisation
+ * structurée "adresse||codePostal||ville" (cf. construireEmetteur/Destinataire).
+ * Fallback : adresse brute (anciennes factures / champ pro libre).
+ */
+function formatAdressePdf(raw: string | null): string | null {
+  if (!raw) return null;
+  const parts = raw.split('||');
+  if (parts.length === 3) return `${parts[0]}, ${parts[1]} ${parts[2]}`;
+  return raw;
+}
+
 /** Mappe une Facture (snapshot figé + ses lignes) vers les props du template PDF. */
 export function mapFactureToPdfProps(facture: FactureWithLignesEtendue, titreSejour: string): FacturePDFProps {
   // dateEcheance = dateEmission + 30 jours
@@ -19,14 +31,14 @@ export function mapFactureToPdfProps(facture: FactureWithLignesEtendue, titreSej
     dateEmission: facture.dateEmission.toISOString(),
     dateEcheance: dateEcheance.toISOString(),
     emetteurNom: facture.emetteurNom,
-    emetteurAdresse: facture.emetteurAdresse,
+    emetteurAdresse: formatAdressePdf(facture.emetteurAdresse),
     emetteurSiret: facture.emetteurSiret,
     emetteurTva: facture.emetteurTva,
     emetteurEmail: facture.emetteurEmail,
     emetteurTel: facture.emetteurTel,
     emetteurIban: facture.emetteurIban,
     destinataireNom: facture.destinataireNom,
-    destinataireAdresse: facture.destinataireAdresse,
+    destinataireAdresse: formatAdressePdf(facture.destinataireAdresse),
     destinataireSiret: facture.destinataireSiret,
     destinataireEmail: facture.destinataireEmail,
     titreSejour: titreSejour || 'Non renseigné',
