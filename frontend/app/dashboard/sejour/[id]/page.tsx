@@ -76,6 +76,7 @@ import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
 import type { BudgetPDFProps } from '@/src/components/pdf/BudgetPDFButton';
 import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePDFButton';
+import PreparationTamPDFButton from '@/src/components/pdf/PreparationTamPDFButton';
 import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
 import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
@@ -3106,13 +3107,16 @@ export default function CollaborationPage() {
               return (
                 <>
                   {/* Boutons PDF */}
-                  <div className="flex justify-end" data-print-hide>
+                  <div className="flex justify-end gap-2 flex-wrap" data-print-hide>
                     <ProjetPedagogiquePDFButton
                       data={d}
                       objectifsPedago={objectifsPedago}
                       lienProgrammes={lienProgrammes}
                       filename={`projet-pedagogique-${d.titre?.toLowerCase().replace(/\s+/g, '-') ?? 'sejour'}.pdf`}
                     />
+                    {d.typeContexte === 'HORS_SCOLAIRE' && (
+                      <PreparationTamPDFButton data={d} sejourId={id} />
+                    )}
                   </div>
 
                   {/* En-tête impression */}

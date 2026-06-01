@@ -339,6 +339,8 @@ export class SejourService {
           select: {
             id: true, prenom: true, nom: true, email: true,
             telephone: true, signeeAt: true, moyenTransport: true,
+            diplome: true,             // TAM Phase 1
+            qualificationAutre: true,  // TAM Phase 1
           },
           orderBy: { createdAt: 'asc' },
         },

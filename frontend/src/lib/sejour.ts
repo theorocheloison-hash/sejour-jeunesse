@@ -241,6 +241,8 @@ export interface DossierPedagogiqueData {
     telephone: string | null;
     signeeAt: string | null;
     moyenTransport: string | null;
+    diplome?: string | null;           // TAM Phase 1
+    qualificationAutre?: string | null; // TAM Phase 1
   }[];
   planningActivites: {
     id: string;
@@ -287,6 +289,13 @@ export interface DossierPedagogiqueData {
     }[];
   }[];
   _count: { inscriptions: number; autorisations: number };
+  // Champs ACM — TAM Phase 1
+  typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE' | null;
+  ageMin?: number | null;
+  ageMax?: number | null;
+  moinsde6ans?: boolean | null;
+  typeAccueilACM?: string | null;
+  projetEducatif?: string | null;
 }
 
 export async function getDossierPedagogique(sejourId: string): Promise<DossierPedagogiqueData> {
