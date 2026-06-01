@@ -298,6 +298,21 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ### Facturation abonnements LIAVO → hébergeur (~août-sept 2026)
 Abonnements payants prévus ~dans 3 mois, AUCUNE facture émise à ce jour. Réutilise le socle Facture du chantier conformité (entité immuable, compteur séquentiel, Factur-X). Mécanique propre : récurrence mensuelle/annuelle, Stripe, TVA SaaS 20%, relances. NON URGENT.
 
+### Intégration TAM — Déclaration accueils de mineurs
+
+**Phase 1 (en cours) — PDF de préparation TAM**
+Génération d'un PDF récapitulatif depuis les données LIAVO (séjour, encadrants,
+hébergement, projet éducatif, tranches d'âge) que l'organisateur utilise comme
+support pour remplir manuellement la téléprocédure TAM.
+Prérequis : champ `qualification` sur AccompagnateurMission.
+
+**Phase 2 (6-12 mois) — Intégration automatique TAM**
+Convention avec la DJEPVA (Direction de la Jeunesse et de la Vie Associative)
+pour transmission automatique des déclarations ACM depuis LIAVO vers TAM.
+Condition : volume d'hébergeurs actifs suffisant pour justifier la démarche
+administrative côté ministère. Pas d'API publique TAM → convention obligatoire.
+Différenciateur fort sur le marché ACM une fois obtenu.
+
 ### Multi-centre (après conformité)
 Onboarding /centre/[id]/claim + facturation multi-centre. Levier commercial fort (Yves Massard 3 centres, Quentin Dervaux/UFCV national).
 
