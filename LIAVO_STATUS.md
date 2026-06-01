@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 31/05/2026 (mode paiement versements + fix planning DIRECT + fix notifier-planning)
+> Dernière mise à jour : 01/06/2026 (Lot 3 conformité facturation — avoir)
 
 ---
 
@@ -100,6 +100,25 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - **Diagnostic prod** : 0 FACTURE_SOLDE, 1 FACTURE_ACOMPTE (test). Aucun montant corrompu. Migration DDL seule, pas de backfill.
 - **Logo retour dashboard** : vérifié fonctionnel tous rôles (organisateur, signataire, hébergeur via DashboardShell). `ROLE_DASHBOARD_PATH` déjà en place. Point fermé.
 
+### 01/06/2026 — Lot 3 conformité facturation (avoir)
+- **Annulation par avoir** : 4 cas couverts (A : NON_RETENU sans FA ;
+  B : avoir obligatoire si FA émise non versée ; C : avoir après acompte versé ;
+  D : avoir partiel → FS à 0 € débloquée).
+- **Séquence AVOIR** : numérotation indépendante AV-{annee}-{NNNN} via SequenceService.
+- **Entité Facture** : 2 nouveaux champs (facture_annulee_id @unique, motif_avoir).
+  Relation 1-1 auto-référencée FactureAvoir. Index unique partiel en base.
+- **Backend** : emettreAvoir() dans FactureService, annulerDevis() dans DevisService,
+  routes POST /factures/avoir + POST /devis/:id/annuler (HEBERGEUR).
+  emettreFactureSolde() débloqué après avoir (acompteNet = acompte + avoir.montantFacture).
+  getChorusXml() : guard AVOIR + TODO Lot 4 (code UBL 381).
+- **PDF avoir** : template dédié (montants négatifs, "Net à déduire", sans IBAN,
+  mention légale adaptée, "Annule et remplace [numero] du [date]").
+- **Frontend** : modale avoir avec lignes pré-remplies éditables (A+),
+  boutons contextuels dans TabDevisFacturation, affichage pipeline rouge.
+  Types Facture étendus (AVOIR), helpers getFactureAvoir(), emettreAvoir(),
+  annulerDevis() dans devis.ts. clients.ts mis à jour.
+- Commits : 98fea6a (SP1 DDL) · 6242209 (SP2 service+PDF) · 9bda24c (SP3 frontend)
+
 ### 31/05/2026 — Lot 2 conformité facturation (PDF serveur + OVH)
 
 - **FacturePDF.tsx** côté backend (NestJS/react-pdf) : template complet (mentions légales art. L441-10, pénalités 3× taux légal, escompte néant, dateEcheance +30j, IBAN/SIRET/TVA conditionnels).
@@ -143,7 +162,10 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - **Lot 0** ✅ TERMINÉ 30/05/2026 — compteur séquentiel + fix montantAcompte.
 - **Lot 1** ✅ TERMINÉ 30/05/2026 — Entité `Facture` immuable (snapshot lignes/montants/émetteur/destinataire) + scission module `facture/` + bascule frontend.
 - **Lot 2** ✅ TERMINÉ 31/05/2026 — Génération PDF facture côté serveur (NestJS/react-pdf), stockage OVH, URL permanente `Facture.pdfUrl`. Fire-and-forget non bloquant. Routes `GET /factures/:id/pdf` + `POST /factures/:id/regenerer-pdf`. Validé en prod (FA-2026-0001). Point ouvert : SIRET Sauvageon = 9 chiffres (SIREN) → vérifier champ `siret` centre.
-- **Lot 3** — Annulation par avoir (jamais de suppression).
+- **Lot 3** ✅ TERMINÉ 01/06/2026 — Annulation par avoir (jamais de suppression).
+  - Cas A/B/C/D couverts. Séquence AV- indépendante. PDF avoir conforme.
+  - Frontend : modale lignes éditables (Option A+). Boutons contextuels pipeline.
+  - TODO Lot 4 tracé dans getChorusXml() : InvoiceTypeCode 381 pour avoirs.
 - **Lot 4** — Factur-X EN 16931 (CII embarqué dans PDF/A-3) + dépôt Chorus Pro via PISTE.
 
 **À garder en tête :** `getChorusXml` actuel génère de l'UBL EN 16931 (réutilisable comme base) mais Factur-X exige du **CII** embarqué dans un **PDF/A-3** ; React-PDF ne produit pas du PDF/A-3 nativement → lib dédiée à trancher au Lot 4.
@@ -226,7 +248,7 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - Lot 0 : compteur séquentiel + fix montantAcompte ✅ TERMINÉ 30/05/2026
 - Lot 1 : entité Facture immuable ✅ TERMINÉ 30/05/2026
 - Lot 2 : PDF facture serveur + OVH ✅ TERMINÉ 31/05/2026
-- Lot 3 : annulation par avoir (~1j)
+- Lot 3 : annulation par avoir ✅ TERMINÉ 01/06/2026
 - Lot 4 : Factur-X EN16931 + dépôt Chorus Pro via PISTE (~2-3j)
 
 ### UX restant

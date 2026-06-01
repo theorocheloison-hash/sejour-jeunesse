@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 31/05/2026 — Fixes produit : mode paiement versements + fix planning DIRECT + fix notifier-planning
+> Dernière mise à jour : 01/06/2026 — Lot 3 conformité facturation (avoir)
 
 ## RÉFÉRENCE SQL — NOMS DE TABLES POSTGRESQL
 > Lire cette section en premier avant toute requête SQL sur Scalingo.
@@ -383,7 +383,7 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
   - fire-and-forget non bloquant, route GET /factures/:id/pdf + POST /factures/:id/regenerer-pdf
   - Validé en prod : FA-2026-0001 généré et accessible sur OVH
   - Point ouvert : SIRET Sauvageon = 9 chiffres (SIREN) → vérifier champ siret centre en prod
-- [ ] Lot 3 — Annulation par avoir
+- [x] Lot 3 ✅ — Annulation par avoir (01/06/2026)
 - [ ] Lot 4 — Factur-X EN16931 (PDF/A-3 + XML CII) + dépôt Chorus Pro via PISTE
 
 ### Dette technique
@@ -439,3 +439,10 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - budgetData partagé entre onglets → passer en props, pas re-fetcher
 - Debounce textarea : clearTimeout dans cleanup useEffect + au démontage
 - deriveClientStatus : mémoïser 1x par client pour éviter N×M recalculs dans le kanban
+- Avoir = typeFacture 'AVOIR' sur entité Facture (VarChar, pas d'ALTER TYPE enum)
+- montantFacture négatif sur l'avoir (−dto.montant) ; acompteNet = acompte + avoir.montantFacture dans emettreFactureSolde
+- Relation 1-1 auto-référencée Prisma : @unique obligatoire côté FK + UNIQUE INDEX partiel en base (WHERE NOT NULL)
+- PDF avoir : emetteurIban: null (pas de coordonnées bancaires sur un avoir)
+- Lignes avoir pré-remplies depuis FA (quantites/totaux négatifs) ; frontend valide sum(lignes) ≈ montant ±0.02 €
+- getChorusXml() : guard typeFacture AVOIR → ForbiddenException + TODO Lot 4 (code UBL 381, pas 380/386)
+- annulerDevis() : route POST /devis/:id/annuler HEBERGEUR uniquement — ne pas ouvrir PATCH /:id/statut à HEBERGEUR (logique collab incompatible)
