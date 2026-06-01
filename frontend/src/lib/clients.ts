@@ -98,7 +98,7 @@ export interface DevisClient {
   createdAt: string;
   factures?: Array<{
     id: string;
-    typeFacture: 'ACOMPTE' | 'SOLDE';
+    typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR';
     numero: string;
     montantFacture: number;
     acompteVerse: boolean;
