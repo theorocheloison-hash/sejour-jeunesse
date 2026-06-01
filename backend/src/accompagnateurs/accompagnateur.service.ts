@@ -35,6 +35,8 @@ export class AccompagnateurService {
         telephone: dto.telephone ?? null,
         accesCollaboratif: dto.accesCollaboratif ?? false,
         roleCollaboratif: dto.accesCollaboratif ? (dto.roleCollaboratif ?? 'LECTURE') : null,
+        diplome: dto.diplome ?? null,
+        qualificationAutre: dto.qualificationAutre ?? null,
       },
     });
 
@@ -122,6 +124,8 @@ export class AccompagnateurService {
       createdAt: accompagnateur.createdAt,
       accesCollaboratif: accompagnateur.accesCollaboratif,
       roleCollaboratif: accompagnateur.roleCollaboratif,
+      diplome: accompagnateur.diplome,
+      qualificationAutre: accompagnateur.qualificationAutre,
       sejourId: accompagnateur.sejourId,
       sejour: {
         id: sejour.id,
