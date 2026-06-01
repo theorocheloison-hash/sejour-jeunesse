@@ -2,16 +2,16 @@
 > Dernière mise à jour : 01/06/2026 — TAM Phase 1 + qualifications encadrants
 
 ## COMMITS NON POUSSÉS
-- **31bb80f** : feat(tam): PDF préparation TAM Phase 1
-- (+ le commit docs de clôture de session, une fois créé)
+- **63f48e6** : refactor(statut): suppression APPROVED et REJECTED
+- (+ le commit docs de nettoyage StatutSejour, une fois créé)
 
-> Note : `5488c2e` (feat(accompagnateur): champ qualification TAM) est **déjà poussé** sur origin/main.
+> Note : les commits de la session précédente (jusqu'à `cda574d` inclus) sont **déjà poussés** sur origin/main.
 
 ## PROCHAINS CHANTIERS (ordre)
-1. Push commits de la session (SC4ter + TAM + docs) — Théo valide et pousse
-2. SC9 badges devis cohérents (~0.5j)
-3. HORS_SCOLAIRE dans soumettreDemandePublique() formulaire public (~0.5j)
-4. DECLARE_TAM backend stub → implémentation réelle (~2h)
+1. Push commits de la session — Théo valide et pousse
+2. DECLARE_TAM backend implémentation (~2h)
+3. SC9 badges devis cohérents (~0.5j)
+4. HORS_SCOLAIRE dans formulaire demande publique (~0.5j)
 5. Invitations parents 2 tuteurs (~1j)
 6. DevisLibre DROP tables + retirer model Prisma (~0.5j)
 
@@ -482,3 +482,5 @@ JAMAIS "directeur" dans l'interface. Utiliser "direction" (neutre) ou "signatair
 - getDossierPedagogique() : pas de select restrictif sur le séjour principal → les champs ACM (ageMin/Max, moinsde6ans, typeAccueilACM, projetEducatif) arrivent via { ...sejour } sans changement backend
 - TAM : pas d'API publique → PDF de préparation Phase 1, convention DJEPVA Phase 2. Les deux phases sont documentées en roadmap.
 - PDF conditionnel HORS_SCOLAIRE : utiliser d.typeContexte (state dossier) pas sejour?.typeContexte (variable non exposée dans page.tsx séjour)
+- Supprimer une valeur d'enum PostgreSQL : impossible via DROP VALUE → rename enum → create nouveau → migrate colonne (avec DROP/SET DEFAULT si colonne a @default) → drop ancien. Toujours vérifier les lignes existantes en base avant (SELECT statut, COUNT(*) GROUP BY statut).
+- OPTION manquait dans le type StatutSejour frontend (incohérence pré-existante). Toujours vérifier la cohérence front/back sur les enums lors d'un nettoyage.
