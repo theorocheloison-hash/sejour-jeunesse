@@ -899,11 +899,17 @@ model Facture {
   // Conditions
   conditionsAnnulation String? @map("conditions_annulation") @db.Text
   pdfUrl           String?  @map("pdf_url") @db.VarChar(500)
+  // Avoir (note de crédit) — Lot 3
+  factureAnnuleeId String?  @unique @map("facture_annulee_id") @db.Uuid
+  motifAvoir       String?  @map("motif_avoir") @db.Text
   createdAt        DateTime @default(now()) @map("created_at")
 
   devis            Devis    @relation(fields: [devisId], references: [id])
   factureAcompte   Facture? @relation("FactureAcompte", fields: [factureAcompteId], references: [id])
   facturesSolde    Facture[] @relation("FactureAcompte")
+  // Relation auto-référencée 1-1 : facture annulée par cet avoir
+  factureAnnulee   Facture?  @relation("FactureAvoir", fields: [factureAnnuleeId], references: [id])
+  avoirAssocie     Facture?  @relation("FactureAvoir")
   lignes           LigneFacture[]
   versements       VersementPaiement[]
 
