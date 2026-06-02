@@ -429,16 +429,16 @@ export default function ModifierDevisPage() {
                       );
                       if (results.length === 0) return null;
                       return (
-                        <div className="absolute left-0 top-8 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute left-0 top-8 z-50 w-96 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                           {results.map(p => (
                             <button
                               key={p.id}
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => selectProduitForLigne(l.key, p)}
-                              className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                              className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                             >
-                              <span className="text-sm text-gray-900 truncate">{p.nom}</span>
+                              <span className="text-sm text-gray-900 line-clamp-2">{p.nom}</span>
                               <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                             </button>
                           ))}
@@ -501,19 +501,19 @@ export default function ModifierDevisPage() {
                           onChange={(e) => setCatalogueSearch(e.target.value)}
                           onBlur={() => setTimeout(() => setShowCatalogueSearch(false), 150)}
                           placeholder="Rechercher un produit..."
-                          className="w-64 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                          className="w-96 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                         />
                         {catalogueSearch.length >= 2 && (() => {
                           const results = catalogue.filter(p =>
                             p.nom.toLowerCase().includes(catalogueSearch.toLowerCase())
                           );
                           if (results.length === 0) return (
-                            <div className="absolute left-0 top-9 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg px-3 py-2 text-xs text-gray-400">
+                            <div className="absolute left-0 top-9 z-50 w-96 bg-white rounded-xl border border-gray-200 shadow-lg px-3 py-2 text-xs text-gray-400">
                               Aucun produit trouvé
                             </div>
                           );
                           return (
-                            <div className="absolute left-0 top-9 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg max-h-60 overflow-y-auto">
+                            <div className="absolute left-0 top-9 z-50 w-96 bg-white rounded-xl border border-gray-200 shadow-lg max-h-60 overflow-y-auto">
                               {results.map(p => (
                                 <button
                                   key={p.id}
@@ -525,9 +525,9 @@ export default function ModifierDevisPage() {
                                     setCatalogueSearch('');
                                     setShowCatalogueSearch(false);
                                   }}
-                                  className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                                  className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                                 >
-                                  <span className="text-sm text-gray-900">{p.nom}</span>
+                                  <span className="text-sm text-gray-900 line-clamp-2">{p.nom}</span>
                                   <span className="text-xs text-gray-500">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                                 </button>
                               ))}

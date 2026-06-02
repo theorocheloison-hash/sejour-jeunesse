@@ -200,7 +200,7 @@ function NouveauDevisContent() {
   const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
     setLignes((prev) => prev.map((l) =>
       l.key === key
-        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireHT), tva: String(produit.tva) }
+        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva) }
         : l
     ));
     setActiveDescriptionKey(null);
@@ -517,16 +517,16 @@ function NouveauDevisContent() {
                       );
                       if (results.length === 0) return null;
                       return (
-                        <div className="absolute left-0 top-8 z-50 w-64 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute left-0 top-8 z-50 w-96 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
                           {results.map(p => (
                             <button
                               key={p.id}
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => selectProduitForLigne(l.key, p)}
-                              className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                              className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                             >
-                              <span className="text-sm text-gray-900 truncate">{p.nom}</span>
+                              <span className="text-sm text-gray-900 line-clamp-2">{p.nom}</span>
                               <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                             </button>
                           ))}
@@ -580,7 +580,7 @@ function NouveauDevisContent() {
                     Depuis le catalogue
                   </button>
                   {showCatalogueDropdown && (
-                    <div className="absolute left-0 top-8 z-30 w-80 bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col" style={{ maxHeight: '400px' }}>
+                    <div className="absolute left-0 top-8 z-30 w-96 bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col" style={{ maxHeight: '400px' }}>
                       {/* Champ de recherche fixe en haut */}
                       <div className="p-2 border-b border-gray-100 shrink-0" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 bg-gray-50">
@@ -632,7 +632,7 @@ function NouveauDevisContent() {
                                 className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                               >
                                 <div className="min-w-0">
-                                  <p className="text-sm text-gray-900 truncate">{p.nom}</p>
+                                  <p className="text-sm text-gray-900 line-clamp-2">{p.nom}</p>
                                   <p className="text-xs text-gray-400">{labels[p.type] ?? p.type}</p>
                                 </div>
                                 <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
@@ -660,9 +660,9 @@ function NouveauDevisContent() {
                                       setShowCatalogueDropdown(false);
                                       setCatalogueSearch('');
                                     }}
-                                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
+                                    className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
                                   >
-                                    <span className="text-sm text-gray-900 truncate">{p.nom}</span>
+                                    <span className="text-sm text-gray-900 line-clamp-2">{p.nom}</span>
                                     <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
                                   </button>
                                 ))}
