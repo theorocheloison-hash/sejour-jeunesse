@@ -6,6 +6,8 @@ import { getMesSejoursPlanning, createSejourDirect } from '@/src/lib/collaborati
 import type { SejourPlanning } from '@/src/lib/collaboration';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
+import { getMesClients } from '@/src/lib/clients';
+import type { Client } from '@/src/lib/clients';
 import api from '@/src/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -796,6 +798,15 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Bug 2 — type de client : Particulier (mariage, anniversaire…) ou Professionnel (SIRET)
+  const [clientType, setClientType] = useState<'PARTICULIER' | 'PROFESSIONNEL'>(
+    natureSejour === 'EVENEMENT' ? 'PARTICULIER' : 'PROFESSIONNEL'
+  );
+
+  // Bug 3 — autocomplétion du contact depuis les clients existants du CRM
+  const [crmClients, setCrmClients] = useState<Client[]>([]);
+  const [showContactSuggest, setShowContactSuggest] = useState(false);
+
   const [structNom, setStructNom] = useState('');
   const [structVille, setStructVille] = useState('');
   const [structCodePostal, setStructCodePostal] = useState('');
@@ -810,6 +821,11 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
       if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
       if (structAbortRef.current) structAbortRef.current.abort();
     };
+  }, []);
+
+  // Bug 3 — charger les clients du CRM pour l'autocomplétion du contact
+  useEffect(() => {
+    getMesClients().then(setCrmClients).catch(() => {});
   }, []);
 
   const fireStructSearch = (nom: string, ville: string, cp: string) => {
@@ -843,6 +859,51 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     setStructVille('');
     setStructCodePostal('');
     setStructResults([]);
+  };
+
+  // Bug 3 — suggestions de contacts existants (CRM) filtrées sur le nom saisi
+  const contactSuggestions = (() => {
+    const q = normalise(form.clientNom.trim());
+    if (q.length < 2) return [];
+    const seen = new Set<string>();
+    const out: { prenom: string; nom: string; email: string; telephone: string; organisation: string | null }[] = [];
+    const push = (s: { prenom: string; nom: string; email: string; telephone: string; organisation: string | null }) => {
+      const key = `${normalise(s.prenom)}|${normalise(s.nom)}|${s.email.toLowerCase()}`;
+      if (!s.nom && !s.prenom) return;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(s);
+    };
+    for (const c of crmClients) {
+      const isParticulier = c.type === 'PARTICULIER';
+      const organisation = isParticulier ? null : c.nom;
+      // Un particulier est souvent stocké en tant que Client (nom = nom de famille)
+      if (isParticulier) {
+        push({ prenom: '', nom: c.nom, email: c.email ?? '', telephone: c.telephone ?? '', organisation: null });
+      }
+      for (const ct of c.contacts ?? []) {
+        push({ prenom: ct.prenom ?? '', nom: ct.nom ?? '', email: ct.email ?? '', telephone: ct.telephone ?? '', organisation });
+      }
+    }
+    return out
+      .filter(s => normalise(`${s.prenom} ${s.nom}`).includes(q) || normalise(s.nom).includes(q))
+      .slice(0, 8);
+  })();
+
+  const selectContact = (s: { prenom: string; nom: string; email: string; telephone: string; organisation: string | null }) => {
+    setForm(f => ({
+      ...f,
+      clientNom: s.nom,
+      clientPrenom: s.prenom || f.clientPrenom,
+      clientEmail: s.email || f.clientEmail,
+      clientTelephone: s.telephone || f.clientTelephone,
+    }));
+    // Contact rattaché à une structure → bascule en mode Professionnel et pré-sélectionne l'organisation
+    if (s.organisation) {
+      setClientType('PROFESSIONNEL');
+      setSelectedOrg({ nom: s.organisation, adresse: null, ville: null });
+    }
+    setShowContactSuggest(false);
   };
 
   const sousTypes = natureSejour === 'SEJOUR' ? SOUS_TYPES_SEJOUR : SOUS_TYPES_EVENEMENT;
@@ -929,10 +990,27 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
           </div>
 
           <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs font-semibold text-gray-700 mb-3">{labelContact}</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">{labelContact}</p>
+            {/* Bug 2 — choix explicite Particulier / Professionnel */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => { setClientType('PARTICULIER'); clearStruct(); }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${clientType === 'PARTICULIER' ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              >
+                👤 Particulier
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientType('PROFESSIONNEL')}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${clientType === 'PROFESSIONNEL' ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              >
+                🏢 Professionnel (SIRET)
+              </button>
+            </div>
           </div>
 
-          {!selectedOrg ? (
+          {clientType === 'PROFESSIONNEL' && (!selectedOrg ? (
             <div className="space-y-2">
               <p className="text-xs text-gray-400">Renseignez les 3 champs pour trouver plus facilement la structure.</p>
               <div className="grid grid-cols-3 gap-2">
@@ -968,13 +1046,37 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
               </div>
               <button type="button" onClick={clearStruct} className="text-xs text-red-500 hover:underline">Changer</button>
             </div>
-          )}
+          ))}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-medium text-gray-700 mb-1">Nom du contact</label>
-              <input type="text" value={form.clientNom} onChange={set('clientNom')}
+              <input
+                type="text"
+                autoComplete="off"
+                value={form.clientNom}
+                onChange={e => { setForm(f => ({ ...f, clientNom: e.target.value })); setShowContactSuggest(true); }}
+                onFocus={() => setShowContactSuggest(true)}
+                onBlur={() => setTimeout(() => setShowContactSuggest(false), 150)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              {/* Bug 3 — suggestions de clients existants du CRM */}
+              {showContactSuggest && contactSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
+                  {contactSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => selectContact(s)}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                    >
+                      <span className="font-medium text-gray-900">{`${s.prenom} ${s.nom}`.trim()}</span>
+                      {s.organisation && <span className="text-gray-400"> — {s.organisation}</span>}
+                      {s.email && <span className="block text-[11px] text-gray-400">{s.email}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
