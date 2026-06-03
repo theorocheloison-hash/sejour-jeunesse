@@ -127,7 +127,117 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notes', label: 'Notes & suivi' },
 ];
 
-const CATEGORIES_COMPL = ['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
+/**
+ * Carte d'invitation de l'organisateur (séjour DIRECT) — partagée par les onglets
+ * Messages et Journal. Affiche l'état « invitation en attente » (anti-spam) avec
+ * Renvoyer / Modifier l'email, sinon un formulaire d'invitation.
+ */
+function InviteOrganisateurCard({
+  sejourId,
+  pending,
+  title,
+  subtitle,
+  icon,
+}: {
+  sejourId: string;
+  pending: { email: string; createdAt: string } | null;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const envoyer = async (target: string) => {
+    const value = target.trim();
+    if (!value) return;
+    setSending(true);
+    setError(null);
+    try {
+      await inviterOrganisateurDirect(sejourId, value);
+      setSentTo(value);
+      setShowForm(false);
+    } catch {
+      setError("Erreur lors de l'envoi de l'invitation.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // « Déjà invité » : on vient d'envoyer (sentTo) OU une invitation est en attente côté serveur.
+  const inviteEmail = sentTo ?? pending?.email ?? null;
+  const inviteDate = sentTo ? null : pending?.createdAt ?? null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+        {icon}
+      </div>
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
+      <p className="text-xs text-gray-500 mb-4">{subtitle}</p>
+
+      {inviteEmail && !showForm ? (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs text-gray-600">
+            Invitation envoyée à <strong>{inviteEmail}</strong>
+            {inviteDate ? ` le ${fmtDate(inviteDate)}` : ''}.
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => envoyer(inviteEmail)}
+              disabled={sending}
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {sending ? 'Envoi…' : 'Renvoyer'}
+            </button>
+            <button
+              onClick={() => { setShowForm(true); setEmail(inviteEmail); }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Modifier l&apos;email
+            </button>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+      ) : !showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+        >
+          Inviter l&apos;organisateur
+        </button>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@organisateur.fr"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            />
+            <button
+              onClick={() => envoyer(email)}
+              disabled={sending || !email.trim()}
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {sending ? 'Envoi…' : 'Envoyer'}
+            </button>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CATEGORIES_COMPL =['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
 const SOURCES_RECETTES = ['Participation familles', 'Subvention collectivité', 'FSE / MDL', 'Ressources établissement', 'Don association', 'Autre'];
 
 const TYPE_DOC_OPTIONS: { value: TypeDocumentSejour; label: string }[] = [
@@ -488,11 +598,6 @@ export default function CollaborationPage() {
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Invitation organisateur
-  const [showInviteOrga, setShowInviteOrga] = useState(false);
-  const [inviteOrgaEmail, setInviteOrgaEmail] = useState('');
-  const [inviteOrgaSending, setInviteOrgaSending] = useState(false);
-  const [inviteOrgaSuccess, setInviteOrgaSuccess] = useState(false);
-
   // ── Tracking visite onglet (notifications hébergeur) ────────
   useEffect(() => {
     const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
@@ -609,6 +714,18 @@ export default function CollaborationPage() {
       setSejour(data);
       getAccompagnateursBySejour(id).then(setAccompagnateurs).catch(() => {});
     }).catch(() => setError('Impossible de charger les informations du séjour.'));
+  }, [id, user]);
+
+  // Bascule DIRECT → COLLABORATIF : si l'organisateur accepte l'invitation pendant
+  // que l'onglet reste ouvert, on rafraîchit les infos au retour de focus pour que
+  // l'écran d'invitation laisse place à la vraie messagerie (modeGestion change).
+  useEffect(() => {
+    if (!id || !user) return;
+    const onFocus = () => {
+      getSejourCollabInfo(id).then(setSejour).catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [id, user]);
 
   useEffect(() => {
@@ -1177,23 +1294,22 @@ export default function CollaborationPage() {
                 )
             )
             .filter((t) => {
-              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants')) return false;
+              // Journal masqué pour tout EVENEMENT (quel que soit le mode de gestion).
+              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants' || t.key === 'journal')) return false;
               if (isDirect && (t.key === 'budget' || t.key === 'projet')) return false;
               return true;
             })
             .map((t) => {
-              const isLockedTab = isDirect && (t.key === 'messages' || t.key === 'journal');
               const label = t.key === 'planning' && isEvenement ? 'Programme' : t.label;
               return (
                 <button
                   key={t.key}
-                  onClick={() => { if (isLockedTab) return; setTab(t.key); }}
-                  disabled={isLockedTab}
+                  onClick={() => setTab(t.key)}
                   className={`py-3 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.key
                       ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
-                  } ${isLockedTab ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  }`}
                 >
                   {label}
                 </button>
@@ -1224,54 +1340,17 @@ export default function CollaborationPage() {
 
         {/* ── Messages ─── */}
         {tab === 'messages' && isDirect && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+          <InviteOrganisateurCard
+            sejourId={id}
+            pending={sejour?.invitationCollab ?? null}
+            title="Messagerie"
+            subtitle="Invitez l'organisateur à rejoindre l'espace collaboratif pour échanger des messages."
+            icon={
               <svg className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
-            </div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Messagerie</h3>
-            <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur à collaborer pour échanger des messages.</p>
-            <div className="flex items-center justify-center gap-2">
-              {!showInviteOrga ? (
-                <button
-                  onClick={() => setShowInviteOrga(true)}
-                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
-                >
-                  Inviter l&apos;organisateur
-                </button>
-              ) : inviteOrgaSuccess ? (
-                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                  ✅ Invitation envoyée à {inviteOrgaEmail}
-                </p>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="email"
-                    value={inviteOrgaEmail}
-                    onChange={e => setInviteOrgaEmail(e.target.value)}
-                    placeholder="email@organisateur.fr"
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
-                  <button
-                    onClick={async () => {
-                      if (!inviteOrgaEmail.trim()) return;
-                      setInviteOrgaSending(true);
-                      try {
-                        await inviterOrganisateurDirect(id, inviteOrgaEmail.trim());
-                        setInviteOrgaSuccess(true);
-                      } catch { setMutationError('Erreur lors de l\'envoi de l\'invitation'); }
-                      finally { setInviteOrgaSending(false); }
-                    }}
-                    disabled={inviteOrgaSending || !inviteOrgaEmail.trim()}
-                    className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {inviteOrgaSending ? 'Envoi…' : 'Envoyer'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+            }
+          />
         )}
 
         {tab === 'messages' && !isDirect && (
@@ -2481,54 +2560,17 @@ export default function CollaborationPage() {
 
         {/* ── Journal ─── */}
         {tab === 'journal' && isDirect && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+          <InviteOrganisateurCard
+            sejourId={id}
+            pending={sejour?.invitationCollab ?? null}
+            title="Journal de séjour"
+            subtitle="Invitez l'organisateur à rejoindre l'espace collaboratif pour publier dans le journal."
+            icon={
               <svg className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
               </svg>
-            </div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Journal de séjour</h3>
-            <p className="text-xs text-gray-500 mb-4">Invitez l&apos;organisateur pour publier dans le journal du séjour.</p>
-            <div className="flex items-center justify-center gap-2">
-              {!showInviteOrga ? (
-                <button
-                  onClick={() => setShowInviteOrga(true)}
-                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
-                >
-                  Inviter l&apos;organisateur
-                </button>
-              ) : inviteOrgaSuccess ? (
-                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                  ✅ Invitation envoyée à {inviteOrgaEmail}
-                </p>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="email"
-                    value={inviteOrgaEmail}
-                    onChange={e => setInviteOrgaEmail(e.target.value)}
-                    placeholder="email@organisateur.fr"
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
-                  <button
-                    onClick={async () => {
-                      if (!inviteOrgaEmail.trim()) return;
-                      setInviteOrgaSending(true);
-                      try {
-                        await inviterOrganisateurDirect(id, inviteOrgaEmail.trim());
-                        setInviteOrgaSuccess(true);
-                      } catch { setMutationError('Erreur lors de l\'envoi de l\'invitation'); }
-                      finally { setInviteOrgaSending(false); }
-                    }}
-                    disabled={inviteOrgaSending || !inviteOrgaEmail.trim()}
-                    className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {inviteOrgaSending ? 'Envoi…' : 'Envoyer'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+            }
+          />
         )}
 
         {tab === 'journal' && !isDirect && (

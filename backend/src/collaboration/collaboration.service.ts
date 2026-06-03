@@ -95,8 +95,23 @@ export class CollaborationService {
         hebergementSelectionne: { select: { id: true, nom: true, ville: true, userId: true } },
       },
     });
+    if (!full) return full;
 
-    return full;
+    // Invitation collaborative en attente (séjour DIRECT) — alimente l'écran
+    // d'invitation hébergeur : on affiche « invitation envoyée à … » plutôt qu'un
+    // formulaire vierge (anti-spam).
+    const invitationPending = await this.prisma.invitationCollaboration.findFirst({
+      where: { sejourId, acceptedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: { emailEnseignant: true, createdAt: true },
+    });
+
+    return {
+      ...full,
+      invitationCollab: invitationPending
+        ? { email: invitationPending.emailEnseignant, createdAt: invitationPending.createdAt }
+        : null,
+    };
   }
 
   // ── Messages ──────────────────────────────────────────────────
