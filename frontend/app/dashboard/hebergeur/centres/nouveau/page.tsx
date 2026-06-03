@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/src/lib/api';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { createCentre } from '@/src/lib/centre';
+import { JustificatifHint } from '@/app/components/JustificatifHint';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -388,6 +389,7 @@ export default function NouveauCentrePage() {
                 <label className="block text-sm mb-1.5 text-gray-700" style={{ fontWeight: 500 }}>
                   Document justificatif
                 </label>
+                <JustificatifHint className="mb-2" />
                 <input
                   type="file"
                   accept="application/pdf,image/jpeg,image/png"

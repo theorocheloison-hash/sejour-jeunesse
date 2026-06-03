@@ -5,6 +5,8 @@ import { EmailService } from '../email/email.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from '../centres/trial.helper.js';
 
+const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -737,5 +739,59 @@ export class AdminService {
       data: { reseau: reseau ?? null },
       select: { id: true, nom: true, reseau: true },
     });
+  }
+
+  // ─── Centres PENDING à valider (hébergeurs déjà validés) ──────────────────────
+
+  /**
+   * Centres en attente de validation individuelle : statut PENDING dont
+   * l'organisation a déjà au moins un membership VALIDE (= hébergeur validé qui
+   * ajoute un centre). Les premiers claims (org pas encore validée) restent gérés
+   * via la liste des claims (memberships), pas ici — évite les doublons.
+   */
+  async getCentresPending() {
+    return this.prisma.centreHebergement.findMany({
+      where: {
+        statut: 'PENDING',
+        organisation: { memberships: { some: { claimStatut: 'VALIDE' } } },
+      },
+      select: {
+        id: true,
+        nom: true,
+        ville: true,
+        claimDocumentUrl: true,
+        claimSubmittedAt: true,
+        user: { select: { id: true, prenom: true, nom: true, email: true } },
+        organisation: { select: { id: true, nom: true, siren: true } },
+      },
+      orderBy: { claimSubmittedAt: 'desc' },
+    });
+  }
+
+  /** Active un centre PENDING (validation admin) + notifie l'hébergeur. */
+  async activerCentre(centreId: string) {
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      include: { user: { select: { email: true, prenom: true } } },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.statut === 'ACTIVE') return { success: true, alreadyActive: true };
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: { statut: 'ACTIVE' },
+    });
+
+    if (centre.user?.email) {
+      this.email.sendGenericNotification(
+        centre.user.email,
+        `Votre centre ${centre.nom} a été activé`,
+        `<p>Bonjour ${centre.user.prenom ?? ''},</p>
+         <p>Votre centre <strong>${centre.nom}</strong> a été validé et est désormais actif sur LIAVO.</p>
+         <p><a href="${ADMIN_FRONTEND_URL}/dashboard/hebergeur">Accéder à mon espace →</a></p>`,
+      ).catch((err) => console.error('[activerCentre] échec email hébergeur', err));
+    }
+
+    return { success: true };
   }
 }

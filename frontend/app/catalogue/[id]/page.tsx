@@ -7,6 +7,7 @@ import api from '@/src/lib/api';
 import { getHebergementPublic } from '@/src/lib/hebergement';
 import type { Hebergement } from '@/src/lib/hebergement';
 import { Logo } from '@/app/components/Logo';
+import { JustificatifHint } from '@/app/components/JustificatifHint';
 
 export default function CentrePublicPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,8 @@ export default function CentrePublicPage() {
   const [loading, setLoading] = useState(true);
   const [claimState, setClaimState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [claimMsg, setClaimMsg] = useState<string>('');
+  const [claimFile, setClaimFile] = useState<File | null>(null);
+  const [isHebergeur, setIsHebergeur] = useState(false);
 
   // Bouton « Je gère ce centre » : redirige vers l'inscription si non connecté,
   // appelle le claim si hébergeur, sinon invite à se connecter en hébergeur.
@@ -35,21 +38,32 @@ export default function CentrePublicPage() {
     }
     setClaimState('loading');
     try {
-      const { data } = await api.post<{ claimStatut?: string; autoActivated?: boolean }>(
-        '/centres/claim-from-catalogue',
-        { catalogueId: centre.id },
-      );
-      setClaimState('success');
-      if (data?.autoActivated || data?.claimStatut === 'VALIDE') {
-        setClaimMsg('Centre ajouté ! Il est disponible dans votre espace hébergeur.');
+      if (claimFile) {
+        const fd = new FormData();
+        fd.append('catalogueId', centre.id);
+        fd.append('document', claimFile);
+        await api.post('/centres/claim-from-catalogue', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
       } else {
-        setClaimMsg('Demande envoyée — votre revendication est en attente de validation. Vous recevrez un email dès qu\'elle sera traitée.');
+        await api.post('/centres/claim-from-catalogue', { catalogueId: centre.id });
       }
+      setClaimState('success');
+      // Chaque centre est validé individuellement par l'équipe (plus d'auto-activate).
+      setClaimMsg('Votre demande a été transmise. Le centre sera activé après validation par notre équipe.');
     } catch (e: unknown) {
       setClaimState('error');
       setClaimMsg((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Une erreur est survenue. Réessayez.');
     }
   };
+
+  useEffect(() => {
+    try {
+      const token = Cookies.get('token');
+      const role = JSON.parse(localStorage.getItem('sj_user_v2') ?? 'null')?.role ?? null;
+      setIsHebergeur(!!token && role === 'HEBERGEUR');
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -205,6 +219,18 @@ export default function CentrePublicPage() {
                   </p>
                 ) : (
                   <>
+                    {isHebergeur && (
+                      <div className="mb-3 space-y-2">
+                        <JustificatifHint />
+                        <input
+                          type="file"
+                          accept="application/pdf,image/jpeg,image/png"
+                          onChange={(e) => setClaimFile(e.target.files?.[0] ?? null)}
+                          className="block w-full text-xs text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-primary)] file:text-white file:px-3 file:py-1.5 file:text-xs file:cursor-pointer hover:file:opacity-90"
+                        />
+                        <p className="text-[11px] text-gray-400">Justificatif optionnel — accélère la validation.</p>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={handleClaim}

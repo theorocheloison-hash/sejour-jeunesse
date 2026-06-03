@@ -41,6 +41,15 @@ export class CentreService {
     });
   }
 
+  /** Centres de l'hébergeur en attente de validation (PENDING) — pour le bandeau dashboard. */
+  async getMesCentresPending(userId: string) {
+    return this.prisma.centreHebergement.findMany({
+      where: { userId, statut: 'PENDING' },
+      select: { id: true, nom: true, claimDocumentUrl: true },
+      orderBy: { nom: 'asc' },
+    });
+  }
+
   async createCentre(userId: string, dto: CreateCentreDto) {
     const centresExistants = await this.prisma.centreHebergement.count({ where: { userId } });
 
@@ -94,6 +103,42 @@ export class CentreService {
     ).catch(err => console.error('[createCentre] Echec email admin', err));
 
     return centre;
+  }
+
+  /**
+   * Upload d'un justificatif pour un centre PENDING (hébergeur déjà validé qui a
+   * ajouté un centre sans fournir de document au moment du claim). Stocke l'URL sur
+   * le centre (champ distinct du justificatif de société porté par le Membership).
+   */
+  async uploadJustificatif(userId: string, centreId: string, file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Fichier manquant');
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Justificatif : formats acceptés PDF, JPG ou PNG.');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Le justificatif ne peut pas dépasser 10 Mo.');
+    }
+
+    const centre = await this.prisma.centreHebergement.findUnique({ where: { id: centreId } });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.userId !== userId) throw new ForbiddenException('Ce centre ne vous appartient pas');
+
+    const url = await this.storage.upload(file, 'claims');
+    await this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: { claimDocumentUrl: url, claimSubmittedAt: centre.claimSubmittedAt ?? new Date() },
+    });
+
+    this.email.sendGenericNotification(
+      process.env.ADMIN_EMAIL ?? 'contact@liavo.fr',
+      `[LIAVO] Justificatif reçu — ${centre.nom}`,
+      `Un justificatif a été fourni pour le centre <strong>${centre.nom}</strong> (en attente d'activation).<br><br>` +
+      `<a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/admin/claims">Voir les centres à valider →</a>`,
+      'LIAVO Admin',
+    ).catch((err) => console.error('[uploadJustificatif] échec email admin', err));
+
+    return { success: true, claimDocumentUrl: url };
   }
 
   async getClaimsPending() {
@@ -179,8 +224,10 @@ export class CentreService {
   }
 
   async getDashboardGlobal(userId: string, periodeDebut?: string, periodeFin?: string) {
+    // Seuls les centres ACTIVE apparaissent dans « Mes centres » et les KPI consolidés.
+    // Les centres PENDING (en attente de validation admin) sont exclus.
     const centres = await this.prisma.centreHebergement.findMany({
-      where: { userId },
+      where: { userId, statut: 'ACTIVE' },
       select: { id: true, nom: true, ville: true, capacite: true, imageUrl: true },
     });
     if (centres.length === 0) return null;

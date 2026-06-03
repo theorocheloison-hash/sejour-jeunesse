@@ -88,6 +88,18 @@ export class AdminController {
     return this.claimService.getClaimsEnAttente();
   }
 
+  /** GET /admin/centres/pending — Centres PENDING d'hébergeurs déjà validés (à activer). */
+  @Get('centres/pending')
+  getCentresPending() {
+    return this.adminService.getCentresPending();
+  }
+
+  /** PATCH /admin/centres/:id/activer — Activer un centre PENDING (+ email hébergeur). */
+  @Patch('centres/:id/activer')
+  activerCentre(@Param('id') id: string) {
+    return this.adminService.activerCentre(id);
+  }
+
   @Patch('claims/:id/valider')
   validerClaim(
     @Param('id') membershipId: string,

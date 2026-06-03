@@ -56,6 +56,22 @@ export class CentreController {
     return this.claimService.claimFromCatalogue(dto.catalogueId, user.id, user.role, file);
   }
 
+  /** POST /centres/:id/upload-justificatif — Justificatif d'un centre PENDING (HEBERGEUR) */
+  @Post(':id/upload-justificatif')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  @UseInterceptors(FileInterceptor('document'))
+  uploadJustificatif(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (file) {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    }
+    return this.centreService.uploadJustificatif(user.id, id, file!);
+  }
+
   /** GET /centres/search-public?search=xxx — Recherche publique (pas d'auth) */
   @Get('search-public')
   searchPublic(@Query('search') search?: string) {
@@ -68,6 +84,14 @@ export class CentreController {
   @Roles(Role.HEBERGEUR)
   getMesCentres(@CurrentUser() user: JwtUser) {
     return this.centreService.getMesCentres(user.id);
+  }
+
+  /** GET /centres/mes-centres-pending — Centres de l'hébergeur en attente de validation. */
+  @Get('mes-centres-pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getMesCentresPending(@CurrentUser() user: JwtUser) {
+    return this.centreService.getMesCentresPending(user.id);
   }
 
   /** GET /centres/dashboard-global — KPIs consolidés multi-centre. MUST be before any :param route. */

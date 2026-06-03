@@ -7,6 +7,7 @@ import Cookies from 'js-cookie';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
+import { JustificatifHint } from '@/app/components/JustificatifHint';
 
 interface InvitationInfo {
   cas: 1 | 2 | 3;
@@ -461,8 +462,9 @@ function RegisterHebergeurContent() {
                 </p>
                 <div className="mt-3 pt-3 border-t border-[var(--color-border-strong)]/40">
                   <label htmlFor="claimFile" className="block text-xs font-medium text-[var(--color-primary)] mb-1.5">
-                    Justificatif <span className="font-normal text-[var(--color-primary)]/60">(optionnel — Kbis, récépissé RNA, attestation)</span>
+                    Justificatif <span className="font-normal text-[var(--color-primary)]/60">(optionnel)</span>
                   </label>
+                  <JustificatifHint className="mb-2" />
                   <input
                     id="claimFile"
                     type="file"

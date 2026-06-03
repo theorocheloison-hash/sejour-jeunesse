@@ -24,6 +24,21 @@ interface ClaimEnAttente {
   };
 }
 
+interface CentrePending {
+  id: string;
+  nom: string;
+  ville: string | null;
+  claimDocumentUrl: string | null;
+  claimSubmittedAt: string | null;
+  user: { id: string; prenom: string; nom: string; email: string } | null;
+  organisation: { id: string; nom: string; siren: string | null } | null;
+}
+
+const ANNUAIRE_BASE = 'https://annuaire-entreprises.data.gouv.fr';
+function annuaireHref(siren: string | null | undefined): string | null {
+  return siren ? `${ANNUAIRE_BASE}/entreprise/${siren}` : null;
+}
+
 function formatDate(d: string | null): string {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('fr-FR', {
@@ -38,6 +53,7 @@ export default function AdminClaimsPage() {
   const router = useRouter();
 
   const [claims, setClaims] = useState<ClaimEnAttente[]>([]);
+  const [centres, setCentres] = useState<CentrePending[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +66,12 @@ export default function AdminClaimsPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get<ClaimEnAttente[]>('/admin/claims');
-      setClaims(data);
+      const [claimsRes, centresRes] = await Promise.all([
+        api.get<ClaimEnAttente[]>('/admin/claims'),
+        api.get<CentrePending[]>('/admin/centres/pending'),
+      ]);
+      setClaims(claimsRes.data);
+      setCentres(centresRes.data);
     } catch {
       setError('Impossible de charger la liste des claims');
     } finally {
@@ -90,6 +110,32 @@ export default function AdminClaimsPage() {
     }
   };
 
+  const handleActiverCentre = async (id: string) => {
+    if (!confirm('Activer ce centre ? L\'hébergeur sera notifié.')) return;
+    setActionId(id);
+    try {
+      await api.patch(`/admin/centres/${id}/activer`);
+      await loadClaims();
+    } catch {
+      setError('Erreur lors de l\'activation du centre');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleRefuserCentre = async (id: string) => {
+    if (!confirm('Refuser ce centre ? Il sera suspendu.')) return;
+    setActionId(id);
+    try {
+      await api.patch(`/centres/admin/pending/${id}`, { action: 'SUSPENDED' });
+      await loadClaims();
+    } catch {
+      setError('Erreur lors du refus du centre');
+    } finally {
+      setActionId(null);
+    }
+  };
+
   if (isLoading || !user) return null;
 
   return (
@@ -121,12 +167,16 @@ export default function AdminClaimsPage() {
 
         {loading ? (
           <p className="text-sm text-gray-500">Chargement…</p>
-        ) : claims.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-            <p className="text-sm text-gray-500">Aucun claim en attente</p>
-          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-10">
+          <section>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Nouveaux comptes à valider</h2>
+            {claims.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+                <p className="text-sm text-gray-500">Aucun compte en attente</p>
+              </div>
+            ) : (
+            <div className="space-y-4">
             {claims.map((claim) => {
               const enAttenteDoc = claim.claimStatut === 'EN_ATTENTE_DOCUMENT';
               return (
@@ -160,6 +210,18 @@ export default function AdminClaimsPage() {
                             .filter(Boolean)
                             .join(' — ')}
                         </p>
+                      )}
+                      {annuaireHref(claim.organisation.siren) ? (
+                        <a
+                          href={annuaireHref(claim.organisation.siren)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--color-primary)] hover:underline"
+                        >
+                          Vérifier sur l&apos;annuaire des entreprises ↗
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">SIREN non renseigné</span>
                       )}
                     </div>
 
@@ -225,6 +287,78 @@ export default function AdminClaimsPage() {
               </div>
             );
             })}
+            </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Nouveaux centres à valider</h2>
+            {centres.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+                <p className="text-sm text-gray-500">Aucun centre en attente</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {centres.map((c) => {
+                  const href = annuaireHref(c.organisation?.siren);
+                  return (
+                    <div key={c.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {c.nom}{c.ville ? ` — ${c.ville}` : ''}
+                          </h3>
+                          <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                            {c.organisation?.nom && (
+                              <p><span className="font-medium">Organisation :</span> {c.organisation.nom}</p>
+                            )}
+                            {href ? (
+                              <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] hover:underline">
+                                Vérifier sur l&apos;annuaire des entreprises ↗
+                              </a>
+                            ) : (
+                              <span className="text-gray-400">SIREN non renseigné</span>
+                            )}
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            {c.user && (
+                              <p className="text-xs text-gray-500">
+                                <span className="font-medium text-gray-700">Hébergeur :</span>{' '}
+                                {c.user.prenom} {c.user.nom} —{' '}
+                                <a href={`mailto:${c.user.email}`} className="text-[var(--color-primary)] hover:underline">{c.user.email}</a>
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              <span className="font-medium text-gray-700">Soumis le :</span> {formatDate(c.claimSubmittedAt)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 shrink-0">
+                          {c.claimDocumentUrl ? (
+                            <a href={c.claimDocumentUrl} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                              Voir le justificatif
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">Aucun document — en attente</span>
+                          )}
+                          <button type="button" onClick={() => handleActiverCentre(c.id)} disabled={actionId === c.id}
+                            className="inline-flex items-center justify-center rounded-lg bg-[var(--color-success)] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-60">
+                            {actionId === c.id ? '…' : 'Activer le centre'}
+                          </button>
+                          <button type="button" onClick={() => handleRefuserCentre(c.id)} disabled={actionId === c.id}
+                            className="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
           </div>
         )}
       </main>
