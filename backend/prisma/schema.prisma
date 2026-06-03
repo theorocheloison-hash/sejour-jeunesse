@@ -569,6 +569,11 @@ model CentreHebergement {
   source              String?           @map("source") @db.VarChar(20)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
   brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
+  // Justificatif de revendication propre à CE centre (hébergeur déjà validé qui
+  // ajoute un centre) — distinct de Membership.claimDocumentUrl (1er claim société).
+  claimDocumentUrl    String?           @map("claim_document_url") @db.VarChar(500)
+  claimSubmittedAt    DateTime?         @map("claim_submitted_at")
+  claimSubmittedBy    String?           @map("claim_submitted_by") @db.Uuid
   mandatFacturationAccepte   Boolean   @default(false) @map("mandat_facturation_accepte")
   mandatFacturationAccepteAt DateTime? @map("mandat_facturation_accepte_at")
   mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)

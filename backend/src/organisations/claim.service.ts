@@ -92,18 +92,24 @@ export class ClaimService {
   /** Notifie l'admin d'un nouveau claim à valider (même format que uploadKbis). Non bloquant. */
   private async notifierAdminNouveauClaim(organisationId: string, userId: string) {
     try {
-      const [org, user] = await Promise.all([
+      const [org, user, membership] = await Promise.all([
         this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { nom: true } }),
         this.prisma.user.findUnique({ where: { id: userId }, select: { prenom: true, nom: true, email: true } }),
+        this.prisma.membership.findUnique({
+          where: { userId_organisationId: { userId, organisationId } },
+          select: { claimDocumentUrl: true },
+        }),
       ]);
       if (!org || !user) return;
       const adminEmail = process.env.ADMIN_EMAIL ?? 'contact@liavo.fr';
+      const justificatif = membership?.claimDocumentUrl ? 'fourni' : 'en attente';
       await this.email.sendGenericNotification(
         adminEmail,
         `[LIAVO] Nouveau claim à valider — ${org.nom}`,
         `<p>Un hébergeur a soumis un claim pour validation.</p>
          <p><strong>Structure :</strong> ${org.nom}<br>
-         <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})</p>
+         <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})<br>
+         <strong>Justificatif :</strong> ${justificatif}</p>
          <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les claims en attente →</a></p>`,
       );
     } catch (err) {
@@ -131,6 +137,7 @@ export class ClaimService {
     // ── 1. Résoudre les données du centre ──
     let existingCentreId: string | null = null;
     let centreUserId: string | null = null;
+    let existingCentreStatut: string | null = null;
     let organisationId: string | null = null;
     let identifiantEN: string | null = null;
     let nom = '', ville = '', codePostal = '', adresse = '';
@@ -152,6 +159,7 @@ export class ClaimService {
       if (!centre) throw new NotFoundException('Centre introuvable');
       existingCentreId = centre.id;
       centreUserId = centre.userId;
+      existingCentreStatut = centre.statut;
       organisationId = centre.organisationId;
       nom = centre.nom; ville = centre.ville; codePostal = centre.codePostal;
       adresse = centre.adresse; capacite = centre.capacite;
@@ -170,6 +178,7 @@ export class ClaimService {
       if (existant) {
         existingCentreId = existant.id;
         centreUserId = existant.userId;
+        existingCentreStatut = existant.statut;
         organisationId = existant.organisationId;
         nom = existant.nom; ville = existant.ville; codePostal = existant.codePostal;
         adresse = existant.adresse; capacite = existant.capacite;
@@ -284,33 +293,40 @@ export class ClaimService {
           ...(documentUrl ? { claimDocumentUrl: documentUrl } : {}),
         },
       });
-      // Notifier l'admin uniquement à l'entrée en attente de validation.
-      if (cible === 'EN_ATTENTE_VALIDATION' && existing?.claimStatut !== 'EN_ATTENTE_VALIDATION') {
+      // Notifier l'admin à la première soumission du claim (même sans justificatif :
+      // l'email mentionne « en attente ») ET à l'ajout ultérieur d'un justificatif
+      // (passage en validation), sans spammer sur les re-soumissions identiques.
+      const nouvelleEntree =
+        !existing ||
+        (cible === 'EN_ATTENTE_VALIDATION' && existing.claimStatut !== 'EN_ATTENTE_VALIDATION');
+      if (nouvelleEntree) {
         await this.notifierAdminNouveauClaim(organisationId, userId);
       }
       claimStatut = cible;
     }
 
-    // ── 4. Créer / lier le centre à l'organisation (+ userId si orphelin) ──
-    // Hébergeur déjà propriétaire validé de l'org (cas multi-centre) : aucun claim
-    // à valider n'est créé, donc on active directement le nouveau centre — sinon il
-    // resterait PENDING (invisible dans « mes centres » / au catalogue) sans recours.
+    // ── 4. Créer / lier le centre (PENDING) à l'organisation (+ userId si orphelin) ──
+    // SÉCURITÉ : chaque centre est validé individuellement par l'admin. Même un
+    // hébergeur déjà propriétaire validé crée un centre PENDING (plus d'auto-activate).
+    // On ne RÉTROGRADE jamais un centre déjà ACTIVE (cascade A : pas de régression).
     const ownerDejaValide = !!claimValide && claimValide.userId === userId;
     let centreId: string;
+    let centreAValider = false; // centre PENDING d'un hébergeur déjà validé → notif + justif sur le centre
+
     if (existingCentreId) {
       centreId = existingCentreId;
+      // Centre à (re)valider seulement s'il n'est pas déjà actif.
+      centreAValider = ownerDejaValide && existingCentreStatut !== 'ACTIVE';
       await this.prisma.centreHebergement.update({
         where: { id: existingCentreId },
         data: {
           organisationId,
           ...(centreUserId ? {} : { userId }), // ne pas voler un centre déjà détenu
-          // Activation directe si l'hébergeur est déjà propriétaire validé (et que le
-          // centre n'est pas détenu par un autre).
-          ...(ownerDejaValide && (!centreUserId || centreUserId === userId) ? { statut: 'ACTIVE' as const } : {}),
-          // Rétro-remplissage idempotent des données catalogue : pour un centre
-          // resté vide, `nom`/`description`/… contiennent désormais les données
-          // fraîches du catalogue ; pour un centre déjà rempli, ce sont ses
-          // propres valeurs (réécriture sans perte).
+          // Justificatif propre au centre (hébergeur déjà validé) — n'écrase rien si pas de centre à valider.
+          ...(centreAValider
+            ? { claimDocumentUrl: documentUrl, claimSubmittedAt: new Date(), claimSubmittedBy: userId }
+            : {}),
+          // Rétro-remplissage idempotent des données catalogue.
           nom,
           adresse: adresse || '',
           ville,
@@ -328,6 +344,7 @@ export class ClaimService {
         },
       });
     } else {
+      centreAValider = ownerDejaValide;
       const centre = await this.prisma.centreHebergement.create({
         data: {
           nom,
@@ -346,17 +363,49 @@ export class ClaimService {
           periodeOuverture,
           apidaeId: identifiantEN,
           source: 'API_EN',
-          statut: ownerDejaValide ? 'ACTIVE' : 'PENDING',
+          statut: 'PENDING',
           organisationId,
           userId,
+          // Hébergeur déjà validé : justificatif rattaché au centre (sinon il est sur le membership).
+          ...(ownerDejaValide
+            ? { claimDocumentUrl: documentUrl, claimSubmittedAt: new Date(), claimSubmittedBy: userId }
+            : {}),
         },
       });
       centreId = centre.id;
     }
 
-    // autoActivated : l'hébergeur était déjà propriétaire validé → centre activé
-    // directement, pas de validation admin en attente (signal pour le message UI).
-    return { centreId, organisationId, claimStatut, autoActivated: ownerDejaValide };
+    // Hébergeur déjà validé ajoutant un centre : aucun nouveau claim membership n'est
+    // créé (le membership VALIDE existe), mais le centre PENDING doit être validé
+    // individuellement par l'admin → notification dédiée.
+    if (centreAValider) {
+      await this.notifierAdminNouveauCentre(centreId, userId, !!documentUrl);
+    }
+
+    return { centreId, organisationId, claimStatut, autoActivated: false };
+  }
+
+  /** Notifie l'admin d'un nouveau centre PENDING à valider (hébergeur déjà validé). Non bloquant. */
+  private async notifierAdminNouveauCentre(centreId: string, userId: string, justificatifFourni: boolean) {
+    try {
+      const [centre, user] = await Promise.all([
+        this.prisma.centreHebergement.findUnique({ where: { id: centreId }, select: { nom: true, ville: true } }),
+        this.prisma.user.findUnique({ where: { id: userId }, select: { prenom: true, nom: true, email: true } }),
+      ]);
+      if (!centre || !user) return;
+      const adminEmail = process.env.ADMIN_EMAIL ?? 'contact@liavo.fr';
+      await this.email.sendGenericNotification(
+        adminEmail,
+        `[LIAVO] Nouveau centre à valider — ${centre.nom}`,
+        `<p>Un hébergeur déjà validé a ajouté un centre à valider.</p>
+         <p><strong>Centre :</strong> ${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}<br>
+         <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})<br>
+         <strong>Justificatif :</strong> ${justificatifFourni ? 'fourni' : 'en attente'}</p>
+         <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les centres à valider →</a></p>`,
+      );
+    } catch (err) {
+      console.error('[notifierAdminNouveauCentre] échec envoi email admin', err);
+    }
   }
 
   /**

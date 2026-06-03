@@ -22,6 +22,7 @@ export default function HebergeurDashboard() {
   const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
   const [claimStatut, setClaimStatut] = useState<string | null>(null);
   const [claimOrgNom, setClaimOrgNom] = useState<string | null>(null);
+  const [centresPending, setCentresPending] = useState<{ id: string; nom: string; claimDocumentUrl: string | null }[]>([]);
   const [essaiActif, setEssaiActif] = useState(false);
   const [essaiExpire, setEssaiExpire] = useState(false);
   const [joursRestants, setJoursRestants] = useState(0);
@@ -66,7 +67,29 @@ export default function HebergeurDashboard() {
       .catch(() => null);
     setClaimStatut(claimData?.claimStatut ?? null);
     setClaimOrgNom(claimData?.organisationNom ?? null);
+    const pend = await api
+      .get('/centres/mes-centres-pending')
+      .then((r) => r.data ?? [])
+      .catch(() => []);
+    setCentresPending(pend);
   }, []);
+
+  const handleUploadJustif = async (centreId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('document', file);
+    try {
+      await api.post(`/centres/${centreId}/upload-justificatif`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await loadData();
+    } catch {
+      alert('Erreur lors de l\'envoi du justificatif. Réessayez.');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   useEffect(() => {
     if (user?.role === 'HEBERGEUR') loadData();
@@ -148,6 +171,28 @@ export default function HebergeurDashboard() {
           </p>
         </div>
       )}
+
+      {centresPending.map((c) => (
+        <div key={c.id} className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+          <p className="text-sm text-amber-800">
+            <strong>Demande pour {c.nom} en attente de validation</strong> — notre équipe examine votre demande.
+            {!c.claimDocumentUrl && (
+              <>
+                {' '}
+                <label className="underline font-medium cursor-pointer">
+                  + Ajouter un justificatif
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    className="hidden"
+                    onChange={(e) => handleUploadJustif(c.id, e)}
+                  />
+                </label>
+              </>
+            )}
+          </p>
+        </div>
+      ))}
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-8 w-full">
 
