@@ -222,7 +222,11 @@ export class ClaimService {
         adresse: adresse || null,
         ville,
         codePostal,
-        departement,
+        // organisations.departement = VarChar(10) (code département, ex. "74"),
+        // alors que le catalogue fournit le NOM ("Haute-Savoie", 12 car.) stocké
+        // sur le centre (VarChar(100)). On dérive le code depuis le code postal
+        // pour éviter un dépassement de longueur à la création de l'organisation.
+        departement: codePostal ? codePostal.substring(0, 2) : null,
         siret,
         siren: siret ? siret.substring(0, 9) : null,
         source: identifiantEN ? 'API_EDUCATION_NATIONALE' : 'MANUAL',
