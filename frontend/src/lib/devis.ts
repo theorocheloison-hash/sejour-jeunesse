@@ -165,6 +165,7 @@ export interface Devis {
     clientEmail: string | null;
     clientOrganisation: string | null;
     modeGestion: string;
+    deletedAt?: string | null;
   } | null;
   versements?: VersementPaiement[];
   factures?: Facture[];

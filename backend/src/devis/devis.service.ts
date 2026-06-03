@@ -153,6 +153,8 @@ export class DevisService {
       where: { centreId: centre.id },
       include: {
         lignes: true,
+        // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé)
+        sejourDirect: { select: { id: true, titre: true, deletedAt: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
           include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
@@ -1454,6 +1456,7 @@ export class DevisService {
       where: { id: devisId },
       include: {
         sejourDirect: { select: { id: true } },
+        demande: { select: { sejourId: true } },
         factures: { select: { id: true, typeFacture: true } },
       },
     });
@@ -1474,15 +1477,18 @@ export class DevisService {
       );
     }
 
-    // Si une FA existe sans avoir → bloquer, orienter vers l'avoir
-    const fa = devis.factures.find((f) => f.typeFacture === 'ACOMPTE');
-    if (fa) {
+    // Toute facture émise (acompte OU solde) doit être couverte par un avoir avant
+    // l'annulation (flux 2 étapes conforme : émettre l'avoir, puis annuler).
+    const facturesEmises = devis.factures.filter(
+      (f) => f.typeFacture === 'ACOMPTE' || f.typeFacture === 'SOLDE',
+    );
+    for (const f of facturesEmises) {
       const avoir = await this.prisma.facture.findUnique({
-        where: { factureAnnuleeId: fa.id },
+        where: { factureAnnuleeId: f.id },
       });
       if (!avoir) {
         throw new ForbiddenException(
-          'Une facture d\'acompte a été émise. Émettez d\'abord un avoir ' +
+          'Une facture a été émise pour ce devis. Émettez d\'abord un avoir ' +
           'depuis l\'onglet Devis & Facturation avant d\'annuler.'
         );
       }
@@ -1492,6 +1498,32 @@ export class DevisService {
       where: { id: devisId },
       data: { statut: StatutDevis.NON_RETENU },
     });
+
+    // Transition séjour → OPTION s'il ne reste plus aucun devis actif (sélectionné
+    // ou signé) sur le séjour (DIRECT ou COLLABORATIF). updateMany filtré pour ne
+    // rétrograder que les statuts pilotés par le devis (pas DRAFT/OPTION/TAM/rectorat).
+    const sejourCibleId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+    if (sejourCibleId) {
+      const autresActifs = await this.prisma.devis.count({
+        where: {
+          id: { not: devisId },
+          statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
+          OR: [
+            { sejourDirectId: sejourCibleId },
+            { demande: { sejourId: sejourCibleId } },
+          ],
+        },
+      });
+      if (autresActifs === 0) {
+        await this.prisma.sejour.updateMany({
+          where: {
+            id: sejourCibleId,
+            statut: { in: [StatutSejour.SUBMITTED, StatutSejour.CONVENTION, StatutSejour.SIGNE_DIRECTION] },
+          },
+          data: { statut: StatutSejour.OPTION },
+        });
+      }
+    }
 
     // Log CRM non bloquant
     try {

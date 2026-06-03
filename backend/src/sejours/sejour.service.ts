@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Role, StatutSejour, AppelOffreStatut, TypeContexteSejour } from '@prisma/client';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Role, StatutSejour, StatutDevis, AppelOffreStatut, TypeContexteSejour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
@@ -1141,6 +1141,25 @@ export class SejourService {
     if (sejour.deletedAt) throw new NotFoundException('Séjour déjà supprimé');
     if (sejour.hebergementSelectionneId !== centre.id) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    // Garde : on ne supprime pas un séjour qui porte un devis engageant (signé ou
+    // facturé). Le devis ne mute pas en FACTURE_* : un devis facturé reste
+    // SELECTIONNE/SIGNE_DIRECTION. Couvre les deux modes (DIRECT via sejourDirectId,
+    // COLLABORATIF via demande.sejourId). EN_ATTENTE / NON_RETENU ne bloquent pas.
+    const devisEngageant = await this.prisma.devis.count({
+      where: {
+        statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
+        OR: [
+          { sejourDirectId: sejourId },
+          { demande: { sejourId } },
+        ],
+      },
+    });
+    if (devisEngageant > 0) {
+      throw new BadRequestException(
+        'Impossible de supprimer ce séjour — il contient des devis signés ou facturés. Annulez les devis d\'abord.',
+      );
     }
 
     await this.prisma.sejour.update({

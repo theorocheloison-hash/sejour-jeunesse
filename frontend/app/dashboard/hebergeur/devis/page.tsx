@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getMesDevis, emettreFactureAcompte, emettreFactureSolde, getChorusXml, ajouterVersement, supprimerVersement, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
+import { getMesDevis, emettreFactureAcompte, emettreFactureSolde, getChorusXml, ajouterVersement, supprimerVersement, getFactureAcompte, getFactureSolde, annulerDevis } from '@/src/lib/devis';
 import type { Devis, StatutDevis, VersementPaiement, Facture } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
@@ -107,6 +107,10 @@ export default function HebergeurDevisPage() {
   const [modalVersement, setModalVersement] = useState<{ facture: Facture } | null>(null);
   const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: new Date().toISOString().split('T')[0], reference: '' });
   const [versementLoading, setVersementLoading] = useState(false);
+  // Annulation de devis (modale double-confirmation)
+  const [modalAnnulerId, setModalAnnulerId] = useState<string | null>(null);
+  const [annulerLoading, setAnnulerLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +129,26 @@ export default function HebergeurDevisPage() {
     window.addEventListener('focus', loadDevis);
     return () => window.removeEventListener('focus', loadDevis);
   }, [loadDevis]);
+
+  const handleConfirmerAnnulation = async () => {
+    if (!modalAnnulerId) return;
+    setAnnulerLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      await annulerDevis(modalAnnulerId);
+      setModalAnnulerId(null);
+      setSuccessMsg('Devis annulé.');
+      loadDevis();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de l\'annulation du devis.';
+      setError(msg);
+      setModalAnnulerId(null);
+    } finally {
+      setAnnulerLoading(false);
+    }
+  };
 
   const isSearching = searchQuery.length >= 2;
 
@@ -347,6 +371,12 @@ export default function HebergeurDevisPage() {
         {error && (
           <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
+        {successMsg && (
+          <div className="mb-6 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/30 px-4 py-3 text-sm text-[var(--color-success)] flex items-center justify-between">
+            <span>{successMsg}</span>
+            <button onClick={() => setSuccessMsg(null)} className="text-[var(--color-success)] hover:opacity-70 shrink-0">×</button>
+          </div>
+        )}
 
         {/* ── Barre de recherche + filtre statut ── */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -427,8 +457,20 @@ export default function HebergeurDevisPage() {
                 : fa
                 ? { label: 'Acompte facturé', cls: 'bg-indigo-100 text-indigo-700' }
                 : (STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE);
-              const sejourTitre = d.demande?.sejour?.titre ?? d.demande?.titre ?? 'Demande';
-              const sejourId = d.sejourDirectId ?? d.demande?.sejour?.id ?? null;
+              // Libellé : demande collaborative → titre séjour/demande ; sinon devis
+              // DIRECT → titre du séjour direct ; séjour supprimé (soft-delete ou
+              // orphelin) → "Séjour supprimé".
+              const sejourDirectSupprime = !!d.sejourDirectId && (!d.sejourDirect || !!d.sejourDirect.deletedAt);
+              const sejourTitre =
+                d.demande?.sejour?.titre
+                ?? d.demande?.titre
+                ?? (sejourDirectSupprime
+                  ? 'Séjour supprimé'
+                  : d.sejourDirect?.titre ?? (d.sejourDirectId ? 'Séjour direct' : 'Devis'));
+              // Pas de lien si le séjour direct n'existe plus.
+              const sejourId = sejourDirectSupprime
+                ? (d.demande?.sejour?.id ?? null)
+                : (d.sejourDirectId ?? d.demande?.sejour?.id ?? null);
               return (
                 <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -508,6 +550,14 @@ export default function HebergeurDevisPage() {
                       filename={`${d.typeDocument === 'FACTURE_ACOMPTE' ? 'facture' : d.typeDocument === 'FACTURE_SOLDE' ? 'facture-solde' : 'devis'}-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
                       label="PDF"
                     />
+                    {['SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && (
+                      <button
+                        onClick={() => setModalAnnulerId(d.id)}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        Annuler ce devis
+                      </button>
+                    )}
                     {(d.statut === 'EN_ATTENTE' || d.statut === 'SELECTIONNE') && (
                       <Link
                         href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
@@ -635,6 +685,40 @@ export default function HebergeurDevisPage() {
       </main>
 
       {/* ── Modale versement paiement ── */}
+      {/* ── Modale double-confirmation annulation devis ─── */}
+      {modalAnnulerId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !annulerLoading && setModalAnnulerId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Annuler ce devis ?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Êtes-vous certain de vouloir annuler ce devis ? Cette action est irréversible.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setModalAnnulerId(null)}
+                disabled={annulerLoading}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuler — revenir
+              </button>
+              <button
+                onClick={handleConfirmerAnnulation}
+                disabled={annulerLoading}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {annulerLoading ? 'Annulation...' : 'Confirmer l\'annulation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalVersement && (() => {
         const facture = modalVersement.facture;
         const montantAttendu = facture.montantFacture;

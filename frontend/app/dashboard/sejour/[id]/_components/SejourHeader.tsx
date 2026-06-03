@@ -153,8 +153,10 @@ export default function SejourHeader({
                   try {
                     await deleteSejourDirect(sejourId);
                     onDeleted();
-                  } catch {
-                    onError('Erreur lors de la suppression');
+                  } catch (err: unknown) {
+                    const msg = (err as { response?: { data?: { message?: string } } })
+                      ?.response?.data?.message ?? 'Erreur lors de la suppression';
+                    onError(msg);
                   }
                 }}
                 className="text-xs text-red-500 hover:text-red-700 hover:underline ml-2 shrink-0"
