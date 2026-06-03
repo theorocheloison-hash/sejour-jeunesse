@@ -27,22 +27,33 @@ export class RegisterHebergeurDto {
   @IsString()
   telephone?: string;
 
-  // ── Infos du centre ──
+  // ── Revendication catalogue (optionnel) ──
+  // Si fourni, l'inscription crée UNIQUEMENT le user : centre + organisation + claim
+  // sont gérés par claim-from-catalogue. Les champs centre ci-dessous sont alors inutiles.
+  @IsOptional()
+  @IsString()
+  claimCatalogueId?: string;
+
+  // ── Infos du centre (requises hors mode revendication) ──
   @IsString()
   nomCentre: string;
 
+  @IsOptional()
   @IsString()
-  adresse: string;
+  adresse?: string;
 
+  @IsOptional()
   @IsString()
-  ville: string;
+  ville?: string;
 
+  @IsOptional()
   @IsString()
-  codePostal: string;
+  codePostal?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(1, { message: 'La capacité doit être supérieure à 0' })
-  capacite: number;
+  capacite?: number;
 
   @IsOptional()
   @IsString()

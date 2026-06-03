@@ -5,9 +5,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
+import { OrganisationsModule } from '../organisations/organisations.module.js';
 
 @Module({
   imports: [
+    OrganisationsModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

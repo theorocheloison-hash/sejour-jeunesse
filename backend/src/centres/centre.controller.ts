@@ -20,6 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { CentreService } from './centre.service.js';
+import { ClaimService } from '../organisations/claim.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
@@ -30,7 +31,21 @@ import { CentreId } from './centre-id.decorator.js';
 
 @Controller('centres')
 export class CentreController {
-  constructor(private readonly centreService: CentreService) {}
+  constructor(
+    private readonly centreService: CentreService,
+    private readonly claimService: ClaimService,
+  ) {}
+
+  /** POST /centres/claim-from-catalogue — Revendiquer un centre depuis le catalogue (HEBERGEUR) */
+  @Post('claim-from-catalogue')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  claimFromCatalogue(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { catalogueId: string },
+  ) {
+    return this.claimService.claimFromCatalogue(body.catalogueId, user.id, user.role);
+  }
 
   /** GET /centres/search-public?search=xxx — Recherche publique (pas d'auth) */
   @Get('search-public')
