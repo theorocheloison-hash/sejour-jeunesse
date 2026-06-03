@@ -35,6 +35,17 @@ export class FactureController {
     return this.factureService.emettreFactureSolde(body.devisId, user.id, centreId);
   }
 
+  /** POST /factures/total — émet une facture de solde couvrant 100% (sans acompte préalable) */
+  @Post('total')
+  @Roles(Role.HEBERGEUR)
+  emettreTotal(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { devisId: string },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.emettreFactureTotal(body.devisId, user.id, centreId);
+  }
+
   /** POST /factures/avoir — émet un avoir sur une facture existante (ACOMPTE ou SOLDE) */
   @Post('avoir')
   @Roles(Role.HEBERGEUR)

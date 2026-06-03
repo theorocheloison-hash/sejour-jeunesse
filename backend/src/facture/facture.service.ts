@@ -437,6 +437,103 @@ export class FactureService {
   }
 
   /**
+   * Émet une facture de SOLDE couvrant 100 % du devis, SANS acompte préalable
+   * ("facturer le total"). Réservé aux devis signés non encore facturés. NE MUTE PAS le devis.
+   * Réutilise la séquence FS-YYYY-XXXX (pas de nouvelle série) et le même pattern que
+   * emettreAcompte/emettreFactureSolde.
+   */
+  async emettreFactureTotal(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const devis = await this.chargerDevisProprietaire(devisId, centre.id);
+
+    // Même guard que emettreAcompte
+    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
+      throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
+    }
+    // Aucune facture (acompte OU solde) ne doit déjà exister
+    const factureExistante = await this.prisma.facture.findFirst({
+      where: { devisId, typeFacture: { in: ['ACOMPTE', 'SOLDE'] } },
+    });
+    if (factureExistante) {
+      throw new ForbiddenException('Une facture a déjà été émise pour ce devis');
+    }
+
+    const emetteur = await this.construireEmetteur(devis);
+    const destinataire = await this.construireDestinataire(devis);
+
+    const annee = new Date().getFullYear();
+    const numero = `FS-${annee}-${String(await this.sequence.generer(emetteur.emetteurId, 'FACTURE')).padStart(4, '0')}`;
+
+    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+
+    const facture = await this.prisma.facture.create({
+      data: {
+        devisId,
+        sejourId: destinataire.sejourId,
+        emetteurId: emetteur.emetteurId,
+        numero,
+        typeFacture: 'SOLDE',
+        dateEmission: new Date(),
+        emetteurNom: emetteur.emetteurNom,
+        emetteurAdresse: emetteur.emetteurAdresse,
+        emetteurSiret: emetteur.emetteurSiret,
+        emetteurTva: emetteur.emetteurTva,
+        emetteurEmail: emetteur.emetteurEmail,
+        emetteurTel: emetteur.emetteurTel,
+        emetteurIban: emetteur.emetteurIban,
+        destinataireNom: destinataire.destinataireNom,
+        destinataireAdresse: destinataire.destinataireAdresse,
+        destinataireSiret: destinataire.destinataireSiret,
+        destinataireEmail: destinataire.destinataireEmail,
+        montantHT: devis.montantHT ?? 0,
+        montantTVA: devis.montantTVA ?? 0,
+        montantTTC,
+        tauxTva: devis.tauxTva ?? 0,
+        montantFacture: montantTTC,        // 100 % — pas d'acompte déduit
+        pourcentageAcompte: null,
+        factureAcompteId: null,
+        montantAcompteDejaFacture: 0,
+        conditionsAnnulation: devis.conditionsAnnulation,
+        lignes: {
+          create: devis.lignes.map((l) => ({
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.prixUnitaire,
+            tva: l.tva,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+          })),
+        },
+      },
+      include: { lignes: true, versements: true },
+    });
+
+    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
+
+    await this.loggerActivite(
+      destinataire.sejourId,
+      centre.id,
+      `Facture de solde ${numero} émise (total, sans acompte) — ${montantTTC.toFixed(2)} €`,
+      { factureId: facture.id, devisId, type: 'SOLDE' },
+    );
+
+    // Même notification que emettreFactureSolde (non bloquant)
+    try {
+      if (destinataire.emailNotif) {
+        const montantFormate = montantTTC.toFixed(2).replace('.', ',');
+        await this.email.sendGenericNotification(
+          destinataire.emailNotif,
+          `Facture de solde émise — ${destinataire.sejourTitre}`,
+          `L'hébergeur a émis la facture de solde (${numero}) d'un montant de ${montantFormate} € pour « ${destinataire.sejourTitre} ».`,
+        );
+      }
+    } catch { /* non bloquant */ }
+
+    return facture;
+  }
+
+  /**
    * Émet un avoir (note de crédit) sur une facture ACOMPTE ou SOLDE existante.
    * Snapshot émetteur/destinataire copié DIRECTEMENT depuis la facture annulée (déjà figé).
    * Montants stockés NÉGATIFS en base ; dto.montant est passé positif.

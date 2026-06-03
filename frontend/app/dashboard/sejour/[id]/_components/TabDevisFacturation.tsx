@@ -7,6 +7,7 @@ import {
   envoyerDevisDirect,
   emettreFactureAcompte,
   emettreFactureSolde,
+  emettreFactureTotal,
   ajouterVersement,
   getFacturesForDevis,
   supprimerVersement,
@@ -273,6 +274,25 @@ export default function TabDevisFacturation({
       await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation du solde');
+    } finally {
+      setFacturerLoading(false);
+    }
+  };
+
+  const handleFacturerTotal = async () => {
+    if (!activeDevisId) return;
+    setFacturerLoading(true);
+    try {
+      await emettreFactureTotal(activeDevisId);
+      if (isDirect) {
+        const devis = await getDevisForSejourDirect(sejourId);
+        setDirectDevis(devis[0] ?? null);
+      } else {
+        await onBudgetReload();
+      }
+      await reloadFactures();
+    } catch {
+      onError('Erreur lors de la facturation du total');
     } finally {
       setFacturerLoading(false);
     }
@@ -620,13 +640,22 @@ export default function TabDevisFacturation({
             </button>
           )}
           {etatFacturation === 'AUCUNE' && (
-            <button
-              onClick={handleFacturerAcompte}
-              disabled={facturerLoading}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {facturerLoading ? 'Facturation...' : '📄 Facturer l\'acompte'}
-            </button>
+            <>
+              <button
+                onClick={handleFacturerAcompte}
+                disabled={facturerLoading}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {facturerLoading ? 'Facturation...' : `📄 Facturer l'acompte (${ad.pourcentageAcompte}%)`}
+              </button>
+              <button
+                onClick={handleFacturerTotal}
+                disabled={facturerLoading}
+                className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {facturerLoading ? 'Facturation...' : '📄 Facturer le total'}
+              </button>
+            </>
           )}
           {etatFacturation === 'ACOMPTE' && (
             <button
