@@ -881,6 +881,11 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
       if (isParticulier) {
         push({ prenom: '', nom: c.nom, email: c.email ?? '', telephone: c.telephone ?? '', organisation: null });
       }
+      // Tout client (quelle que soit son organisation) : indexer le nom du client lui-même
+      if (!isParticulier) {
+        // Chercher sur clientNom : le nom de l'organisation / famille / couple
+        push({ prenom: '', nom: c.nom, email: c.email ?? '', telephone: c.telephone ?? '', organisation: c.nom });
+      }
       for (const ct of c.contacts ?? []) {
         push({ prenom: ct.prenom ?? '', nom: ct.nom ?? '', email: ct.email ?? '', telephone: ct.telephone ?? '', organisation });
       }

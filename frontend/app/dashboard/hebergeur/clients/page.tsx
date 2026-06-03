@@ -198,14 +198,18 @@ function ClientsPage() {
   const handleCreateClient = async () => {
     if (!newForm.nom) return;
     setSaving(true);
+    setErreur(null);
     try {
       const created = await createClient(newForm);
-      setClients(prev => [...prev, created]);
+      await reload();
       setShowNewClient(false);
       setSelectedId(created.id);
       setNewForm({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '' });
       setEtabSuggestions([]);
       setEtabFromApi(false);
+    } catch (err: any) {
+      console.error('[createClient]', err);
+      setErreur(err?.response?.data?.message || 'Erreur lors de la création du client.');
     } finally { setSaving(false); }
   };
 
