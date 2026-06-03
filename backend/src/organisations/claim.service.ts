@@ -6,7 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
-import { shouldRequireKbis } from './organisation.helpers.js';
+import { shouldRequireKbis, findOrCreateOrganisation } from './organisation.helpers.js';
+
+const EN_CATALOGUE_API =
+  'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -31,11 +35,18 @@ export class ClaimService {
     });
     if (!org) throw new NotFoundException('Organisation introuvable');
 
+    // Garde anti-doublon : bloque seulement si l'organisation est déjà revendiquée
+    // par un AUTRE user. Si c'est le MÊME user (cas multi-centre — ex. plusieurs
+    // centres sous une même structure), on ne crée pas de nouveau claim : on
+    // retourne succès, le rattachement du centre étant fait par l'appelant.
     const claimValide = await this.prisma.membership.findFirst({
       where: { organisationId, claimStatut: 'VALIDE' },
     });
-    if (claimValide) {
+    if (claimValide && claimValide.userId !== userId) {
       throw new BadRequestException('Cette organisation a déjà un propriétaire validé');
+    }
+    if (claimValide && claimValide.userId === userId) {
+      return { membership: claimValide, kbisRequis: false, alreadyPending: false, alreadyOwner: true };
     }
 
     const claimExistant = await this.prisma.membership.findFirst({
@@ -69,7 +80,159 @@ export class ClaimService {
       },
     });
 
+    // Notifier l'admin dès qu'un claim entre en attente de validation SANS Kbis.
+    // (Le chemin avec Kbis notifie l'admin à l'upload du document, cf. uploadKbis.)
+    if (claimStatut === 'EN_ATTENTE_VALIDATION') {
+      await this.notifierAdminNouveauClaim(organisationId, userId);
+    }
+
     return { membership, kbisRequis, alreadyPending: false };
+  }
+
+  /** Notifie l'admin d'un nouveau claim à valider (même format que uploadKbis). Non bloquant. */
+  private async notifierAdminNouveauClaim(organisationId: string, userId: string) {
+    try {
+      const [org, user] = await Promise.all([
+        this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { nom: true } }),
+        this.prisma.user.findUnique({ where: { id: userId }, select: { prenom: true, nom: true, email: true } }),
+      ]);
+      if (!org || !user) return;
+      const adminEmail = process.env.ADMIN_EMAIL ?? 'contact@liavo.fr';
+      await this.email.sendGenericNotification(
+        adminEmail,
+        `[LIAVO] Nouveau claim à valider — ${org.nom}`,
+        `<p>Un hébergeur a soumis un claim pour validation.</p>
+         <p><strong>Structure :</strong> ${org.nom}<br>
+         <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})</p>
+         <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les claims en attente →</a></p>`,
+      );
+    } catch { /* non bloquant */ }
+  }
+
+  /**
+   * Revendique un centre depuis le catalogue public (centre Liavo par UUID, ou
+   * record Éducation Nationale par identifiant externe). Crée/retrouve l'Organisation,
+   * initie le claim, puis crée/lie le CentreHebergement.
+   *
+   * Ordre volontaire : initierClaim() est appelé AVANT de lier le centre à l'org.
+   * Une org fraîche n'a pas encore de centre → shouldRequireKbis = false →
+   * claim EN_ATTENTE_VALIDATION (pas de blocage Kbis) + notification admin. C'est
+   * indispensable au flux d'auto-claim à l'inscription (l'utilisateur n'est pas
+   * connecté et ne pourrait pas uploader de Kbis).
+   */
+  async claimFromCatalogue(catalogueId: string, userId: string, userRole: string) {
+    // ── 1. Résoudre les données du centre ──
+    let existingCentreId: string | null = null;
+    let centreUserId: string | null = null;
+    let organisationId: string | null = null;
+    let identifiantEN: string | null = null;
+    let nom = '', ville = '', codePostal = '', adresse = '';
+    let capacite = 0;
+    let departement: string | null = null;
+    let siret: string | null = null;
+
+    if (UUID_RE.test(catalogueId)) {
+      const centre = await this.prisma.centreHebergement.findUnique({ where: { id: catalogueId } });
+      if (!centre) throw new NotFoundException('Centre introuvable');
+      existingCentreId = centre.id;
+      centreUserId = centre.userId;
+      organisationId = centre.organisationId;
+      nom = centre.nom; ville = centre.ville; codePostal = centre.codePostal;
+      adresse = centre.adresse; capacite = centre.capacite;
+      departement = centre.departement; siret = centre.siret;
+    } else {
+      // Record EN : dédup par apidaeId, sinon récupération depuis l'API EN
+      const existant = await this.prisma.centreHebergement.findFirst({
+        where: { apidaeId: catalogueId, source: 'API_EN' },
+      });
+      identifiantEN = catalogueId;
+      if (existant) {
+        existingCentreId = existant.id;
+        centreUserId = existant.userId;
+        organisationId = existant.organisationId;
+        nom = existant.nom; ville = existant.ville; codePostal = existant.codePostal;
+        adresse = existant.adresse; capacite = existant.capacite;
+        departement = existant.departement; siret = existant.siret;
+      } else {
+        const rec = await this.fetchEnRecord(catalogueId);
+        nom = rec.nom; ville = rec.ville; codePostal = rec.codePostal;
+        capacite = rec.capacite; departement = rec.departement;
+      }
+    }
+
+    // ── 2. Organisation (dédup SIREN → nom+ville via helper) — créée AVANT le centre ──
+    if (!organisationId) {
+      const { organisation } = await findOrCreateOrganisation(this.prisma, {
+        nom,
+        adresse: adresse || null,
+        ville,
+        codePostal,
+        departement,
+        siret,
+        siren: siret ? siret.substring(0, 9) : null,
+        source: identifiantEN ? 'API_EDUCATION_NATIONALE' : 'MANUAL',
+        sourceId: identifiantEN,
+      });
+      organisationId = organisation.id;
+    }
+
+    // ── 3. Initier le claim (org sans centre → pas de Kbis → EN_ATTENTE_VALIDATION + email admin) ──
+    const claim = await this.initierClaim(userId, organisationId, userRole);
+
+    // ── 4. Créer / lier le centre à l'organisation (+ userId si orphelin) ──
+    let centreId: string;
+    if (existingCentreId) {
+      centreId = existingCentreId;
+      await this.prisma.centreHebergement.update({
+        where: { id: existingCentreId },
+        data: {
+          organisationId,
+          ...(centreUserId ? {} : { userId }), // ne pas voler un centre déjà détenu
+        },
+      });
+    } else {
+      const centre = await this.prisma.centreHebergement.create({
+        data: {
+          nom,
+          adresse: adresse || '',
+          ville,
+          codePostal,
+          capacite,
+          departement,
+          apidaeId: identifiantEN,
+          source: 'API_EN',
+          statut: 'PENDING',
+          organisationId,
+          userId,
+        },
+      });
+      centreId = centre.id;
+    }
+
+    return {
+      centreId,
+      organisationId,
+      claimStatut: claim.membership.claimStatut,
+      kbisRequis: claim.kbisRequis,
+    };
+  }
+
+  /** Récupère un record du catalogue Éducation Nationale par identifiant externe. */
+  private async fetchEnRecord(identifiant: string): Promise<{
+    nom: string; ville: string; codePostal: string; capacite: number; departement: string | null;
+  }> {
+    const params = new URLSearchParams({ limit: '1', where: `identifiant="${identifiant}"` });
+    const res = await fetch(`${EN_CATALOGUE_API}?${params}`);
+    const data = (await res.json()) as { results?: Array<Record<string, any>> };
+    const r = data?.results?.[0];
+    if (!r) throw new NotFoundException('Centre du catalogue introuvable');
+    return {
+      nom: r.nom_de_la_structure_d_accueil_et_d_hebergement_fr,
+      ville: r.nom_du_lieu_d_accueil_ville,
+      codePostal: r.nom_du_lieu_d_accueil_code_postal,
+      capacite: (r.nombre_de_lits_pour_les_eleves as number) ?? 0,
+      departement: (r.nom_du_lieu_d_accueil_departement as string) ?? null,
+    };
   }
 
   /**

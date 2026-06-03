@@ -21,6 +21,7 @@ export default function HebergeurDashboard() {
   const [uploading, setUploading] = useState(false);
   const [rappelsAujourdhui, setRappelsAujourdhui] = useState<RappelToday[]>([]);
   const [claimStatut, setClaimStatut] = useState<string | null>(null);
+  const [claimOrgNom, setClaimOrgNom] = useState<string | null>(null);
   const [essaiActif, setEssaiActif] = useState(false);
   const [essaiExpire, setEssaiExpire] = useState(false);
   const [joursRestants, setJoursRestants] = useState(0);
@@ -59,11 +60,12 @@ export default function HebergeurDashboard() {
           : 0,
       );
     } catch {}
-    const cs = await api
+    const claimData = await api
       .get('/organisations/mon-claim-statut')
-      .then((r) => r.data?.claimStatut ?? null)
+      .then((r) => r.data ?? null)
       .catch(() => null);
-    setClaimStatut(cs);
+    setClaimStatut(claimData?.claimStatut ?? null);
+    setClaimOrgNom(claimData?.organisationNom ?? null);
   }, []);
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function HebergeurDashboard() {
       {claimStatut === 'EN_ATTENTE_DOCUMENT' && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <p className="text-sm text-amber-800">
-            <strong>Revendication en cours</strong> — Votre Kbis est attendu pour valider
+            <strong>Revendication en cours{claimOrgNom ? ` — ${claimOrgNom}` : ''}</strong> — Votre Kbis est attendu pour valider
             la propriété de votre centre. <a href="/dashboard/hebergeur/documents"
             className="underline font-medium">Déposer le document →</a>
           </p>
@@ -140,8 +142,9 @@ export default function HebergeurDashboard() {
       {claimStatut === 'EN_ATTENTE_VALIDATION' && (
         <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
           <p className="text-sm text-blue-800">
-            <strong>Validation en cours</strong> — Votre dossier a été transmis à notre équipe.
-            Vous serez notifié par email sous 48h.
+            <strong>Validation en cours</strong> — Votre demande de revendication
+            {claimOrgNom ? ` pour ${claimOrgNom}` : ''} est en cours de validation.
+            Vous recevrez un email dès qu&apos;elle sera traitée.
           </p>
         </div>
       )}

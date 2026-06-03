@@ -64,6 +64,9 @@ function RegisterHebergeurContent() {
   const urlVille = searchParams.get('ville') ?? '';
   const urlCodePostal = searchParams.get('codePostal') ?? '';
   const urlReseau = searchParams.get('reseau') ?? '';
+  // Revendication depuis le catalogue (auto-claim à l'inscription)
+  const claimCatalogueId = searchParams.get('claimCatalogueId') ?? '';
+  const claimCentreNom = searchParams.get('claimCentreNom') ?? '';
   const fromInvitation = !!(urlNomCentre || urlVille || urlCodePostal);
 
   // step 1 = personal info, 1.5 = centre search, 2 = centre details, 3 = types séjours
@@ -74,7 +77,7 @@ function RegisterHebergeurContent() {
     email: '',
     password: '',
     telephone: '',
-    nomCentre: urlNomCentre,
+    nomCentre: urlNomCentre || claimCentreNom,
     siret: '',
     adresse: '',
     ville: urlVille,
@@ -233,6 +236,11 @@ function RegisterHebergeurContent() {
       setError('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
+    // Revendication catalogue : créer le compte + claim direct, sans les étapes centre
+    if (claimCatalogueId) {
+      await handleSubmit(e);
+      return;
+    }
     if (invitationInfo?.cas === 1) {
       await handleSubmit(e);
       return;
@@ -273,6 +281,22 @@ function RegisterHebergeurContent() {
     setError(null);
     setIsPending(true);
     try {
+      // Revendication catalogue : crée uniquement le compte ; centre + organisation
+      // + claim sont gérés côté backend par claim-from-catalogue (appel inline).
+      if (claimCatalogueId) {
+        await api.post('/auth/register/hebergeur', {
+          prenom: form.prenom,
+          nom: form.nom,
+          email: form.email,
+          password: form.password,
+          telephone: form.telephone || undefined,
+          nomCentre: form.nomCentre || claimCentreNom,
+          claimCatalogueId,
+        });
+        setSuccess(true);
+        return;
+      }
+
       // CAS 1 — invitation admin avec centre existant : POST /centres/register
       if (invitationInfo?.cas === 1) {
         const { data } = await api.post('/centres/register', {
@@ -409,6 +433,15 @@ function RegisterHebergeurContent() {
           {/* ── STEP 1 : Infos personnelles ── */}
           {step === 1 && (
             <>
+            {claimCatalogueId && (
+              <div className="mb-5 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-primary)] mb-1">🏠 Revendication de centre</p>
+                <p className="text-base font-bold text-[var(--color-primary)]">{claimCentreNom || 'Ce centre'}</p>
+                <p className="text-xs text-[var(--color-primary)]/70 mt-2">
+                  Créez votre compte : votre demande de revendication sera transmise à notre équipe pour validation.
+                </p>
+              </div>
+            )}
             {invitationInfo?.cas === 1 && apidaeCentre && (
               <div className="mb-5 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] overflow-hidden">
                 {apidaeCentre.imageUrl && (

@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Cookies from 'js-cookie';
+import api from '@/src/lib/api';
 import { getHebergementPublic } from '@/src/lib/hebergement';
 import type { Hebergement } from '@/src/lib/hebergement';
 import { Logo } from '@/app/components/Logo';
@@ -10,6 +12,37 @@ export default function CentrePublicPage() {
   const { id } = useParams<{ id: string }>();
   const [centre, setCentre] = useState<Hebergement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [claimState, setClaimState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [claimMsg, setClaimMsg] = useState<string>('');
+
+  // Bouton « Je gère ce centre » : redirige vers l'inscription si non connecté,
+  // appelle le claim si hébergeur, sinon invite à se connecter en hébergeur.
+  const handleClaim = async () => {
+    if (!centre) return;
+    const token = Cookies.get('token');
+    if (!token) {
+      window.location.href =
+        `/register/hebergeur?claimCatalogueId=${encodeURIComponent(centre.id)}` +
+        `&claimCentreNom=${encodeURIComponent(centre.nom)}`;
+      return;
+    }
+    let role: string | null = null;
+    try { role = JSON.parse(localStorage.getItem('sj_user_v2') ?? 'null')?.role ?? null; } catch {}
+    if (role !== 'HEBERGEUR') {
+      setClaimState('error');
+      setClaimMsg('Connectez-vous avec un compte hébergeur pour revendiquer ce centre.');
+      return;
+    }
+    setClaimState('loading');
+    try {
+      await api.post('/centres/claim-from-catalogue', { catalogueId: centre.id });
+      setClaimState('success');
+      setClaimMsg('Demande envoyée — votre revendication est en attente de validation. Vous recevrez un email dès qu\'elle sera traitée.');
+    } catch (e: unknown) {
+      setClaimState('error');
+      setClaimMsg((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Une erreur est survenue. Réessayez.');
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -153,6 +186,32 @@ export default function CentrePublicPage() {
                   Voir le site du centre →
                 </a>
               )}
+
+              {/* ── Revendication hébergeur ── */}
+              <div className="mt-6 pt-5 border-t border-gray-200">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide text-center mb-3">
+                  Vous gérez ce centre ?
+                </p>
+                {claimState === 'success' ? (
+                  <p className="rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-3 py-2.5 text-xs text-[var(--color-success)] text-center">
+                    {claimMsg}
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleClaim}
+                      disabled={claimState === 'loading'}
+                      className="w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-60"
+                    >
+                      {claimState === 'loading' ? 'Envoi…' : '🏠 Je gère ce centre'}
+                    </button>
+                    {claimState === 'error' && (
+                      <p className="mt-2 text-xs text-red-600 text-center">{claimMsg}</p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

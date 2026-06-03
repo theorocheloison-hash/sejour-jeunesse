@@ -17,6 +17,7 @@ import { RegisterOrganisateurDto } from './dto/register-organisateur.dto.js';
 import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
+import { ClaimService } from '../organisations/claim.service.js';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private email: EmailService,
+    private claimService: ClaimService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -210,13 +212,51 @@ export class AuthService {
       }),
     ]);
 
+    // ── Mode revendication catalogue : créer UNIQUEMENT le user. Le centre,
+    //    l'organisation et le membership de claim sont gérés par claimFromCatalogue. ──
+    if (dto.claimCatalogueId) {
+      let claimResult: Awaited<ReturnType<ClaimService['claimFromCatalogue']>> | null = null;
+      try {
+        claimResult = await this.claimService.claimFromCatalogue(dto.claimCatalogueId, user.id, Role.HEBERGEUR);
+      } catch (err) {
+        console.error('[registerHebergeur] Echec claim-from-catalogue', err);
+      }
+
+      await this.prisma.consentementRgpd.create({
+        data: {
+          userId: user.id,
+          role: Role.HEBERGEUR,
+          versionDpa: process.env.DPA_VERSION ?? '1.0',
+          ipAddress: ipAddress ?? null,
+          userAgent: userAgent ?? null,
+        },
+      });
+
+      await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
+      await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
+
+      return {
+        message: 'Inscription réussie. Votre demande de revendication est en attente de validation.',
+        user: { id: user.id, email: user.email, role: user.role },
+        claim: claimResult
+          ? { claimStatut: claimResult.claimStatut, kbisRequis: claimResult.kbisRequis }
+          : null,
+      };
+    }
+
+    // Mode normal : les informations du centre sont obligatoires
+    if (!dto.adresse || !dto.ville || !dto.codePostal || dto.capacite == null) {
+      throw new BadRequestException('Les informations du centre sont obligatoires.');
+    }
+    const { adresse, ville, codePostal, capacite } = dto;
+
     const centre = await this.prisma.centreHebergement.create({
       data: {
         nom: dto.nomCentre,
-        adresse: dto.adresse,
-        ville: dto.ville,
-        codePostal: dto.codePostal,
-        capacite: dto.capacite,
+        adresse,
+        ville,
+        codePostal,
+        capacite,
         description: dto.description ?? null,
         email: dto.emailContact ?? null,
         siret: dto.siret ?? null,
@@ -243,9 +283,9 @@ export class AuthService {
     try {
       const { organisation } = await findOrCreateOrganisation(this.prisma, {
         nom:              dto.nomCentre,
-        adresse:          dto.adresse,
-        codePostal:       dto.codePostal,
-        ville:            dto.ville,
+        adresse,
+        codePostal,
+        ville,
         emailContact:     dto.emailContact ?? null,
         telephoneContact: dto.telephone ?? null,
         siret:            dto.siret ?? null,
