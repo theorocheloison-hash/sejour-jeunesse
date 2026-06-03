@@ -169,6 +169,7 @@ export default function TabDevisFacturation({
   const [avoirLoading, setAvoirLoading] = useState(false);
   const [avoirError, setAvoirError] = useState<string | null>(null);
   const [annulerLoading, setAnnulerLoading] = useState(false);
+  const [showModalAnnuler, setShowModalAnnuler] = useState(false);
 
   useEffect(() => {
     if (!isDirect) return;
@@ -402,10 +403,10 @@ export default function TabDevisFacturation({
 
   const handleAnnulerDevis = async () => {
     if (!activeDevisId) return;
-    if (!confirm('Confirmer l\'annulation de ce devis ?')) return;
     setAnnulerLoading(true);
     try {
       await annulerDevis(activeDevisId);
+      setShowModalAnnuler(false);
       if (isDirect) {
         const devis = await getDevisForSejourDirect(sejourId);
         setDirectDevis(devis[0] ?? null);
@@ -416,6 +417,7 @@ export default function TabDevisFacturation({
       const msg = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message ?? 'Erreur lors de l\'annulation';
       onError(msg);
+      setShowModalAnnuler(false);
     } finally {
       setAnnulerLoading(false);
     }
@@ -431,7 +433,8 @@ export default function TabDevisFacturation({
     const totalVerse = versements.reduce((sum, v) => sum + v.montant, 0);
     const resteDu = ad.montantTTC - totalVerse;
     const pctVerse = ad.montantTTC > 0 ? Math.min(100, Math.round((totalVerse / ad.montantTTC) * 100)) : 0;
-    const avoirSurAcompte = factures.find(f => f.typeFacture === 'AVOIR') ?? null;
+    const avoirSurAcompte = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureAcompte?.id) ?? null;
+    const avoirSurSolde = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureSolde?.id) ?? null;
 
     return (
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
@@ -456,28 +459,29 @@ export default function TabDevisFacturation({
           )}
         </div>
 
-        {(factureAcompte || factureSolde || avoirSurAcompte) && (
+        {(factureAcompte || factureSolde || avoirSurAcompte || avoirSurSolde) && (
           <div className="flex items-center gap-2 flex-wrap">
             {factureAcompte && <FacturePdfLink facture={factureAcompte} onReload={reloadFactures} />}
             {factureSolde && <FacturePdfLink facture={factureSolde} onReload={reloadFactures} />}
             {avoirSurAcompte && <FacturePdfLink facture={avoirSurAcompte} onReload={reloadFactures} />}
+            {avoirSurSolde && <FacturePdfLink facture={avoirSurSolde} onReload={reloadFactures} />}
           </div>
         )}
 
-        {avoirSurAcompte && (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs">
+        {[avoirSurAcompte, avoirSurSolde].filter((a): a is Facture => !!a).map((avoir) => (
+          <div key={avoir.id} className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs">
             <span className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0" />
-            <span className="font-medium text-red-700">Avoir {avoirSurAcompte.numero}</span>
+            <span className="font-medium text-red-700">Avoir {avoir.numero}</span>
             <span className="text-red-600">
-              −{Math.abs(avoirSurAcompte.montantFacture).toLocaleString('fr-FR', {
+              −{Math.abs(avoir.montantFacture).toLocaleString('fr-FR', {
                 minimumFractionDigits: 2, maximumFractionDigits: 2
               })} €
             </span>
-            {avoirSurAcompte.motifAvoir && (
-              <span className="text-red-400">· {avoirSurAcompte.motifAvoir}</span>
+            {avoir.motifAvoir && (
+              <span className="text-red-400">· {avoir.motifAvoir}</span>
             )}
           </div>
-        )}
+        ))}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="bg-gray-50 rounded-lg p-3">
@@ -668,22 +672,32 @@ export default function TabDevisFacturation({
             </button>
           )}
 
-          {/* Bouton avoir sur FA — visible si FA émise et pas encore d'avoir */}
-          {etatFacturation === 'ACOMPTE' && !avoirSurAcompte && (
+          {/* Avoir sur l'acompte — si acompte émis et pas encore d'avoir */}
+          {factureAcompte && !avoirSurAcompte && (
             <button
-              onClick={() => factureAcompte && openModalAvoir(factureAcompte)}
+              onClick={() => openModalAvoir(factureAcompte)}
               className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
             >
-              Émettre un avoir
+              {factureSolde ? 'Émettre un avoir (acompte)' : 'Émettre un avoir'}
+            </button>
+          )}
+          {/* Avoir sur le solde — si solde émis et pas encore d'avoir */}
+          {factureSolde && !avoirSurSolde && (
+            <button
+              onClick={() => openModalAvoir(factureSolde)}
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              Émettre un avoir (solde)
             </button>
           )}
 
-          {/* Bouton annuler devis — visible si pas de FA (ou FA couverte par avoir) */}
-          {isDirect && activeDevisStatut && ['EN_ATTENTE', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (
+          {/* Annuler le devis — DIRECT ou COLLABORATIF, devis sélectionné/signé.
+              Si une facture est émise, le backend exige d'abord un avoir (boutons ci-dessus). */}
+          {activeDevisStatut && ['SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (
             <button
-              onClick={handleAnnulerDevis}
+              onClick={() => setShowModalAnnuler(true)}
               disabled={annulerLoading}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
               {annulerLoading ? 'Annulation...' : 'Annuler ce devis'}
             </button>
@@ -827,6 +841,76 @@ export default function TabDevisFacturation({
                   </p>
                 </div>
               )}
+
+              {/* Aperçu PDF du devis (signé ou non) — au-dessus de la section Facturation */}
+              {(() => {
+                const dd = directDevis!;
+                const cc = dd.centre;
+                const htCalc = Number(dd.montantHT) || (dd.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
+                const ttcCalc = Number(dd.montantTTC) || Number(dd.montantTotal) || 0;
+                const tvaCalc = Number(dd.montantTVA) || (ttcCalc - htCalc);
+                const pdfPropsDirect: DevisPDFProps = {
+                  typeDocument: 'DEVIS',
+                  numeroDocument: dd.numeroDevis ?? `DEV-${dd.id.substring(0, 8).toUpperCase()}`,
+                  dateDocument: dd.createdAt,
+                  dateValidite: new Date(new Date(dd.createdAt).getTime() + 30 * 86400000).toISOString(),
+                  nomEmetteur: dd.nomEntreprise ?? cc?.nom ?? '',
+                  adresseEmetteur: dd.adresseEntreprise ?? [cc?.adresse, cc?.codePostal, cc?.ville].filter(Boolean).join(', '),
+                  siretEmetteur: dd.siretEntreprise ?? cc?.siret ?? undefined,
+                  emailEmetteur: dd.emailEntreprise ?? cc?.email ?? undefined,
+                  telEmetteur: dd.telEntreprise ?? cc?.telephone ?? undefined,
+                  tvaEmetteur: cc?.tvaIntracommunautaire ?? undefined,
+                  ibanEmetteur: cc?.iban ?? undefined,
+                  nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' '),
+                  etablissementNom: sejour?.clientOrganisation ?? undefined,
+                  emailDestinataire: sejour?.clientEmail ?? undefined,
+                  telDestinataire: sejour?.clientTelephone ?? undefined,
+                  titreSejour: sejour?.titre ?? '',
+                  lieuSejour: sejour?.lieu ?? '',
+                  dateDebutSejour: sejour?.dateDebut,
+                  dateFinSejour: sejour?.dateFin,
+                  nombreEleves: sejour?.placesTotales ?? undefined,
+                  lignes: (dd.lignes ?? []).map((l) => ({
+                    description: l.description,
+                    quantite: Number(l.quantite),
+                    prixUnitaire: Number(l.prixUnitaire),
+                    tva: Number(l.tva),
+                    totalHT: Number(l.totalHT),
+                    totalTTC: Number(l.totalTTC),
+                  })),
+                  montantHT: htCalc,
+                  montantTVA: tvaCalc,
+                  montantTTC: ttcCalc,
+                  montantAcompte: Number(dd.montantAcompte) || undefined,
+                  montantSolde: Number(dd.montantSolde) || undefined,
+                  pourcentageAcompte: Number(dd.pourcentageAcompte) || undefined,
+                  conditionsAnnulation: dd.conditionsAnnulation ?? undefined,
+                  signatureDirecteur: dd.signatureDirecteur ?? null,
+                };
+                return dd.documentUrl ? (
+                  <div className="space-y-3">
+                    <a
+                      href={dd.documentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Télécharger le devis PDF
+                    </a>
+                    <iframe
+                      src={dd.documentUrl}
+                      className="w-full rounded-2xl border border-gray-200 shadow-sm"
+                      style={{ height: '80vh', minHeight: 600 }}
+                      title="Aperçu du devis"
+                    />
+                  </div>
+                ) : (
+                  <DevisPDFInline data={pdfPropsDirect} />
+                );
+              })()}
 
               {renderFacturationPipeline()}
             </>
@@ -1113,6 +1197,40 @@ export default function TabDevisFacturation({
       )}
 
       {/* ── Modale avoir ─── */}
+      {/* ── Modale double-confirmation annulation devis ─── */}
+      {showModalAnnuler && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !annulerLoading && setShowModalAnnuler(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Annuler ce devis ?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Êtes-vous certain de vouloir annuler ce devis ? Cette action est irréversible.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowModalAnnuler(false)}
+                disabled={annulerLoading}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuler — revenir
+              </button>
+              <button
+                onClick={handleAnnulerDevis}
+                disabled={annulerLoading}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {annulerLoading ? 'Annulation...' : 'Confirmer l\'annulation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModalAvoir && avoirFactureSource && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
