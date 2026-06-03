@@ -195,7 +195,23 @@ export class ClaimService {
       }
     }
 
-    // ── 2. Organisation (dédup SIREN → nom+ville via helper) — créée AVANT le centre ──
+    // ── 2. Organisation — créée AVANT le centre ──
+    // Ordre de résolution : (1) centre existant déjà rattaché à une org,
+    // (2) org du membership VALIDE de l'hébergeur (cas multi-centre), (3) dédup
+    // SIREN → nom+ville → création.
+    // Dédup par membership VALIDE : un hébergeur multi-centre (ex. Pôle Montagne,
+    // 3 chalets) rattache ses nouveaux centres à son org existante. L'API EN ne
+    // fournit pas de SIREN, donc la dédup SIREN/nom+ville ne suffit pas ici.
+    if (!organisationId) {
+      const existingMembership = await this.prisma.membership.findFirst({
+        where: { userId, claimStatut: 'VALIDE' },
+        select: { organisationId: true },
+      });
+      if (existingMembership) {
+        organisationId = existingMembership.organisationId;
+      }
+    }
+
     if (!organisationId) {
       const { organisation } = await findOrCreateOrganisation(this.prisma, {
         nom,
@@ -276,6 +292,10 @@ export class ClaimService {
     }
 
     // ── 4. Créer / lier le centre à l'organisation (+ userId si orphelin) ──
+    // Hébergeur déjà propriétaire validé de l'org (cas multi-centre) : aucun claim
+    // à valider n'est créé, donc on active directement le nouveau centre — sinon il
+    // resterait PENDING (invisible dans « mes centres » / au catalogue) sans recours.
+    const ownerDejaValide = !!claimValide && claimValide.userId === userId;
     let centreId: string;
     if (existingCentreId) {
       centreId = existingCentreId;
@@ -284,6 +304,9 @@ export class ClaimService {
         data: {
           organisationId,
           ...(centreUserId ? {} : { userId }), // ne pas voler un centre déjà détenu
+          // Activation directe si l'hébergeur est déjà propriétaire validé (et que le
+          // centre n'est pas détenu par un autre).
+          ...(ownerDejaValide && (!centreUserId || centreUserId === userId) ? { statut: 'ACTIVE' as const } : {}),
           // Rétro-remplissage idempotent des données catalogue : pour un centre
           // resté vide, `nom`/`description`/… contiennent désormais les données
           // fraîches du catalogue ; pour un centre déjà rempli, ce sont ses
@@ -323,7 +346,7 @@ export class ClaimService {
           periodeOuverture,
           apidaeId: identifiantEN,
           source: 'API_EN',
-          statut: 'PENDING',
+          statut: ownerDejaValide ? 'ACTIVE' : 'PENDING',
           organisationId,
           userId,
         },
