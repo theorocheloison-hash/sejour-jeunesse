@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Role, StatutSejour, StatutDevis, AppelOffreStatut, TypeContexteSejour } from '@prisma/client';
+import { Role, StatutSejour, StatutDevis, AppelOffreStatut, TypeContexteSejour, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateSejourDto } from './dto/create-sejour.dto.js';
@@ -1143,29 +1143,51 @@ export class SejourService {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
 
-    // Garde : on ne supprime pas un séjour qui porte un devis engageant (signé ou
-    // facturé). Le devis ne mute pas en FACTURE_* : un devis facturé reste
-    // SELECTIONNE/SIGNE_DIRECTION. Couvre les deux modes (DIRECT via sejourDirectId,
-    // COLLABORATIF via demande.sejourId). EN_ATTENTE / NON_RETENU ne bloquent pas.
+    // Devis liés au séjour (DIRECT via sejourDirectId, COLLABORATIF via demande.sejourId).
+    const devisSejourWhere: Prisma.DevisWhereInput = {
+      OR: [
+        { sejourDirectId: sejourId },
+        { demande: { sejourId } },
+      ],
+    };
+
+    // Garde 1 : factures émises (acompte / solde / avoir) → conservation 10 ans
+    // (obligation comptable FR). Le séjour reste en base comme dossier archivé,
+    // même si les devis ont été annulés via avoir.
+    const facturesCount = await this.prisma.facture.count({
+      where: { devis: devisSejourWhere },
+    });
+    if (facturesCount > 0) {
+      throw new BadRequestException(
+        'Impossible de supprimer ce séjour — des factures ont été émises et doivent être conservées (obligation comptable). Ce dossier reste archivé.',
+      );
+    }
+
+    // Garde 2 : devis signé encore actif (non annulé) → l'hébergeur doit l'annuler
+    // d'abord (passage en NON_RETENU). Le devis ne mute pas en FACTURE_* : un devis
+    // facturé reste SELECTIONNE/SIGNE_DIRECTION (déjà bloqué par la garde 1 si facturé).
     const devisEngageant = await this.prisma.devis.count({
       where: {
+        ...devisSejourWhere,
         statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
-        OR: [
-          { sejourDirectId: sejourId },
-          { demande: { sejourId } },
-        ],
       },
     });
     if (devisEngageant > 0) {
       throw new BadRequestException(
-        'Impossible de supprimer ce séjour — il contient des devis signés ou facturés. Annulez les devis d\'abord.',
+        'Impossible de supprimer ce séjour — il contient des devis signés. Annulez les devis d\'abord.',
       );
     }
 
-    await this.prisma.sejour.update({
-      where: { id: sejourId },
-      data: { deletedAt: new Date() },
-    });
+    // Suppression en cascade des devis restants (brouillon EN_ATTENTE, EN_ATTENTE_VALIDATION,
+    // NON_RETENU, etc.) — aucun n'a de facture grâce à la garde 1. lignes_devis et
+    // versements suivent (onDelete: Cascade). Évite les devis orphelins après suppression.
+    await this.prisma.$transaction([
+      this.prisma.devis.deleteMany({ where: devisSejourWhere }),
+      this.prisma.sejour.update({
+        where: { id: sejourId },
+        data: { deletedAt: new Date() },
+      }),
+    ]);
 
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({
