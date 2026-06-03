@@ -1,8 +1,9 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class ClaimCentreDto {
-  @IsUUID()
-  centreId!: string;
+  // UUID d'un centre Liavo OU identifiant externe Éducation Nationale (ex. "92599834").
+  @IsString()
+  catalogueId!: string;
 
   @IsOptional()
   @IsString()

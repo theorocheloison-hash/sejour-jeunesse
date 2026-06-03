@@ -185,7 +185,12 @@ export class AuthService {
 
   // ── Inscription hébergeur ────────────────────────────────────────────
 
-  async registerHebergeur(dto: RegisterHebergeurDto, ipAddress?: string, userAgent?: string) {
+  async registerHebergeur(
+    dto: RegisterHebergeurDto,
+    ipAddress?: string,
+    userAgent?: string,
+    file?: Express.Multer.File,
+  ) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: { id: true },
@@ -215,11 +220,18 @@ export class AuthService {
     // ── Mode revendication catalogue : créer UNIQUEMENT le user. Le centre,
     //    l'organisation et le membership de claim sont gérés par claimFromCatalogue. ──
     if (dto.claimCatalogueId) {
+      // Le user est créé ; on tente le claim inline. Si le claim échoue, on
+      // n'avale PAS l'erreur silencieusement : le user reste créé (il pourra
+      // retenter plus tard), mais la réponse signale clairement l'échec.
       let claimResult: Awaited<ReturnType<ClaimService['claimFromCatalogue']>> | null = null;
+      let claimError: string | null = null;
       try {
-        claimResult = await this.claimService.claimFromCatalogue(dto.claimCatalogueId, user.id, Role.HEBERGEUR);
+        claimResult = await this.claimService.claimFromCatalogue(
+          dto.claimCatalogueId, user.id, Role.HEBERGEUR, file,
+        );
       } catch (err) {
         console.error('[registerHebergeur] Echec claim-from-catalogue', err);
+        claimError = err instanceof Error ? err.message : 'Erreur lors de la revendication';
       }
 
       await this.prisma.consentementRgpd.create({
@@ -236,11 +248,12 @@ export class AuthService {
       await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
 
       return {
-        message: 'Inscription réussie. Votre demande de revendication est en attente de validation.',
+        message: claimResult
+          ? 'Inscription réussie. Votre demande de revendication est en attente de validation.'
+          : 'Inscription réussie. La revendication du centre a échoué — vous pourrez réessayer depuis votre espace.',
         user: { id: user.id, email: user.email, role: user.role },
-        claim: claimResult
-          ? { claimStatut: claimResult.claimStatut, kbisRequis: claimResult.kbisRequis }
-          : null,
+        claim: claimResult ? { claimStatut: claimResult.claimStatut } : null,
+        claimError,
       };
     }
 
@@ -366,6 +379,8 @@ export class AuthService {
       where: { tokenVerification: token },
       select: {
         id: true,
+        role: true,
+        compteValide: true,
         emailVerifie: true,
         tokenVerificationExpires: true,
         accompagnateurTokenPending: true,
@@ -378,7 +393,9 @@ export class AuthService {
     }
 
     if (user.emailVerifie) {
-      return { message: 'Votre email est déjà vérifié.' };
+      // role + compteValide : le frontend en a besoin pour afficher le bon message
+      // (hébergeur encore en attente de validation vs compte directement utilisable).
+      return { message: 'Votre email est déjà vérifié.', role: user.role, compteValide: user.compteValide };
     }
 
     await this.prisma.user.update({
@@ -407,7 +424,11 @@ export class AuthService {
       } catch { /* non bloquant */ }
     }
 
-    return { message: 'Email vérifié avec succès. Vous pouvez maintenant vous connecter.' };
+    return {
+      message: 'Email vérifié avec succès. Vous pouvez maintenant vous connecter.',
+      role: user.role,
+      compteValide: user.compteValide,
+    };
   }
 
   // ── Renvoyer l'email de vérification ─────────────────────────────────
@@ -476,15 +497,27 @@ export class AuthService {
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
 
-    if (!user.compteValide && !user.emailVerifie) {
+    // Compte dormant (non-hébergeur uniquement) : flux magic-link existant conservé.
+    // Un compte ni validé ni email-vérifié provient d'une demande passée (lien magic
+    // expiré) — on propose un nouveau lien d'accès, sans exiger de mot de passe.
+    if (user.role !== 'HEBERGEUR' && !user.compteValide && !user.emailVerifie) {
       throw new UnauthorizedException('COMPTE_DORMANT');
     }
 
+    // Gate 1 : mot de passe (avant tout, pour ne pas divulguer l'état du compte).
     const isValid = await bcrypt.compare(dto.password, user.motDePasse);
     if (!isValid) throw new UnauthorizedException('Identifiants invalides');
 
+    // Gate 2 : email vérifié.
     if (!user.emailVerifie) {
-      throw new UnauthorizedException('Veuillez vérifier votre email avant de vous connecter');
+      throw new UnauthorizedException('EMAIL_NON_VERIFIE');
+    }
+
+    // Gate 3 : hébergeur validé par l'équipe (compteValide est false par défaut
+    // pour TOUS les rôles — ce check est donc conditionné au rôle HEBERGEUR, sinon
+    // il bloquerait les organisateurs/signataires qui se connectent via emailVerifie).
+    if (user.role === 'HEBERGEUR' && !user.compteValide) {
+      throw new UnauthorizedException('COMPTE_EN_ATTENTE_VALIDATION');
     }
 
     return this.buildAuthResponse(user);
