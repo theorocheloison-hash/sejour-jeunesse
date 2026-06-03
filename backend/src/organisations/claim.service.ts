@@ -369,6 +369,17 @@ export class ClaimService {
       }),
     ]);
 
+    // Activer les centres de l'organisation : rattacher les orphelins à l'hébergeur,
+    // puis passer ses centres PENDING en ACTIVE (visibles au catalogue / « mes centres »).
+    await this.prisma.centreHebergement.updateMany({
+      where: { organisationId: membership.organisationId, userId: null },
+      data: { userId: membership.userId },
+    });
+    await this.prisma.centreHebergement.updateMany({
+      where: { organisationId: membership.organisationId, userId: membership.userId, statut: 'PENDING' },
+      data: { statut: 'ACTIVE' },
+    });
+
     await this.email.sendGenericNotification(
       membership.user.email,
       'Votre claim LIAVO a été validé',
