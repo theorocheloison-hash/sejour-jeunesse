@@ -260,6 +260,7 @@ export default function ModifierDevisPage() {
 
   const demande = devisOriginal?.demande;
   const sejour = demande?.sejour;
+  const sejourDirect = devisOriginal?.sejourDirect; // devis DIRECT (pas de demande/enseignant)
 
   const dateDevis = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dateValidite = new Date(Date.now() + validiteJours * 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -328,6 +329,14 @@ export default function ModifierDevisPage() {
                 )}
                 {demande.enseignant.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
               </div>
+            ) : sejourDirect ? (
+              <div className="text-sm text-gray-700 space-y-1">
+                {sejourDirect.clientOrganisation && <p className="font-semibold">{sejourDirect.clientOrganisation}</p>}
+                {sejourDirect.clientNom && (
+                  <p className={sejourDirect.clientOrganisation ? 'text-gray-600' : 'font-semibold'}>{sejourDirect.clientNom}</p>
+                )}
+                {sejourDirect.clientEmail && <p className="text-gray-500">{sejourDirect.clientEmail}</p>}
+              </div>
             ) : (
               <p className="text-sm text-gray-400">Information non disponible</p>
             )}
@@ -340,6 +349,10 @@ export default function ModifierDevisPage() {
               {sejour ? (
                 <p className="text-sm font-semibold text-gray-900">
                   Séjour — {sejour.titre}
+                </p>
+              ) : sejourDirect ? (
+                <p className="text-sm font-semibold text-gray-900">
+                  Séjour — {sejourDirect.titre}
                 </p>
               ) : demande ? (
                 <p className="text-sm font-semibold text-gray-900">

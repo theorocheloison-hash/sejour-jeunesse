@@ -558,7 +558,7 @@ export default function HebergeurDevisPage() {
                         Annuler ce devis
                       </button>
                     )}
-                    {(d.statut === 'EN_ATTENTE' || d.statut === 'SELECTIONNE') && (
+                    {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(d.statut) && (
                       <Link
                         href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                         className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-colors"

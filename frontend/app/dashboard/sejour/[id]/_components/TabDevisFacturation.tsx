@@ -824,12 +824,14 @@ export default function TabDevisFacturation({
                   </p>
                 )}
 
-                <Link
-                  href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                >
-                  Modifier le devis
-                </Link>
+                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(directDevis.statut) && (
+                  <Link
+                    href={`/dashboard/hebergeur/devis/${directDevis.id}/modifier`}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Modifier le devis
+                  </Link>
+                )}
               </div>
 
               {(directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION') && directDevis.nomSignataireDirecteur && (
@@ -1069,7 +1071,7 @@ export default function TabDevisFacturation({
                       </a>
                     )}
                   </div>
-                  {user.role === 'HEBERGEUR' && (
+                  {user.role === 'HEBERGEUR' && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(d.statut) && (
                     <a
                       href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                       className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"

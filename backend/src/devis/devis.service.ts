@@ -229,6 +229,14 @@ export class DevisService {
             },
           },
         },
+        // Séjour DIRECT : permet à la page de modification d'afficher l'objet et le
+        // destinataire (client) pour un devis direct (pas de demande/enseignant).
+        sejourDirect: {
+          select: {
+            id: true, titre: true, dateDebut: true, dateFin: true,
+            clientNom: true, clientEmail: true, clientOrganisation: true, modeGestion: true,
+          },
+        },
       },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
