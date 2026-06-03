@@ -1197,18 +1197,30 @@ export class SejourService {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
 
-    const invitation = await this.prisma.invitationCollaboration.create({
-      data: {
-        centreId: centre.id,
-        emailEnseignant: emailOrganisateur.trim(),
-        titreSejourSuggere: sejour.titre,
-        dateDebut: sejour.dateDebut,
-        dateFin: sejour.dateFin,
-        nbElevesEstime: sejour.placesTotales,
-        message: `${centre.nom} vous invite à collaborer sur le séjour "${sejour.titre}".`,
-        sejourId: sejour.id,
-      },
+    // Anti-spam : si une invitation est déjà en attente pour ce séjour, on la
+    // réutilise (le token/lien reste valide) en mettant l'email à jour, plutôt que
+    // d'en créer une nouvelle à chaque envoi. Sinon on en crée une.
+    const pending = await this.prisma.invitationCollaboration.findFirst({
+      where: { sejourId: sejour.id, acceptedAt: null },
+      orderBy: { createdAt: 'desc' },
     });
+    const invitation = pending
+      ? await this.prisma.invitationCollaboration.update({
+          where: { id: pending.id },
+          data: { emailEnseignant: emailOrganisateur.trim() },
+        })
+      : await this.prisma.invitationCollaboration.create({
+          data: {
+            centreId: centre.id,
+            emailEnseignant: emailOrganisateur.trim(),
+            titreSejourSuggere: sejour.titre,
+            dateDebut: sejour.dateDebut,
+            dateFin: sejour.dateFin,
+            nbElevesEstime: sejour.placesTotales,
+            message: `${centre.nom} vous invite à collaborer sur le séjour "${sejour.titre}".`,
+            sejourId: sejour.id,
+          },
+        });
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const lien = `${frontendUrl}/rejoindre/${invitation.token}`;

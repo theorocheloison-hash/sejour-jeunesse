@@ -61,6 +61,8 @@ export interface SejourCollabInfo {
   clientTelephone?: string | null;
   clientOrganisation?: string | null;
   notesInternes?: string | null;
+  // Invitation collaborative en attente (séjour DIRECT) — null si aucune / déjà acceptée.
+  invitationCollab?: { email: string; createdAt: string } | null;
 }
 
 export interface SejourConventionHebergeur {
