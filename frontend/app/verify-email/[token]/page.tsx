@@ -12,15 +12,24 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState('');
   const [loginHref, setLoginHref] = useState('/login');
+  // Hébergeur dont l'email vient d'être vérifié mais dont le compte n'est pas
+  // encore validé par l'équipe : pas de bouton « Se connecter ».
+  const [pendingHebergeur, setPendingHebergeur] = useState(false);
 
   useEffect(() => {
     if (!token) return;
     api.post(`/auth/verify-email/${token}`)
       .then(({ data }) => {
-        setMessage(data.message);
+        const isHebergeurPending = data.role === 'HEBERGEUR' && data.compteValide === false;
+        setPendingHebergeur(isHebergeurPending);
+        setMessage(
+          isHebergeurPending
+            ? 'Votre compte est en attente de validation par notre équipe. Vous recevrez un email dès que votre accès sera activé.'
+            : data.message,
+        );
         const isSuccess = !data.message?.includes('déjà');
         setStatus(isSuccess ? 'success' : 'already');
-        if (isSuccess) {
+        if (isSuccess && !isHebergeurPending) {
           const getCookie = (name: string): string | null => {
             const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
             return match ? decodeURIComponent(match[1]) : null;
@@ -97,10 +106,14 @@ export default function VerifyEmailPage() {
 
         {status !== 'loading' && (
           <Link
-            href={loginHref}
+            href={pendingHebergeur ? '/' : loginHref}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90"
           >
-            {loginHref !== '/login' ? 'Se connecter et rejoindre le séjour' : 'Se connecter'}
+            {pendingHebergeur
+              ? "Retour à l'accueil"
+              : loginHref !== '/login'
+                ? 'Se connecter et rejoindre le séjour'
+                : 'Se connecter'}
           </Link>
         )}
       </div>

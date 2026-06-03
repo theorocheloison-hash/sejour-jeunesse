@@ -29,12 +29,7 @@ export class ClaimService {
    *
    * Règle : un seul claim actif par Organisation (bloque si VALIDE existant).
    */
-  async initierClaim(
-    userId: string,
-    organisationId: string,
-    userRole: string,
-    forceNoKbis = false,
-  ) {
+  async initierClaim(userId: string, organisationId: string, userRole: string) {
     const org = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
     });
@@ -62,29 +57,10 @@ export class ClaimService {
       },
     });
     if (claimExistant) {
-      // Claim catalogue (forceNoKbis) sur un claim resté bloqué en attente de
-      // document : on le promeut en attente de validation et on notifie l'admin
-      // (le flux catalogue n'a pas d'étape d'upload Kbis, sinon il reste coincé).
-      if (forceNoKbis && claimExistant.claimStatut === 'EN_ATTENTE_DOCUMENT') {
-        const promu = await this.prisma.membership.update({
-          where: { id: claimExistant.id },
-          data: {
-            claimStatut: 'EN_ATTENTE_VALIDATION',
-            claimSubmittedAt: new Date(),
-            claimRefuseRaison: null,
-          },
-        });
-        await this.notifierAdminNouveauClaim(organisationId, userId);
-        return { membership: promu, kbisRequis: false, alreadyPending: false };
-      }
       return { membership: claimExistant, kbisRequis: false, alreadyPending: true };
     }
 
-    // forceNoKbis : les claims depuis le catalogue passent toujours en validation
-    // admin manuelle (pas de Kbis), même si l'organisation porte déjà un centre.
-    const kbisRequis = forceNoKbis
-      ? false
-      : await shouldRequireKbis(this.prisma, { userRole, organisationId });
+    const kbisRequis = await shouldRequireKbis(this.prisma, { userRole, organisationId });
     const claimStatut = kbisRequis ? 'EN_ATTENTE_DOCUMENT' : 'EN_ATTENTE_VALIDATION';
 
     const membership = await this.prisma.membership.upsert({
@@ -139,15 +115,19 @@ export class ClaimService {
   /**
    * Revendique un centre depuis le catalogue public (centre Liavo par UUID, ou
    * record Éducation Nationale par identifiant externe). Crée/retrouve l'Organisation,
-   * initie le claim, puis crée/lie le CentreHebergement.
+   * crée le claim (pilote par le justificatif), puis crée/lie le CentreHebergement.
    *
-   * Ordre volontaire : initierClaim() est appelé AVANT de lier le centre à l'org.
-   * Une org fraîche n'a pas encore de centre → shouldRequireKbis = false →
-   * claim EN_ATTENTE_VALIDATION (pas de blocage Kbis) + notification admin. C'est
-   * indispensable au flux d'auto-claim à l'inscription (l'utilisateur n'est pas
-   * connecté et ne pourrait pas uploader de Kbis).
+   * Statut du claim piloté par le document :
+   *   - justificatif fourni  → EN_ATTENTE_VALIDATION (+ notification admin)
+   *   - aucun justificatif   → EN_ATTENTE_DOCUMENT (l'hébergeur l'enverra plus tard)
    */
-  async claimFromCatalogue(catalogueId: string, userId: string, userRole: string) {
+  async claimFromCatalogue(
+    catalogueId: string,
+    userId: string,
+    userRole: string,
+    file?: Express.Multer.File,
+  ) {
+    void userRole; // conservé pour compat. d'appel ; le statut ne dépend plus du rôle
     // ── 1. Résoudre les données du centre ──
     let existingCentreId: string | null = null;
     let centreUserId: string | null = null;
@@ -235,8 +215,65 @@ export class ClaimService {
       organisationId = organisation.id;
     }
 
-    // ── 3. Initier le claim (org sans centre → pas de Kbis → EN_ATTENTE_VALIDATION + email admin) ──
-    const claim = await this.initierClaim(userId, organisationId, userRole, true);
+    // ── 3. Claim piloté par le justificatif (upload optionnel) ──
+    let documentUrl: string | null = null;
+    if (file) {
+      const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (!allowed.includes(file.mimetype)) {
+        throw new BadRequestException('Justificatif : formats acceptés PDF, JPG ou PNG.');
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        throw new BadRequestException('Le justificatif ne peut pas dépasser 10 Mo.');
+      }
+      documentUrl = await this.storage.upload(file, 'claims');
+    }
+
+    // Garde anti-doublon : org déjà revendiquée par un AUTRE user → refus.
+    const claimValide = await this.prisma.membership.findFirst({
+      where: { organisationId, claimStatut: 'VALIDE' },
+    });
+    if (claimValide && claimValide.userId !== userId) {
+      throw new BadRequestException('Cette organisation a déjà un propriétaire validé');
+    }
+
+    let claimStatut: string;
+    if (claimValide) {
+      // Même user déjà propriétaire validé : on ne recrée pas de claim.
+      claimStatut = claimValide.claimStatut;
+    } else {
+      const existing = await this.prisma.membership.findUnique({
+        where: { userId_organisationId: { userId, organisationId } },
+      });
+      // Justificatif fourni → attente de validation ; sinon attente de document
+      // (sans jamais rétrograder un claim déjà passé en validation).
+      const cible: 'EN_ATTENTE_VALIDATION' | 'EN_ATTENTE_DOCUMENT' =
+        documentUrl || existing?.claimStatut === 'EN_ATTENTE_VALIDATION'
+          ? 'EN_ATTENTE_VALIDATION'
+          : 'EN_ATTENTE_DOCUMENT';
+      await this.prisma.membership.upsert({
+        where: { userId_organisationId: { userId, organisationId } },
+        create: {
+          userId,
+          organisationId,
+          role: 'PROPRIETAIRE',
+          isPrimary: false,
+          claimStatut: cible,
+          claimSubmittedAt: new Date(),
+          ...(documentUrl ? { claimDocumentUrl: documentUrl } : {}),
+        },
+        update: {
+          claimStatut: cible,
+          claimSubmittedAt: new Date(),
+          claimRefuseRaison: null,
+          ...(documentUrl ? { claimDocumentUrl: documentUrl } : {}),
+        },
+      });
+      // Notifier l'admin uniquement à l'entrée en attente de validation.
+      if (cible === 'EN_ATTENTE_VALIDATION' && existing?.claimStatut !== 'EN_ATTENTE_VALIDATION') {
+        await this.notifierAdminNouveauClaim(organisationId, userId);
+      }
+      claimStatut = cible;
+    }
 
     // ── 4. Créer / lier le centre à l'organisation (+ userId si orphelin) ──
     let centreId: string;
@@ -294,12 +331,7 @@ export class ClaimService {
       centreId = centre.id;
     }
 
-    return {
-      centreId,
-      organisationId,
-      claimStatut: claim.membership.claimStatut,
-      kbisRequis: claim.kbisRequis,
-    };
+    return { centreId, organisationId, claimStatut };
   }
 
   /**
@@ -314,15 +346,27 @@ export class ClaimService {
     thematiques: string[]; activites: string[];
     accessiblePmr: boolean; avisSecurite: string | null; periodeOuverture: string | null;
   }> {
-    const params = new URLSearchParams({ limit: '1', where: `identifiant="${identifiant}"` });
-    const res = await fetch(`${EN_CATALOGUE_API}?${params}`);
-    const data = (await res.json()) as { results?: Array<Record<string, any>> };
-    const r = data?.results?.[0];
+    let r: Record<string, any> | undefined;
+    try {
+      const params = new URLSearchParams({ limit: '1', where: `identifiant="${identifiant}"` });
+      const res = await fetch(`${EN_CATALOGUE_API}?${params}`);
+      if (!res.ok) throw new Error(`API EN HTTP ${res.status}`);
+      const data = (await res.json()) as { results?: Array<Record<string, any>> };
+      r = data?.results?.[0];
+    } catch (err) {
+      console.error('[fetchEnRecord] échec récupération catalogue EN', err);
+      throw new BadRequestException('Catalogue Éducation Nationale momentanément indisponible. Réessayez.');
+    }
     if (!r) throw new NotFoundException('Centre du catalogue introuvable');
+
+    // Mapping null-safe : un champ manquant ne doit jamais faire échouer la création.
+    const nom = (r.nom_de_la_structure_d_accueil_et_d_hebergement_fr as string) ?? '';
+    if (!nom.trim()) throw new NotFoundException('Données du centre incomplètes');
+
     return {
-      nom: r.nom_de_la_structure_d_accueil_et_d_hebergement_fr,
-      ville: r.nom_du_lieu_d_accueil_ville,
-      codePostal: r.nom_du_lieu_d_accueil_code_postal,
+      nom,
+      ville: (r.nom_du_lieu_d_accueil_ville as string) ?? '',
+      codePostal: (r.nom_du_lieu_d_accueil_code_postal as string) ?? '',
       capacite: (r.nombre_de_lits_pour_les_eleves as number) ?? 0,
       capaciteAdultes: (r.nombre_de_lits_pour_les_adultes_assurant_l_encadrement as number) ?? null,
       departement: (r.nom_du_lieu_d_accueil_departement as string) ?? null,
@@ -397,11 +441,13 @@ export class ClaimService {
   }
 
   /**
-   * Liste tous les Memberships EN_ATTENTE_VALIDATION (pour admin).
+   * Liste les Memberships en cours de claim pour l'admin : EN_ATTENTE_VALIDATION
+   * (justificatif fourni, validables) ET EN_ATTENTE_DOCUMENT (en attente du
+   * justificatif — affichés mais non validables côté UI).
    */
   async getClaimsEnAttente() {
     return this.prisma.membership.findMany({
-      where: { claimStatut: 'EN_ATTENTE_VALIDATION' },
+      where: { claimStatut: { in: ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION'] } },
       include: {
         user: { select: { id: true, prenom: true, nom: true, email: true } },
         organisation: {
@@ -471,7 +517,9 @@ export class ClaimService {
       }),
       this.prisma.user.update({
         where: { id: membership.userId },
-        data: { compteValide: true },
+        // emailVerifie: true — la validation admin confirme la légitimité du compte
+        // et évite le cas de bord où le lien de vérification email a expiré.
+        data: { compteValide: true, emailVerifie: true },
       }),
     ]);
 
@@ -510,8 +558,9 @@ export class ClaimService {
       },
     });
     if (!membership) throw new NotFoundException('Membership introuvable');
-    if (membership.claimStatut !== 'EN_ATTENTE_VALIDATION') {
-      throw new BadRequestException("Ce claim n'est pas en attente de validation");
+    // L'admin peut refuser un claim en attente de validation OU de document.
+    if (!['EN_ATTENTE_VALIDATION', 'EN_ATTENTE_DOCUMENT'].includes(membership.claimStatut)) {
+      throw new BadRequestException("Ce claim n'est pas en attente de traitement");
     }
 
     await this.prisma.membership.update({

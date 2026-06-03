@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
@@ -26,8 +27,16 @@ export class AuthController {
   }
 
   @Post('register/hebergeur')
-  registerHebergeur(@Body() dto: RegisterHebergeurDto, @Req() req: Request) {
-    return this.authService.registerHebergeur(dto, req.ip, req.headers['user-agent']);
+  @UseInterceptors(FileInterceptor('document'))
+  registerHebergeur(
+    @Body() dto: RegisterHebergeurDto,
+    @Req() req: Request,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (file) {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    }
+    return this.authService.registerHebergeur(dto, req.ip, req.headers['user-agent'], file);
   }
 
   @Post('register/signataire')

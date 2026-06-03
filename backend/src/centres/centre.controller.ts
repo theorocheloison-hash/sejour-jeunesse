@@ -36,15 +36,24 @@ export class CentreController {
     private readonly claimService: ClaimService,
   ) {}
 
-  /** POST /centres/claim-from-catalogue — Revendiquer un centre depuis le catalogue (HEBERGEUR) */
+  /**
+   * POST /centres/claim-from-catalogue — Seul endpoint de revendication (HEBERGEUR).
+   * Accepte un UUID Liavo ou un identifiant Éducation Nationale, avec justificatif
+   * optionnel (multipart, champ `document`). Sans document → EN_ATTENTE_DOCUMENT.
+   */
   @Post('claim-from-catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
+  @UseInterceptors(FileInterceptor('document'))
   claimFromCatalogue(
     @CurrentUser() user: JwtUser,
-    @Body() body: { catalogueId: string },
+    @Body() dto: ClaimCentreDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.claimService.claimFromCatalogue(body.catalogueId, user.id, user.role);
+    if (file) {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    }
+    return this.claimService.claimFromCatalogue(dto.catalogueId, user.id, user.role, file);
   }
 
   /** GET /centres/search-public?search=xxx — Recherche publique (pas d'auth) */
@@ -79,22 +88,6 @@ export class CentreController {
   @Roles(Role.HEBERGEUR)
   createCentre(@CurrentUser() user: JwtUser, @Body() dto: CreateCentreDto) {
     return this.centreService.createCentre(user.id, dto);
-  }
-
-  /** POST /centres/claim — Revendiquer un centre existant du catalogue. */
-  @Post('claim')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.HEBERGEUR)
-  @UseInterceptors(FileInterceptor('document'))
-  claimCentre(
-    @CurrentUser() user: JwtUser,
-    @Body() dto: ClaimCentreDto,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    if (file) {
-      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    }
-    return this.centreService.claimCentre(user.id, dto, file);
   }
 
   /** GET /centres/admin/claims — Liste des claims en attente (admin). */

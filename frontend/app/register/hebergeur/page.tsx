@@ -93,6 +93,8 @@ function RegisterHebergeurContent() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [success, setSuccess] = useState(false);
+  // Justificatif optionnel joint à la revendication catalogue (Kbis / RNA / attestation).
+  const [claimFile, setClaimFile] = useState<File | null>(null);
 
   const [apidaeCentre, setApidaeCentre] = useState<{
     nom: string;
@@ -284,15 +286,31 @@ function RegisterHebergeurContent() {
       // Revendication catalogue : crée uniquement le compte ; centre + organisation
       // + claim sont gérés côté backend par claim-from-catalogue (appel inline).
       if (claimCatalogueId) {
-        await api.post('/auth/register/hebergeur', {
-          prenom: form.prenom,
-          nom: form.nom,
-          email: form.email,
-          password: form.password,
-          telephone: form.telephone || undefined,
-          nomCentre: form.nomCentre || claimCentreNom,
-          claimCatalogueId,
-        });
+        if (claimFile) {
+          // Justificatif joint → multipart (le claim partira en attente de validation).
+          const fd = new FormData();
+          fd.append('prenom', form.prenom);
+          fd.append('nom', form.nom);
+          fd.append('email', form.email);
+          fd.append('password', form.password);
+          if (form.telephone) fd.append('telephone', form.telephone);
+          fd.append('nomCentre', form.nomCentre || claimCentreNom);
+          fd.append('claimCatalogueId', claimCatalogueId);
+          fd.append('document', claimFile);
+          await api.post('/auth/register/hebergeur', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } else {
+          await api.post('/auth/register/hebergeur', {
+            prenom: form.prenom,
+            nom: form.nom,
+            email: form.email,
+            password: form.password,
+            telephone: form.telephone || undefined,
+            nomCentre: form.nomCentre || claimCentreNom,
+            claimCatalogueId,
+          });
+        }
         setSuccess(true);
         return;
       }
@@ -355,16 +373,17 @@ function RegisterHebergeurContent() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Compte en attente</h1>
-          <p className="text-gray-500 mb-4">
-            Votre inscription pour le centre <strong className="text-gray-700">{form.nomCentre}</strong> a bien été enregistrée.
-          </p>
-          <div className="space-y-3 mb-6">
-            <div className="bg-[var(--color-primary-light)]border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
-              Un email de vérification a été envoyé à <strong>{form.email}</strong>.
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Vérifiez votre email</h1>
+          <div className="space-y-3 mb-6 text-left">
+            <div className="bg-[var(--color-primary-light)] border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
+              <p className="font-semibold mb-0.5">1. Confirmez votre adresse</p>
+              Un email de confirmation a été envoyé à <strong>{form.email || claimCentreNom}</strong>.
+              Cliquez sur le lien pour vérifier votre adresse.
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
-              Votre compte sera activé après validation par notre équipe.
+              <p className="font-semibold mb-0.5">2. Validation par notre équipe</p>
+              Après vérification, votre compte sera examiné par notre équipe.
+              Vous recevrez un email dès que votre accès sera activé.
             </div>
           </div>
           <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline">
@@ -440,6 +459,21 @@ function RegisterHebergeurContent() {
                 <p className="text-xs text-[var(--color-primary)]/70 mt-2">
                   Créez votre compte : votre demande de revendication sera transmise à notre équipe pour validation.
                 </p>
+                <div className="mt-3 pt-3 border-t border-[var(--color-border-strong)]/40">
+                  <label htmlFor="claimFile" className="block text-xs font-medium text-[var(--color-primary)] mb-1.5">
+                    Justificatif <span className="font-normal text-[var(--color-primary)]/60">(optionnel — Kbis, récépissé RNA, attestation)</span>
+                  </label>
+                  <input
+                    id="claimFile"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    onChange={(e) => setClaimFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-xs text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-primary)] file:text-white file:px-3 file:py-1.5 file:text-xs file:cursor-pointer hover:file:opacity-90"
+                  />
+                  <p className="mt-1 text-[11px] text-[var(--color-primary)]/60">
+                    Joindre un justificatif accélère la validation. Sinon, vous pourrez l&apos;envoyer plus tard.
+                  </p>
+                </div>
               </div>
             )}
             {invitationInfo?.cas === 1 && apidaeCentre && (

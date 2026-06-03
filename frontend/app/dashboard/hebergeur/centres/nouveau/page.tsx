@@ -142,13 +142,16 @@ export default function NouveauCentrePage() {
     setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('centreId', selectedCentre.id);
+      fd.append('catalogueId', selectedCentre.id);
       if (claimSiret) fd.append('siretExtrait', claimSiret);
       if (claimFile) fd.append('document', claimFile);
-      const { data } = await api.post('/centres/claim', fd, {
+      const { data } = await api.post('/centres/claim-from-catalogue', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setSuccess({ kind: 'claim', message: data.message });
+      const message = data?.claimStatut === 'EN_ATTENTE_VALIDATION'
+        ? 'Votre demande a été soumise avec votre justificatif. Notre équipe la vérifiera dans les plus brefs délais.'
+        : 'Votre demande a été enregistrée. Ajoutez un justificatif (Kbis, récépissé RNA ou attestation) pour permettre sa validation.';
+      setSuccess({ kind: 'claim', message });
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Erreur lors de la soumission de la demande.');
     } finally {

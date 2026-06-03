@@ -18,10 +18,17 @@ function LoginForm() {
   const [compteDormant, setCompteDormant] = useState(false);
   const [magicLinkEnvoye, setMagicLinkEnvoye] = useState(false);
   const [magicLinkPending, setMagicLinkPending] = useState(false);
+  const [emailNonVerifie, setEmailNonVerifie] = useState(false);
+  const [compteEnAttente, setCompteEnAttente] = useState(false);
+  const [verifEnvoye, setVerifEnvoye] = useState(false);
+  const [verifPending, setVerifPending] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setCompteDormant(false);
+    setEmailNonVerifie(false);
+    setCompteEnAttente(false);
     setIsPending(true);
     try {
       await login({ email, password }, redirectTo);
@@ -29,6 +36,10 @@ function LoginForm() {
       const msg = extractApiError(err);
       if (msg === 'COMPTE_DORMANT') {
         setCompteDormant(true);
+      } else if (msg === 'EMAIL_NON_VERIFIE') {
+        setEmailNonVerifie(true);
+      } else if (msg === 'COMPTE_EN_ATTENTE_VALIDATION') {
+        setCompteEnAttente(true);
       } else {
         setError(msg);
       }
@@ -44,6 +55,15 @@ function LoginForm() {
       setMagicLinkEnvoye(true);
     } catch { /* non bloquant */ }
     finally { setMagicLinkPending(false); }
+  };
+
+  const handleRenvoyerVerification = async () => {
+    setVerifPending(true);
+    try {
+      await api.post('/auth/resend-verification', { email });
+      setVerifEnvoye(true);
+    } catch { /* non bloquant */ }
+    finally { setVerifPending(false); }
   };
 
   return (
@@ -92,6 +112,38 @@ function LoginForm() {
           {magicLinkEnvoye && (
             <div className="mb-5 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)] px-4 py-3 text-sm text-[var(--color-success)] font-medium">
               Lien envoyé — vérifiez votre boîte mail (et vos spams).
+            </div>
+          )}
+
+          {/* Email non vérifié — proposer de renvoyer le lien de vérification */}
+          {emailNonVerifie && !verifEnvoye && (
+            <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 px-4 py-4 text-sm text-amber-800">
+              <p className="font-semibold mb-1">Vérifiez votre email avant de vous connecter.</p>
+              <p className="text-amber-700 mb-3">
+                Un lien de confirmation vous a été envoyé. Vous pouvez en demander un nouveau ci-dessous.
+              </p>
+              <button type="button" onClick={handleRenvoyerVerification} disabled={verifPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60">
+                {verifPending
+                  ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi…</>
+                  : "Renvoyer l'email de vérification"}
+              </button>
+            </div>
+          )}
+          {verifEnvoye && (
+            <div className="mb-5 rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)] px-4 py-3 text-sm text-[var(--color-success)] font-medium">
+              Email de vérification renvoyé — vérifiez votre boîte mail (et vos spams).
+            </div>
+          )}
+
+          {/* Hébergeur en attente de validation par l'équipe — aucune action possible */}
+          {compteEnAttente && (
+            <div className="mb-5 rounded-lg bg-blue-50 border border-blue-200 px-4 py-4 text-sm text-blue-800">
+              <p className="font-semibold mb-1">Votre compte est en attente de validation.</p>
+              <p className="text-blue-700">
+                Notre équipe examine votre demande. Vous recevrez un email dès que votre accès
+                sera activé.
+              </p>
             </div>
           )}
 

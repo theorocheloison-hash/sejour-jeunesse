@@ -14,7 +14,6 @@ import { EmailService } from '../email/email.service.js';
 import { RegisterCentreDto } from './dto/register-centre.dto.js';
 import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
-import { ClaimCentreDto } from './dto/claim-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getCentreForUser } from './centre.helper.js';
@@ -95,92 +94,6 @@ export class CentreService {
     ).catch(err => console.error('[createCentre] Echec email admin', err));
 
     return centre;
-  }
-
-  async claimCentre(userId: string, dto: ClaimCentreDto, file?: Express.Multer.File) {
-    const centre = await this.prisma.centreHebergement.findUnique({ where: { id: dto.centreId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-
-    if (centre.userId && centre.userId !== userId) {
-      throw new ForbiddenException(
-        'Ce centre est déjà géré par un autre hébergeur. Contactez contact@liavo.fr si vous pensez qu\'il s\'agit d\'une erreur.',
-      );
-    }
-
-    if (centre.organisationId) {
-      const existingClaim = await this.prisma.membership.findFirst({
-        where: {
-          userId,
-          organisationId: centre.organisationId,
-          claimStatut: { in: ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION'] },
-        },
-      });
-      if (existingClaim) {
-        throw new ForbiddenException('Vous avez déjà une demande en cours pour ce centre.');
-      }
-    }
-
-    let documentUrl: string | null = null;
-    if (file) {
-      documentUrl = await this.storage.upload(file, 'claims');
-    }
-
-    const siretEffectif = centre.siret ?? dto.siretExtrait ?? null;
-    let organisationId = centre.organisationId;
-    if (!organisationId) {
-      const { organisation } = await findOrCreateOrganisation(this.prisma, {
-        nom: centre.nom,
-        adresse: centre.adresse,
-        ville: centre.ville,
-        codePostal: centre.codePostal,
-        siret: siretEffectif,
-        siren: siretEffectif ? siretEffectif.substring(0, 9) : null,
-        typeStructure: null,
-        source: 'MANUAL',
-      });
-      organisationId = organisation.id;
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: { organisationId },
-      });
-    }
-
-    const claimStatut: 'EN_ATTENTE_VALIDATION' | 'EN_ATTENTE_DOCUMENT' = documentUrl
-      ? 'EN_ATTENTE_VALIDATION'
-      : 'EN_ATTENTE_DOCUMENT';
-
-    const { membership } = await findOrCreateMembership(this.prisma, {
-      userId,
-      organisationId,
-      role: 'PROPRIETAIRE',
-      isPrimary: false,
-      claimStatut,
-    });
-
-    await this.prisma.membership.update({
-      where: { id: membership.id },
-      data: {
-        claimStatut,
-        claimDocumentUrl: documentUrl,
-        claimSiretExtrait: dto.siretExtrait ?? null,
-        claimSubmittedAt: new Date(),
-      },
-    });
-
-    this.email.sendGenericNotification(
-      'contact@liavo.fr',
-      'Nouveau claim centre à valider',
-      `Un hébergeur revendique un centre existant.<br><br>Centre&nbsp;: ${centre.nom} (${centre.ville})<br>Document&nbsp;: ${documentUrl ? 'Oui (uploadé)' : 'Non fourni'}<br>SIRET extrait&nbsp;: ${dto.siretExtrait ?? 'Non renseigné'}<br>Hébergeur&nbsp;: user ID ${userId}<br><br>Connectez-vous au dashboard admin pour valider ou refuser.`,
-      'LIAVO Admin',
-    ).catch(err => console.error('[claimCentre] Echec email admin', err));
-
-    return {
-      message: documentUrl
-        ? 'Votre demande a été soumise. Nous vérifierons votre document dans les plus brefs délais.'
-        : 'Veuillez fournir un justificatif (Kbis, récépissé RNA ou attestation) pour valider votre demande.',
-      claimStatut,
-      membershipId: membership.id,
-    };
   }
 
   async getClaimsPending() {
