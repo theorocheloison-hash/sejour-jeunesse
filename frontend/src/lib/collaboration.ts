@@ -642,6 +642,7 @@ export interface DevisPublic {
   emailEntreprise: string | null;
   telEntreprise: string | null;
   createdAt: string;
+  documentUrl: string | null;
   isSigned: boolean;
   signatureDirecteur: string | null;
   nomSignataireDirecteur: string | null;

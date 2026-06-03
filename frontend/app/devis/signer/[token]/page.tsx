@@ -10,6 +10,8 @@ import {
   uploadSignaturePublic,
 } from '@/src/lib/collaboration';
 import type { DevisPublic } from '@/src/lib/collaboration';
+import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
 const fmt = (d: string) => new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
   day: '2-digit', month: 'long', year: 'numeric',
@@ -157,6 +159,45 @@ export default function SignerDevisPage() {
   const sejour = devis.sejour;
   const centre = devis.centre;
 
+  // Données du PDF devis (génération client si aucun PDF n'a été uploadé par l'hébergeur).
+  const pdfProps: DevisPDFProps = {
+    typeDocument: 'DEVIS',
+    numeroDocument: devis.numeroDevis ?? `DEV-${devis.id.substring(0, 8).toUpperCase()}`,
+    dateDocument: devis.createdAt,
+    dateValidite: new Date(new Date(devis.createdAt).getTime() + 30 * 86400000).toISOString(),
+    nomEmetteur: devis.nomEntreprise ?? centre?.nom ?? '',
+    adresseEmetteur: devis.adresseEntreprise ?? [centre?.adresse, centre?.codePostal, centre?.ville].filter(Boolean).join(', '),
+    siretEmetteur: devis.siretEntreprise ?? centre?.siret ?? undefined,
+    emailEmetteur: devis.emailEntreprise ?? centre?.email ?? undefined,
+    telEmetteur: devis.telEntreprise ?? centre?.telephone ?? undefined,
+    tvaEmetteur: centre?.tvaIntracommunautaire ?? undefined,
+    ibanEmetteur: centre?.iban ?? undefined,
+    nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' '),
+    etablissementNom: sejour?.clientOrganisation ?? undefined,
+    emailDestinataire: sejour?.clientEmail ?? undefined,
+    titreSejour: sejour?.titre ?? '',
+    lieuSejour: sejour?.lieu ?? '',
+    dateDebutSejour: sejour?.dateDebut,
+    dateFinSejour: sejour?.dateFin,
+    nombreEleves: sejour?.placesTotales ?? undefined,
+    lignes: devis.lignes.map((l) => ({
+      description: l.description,
+      quantite: Number(l.quantite),
+      prixUnitaire: Number(l.prixUnitaire),
+      tva: Number(l.tva),
+      totalHT: Number(l.totalHT),
+      totalTTC: Number(l.totalTTC),
+    })),
+    montantHT: devis.montantHT ?? 0,
+    montantTVA: devis.montantTVA ?? 0,
+    montantTTC: devis.montantTTC ?? 0,
+    montantAcompte: devis.montantAcompte ?? undefined,
+    montantSolde: devis.montantSolde ?? undefined,
+    pourcentageAcompte: devis.pourcentageAcompte ?? undefined,
+    conditionsAnnulation: devis.conditionsAnnulation ?? undefined,
+    signatureDirecteur: devis.signatureDirecteur ?? null,
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -169,6 +210,29 @@ export default function SignerDevisPage() {
             {centre?.nom ?? 'Centre d\'hébergement'}
           </p>
           <h1 className="text-2xl font-bold text-gray-900">Devis {devis.numeroDevis}</h1>
+
+          <div className="mt-4 flex justify-center">
+            {devis.documentUrl ? (
+              <a
+                href={devis.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download
+                className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Télécharger le devis (PDF)
+              </a>
+            ) : (
+              <DevisPDFButton
+                data={pdfProps}
+                filename={`devis-${(devis.numeroDevis ?? devis.id).substring(0, 12)}.pdf`}
+                label="Télécharger le devis (PDF)"
+              />
+            )}
+          </div>
         </div>
 
         {sejour && (
