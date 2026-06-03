@@ -35,9 +35,16 @@ export default function CentrePublicPage() {
     }
     setClaimState('loading');
     try {
-      await api.post('/centres/claim-from-catalogue', { catalogueId: centre.id });
+      const { data } = await api.post<{ claimStatut?: string; autoActivated?: boolean }>(
+        '/centres/claim-from-catalogue',
+        { catalogueId: centre.id },
+      );
       setClaimState('success');
-      setClaimMsg('Demande envoyée — votre revendication est en attente de validation. Vous recevrez un email dès qu\'elle sera traitée.');
+      if (data?.autoActivated || data?.claimStatut === 'VALIDE') {
+        setClaimMsg('Centre ajouté ! Il est disponible dans votre espace hébergeur.');
+      } else {
+        setClaimMsg('Demande envoyée — votre revendication est en attente de validation. Vous recevrez un email dès qu\'elle sera traitée.');
+      }
     } catch (e: unknown) {
       setClaimState('error');
       setClaimMsg((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Une erreur est survenue. Réessayez.');

@@ -354,7 +354,9 @@ export class ClaimService {
       centreId = centre.id;
     }
 
-    return { centreId, organisationId, claimStatut };
+    // autoActivated : l'hébergeur était déjà propriétaire validé → centre activé
+    // directement, pas de validation admin en attente (signal pour le message UI).
+    return { centreId, organisationId, claimStatut, autoActivated: ownerDejaValide };
   }
 
   /**
