@@ -386,6 +386,12 @@ export async function emettreFactureSolde(devisId: string): Promise<Facture> {
   return data;
 }
 
+/** Émet une facture de solde couvrant 100% du devis, sans acompte préalable ("facturer le total"). */
+export async function emettreFactureTotal(devisId: string): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/total', { devisId });
+  return data;
+}
+
 /** Factures liées à un devis. */
 export async function getFacturesForDevis(devisId: string): Promise<Facture[]> {
   const { data } = await api.get<Facture[]>(`/factures/devis/${devisId}`);

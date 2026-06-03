@@ -251,16 +251,24 @@ export default function FacturePDF(props: FacturePDFProps) {
           )}
 
           {typeFacture === 'SOLDE' && (
-            <>
+            (montantAcompteDejaFacture ?? 0) > 0 ? (
+              <>
+                <View style={s.totauxRow}>
+                  <Text style={s.totauxLabel}>Acompte déjà versé</Text>
+                  <Text style={s.totauxValue}>{fmtMontant(montantAcompteDejaFacture ?? 0)} €</Text>
+                </View>
+                <View style={s.totauxRow}>
+                  <Text style={s.totauxSolde}>Solde à régler</Text>
+                  <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
+                </View>
+              </>
+            ) : (
+              // Facture "total" (sans acompte préalable) : pas de mention d'acompte
               <View style={s.totauxRow}>
-                <Text style={s.totauxLabel}>Acompte déjà versé</Text>
-                <Text style={s.totauxValue}>{fmtMontant(montantAcompteDejaFacture ?? 0)} €</Text>
-              </View>
-              <View style={s.totauxRow}>
-                <Text style={s.totauxSolde}>Solde à régler</Text>
+                <Text style={s.totauxSolde}>Total à régler</Text>
                 <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
               </View>
-            </>
+            )
           )}
 
           {typeFacture === 'AVOIR' && (

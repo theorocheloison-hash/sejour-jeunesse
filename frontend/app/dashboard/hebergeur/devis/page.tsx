@@ -136,7 +136,7 @@ export default function HebergeurDevisPage() {
 
   const actionsUrgentes = useMemo(() => {
     const aFacturer = devisList.filter(d =>
-      d.statut === 'SIGNE_DIRECTION' && !getFactureAcompte(d)
+      d.statut === 'SIGNE_DIRECTION' && !getFactureAcompte(d) && !getFactureSolde(d)
     );
     const aValider = devisList.filter(d => {
       const fa = getFactureAcompte(d);
