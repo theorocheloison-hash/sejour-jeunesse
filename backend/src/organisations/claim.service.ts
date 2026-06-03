@@ -29,7 +29,12 @@ export class ClaimService {
    *
    * Règle : un seul claim actif par Organisation (bloque si VALIDE existant).
    */
-  async initierClaim(userId: string, organisationId: string, userRole: string) {
+  async initierClaim(
+    userId: string,
+    organisationId: string,
+    userRole: string,
+    forceNoKbis = false,
+  ) {
     const org = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
     });
@@ -57,10 +62,29 @@ export class ClaimService {
       },
     });
     if (claimExistant) {
+      // Claim catalogue (forceNoKbis) sur un claim resté bloqué en attente de
+      // document : on le promeut en attente de validation et on notifie l'admin
+      // (le flux catalogue n'a pas d'étape d'upload Kbis, sinon il reste coincé).
+      if (forceNoKbis && claimExistant.claimStatut === 'EN_ATTENTE_DOCUMENT') {
+        const promu = await this.prisma.membership.update({
+          where: { id: claimExistant.id },
+          data: {
+            claimStatut: 'EN_ATTENTE_VALIDATION',
+            claimSubmittedAt: new Date(),
+            claimRefuseRaison: null,
+          },
+        });
+        await this.notifierAdminNouveauClaim(organisationId, userId);
+        return { membership: promu, kbisRequis: false, alreadyPending: false };
+      }
       return { membership: claimExistant, kbisRequis: false, alreadyPending: true };
     }
 
-    const kbisRequis = await shouldRequireKbis(this.prisma, { userRole, organisationId });
+    // forceNoKbis : les claims depuis le catalogue passent toujours en validation
+    // admin manuelle (pas de Kbis), même si l'organisation porte déjà un centre.
+    const kbisRequis = forceNoKbis
+      ? false
+      : await shouldRequireKbis(this.prisma, { userRole, organisationId });
     const claimStatut = kbisRequis ? 'EN_ATTENTE_DOCUMENT' : 'EN_ATTENTE_VALIDATION';
 
     const membership = await this.prisma.membership.upsert({
@@ -106,7 +130,10 @@ export class ClaimService {
          <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})</p>
          <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les claims en attente →</a></p>`,
       );
-    } catch { /* non bloquant */ }
+    } catch (err) {
+      // Non bloquant pour le claim, mais on trace l'échec (sinon invisible).
+      console.error('[notifierAdminNouveauClaim] échec envoi email admin', err);
+    }
   }
 
   /**
@@ -130,6 +157,15 @@ export class ClaimService {
     let capacite = 0;
     let departement: string | null = null;
     let siret: string | null = null;
+    // Champs catalogue additionnels (mappés à la création / au rétro-remplissage).
+    let description: string | null = null;
+    let imageUrl: string | null = null;
+    let capaciteAdultes: number | null = null;
+    let thematiques: string[] = [];
+    let activites: string[] = [];
+    let accessiblePmr = false;
+    let avisSecurite: string | null = null;
+    let periodeOuverture: string | null = null;
 
     if (UUID_RE.test(catalogueId)) {
       const centre = await this.prisma.centreHebergement.findUnique({ where: { id: catalogueId } });
@@ -140,6 +176,11 @@ export class ClaimService {
       nom = centre.nom; ville = centre.ville; codePostal = centre.codePostal;
       adresse = centre.adresse; capacite = centre.capacite;
       departement = centre.departement; siret = centre.siret;
+      description = centre.description; imageUrl = centre.imageUrl;
+      capaciteAdultes = centre.capaciteAdultes;
+      thematiques = centre.thematiquesCentre; activites = centre.activitesCentre;
+      accessiblePmr = centre.accessiblePmr; avisSecurite = centre.avisSecurite;
+      periodeOuverture = centre.periodeOuverture;
     } else {
       // Record EN : dédup par apidaeId, sinon récupération depuis l'API EN
       const existant = await this.prisma.centreHebergement.findFirst({
@@ -153,10 +194,24 @@ export class ClaimService {
         nom = existant.nom; ville = existant.ville; codePostal = existant.codePostal;
         adresse = existant.adresse; capacite = existant.capacite;
         departement = existant.departement; siret = existant.siret;
-      } else {
+        description = existant.description; imageUrl = existant.imageUrl;
+        capaciteAdultes = existant.capaciteAdultes;
+        thematiques = existant.thematiquesCentre; activites = existant.activitesCentre;
+        accessiblePmr = existant.accessiblePmr; avisSecurite = existant.avisSecurite;
+        periodeOuverture = existant.periodeOuverture;
+      }
+      // On récupère les données du catalogue pour CRÉER le centre, ou pour
+      // RÉTRO-REMPLIR un centre existant resté vide (bug historique : centres
+      // importés sans mapping des données catalogue).
+      if (!existant || !existant.nom) {
         const rec = await this.fetchEnRecord(catalogueId);
         nom = rec.nom; ville = rec.ville; codePostal = rec.codePostal;
         capacite = rec.capacite; departement = rec.departement;
+        description = rec.description; imageUrl = rec.imageUrl;
+        capaciteAdultes = rec.capaciteAdultes;
+        thematiques = rec.thematiques; activites = rec.activites;
+        accessiblePmr = rec.accessiblePmr; avisSecurite = rec.avisSecurite;
+        periodeOuverture = rec.periodeOuverture;
       }
     }
 
@@ -177,7 +232,7 @@ export class ClaimService {
     }
 
     // ── 3. Initier le claim (org sans centre → pas de Kbis → EN_ATTENTE_VALIDATION + email admin) ──
-    const claim = await this.initierClaim(userId, organisationId, userRole);
+    const claim = await this.initierClaim(userId, organisationId, userRole, true);
 
     // ── 4. Créer / lier le centre à l'organisation (+ userId si orphelin) ──
     let centreId: string;
@@ -188,6 +243,24 @@ export class ClaimService {
         data: {
           organisationId,
           ...(centreUserId ? {} : { userId }), // ne pas voler un centre déjà détenu
+          // Rétro-remplissage idempotent des données catalogue : pour un centre
+          // resté vide, `nom`/`description`/… contiennent désormais les données
+          // fraîches du catalogue ; pour un centre déjà rempli, ce sont ses
+          // propres valeurs (réécriture sans perte).
+          nom,
+          adresse: adresse || '',
+          ville,
+          codePostal,
+          capacite,
+          departement,
+          description,
+          imageUrl,
+          capaciteAdultes,
+          thematiquesCentre: thematiques,
+          activitesCentre: activites,
+          accessiblePmr,
+          avisSecurite,
+          periodeOuverture,
         },
       });
     } else {
@@ -199,6 +272,14 @@ export class ClaimService {
           codePostal,
           capacite,
           departement,
+          description,
+          imageUrl,
+          capaciteAdultes,
+          thematiquesCentre: thematiques,
+          activitesCentre: activites,
+          accessiblePmr,
+          avisSecurite,
+          periodeOuverture,
           apidaeId: identifiantEN,
           source: 'API_EN',
           statut: 'PENDING',
@@ -217,9 +298,17 @@ export class ClaimService {
     };
   }
 
-  /** Récupère un record du catalogue Éducation Nationale par identifiant externe. */
+  /**
+   * Récupère un record du catalogue Éducation Nationale par identifiant externe.
+   * Mappe l'ensemble des champs exploités par le centre (mêmes clés que
+   * HebergementService.mapRecord) afin que le centre créé soit complet.
+   */
   private async fetchEnRecord(identifiant: string): Promise<{
-    nom: string; ville: string; codePostal: string; capacite: number; departement: string | null;
+    nom: string; ville: string; codePostal: string; capacite: number;
+    capaciteAdultes: number | null; departement: string | null;
+    description: string | null; imageUrl: string | null;
+    thematiques: string[]; activites: string[];
+    accessiblePmr: boolean; avisSecurite: string | null; periodeOuverture: string | null;
   }> {
     const params = new URLSearchParams({ limit: '1', where: `identifiant="${identifiant}"` });
     const res = await fetch(`${EN_CATALOGUE_API}?${params}`);
@@ -231,7 +320,20 @@ export class ClaimService {
       ville: r.nom_du_lieu_d_accueil_ville,
       codePostal: r.nom_du_lieu_d_accueil_code_postal,
       capacite: (r.nombre_de_lits_pour_les_eleves as number) ?? 0,
+      capaciteAdultes: (r.nombre_de_lits_pour_les_adultes_assurant_l_encadrement as number) ?? null,
       departement: (r.nom_du_lieu_d_accueil_departement as string) ?? null,
+      description: (r.description_longue as string) ?? null,
+      imageUrl: (r.image as string) ?? null,
+      thematiques:
+        (r.thematiques_principales_proposees_par_la_structure_d_accueil_et_d_hebergement as string[]) ?? [],
+      activites:
+        (r.activites_proposees_par_la_structure_d_accueil_et_d_hebergement as string[]) ?? [],
+      accessiblePmr:
+        r.accessibilite_de_la_structure_d_accueil_et_d_hebergement_aux_eleves_en_situation_de_handicap === 'Oui',
+      avisSecurite:
+        (r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite as string) ?? null,
+      periodeOuverture:
+        (r.periode_d_ouverture_annuelle_de_la_structure_pour_l_accueil_des_eleves_dans_le_cadre_de_voyages_scol as string) ?? null,
     };
   }
 
