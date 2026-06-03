@@ -1181,6 +1181,9 @@ export class DevisService {
       emailEntreprise: devis.emailEntreprise,
       telEntreprise: devis.telEntreprise,
       createdAt: devis.createdAt,
+      // PDF du devis uploadé par l'hébergeur (le cas échéant) — sert au bouton de
+      // téléchargement public ; null si le devis est généré (PDF reconstruit côté client).
+      documentUrl: devis.documentUrl,
       lignes: devis.lignes,
       centre: devis.centre,
       sejour: devis.sejourDirect,
