@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getTableauRentabilite,
@@ -19,19 +19,25 @@ import type {
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
-const TYPES_CHARGE = [
-  { value: 'GUIDE_AMM', label: 'Guide / AMM' },
-  { value: 'ESF', label: 'ESF' },
-  { value: 'TRANSPORT', label: 'Transport' },
-  { value: 'ACTIVITE', label: 'Activité' },
-  { value: 'LOCATION', label: 'Location matériel' },
-  { value: 'RESTAURATION', label: 'Restauration' },
-  { value: 'AUTRE', label: 'Autre' },
-] as const;
+// Suggestions pour le datalist (saisie libre acceptée)
+const TYPES_CHARGE_SUGGESTIONS = [
+  'VTT', 'Rafting', 'Via ferrata', 'Escalade', 'Canyoning',
+  'Spéléologie', 'Accrobranche', 'Tir à l\'arc', 'Cours de ski',
+  'Remontées mécaniques', 'Location matériel', 'Transport',
+  'Course d\'orientation', 'Randonnée', 'Refuge',
+];
 
-const TYPE_CHARGE_LABELS: Record<string, string> = Object.fromEntries(
-  TYPES_CHARGE.map((t) => [t.value, t.label]),
-);
+// Mapping rétro-compatibilité : anciennes valeurs enum → libellé français
+// Utilisé UNIQUEMENT pour l'affichage des factures existantes
+const TYPE_CHARGE_LEGACY: Record<string, string> = {
+  GUIDE_AMM: 'Guide / AMM',
+  ESF: 'Cours de ski',
+  TRANSPORT: 'Transport',
+  ACTIVITE: 'Activité',
+  LOCATION: 'Location matériel',
+  RESTAURATION: 'Restauration',
+  AUTRE: 'Autre',
+};
 
 // ── Formatage ────────────────────────────────────────────────────────────────
 const fmtMontant = (n: number) =>
@@ -67,7 +73,7 @@ interface VentilationRow {
 
 const emptyForm = {
   nomPrestataire: '',
-  typeCharge: 'GUIDE_AMM',
+  typeCharge: '', // ← vide, pas 'GUIDE_AMM'
   numeroFacture: '',
   dateFacture: '',
   montantTotalTTC: '',
@@ -98,6 +104,9 @@ export default function HebergeurRentabilitePage() {
   const currentYear = new Date().getFullYear().toString();
   const [annee, setAnnee] = useState<string>(currentYear);
   const [mois, setMois] = useState<string>(''); // '' = toute l'année
+  const [natureFilter, setNatureFilter] = useState<
+    'TOUS' | 'SEJOUR' | 'EVENEMENT'
+  >('SEJOUR');
 
   // Formulaire
   const [formOpen, setFormOpen] = useState(false);
@@ -108,6 +117,7 @@ export default function HebergeurRentabilitePage() {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Chargement des données ──────────────────────────────────────────────
   // Charge le tableau filtré à chaque changement de filtre
@@ -171,7 +181,7 @@ export default function HebergeurRentabilitePage() {
     setEditingFacture(f);
     setForm({
       nomPrestataire: f.nomPrestataire,
-      typeCharge: f.typeCharge,
+      typeCharge: TYPE_CHARGE_LEGACY[f.typeCharge] ?? f.typeCharge,
       numeroFacture: f.numeroFacture ?? '',
       dateFacture: f.dateFacture ? f.dateFacture.split('T')[0] : '',
       montantTotalTTC: String(f.montantTotalTTC),
@@ -189,6 +199,7 @@ export default function HebergeurRentabilitePage() {
   }
 
   function closeForm() {
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setFormOpen(false);
     setEditingFacture(null);
   }
@@ -217,6 +228,24 @@ export default function HebergeurRentabilitePage() {
     0,
   );
   const ventilationExcessive = totalVentile > montantTotal + 0.01;
+
+  // ── Filtrage par nature + totaux recalculés CÔTÉ FRONTEND ────────────────
+  // ⚠️ tableau.totaux vient du backend (TOUS les séjours). Toujours utiliser
+  // totauxFiltres dans le rendu, jamais tableau.totaux.
+  const sejoursFiltres: LigneRentabilite[] = (() => {
+    if (!tableau) return [];
+    if (natureFilter === 'TOUS') return tableau.sejours;
+    return tableau.sejours.filter((s) => s.natureSejour === natureFilter);
+  })();
+
+  const totauxFiltres = (() => {
+    const caTTC = sejoursFiltres.reduce((s, r) => s + r.caTTC, 0);
+    const chargesTTC = sejoursFiltres.reduce((s, r) => s + r.chargesTTC, 0);
+    const margeTTC = caTTC - chargesTTC;
+    const tauxMarge =
+      caTTC > 0 ? Math.round((margeTTC / caTTC) * 1000) / 10 : null;
+    return { caTTC, chargesTTC, margeTTC, tauxMarge };
+  })();
 
   async function handleSave() {
     setFormError(null);
@@ -362,15 +391,29 @@ export default function HebergeurRentabilitePage() {
                   );
                 })}
               </select>
+
+              <select
+                value={natureFilter}
+                onChange={(e) =>
+                  setNatureFilter(
+                    e.target.value as 'TOUS' | 'SEJOUR' | 'EVENEMENT',
+                  )
+                }
+                className={inputCls + ' w-auto'}
+              >
+                <option value="SEJOUR">Séjours</option>
+                <option value="EVENEMENT">Événements</option>
+                <option value="TOUS">Tous</option>
+              </select>
             </div>
 
             {loading ? (
               <div className="flex justify-center py-16">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
               </div>
-            ) : !tableau || tableau.sejours.length === 0 ? (
+            ) : !tableau || sejoursFiltres.length === 0 ? (
               <p className="text-center text-sm text-gray-400 py-12">
-                Aucun séjour sur cette période.
+                Aucun séjour sur cette période pour ce filtre.
               </p>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
@@ -387,7 +430,7 @@ export default function HebergeurRentabilitePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tableau.sejours.map((ligne) => (
+                    {sejoursFiltres.map((ligne) => (
                       <tr
                         key={ligne.sejourId}
                         className="border-b border-gray-100 last:border-0"
@@ -435,30 +478,30 @@ export default function HebergeurRentabilitePage() {
                         Total
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {fmtMontant(tableau.totaux.caTTC)}
+                        {fmtMontant(totauxFiltres.caTTC)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {fmtMontant(tableau.totaux.chargesTTC)}
+                        {fmtMontant(totauxFiltres.chargesTTC)}
                       </td>
                       <td
                         className="px-4 py-3 text-right tabular-nums"
                         style={
-                          tableau.totaux.margeTTC < 0
+                          totauxFiltres.margeTTC < 0
                             ? { color: '#DC2626' }
                             : undefined
                         }
                       >
-                        {fmtMontant(tableau.totaux.margeTTC)}
+                        {fmtMontant(totauxFiltres.margeTTC)}
                       </td>
                       <td
                         className="px-4 py-3 text-right tabular-nums"
                         style={
-                          tableau.totaux.tauxMarge === null
+                          totauxFiltres.tauxMarge === null
                             ? { color: '#9CA3AF' }
-                            : { color: tauxColor(tableau.totaux.tauxMarge) }
+                            : { color: tauxColor(totauxFiltres.tauxMarge) }
                         }
                       >
-                        {fmtTaux(tableau.totaux.tauxMarge)}
+                        {fmtTaux(totauxFiltres.tauxMarge)}
                       </td>
                     </tr>
                   </tbody>
@@ -498,7 +541,7 @@ export default function HebergeurRentabilitePage() {
                             {f.nomPrestataire}
                           </p>
                           <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-                            {TYPE_CHARGE_LABELS[f.typeCharge] ?? f.typeCharge}
+                            {TYPE_CHARGE_LEGACY[f.typeCharge] ?? f.typeCharge}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
@@ -621,19 +664,22 @@ export default function HebergeurRentabilitePage() {
                   <label className="block text-xs text-gray-500 mb-1">
                     Type de charge
                   </label>
-                  <select
+                  <input
+                    type="text"
+                    list="typeChargeOptions"
                     value={form.typeCharge}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, typeCharge: e.target.value }))
                     }
                     className={inputCls}
-                  >
-                    {TYPES_CHARGE.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
+                    placeholder="Ex: Rafting, Transport…"
+                    autoComplete="off"
+                  />
+                  <datalist id="typeChargeOptions">
+                    {TYPES_CHARGE_SUGGESTIONS.map((s) => (
+                      <option key={s} value={s} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
@@ -713,42 +759,75 @@ export default function HebergeurRentabilitePage() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {ventilations.map((v, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <select
-                          value={v.sejourId}
-                          onChange={(e) =>
-                            updateVentilation(i, 'sejourId', e.target.value)
-                          }
-                          className={`${inputCls} flex-1`}
-                        >
-                          <option value="">— Choisir un séjour —</option>
-                          {sejoursDisponibles.map((s) => (
-                            <option key={s.sejourId} value={s.sejourId}>
-                              {s.titre}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={v.montantTTC}
-                          onChange={(e) =>
-                            updateVentilation(i, 'montantTTC', e.target.value)
-                          }
-                          className={`${inputCls} w-28`}
-                          placeholder="Montant"
-                        />
-                        <button
-                          onClick={() => removeVentilation(i)}
-                          className="text-gray-400 hover:text-red-500 shrink-0"
-                          title="Retirer"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                    {ventilations.map((v, i) => {
+                      // Montant alloué aux AUTRES lignes (pas celle-ci)
+                      const totalAutres = ventilations
+                        .filter((_, j) => j !== i)
+                        .reduce(
+                          (s, r) => s + (parseFloat(r.montantTTC) || 0),
+                          0,
+                        );
+                      const resteAAllouer = Math.max(
+                        0,
+                        montantTotal - totalAutres,
+                      );
+                      const peutToutAllouer =
+                        montantTotal > 0 && resteAAllouer > 0;
+
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <select
+                            value={v.sejourId}
+                            onChange={(e) =>
+                              updateVentilation(i, 'sejourId', e.target.value)
+                            }
+                            className={`${inputCls} flex-1`}
+                          >
+                            <option value="">— Choisir un séjour —</option>
+                            {sejoursDisponibles.map((s) => (
+                              <option key={s.sejourId} value={s.sejourId}>
+                                {s.titre} ({fmtDate(s.dateDebut)} –{' '}
+                                {fmtDate(s.dateFin)})
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={v.montantTTC}
+                            onChange={(e) =>
+                              updateVentilation(i, 'montantTTC', e.target.value)
+                            }
+                            className={`${inputCls} w-28`}
+                            placeholder="Montant"
+                          />
+                          {peutToutAllouer && (
+                            <button
+                              type="button"
+                              title={`Allouer ${fmtMontant(resteAAllouer)}`}
+                              onClick={() =>
+                                updateVentilation(
+                                  i,
+                                  'montantTTC',
+                                  resteAAllouer.toFixed(2),
+                                )
+                              }
+                              className="shrink-0 text-xs text-[var(--color-primary)] hover:underline whitespace-nowrap"
+                            >
+                              = Tout
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeVentilation(i)}
+                            className="text-gray-400 hover:text-red-500 shrink-0"
+                            title="Retirer"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -771,22 +850,51 @@ export default function HebergeurRentabilitePage() {
                 <label className="block text-xs text-gray-500 mb-1">
                   Justificatif (PDF, JPEG, PNG — max 10 Mo)
                 </label>
+                {/* Input caché — déclenché par le bouton ci-dessous */}
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="application/pdf,image/jpeg,image/png"
+                  className="hidden"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="text-xs text-gray-600"
                 />
-                {editingFacture?.fichierUrl && !file && (
-                  <a
-                    href={editingFacture.fichierUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-2 text-xs text-[var(--color-primary)] hover:underline"
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                   >
-                    Justificatif actuel
-                  </a>
-                )}
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"
+                      />
+                    </svg>
+                    {file ? 'Changer le fichier' : 'Joindre une facture'}
+                  </button>
+                  {file && (
+                    <span className="text-xs text-gray-500 truncate max-w-[200px]">
+                      {file.name}
+                    </span>
+                  )}
+                  {!file && editingFacture?.fichierUrl && (
+                    <a
+                      href={editingFacture.fichierUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--color-primary)] hover:underline"
+                    >
+                      Voir le justificatif actuel
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
