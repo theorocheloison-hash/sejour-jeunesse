@@ -517,7 +517,6 @@ export default function HebergeurDevisPage() {
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                         <span>Total : {d.montantTotal} €</span>
-                        <span>Par élève : {d.montantParEleve} €</span>
                         {enseignant && (
                           <span>
                             <Highlight text={enseignant} query={searchQuery} />
