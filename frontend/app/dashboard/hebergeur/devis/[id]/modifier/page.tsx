@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Fragment, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -141,6 +141,14 @@ export default function ModifierDevisPage() {
 
   const addLigne = useCallback(() => {
     setLignes((prev) => [...prev, makeLigneForm()]);
+  }, []);
+
+  const insertLigneAt = useCallback((afterIndex: number) => {
+    setLignes((prev) => [
+      ...prev.slice(0, afterIndex + 1),
+      makeLigneForm(),
+      ...prev.slice(afterIndex + 1),
+    ]);
   }, []);
 
   const removeLigne = useCallback((key: string) => {
@@ -408,7 +416,7 @@ export default function ModifierDevisPage() {
             </div>
 
             {/* Lines */}
-            {lignes.map((l) => {
+            {lignes.map((l, index) => {
               const qte = parseFloat(l.quantite) || 0;
               const puTTC = parseFloat(l.prixUnitaire) || 0;
               const tvaRate = parseFloat(l.tva) || 0;
@@ -416,7 +424,8 @@ export default function ModifierDevisPage() {
               const totalTTC = round2(puTTC * qte);
               const totalHT = round2(puHT * qte);
               return (
-                <div key={l.key} className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
+                <Fragment key={l.key}>
+                <div className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
                   <div className="col-span-12 sm:col-span-3 relative">
                     <input
                       value={activeDescriptionKey === l.key ? descriptionSearch : l.description}
@@ -487,6 +496,23 @@ export default function ModifierDevisPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Bouton d'insertion entre les lignes — uniquement entre 2 lignes, pas après la dernière */}
+                {index < lignes.length - 1 && (
+                  <div className="group/ins relative flex items-center justify-center h-0 overflow-visible">
+                    <button
+                      type="button"
+                      onClick={() => insertLigneAt(index)}
+                      className="absolute opacity-0 group-hover/ins:opacity-100 transition-opacity z-10 flex items-center gap-1 rounded-full bg-[var(--color-primary)] text-white px-2.5 py-0.5 text-[10px] font-semibold shadow hover:scale-105 transition-transform whitespace-nowrap"
+                      title="Insérer une ligne à cet endroit"
+                    >
+                      + insérer ici
+                    </button>
+                    {/* Ligne de séparation visible au survol */}
+                    <div className="absolute inset-x-0 h-px bg-[var(--color-primary)] opacity-0 group-hover/ins:opacity-30 transition-opacity" />
+                  </div>
+                )}
+                </Fragment>
               );
             })}
 
