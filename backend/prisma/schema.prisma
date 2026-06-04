@@ -283,6 +283,7 @@ model Sejour {
   visitesHebergeur       SejourVisiteHebergeur[]
   rappels                Rappel[]
   activitesClient        ActiviteClient[] @relation("ActivitesClientSejour")
+  ventilationsPrestataires VentilationSejourPrestataire[]
 
   @@index([createurId])
   @@index([statut])
@@ -597,6 +598,7 @@ model CentreHebergement {
   invitationsAdmin InvitationHebergement[] @relation("InvitationCentreExistant")
   devisLibres      DevisLibre[]
   activitesClients ActiviteClient[]
+  facturesPrestataires FacturePrestataire[]
   @@map("centres_hebergement")
 }
 
@@ -1494,4 +1496,49 @@ model SejourVisiteHebergeur {
 
   @@unique([userId, sejourId, onglet])
   @@map("sejour_visites_hebergeur")
+}
+
+// ============================================================
+// MODEL : FacturePrestataire
+// Facture reçue d'un prestataire externe, peut couvrir N séjours.
+// ============================================================
+model FacturePrestataire {
+  id              String    @id @default(uuid()) @db.Uuid
+  centreId        String    @map("centre_id") @db.Uuid
+  nomPrestataire  String    @map("nom_prestataire") @db.VarChar(255)
+  typeCharge      String    @map("type_charge") @db.VarChar(50)
+  // Valeurs attendues : GUIDE_AMM | ESF | TRANSPORT | ACTIVITE | LOCATION | RESTAURATION | AUTRE
+  numeroFacture   String?   @map("numero_facture") @db.VarChar(100)
+  dateFacture     DateTime? @map("date_facture") @db.Date
+  montantTotalTTC Float     @map("montant_total_ttc")
+  fichierUrl      String?   @map("fichier_url") @db.VarChar(500)
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  centre       CentreHebergement              @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  ventilations VentilationSejourPrestataire[]
+
+  @@index([centreId])
+  @@index([centreId, dateFacture])
+  @@map("factures_prestataires")
+}
+
+// ============================================================
+// MODEL : VentilationSejourPrestataire
+// Part d'une FacturePrestataire allouée à un séjour.
+// ============================================================
+model VentilationSejourPrestataire {
+  id          String   @id @default(uuid()) @db.Uuid
+  factureId   String   @map("facture_prestataire_id") @db.Uuid
+  sejourId    String   @map("sejour_id") @db.Uuid
+  montantTTC  Float    @map("montant_ttc")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  facture FacturePrestataire @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  sejour  Sejour             @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+
+  @@index([sejourId])
+  @@index([factureId])
+  @@map("ventilations_sejour_prestataire")
 }
