@@ -395,14 +395,14 @@ export class CollaborationService {
     let centreIds: string[];
     if (centreId) {
       const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId },
+        where: { id: centreId, userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       if (!centre) return [];
       centreIds = [centre.id];
     } else {
       const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId },
+        where: { userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       centreIds = centres.map((c) => c.id);
@@ -435,14 +435,14 @@ export class CollaborationService {
     let centreIds: string[];
     if (centreId) {
       const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId },
+        where: { id: centreId, userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       if (!centre) return [];
       centreIds = [centre.id];
     } else {
       const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId },
+        where: { userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       centreIds = centres.map((c) => c.id);
@@ -499,14 +499,14 @@ export class CollaborationService {
     let centreIds: string[];
     if (centreId) {
       const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId },
+        where: { id: centreId, userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       if (!centre) return { total: 0, parSejour: [] };
       centreIds = [centre.id];
     } else {
       const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId },
+        where: { userId, statut: 'ACTIVE' },
         select: { id: true },
       });
       centreIds = centres.map((c) => c.id);
