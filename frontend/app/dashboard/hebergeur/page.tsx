@@ -9,6 +9,8 @@ import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import type { RappelToday } from '@/src/lib/clients';
+import { getTableauRentabilite } from '@/src/lib/rentabilite';
+import type { TableauRentabilite } from '@/src/lib/rentabilite';
 
 export default function HebergeurDashboard() {
   const { user, isLoading } = useAuth();
@@ -26,6 +28,7 @@ export default function HebergeurDashboard() {
   const [essaiActif, setEssaiActif] = useState(false);
   const [essaiExpire, setEssaiExpire] = useState(false);
   const [joursRestants, setJoursRestants] = useState(0);
+  const [rentabilite, setRentabilite] = useState<TableauRentabilite | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -94,6 +97,13 @@ export default function HebergeurDashboard() {
   useEffect(() => {
     if (user?.role === 'HEBERGEUR') loadData();
   }, [user, loadData]);
+
+  // Carte rentabilité — chargement indépendant (fire-and-forget, hors loadData)
+  useEffect(() => {
+    getTableauRentabilite({ annee: new Date().getFullYear().toString() })
+      .then((r) => setRentabilite(r))
+      .catch(() => {});
+  }, []);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -587,6 +597,49 @@ export default function HebergeurDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Rentabilité */}
+        {rentabilite && (
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Rentabilité
+            </h2>
+            <Link
+              href="/dashboard/hebergeur/rentabilite"
+              className="group block bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:border-[var(--color-primary)] hover:shadow-md transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">
+                    Marge brute {new Date().getFullYear()}
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {rentabilite.totaux.margeTTC.toLocaleString('fr-FR', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}{' '}€
+                  </p>
+                  {rentabilite.totaux.tauxMarge !== null && (
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {rentabilite.totaux.tauxMarge.toLocaleString('fr-FR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{' '}% de taux moyen
+                    </p>
+                  )}
+                </div>
+                <svg
+                  className="w-5 h-5 text-gray-300 group-hover:text-[var(--color-primary)] transition-colors"
+                  fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor" strokeWidth={1.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </Link>
+          </div>
+        )}
 
       </main>
     </div>
