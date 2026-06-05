@@ -440,8 +440,14 @@ export async function createDirectDevis(dto: CreateDevisDto & { sejourDirectId: 
   return data;
 }
 
-export async function envoyerDevisDirect(devisId: string): Promise<{ success: boolean }> {
-  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/envoyer-direct`);
+export async function envoyerDevisDirect(
+  devisId: string,
+  messagePersonnalise?: string,
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(
+    `/devis/${devisId}/envoyer-direct`,
+    { messagePersonnalise },
+  );
   return data;
 }
 

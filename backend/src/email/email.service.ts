@@ -49,7 +49,13 @@ export class EmailService {
     }
   }
 
-  private async send(to: string, subject: string, html: string, fromName?: string) {
+  private async send(
+    to: string,
+    subject: string,
+    html: string,
+    fromName?: string,
+    replyTo?: { name: string; email: string },
+  ) {
     if (!BREVO_API_KEY) {
       console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
       return;
@@ -60,6 +66,7 @@ export class EmailService {
       await this.api.sendTransacEmail({
         sender: { name: senderName, email: SENDER_EMAIL },
         to: [{ email: to }],
+        ...(replyTo ? { replyTo } : {}),
         subject,
         htmlContent: html,
       });
@@ -224,14 +231,20 @@ export class EmailService {
 
   // ── g) Notification générique ────────────────────────────────────────
 
-  async sendGenericNotification(to: string, subject: string, message: string, fromName?: string) {
+  async sendGenericNotification(
+    to: string,
+    subject: string,
+    message: string,
+    fromName?: string,
+    replyTo?: { name: string; email: string },
+  ) {
     const html = emailLayout(
       subject,
       `<p>${message}</p>`,
       'Accéder à la plateforme',
       `${FRONTEND_URL}/login`,
     );
-    await this.send(to, subject, html, fromName);
+    await this.send(to, subject, html, fromName, replyTo);
   }
 
   async sendMagicLink(to: string, prenom: string, titreSejourOuAction: string, magicUrl: string) {

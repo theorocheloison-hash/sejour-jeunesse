@@ -53,6 +53,7 @@ export interface SejourCollabInfo {
   createur?: { id: string; prenom: string; nom: string; email: string };
   hebergementSelectionne?: {
     id: string; nom: string; ville: string; userId: string;
+    email?: string | null;
     champsInscription?: {
       champsActifs: string[];
       champsCustom: Array<{ nom: string; type: 'text' | 'number' | 'select'; obligatoire: boolean; options?: string[] }>;
