@@ -679,6 +679,17 @@ export class AdminService {
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, ' ');
 
+    /**
+     * Tronque une valeur aux limites VarChar du modèle Organisation
+     * (cf. schema.prisma) pour éviter l'erreur Prisma "value too long".
+     * Ex. departement VarChar(10) vs "Haute-Savoie" (12 car.).
+     */
+    const trunc = (s: unknown, max: number): string | null => {
+      if (s == null) return null;
+      const str = String(s).trim();
+      return str.length > max ? str.substring(0, max) : str;
+    };
+
     let created = 0;
     let updated = 0;
     let enriched = 0;
@@ -817,18 +828,20 @@ export class AdminService {
             },
           });
 
-          // Rattacher à une Organisation (nouveaux centres uniquement)
+          // Rattacher à une Organisation (nouveaux centres uniquement).
+          // Tous les champs string sont tronqués aux limites VarChar du
+          // modèle Organisation (schema.prisma) avant l'insert.
           const { organisation } = await findOrCreateOrganisation(this.prisma, {
-            nom,
-            ville,
-            adresse: item.adresse ?? null,
-            codePostal: item.codePostal ?? null,
-            departement: item.departement ?? null,
-            emailContact: email,
-            telephoneContact: item.telephone ?? null,
-            siteWeb: item.siteWeb ?? null,
+            nom: nom.substring(0, 255),
+            ville: ville.substring(0, 255),
+            adresse: trunc(item.adresse, 500),
+            codePostal: trunc(item.codePostal, 10),
+            departement: trunc(item.departement, 10),
+            emailContact: trunc(email, 255),
+            telephoneContact: trunc(item.telephone, 20),
+            siteWeb: trunc(item.siteWeb, 500),
             source: 'RESEAU_IMPORT',
-            sourceId: apidaeId,
+            sourceId: trunc(apidaeId, 100),
             typeStructure: null,
           });
           await this.prisma.centreHebergement.update({
