@@ -290,6 +290,8 @@ export class CollaborationService {
         moyenPaiement: true,
         paiementValide: true,
         datePaiement: true,
+        champsPersonnalises: true,
+        sourceInscription: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },

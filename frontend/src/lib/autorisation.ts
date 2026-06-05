@@ -111,6 +111,45 @@ export async function getAutorisationsBySejour(
   return data;
 }
 
+// ─── Saisie directe (organisateur) ─────────────────────────────────────────
+
+export interface ParticipantDirectInput {
+  eleveNom: string;
+  elevePrenom: string;
+  parentEmail?: string | null;
+  taille?: number | null;
+  poids?: number | null;
+  pointure?: number | null;
+  niveauSki?: string | null;
+  regimeAlimentaire?: string | null;
+  eleveDateNaissance?: string | null;
+  nomParent?: string | null;
+  telephoneUrgence?: string | null;
+  infosMedicales?: string | null;
+  champsPersonnalises?: Record<string, any> | null;
+}
+
+export async function createBatchDirect(
+  sejourId: string,
+  participants: ParticipantDirectInput[],
+): Promise<{ created: number; skipped: number; errors: string[] }> {
+  const { data } = await api.post('/autorisations/batch-direct', { sejourId, participants });
+  return data;
+}
+
+export async function updateAutorisationFields(
+  id: string,
+  fields: Record<string, any>,
+): Promise<any> {
+  const { data } = await api.patch(`/autorisations/${id}/update-fields`, fields);
+  return data;
+}
+
+export async function deleteAutorisation(id: string): Promise<{ deleted: boolean }> {
+  const { data } = await api.delete(`/autorisations/${id}`);
+  return data;
+}
+
 // ─── Appels publics (parent) ───────────────────────────────────────────────
 
 export async function getAutorisationPublique(
