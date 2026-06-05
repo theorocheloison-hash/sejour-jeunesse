@@ -28,4 +28,16 @@ export class UpdateInfosSejourDto {
   @IsOptional()
   @IsString()
   clientTelephone?: string;
+
+  @IsOptional()
+  @IsString()
+  clientAdresse?: string;
+
+  @IsOptional()
+  @IsString()
+  clientCodePostal?: string;
+
+  @IsOptional()
+  @IsString()
+  clientVille?: string;
 }

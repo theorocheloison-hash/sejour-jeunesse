@@ -1116,7 +1116,7 @@ export class DevisService {
     await this.email.sendGenericNotification(
       clientEmail,
       `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
-      `<p>Bonjour${sejour.clientNom ? ` ${sejour.clientNom}` : ''},</p>
+      `<p>Bonjour${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') ? ` ${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ')}` : ''},</p>
        <p>Veuillez trouver ci-joint le devis pour :</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
@@ -1180,6 +1180,7 @@ export class DevisService {
             dateDebut: true, dateFin: true, placesTotales: true,
             clientNom: true, clientPrenom: true, clientEmail: true,
             clientOrganisation: true, natureSejour: true, typeSejour: true,
+            clientAdresse: true, clientCodePostal: true, clientVille: true,
           },
         },
       },
@@ -1243,7 +1244,7 @@ export class DevisService {
       where: { tokenSignature: token },
       include: {
         centre: { select: { nom: true, email: true } },
-        sejourDirect: { select: { id: true, titre: true, clientEmail: true, clientNom: true, dateDebut: true, dateFin: true, modeGestion: true } },
+        sejourDirect: { select: { id: true, titre: true, clientEmail: true, clientNom: true, clientPrenom: true, dateDebut: true, dateFin: true, modeGestion: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
@@ -1289,7 +1290,7 @@ export class DevisService {
         await this.email.sendGenericNotification(
           sejour.clientEmail,
           `Confirmation de réservation — ${sejour.titre}`,
-          `<p>Bonjour${sejour.clientNom ? ` ${sejour.clientNom}` : ''},</p>
+          `<p>Bonjour${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') ? ` ${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ')}` : ''},</p>
            <p>Nous confirmons la signature du devis <strong>${devis.numeroDevis}</strong> pour <strong>${sejour.titre}</strong>
            du ${fmt(sejour.dateDebut)} au ${fmt(sejour.dateFin)}.</p>
            <p><strong>Signé par :</strong> ${body.nomSignataire}<br>

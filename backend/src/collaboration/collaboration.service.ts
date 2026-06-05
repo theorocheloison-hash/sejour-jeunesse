@@ -1354,6 +1354,9 @@ export class CollaborationService {
       clientPrenom?: string;
       clientEmail?: string;
       clientTelephone?: string;
+      clientAdresse?: string;
+      clientCodePostal?: string;
+      clientVille?: string;
     },
     userId: string,
   ) {
@@ -1380,6 +1383,9 @@ export class CollaborationService {
         ...(dto.clientPrenom !== undefined && { clientPrenom: dto.clientPrenom }),
         ...(dto.clientEmail !== undefined && { clientEmail: dto.clientEmail }),
         ...(dto.clientTelephone !== undefined && { clientTelephone: dto.clientTelephone }),
+        ...(dto.clientAdresse !== undefined && { clientAdresse: dto.clientAdresse }),
+        ...(dto.clientCodePostal !== undefined && { clientCodePostal: dto.clientCodePostal }),
+        ...(dto.clientVille !== undefined && { clientVille: dto.clientVille }),
       },
     });
 
@@ -1388,7 +1394,10 @@ export class CollaborationService {
       dto.clientNom !== undefined ||
       dto.clientPrenom !== undefined ||
       dto.clientEmail !== undefined ||
-      dto.clientTelephone !== undefined;
+      dto.clientTelephone !== undefined ||
+      dto.clientAdresse !== undefined ||
+      dto.clientCodePostal !== undefined ||
+      dto.clientVille !== undefined;
     if (clientFieldsFournis) {
       try {
         const sejourClient = await this.prisma.sejourClient.findFirst({
@@ -1400,13 +1409,19 @@ export class CollaborationService {
             nom?: string;
             email?: string;
             telephone?: string;
+            adresse?: string;
+            codePostal?: string;
+            ville?: string;
           } = {};
           if (dto.clientEmail !== undefined) clientData.email = dto.clientEmail;
           if (dto.clientTelephone !== undefined) clientData.telephone = dto.clientTelephone;
+          if (dto.clientAdresse !== undefined) clientData.adresse = dto.clientAdresse;
+          if (dto.clientCodePostal !== undefined) clientData.codePostal = dto.clientCodePostal;
+          if (dto.clientVille !== undefined) clientData.ville = dto.clientVille;
           // nom : même priorité qu'à la création (organisation > particulier),
           // recalculé uniquement si nom/prénom fournis (cf. linkSejourToClient).
           if (dto.clientNom !== undefined || dto.clientPrenom !== undefined) {
-            const nomParticulier = [updated.clientNom, updated.clientPrenom]
+            const nomParticulier = [updated.clientPrenom, updated.clientNom]
               .filter(Boolean)
               .join(' ')
               .trim();
