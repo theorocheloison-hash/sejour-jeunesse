@@ -165,8 +165,9 @@ export class DevisController {
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
     @CentreId() centreId: string | null,
+    @Body() body: { messagePersonnalise?: string },
   ) {
-    return this.devisService.envoyerDevisDirect(id, user.id, centreId);
+    return this.devisService.envoyerDevisDirect(id, user.id, centreId, body?.messagePersonnalise);
   }
 
   @Get(':id/versements')

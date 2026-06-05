@@ -16,6 +16,16 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 
+// Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class DevisService {
   constructor(
@@ -992,8 +1002,17 @@ export class DevisService {
     devisId: string,
     userId: string,
     centreId?: string | null,
+    messagePersonnalise?: string,
   ) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Message libre de l'hébergeur : trim + tronqué à 2000 + échappé + sauts de ligne
+    const messageEchappe = messagePersonnalise
+      ? escapeHtml(messagePersonnalise.trim().slice(0, 2000)).replace(/\n/g, '<br>')
+      : '';
+    const messageBlock = messageEchappe
+      ? `<div style="margin:16px 0; padding:16px; background:#f5f4f1; border-radius:8px; border-left:3px solid #C87D2E; font-size:14px; color:#333; line-height:1.6;">${messageEchappe}</div>`
+      : '';
 
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
@@ -1106,6 +1125,7 @@ export class DevisService {
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
        </table>
        ${contratUrl ? `<p style="margin:16px 0">📄 <a href="${contratUrl}" style="color:#1B4060;font-weight:600;text-decoration:underline">Télécharger le contrat PDF</a></p>` : ''}
+       ${messageBlock}
        <p>Consultez le devis complet et signez-le en ligne :</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/devis/signer/${token}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
@@ -1114,6 +1134,7 @@ export class DevisService {
        </p>
        <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${frontendUrl}/devis/signer/${token}</p>`,
       centre.nom,
+      centre.email ? { name: centre.nom, email: centre.email } : undefined,
     );
 
     try {

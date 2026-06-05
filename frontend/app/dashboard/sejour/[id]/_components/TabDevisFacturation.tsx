@@ -141,6 +141,19 @@ export default function TabDevisFacturation({
   const [directDevisLoading, setDirectDevisLoading] = useState(false);
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
   const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
+  const [showEnvoiModal, setShowEnvoiModal] = useState(false);
+  const [messagePerso, setMessagePerso] = useState('');
+  const [envoiError, setEnvoiError] = useState<string | null>(null);
+
+  // Fermeture de la modale d'envoi sur Escape
+  useEffect(() => {
+    if (!showEnvoiModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !envoyerLoading) setShowEnvoiModal(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showEnvoiModal, envoyerLoading]);
 
   // ── Invitation direction (devis collab) ─────────────────────
   const [showInvitationDirection, setShowInvitationDirection] = useState(false);
@@ -794,17 +807,7 @@ export default function TabDevisFacturation({
               <div className="flex items-center gap-3 flex-wrap">
                 {sejour?.clientEmail && directDevis.statut === 'EN_ATTENTE' && (
                   <button
-                    onClick={async () => {
-                      setEnvoyerLoading(true);
-                      setEnvoyerSuccess(false);
-                      try {
-                        await envoyerDevisDirect(directDevis.id);
-                        setEnvoyerSuccess(true);
-                        const devis = await getDevisForSejourDirect(sejourId);
-                        setDirectDevis(devis[0] ?? null);
-                      } catch { onError('Erreur lors de l\'envoi du devis'); }
-                      finally { setEnvoyerLoading(false); }
-                    }}
+                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
@@ -822,6 +825,91 @@ export default function TabDevisFacturation({
                   <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
                     ✅ Devis envoyé par email ! Le client recevra un lien pour consulter et signer le devis.
                   </p>
+                )}
+
+                {showEnvoiModal && directDevis && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+                    onClick={() => { if (!envoyerLoading) setShowEnvoiModal(false); }}
+                  >
+                    <div
+                      className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h2 className="text-base font-semibold text-gray-900">
+                        Envoyer le devis à{' '}
+                        {[sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || 'votre client'}
+                      </h2>
+                      {sejour?.clientEmail && (
+                        <p className="text-xs text-gray-500 mt-0.5">{sejour.clientEmail}</p>
+                      )}
+
+                      <div className="mt-4">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Message (optionnel)
+                        </label>
+                        <textarea
+                          autoFocus
+                          rows={5}
+                          maxLength={2000}
+                          value={messagePerso}
+                          onChange={(e) => setMessagePerso(e.target.value)}
+                          placeholder={`Bonjour ${sejour?.clientPrenom ?? ''},\nVeuillez trouver ci-joint notre devis...`}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-400 mt-1 text-right">
+                          {messagePerso.length} / 2000 caractères
+                        </p>
+                      </div>
+
+                      {sejour?.hebergementSelectionne?.email && (
+                        <p className="mt-2 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                          ℹ️ {sejour?.clientPrenom || 'Le client'} pourra répondre directement par
+                          email à {sejour.hebergementSelectionne.email}
+                        </p>
+                      )}
+
+                      {envoiError && (
+                        <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                          {envoiError}
+                        </div>
+                      )}
+
+                      <div className="mt-5 flex justify-end gap-2">
+                        <button
+                          onClick={() => setShowEnvoiModal(false)}
+                          disabled={envoyerLoading}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setEnvoyerLoading(true);
+                            setEnvoiError(null);
+                            try {
+                              await envoyerDevisDirect(directDevis.id, messagePerso.trim() || undefined);
+                              setShowEnvoiModal(false);
+                              setEnvoyerSuccess(true);
+                              const devis = await getDevisForSejourDirect(sejourId);
+                              setDirectDevis(devis[0] ?? null);
+                            } catch {
+                              setEnvoiError("Erreur lors de l'envoi du devis. Réessayez.");
+                            } finally {
+                              setEnvoyerLoading(false);
+                            }
+                          }}
+                          disabled={envoyerLoading}
+                          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {envoyerLoading && (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          )}
+                          {envoyerLoading ? 'Envoi en cours…' : 'Envoyer le devis'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(directDevis.statut) && (
