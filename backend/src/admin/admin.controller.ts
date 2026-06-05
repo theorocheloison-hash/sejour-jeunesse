@@ -78,6 +78,12 @@ export class AdminController {
     return this.adminService.bulkInviteApidae(reseau);
   }
 
+  /** POST /admin/sync-lmdj — Import des centres LMDJ scrapés (scripts/lmdj-centres.json). */
+  @Post('sync-lmdj')
+  syncLmdj(@Body() body: any[]) {
+    return this.adminService.syncLmdj(body);
+  }
+
   @Patch('centres/:id/reseau')
   updateCentreReseau(@Param('id') id: string, @Body('reseau') reseau: string | null) {
     return this.adminService.updateCentreReseau(id, reseau);
