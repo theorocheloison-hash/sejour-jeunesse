@@ -59,5 +59,17 @@ export class CreateSejourDirectDto {
 
   @IsOptional()
   @IsString()
+  clientAdresse?: string;
+
+  @IsOptional()
+  @IsString()
+  clientCodePostal?: string;
+
+  @IsOptional()
+  @IsString()
+  clientVille?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 }
