@@ -1,11 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
+
+  // Limite body JSON (imports volumineux, ex. POST /admin/sync-lmdj)
+  app.use(json({ limit: '5mb' }));
 
   // Health check — avant tout middleware
   app.use('/health', (req: any, res: any) => {
