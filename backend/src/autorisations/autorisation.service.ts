@@ -9,10 +9,35 @@ import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
+
+// Participant en mode saisie directe (création batch + mise à jour inline)
+export interface ParticipantDirectInput {
+  eleveNom?: string;
+  elevePrenom?: string;
+  parentEmail?: string | null;
+  taille?: number | null;
+  poids?: number | null;
+  pointure?: number | null;
+  niveauSki?: string | null;
+  regimeAlimentaire?: string | null;
+  eleveDateNaissance?: string | null;
+  nomParent?: string | null;
+  telephoneUrgence?: string | null;
+  infosMedicales?: string | null;
+  champsPersonnalises?: Record<string, unknown> | null;
+}
+
+// Parse une date ISO ; retourne null si absente ou invalide (jamais d'Invalid Date)
+function parseDateOrNull(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 @Injectable()
 export class AutorisationService {
@@ -359,6 +384,161 @@ export class AutorisationService {
     }
 
     return results;
+  }
+
+  /** Création batch de participants en mode saisie directe (ORGANISATEUR). */
+  async createBatchDirect(
+    sejourId: string,
+    participants: ParticipantDirectInput[],
+    createurId: string,
+  ) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    if (!Array.isArray(participants)) {
+      throw new BadRequestException('participants doit être un tableau');
+    }
+    if (participants.length > 200) {
+      throw new BadRequestException('Maximum 200 participants par appel');
+    }
+
+    // Dédupliquer par eleveNom+elevePrenom (case-insensitive), comme importCsv
+    const existingAuths = await this.prisma.autorisationParentale.findMany({
+      where: { sejourId },
+      select: { eleveNom: true, elevePrenom: true },
+    });
+    const existingSet = new Set(
+      existingAuths.map((a) => `${a.eleveNom.toLowerCase()}|${a.elevePrenom.toLowerCase()}`),
+    );
+
+    const results = { created: 0, skipped: 0, errors: [] as string[] };
+
+    for (const p of participants) {
+      const nom = (p.eleveNom ?? '').trim();
+      const prenom = (p.elevePrenom ?? '').trim();
+      if (!nom || !prenom) {
+        results.skipped++;
+        continue;
+      }
+      const key = `${nom.toLowerCase()}|${prenom.toLowerCase()}`;
+      if (existingSet.has(key)) {
+        results.skipped++;
+        continue;
+      }
+      try {
+        await this.prisma.autorisationParentale.create({
+          data: {
+            sejourId,
+            eleveNom: nom,
+            elevePrenom: prenom,
+            // Cascade 1 : "" / whitespace → null pour ne pas tenter d'email
+            parentEmail: p.parentEmail?.trim() || null,
+            taille: p.taille ?? null,
+            poids: p.poids ?? null,
+            pointure: p.pointure ?? null,
+            niveauSki: p.niveauSki ?? null,
+            regimeAlimentaire: p.regimeAlimentaire ?? null,
+            infosMedicales: p.infosMedicales ?? null,
+            nomParent: p.nomParent ?? null,
+            telephoneUrgence: p.telephoneUrgence ?? null,
+            // Cascade 2 : date invalide → null (jamais d'Invalid Date)
+            eleveDateNaissance: parseDateOrNull(p.eleveDateNaissance),
+            sourceInscription: 'SAISIE_DIRECTE',
+            emailEnvoye: false,
+            ...(p.champsPersonnalises != null
+              ? { champsPersonnalises: p.champsPersonnalises as Prisma.InputJsonValue }
+              : {}),
+          },
+        });
+        existingSet.add(key);
+        results.created++;
+      } catch {
+        results.errors.push(`Erreur pour ${prenom} ${nom}`);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Mise à jour inline d'un participant (ORGANISATEUR).
+   * Après signature : seuls les champs logistiques restent modifiables
+   * (taille, poids, pointure, niveauSki, regimeAlimentaire, champsPersonnalises).
+   */
+  async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id },
+      include: { sejour: { select: { createurId: true } } },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    const signee = autorisation.signeeAt !== null;
+
+    // Champs verrouillés après signature (le parent a consenti dessus)
+    const CHAMPS_VERROUILLES = [
+      'eleveNom', 'elevePrenom', 'parentEmail', 'eleveDateNaissance',
+      'nomParent', 'telephoneUrgence', 'infosMedicales',
+    ] as const;
+    if (signee) {
+      const b = body as Record<string, unknown>;
+      const tentative = CHAMPS_VERROUILLES.some((k) => b[k] !== undefined);
+      if (tentative) {
+        throw new ForbiddenException(
+          'Impossible de modifier une autorisation déjà signée par le parent',
+        );
+      }
+    }
+
+    // Construction EXPLICITE du data — jamais de spread du body (cascade 8 :
+    // ne jamais toucher signeeAt, signatureHash, rgpdAccepte, paiement, etc.)
+    const data: Prisma.AutorisationParentaleUpdateInput = {};
+
+    // Logistiques (toujours autorisés)
+    if (body.taille !== undefined) data.taille = body.taille ?? null;
+    if (body.poids !== undefined) data.poids = body.poids ?? null;
+    if (body.pointure !== undefined) data.pointure = body.pointure ?? null;
+    if (body.niveauSki !== undefined) data.niveauSki = body.niveauSki ?? null;
+    if (body.regimeAlimentaire !== undefined) data.regimeAlimentaire = body.regimeAlimentaire ?? null;
+    if (body.champsPersonnalises !== undefined) {
+      data.champsPersonnalises =
+        body.champsPersonnalises === null
+          ? Prisma.JsonNull
+          : (body.champsPersonnalises as Prisma.InputJsonValue);
+    }
+
+    // Verrouillés (seulement si non signée — garanti par le check ci-dessus)
+    if (body.eleveNom !== undefined) data.eleveNom = (body.eleveNom ?? '').trim();
+    if (body.elevePrenom !== undefined) data.elevePrenom = (body.elevePrenom ?? '').trim();
+    if (body.parentEmail !== undefined) data.parentEmail = body.parentEmail?.trim() || null;
+    if (body.nomParent !== undefined) data.nomParent = body.nomParent ?? null;
+    if (body.telephoneUrgence !== undefined) data.telephoneUrgence = body.telephoneUrgence ?? null;
+    if (body.infosMedicales !== undefined) data.infosMedicales = body.infosMedicales ?? null;
+    if (body.eleveDateNaissance !== undefined) {
+      data.eleveDateNaissance = parseDateOrNull(body.eleveDateNaissance);
+    }
+
+    return this.prisma.autorisationParentale.update({ where: { id }, data });
+  }
+
+  /** Suppression d'un participant (ORGANISATEUR) — interdite si signée. */
+  async deleteAutorisation(id: string, createurId: string) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id },
+      include: { sejour: { select: { createurId: true } } },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    if (autorisation.signeeAt !== null)
+      throw new ForbiddenException('Impossible de supprimer une autorisation signée');
+
+    // Les EleveGroupe liés sont supprimés en cascade (onDelete: Cascade).
+    await this.prisma.autorisationParentale.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async getBySejour(sejourId: string, createurId: string) {

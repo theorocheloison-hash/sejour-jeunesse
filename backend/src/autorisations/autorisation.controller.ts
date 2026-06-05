@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -19,13 +20,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
-import { AutorisationService } from './autorisation.service.js';
+import { AutorisationService, type ParticipantDirectInput } from './autorisation.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 
 @Controller('autorisations')
 export class AutorisationController {
   constructor(private readonly autorisationService: AutorisationService) {}
+
+  /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR) */
+  @Post('batch-direct')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  batchDirect(
+    @Body() body: { sejourId: string; participants: ParticipantDirectInput[] },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.createBatchDirect(body.sejourId, body.participants, user.id);
+  }
 
   /** POST /autorisations — Créer une autorisation (ORGANISATEUR) */
   @Post()
@@ -84,6 +96,29 @@ export class AutorisationController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.autorisationService.validerPaiementPartiel(id, body.montant, user.id);
+  }
+
+  /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR) */
+  @Patch(':id/update-fields')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  updateFields(
+    @Param('id') id: string,
+    @Body() body: ParticipantDirectInput,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.updateFields(id, body, user.id);
+  }
+
+  /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR) */
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  deleteAutorisation(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.deleteAutorisation(id, user.id);
   }
 
   /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (ORGANISATEUR) */
