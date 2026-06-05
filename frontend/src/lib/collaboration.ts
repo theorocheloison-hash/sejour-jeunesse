@@ -536,6 +536,9 @@ export async function updateInfosSejour(
     clientPrenom?: string;
     clientEmail?: string;
     clientTelephone?: string;
+    clientAdresse?: string;
+    clientCodePostal?: string;
+    clientVille?: string;
   },
 ): Promise<{
   id: string;
@@ -546,6 +549,9 @@ export async function updateInfosSejour(
   clientPrenom: string | null;
   clientEmail: string | null;
   clientTelephone: string | null;
+  clientAdresse: string | null;
+  clientCodePostal: string | null;
+  clientVille: string | null;
 }> {
   const { data } = await api.patch(`/collaboration/${sejourId}/infos`, dto);
   return data;
@@ -675,6 +681,7 @@ export interface DevisPublic {
     dateDebut: string; dateFin: string; placesTotales: number;
     clientNom: string | null; clientPrenom: string | null; clientEmail: string | null;
     clientOrganisation: string | null; natureSejour: string; typeSejour: string | null;
+    clientAdresse: string | null; clientCodePostal: string | null; clientVille: string | null;
   } | null;
 }
 

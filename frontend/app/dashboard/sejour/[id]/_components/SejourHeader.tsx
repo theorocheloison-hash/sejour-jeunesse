@@ -64,6 +64,9 @@ export default function SejourHeader({
     clientPrenom: '',
     clientEmail: '',
     clientTelephone: '',
+    clientAdresse: '',
+    clientCodePostal: '',
+    clientVille: '',
   });
   const [infosLoading, setInfosLoading] = useState(false);
 
@@ -77,10 +80,14 @@ export default function SejourHeader({
       clientPrenom: sejour.clientPrenom ?? '',
       clientEmail: sejour.clientEmail ?? '',
       clientTelephone: sejour.clientTelephone ?? '',
+      clientAdresse: sejour.clientAdresse ?? '',
+      clientCodePostal: sejour.clientCodePostal ?? '',
+      clientVille: sejour.clientVille ?? '',
     });
   }, [
     sejour.titre, sejour.dateDebut, sejour.dateFin,
     sejour.clientNom, sejour.clientPrenom, sejour.clientEmail, sejour.clientTelephone,
+    sejour.clientAdresse, sejour.clientCodePostal, sejour.clientVille,
   ]);
 
   const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
@@ -101,6 +108,9 @@ export default function SejourHeader({
           clientPrenom: infosForm.clientPrenom || undefined,
           clientEmail: infosForm.clientEmail || undefined,
           clientTelephone: infosForm.clientTelephone || undefined,
+          clientAdresse: infosForm.clientAdresse || undefined,
+          clientCodePostal: infosForm.clientCodePostal || undefined,
+          clientVille: infosForm.clientVille || undefined,
         }),
       });
       onSejourUpdate({
@@ -112,6 +122,9 @@ export default function SejourHeader({
           clientPrenom: updated.clientPrenom,
           clientEmail: updated.clientEmail,
           clientTelephone: updated.clientTelephone,
+          clientAdresse: updated.clientAdresse,
+          clientCodePostal: updated.clientCodePostal,
+          clientVille: updated.clientVille,
         }),
       });
       setEditingInfos(false);
@@ -174,7 +187,8 @@ export default function SejourHeader({
           </p>
           {isDirect && (
             <p className="text-xs text-gray-500 truncate">
-              {sejour?.clientOrganisation ?? sejour?.clientNom ?? 'Client non renseigné'}
+              {sejour?.clientOrganisation
+                ?? ([sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || 'Client non renseigné')}
               {sejour?.clientEmail && <> · {sejour.clientEmail}</>}
             </p>
           )}
@@ -205,15 +219,15 @@ export default function SejourHeader({
                   <p className="text-xs font-semibold text-gray-500 mt-2">Informations client</p>
                   <div className="flex gap-2">
                     <input
-                      placeholder="Nom"
-                      value={infosForm.clientNom}
-                      onChange={e => setInfosForm(f => ({ ...f, clientNom: e.target.value }))}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    />
-                    <input
                       placeholder="Prénom"
                       value={infosForm.clientPrenom}
                       onChange={e => setInfosForm(f => ({ ...f, clientPrenom: e.target.value }))}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    />
+                    <input
+                      placeholder="Nom"
+                      value={infosForm.clientNom}
+                      onChange={e => setInfosForm(f => ({ ...f, clientNom: e.target.value }))}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     />
                   </div>
@@ -230,6 +244,26 @@ export default function SejourHeader({
                     onChange={e => setInfosForm(f => ({ ...f, clientTelephone: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
+                  <input
+                    placeholder="Adresse"
+                    value={infosForm.clientAdresse}
+                    onChange={e => setInfosForm(f => ({ ...f, clientAdresse: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Code postal"
+                      value={infosForm.clientCodePostal}
+                      onChange={e => setInfosForm(f => ({ ...f, clientCodePostal: e.target.value }))}
+                      className="w-28 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    />
+                    <input
+                      placeholder="Ville"
+                      value={infosForm.clientVille}
+                      onChange={e => setInfosForm(f => ({ ...f, clientVille: e.target.value }))}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    />
+                  </div>
                 </>
               )}
               <div className="flex gap-2 justify-end">

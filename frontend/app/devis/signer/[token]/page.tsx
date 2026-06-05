@@ -174,6 +174,13 @@ export default function SignerDevisPage() {
     ibanEmetteur: centre?.iban ?? undefined,
     nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' '),
     etablissementNom: sejour?.clientOrganisation ?? undefined,
+    adresseDestinataire:
+      [
+        sejour?.clientAdresse,
+        [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ') || undefined,
     emailDestinataire: sejour?.clientEmail ?? undefined,
     titreSejour: sejour?.titre ?? '',
     lieuSejour: sejour?.lieu ?? '',

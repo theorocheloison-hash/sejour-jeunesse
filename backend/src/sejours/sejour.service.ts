@@ -1070,6 +1070,9 @@ export class SejourService {
       clientOrganisation: string | null;
       clientOrganisationId: string | null;
       clientTelephone: string | null;
+      clientAdresse: string | null;
+      clientCodePostal: string | null;
+      clientVille: string | null;
       titre: string;
       dateDebut: Date;
       dateFin: Date;
@@ -1099,6 +1102,9 @@ export class SejourService {
           nom: sejour.clientOrganisation || sejour.clientNom || 'Client inconnu',
           email: sejour.clientEmail ?? undefined,
           telephone: sejour.clientTelephone ?? undefined,
+          adresse: sejour.clientAdresse ?? undefined,
+          codePostal: sejour.clientCodePostal ?? undefined,
+          ville: sejour.clientVille ?? undefined,
           type: 'ETABLISSEMENT_SCOLAIRE',
           statut: 'EN_NEGOCIATION',
           organisationId: sejour.clientOrganisationId ?? undefined,
