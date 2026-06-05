@@ -709,12 +709,13 @@ export class AdminService {
       accessiblePmr: boolean;
       siteWeb: string | null;
       periodeOuverture: string | null;
+      organisationId: string | null;
     }
     const allCentres: DedupRef[] = await this.prisma.centreHebergement.findMany({
       select: {
         id: true, nom: true, ville: true, email: true, apidaeId: true,
         userId: true, reseau: true, imageUrl: true, accessiblePmr: true,
-        siteWeb: true, periodeOuverture: true,
+        siteWeb: true, periodeOuverture: true, organisationId: true,
       },
     });
     const byApidae = new Map<string, DedupRef>();
@@ -743,6 +744,30 @@ export class AdminService {
           ? `${item.classesEN} classes`.substring(0, 50)
           : null;
         const accessiblePmr: boolean = item.accessiblePmr === true;
+
+        // Rattache un centre à une Organisation (dédup nom+ville côté helper).
+        // Champs string tronqués aux limites VarChar du modèle Organisation
+        // (schema.prisma). departement = VarChar(100) → pas de troncature à 10.
+        const attachOrganisation = async (centreId: string): Promise<string> => {
+          const { organisation } = await findOrCreateOrganisation(this.prisma, {
+            nom: nom.substring(0, 255),
+            ville: ville.substring(0, 255),
+            adresse: trunc(item.adresse, 500),
+            codePostal: trunc(item.codePostal, 10),
+            departement: item.departement ?? null,
+            emailContact: trunc(email, 255),
+            telephoneContact: trunc(item.telephone, 20),
+            siteWeb: trunc(item.siteWeb, 500),
+            source: 'RESEAU_IMPORT',
+            sourceId: trunc(apidaeId, 100),
+            typeStructure: null,
+          });
+          await this.prisma.centreHebergement.update({
+            where: { id: centreId },
+            data: { organisationId: organisation.id },
+          });
+          return organisation.id;
+        };
 
         // ── Dédup ──
         const found: DedupRef | null =
@@ -796,6 +821,11 @@ export class AdminService {
                 source: 'LMDJ_WEB',
               },
             });
+            // Centre catalogue orphelin (ex. import LMDJ précédent où la
+            // création d'Organisation avait échoué) → rattachement.
+            if (found.organisationId == null) {
+              found.organisationId = await attachOrganisation(found.id);
+            }
             updated++;
             details.push(`MIS À JOUR : ${nom} (${ville})`);
           }
@@ -828,32 +858,14 @@ export class AdminService {
             },
           });
 
-          // Rattacher à une Organisation (nouveaux centres uniquement).
-          // Tous les champs string sont tronqués aux limites VarChar du
-          // modèle Organisation (schema.prisma) avant l'insert.
-          const { organisation } = await findOrCreateOrganisation(this.prisma, {
-            nom: nom.substring(0, 255),
-            ville: ville.substring(0, 255),
-            adresse: trunc(item.adresse, 500),
-            codePostal: trunc(item.codePostal, 10),
-            departement: trunc(item.departement, 10),
-            emailContact: trunc(email, 255),
-            telephoneContact: trunc(item.telephone, 20),
-            siteWeb: trunc(item.siteWeb, 500),
-            source: 'RESEAU_IMPORT',
-            sourceId: trunc(apidaeId, 100),
-            typeStructure: null,
-          });
-          await this.prisma.centreHebergement.update({
-            where: { id: centre.id },
-            data: { organisationId: organisation.id },
-          });
+          // Rattacher à une Organisation (nouveaux centres).
+          const organisationId = await attachOrganisation(centre.id);
 
           // Ajout au cache pour dédup intra-lot (sécurité si doublon dans le JSON)
           const ref: DedupRef = {
             id: centre.id, nom, ville, email, apidaeId, userId: null,
             reseau: 'LMDJ', imageUrl: item.imageUrl ?? null, accessiblePmr,
-            siteWeb: item.siteWeb ?? null, periodeOuverture: null,
+            siteWeb: item.siteWeb ?? null, periodeOuverture: null, organisationId,
           };
           if (apidaeId) byApidae.set(apidaeId, ref);
           byNomVille.set(`${normalize(nom)}|${normalize(ville)}`, ref);

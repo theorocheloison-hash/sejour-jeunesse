@@ -1370,7 +1370,7 @@ model Organisation {
   adresse       String?             @db.VarChar(500)
   codePostal    String?             @map("code_postal") @db.VarChar(10)
   ville         String?             @db.VarChar(255)
-  departement   String?             @db.VarChar(10)
+  departement   String?             @db.VarChar(100)
   emailContact     String?  @map("email_contact") @db.VarChar(255)
   telephoneContact String?  @map("telephone_contact") @db.VarChar(20)
   siteWeb          String?  @map("site_web") @db.VarChar(500)
