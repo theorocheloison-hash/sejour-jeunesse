@@ -10,7 +10,11 @@ import api from '@/src/lib/api';
 function LoginForm() {
   const { login }                   = useAuth();
   const searchParams                = useSearchParams();
-  const redirectTo                  = searchParams.get('redirect') ?? undefined;
+  const searchRedirect              = searchParams.get('redirect');
+  const cookieRedirect              = typeof document !== 'undefined'
+    ? document.cookie.match(/liavo_post_verify_redirect=([^;]+)/)?.[1]
+    : null;
+  const redirectTo                  = searchRedirect ?? (cookieRedirect ? decodeURIComponent(cookieRedirect) : undefined);
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [error, setError]           = useState<string | null>(null);
@@ -31,6 +35,11 @@ function LoginForm() {
     setCompteEnAttente(false);
     setIsPending(true);
     try {
+      // Nettoyer le cookie de redirect post-vérification avant le login
+      // (login() fait router.push et le code après ne s'exécute pas forcément)
+      if (cookieRedirect) {
+        document.cookie = 'liavo_post_verify_redirect=;path=/;max-age=0';
+      }
       await login({ email, password }, redirectTo);
     } catch (err: unknown) {
       const msg = extractApiError(err);

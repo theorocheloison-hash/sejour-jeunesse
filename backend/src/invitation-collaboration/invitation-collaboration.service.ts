@@ -181,20 +181,64 @@ export class InvitationCollaborationService {
           select: { id: true, modeGestion: true, createurId: true },
         });
         if (existingSejour && existingSejour.modeGestion === 'DIRECT' && !existingSejour.createurId) {
+          // 1. Rattacher l'enseignant + passer en COLLABORATIF + CONVENTION
           await tx.sejour.update({
             where: { id: existingSejour.id },
             data: {
               createurId: user.id,
               modeGestion: 'COLLABORATIF',
+              statut: 'CONVENTION',
             },
           });
+
+          // 2. Auto-sélectionner le devis DIRECT s'il existe
+          const devisDirect = await tx.devis.findFirst({
+            where: { sejourDirectId: existingSejour.id },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (devisDirect) {
+            if (devisDirect.statut === 'EN_ATTENTE') {
+              await tx.devis.update({
+                where: { id: devisDirect.id },
+                data: { statut: 'SELECTIONNE' },
+              });
+            }
+
+            // 3. Créer une DemandeDevis pont pour que le frontend organisateur
+            //    trouve le devis via sejour.demandes[].devis[]
+            const sejourData = await tx.sejour.findUnique({
+              where: { id: existingSejour.id },
+              select: { titre: true, dateDebut: true, dateFin: true, placesTotales: true, lieu: true },
+            });
+
+            const demande = await tx.demandeDevis.create({
+              data: {
+                sejourId: existingSejour.id,
+                enseignantId: user.id,
+                titre: sejourData?.titre ?? invitation.titreSejourSuggere,
+                dateDebut: sejourData?.dateDebut ?? invitation.dateDebut,
+                dateFin: sejourData?.dateFin ?? invitation.dateFin,
+                nombreEleves: sejourData?.placesTotales ?? invitation.nbElevesEstime,
+                villeHebergement: sejourData?.lieu ?? '',
+                statut: 'FERMEE',
+                centreDestinataireId: devisDirect.centreId,
+              },
+            });
+
+            // 4. Rattacher le devis à la demande
+            await tx.devis.update({
+              where: { id: devisDirect.id },
+              data: { demandeId: demande.id },
+            });
+          }
 
           await tx.invitationCollaboration.update({
             where: { id: invitation.id },
             data: { acceptedAt: new Date(), sejourId: existingSejour.id },
           });
 
-          return { sejourId: existingSejour.id, devisCree: null };
+          return { sejourId: existingSejour.id, devisCree: devisDirect ?? null };
         }
       }
 
