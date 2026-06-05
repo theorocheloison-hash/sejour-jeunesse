@@ -770,6 +770,7 @@ const SOUS_TYPES_EVENEMENT = [
 interface StructResult {
   nom: string;
   adresse: string | null;
+  codePostal: string | null;
   ville: string | null;
   siren: string | null;
   siret: string | null;
@@ -858,6 +859,7 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     setForm(f => ({
       ...f,
       clientAdresse: r.adresse ?? f.clientAdresse,
+      clientCodePostal: r.codePostal ?? f.clientCodePostal,
       clientVille: r.ville ?? f.clientVille,
     }));
   };
