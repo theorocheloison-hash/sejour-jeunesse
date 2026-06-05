@@ -652,6 +652,212 @@ export class AdminService {
     return { created, updated, errors, details };
   }
 
+  /**
+   * Importe/met à jour les centres LMDJ scrapés depuis le site web
+   * (scripts/scrape-lmdj.ts → scripts/lmdj-centres.json).
+   *
+   * Dédup (dans l'ordre) : apidaeId → nom+ville normalisés → email.
+   * Centres avec userId (hébergeur réel) : on n'enrichit que les champs null + reseau.
+   */
+  async syncLmdj(data: any[]): Promise<{
+    created: number;
+    updated: number;
+    enriched: number;
+    errors: number;
+    details: string[];
+  }> {
+    if (!Array.isArray(data)) {
+      throw new BadRequestException('Le corps doit être un tableau de centres');
+    }
+
+    const normalize = (s: string): string =>
+      (s ?? '')
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ');
+
+    let created = 0;
+    let updated = 0;
+    let enriched = 0;
+    let errors = 0;
+    const details: string[] = [];
+
+    // Chargement de tous les centres pour le dedup en mémoire (import one-shot admin)
+    interface DedupRef {
+      id: string;
+      nom: string;
+      ville: string;
+      email: string | null;
+      apidaeId: string | null;
+      userId: string | null;
+      reseau: string | null;
+      imageUrl: string | null;
+      accessiblePmr: boolean;
+      siteWeb: string | null;
+      periodeOuverture: string | null;
+    }
+    const allCentres: DedupRef[] = await this.prisma.centreHebergement.findMany({
+      select: {
+        id: true, nom: true, ville: true, email: true, apidaeId: true,
+        userId: true, reseau: true, imageUrl: true, accessiblePmr: true,
+        siteWeb: true, periodeOuverture: true,
+      },
+    });
+    const byApidae = new Map<string, DedupRef>();
+    const byNomVille = new Map<string, DedupRef>();
+    const byEmail = new Map<string, DedupRef>();
+    for (const c of allCentres) {
+      if (c.apidaeId) byApidae.set(c.apidaeId, c);
+      byNomVille.set(`${normalize(c.nom)}|${normalize(c.ville)}`, c);
+      if (c.email) byEmail.set(c.email.toLowerCase(), c);
+    }
+
+    for (const item of data) {
+      try {
+        const nom: string = (item.nom ?? '').toString().trim() || 'Sans nom';
+        const ville: string = (item.ville ?? '').toString().trim();
+        const apidaeId: string | null = item.apidaeId ? String(item.apidaeId) : null;
+        const email: string | null = item.email ? String(item.email).trim().toLowerCase() : null;
+        const description: string | null = item.description
+          ? String(item.description).substring(0, 2000)
+          : null;
+        const capacite: number = typeof item.capacite === 'number' ? item.capacite : 0;
+        const equipements: string[] = Array.isArray(item.equipements)
+          ? item.equipements.filter((e: unknown) => typeof e === 'string').slice(0, 20)
+          : [];
+        const agrementEN: string | null = item.classesEN
+          ? `${item.classesEN} classes`.substring(0, 50)
+          : null;
+        const accessiblePmr: boolean = item.accessiblePmr === true;
+
+        // ── Dédup ──
+        const found: DedupRef | null =
+          (apidaeId ? byApidae.get(apidaeId) : undefined) ??
+          byNomVille.get(`${normalize(nom)}|${normalize(ville)}`) ??
+          (email ? byEmail.get(email) : undefined) ??
+          null;
+
+        if (found) {
+          if (found.userId) {
+            // Hébergeur réel inscrit : ne toucher que reseau + champs null
+            await this.prisma.centreHebergement.update({
+              where: { id: found.id },
+              data: {
+                ...(found.reseau !== 'LMDJ' && { reseau: 'LMDJ' }),
+                ...(found.imageUrl == null && item.imageUrl && { imageUrl: item.imageUrl }),
+                ...(found.apidaeId == null && apidaeId && { apidaeId }),
+                ...(found.siteWeb == null && item.siteWeb && { siteWeb: item.siteWeb }),
+                ...(found.periodeOuverture == null && item.periodeOuverture && {
+                  periodeOuverture: String(item.periodeOuverture).substring(0, 255),
+                }),
+                // accessiblePmr n'est jamais null en base : on upgrade false → true uniquement
+                ...(!found.accessiblePmr && accessiblePmr && { accessiblePmr: true }),
+              },
+            });
+            enriched++;
+            details.push(`ENRICHI (utilisateur existant) : ${nom} (${ville})`);
+          } else {
+            // Import APIDAE/catalogue : données LMDJ plus riches → on écrase
+            await this.prisma.centreHebergement.update({
+              where: { id: found.id },
+              data: {
+                nom,
+                ville,
+                ...(item.departement && { departement: item.departement }),
+                ...(item.codePostal && { codePostal: item.codePostal }),
+                adresse: item.adresse ?? '',
+                ...(item.telephone && { telephone: item.telephone }),
+                ...(email && { email }),
+                ...(item.siteWeb && { siteWeb: item.siteWeb }),
+                ...(description && { description }),
+                ...(capacite > 0 && { capacite }),
+                ...(item.capaciteAdultes != null && { capaciteAdultes: item.capaciteAdultes }),
+                ...(item.imageUrl && { imageUrl: item.imageUrl }),
+                // Conserver apidaeId existant si le nouveau est null
+                apidaeId: apidaeId ?? found.apidaeId,
+                accessiblePmr,
+                ...(equipements.length > 0 && { activitesCentre: equipements }),
+                ...(agrementEN && { agrementEducationNationale: agrementEN }),
+                reseau: 'LMDJ',
+                source: 'LMDJ_WEB',
+              },
+            });
+            updated++;
+            details.push(`MIS À JOUR : ${nom} (${ville})`);
+          }
+        } else {
+          // ── Création ──
+          const centre = await this.prisma.centreHebergement.create({
+            data: {
+              nom,
+              ville,
+              departement: item.departement ?? null,
+              codePostal: item.codePostal ?? null,
+              adresse: item.adresse ?? '',
+              telephone: item.telephone ?? null,
+              email,
+              siteWeb: item.siteWeb ?? null,
+              description,
+              capacite,
+              capaciteAdultes: item.capaciteAdultes ?? null,
+              imageUrl: item.imageUrl ?? null,
+              apidaeId,
+              accessiblePmr,
+              activitesCentre: equipements,
+              agrementEducationNationale: agrementEN,
+              reseau: 'LMDJ',
+              source: 'LMDJ_WEB',
+              statut: 'ACTIVE',
+              userId: null,
+              abonnementStatut: 'INACTIF',
+              planAbonnement: 'DECOUVERTE',
+            },
+          });
+
+          // Rattacher à une Organisation (nouveaux centres uniquement)
+          const { organisation } = await findOrCreateOrganisation(this.prisma, {
+            nom,
+            ville,
+            adresse: item.adresse ?? null,
+            codePostal: item.codePostal ?? null,
+            departement: item.departement ?? null,
+            emailContact: email,
+            telephoneContact: item.telephone ?? null,
+            siteWeb: item.siteWeb ?? null,
+            source: 'RESEAU_IMPORT',
+            sourceId: apidaeId,
+            typeStructure: null,
+          });
+          await this.prisma.centreHebergement.update({
+            where: { id: centre.id },
+            data: { organisationId: organisation.id },
+          });
+
+          // Ajout au cache pour dédup intra-lot (sécurité si doublon dans le JSON)
+          const ref: DedupRef = {
+            id: centre.id, nom, ville, email, apidaeId, userId: null,
+            reseau: 'LMDJ', imageUrl: item.imageUrl ?? null, accessiblePmr,
+            siteWeb: item.siteWeb ?? null, periodeOuverture: null,
+          };
+          if (apidaeId) byApidae.set(apidaeId, ref);
+          byNomVille.set(`${normalize(nom)}|${normalize(ville)}`, ref);
+          if (email) byEmail.set(email, ref);
+
+          created++;
+          details.push(`CRÉÉ : ${nom} (${ville})`);
+        }
+      } catch (err: any) {
+        errors++;
+        details.push(`ERREUR : ${item?.nom ?? '?'} — ${err?.message ?? err}`);
+      }
+    }
+
+    return { created, updated, enriched, errors, details };
+  }
+
   async bulkInviteApidae(reseau: string): Promise<{
     sent: number;
     skipped: number;
