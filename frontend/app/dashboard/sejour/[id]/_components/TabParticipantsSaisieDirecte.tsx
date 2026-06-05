@@ -292,6 +292,51 @@ export default function TabParticipantsSaisieDirecte({
     }
   }
 
+  // Export CSV — lecture pure des props (TOUS les participants, signés inclus)
+  function handleExport() {
+    const columns: { key: string; label: string }[] = [
+      { key: 'eleveNom', label: 'Nom' },
+      { key: 'elevePrenom', label: 'Prénom' },
+      ...champsActifs.map((f) => ({ key: f, label: LABELS[f] ?? f })),
+      ...champsCustom.map((c) => ({ key: `custom:${c.nom}`, label: c.nom })),
+      { key: 'parentEmail', label: 'Email parent' },
+    ];
+    const headerLine = columns.map((c) => c.label).join(';');
+    const dataLines = participants.map((p) =>
+      columns
+        .map((c) => {
+          let val = '';
+          if (c.key === 'eleveNom') val = p.eleveNom;
+          else if (c.key === 'elevePrenom') val = p.elevePrenom;
+          else if (c.key === 'parentEmail') val = p.parentEmail ?? '';
+          else if (c.key === 'eleveDateNaissance') {
+            val = p.eleveDateNaissance
+              ? new Date(p.eleveDateNaissance).toLocaleDateString('fr-FR')
+              : '';
+          } else if (c.key.startsWith('custom:')) {
+            const raw = p.champsPersonnalises?.[c.key.replace('custom:', '')];
+            val = raw == null ? '' : String(raw);
+          } else {
+            const raw = (p as any)[c.key];
+            val = raw == null ? '' : String(raw);
+          }
+          if (val.includes(';') || val.includes('"') || val.includes('\n')) {
+            val = '"' + val.replace(/"/g, '""') + '"';
+          }
+          return val;
+        })
+        .join(';'),
+    );
+    const csv = [headerLine, ...dataLines].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `participants-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const visibleRows = rows.filter((r) => r._status !== 'deleted');
 
   function renderStandardCell(row: Row, field: string) {
@@ -365,16 +410,26 @@ export default function TabParticipantsSaisieDirecte({
             Renseignez les participants directement, puis enregistrez en une fois.
           </p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || pendingCount === 0}
-          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {saving && (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          )}
-          {saving ? 'Enregistrement…' : `Enregistrer${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={participants.length === 0}
+            className="rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            📥 Exporter CSV
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || pendingCount === 0}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {saving && (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            )}
+            {saving ? 'Enregistrement…' : `Enregistrer${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
+          </button>
+        </div>
       </div>
 
       {banner && (
