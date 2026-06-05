@@ -39,6 +39,19 @@ function parseDateOrNull(value?: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Parse une date CSV en gérant le format français JJ/MM/AAAA (sinon ISO en fallback)
+function parseDateFR(val: string): Date | null {
+  const trimmed = val.trim();
+  const match = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 @Injectable()
 export class AutorisationService {
   constructor(
@@ -337,10 +350,19 @@ export class AutorisationService {
     const colNom = findCol(['nom']);
     const colPrenom = findCol(['prénom', 'prenom']);
     const colEmail = findCol(['email', 'mail', 'courriel', 'e-mail']);
+    const colTaille = findCol(['taille', 'taille (cm)', 'taille cm']);
+    const colPoids = findCol(['poids', 'poids (kg)', 'poids kg']);
+    const colPointure = findCol(['pointure', 'pointure ski', 'taille chaussure']);
+    const colNiveauSki = findCol(['ski', 'niveau ski', 'niveau de ski']);
+    const colRegime = findCol(['régime', 'regime', 'régime alimentaire', 'regime alimentaire', 'allergie', 'allergies']);
+    const colDateNaissance = findCol(['naissance', 'date de naissance', 'date naissance', 'né(e) le', 'née le']);
+    const colNomParent = findCol(['parent', 'nom parent', 'nom du parent', 'responsable', 'nom responsable']);
+    const colTelUrgence = findCol(['urgence', 'tel urgence', 'téléphone urgence', 'telephone urgence', 'tel. urgence']);
+    const colInfosMedicales = findCol(['médical', 'medical', 'infos médicales', 'infos medicales', 'santé', 'sante']);
 
     if (colNom === -1) throw new BadRequestException('Colonne "Nom" introuvable. Colonnes détectées : ' + headers.join(', '));
     if (colPrenom === -1) throw new BadRequestException('Colonne "Prénom" introuvable. Colonnes détectées : ' + headers.join(', '));
-    if (colEmail === -1) throw new BadRequestException('Colonne "Email" introuvable. Colonnes détectées : ' + headers.join(', '));
+    // colEmail optionnel : si absent, les participants sont créés sans email (saisie directe)
 
     const results = { created: 0, skipped: 0, errors: [] as string[] };
     const existingAuths = await this.prisma.autorisationParentale.findMany({
@@ -353,14 +375,9 @@ export class AutorisationService {
       const cols = lines[i].split(sep).map((c) => c.trim().replace(/"/g, ''));
       const nom = cols[colNom]?.trim();
       const prenom = cols[colPrenom]?.trim();
-      const email = cols[colEmail]?.trim();
+      const email = colEmail !== -1 ? cols[colEmail]?.trim() : undefined;
 
       if (!nom || !prenom) {
-        results.skipped++;
-        continue;
-      }
-      if (!email || !email.includes('@')) {
-        results.errors.push(`Ligne ${i + 1} : email manquant ou invalide pour ${prenom} ${nom}`);
         results.skipped++;
         continue;
       }
@@ -371,11 +388,40 @@ export class AutorisationService {
         continue;
       }
 
+      // Email non-bloquant : conservé seulement s'il est valide, sinon null
+      const parentEmail = email && email.includes('@') ? email : null;
+
+      const data: Prisma.AutorisationParentaleUncheckedCreateInput = {
+        sejourId,
+        eleveNom: nom.toUpperCase(),
+        elevePrenom: prenom,
+        parentEmail,
+        sourceInscription: 'CSV',
+      };
+      if (colTaille !== -1 && cols[colTaille]?.trim()) {
+        const v = parseInt(cols[colTaille].trim(), 10);
+        if (!isNaN(v)) data.taille = v;
+      }
+      if (colPoids !== -1 && cols[colPoids]?.trim()) {
+        const v = parseInt(cols[colPoids].trim(), 10);
+        if (!isNaN(v)) data.poids = v;
+      }
+      if (colPointure !== -1 && cols[colPointure]?.trim()) {
+        const v = parseInt(cols[colPointure].trim(), 10);
+        if (!isNaN(v)) data.pointure = v;
+      }
+      if (colNiveauSki !== -1 && cols[colNiveauSki]?.trim()) data.niveauSki = cols[colNiveauSki].trim();
+      if (colRegime !== -1 && cols[colRegime]?.trim()) data.regimeAlimentaire = cols[colRegime].trim();
+      if (colDateNaissance !== -1 && cols[colDateNaissance]?.trim()) {
+        const d = parseDateFR(cols[colDateNaissance].trim());
+        if (d) data.eleveDateNaissance = d;
+      }
+      if (colNomParent !== -1 && cols[colNomParent]?.trim()) data.nomParent = cols[colNomParent].trim();
+      if (colTelUrgence !== -1 && cols[colTelUrgence]?.trim()) data.telephoneUrgence = cols[colTelUrgence].trim();
+      if (colInfosMedicales !== -1 && cols[colInfosMedicales]?.trim()) data.infosMedicales = cols[colInfosMedicales].trim();
+
       try {
-        await this.createSansEmail(
-          { sejourId, eleveNom: nom.toUpperCase(), elevePrenom: prenom, parentEmail: email },
-          createurId,
-        );
+        await this.prisma.autorisationParentale.create({ data });
         existingSet.add(key);
         results.created++;
       } catch {
@@ -383,7 +429,22 @@ export class AutorisationService {
       }
     }
 
-    return results;
+    const columnsDetected = [
+      colNom !== -1 && 'Nom',
+      colPrenom !== -1 && 'Prénom',
+      colEmail !== -1 && 'Email',
+      colTaille !== -1 && 'Taille',
+      colPoids !== -1 && 'Poids',
+      colPointure !== -1 && 'Pointure',
+      colNiveauSki !== -1 && 'Niveau ski',
+      colRegime !== -1 && 'Régime',
+      colDateNaissance !== -1 && 'Date naissance',
+      colNomParent !== -1 && 'Nom parent',
+      colTelUrgence !== -1 && 'Tél. urgence',
+      colInfosMedicales !== -1 && 'Infos médicales',
+    ].filter(Boolean) as string[];
+
+    return { ...results, emailColumnFound: colEmail !== -1, columnsDetected };
   }
 
   /** Création batch de participants en mode saisie directe (ORGANISATEUR). */
