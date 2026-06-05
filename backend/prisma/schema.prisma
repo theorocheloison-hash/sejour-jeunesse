@@ -329,7 +329,7 @@ model AutorisationParentale {
   sejourId        String    @map("sejour_id") @db.Uuid
   eleveNom        String    @map("eleve_nom") @db.VarChar(100)
   elevePrenom     String    @map("eleve_prenom") @db.VarChar(100)
-  parentEmail     String    @map("parent_email") @db.VarChar(255)
+  parentEmail     String?   @map("parent_email") @db.VarChar(255)
   tokenAcces        String    @unique @default(uuid()) @map("token_acces") @db.Uuid
   signeeAt          DateTime? @map("signee_at")
   signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
@@ -357,6 +357,8 @@ model AutorisationParentale {
   attestationAssuranceUrl String?  @map("attestation_assurance_url") @db.VarChar(500)
   eleveDateNaissance DateTime? @map("eleve_date_naissance") @db.Date
   emailEnvoye       Boolean   @default(false) @map("email_envoye")
+  champsPersonnalises Json?   @map("champs_personnalises")
+  sourceInscription String?   @map("source_inscription") @db.VarChar(20)
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour  Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
@@ -570,6 +572,7 @@ model CentreHebergement {
   source              String?           @map("source") @db.VarChar(20)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
   brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
+  champsInscription   Json?             @map("champs_inscription")
   // Justificatif de revendication propre à CE centre (hébergeur déjà validé qui
   // ajoute un centre) — distinct de Membership.claimDocumentUrl (1er claim société).
   claimDocumentUrl    String?           @map("claim_document_url") @db.VarChar(500)

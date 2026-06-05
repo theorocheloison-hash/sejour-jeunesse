@@ -854,6 +854,8 @@ export class SejourService {
       const prixFormate = dto.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
 
       for (const aut of autorisations) {
+        // Mode saisie directe : pas de parentEmail → pas d'email de paiement
+        if (!aut.parentEmail) continue;
         const lien = `${FRONTEND_URL}/autorisation/${aut.tokenAcces}`;
         await this.email.sendPaiementDisponible(
           aut.parentEmail,

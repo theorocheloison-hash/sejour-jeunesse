@@ -81,8 +81,9 @@ export class AutorisationService {
     const where: {
       sejourId: string;
       signeeAt: null;
+      parentEmail: { not: null };
       id?: { in: string[] };
-    } = { sejourId, signeeAt: null };
+    } = { sejourId, signeeAt: null, parentEmail: { not: null } };
     if (autorisationIds && autorisationIds.length > 0) {
       where.id = { in: autorisationIds };
     }
@@ -96,7 +97,7 @@ export class AutorisationService {
       try {
         const lien = `${FRONTEND_URL}/autorisation/${auth.tokenAcces}`;
         await this.email.sendAutorisationParentale(
-          auth.parentEmail,
+          auth.parentEmail!, // garanti non-null par le filtre where parentEmail: { not: null }
           `${auth.elevePrenom} ${auth.eleveNom}`,
           sejour.titre,
           lien,
