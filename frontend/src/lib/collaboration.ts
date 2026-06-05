@@ -51,7 +51,13 @@ export interface SejourCollabInfo {
   inscriptionsCloturees: boolean;
   thematiquesPedagogiques: string[];
   createur?: { id: string; prenom: string; nom: string; email: string };
-  hebergementSelectionne?: { id: string; nom: string; ville: string; userId: string };
+  hebergementSelectionne?: {
+    id: string; nom: string; ville: string; userId: string;
+    champsInscription?: {
+      champsActifs: string[];
+      champsCustom: Array<{ nom: string; type: 'text' | 'number' | 'select'; obligatoire: boolean; options?: string[] }>;
+    } | null;
+  };
   modeGestion?: string;
   natureSejour?: string;
   typeSejour?: string | null;
