@@ -92,7 +92,7 @@ export class CollaborationService {
       where: { id: sejourId },
       include: {
         createur: { select: { id: true, prenom: true, nom: true, email: true } },
-        hebergementSelectionne: { select: { id: true, nom: true, ville: true, userId: true } },
+        hebergementSelectionne: { select: { id: true, nom: true, ville: true, userId: true, champsInscription: true } },
       },
     });
     if (!full) return full;

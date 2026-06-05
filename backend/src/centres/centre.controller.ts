@@ -106,6 +106,32 @@ export class CentreController {
     return this.centreService.getDashboardGlobal(user.id, periodeDebut, periodeFin);
   }
 
+  /** GET /centres/config-inscription — Config des champs d'inscription (HEBERGEUR). MUST be before any :param route. */
+  @Get('config-inscription')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getConfigInscription(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.getConfigInscription(user.id, centreId);
+  }
+
+  /** PATCH /centres/config-inscription — Mise à jour de la config d'inscription (HEBERGEUR). */
+  @Patch('config-inscription')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  updateConfigInscription(
+    @CurrentUser() user: JwtUser,
+    @Body() body: {
+      champsActifs: string[];
+      champsCustom: Array<{ nom: string; type: 'text' | 'number' | 'select'; obligatoire: boolean; options?: string[] }>;
+    },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.updateConfigInscription(user.id, body, centreId);
+  }
+
   /** POST /centres — Créer un centre additionnel sur un compte HEBERGEUR existant. */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
