@@ -20,6 +20,17 @@ import { getCentreForUser } from './centre.helper.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
 
+// ── Configuration des champs d'inscription (saisie directe participants) ──
+export const CHAMPS_STANDARD_INSCRIPTION = [
+  'taille', 'poids', 'pointure', 'niveauSki', 'regimeAlimentaire',
+  'eleveDateNaissance', 'nomParent', 'telephoneUrgence', 'infosMedicales',
+] as const;
+
+export const DEFAULT_CONFIG_INSCRIPTION = {
+  champsActifs: [...CHAMPS_STANDARD_INSCRIPTION],
+  champsCustom: [],
+};
+
 @Injectable()
 export class CentreService {
   constructor(
@@ -28,6 +39,87 @@ export class CentreService {
     private storage: StorageService,
     private email: EmailService,
   ) {}
+
+  /** Retourne la config des champs d'inscription du centre, ou le défaut. */
+  async getConfigInscription(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const raw = centre.champsInscription as { champsActifs?: unknown } | null;
+    if (!raw || !Array.isArray(raw.champsActifs)) return DEFAULT_CONFIG_INSCRIPTION;
+    return raw;
+  }
+
+  /** Valide puis enregistre la config des champs d'inscription du centre. */
+  async updateConfigInscription(
+    userId: string,
+    body: { champsActifs?: unknown; champsCustom?: unknown },
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // ── Validation champsActifs ──
+    if (!Array.isArray(body.champsActifs)) {
+      throw new BadRequestException('champsActifs doit être un tableau');
+    }
+    const allowed = new Set<string>(CHAMPS_STANDARD_INSCRIPTION);
+    for (const c of body.champsActifs) {
+      if (typeof c !== 'string' || !allowed.has(c)) {
+        throw new BadRequestException(`Champ standard invalide : ${String(c)}`);
+      }
+    }
+    // Dédupliquer (ex: ["taille","taille"] → ["taille"])
+    const champsActifs = [...new Set(body.champsActifs as string[])];
+
+    // ── Validation champsCustom ──
+    if (!Array.isArray(body.champsCustom)) {
+      throw new BadRequestException('champsCustom doit être un tableau');
+    }
+    if (body.champsCustom.length > 5) {
+      throw new BadRequestException('Maximum 5 champs personnalisés');
+    }
+    const VALID_TYPES = new Set(['text', 'number', 'select']);
+    const nomsVus = new Set<string>();
+    const champsCustom = body.champsCustom.map((raw) => {
+      const c = raw as {
+        nom?: unknown;
+        type?: unknown;
+        obligatoire?: unknown;
+        options?: unknown;
+      };
+      if (typeof c.nom !== 'string' || c.nom.trim().length === 0 || c.nom.length > 100) {
+        throw new BadRequestException('Nom de champ personnalisé invalide (1-100 caractères)');
+      }
+      if (typeof c.type !== 'string' || !VALID_TYPES.has(c.type)) {
+        throw new BadRequestException(`Type de champ invalide : ${String(c.type)}`);
+      }
+      const nomKey = c.nom.trim().toLowerCase();
+      if (nomsVus.has(nomKey)) {
+        throw new BadRequestException(`Nom de champ personnalisé dupliqué : ${c.nom}`);
+      }
+      nomsVus.add(nomKey);
+      let options: string[] | undefined;
+      if (c.type === 'select') {
+        if (!Array.isArray(c.options) || c.options.length === 0) {
+          throw new BadRequestException('Un champ de type select doit avoir des options non vides');
+        }
+        options = c.options.map((o) => String(o));
+      }
+      return {
+        nom: c.nom,
+        type: c.type as 'text' | 'number' | 'select',
+        obligatoire: Boolean(c.obligatoire),
+        ...(options ? { options } : {}),
+      };
+    });
+
+    const champsInscription = { champsActifs, champsCustom };
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { champsInscription },
+    });
+
+    return champsInscription;
+  }
 
   async getMesCentres(userId: string) {
     return this.prisma.centreHebergement.findMany({
