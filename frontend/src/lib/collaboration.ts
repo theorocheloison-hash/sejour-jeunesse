@@ -144,6 +144,8 @@ export interface Participant {
   datePaiement?: string | null;
   montantVerseTotal?: number | null;
   nombreVersementsEffectues?: number | null;
+  champsPersonnalises?: Record<string, unknown> | null;
+  sourceInscription?: string | null;
   createdAt: string;
 }
 

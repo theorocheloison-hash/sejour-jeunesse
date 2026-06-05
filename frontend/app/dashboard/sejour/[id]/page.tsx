@@ -82,6 +82,7 @@ import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSid
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
 import TabDevisFacturation from './_components/TabDevisFacturation';
 import TabNotes from './_components/TabNotes';
+import TabParticipantsSaisieDirecte from './_components/TabParticipantsSaisieDirecte';
 import SejourHeader from './_components/SejourHeader';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
@@ -2197,6 +2198,14 @@ export default function CollaborationPage() {
         {/* ── Participants ─── */}
         {tab === 'participants' && (
           <div className="space-y-4">
+            {sejour && (
+              <TabParticipantsSaisieDirecte
+                sejourId={sejour.id}
+                champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}
+                participants={participants}
+                onReload={loadParticipants}
+              />
+            )}
             {/* Header + actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
