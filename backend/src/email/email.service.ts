@@ -10,12 +10,16 @@ const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'htt
 const PRIMARY = '#1B4060';
 const BG = '#f5f7fa';
 
-function emailLayout(title: string, body: string, buttonText?: string, buttonUrl?: string): string {
+function emailLayout(title: string, body: string, buttonText?: string, buttonUrl?: string, replyToName?: string): string {
   const btn = buttonText && buttonUrl
     ? `<tr><td style="padding:24px 0 0">
          <a href="${buttonUrl}" style="display:inline-block;background:${PRIMARY};color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">${buttonText}</a>
        </td></tr>`
     : '';
+  // Footer adapté : si un reply-to est actif, on invite le destinataire à répondre.
+  const footerText = replyToName
+    ? `Vous pouvez répondre directement à cet email pour contacter ${replyToName}.`
+    : 'Cet email a été envoyé automatiquement par la plateforme Liavo. Ne répondez pas à cet email.';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:${BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:${BG};padding:32px 0">
@@ -30,7 +34,7 @@ function emailLayout(title: string, body: string, buttonText?: string, buttonUrl
       ${btn}
     </td></tr>
     <tr><td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #eee">
-      <p style="margin:0;color:#999;font-size:11px">Cet email a été envoyé automatiquement par la plateforme Liavo. Ne répondez pas à cet email.</p>
+      <p style="margin:0;color:#999;font-size:11px">${footerText}</p>
     </td></tr>
   </table>
 </td></tr></table>
@@ -243,6 +247,7 @@ export class EmailService {
       `<p>${message}</p>`,
       'Accéder à la plateforme',
       `${FRONTEND_URL}/login`,
+      replyTo?.name,
     );
     await this.send(to, subject, html, fromName, replyTo);
   }
