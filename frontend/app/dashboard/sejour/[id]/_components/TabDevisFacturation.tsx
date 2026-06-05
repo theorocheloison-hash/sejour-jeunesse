@@ -865,6 +865,13 @@ export default function TabDevisFacturation({
                   ibanEmetteur: cc?.iban ?? undefined,
                   nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' '),
                   etablissementNom: sejour?.clientOrganisation ?? undefined,
+                  adresseDestinataire:
+                    [
+                      sejour?.clientAdresse,
+                      [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' '),
+                    ]
+                      .filter(Boolean)
+                      .join(', ') || undefined,
                   emailDestinataire: sejour?.clientEmail ?? undefined,
                   telDestinataire: sejour?.clientTelephone ?? undefined,
                   titreSejour: sejour?.titre ?? '',

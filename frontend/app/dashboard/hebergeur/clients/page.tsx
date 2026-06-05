@@ -903,6 +903,9 @@ function ClientsPage() {
                             clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
                             clientOrganisation: selected.nom,
                             clientOrganisationId: selected.organisationId ?? undefined,
+                            clientAdresse: selected.adresse ?? undefined,
+                            clientCodePostal: selected.codePostal ?? undefined,
+                            clientVille: selected.ville ?? undefined,
                           });
                           await rattacherSejour(selected.id, newSejour.id);
                           router.push(`/dashboard/sejour/${newSejour.id}`);
@@ -929,6 +932,9 @@ function ClientsPage() {
                             clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
                             clientOrganisation: selected.nom,
                             clientOrganisationId: selected.organisationId ?? undefined,
+                            clientAdresse: selected.adresse ?? undefined,
+                            clientCodePostal: selected.codePostal ?? undefined,
+                            clientVille: selected.ville ?? undefined,
                           });
                           await rattacherSejour(selected.id, newSejour.id);
                           router.push(`/dashboard/sejour/${newSejour.id}`);

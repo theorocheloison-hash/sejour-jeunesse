@@ -125,6 +125,7 @@ export class FactureService {
           select: {
             id: true, titre: true, clientNom: true, clientPrenom: true,
             clientEmail: true, clientOrganisation: true,
+            clientAdresse: true, clientCodePostal: true, clientVille: true,
           },
         },
       },
@@ -193,10 +194,17 @@ export class FactureService {
     // Devis direct
     const sejour = devis.sejourDirect;
     const nomClient = [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ');
+    const adresseClient =
+      [
+        sejour?.clientAdresse,
+        [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ') || null;
     return {
       sejourId: devis.sejourDirectId ?? null,
       destinataireNom: sejour?.clientOrganisation ?? nomClient ?? '',
-      destinataireAdresse: null,
+      destinataireAdresse: adresseClient,
       destinataireSiret: null,
       destinataireEmail: sejour?.clientEmail ?? null,
       emailNotif: sejour?.clientEmail ?? null,

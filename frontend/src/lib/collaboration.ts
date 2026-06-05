@@ -66,6 +66,9 @@ export interface SejourCollabInfo {
   clientEmail?: string | null;
   clientTelephone?: string | null;
   clientOrganisation?: string | null;
+  clientAdresse?: string | null;
+  clientCodePostal?: string | null;
+  clientVille?: string | null;
   notesInternes?: string | null;
   // Invitation collaborative en attente (séjour DIRECT) — null si aucune / déjà acceptée.
   invitationCollab?: { email: string; createdAt: string } | null;
@@ -235,6 +238,9 @@ export async function createSejourDirect(dto: {
   clientTelephone?: string;
   clientOrganisation?: string;
   clientOrganisationId?: string;
+  clientAdresse?: string;
+  clientCodePostal?: string;
+  clientVille?: string;
   description?: string;
 }): Promise<SejourPlanning> {
   const { data } = await api.post<SejourPlanning>('/sejours/direct', dto);

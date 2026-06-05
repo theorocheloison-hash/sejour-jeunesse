@@ -1041,6 +1041,9 @@ export class SejourService {
         clientTelephone: dto.clientTelephone ?? null,
         clientOrganisation: dto.clientOrganisation ?? null,
         clientOrganisationId: dto.clientOrganisationId ?? null,
+        clientAdresse: dto.clientAdresse ?? null,
+        clientCodePostal: dto.clientCodePostal ?? null,
+        clientVille: dto.clientVille ?? null,
       },
     });
 

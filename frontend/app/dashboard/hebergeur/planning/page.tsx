@@ -793,6 +793,9 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     clientPrenom: '',
     clientEmail: '',
     clientTelephone: '',
+    clientAdresse: '',
+    clientCodePostal: '',
+    clientVille: '',
     description: '',
   });
   const [saving, setSaving] = useState(false);
@@ -851,6 +854,12 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
     setStructResults([]);
     setStructNom(r.nom);
     setStructVille(r.ville ?? '');
+    // Pré-remplir l'adresse du destinataire depuis l'organisation trouvée
+    setForm(f => ({
+      ...f,
+      clientAdresse: r.adresse ?? f.clientAdresse,
+      clientVille: r.ville ?? f.clientVille,
+    }));
   };
 
   const clearStruct = () => {
@@ -934,6 +943,9 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
         clientEmail: form.clientEmail.trim() || undefined,
         clientTelephone: form.clientTelephone.trim() || undefined,
         clientOrganisation: selectedOrg?.nom || undefined,
+        clientAdresse: form.clientAdresse.trim() || undefined,
+        clientCodePostal: form.clientCodePostal.trim() || undefined,
+        clientVille: form.clientVille.trim() || undefined,
       });
       onCreated(sejour);
     } catch (err: any) {
@@ -1054,8 +1066,13 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
           ))}
 
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
+              <input type="text" value={form.clientPrenom} onChange={set('clientPrenom')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
             <div className="relative">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom du contact</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
               <input
                 type="text"
                 autoComplete="off"
@@ -1083,9 +1100,23 @@ function CreateSejourDirectModal({ natureSejour, dateDebut, dateFin, onClose, on
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Adresse du destinataire (figée sur le devis/facture) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse</label>
+            <input type="text" value={form.clientAdresse} onChange={set('clientAdresse')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-              <input type="text" value={form.clientPrenom} onChange={set('clientPrenom')}
+              <label className="block text-xs font-medium text-gray-700 mb-1">Code postal</label>
+              <input type="text" value={form.clientCodePostal} onChange={set('clientCodePostal')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Ville</label>
+              <input type="text" value={form.clientVille} onChange={set('clientVille')}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
             </div>
           </div>

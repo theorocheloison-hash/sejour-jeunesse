@@ -261,6 +261,9 @@ model Sejour {
   clientTelephone   String?   @map("client_telephone") @db.VarChar(30)
   clientOrganisation String?  @map("client_organisation") @db.VarChar(255)
   clientOrganisationId String? @map("client_organisation_id") @db.Uuid
+  clientAdresse       String?  @map("client_adresse") @db.VarChar(500)
+  clientCodePostal    String?  @map("client_code_postal") @db.VarChar(10)
+  clientVille         String?  @map("client_ville") @db.VarChar(255)
   deletedAt         DateTime? @map("deleted_at")
   notesInternes     String?   @map("notes_internes") @db.Text
 
