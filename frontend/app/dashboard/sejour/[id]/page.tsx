@@ -80,6 +80,7 @@ import PreparationTamPDFButton from '@/src/components/pdf/PreparationTamPDFButto
 import PlanningPDFButton from '@/src/components/pdf/PlanningPDFButton';
 import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
 import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
+import { usePermissions } from '@/src/hooks/usePermissions';
 import TabDevisFacturation from './_components/TabDevisFacturation';
 import TabNotes from './_components/TabNotes';
 import TabParticipantsSaisieDirecte from './_components/TabParticipantsSaisieDirecte';
@@ -87,6 +88,7 @@ import SejourHeader from './_components/SejourHeader';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
   const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
+  const { perms, loading: permissionsLoading } = usePermissions();
   return (
     <HebergeurSidebar
       centre={centre ?? {
@@ -98,6 +100,8 @@ function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabIn
       rappelsCount={rappelsCount}
       actionsFactCount={actionsFactCount}
       sejoursNonLusCount={sejoursNonLusCount}
+      permissions={perms}
+      permissionsLoading={permissionsLoading}
       onLogout={logout}
     />
   );

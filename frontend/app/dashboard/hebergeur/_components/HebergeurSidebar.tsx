@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import CentreSelector from '@/src/components/hebergeur/CentreSelector';
+import type { CentrePermissions } from '@/src/hooks/usePermissions';
 
 interface HebergeurSidebarProps {
   centre: {
@@ -15,6 +16,8 @@ interface HebergeurSidebarProps {
   rappelsCount: number;
   actionsFactCount: number;
   sejoursNonLusCount: number;
+  permissions: CentrePermissions | null;
+  permissionsLoading: boolean;
   onLogout: () => void;
 }
 
@@ -47,6 +50,23 @@ const ICONS = {
   arrowRightOnRect:  'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
 };
 
+// Mapping route → module de permission (pour filtrer la navigation)
+const ROUTE_PERMISSION: Record<string, keyof Omit<CentrePermissions, 'isOwner'>> = {
+  '/dashboard/hebergeur/planning': 'planning',
+  '/dashboard/hebergeur/disponibilites': 'planning',
+  '/dashboard/hebergeur/sejours': 'sejours',
+  '/dashboard/hebergeur/demandes': 'sejours',
+  '/dashboard/hebergeur/devis': 'devis',
+  '/dashboard/hebergeur/rentabilite': 'facturation',
+  '/dashboard/hebergeur/clients': 'crm',
+  '/dashboard/hebergeur/catalogue': 'parametres',
+  '/dashboard/hebergeur/profil': 'parametres',
+  '/dashboard/hebergeur/documents': 'parametres',
+  '/dashboard/hebergeur/parametres/inscription': 'parametres',
+  '/dashboard/hebergeur/abonnement': 'parametres',
+  '/dashboard/hebergeur/equipe': 'parametres',
+};
+
 const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
   {
     label: 'Vue d\'ensemble',
@@ -73,6 +93,7 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
       { href: '/dashboard/hebergeur/documents',        label: 'Documents',          icon: ICONS.folderOpen },
       { href: '/dashboard/hebergeur/profil',           label: 'Profil',             icon: ICONS.buildingStorefront },
       { href: '/dashboard/hebergeur/parametres/inscription', label: 'Fiche d\'inscription', icon: ICONS.clipboardCheck },
+      { href: '/dashboard/hebergeur/equipe',           label: 'Mon équipe',         icon: ICONS.users },
       { href: '/dashboard/hebergeur/abonnement',       label: 'Abonnement',         icon: ICONS.creditCard },
     ],
   },
@@ -84,6 +105,8 @@ export default function HebergeurSidebar({
   rappelsCount,
   actionsFactCount,
   sejoursNonLusCount,
+  permissions,
+  permissionsLoading,
   onLogout,
 }: HebergeurSidebarProps) {
   const pathname = usePathname();
@@ -91,20 +114,31 @@ export default function HebergeurSidebar({
 
   const groups: NavGroup[] = NAV_GROUPS_BASE.map((g) => ({
     ...g,
-    items: g.items.map((item) => {
-      let badge: NavItem['badge'] = undefined;
-      if (item.href === '/dashboard/hebergeur/demandes' && demandesCount > 0) {
-        badge = { count: demandesCount, color: 'red' };
-      } else if (item.href === '/dashboard/hebergeur/devis' && actionsFactCount > 0) {
-        badge = { count: actionsFactCount, color: 'orange' };
-      } else if (item.href === '/dashboard/hebergeur/clients' && rappelsCount > 0) {
-        badge = { count: rappelsCount, color: 'red' };
-      } else if (item.href === '/dashboard/hebergeur/sejours' && sejoursNonLusCount > 0) {
-        badge = { count: sejoursNonLusCount, color: 'red' };
-      }
-      return { ...item, badge };
-    }),
-  }));
+    items: g.items
+      .filter((item) => {
+        // Pas encore chargé → ne rien masquer (évite le flash ; cas fréquent = propriétaire)
+        if (!permissions || permissionsLoading) return true;
+        if (permissions.isOwner) return true;
+        // Équipe → propriétaire uniquement
+        if (item.href === '/dashboard/hebergeur/equipe') return false;
+        const mod = ROUTE_PERMISSION[item.href];
+        if (!mod) return true;
+        return permissions[mod] !== 'NONE';
+      })
+      .map((item) => {
+        let badge: NavItem['badge'] = undefined;
+        if (item.href === '/dashboard/hebergeur/demandes' && demandesCount > 0) {
+          badge = { count: demandesCount, color: 'red' };
+        } else if (item.href === '/dashboard/hebergeur/devis' && actionsFactCount > 0) {
+          badge = { count: actionsFactCount, color: 'orange' };
+        } else if (item.href === '/dashboard/hebergeur/clients' && rappelsCount > 0) {
+          badge = { count: rappelsCount, color: 'red' };
+        } else if (item.href === '/dashboard/hebergeur/sejours' && sejoursNonLusCount > 0) {
+          badge = { count: sejoursNonLusCount, color: 'red' };
+        }
+        return { ...item, badge };
+      }),
+  })).filter((g) => g.items.length > 0);
 
   const initials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
@@ -272,7 +306,8 @@ export default function HebergeurSidebar({
           </div>
         ))}
 
-        {/* ── Ajouter un centre (toujours visible) ──────────── */}
+        {/* ── Ajouter un centre (propriétaires uniquement) ──── */}
+        {(!permissions || permissions.isOwner) && (
         <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <Link
             href="/dashboard/hebergeur/centres/nouveau"
@@ -303,6 +338,7 @@ export default function HebergeurSidebar({
             <span className="truncate">Ajouter un centre</span>
           </Link>
         </div>
+        )}
       </nav>
 
       {/* ── Footer user ─────────────────────────────────────── */}
