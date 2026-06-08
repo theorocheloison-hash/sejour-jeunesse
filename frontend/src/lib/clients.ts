@@ -76,8 +76,8 @@ export interface SejourClient {
     id: string;
     titre: string;
     statut: string;
-    dateDebut: string;
-    dateFin: string;
+    dateDebut: string | null;
+    dateFin: string | null;
     natureSejour?: string;
     modeGestion?: string;
   } | null;

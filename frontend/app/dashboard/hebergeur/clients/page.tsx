@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMesClients, createClient, updateClient, deleteClient,
   addContact, deleteContact,
-  addRappel, updateRappelStatut, deleteRappel, rattacherSejour,
+  addRappel, updateRappelStatut, deleteRappel,
   importerProspects, downloadTemplateClients, importerClientsCSV, downloadTemplateContacts, importerContactsCSV,
-  searchEtablissement,
   STATUT_CLIENT_LABELS, STATUT_DERIVE_LABELS, deriveClientStatus,
   TYPE_CLIENT_LABELS, RAPPEL_TYPE_LABELS, ACADEMIES,
 } from '@/src/lib/clients';
-import { createSejourDirect } from '@/src/lib/collaboration';
-import type { Client, ContactClient, Rappel, EtablissementEN } from '@/src/lib/clients';
+import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
 import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
 import type { ActiviteClient } from '@/src/lib/clients';
+import CreateSejourModal from '@/app/dashboard/_shared/CreateSejourModal';
+import OrganisationSearch from '@/app/dashboard/_shared/OrganisationSearch';
+import type { OrganisationResult } from '@/app/dashboard/_shared/OrganisationSearch';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -77,7 +78,9 @@ function ClientsPage() {
   // Modales
   const [showNewClient, setShowNewClient] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [newForm, setNewForm] = useState({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '' });
+  const [newForm, setNewForm] = useState({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '', adresse: '', codePostal: '' });
+  const [clientType, setClientType] = useState<'PARTICULIER' | 'PROFESSIONNEL'>('PROFESSIONNEL');
+  const [selectedOrg, setSelectedOrg] = useState<OrganisationResult | null>(null);
   const [importAcademie, setImportAcademie] = useState('');
   const [importTypes, setImportTypes] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
@@ -96,10 +99,10 @@ function ClientsPage() {
   const [rappelForm, setRappelForm] = useState({ type: 'TELEPHONE', dateEcheance: '', description: '' });
 
   const [saving, setSaving] = useState(false);
-  const [etabSuggestions, setEtabSuggestions] = useState<EtablissementEN[]>([]);
-  const [etabSearching, setEtabSearching] = useState(false);
-  const [etabFromApi, setEtabFromApi] = useState(false);
-  const etabDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Création séjour/événement depuis la fiche client (via CreateSejourModal partagé)
+  const [showCreateSejourModal, setShowCreateSejourModal] = useState(false);
+  const [createSejourNature, setCreateSejourNature] = useState<'SEJOUR' | 'EVENEMENT'>('SEJOUR');
 
   // CSV import
   const [showImportCSV, setShowImportCSV] = useState(false);
@@ -204,47 +207,28 @@ function ClientsPage() {
       await reload();
       setShowNewClient(false);
       setSelectedId(created.id);
-      setNewForm({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '' });
-      setEtabSuggestions([]);
-      setEtabFromApi(false);
+      setNewForm({ nom: '', type: 'ETABLISSEMENT_SCOLAIRE', statut: 'PROSPECT', ville: '', telephone: '', email: '', uai: '', notes: '', adresse: '', codePostal: '' });
+      setSelectedOrg(null);
+      setClientType('PROFESSIONNEL');
     } catch (err: any) {
       console.error('[createClient]', err);
       setErreur(err?.response?.data?.message || 'Erreur lors de la création du client.');
     } finally { setSaving(false); }
   };
 
-  const handleEtabSearch = (value: string) => {
-    setNewForm(f => ({ ...f, nom: value }));
-    setEtabFromApi(false);
-    setEtabSuggestions([]);
-    if (etabDebounceRef.current) clearTimeout(etabDebounceRef.current);
-    if (value.trim().length < 2) return;
-    setEtabSearching(true);
-    etabDebounceRef.current = setTimeout(async () => {
-      try {
-        const results = await searchEtablissement(value.trim());
-        setEtabSuggestions(results);
-      } catch { /* ignore */ }
-      finally { setEtabSearching(false); }
-    }, 350);
-  };
-
-  const handleSelectEtab = (etab: EtablissementEN) => {
-    const type = etab.type === 'Collège' ? 'COLLEGE'
-      : etab.type === 'Lycée' ? 'LYCEE'
-      : etab.type === 'Ecole' ? 'ECOLE'
-      : 'ETABLISSEMENT_SCOLAIRE';
+  const handleSelectOrg = (org: OrganisationResult) => {
     setNewForm(f => ({
       ...f,
-      nom: etab.nom,
-      type,
-      ville: etab.ville ?? f.ville,
-      email: etab.email ?? f.email,
-      telephone: etab.telephone ?? f.telephone,
-      uai: etab.uai ?? f.uai,
+      nom: org.nom,
+      type: org.typeClient,
+      ville: org.ville ?? f.ville,
+      adresse: org.adresse ?? f.adresse,
+      codePostal: org.codePostal ?? f.codePostal,
+      email: org.email ?? f.email,
+      telephone: org.telephone ?? f.telephone,
+      uai: org.uai ?? f.uai,
     }));
-    setEtabFromApi(true);
-    setEtabSuggestions([]);
+    setSelectedOrg(org);
   };
 
   const handleSaveEdit = async () => {
@@ -858,7 +842,10 @@ function ClientsPage() {
                           SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
                           DRAFT: { label: 'Brouillon', cls: 'bg-gray-100 text-gray-500' },
                         };
-                        const badge = STATUT_SEJOUR_BADGE[sej.statut] ?? { label: sej.statut, cls: 'bg-gray-100 text-gray-500' };
+                        const rawBadge = STATUT_SEJOUR_BADGE[sej.statut] ?? { label: sej.statut, cls: 'bg-gray-100 text-gray-500' };
+                        const badge = (sej.statut === 'SIGNE_DIRECTION' && sej.modeGestion === 'DIRECT')
+                          ? { label: 'Signé', cls: 'bg-green-100 text-green-700' }
+                          : rawBadge;
                         const dateDebut = sej.dateDebut ? new Date(sej.dateDebut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
                         const dateFin = sej.dateFin ? new Date(sej.dateFin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
                         const isEvenement = sej.natureSejour === 'EVENEMENT';
@@ -886,62 +873,16 @@ function ClientsPage() {
                     </div>
                   )}
 
-                  {/* Boutons création */}
+                  {/* Boutons création — ouvrent CreateSejourModal pré-rempli avec le client */}
                   <div className="flex gap-2 mt-3">
                     <button
-                      onClick={async () => {
-                        if (!selected) return;
-                        try {
-                          const newSejour = await createSejourDirect({
-                            titre: `Séjour ${selected.nom}`,
-                            natureSejour: 'SEJOUR',
-                            dateDebut: new Date().toISOString().split('T')[0],
-                            dateFin: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
-                            nombreParticipants: 30,
-                            clientNom: selected.nom,
-                            clientEmail: selected.email ?? selected.contacts[0]?.email ?? undefined,
-                            clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
-                            clientOrganisation: selected.nom,
-                            clientOrganisationId: selected.organisationId ?? undefined,
-                            clientAdresse: selected.adresse ?? undefined,
-                            clientCodePostal: selected.codePostal ?? undefined,
-                            clientVille: selected.ville ?? undefined,
-                          });
-                          await rattacherSejour(selected.id, newSejour.id);
-                          router.push(`/dashboard/sejour/${newSejour.id}`);
-                        } catch {
-                          setErreur('Erreur lors de la création du séjour');
-                        }
-                      }}
+                      onClick={() => { setCreateSejourNature('SEJOUR'); setShowCreateSejourModal(true); }}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                     >
                       + Nouveau séjour
                     </button>
                     <button
-                      onClick={async () => {
-                        if (!selected) return;
-                        try {
-                          const newSejour = await createSejourDirect({
-                            titre: `Événement ${selected.nom}`,
-                            natureSejour: 'EVENEMENT',
-                            dateDebut: new Date().toISOString().split('T')[0],
-                            dateFin: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-                            nombreParticipants: 50,
-                            clientNom: selected.nom,
-                            clientEmail: selected.email ?? selected.contacts[0]?.email ?? undefined,
-                            clientTelephone: selected.telephone ?? selected.contacts[0]?.telephone ?? undefined,
-                            clientOrganisation: selected.nom,
-                            clientOrganisationId: selected.organisationId ?? undefined,
-                            clientAdresse: selected.adresse ?? undefined,
-                            clientCodePostal: selected.codePostal ?? undefined,
-                            clientVille: selected.ville ?? undefined,
-                          });
-                          await rattacherSejour(selected.id, newSejour.id);
-                          router.push(`/dashboard/sejour/${newSejour.id}`);
-                        } catch {
-                          setErreur('Erreur lors de la création de l\'événement');
-                        }
-                      }}
+                      onClick={() => { setCreateSejourNature('EVENEMENT'); setShowCreateSejourModal(true); }}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                     >
                       + Nouvel événement
@@ -1111,79 +1052,105 @@ function ClientsPage() {
 
       {/* Modale nouveau client */}
       {showNewClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowNewClient(false); setEtabSuggestions([]); setEtabFromApi(false); }}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowNewClient(false); setSelectedOrg(null); setClientType('PROFESSIONNEL'); }}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-gray-900 mb-4">Nouveau client</h2>
+
+            {/* Toggle Particulier / Professionnel */}
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => { setClientType('PARTICULIER'); setSelectedOrg(null); setNewForm(f => ({ ...f, type: 'PARTICULIER' })); }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${clientType === 'PARTICULIER' ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              >
+                👤 Particulier
+              </button>
+              <button
+                type="button"
+                onClick={() => { setClientType('PROFESSIONNEL'); setNewForm(f => ({ ...f, type: f.type === 'PARTICULIER' ? 'ETABLISSEMENT_SCOLAIRE' : f.type })); }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${clientType === 'PROFESSIONNEL' ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              >
+                🏢 Professionnel
+              </button>
+            </div>
+
             <div className="space-y-3">
-              <div className="relative">
-                <div className="relative">
-                  <input
-                    placeholder="Nom ou code UAI de l'établissement *"
-                    value={newForm.nom}
-                    onChange={e => handleEtabSearch(e.target.value)}
-                    className={inputCls}
-                    autoComplete="off"
-                  />
-                  {etabSearching && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent inline-block" />
+              {/* Recherche organisation — mode Professionnel uniquement */}
+              {clientType === 'PROFESSIONNEL' && (
+                selectedOrg ? (
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{selectedOrg.nom}</p>
+                      {selectedOrg.ville && <p className="text-xs text-gray-400">{selectedOrg.ville}</p>}
                     </div>
-                  )}
-                </div>
-                {etabSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg max-h-64 overflow-y-auto">
-                    {etabSuggestions.map((etab, i) => (
-                      <button
-                        key={etab.uai || i}
-                        type="button"
-                        onClick={() => handleSelectEtab(etab)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0 transition-colors"
-                      >
-                        <p className="text-sm font-medium text-gray-900 truncate">{etab.nom}</p>
-                        <p className="text-xs text-gray-500">
-                          {etab.type && <span className="mr-2">{etab.type}</span>}
-                          {etab.ville && <span className="mr-2">{etab.ville}</span>}
-                          {etab.uai && <span className="font-mono text-gray-400">{etab.uai}</span>}
-                        </p>
-                      </button>
-                    ))}
+                    <button type="button" onClick={() => setSelectedOrg(null)} className="text-xs text-red-500 hover:underline">Changer</button>
                   </div>
-                )}
-                {etabFromApi && (
-                  <p className="mt-1 text-xs text-[var(--color-success)] flex items-center gap-1">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                    Établissement chargé depuis l&apos;annuaire Éducation Nationale
-                  </p>
-                )}
+                ) : (
+                  <OrganisationSearch
+                    onSelect={handleSelectOrg}
+                    placeholder="Recherchez un établissement ou une entreprise..."
+                  />
+                )
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Nom *</label>
+                <input placeholder="Nom" value={newForm.nom} onChange={e => setNewForm(f => ({ ...f, nom: e.target.value }))} className={inputCls} />
               </div>
-              <select value={newForm.type} onChange={e => setNewForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
-                {Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Ville" value={newForm.ville} onChange={e => setNewForm(f => ({ ...f, ville: e.target.value }))} className={inputCls} />
-                <input
-                  placeholder="UAI"
-                  value={newForm.uai}
-                  onChange={e => !etabFromApi && setNewForm(f => ({ ...f, uai: e.target.value }))}
-                  readOnly={etabFromApi}
-                  className={`${inputCls} ${etabFromApi ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
-                  title={etabFromApi ? 'Code UAI chargé automatiquement' : ''}
-                />
+
+              {clientType === 'PROFESSIONNEL' && (
+                <select value={newForm.type} onChange={e => setNewForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
+                  {Object.entries(TYPE_CLIENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              )}
+
+              <input placeholder="Adresse" value={newForm.adresse} onChange={e => setNewForm(f => ({ ...f, adresse: e.target.value }))} className={inputCls} />
+              <div className="flex gap-3">
+                <input placeholder="Code postal" value={newForm.codePostal} onChange={e => setNewForm(f => ({ ...f, codePostal: e.target.value }))} className={`w-28 ${inputCls}`} />
+                <input placeholder="Ville" value={newForm.ville} onChange={e => setNewForm(f => ({ ...f, ville: e.target.value }))} className={`flex-1 ${inputCls}`} />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Téléphone" value={newForm.telephone} onChange={e => setNewForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
                 <input placeholder="Email" value={newForm.email} onChange={e => setNewForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
+                <input placeholder="Téléphone" value={newForm.telephone} onChange={e => setNewForm(f => ({ ...f, telephone: e.target.value }))} className={inputCls} />
               </div>
+
+              {clientType === 'PROFESSIONNEL' && (
+                <input placeholder="UAI" value={newForm.uai} onChange={e => setNewForm(f => ({ ...f, uai: e.target.value }))} className={inputCls} />
+              )}
+
               <textarea placeholder="Notes" value={newForm.notes} onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))} rows={2} className={`${inputCls} resize-none`} />
             </div>
             <div className="flex gap-3 mt-4">
               <button onClick={handleCreateClient} disabled={saving || !newForm.nom} className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">Créer</button>
-              <button onClick={() => { setShowNewClient(false); setEtabSuggestions([]); setEtabFromApi(false); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+              <button onClick={() => { setShowNewClient(false); setSelectedOrg(null); setClientType('PROFESSIONNEL'); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modale création séjour / événement depuis la fiche client */}
+      {showCreateSejourModal && selected && (
+        <CreateSejourModal
+          natureSejour={createSejourNature}
+          initialDates={null}
+          initialClient={{
+            nom: selected.contacts[0]?.nom ?? undefined,
+            prenom: selected.contacts[0]?.prenom ?? undefined,
+            email: selected.contacts[0]?.email ?? selected.email ?? undefined,
+            telephone: selected.contacts[0]?.telephone ?? selected.telephone ?? undefined,
+            organisation: selected.type !== 'PARTICULIER' ? selected.nom : undefined,
+            adresse: selected.adresse ?? undefined,
+            codePostal: selected.codePostal ?? undefined,
+            ville: selected.ville ?? undefined,
+            clientId: selected.id,
+          }}
+          onClose={() => setShowCreateSejourModal(false)}
+          onCreated={async (sejour) => {
+            setShowCreateSejourModal(false);
+            router.push(`/dashboard/sejour/${sejour.id}`);
+          }}
+        />
       )}
 
       {/* Modale import prospects */}

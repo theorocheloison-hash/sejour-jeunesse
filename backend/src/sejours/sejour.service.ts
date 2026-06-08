@@ -1055,7 +1055,18 @@ export class SejourService {
       },
     });
 
-    if (dto.clientEmail || dto.clientNom) {
+    if (dto.clientId) {
+      // Client CRM existant : liaison directe, pas de recherche/création (évite un client fantôme).
+      try {
+        await this.prisma.sejourClient.upsert({
+          where: { clientId_sejourId: { clientId: dto.clientId, sejourId: sejour.id } },
+          create: { clientId: dto.clientId, sejourId: sejour.id },
+          update: {},
+        });
+      } catch (err) {
+        console.error('[SEJOUR_DIRECT] Erreur liaison client existant:', err);
+      }
+    } else if (dto.clientEmail || dto.clientNom) {
       try {
         await this.linkSejourToClient(sejour, centre.id);
       } catch (err) {
