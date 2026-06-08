@@ -11,6 +11,7 @@ import { AutorisationModule } from './autorisations/autorisation.module.js';
 import { HebergementModule } from './hebergements/hebergement.module.js';
 import { InvitationModule } from './invitations/invitation.module.js';
 import { CentreModule } from './centres/centre.module.js';
+import { CollaborateurModule } from './collaborateurs/collaborateur.module.js';
 import { AbonnementModule } from './abonnements/abonnement.module.js';
 import { DemandeModule } from './demandes/demande.module.js';
 import { DevisModule } from './devis/devis.module.js';
@@ -49,6 +50,7 @@ import { PublicModule } from './public/public.module.js';
     HebergementModule,
     InvitationModule,
     CentreModule,
+    CollaborateurModule,
     AbonnementModule,
     DemandeModule,
     DevisModule,

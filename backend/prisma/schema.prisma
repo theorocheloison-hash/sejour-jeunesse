@@ -190,6 +190,8 @@ model User {
   memberships         Membership[]
   membershipsValidees Membership[] @relation("MembershipValidateur")
   visitesSejourHebergeur SejourVisiteHebergeur[]
+  centresCollaborateur   CollaborateurCentre[] @relation("collaborateur")
+  invitationsEnvoyees    CollaborateurCentre[] @relation("inviteur")
 
   @@map("utilisateurs")
 }
@@ -605,7 +607,32 @@ model CentreHebergement {
   devisLibres      DevisLibre[]
   activitesClients ActiviteClient[]
   facturesPrestataires FacturePrestataire[]
+  collaborateurs   CollaborateurCentre[]
   @@map("centres_hebergement")
+}
+
+// ============================================================
+// MODEL : CollaborateurCentre (multi-user hébergeur — permissions par module)
+// ============================================================
+model CollaborateurCentre {
+  id            String    @id @default(uuid()) @db.Uuid
+  centreId      String    @map("centre_id") @db.Uuid
+  userId        String?   @map("user_id") @db.Uuid
+  inviteEmail   String    @map("invite_email") @db.VarChar(255)
+  inviteToken   String    @unique @default(uuid()) @map("invite_token") @db.Uuid
+  permissions   Json      @default("{}") // { planning: 'WRITE', sejours: 'READ', devis: 'NONE', crm: 'NONE', facturation: 'NONE', parametres: 'NONE' }
+  invitePar     String    @map("invite_par") @db.Uuid
+  acceptedAt    DateTime? @map("accepted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  centre        CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  user          User?             @relation("collaborateur", fields: [userId], references: [id], onDelete: SetNull)
+  inviteur      User              @relation("inviteur", fields: [invitePar], references: [id])
+
+  @@unique([centreId, inviteEmail])
+  @@index([userId])
+  @@index([centreId])
+  @@map("collaborateurs_centre")
 }
 
 // ============================================================
