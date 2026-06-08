@@ -94,6 +94,14 @@ export class CentreController {
     return this.centreService.getMesCentresPending(user.id);
   }
 
+  /** GET /centres/mes-permissions — Permissions de l'user sur le centre actif (multi-user). */
+  @Get('mes-permissions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getMesPermissions(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getMesPermissions(user.id, centreId);
+  }
+
   /** GET /centres/dashboard-global — KPIs consolidés multi-centre. MUST be before any :param route. */
   @Get('dashboard-global')
   @UseGuards(JwtAuthGuard, RolesGuard)

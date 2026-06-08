@@ -217,6 +217,17 @@ export class AuthService {
       }),
     ]);
 
+    // Multi-user : si cet email a été invité comme collaborateur (avant d'avoir un compte),
+    // on renseigne le userId. L'utilisateur devra encore accepter via le lien d'invitation.
+    try {
+      await this.prisma.collaborateurCentre.updateMany({
+        where: { inviteEmail: user.email, userId: null },
+        data: { userId: user.id },
+      });
+    } catch (err) {
+      console.error('[registerHebergeur] liaison collaborateur échec', err);
+    }
+
     // ── Mode revendication catalogue : créer UNIQUEMENT le user. Le centre,
     //    l'organisation et le membership de claim sont gérés par claimFromCatalogue. ──
     if (dto.claimCatalogueId) {

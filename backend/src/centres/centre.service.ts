@@ -17,6 +17,7 @@ import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getCentreForUser } from './centre.helper.js';
+import { getUserCentrePermissions } from './permission.helper.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
 
@@ -39,6 +40,21 @@ export class CentreService {
     private storage: StorageService,
     private email: EmailService,
   ) {}
+
+  /**
+   * Permissions de l'user connecté sur le centre actif (X-Centre-Id, ou centre par défaut).
+   * Retourne OWNER_PERMISSIONS pour un propriétaire, sinon les permissions du collaborateur.
+   */
+  async getMesPermissions(userId: string, centreId?: string | null) {
+    let cid = centreId;
+    if (!cid) {
+      const centre = await getCentreForUser(this.prisma, userId);
+      cid = centre.id;
+    }
+    const perms = await getUserCentrePermissions(this.prisma, userId, cid);
+    if (!perms) throw new ForbiddenException('Aucun accès à ce centre');
+    return perms;
+  }
 
   /** Retourne la config des champs d'inscription du centre, ou le défaut. */
   async getConfigInscription(userId: string, centreId?: string | null) {
