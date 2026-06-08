@@ -22,11 +22,13 @@ export class CreateSejourDirectDto {
   @IsString()
   typeSejour?: string; // sous-type (CLASSE_DECOUVERTE, MARIAGE, etc.)
 
+  @IsOptional()
   @IsDateString()
-  dateDebut!: string;
+  dateDebut?: string;
 
+  @IsOptional()
   @IsDateString()
-  dateFin!: string;
+  dateFin?: string;
 
   @IsInt()
   @Min(0)

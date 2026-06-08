@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -797,6 +797,12 @@ export class CollaborationService {
     if (role !== 'HEBERGEUR') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
 
     const sejour = await this.verifyAccess(sejourId, userId, role);
+
+    if (!sejour.dateDebut || !sejour.dateFin) {
+      throw new BadRequestException(
+        'Les dates du séjour doivent être définies avant de générer le planning',
+      );
+    }
 
     const devisSelectionne = await this.prisma.devis.findFirst({
       where: {
