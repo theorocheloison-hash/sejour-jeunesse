@@ -44,8 +44,8 @@ export interface SejourCollabInfo {
   id: string;
   titre: string;
   lieu: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut: string | null;
+  dateFin: string | null;
   placesTotales: number;
   statut: string;
   inscriptionsCloturees: boolean;
@@ -100,8 +100,8 @@ export interface SejourPlanning {
   id: string;
   titre: string;
   lieu: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut: string | null;
+  dateFin: string | null;
   placesTotales: number;
   statut: string;
   modeGestion: string;
@@ -230,8 +230,8 @@ export async function createSejourDirect(dto: {
   titre: string;
   natureSejour: string;
   typeSejour?: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut?: string;
+  dateFin?: string;
   nombreParticipants: number;
   clientNom?: string;
   clientPrenom?: string;
@@ -344,8 +344,8 @@ export interface BudgetData {
     titre: string;
     lieu: string | null;
     niveauClasse: string | null;
-    dateDebut: string;
-    dateFin: string;
+    dateDebut: string | null;
+    dateFin: string | null;
     placesTotales: number;
     createur?: {
       prenom: string;
@@ -678,7 +678,7 @@ export interface DevisPublic {
   } | null;
   sejour: {
     id: string; titre: string; lieu: string;
-    dateDebut: string; dateFin: string; placesTotales: number;
+    dateDebut: string | null; dateFin: string | null; placesTotales: number;
     clientNom: string | null; clientPrenom: string | null; clientEmail: string | null;
     clientOrganisation: string | null; natureSejour: string; typeSejour: string | null;
     clientAdresse: string | null; clientCodePostal: string | null; clientVille: string | null;

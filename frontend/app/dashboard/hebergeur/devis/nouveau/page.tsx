@@ -92,7 +92,7 @@ function NouveauDevisContent() {
 
   // Données séjour DIRECT (pour afficher Destinataire + Objet)
   const [directSejour, setDirectSejour] = useState<{
-    titre: string; dateDebut: string; dateFin: string; placesTotales: number;
+    titre: string; dateDebut: string | null; dateFin: string | null; placesTotales: number;
     clientNom: string | null; clientEmail: string | null; clientOrganisation: string | null;
     lieu: string;
   } | null>(null);
@@ -447,7 +447,9 @@ function NouveauDevisContent() {
               directSejour ? (
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-gray-900">
-                    {directSejour.titre} — {directSejour.lieu} — du {new Date(directSejour.dateDebut).toLocaleDateString('fr-FR')} au {new Date(directSejour.dateFin).toLocaleDateString('fr-FR')}
+                    {directSejour.titre} — {directSejour.lieu}{directSejour.dateDebut && directSejour.dateFin
+                      ? ` — du ${new Date(directSejour.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(directSejour.dateFin).toLocaleDateString('fr-FR')}`
+                      : ' — Dates à définir'}
                   </p>
                   <div className="flex gap-4 text-xs text-gray-500">
                     <span>{directSejour.placesTotales} participant{directSejour.placesTotales > 1 ? 's' : ''}</span>

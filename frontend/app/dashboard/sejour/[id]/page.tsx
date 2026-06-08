@@ -1419,9 +1419,20 @@ export default function CollaborationPage() {
           const SLOT_HEIGHT = 24;
           const SLOTS = (HOUR_END - HOUR_START) * 2;
 
+          // Séjour « Dates à définir » : pas de planning possible sans dates.
+          if (!sejour.dateDebut || !sejour.dateFin) {
+            return (
+              <div className="p-8 text-center text-sm text-gray-500">
+                Les dates du séjour ne sont pas encore définies. Renseignez-les pour accéder au planning.
+              </div>
+            );
+          }
+          const sejourDateDebut = sejour.dateDebut;
+          const sejourDateFin = sejour.dateFin;
+
           const days: Date[] = [];
-          const start = new Date(sejour.dateDebut);
-          const end = new Date(sejour.dateFin);
+          const start = new Date(sejourDateDebut);
+          const end = new Date(sejourDateFin);
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             days.push(new Date(d));
           }
@@ -1588,8 +1599,8 @@ export default function CollaborationPage() {
 
             const oldDate = new Date(act.date);
             oldDate.setDate(oldDate.getDate() + deltaDays);
-            const sejourStart = new Date(sejour.dateDebut);
-            const sejourEnd = new Date(sejour.dateFin);
+            const sejourStart = new Date(sejourDateDebut);
+            const sejourEnd = new Date(sejourDateFin);
             const newDate = oldDate < sejourStart ? sejourStart : oldDate > sejourEnd ? sejourEnd : oldDate;
             const newDateStr = newDate.toISOString().split('T')[0];
 
@@ -2882,7 +2893,7 @@ export default function CollaborationPage() {
               const solde = totalRecettes - totalDepenses;
 
               const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+              const fmtDate = (iso: string | null) => !iso ? 'Dates à définir' : new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
               const handleAddLigneCompl = async () => {
                 const montant = parseFloat(ligneComplForm.montant);

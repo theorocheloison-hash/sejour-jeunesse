@@ -13,7 +13,7 @@ import type { DevisPublic } from '@/src/lib/collaboration';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
-const fmt = (d: string) => new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
+const fmt = (d: string | null) => !d ? 'Dates à définir' : new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
   day: '2-digit', month: 'long', year: 'numeric',
 });
 const fmtMoney = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
@@ -184,8 +184,8 @@ export default function SignerDevisPage() {
     emailDestinataire: sejour?.clientEmail ?? undefined,
     titreSejour: sejour?.titre ?? '',
     lieuSejour: sejour?.lieu ?? '',
-    dateDebutSejour: sejour?.dateDebut,
-    dateFinSejour: sejour?.dateFin,
+    dateDebutSejour: sejour?.dateDebut ?? undefined,
+    dateFinSejour: sejour?.dateFin ?? undefined,
     nombreEleves: sejour?.placesTotales ?? undefined,
     lignes: devis.lignes.map((l) => ({
       description: l.description,
