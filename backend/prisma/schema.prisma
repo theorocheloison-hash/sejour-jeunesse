@@ -220,8 +220,8 @@ model Sejour {
   titre           String       @db.VarChar(255)
   description     String?      @db.Text
   lieu            String       @db.VarChar(255)
-  dateDebut       DateTime     @map("date_debut") @db.Date
-  dateFin         DateTime     @map("date_fin") @db.Date
+  dateDebut       DateTime?    @map("date_debut") @db.Date
+  dateFin         DateTime?    @map("date_fin") @db.Date
   placesTotales   Int          @map("places_totales")
   placesRestantes Int          @map("places_restantes")
   prix                      Decimal          @default(0) @db.Decimal(10, 2)

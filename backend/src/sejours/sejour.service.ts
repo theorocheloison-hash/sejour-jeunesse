@@ -609,8 +609,8 @@ export class SejourService {
     }
 
     const lien = `${FRONTEND_URL}/dashboard/signataire`;
-    const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
-    const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+    const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
+    const dateFin = sejour.dateFin ? sejour.dateFin.toLocaleDateString('fr-FR') : 'À définir';
     const etablissement = orgaCreateur.nom ?? 'l\'établissement';
     const enseignant = `${sejour.createur?.prenom ?? ''} ${sejour.createur?.nom ?? ''}`.trim();
 
@@ -666,8 +666,8 @@ export class SejourService {
     }
 
     if (directeurExistant) {
-      const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
-      const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+      const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
+      const dateFin = sejour.dateFin ? sejour.dateFin.toLocaleDateString('fr-FR') : 'À définir';
       const lien = `${FRONTEND_URL}/dashboard/signataire`;
       await this.email.sendGenericNotification(
         directeurExistant.email,
@@ -719,8 +719,8 @@ export class SejourService {
     });
 
     const lienInscription = `${FRONTEND_URL}/register/signataire?token=${invitation.token}`;
-    const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
-    const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+    const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
+    const dateFin = sejour.dateFin ? sejour.dateFin.toLocaleDateString('fr-FR') : 'À définir';
 
     await this.email.sendGenericNotification(
       emailDirecteur,
@@ -890,6 +890,12 @@ export class SejourService {
 
     // Auto-create DemandeDevis when a sejour is SUBMITTED
     if (statut === StatutSejour.SUBMITTED && sejour.createurId) {
+      // Une DemandeDevis (appel d'offre) exige des dates définies.
+      if (!sejour.dateDebut || !sejour.dateFin) {
+        throw new BadRequestException(
+          'Les dates du séjour doivent être définies avant de le soumettre',
+        );
+      }
       const thematiques = sejour.thematiquesPedagogiques ?? [];
       const descParts = [
         sejour.description ?? '',
@@ -925,8 +931,8 @@ export class SejourService {
       });
 
       // Notifier les hébergeurs de la nouvelle demande
-      const dateDebut = sejour.dateDebut.toLocaleDateString('fr-FR');
-      const dateFin = sejour.dateFin.toLocaleDateString('fr-FR');
+      const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
+      const dateFin = sejour.dateFin ? sejour.dateFin.toLocaleDateString('fr-FR') : 'À définir';
       // TODO: ABONNEMENT — réactiver le filtre par abonnement actif
       const centres = await this.prisma.centreHebergement.findMany({
         include: { user: { select: { email: true } } },
@@ -1025,8 +1031,10 @@ export class SejourService {
         titre: dto.titre,
         description: dto.description ?? null,
         lieu: centre.ville,
-        dateDebut: new Date(dto.dateDebut),
-        dateFin: new Date(dto.dateFin),
+        // Dates optionnelles : un séjour « Dates à définir » est créé sans dateDebut/dateFin
+        // (Prisma insère null pour les champs optionnels non fournis).
+        ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
+        ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
         placesTotales: dto.nombreParticipants,
         placesRestantes: dto.nombreParticipants,
         statut: 'OPTION',
@@ -1074,8 +1082,8 @@ export class SejourService {
       clientCodePostal: string | null;
       clientVille: string | null;
       titre: string;
-      dateDebut: Date;
-      dateFin: Date;
+      dateDebut: Date | null;
+      dateFin: Date | null;
     },
     centreId: string,
   ) {
@@ -1120,14 +1128,20 @@ export class SejourService {
       create: { clientId: client.id, sejourId: sejour.id },
     });
 
-    const fmtDate = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const fmtDate = (d: Date | null) =>
+      d
+        ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'dates à définir';
+    const periode =
+      sejour.dateDebut || sejour.dateFin
+        ? `${fmtDate(sejour.dateDebut)} → ${fmtDate(sejour.dateFin)}`
+        : 'dates à définir';
     await this.prisma.activiteClient.create({
       data: {
         clientId: client.id,
         centreId,
         type: 'NOTE',
-        description: `Séjour "${sejour.titre}" créé — ${fmtDate(sejour.dateDebut)} → ${fmtDate(sejour.dateFin)}`,
+        description: `Séjour "${sejour.titre}" créé — ${periode}`,
         metadata: { sejourId: sejour.id },
       },
     });
@@ -1247,6 +1261,13 @@ export class SejourService {
     }
     if (sejour.hebergementSelectionneId !== centre.id) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+    // Une InvitationCollaboration exige des dates : on ne peut pas passer en mode
+    // collaboratif un séjour « Dates à définir ».
+    if (!sejour.dateDebut || !sejour.dateFin) {
+      throw new BadRequestException(
+        'Les dates doivent être définies avant de passer en mode collaboratif',
+      );
     }
 
     // Anti-spam : si une invitation est déjà en attente pour ce séjour, on la

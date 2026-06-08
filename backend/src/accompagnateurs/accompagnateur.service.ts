@@ -198,16 +198,24 @@ export class AccompagnateurService {
       ? await getOrganisationPrincipale(s.createur.id, this.prisma)
       : null;
     const h = s.hebergements[0];
-    const fmtDate = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const fmtDate = (d: Date | null) =>
+      d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'À définir';
     const signatureDate = accompagnateur.signeeAt ? fmtDate(accompagnateur.signeeAt) : 'Non signé';
 
-    const annee = s.dateDebut.getFullYear();
+    const annee = (s.dateDebut ?? accompagnateur.createdAt).getFullYear();
     const idShort = accompagnateur.id.slice(0, 4).toUpperCase();
     const numOM = `OM-${annee}-${idShort}`;
 
     const msPerDay = 86_400_000;
-    const nuits = Math.round((s.dateFin.getTime() - s.dateDebut.getTime()) / msPerDay);
+    const nuits =
+      s.dateDebut && s.dateFin
+        ? Math.round((s.dateFin.getTime() - s.dateDebut.getTime()) / msPerDay)
+        : 0;
     const jours = nuits + 1;
+    const dureeLabel =
+      s.dateDebut && s.dateFin
+        ? `${nuits} nuit${nuits > 1 ? 's' : ''} / ${jours} jour${jours > 1 ? 's' : ''}`
+        : 'À définir';
 
     return {
       html: `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -273,7 +281,7 @@ td:last-child{font-weight:600;color:#1a1a1a}
   ${h ? `<tr><td>Hébergement</td><td>${h.nom}${h.adresse ? `, ${h.adresse}` : ''}${h.ville ? `, ${h.ville}` : ''}</td></tr>` : ''}
   <tr><td>Date de départ</td><td>${fmtDate(s.dateDebut)}</td></tr>
   <tr><td>Date de retour</td><td>${fmtDate(s.dateFin)}</td></tr>
-  <tr><td>Durée</td><td>${nuits} nuit${nuits > 1 ? 's' : ''} / ${jours} jour${jours > 1 ? 's' : ''}</td></tr>
+  <tr><td>Durée</td><td>${dureeLabel}</td></tr>
 </table>
 ${accompagnateur.contactUrgenceNom ? `
 <div class="section-title">Contact d'urgence</div>

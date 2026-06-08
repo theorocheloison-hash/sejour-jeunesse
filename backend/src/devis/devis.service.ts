@@ -1055,7 +1055,7 @@ export class DevisService {
     }
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
     const sejour = devis.sejourDirect;
 
     // ── Génération contrat PDF (si centre a un IBAN — spécifique événements) ──
@@ -1282,7 +1282,7 @@ export class DevisService {
     });
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
     const sejour = devis.sejourDirect;
 
     if (sejour.clientEmail) {
