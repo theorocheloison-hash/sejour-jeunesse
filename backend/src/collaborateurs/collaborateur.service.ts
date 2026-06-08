@@ -123,6 +123,26 @@ export class CollaborateurService {
     return { success: true };
   }
 
+  /** Détails publics d'une invitation (pour la page d'acceptation, avant connexion). */
+  async getInvitation(token: string) {
+    const collab = await this.prisma.collaborateurCentre.findUnique({
+      where: { inviteToken: token },
+      select: {
+        inviteEmail: true,
+        acceptedAt: true,
+        centre: { select: { nom: true } },
+        inviteur: { select: { prenom: true, nom: true } },
+      },
+    });
+    if (!collab) throw new NotFoundException('Invitation introuvable');
+    return {
+      email: collab.inviteEmail,
+      acceptedAt: collab.acceptedAt,
+      centre: { nom: collab.centre.nom },
+      inviteur: { prenom: collab.inviteur.prenom, nom: collab.inviteur.nom },
+    };
+  }
+
   /** Accepte une invitation : lie le userId connecté et marque acceptedAt. */
   async accepter(userId: string, userEmail: string, token: string) {
     const collab = await this.prisma.collaborateurCentre.findUnique({

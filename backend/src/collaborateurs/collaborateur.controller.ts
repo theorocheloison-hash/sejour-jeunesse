@@ -36,6 +36,12 @@ export class CollaborateurController {
     return this.collaborateurService.mesPermissions(user.id, centreId);
   }
 
+  /** GET /collaborateurs/invitation/:token — Détails publics d'une invitation (pas d'auth). */
+  @Get('invitation/:token')
+  getInvitation(@Param('token') token: string) {
+    return this.collaborateurService.getInvitation(token);
+  }
+
   /** POST /collaborateurs/accepter — Accepter une invitation (user connecté). */
   @Post('accepter')
   @UseGuards(JwtAuthGuard)

@@ -31,6 +31,7 @@ interface CentreResume {
   capacite: number;
   imageUrl: string | null;
   statut: string;
+  isOwned: boolean;
 }
 
 const ROLE_ROUTES: Record<string, string> = {
