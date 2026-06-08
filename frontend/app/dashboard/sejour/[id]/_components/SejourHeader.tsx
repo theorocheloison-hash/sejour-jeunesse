@@ -301,8 +301,14 @@ export default function SejourHeader({
             Vue direction
           </span>
         )}
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUT_BADGE_CLS[sejourStatut] ?? 'bg-gray-100 text-gray-600'}`}>
-          {STATUT_LABEL[sejourStatut] ?? sejourStatut}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+          isDirect && sejourStatut === 'SIGNE_DIRECTION'
+            ? 'bg-green-100 text-green-700'
+            : (STATUT_BADGE_CLS[sejourStatut] ?? 'bg-gray-100 text-gray-600')
+        }`}>
+          {isDirect && sejourStatut === 'SIGNE_DIRECTION'
+            ? 'Signé'
+            : (STATUT_LABEL[sejourStatut] ?? sejourStatut)}
         </span>
       </div>
     </div>

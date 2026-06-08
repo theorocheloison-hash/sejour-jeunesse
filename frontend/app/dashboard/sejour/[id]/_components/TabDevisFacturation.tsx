@@ -746,7 +746,7 @@ export default function TabDevisFacturation({
                     etatFacturation === 'ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
                     directDevis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
                     directDevis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
-                    directDevis.statut === 'SIGNE_DIRECTION' ? 'bg-purple-100 text-purple-700' :
+                    directDevis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700') :
                     directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
@@ -754,7 +754,7 @@ export default function TabDevisFacturation({
                      etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
                      directDevis.statut === 'EN_ATTENTE' ? 'Brouillon' :
                      directDevis.statut === 'SELECTIONNE' ? 'Signé' :
-                     directDevis.statut === 'SIGNE_DIRECTION' ? 'Signé direction' :
+                     directDevis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'Signé' : 'Signé direction') :
                      directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
                      directDevis.statut === 'NON_RETENU' ? 'Non retenu' :
                      directDevis.statut}
