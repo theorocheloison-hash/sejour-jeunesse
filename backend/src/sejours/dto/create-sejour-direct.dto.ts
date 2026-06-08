@@ -59,6 +59,11 @@ export class CreateSejourDirectDto {
   @IsUUID()
   clientOrganisationId?: string;
 
+  // Client CRM existant : si fourni, le séjour est lié directement (pas de client fantôme créé).
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+
   @IsOptional()
   @IsString()
   clientAdresse?: string;

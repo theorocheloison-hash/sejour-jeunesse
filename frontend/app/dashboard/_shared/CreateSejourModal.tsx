@@ -50,6 +50,7 @@ export interface CreateSejourModalProps {
     adresse?: string;
     codePostal?: string;
     ville?: string;
+    clientId?: string;
   } | null;
   onClose: () => void;
   onCreated: (sejour: SejourPlanning) => void;
@@ -243,6 +244,8 @@ export default function CreateSejourModal({
         clientAdresse: form.clientAdresse.trim() || undefined,
         clientCodePostal: form.clientCodePostal.trim() || undefined,
         clientVille: form.clientVille.trim() || undefined,
+        // Client CRM existant : le backend lie directement et ne crée pas de client fantôme.
+        clientId: initialClient?.clientId ?? undefined,
       });
       onCreated(sejour);
     } catch (err: any) {

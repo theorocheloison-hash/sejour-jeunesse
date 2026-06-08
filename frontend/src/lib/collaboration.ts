@@ -243,6 +243,7 @@ export async function createSejourDirect(dto: {
   clientCodePostal?: string;
   clientVille?: string;
   description?: string;
+  clientId?: string;
 }): Promise<SejourPlanning> {
   const { data } = await api.post<SejourPlanning>('/sejours/direct', dto);
   return data;
