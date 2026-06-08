@@ -96,6 +96,11 @@ export class FactureService {
     });
     if (!facture) throw new NotFoundException('Facture introuvable');
     if (facture.devis.centreId !== centre.id) throw new ForbiddenException('Accès refusé');
+    if (facture.pdfUrl) {
+      throw new ForbiddenException(
+        'Cette facture possède déjà un PDF. La régénération n\'est autorisée que si la génération initiale a échoué.',
+      );
+    }
     const titreSejour =
       facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'Non renseigné';
     const pdfUrl = await this.generateAndStorePdf(facture, titreSejour);
