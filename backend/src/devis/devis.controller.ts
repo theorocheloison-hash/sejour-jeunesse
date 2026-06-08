@@ -11,14 +11,17 @@ import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('devis')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 export class DevisController {
   constructor(private readonly devisService: DevisService) {}
 
   @Post()
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   @UseInterceptors(FileInterceptor('file'))
   create(
     @CurrentUser() user: JwtUser,
@@ -32,6 +35,7 @@ export class DevisController {
   /** POST /devis/direct — Créer un devis sur séjour DIRECT */
   @Post('direct')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   @UseInterceptors(FileInterceptor('file'))
   createDirect(
     @CurrentUser() user: JwtUser,
@@ -44,12 +48,14 @@ export class DevisController {
 
   @Get('mes-devis')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   getMesDevis(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.devisService.getMesDevis(user.id, centreId);
   }
 
   @Get('next-numero')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   getNextNumeroDevis(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.devisService.getNextNumeroDevis(user.id, centreId);
   }
@@ -74,12 +80,14 @@ export class DevisController {
 
   @Get('demande-info/:demandeId')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   getDemandeInfo(@CurrentUser() user: JwtUser, @Param('demandeId') demandeId: string, @CentreId() centreId: string | null) {
     return this.devisService.getDemandeInfo(demandeId, user.id, centreId);
   }
 
   @Get(':id/detail')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   getDevisById(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -90,6 +98,7 @@ export class DevisController {
 
   @Patch(':id')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   @UseInterceptors(FileInterceptor('file'))
   updateDevis(
     @CurrentUser() user: JwtUser,
@@ -103,6 +112,7 @@ export class DevisController {
 
   @Post(':id/notifier-enseignant')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   notifierEnseignant(
     @Param('id') id: string,
     @CurrentUser() u: JwtUser,
@@ -113,6 +123,7 @@ export class DevisController {
 
   @Post(':id/annuler')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   annulerDevis(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -161,6 +172,7 @@ export class DevisController {
   /** POST /devis/:id/envoyer-direct — Envoyer un devis DIRECT par email */
   @Post(':id/envoyer-direct')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   envoyerDirect(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
