@@ -28,6 +28,8 @@ import { ClaimCentreDto } from './dto/claim-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { CentreId } from './centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('centres')
 export class CentreController {
@@ -116,8 +118,9 @@ export class CentreController {
 
   /** GET /centres/config-inscription — Config des champs d'inscription (HEBERGEUR). MUST be before any :param route. */
   @Get('config-inscription')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   getConfigInscription(
     @CurrentUser() user: JwtUser,
     @CentreId() centreId: string | null,
@@ -127,8 +130,9 @@ export class CentreController {
 
   /** PATCH /centres/config-inscription — Mise à jour de la config d'inscription (HEBERGEUR). */
   @Patch('config-inscription')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   updateConfigInscription(
     @CurrentUser() user: JwtUser,
     @Body() body: {
@@ -211,22 +215,25 @@ export class CentreController {
   }
 
   @Get('mon-profil')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   getMonProfil(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.centreService.getMonProfil(user.id, centreId);
   }
 
   @Patch('mon-profil')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   updateMonProfil(@CurrentUser() user: JwtUser, @Body() dto: UpdateCentreDto, @CentreId() centreId: string | null) {
     return this.centreService.updateMonProfil(user.id, dto, centreId);
   }
 
   @Post('image')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   @UseInterceptors(FileInterceptor('file'))
   uploadImage(
     @CurrentUser() user: JwtUser,
@@ -238,8 +245,9 @@ export class CentreController {
   }
 
   @Post('brochure-upload')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   @UseInterceptors(FileInterceptor('file'))
   uploadBrochure(
     @CurrentUser() user: JwtUser,
@@ -251,8 +259,9 @@ export class CentreController {
   }
 
   @Post('documents-upload')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   @UseInterceptors(FileInterceptor('file'))
   uploadDocument(
     @CurrentUser() user: JwtUser,
@@ -274,50 +283,57 @@ export class CentreController {
   }
 
   @Get('disponibilites')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('planning')
   getDisponibilites(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.centreService.getDisponibilites(user.id, centreId);
   }
 
   @Post('disponibilites')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('planning')
   createDisponibilite(@CurrentUser() user: JwtUser, @Body() dto: CreateDisponibiliteDto, @CentreId() centreId: string | null) {
     return this.centreService.createDisponibilite(user.id, dto, centreId);
   }
 
   @Delete('disponibilites/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('planning')
   deleteDisponibilite(@CurrentUser() user: JwtUser, @Param('id') id: string, @CentreId() centreId: string | null) {
     return this.centreService.deleteDisponibilite(user.id, id, centreId);
   }
 
   @Get('documents')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   getDocuments(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.centreService.getDocuments(user.id, centreId);
   }
 
   @Post('documents')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   createDocument(@CurrentUser() user: JwtUser, @Body() dto: CreateDocumentDto, @CentreId() centreId: string | null) {
     return this.centreService.createDocument(user.id, dto, centreId);
   }
 
   @Get('catalogue')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   getCatalogue(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.centreService.getProduitsCatalogue(user.id, centreId);
   }
 
   @Post('catalogue')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   createProduit(
     @CurrentUser() user: JwtUser,
     @Body() dto: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string },
@@ -327,8 +343,9 @@ export class CentreController {
   }
 
   @Post('catalogue/import')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   importProduits(
     @CurrentUser() user: JwtUser,
     @Body() body: { produits: { nom: string; description?: string; type: string; prixUnitaireHT: number; prixUnitaireTTC?: number; tva: number; unite: string }[] },
@@ -338,8 +355,9 @@ export class CentreController {
   }
 
   @Patch('catalogue/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   updateProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -350,8 +368,9 @@ export class CentreController {
   }
 
   @Delete('catalogue/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   archiveProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -361,8 +380,9 @@ export class CentreController {
   }
 
   @Patch('catalogue/:id/capacites')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
   updateCapacitesProduit(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,

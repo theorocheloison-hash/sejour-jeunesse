@@ -32,6 +32,7 @@ import { InvitationsDirecteurModule } from './invitations-directeur/invitations-
 import { JournalPublicModule } from './journal-public/journal-public.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
 import { PublicModule } from './public/public.module.js';
+import { PermissionGuard } from './auth/guards/permission.guard.js';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { PublicModule } from './public/public.module.js';
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    PermissionGuard,
   ],
 })
 export class AppModule {}

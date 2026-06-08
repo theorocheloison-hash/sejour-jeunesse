@@ -9,10 +9,13 @@ import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('clients')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 @Roles(Role.HEBERGEUR)
+@RequirePermission('crm')
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 

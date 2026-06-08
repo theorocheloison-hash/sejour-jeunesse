@@ -24,9 +24,11 @@ import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { UpdateInfosSejourDto } from './dto/update-infos-sejour.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('collaboration')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 @Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
 export class CollaborationController {
   constructor(private readonly service: CollaborationService) {}
@@ -45,12 +47,14 @@ export class CollaborationController {
 
   @Get('mes-non-lus')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   getMesNonLus(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.service.getMesNonLus(user.id, centreId);
   }
 
   @Post('marquer-visite')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   marquerVisite(
     @CurrentUser() user: JwtUser,
     @Body() body: { sejourId: string; onglet: string },
@@ -62,6 +66,7 @@ export class CollaborationController {
 
   @Patch('sejour/:id/notes-internes')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   updateNotesInternes(
     @Param('id') id: string,
     @Body() body: { notesInternes: string },
@@ -72,12 +77,14 @@ export class CollaborationController {
 
   @Get('sejour/:id/activites')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   getActivitesSejour(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.getActivitesSejour(id, user.id);
   }
 
   @Post('sejour/:id/activites')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   createActiviteSejour(
     @Param('id') id: string,
     @Body() body: { type: string; description: string; clientId?: string },
@@ -88,12 +95,14 @@ export class CollaborationController {
 
   @Get('sejour/:id/rappels')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   getRappelsSejour(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.getRappelsSejour(id, user.id);
   }
 
   @Post('sejour/:id/rappels')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   createRappelSejour(
     @Param('id') id: string,
     @Body() body: { type: string; dateRappel: string; description: string; clientId?: string },
@@ -114,6 +123,7 @@ export class CollaborationController {
 
   @Patch(':sejourId/infos')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   updateInfosSejour(
     @Param('sejourId') sejourId: string,
     @Body() body: UpdateInfosSejourDto,
@@ -210,6 +220,7 @@ export class CollaborationController {
 
   @Post(':sejourId/notifier-planning')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   notifierPlanning(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,

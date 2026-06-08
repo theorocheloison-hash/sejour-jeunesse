@@ -20,15 +20,18 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { RentabiliteService } from './rentabilite.service.js';
 import { CreateFacturePrestatireDto } from './dto/create-facture-prestataire.dto.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('rentabilite')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 export class RentabiliteController {
   constructor(private readonly rentabiliteService: RentabiliteService) {}
 
   /** POST /rentabilite/factures — crée une facture prestataire + ventilations */
   @Post('factures')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   createFacture(
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateFacturePrestatireDto,
@@ -40,6 +43,7 @@ export class RentabiliteController {
   /** GET /rentabilite/factures — liste les factures du centre */
   @Get('factures')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   getMesFactures(
     @CurrentUser() user: JwtUser,
     @CentreId() centreId: string | null,
@@ -51,6 +55,7 @@ export class RentabiliteController {
   /** PATCH /rentabilite/factures/:id — met à jour une facture (replace ventilations) */
   @Patch('factures/:id')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   updateFacture(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -63,6 +68,7 @@ export class RentabiliteController {
   /** DELETE /rentabilite/factures/:id — supprime une facture */
   @Delete('factures/:id')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   deleteFacture(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -74,6 +80,7 @@ export class RentabiliteController {
   /** POST /rentabilite/factures/:id/upload — attache un justificatif (champ `document`) */
   @Post('factures/:id/upload')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   @UseInterceptors(FileInterceptor('document'))
   uploadFichier(
     @CurrentUser() user: JwtUser,
@@ -90,6 +97,7 @@ export class RentabiliteController {
   /** GET /rentabilite/tableau — tableau P&L par séjour (CA − charges) */
   @Get('tableau')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   getTableau(
     @CurrentUser() user: JwtUser,
     @CentreId() centreId: string | null,

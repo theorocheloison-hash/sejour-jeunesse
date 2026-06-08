@@ -7,15 +7,18 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { FactureService } from './facture.service.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('factures')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 export class FactureController {
   constructor(private readonly factureService: FactureService) {}
 
   /** POST /factures/acompte — émet la facture d'acompte d'un devis */
   @Post('acompte')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   emettreAcompte(
     @CurrentUser() user: JwtUser,
     @Body() body: { devisId: string },
@@ -27,6 +30,7 @@ export class FactureController {
   /** POST /factures/solde — émet la facture de solde (total révisé − acompte) */
   @Post('solde')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   emettreSolde(
     @CurrentUser() user: JwtUser,
     @Body() body: { devisId: string },
@@ -38,6 +42,7 @@ export class FactureController {
   /** POST /factures/total — émet une facture de solde couvrant 100% (sans acompte préalable) */
   @Post('total')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   emettreTotal(
     @CurrentUser() user: JwtUser,
     @Body() body: { devisId: string },
@@ -49,6 +54,7 @@ export class FactureController {
   /** POST /factures/avoir — émet un avoir sur une facture existante (ACOMPTE ou SOLDE) */
   @Post('avoir')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   emettreAvoir(
     @CurrentUser() user: JwtUser,
     @Body() body: {
@@ -133,6 +139,7 @@ export class FactureController {
   /** POST /factures/:id/regenerer-pdf — régénère le PDF (si génération initiale échouée) */
   @Post(':id/regenerer-pdf')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
   regenererPdf(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,

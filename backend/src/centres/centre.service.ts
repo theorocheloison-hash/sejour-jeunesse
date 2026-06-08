@@ -139,17 +139,25 @@ export class CentreService {
 
   async getMesCentres(userId: string) {
     // Inclut les centres possédés ET ceux où l'user est collaborateur accepté.
-    const centres = await getCentresForUser(this.prisma, userId);
-    const ids = centres.map(c => c.id);
-    return this.prisma.centreHebergement.findMany({
+    const allCentres = await getCentresForUser(this.prisma, userId);
+    const ids = allCentres.map(c => c.id);
+    const centres = await this.prisma.centreHebergement.findMany({
       where: { id: { in: ids } },
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
         capacite: true, imageUrl: true, statut: true,
         abonnementStatut: true, planAbonnement: true,
+        userId: true, // pour calculer isOwned (non exposé dans la réponse)
       },
       orderBy: { nom: 'asc' },
     });
+    return centres.map(c => ({
+      id: c.id, nom: c.nom, ville: c.ville, adresse: c.adresse,
+      codePostal: c.codePostal, capacite: c.capacite, imageUrl: c.imageUrl,
+      statut: c.statut, abonnementStatut: c.abonnementStatut,
+      planAbonnement: c.planAbonnement,
+      isOwned: c.userId === userId,
+    }));
   }
 
   /** Centres de l'hébergeur en attente de validation (PENDING) — pour le bandeau dashboard. */
