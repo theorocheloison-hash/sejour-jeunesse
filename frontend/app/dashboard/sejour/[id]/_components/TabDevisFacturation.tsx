@@ -964,8 +964,8 @@ export default function TabDevisFacturation({
                   telDestinataire: sejour?.clientTelephone ?? undefined,
                   titreSejour: sejour?.titre ?? '',
                   lieuSejour: sejour?.lieu ?? '',
-                  dateDebutSejour: sejour?.dateDebut,
-                  dateFinSejour: sejour?.dateFin,
+                  dateDebutSejour: sejour?.dateDebut ?? undefined,
+                  dateFinSejour: sejour?.dateFin ?? undefined,
                   nombreEleves: sejour?.placesTotales ?? undefined,
                   lignes: (dd.lignes ?? []).map((l) => ({
                     description: l.description,
@@ -1078,8 +1078,8 @@ export default function TabDevisFacturation({
               telDestinataire: createur?.telephone ?? undefined,
               titreSejour: s?.titre ?? '',
               lieuSejour: s?.lieu ?? '',
-              dateDebutSejour: s?.dateDebut,
-              dateFinSejour: s?.dateFin,
+              dateDebutSejour: s?.dateDebut ?? undefined,
+              dateFinSejour: s?.dateFin ?? undefined,
               nombreEleves: s?.placesTotales ?? undefined,
               niveauClasse: s?.niveauClasse ?? undefined,
               lignes: d.lignes.map((l: any) => ({
