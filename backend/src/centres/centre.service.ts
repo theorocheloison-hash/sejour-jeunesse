@@ -16,7 +16,7 @@ import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
-import { getCentreForUser } from './centre.helper.js';
+import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
@@ -138,8 +138,11 @@ export class CentreService {
   }
 
   async getMesCentres(userId: string) {
+    // Inclut les centres possédés ET ceux où l'user est collaborateur accepté.
+    const centres = await getCentresForUser(this.prisma, userId);
+    const ids = centres.map(c => c.id);
     return this.prisma.centreHebergement.findMany({
-      where: { userId, statut: 'ACTIVE' },
+      where: { id: { in: ids } },
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
         capacite: true, imageUrl: true, statut: true,
@@ -334,12 +337,13 @@ export class CentreService {
   async getDashboardGlobal(userId: string, periodeDebut?: string, periodeFin?: string) {
     // Seuls les centres ACTIVE apparaissent dans « Mes centres » et les KPI consolidés.
     // Les centres PENDING (en attente de validation admin) sont exclus.
+    const allCentres = await getCentresForUser(this.prisma, userId);
+    const centreIds = allCentres.map(c => c.id);
     const centres = await this.prisma.centreHebergement.findMany({
-      where: { userId, statut: 'ACTIVE' },
+      where: { id: { in: centreIds } },
       select: { id: true, nom: true, ville: true, capacite: true, imageUrl: true },
     });
     if (centres.length === 0) return null;
-    const centreIds = centres.map(c => c.id);
 
     const now = new Date();
     const debut = periodeDebut ? new Date(periodeDebut) : new Date(now.getFullYear(), 0, 1);
