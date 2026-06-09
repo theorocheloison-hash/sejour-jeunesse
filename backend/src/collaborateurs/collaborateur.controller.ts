@@ -7,6 +7,7 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { CollaborateurService } from './collaborateur.service.js';
 import { InviteCollaborateurDto } from './dto/invite-collaborateur.dto.js';
+import { RegisterCollaborateurDto } from './dto/register-collaborateur.dto.js';
 
 @Controller('collaborateurs')
 export class CollaborateurController {
@@ -40,6 +41,12 @@ export class CollaborateurController {
   @Get('invitation/:token')
   getInvitation(@Param('token') token: string) {
     return this.collaborateurService.getInvitation(token);
+  }
+
+  /** POST /collaborateurs/register — Inscription simplifiée d'un collaborateur invité (public). */
+  @Post('register')
+  register(@Body() dto: RegisterCollaborateurDto) {
+    return this.collaborateurService.registerCollaborateur(dto);
   }
 
   /** POST /collaborateurs/accepter — Accepter une invitation (user connecté). */

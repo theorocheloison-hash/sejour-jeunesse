@@ -1,6 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Cookies from 'js-cookie';
+import axios from 'axios';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 
@@ -30,6 +33,13 @@ export default function InvitationEquipePage() {
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState<string>('');
   const [info, setInfo] = useState<InvitationInfo | null>(null);
+
+  // Formulaire d'inscription collaborateur (état « non connecté »)
+  const [prenom, setPrenom] = useState('');
+  const [nom, setNom] = useState('');
+  const [password, setPassword] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   const invitationPath = `/invitation-equipe/${token}`;
 
@@ -67,7 +77,30 @@ export default function InvitationEquipePage() {
       });
   }, [authLoading, user, token, router]);
 
-  const goLogin = () => router.push(`/login?redirect=${encodeURIComponent(invitationPath)}`);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegistering(true);
+    setRegError(null);
+    try {
+      const { data } = await api.post('/collaborateurs/register', { token, prenom, nom, password });
+      // Login automatique : on pose le cookie + le cache user, puis full reload
+      // pour que l'AuthProvider ré-hydrate la session (router.push ne remonte pas le provider).
+      Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
+      localStorage.setItem('sj_user_v2', JSON.stringify({
+        id: data.user.id,
+        email: data.user.email,
+        firstName: data.user.prenom,
+        lastName: data.user.nom,
+        role: data.user.role,
+      }));
+      window.location.href = '/dashboard/hebergeur';
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? (err.response?.data?.message as string | undefined) : null;
+      setRegError(msg ?? 'Erreur lors de la création du compte');
+      setRegistering(false);
+    }
+  };
+
   const goRegister = () => {
     // Persiste la redirection pour qu'après vérification email + login, on revienne ici
     document.cookie = `liavo_post_verify_redirect=${encodeURIComponent(invitationPath)};path=/;max-age=3600`;
@@ -138,26 +171,57 @@ export default function InvitationEquipePage() {
     );
   }
 
-  // need-login
+  // need-login → formulaire d'inscription collaborateur inline
   return (
-    <Card>
-      <div className="text-4xl mb-3">📩</div>
-      <h1 className="text-lg font-semibold text-gray-900 mb-2">Vous avez été invité sur LIAVO</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        {info ? (
-          <>{info.inviteur.prenom} {info.inviteur.nom} vous invite à rejoindre le centre <strong>{info.centre.nom}</strong>.</>
-        ) : (
-          'Vous avez été invité à rejoindre un centre sur LIAVO.'
+    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="text-center mb-5">
+          <div className="text-4xl mb-2">📩</div>
+          <h1 className="text-lg font-semibold text-gray-900">Créer votre compte</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Pour rejoindre {info ? <strong>{info.centre.nom}</strong> : 'votre équipe'}, créez votre compte LIAVO.
+          </p>
+        </div>
+
+        {info && (
+          <p className="text-sm text-gray-600 mb-4">
+            Email : <strong>{info.email}</strong>
+          </p>
         )}
-      </p>
-      <div className="space-y-2">
-        <button onClick={goLogin} className="w-full rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-semibold text-white hover:opacity-90">
-          J&apos;ai déjà un compte
-        </button>
-        <button onClick={goRegister} className="w-full rounded-lg border border-gray-300 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-          Créer un compte
-        </button>
+
+        {regError && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{regError}</div>
+        )}
+
+        <form onSubmit={handleRegister} className="space-y-3">
+          <input
+            type="text" placeholder="Prénom" value={prenom} onChange={(e) => setPrenom(e.target.value)} required
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+          <input
+            type="text" placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} required
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+          <input
+            type="password" placeholder="Mot de passe (8 caractères min.)" value={password}
+            onChange={(e) => setPassword(e.target.value)} required minLength={8}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+          <button
+            type="submit" disabled={registering}
+            className="w-full rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {registering ? 'Création…' : 'Rejoindre l\'équipe'}
+          </button>
+        </form>
+
+        <p className="text-sm text-gray-400 mt-4 text-center">
+          Vous avez déjà un compte ?{' '}
+          <Link href={`/login?redirect=${encodeURIComponent(invitationPath)}`} className="font-medium text-[var(--color-primary)] hover:underline">
+            Connectez-vous
+          </Link>
+        </p>
       </div>
-    </Card>
+    </main>
   );
 }

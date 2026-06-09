@@ -1,10 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Prisma, Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { getUserCentrePermissions } from '../centres/permission.helper.js';
 import { InviteCollaborateurDto } from './dto/invite-collaborateur.dto.js';
+import { RegisterCollaborateurDto } from './dto/register-collaborateur.dto.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -13,6 +16,7 @@ export class CollaborateurService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly jwtService: JwtService,
   ) {}
 
   /** Invite un collaborateur sur un ou plusieurs centres dont l'user est PROPRIÉTAIRE. */
@@ -121,6 +125,58 @@ export class CollaborateurService {
     }
     await this.prisma.collaborateurCentre.delete({ where: { id } });
     return { success: true };
+  }
+
+  /**
+   * Inscription simplifiée d'un collaborateur invité (sans compte ni centre).
+   * Le clic sur le lien email vaut preuve de propriété → emailVerifie = true.
+   */
+  async registerCollaborateur(dto: RegisterCollaborateurDto) {
+    // 1. Trouver l'invitation par token
+    const invitation = await this.prisma.collaborateurCentre.findUnique({
+      where: { inviteToken: dto.token },
+      include: { centre: { select: { nom: true } } },
+    });
+    if (!invitation) throw new NotFoundException('Invitation introuvable');
+    if (invitation.acceptedAt) throw new ConflictException('Invitation déjà acceptée');
+
+    // 2. Vérifier qu'aucun user n'existe avec cet email
+    const existing = await this.prisma.user.findUnique({
+      where: { email: invitation.inviteEmail },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Un compte existe déjà avec cette adresse email. Connectez-vous pour accepter l\'invitation.',
+      );
+    }
+
+    // 3. Créer le user HEBERGEUR avec emailVerifie = true
+    const hashed = await bcrypt.hash(dto.password, 12);
+    const user = await this.prisma.user.create({
+      data: {
+        prenom: dto.prenom,
+        nom: dto.nom,
+        email: invitation.inviteEmail,
+        motDePasse: hashed,
+        role: Role.HEBERGEUR,
+        emailVerifie: true,
+      },
+    });
+
+    // 4. Accepter TOUTES les invitations en attente pour cet email (multi-centres)
+    await this.prisma.collaborateurCentre.updateMany({
+      where: { inviteEmail: invitation.inviteEmail, acceptedAt: null },
+      data: { userId: user.id, acceptedAt: new Date() },
+    });
+
+    // 5. JWT + user (login automatique)
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      access_token,
+      user: { id: user.id, email: user.email, prenom: user.prenom, nom: user.nom, role: user.role },
+    };
   }
 
   /** Détails publics d'une invitation (pour la page d'acceptation, avant connexion). */
