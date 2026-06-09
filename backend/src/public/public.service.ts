@@ -198,7 +198,7 @@ export class PublicService {
       if (centre?.email) {
         await this.email.sendNouvelleDemandeDevis(
           centre.email, centre.nom, demande.titre,
-          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.villeHebergement, `${fmt(demande.dateDebut)} → ${fmt(demande.dateFin)}`,
         );
       }
       return;
@@ -275,7 +275,7 @@ export class PublicService {
       cibles.map((c) =>
         this.email.sendNouvelleDemandeDevis(
           c.email!, c.nom, demande.titre,
-          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.villeHebergement, `${fmt(demande.dateDebut)} → ${fmt(demande.dateFin)}`,
         ),
       ),
     );

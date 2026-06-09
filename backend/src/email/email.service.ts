@@ -146,8 +146,7 @@ export class EmailService {
     centreNom: string,
     sejourTitre: string,
     destination: string,
-    dateDebut: string,
-    dateFin: string,
+    periodeLabel: string,
     typeContexte?: string,
   ) {
     const contexteLabel = typeContexte === 'COLO'
@@ -163,7 +162,7 @@ export class EmailService {
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejourTitre}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Destination</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${destination}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateDebut} → ${dateFin}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Dates / Période</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${periodeLabel}</td></tr>
        </table>
        <p>Connectez-vous pour consulter la demande et envoyer votre devis.</p>`,
       'Voir la demande',
