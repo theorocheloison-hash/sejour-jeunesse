@@ -164,8 +164,9 @@ export class DevisService {
       where: { centreId: centre.id },
       include: {
         lignes: true,
-        // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé)
-        sejourDirect: { select: { id: true, titre: true, deletedAt: true } },
+        // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé).
+        // dateDebut/dateFin/modeGestion alignés sur getDevisById() pour cohérence du type frontend.
+        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, deletedAt: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
           include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
