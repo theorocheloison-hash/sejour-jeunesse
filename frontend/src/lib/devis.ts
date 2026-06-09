@@ -155,6 +155,14 @@ export interface Devis {
   dateFacture?: string | null;
   acompteVerse?: boolean;
   dateVersementAcompte?: string | null;
+  // Devis complémentaire
+  isComplementaire?: boolean;
+  destinataireNom?: string | null;
+  destinataireAdresse?: string | null;
+  destinataireCodePostal?: string | null;
+  destinataireVille?: string | null;
+  destinataireSiret?: string | null;
+  destinataireEmail?: string | null;
   lignes?: LigneDevis[];
   sejourDirect?: {
     id: string;
@@ -451,8 +459,41 @@ export async function envoyerDevisDirect(
   return data;
 }
 
+/** Retourne uniquement le devis PRINCIPAL du séjour (isComplementaire=false). */
 export async function getDevisForSejourDirect(sejourDirectId: string): Promise<Devis[]> {
   const { data } = await api.get<Devis[]>('/devis/mes-devis');
-  return data.filter(d => d.sejourDirectId === sejourDirectId);
+  return data.filter(d => d.sejourDirectId === sejourDirectId && !d.isComplementaire);
+}
+
+/** Retourne les devis complémentaires d'un séjour direct. */
+export async function getDevisComplementairesForSejour(sejourDirectId: string): Promise<Devis[]> {
+  const { data } = await api.get<Devis[]>(`/devis/complementaires/${sejourDirectId}`);
+  return data;
+}
+
+export interface CreateDevisComplementaireDto {
+  sejourDirectId: string;
+  destinataireNom: string;
+  destinataireAdresse?: string;
+  destinataireCodePostal?: string;
+  destinataireVille?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+  tauxTva?: number;
+  description?: string;
+  lignes: Array<{
+    description: string;
+    quantite: number;
+    prixUnitaire: number;
+    tva: number;
+    totalHT: number;
+    totalTTC: number;
+  }>;
+}
+
+/** Crée un devis complémentaire. Retourne le devis créé (EN_ATTENTE, isComplementaire=true). */
+export async function createDevisComplementaire(dto: CreateDevisComplementaireDto): Promise<Devis> {
+  const { data } = await api.post<Devis>('/devis/complementaire', dto);
+  return data;
 }
 

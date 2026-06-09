@@ -8,6 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { DevisService } from './devis.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
+import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
@@ -44,6 +45,31 @@ export class DevisController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.devisService.createDirectDevis(dto, user.id, file, centreId);
+  }
+
+  /** POST /devis/complementaire — Créer un devis complémentaire (payeur additionnel) sur un séjour direct.
+   *  Déclaré AVANT les routes ':id/...' pour éviter que NestJS interprète "complementaire" comme un :id. */
+  @Post('complementaire')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  createComplementaire(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateDevisComplementaireDto,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.createDevisComplementaire(dto, user.id, centreId);
+  }
+
+  /** GET /devis/complementaires/:sejourId — Liste des devis complémentaires d'un séjour. */
+  @Get('complementaires/:sejourId')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  getComplementaires(
+    @CurrentUser() user: JwtUser,
+    @Param('sejourId') sejourId: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.getDevisComplementaires(sejourId, user.id, centreId);
   }
 
   @Get('mes-devis')

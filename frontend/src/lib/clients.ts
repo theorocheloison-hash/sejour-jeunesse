@@ -89,6 +89,7 @@ export interface DevisClient {
   numeroFacture?: string | null;
   typeDocument: string;
   statut: string;
+  isComplementaire?: boolean;
   montantTotal: string;
   montantTTC?: number | null;
   montantAcompte?: number | null;
@@ -146,19 +147,25 @@ export function deriveClientStatus(client: Client): string {
   });
   if (client.statut === 'PERDU' && !hasActiveDossier) return 'PERDU';
 
-  const devisStatuts = client.devis.map(d => d.statut);
+  // Seuls les devis PRINCIPAUX pilotent le statut CRM.
+  // Les complémentaires (AS, Mairie, CE) sont des prestations additionnelles
+  // qui ne reflètent pas l'avancement de la relation commerciale principale.
+  // Défensif : !undefined === true → les anciens enregistrements (sans le champ) passent.
+  const devisPrincipaux = client.devis.filter(d => !d.isComplementaire);
+
+  const devisStatuts = devisPrincipaux.map(d => d.statut);
   // Lot 1 : la facturation vient des Factures liées (le devis ne mute plus vers FACTURE_*).
   // Repli legacy : ancien typeDocument FACTURE_* (données antérieures au Lot 1).
   const aFactureType = (d: DevisClient, type: 'ACOMPTE' | 'SOLDE') =>
     (d.factures ?? []).some(f => f.typeFacture === type)
     || d.typeDocument === `FACTURE_${type}`;
-  const devisAvecSolde = client.devis.some(d => aFactureType(d, 'SOLDE'));
-  const devisAvecAcompte = client.devis.some(d => aFactureType(d, 'ACOMPTE'));
+  const devisAvecSolde = devisPrincipaux.some(d => aFactureType(d, 'SOLDE'));
+  const devisAvecAcompte = devisPrincipaux.some(d => aFactureType(d, 'ACOMPTE'));
 
   // Du plus avancé au moins avancé
   if (devisAvecSolde) {
     // Tous soldés ou non retenus → Soldé ; sinon le statut actif prime (plus bas)
-    const activeDevis = client.devis.filter(d => !aFactureType(d, 'SOLDE') && d.statut !== 'NON_RETENU');
+    const activeDevis = devisPrincipaux.filter(d => !aFactureType(d, 'SOLDE') && d.statut !== 'NON_RETENU');
     if (activeDevis.length === 0) return 'SOLDE';
   }
   if (devisAvecAcompte) return 'ACOMPTE_VERSE';

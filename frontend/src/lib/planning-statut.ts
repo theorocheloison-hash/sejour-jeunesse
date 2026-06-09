@@ -31,6 +31,7 @@ export function statutDevisLePlusAvance(statuts: string[]): string | null {
 // Lot 1 : la facturation vit dans l'entité Facture (le devis ne mute plus vers FACTURE_*).
 interface DevisPourCouleur {
   statut: string;
+  isComplementaire?: boolean;
   factures?: Array<{ typeFacture: string }> | null;
 }
 
@@ -51,10 +52,14 @@ function etatFacturationDevis(d: DevisPourCouleur): 'SOLDE' | 'ACOMPTE' | null {
 }
 
 export function derivePlanningStatut(sejour: SejourPourCouleur): string {
-  const devisListe: DevisPourCouleur[] = [
+  const tousDevis: DevisPourCouleur[] = [
     ...(sejour.devisDirect ?? []),
     ...(sejour.demandes ?? []).flatMap(dem => dem.devis ?? []),
   ];
+
+  // Seuls les devis principaux déterminent le statut planning (les complémentaires
+  // sont des payeurs additionnels et ne pilotent pas la couleur du séjour).
+  const devisListe = tousDevis.filter(d => !d.isComplementaire);
 
   // 1. Facturation (Facture liée) — rang max
   const etats = devisListe.map(etatFacturationDevis);
