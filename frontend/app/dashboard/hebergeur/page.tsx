@@ -371,19 +371,19 @@ export default function HebergeurDashboard() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-          {/* KPI 1 \u2014 CA confirm\u00e9 */}
+          {/* KPI 1 — CA confirmé */}
           <Link href="/dashboard/hebergeur/devis" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              Chiffre d&apos;affaires TTC des devis sign\u00e9s, filtr\u00e9 par date de s\u00e9jour
+              Chiffre d&apos;affaires TTC des devis signés, filtré par date de séjour
             </div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500">CA confirm\u00e9</p>
+              <p className="text-xs text-gray-500">CA confirmé</p>
               <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
               </svg>
             </div>
-            <p className="text-2xl font-bold text-[var(--color-primary)]">{fmt(ca.montant)} \u20ac</p>
-            <p className="text-xs text-gray-400 mt-1">{ca.nbSejours} s\u00e9jour{ca.nbSejours > 1 ? 's' : ''} \u00b7 {caPeriodeLabel}</p>
+            <p className="text-2xl font-bold text-[var(--color-primary)]">{fmt(ca.montant)} €</p>
+            <p className="text-xs text-gray-400 mt-1">{ca.nbSejours} séjour{ca.nbSejours > 1 ? 's' : ''} · {caPeriodeLabel}</p>
             <div className="flex flex-wrap gap-1 mt-2">
               {(['DDA', 'DDM', 'T1', 'T2', 'T3', 'T4'] as PeriodeCA[]).map((p) => (
                 <button
@@ -397,10 +397,10 @@ export default function HebergeurDashboard() {
             </div>
           </Link>
 
-          {/* KPI 2 \u2014 Devis en attente */}
+          {/* KPI 2 — Devis en attente */}
           <Link href="/dashboard/hebergeur/devis?tab=attente" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              Devis envoy\u00e9s en attente de r\u00e9ponse ou de validation direction
+              Devis envoyés en attente de réponse ou de validation direction
             </div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-gray-500">Devis en attente</p>
@@ -409,37 +409,37 @@ export default function HebergeurDashboard() {
               </svg>
             </div>
             <p className="text-2xl font-bold text-orange-600">{kpiAttenteCount} devis</p>
-            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAttenteMontant)} \u20ac</p>
+            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAttenteMontant)} €</p>
           </Link>
 
-          {/* KPI 3 \u2014 \u00c0 facturer */}
+          {/* KPI 3 — À facturer */}
           <Link href="/dashboard/hebergeur/devis?tab=selectionnes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              S\u00e9jours sign\u00e9s dont l&apos;acompte ou le solde n&apos;a pas encore \u00e9t\u00e9 factur\u00e9
+              Séjours signés dont l&apos;acompte ou le solde n&apos;a pas encore été facturé
             </div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500">\u00c0 facturer</p>
+              <p className="text-xs text-gray-500">À facturer</p>
               <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </div>
             <p className="text-2xl font-bold text-amber-600">{kpiAFacturerCount} facture{kpiAFacturerCount > 1 ? 's' : ''}</p>
-            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAFacturerMontant)} \u20ac</p>
+            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAFacturerMontant)} €</p>
           </Link>
 
-          {/* KPI 4 \u2014 Impay\u00e9s */}
+          {/* KPI 4 — Impayés */}
           <Link href="/dashboard/hebergeur/devis?tab=acompte" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              Factures \u00e9mises dont le paiement n&apos;a pas \u00e9t\u00e9 int\u00e9gralement enregistr\u00e9
+              Factures émises dont le paiement n&apos;a pas été intégralement enregistré
             </div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500">Impay\u00e9s</p>
+              <p className="text-xs text-gray-500">Impayés</p>
               <svg className={`w-4 h-4 ${kpiImpayesCount > 0 ? 'text-red-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
             </div>
             <p className={`text-2xl font-bold ${kpiImpayesCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>{kpiImpayesCount} facture{kpiImpayesCount > 1 ? 's' : ''}</p>
-            <p className="text-xs text-gray-400 mt-1">{kpiImpayesCount > 0 ? `${fmt(kpiImpayesMontant)} \u20ac` : 'Aucun impay\u00e9'}</p>
+            <p className="text-xs text-gray-400 mt-1">{kpiImpayesCount > 0 ? `${fmt(kpiImpayesMontant)} €` : 'Aucun impayé'}</p>
           </Link>
 
         </div>
@@ -606,7 +606,7 @@ export default function HebergeurDashboard() {
                 </div>
                 <p className="text-xs text-gray-500">
                   {s.lieu} &middot; {fmtDate(s.dateDebut)} &rarr; {fmtDate(s.dateFin)} &middot; {s.placesTotales} &eacute;l&egrave;ves
-                  {s.createur && ` \u00B7 ${s.createur.prenom} ${s.createur.nom}`}
+                  {s.createur && ` · ${s.createur.prenom} ${s.createur.nom}`}
                 </p>
               </div>
               <Link
@@ -628,7 +628,7 @@ export default function HebergeurDashboard() {
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 flex items-center justify-between">
                 <p className="text-sm text-gray-500">
                   Aucun s&eacute;jour cette semaine.
-                  {sejoursConvention.length > 0 && ` ${sejoursConvention.length} s\u00e9jour${sejoursConvention.length > 1 ? 's' : ''} \u00e0 venir.`}
+                  {sejoursConvention.length > 0 && ` ${sejoursConvention.length} séjour${sejoursConvention.length > 1 ? 's' : ''} à venir.`}
                 </p>
                 <Link href="/dashboard/hebergeur/planning" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
                   Voir le planning &rarr;
@@ -653,7 +653,7 @@ export default function HebergeurDashboard() {
                   <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Semaine prochaine</p>
                     <div className="space-y-2">
-                      {sejoursNextWeek.map(s => renderCard(s, { label: '\u00C0 venir', cls: 'bg-blue-50 text-blue-700' }))}
+                      {sejoursNextWeek.map(s => renderCard(s, { label: 'À venir', cls: 'bg-blue-50 text-blue-700' }))}
                     </div>
                   </div>
                 )}
@@ -661,7 +661,7 @@ export default function HebergeurDashboard() {
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Semaine pr&eacute;c&eacute;dente</p>
                     <div className="space-y-2">
-                      {sejoursLastWeek.map(s => renderCard(s, { label: 'Termin\u00e9', cls: 'bg-gray-100 text-gray-500' }))}
+                      {sejoursLastWeek.map(s => renderCard(s, { label: 'Terminé', cls: 'bg-gray-100 text-gray-500' }))}
                     </div>
                   </div>
                 )}
