@@ -8,6 +8,17 @@ import { getDemandesOuvertes, ignorerDemande } from '@/src/lib/demande';
 import { createDevisWithFile } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
 
+const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
+  const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  if (d.dateDebut && d.dateFin) return `${new Date(d.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})} → ${new Date(d.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+  const parts: string[] = [];
+  if (d.moisSouhaite) parts.push(MOIS[d.moisSouhaite-1]);
+  if (d.anneeSouhaitee) parts.push(String(d.anneeSouhaitee));
+  if (d.noteDateFlexible) parts.push(d.noteDateFlexible);
+  if (d.dureeNuits) parts.push(`~${d.dureeNuits}n`);
+  return parts.length > 0 ? '📅 ' + parts.join(' · ') : 'Dates à définir';
+};
+
 export default function HebergeurDemandesPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -110,9 +121,6 @@ export default function HebergeurDemandesPage() {
         ) : (
           <div className="space-y-4">
             {demandes.map((d) => {
-              const dateDebut = new Date(d.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-              const dateFin = new Date(d.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-
               return (
                 <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -120,7 +128,7 @@ export default function HebergeurDemandesPage() {
                       <h3 className="font-semibold text-gray-900">{d.titre}</h3>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
                         <span>{d.villeHebergement}</span>
-                        <span>{dateDebut} &rarr; {dateFin}</span>
+                        <span>{afficherDatesDemande(d)}</span>
                         <span>{d.nombreEleves} élève{d.nombreEleves > 1 ? 's' : ''}</span>
                         {d.enseignant && <span>{d.enseignant.prenom} {d.enseignant.nom}</span>}
                       </div>
@@ -276,8 +284,8 @@ export default function HebergeurDemandesPage() {
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-gray-400">Dates</p>
-                  <p className="font-medium">{new Date(detailDemande.dateDebut).toLocaleDateString('fr-FR')} &rarr; {new Date(detailDemande.dateFin).toLocaleDateString('fr-FR')}</p>
+                  <p className="text-xs text-gray-400">Dates / Période</p>
+                  <p className="font-medium">{afficherDatesDemande(detailDemande)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Destination</p>

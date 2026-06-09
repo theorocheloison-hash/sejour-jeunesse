@@ -8,8 +8,12 @@ export interface Demande {
   id: string;
   titre: string;
   description: string | null;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut: string | null;
+  dateFin: string | null;
+  moisSouhaite?: number | null;
+  anneeSouhaitee?: number | null;
+  noteDateFlexible?: string | null;
+  dureeNuits?: number | null;
   nombreEleves: number;
   villeHebergement: string;
   regionCible: string;

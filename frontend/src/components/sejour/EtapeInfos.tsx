@@ -139,15 +139,52 @@ export default function EtapeInfos({ form, setForm, estHorsScolaireUser = false 
       <div className="border-t border-gray-200 pt-5 mt-2">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Informations compl&eacute;mentaires (optionnel)</h2>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Date d'arriv&eacute;e *">
-            <input type="date" value={form.dateDebut} onChange={set('dateDebut')} className={inputCls} required />
-          </Field>
+        <label className="flex items-center gap-2 cursor-pointer select-none mb-3">
+          <input type="checkbox" checked={form.datesFlexibles}
+            onChange={e => setForm(p => ({ ...p, datesFlexibles: e.target.checked, dateDebut: '', dateFin: '' }))}
+            className="h-4 w-4 rounded border-gray-300 text-indigo-600" />
+          <span className="text-sm font-medium text-gray-700">Je n&apos;ai pas encore de dates pr&eacute;cises</span>
+        </label>
+
+        {!form.datesFlexibles ? (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Date de d&eacute;but *">
+              <input type="date" value={form.dateDebut} onChange={set('dateDebut')} className={inputCls} />
+            </Field>
+            <Field label="Date de fin *">
+              <input type="date" value={form.dateFin} min={form.dateDebut} onChange={set('dateFin')} className={inputCls} />
+            </Field>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Mois souhait&eacute;">
+                <select value={form.moisSouhaite} onChange={set('moisSouhaite')} className={inputCls}>
+                  <option value="">-- Mois --</option>
+                  {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m, i) => (
+                    <option key={i+1} value={String(i+1)}>{m}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Ann&eacute;e">
+                <input type="number" value={form.anneeSouhaitee} onChange={set('anneeSouhaitee')}
+                  placeholder="ex: 2027" min="2025" max="2030" className={inputCls} />
+              </Field>
+            </div>
+            <Field label="Pr&eacute;cision (optionnel)">
+              <input type="text" value={form.noteDateFlexible} onChange={set('noteDateFlexible')}
+                placeholder='ex: "Semaine de Pâques", "début janvier"' className={inputCls} />
+            </Field>
+            <Field label="Dur&eacute;e estim&eacute;e (nuits)">
+              <input type="number" value={form.dureeNuits} onChange={set('dureeNuits')}
+                placeholder="ex: 5" min="1" max="30" className={inputCls} />
+            </Field>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4 mt-4">
           <Field label="Heure d'arriv&eacute;e souhait&eacute;e">
             <input type="time" value={form.heureArrivee} onChange={set('heureArrivee')} className={inputCls} />
-          </Field>
-          <Field label="Date de d&eacute;part *">
-            <input type="date" value={form.dateFin} min={form.dateDebut} onChange={set('dateFin')} className={inputCls} required />
           </Field>
           <Field label="Heure de d&eacute;part souhait&eacute;e">
             <input type="time" value={form.heureDepart} onChange={set('heureDepart')} className={inputCls} />

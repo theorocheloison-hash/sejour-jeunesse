@@ -23,6 +23,11 @@ export interface SejourFormData {
   moinsde6ans: boolean;
   typeAccueilACM: string;
   projetEducatif: string;
+  datesFlexibles: boolean;
+  moisSouhaite: string;      // '1' à '12' ou ''
+  anneeSouhaitee: string;    // ex: '2027' ou ''
+  noteDateFlexible: string;  // texte libre
+  dureeNuits: string;        // ex: '5' ou ''
 }
 
 export const INITIAL_DATA: SejourFormData = {
@@ -48,6 +53,11 @@ export const INITIAL_DATA: SejourFormData = {
   moinsde6ans: false,
   typeAccueilACM: '',
   projetEducatif: '',
+  datesFlexibles: false,
+  moisSouhaite: '',
+  anneeSouhaitee: '',
+  noteDateFlexible: '',
+  dureeNuits: '',
 };
 
 export const TYPE_ACCUEIL_ACM_OPTIONS: { value: string; label: string }[] = [
@@ -83,6 +93,19 @@ export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', {
     day: '2-digit', month: 'long', year: 'numeric',
   });
+}
+
+export function buildPeriodeLabel(form: Pick<SejourFormData, 'datesFlexibles' | 'dateDebut' | 'dateFin' | 'moisSouhaite' | 'anneeSouhaitee' | 'noteDateFlexible' | 'dureeNuits'>): string {
+  const MOIS = ['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+  if (!form.datesFlexibles && form.dateDebut && form.dateFin) {
+    return `${formatDate(form.dateDebut)} \u2192 ${formatDate(form.dateFin)}`;
+  }
+  const parts: string[] = [];
+  if (form.moisSouhaite) parts.push(MOIS[parseInt(form.moisSouhaite) - 1]);
+  if (form.anneeSouhaitee) parts.push(form.anneeSouhaitee);
+  if (form.noteDateFlexible) parts.push(form.noteDateFlexible);
+  if (form.dureeNuits) parts.push(`~${form.dureeNuits} nuits`);
+  return parts.length > 0 ? parts.join(' \u00b7 ') : 'P\u00e9riode \u00e0 d\u00e9finir';
 }
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {

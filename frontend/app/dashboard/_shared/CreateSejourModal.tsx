@@ -81,6 +81,10 @@ export default function CreateSejourModal({
     clientCodePostal: initialClient?.codePostal ?? '',
     clientVille: initialClient?.ville ?? '',
     description: '',
+    moisSouhaite: '',
+    anneeSouhaitee: '',
+    noteDateFlexible: '',
+    dureeNuits: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -246,6 +250,12 @@ export default function CreateSejourModal({
         clientVille: form.clientVille.trim() || undefined,
         // Client CRM existant : le backend lie directement et ne crée pas de client fantôme.
         clientId: initialClient?.clientId ?? undefined,
+        ...(datesADefinir ? {
+          moisSouhaite: form.moisSouhaite ? parseInt(form.moisSouhaite) : undefined,
+          anneeSouhaitee: form.anneeSouhaitee ? parseInt(form.anneeSouhaitee) : undefined,
+          noteDateFlexible: form.noteDateFlexible || undefined,
+          dureeNuits: form.dureeNuits ? parseInt(form.dureeNuits) : undefined,
+        } : {}),
       });
       onCreated(sejour);
     } catch (err: any) {
@@ -312,6 +322,42 @@ export default function CreateSejourModal({
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date fin</label>
                 <input type="date" value={form.dateFin} onChange={set('dateFin')}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              </div>
+            </div>
+          )}
+
+          {datesADefinir && (
+            <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 space-y-3">
+              <p className="text-xs text-blue-700 font-medium">Période souhaitée (optionnel)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Mois</label>
+                  <select value={form.moisSouhaite} onChange={set('moisSouhaite')}
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
+                    <option value="">--</option>
+                    {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m,i) => (
+                      <option key={i+1} value={String(i+1)}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Année</label>
+                  <input type="number" value={form.anneeSouhaitee} onChange={set('anneeSouhaitee')}
+                    placeholder="2027" min="2025" max="2030"
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Précision</label>
+                <input type="text" value={form.noteDateFlexible} onChange={set('noteDateFlexible')}
+                  placeholder='ex: "Semaine de Pâques"'
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Durée estimée (nuits)</label>
+                <input type="number" value={form.dureeNuits} onChange={set('dureeNuits')}
+                  placeholder="ex: 5" min="1" max="30"
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
               </div>
             </div>
           )}

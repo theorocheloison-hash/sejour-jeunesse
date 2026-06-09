@@ -113,7 +113,10 @@ export default function NouveauSejourPage() {
 
   const canAdvance = () => {
     if (step === 1) {
-      const base = form.titre && form.dateDebut && form.dateFin && form.nbEleves;
+      const hasDates = form.datesFlexibles
+        ? (form.moisSouhaite || form.noteDateFlexible || form.dureeNuits)  // au moins un champ période
+        : (form.dateDebut && form.dateFin);
+      const base = form.titre && hasDates && form.nbEleves;
       if (estHorsScolaireUser) {
         return !!(base && form.ageMin && form.ageMax && form.typeAccueilACM && form.projetEducatif);
       }
@@ -130,8 +133,13 @@ export default function NouveauSejourPage() {
       await createSejour({
         titre:                      form.titre,
         informationsComplementaires: form.informationsComplementaires || undefined,
-        dateDebut:                  form.dateDebut,
-        dateFin:                    form.dateFin,
+        ...(form.datesFlexibles ? {} : { dateDebut: form.dateDebut, dateFin: form.dateFin }),
+        ...(form.datesFlexibles ? {
+          moisSouhaite: form.moisSouhaite ? parseInt(form.moisSouhaite) : undefined,
+          anneeSouhaitee: form.anneeSouhaitee ? parseInt(form.anneeSouhaitee) : undefined,
+          noteDateFlexible: form.noteDateFlexible || undefined,
+          dureeNuits: form.dureeNuits ? parseInt(form.dureeNuits) : undefined,
+        } : {}),
         nombreEleves:               parseInt(form.nbEleves, 10),
         niveauClasse:               estHorsScolaireUser ? undefined : form.niveauClasse,
         thematiquesPedagogiques:    estHorsScolaireUser ? [] : form.thematiquesPedagogiques,

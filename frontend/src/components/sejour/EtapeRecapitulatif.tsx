@@ -1,6 +1,6 @@
 'use client';
 
-import { Section, Row, formatDate, zoneLabel, TYPE_ACCUEIL_ACM_OPTIONS } from './shared';
+import { Section, Row, formatDate, zoneLabel, buildPeriodeLabel, TYPE_ACCUEIL_ACM_OPTIONS } from './shared';
 import type { SejourFormData } from './shared';
 
 interface Props {
@@ -21,8 +21,7 @@ export default function EtapeRecapitulatif({ form, estHorsScolaireUser = false }
       <div className="rounded-xl bg-gray-50 border border-gray-200 divide-y divide-gray-200 overflow-hidden text-sm">
         <Section title="Informations g&eacute;n&eacute;rales">
           <Row label="Titre" value={form.titre} />
-          <Row label="Date de d&eacute;but" value={formatDate(form.dateDebut)} />
-          <Row label="Date de fin" value={formatDate(form.dateFin)} />
+          <Row label="Dates / P&eacute;riode" value={buildPeriodeLabel(form)} />
           <Row label={estHorsScolaireUser ? 'Nombre de participants' : 'Nombre d\'élèves'} value={form.nbEleves} />
           {estHorsScolaireUser ? (
             <>

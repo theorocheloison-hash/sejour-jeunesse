@@ -244,6 +244,10 @@ export async function createSejourDirect(dto: {
   clientVille?: string;
   description?: string;
   clientId?: string;
+  moisSouhaite?: number;
+  anneeSouhaitee?: number;
+  noteDateFlexible?: string;
+  dureeNuits?: number;
 }): Promise<SejourPlanning> {
   const { data } = await api.post<SejourPlanning>('/sejours/direct', dto);
   return data;
