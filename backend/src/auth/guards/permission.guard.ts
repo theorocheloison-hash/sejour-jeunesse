@@ -27,7 +27,21 @@ export class PermissionGuard implements CanActivate {
     // Déterminer le centreId depuis le header X-Centre-Id
     const centreIdHeader = request.headers['x-centre-id'];
     const centreId = Array.isArray(centreIdHeader) ? centreIdHeader[0] : centreIdHeader;
-    if (!centreId) return true; // pas de centre sélectionné → getCentreForUser gère
+
+    const method = request.method?.toUpperCase();
+
+    if (!centreId) {
+      // GET/HEAD sans X-Centre-Id : sécurisé, getCentreForUser vérifie l'accès
+      if (method === 'GET' || method === 'HEAD') return true;
+      // Mutation sans X-Centre-Id : autorisé uniquement si l'user est propriétaire d'un centre.
+      // Un collaborateur pur (pas de centre en propre) DOIT envoyer X-Centre-Id pour toute mutation.
+      const ownsCentre = await this.prisma.centreHebergement.findFirst({
+        where: { userId: user.id, statut: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (ownsCentre) return true;
+      throw new ForbiddenException('X-Centre-Id requis pour effectuer cette opération');
+    }
 
     const perms = await getUserCentrePermissions(this.prisma, user.id, centreId);
     if (!perms) throw new ForbiddenException('Accès refusé à ce centre');
@@ -36,7 +50,6 @@ export class PermissionGuard implements CanActivate {
     if (perms.isOwner) return true;
 
     // Déterminer le niveau requis selon la méthode HTTP
-    const method = request.method?.toUpperCase();
     const requiredLevel: 'READ' | 'WRITE' =
       (method === 'GET' || method === 'HEAD') ? 'READ' : 'WRITE';
 
