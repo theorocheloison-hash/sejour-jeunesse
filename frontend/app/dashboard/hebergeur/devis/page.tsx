@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesDevis, emettreFactureAcompte, emettreFactureSolde, getChorusXml, ajouterVersement, supprimerVersement, getFactureAcompte, getFactureSolde, annulerDevis } from '@/src/lib/devis';
@@ -96,8 +96,11 @@ function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
+const VALID_TABS: OngletDevis[] = ['attente', 'selectionnes', 'signes', 'acompte', 'solde'];
+
 export default function HebergeurDevisPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +117,10 @@ export default function HebergeurDevisPage() {
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [onglet, setOnglet] = useState<OngletDevis>('attente');
+  const tabParam = searchParams.get('tab');
+  const [onglet, setOnglet] = useState<OngletDevis>(
+    tabParam && VALID_TABS.includes(tabParam as OngletDevis) ? (tabParam as OngletDevis) : 'attente',
+  );
 
 
   const loadDevis = useCallback(() => {
