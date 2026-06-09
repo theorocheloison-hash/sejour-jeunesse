@@ -16,6 +16,7 @@ import {
   regenererFacturePdf,
   emettreAvoir,
   annulerDevis,
+  genererConvention,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import OrganisationSearch from '@/app/dashboard/_shared/OrganisationSearch';
@@ -150,6 +151,26 @@ export default function TabDevisFacturation({
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
   const [messagePerso, setMessagePerso] = useState('');
   const [envoiError, setEnvoiError] = useState<string | null>(null);
+
+  // ── Convention séjour scolaire ──────────────────────────────
+  const [conventionLoading, setConventionLoading] = useState(false);
+  const [conventionSuccess, setConventionSuccess] = useState(false);
+
+  const handleGenererConvention = async (devisId: string) => {
+    setConventionLoading(true);
+    setConventionSuccess(false);
+    try {
+      const { alreadyGenerated } = await genererConvention(devisId);
+      await reloadAllDirect();
+      if (!alreadyGenerated) setConventionSuccess(true);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de la génération de la convention';
+      onError(msg);
+    } finally {
+      setConventionLoading(false);
+    }
+  };
 
   // Fermeture de la modale d'envoi sur Escape
   useEffect(() => {
@@ -1158,6 +1179,59 @@ export default function TabDevisFacturation({
                     Signé par {directDevis.nomSignataireDirecteur}
                     {directDevis.dateSignatureDirecteur && ` le ${new Date(directDevis.dateSignatureDirecteur).toLocaleDateString('fr-FR')}`}
                   </p>
+                </div>
+              )}
+
+              {/* Convention de séjour scolaire — DIRECT + nature SEJOUR + devis signé */}
+              {sejour?.natureSejour === 'SEJOUR'
+                && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(directDevis.statut) && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
+                  </div>
+
+                  {directDevis.conventionUrl ? (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <a
+                        href={directDevis.conventionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                        📄 Télécharger la convention
+                      </a>
+                      <button
+                        onClick={() => handleGenererConvention(directDevis.id)}
+                        disabled={conventionLoading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {conventionLoading && (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                        )}
+                        {conventionLoading ? 'Génération…' : 'Regénérer'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleGenererConvention(directDevis.id)}
+                      disabled={conventionLoading}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {conventionLoading && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      )}
+                      {conventionLoading ? 'Génération en cours…' : '📄 Générer la convention'}
+                    </button>
+                  )}
+
+                  {conventionSuccess && (
+                    <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                      ✅ Convention générée et envoyée par email
+                    </p>
+                  )}
                 </div>
               )}
 
