@@ -38,6 +38,7 @@ export default function InvitationEquipePage() {
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
 
@@ -81,6 +82,11 @@ export default function InvitationEquipePage() {
     e.preventDefault();
     setRegistering(true);
     setRegError(null);
+    if (password !== confirmPassword) {
+      setRegError('Les mots de passe ne correspondent pas');
+      setRegistering(false);
+      return;
+    }
     try {
       const { data } = await api.post('/collaborateurs/register', { token, prenom, nom, password });
       // Login automatique : on pose le cookie + le cache user, puis full reload
@@ -205,6 +211,15 @@ export default function InvitationEquipePage() {
           <input
             type="password" placeholder="Mot de passe (8 caractères min.)" value={password}
             onChange={(e) => setPassword(e.target.value)} required minLength={8}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+          <input
+            type="password"
+            placeholder="Confirmer le mot de passe"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
             className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
           />
           <button
