@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
-import { getMesDevis, getFactureAcompte } from '@/src/lib/devis';
+import { getMesDevis, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
+import type { Devis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
@@ -12,12 +13,59 @@ import type { RappelToday } from '@/src/lib/clients';
 import { getTableauRentabilite } from '@/src/lib/rentabilite';
 import type { TableauRentabilite } from '@/src/lib/rentabilite';
 
+// ─── CA confirmé : helpers réutilisables (futur : page /ca avec graphique annuel) ───
+type PeriodeCA = 'DDA' | 'DDM' | 'T1' | 'T2' | 'T3' | 'T4';
+
+const STATUTS_CA = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
+
+/** Date de début du séjour d'un devis (collab → demande.sejour, direct → sejourDirect, fallback createdAt). */
+function resolveSejourDateDebut(d: Devis): string {
+  return d.demande?.sejour?.dateDebut ?? d.sejourDirect?.dateDebut ?? d.createdAt;
+}
+
+/** Id du séjour d'un devis (pour compter les séjours distincts). */
+function resolveSejourId(d: Devis): string | null {
+  return d.demande?.sejour?.id ?? d.sejourDirect?.id ?? null;
+}
+
+/** Bornes [start, end] d'une période CA pour l'année en cours. */
+function getPeriodeBounds(periode: PeriodeCA): { start: Date; end: Date } {
+  const year = new Date().getFullYear();
+  const month = new Date().getMonth();
+  const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+  switch (periode) {
+    case 'DDA': return { start: new Date(year, 0, 1), end: endOfYear };
+    case 'DDM': return { start: new Date(year, month, 1), end: endOfYear };
+    case 'T1':  return { start: new Date(year, 0, 1),  end: new Date(year, 2, 31, 23, 59, 59) };
+    case 'T2':  return { start: new Date(year, 3, 1),  end: new Date(year, 5, 30, 23, 59, 59) };
+    case 'T3':  return { start: new Date(year, 6, 1),  end: new Date(year, 8, 30, 23, 59, 59) };
+    case 'T4':  return { start: new Date(year, 9, 1),  end: endOfYear };
+  }
+}
+
+/** CA TTC confirmé (devis signés, hors complémentaires) filtré par date de séjour ∈ [start, end]. */
+function computeCAConfirme(devis: Devis[], start: Date, end: Date): { montant: number; nbSejours: number } {
+  const sejourIds = new Set<string>();
+  let montant = 0;
+  for (const d of devis) {
+    if (d.isComplementaire) continue;
+    if (!STATUTS_CA.includes(d.statut)) continue;
+    const dd = new Date(resolveSejourDateDebut(d));
+    if (dd < start || dd > end) continue;
+    montant += d.montantTTC ?? Number(d.montantTotal) ?? 0;
+    const sid = resolveSejourId(d);
+    if (sid) sejourIds.add(sid);
+  }
+  return { montant, nbSejours: sejourIds.size };
+}
+
 export default function HebergeurDashboard() {
   const { user, isLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [centre, setCentre] = useState<any>(null);
-  const [devis, setDevis] = useState<any[]>([]);
+  const [devis, setDevis] = useState<Devis[]>([]);
+  const [periodeCA, setPeriodeCA] = useState<PeriodeCA>('DDA');
   const [sejoursConvention, setSejoursConvention] = useState<any[]>([]);
   const [demandes, setDemandes] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -135,30 +183,78 @@ export default function HebergeurDashboard() {
 
   // Métriques
   const demandesNonLues = demandes.length;
-  const devisEnAttente = devis.filter(d => d.statut === 'EN_ATTENTE').length;
-  const devisSelectionnes = devis.filter(d => d.statut === 'SELECTIONNE').length;
-  const caPrevi = devis
-    .filter(d => d.statut === 'SELECTIONNE')
-    .reduce((sum: number, d: any) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
-  // Lot 1 : facturation lue depuis les Factures liées (le devis ne mute plus).
-  const acomptesAttente = devis.filter((d: any) => {
-    const fa = getFactureAcompte(d);
-    return fa && !fa.acompteVerse;
-  }).length;
-  // Devis signé/sélectionné SANS facture acompte → acompte à émettre.
-  const devisSignesAFacturer = devis.filter((d: any) =>
-    (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') &&
-    d.signatureDirecteur &&
-    !getFactureAcompte(d)
-  ).length;
-  // Total actions facturation urgentes
-  const actionsFacturationUrgentes = devisSignesAFacturer + acomptesAttente;
   const abonnementActif = centre?.abonnementStatut === 'ACTIF';
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const annee = new Date().getFullYear();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  // Note : les variables demandesNonLues, rappelsAujourdhui.length, actionsFacturationUrgentes
-  // restent calculées localement et utilisées dans les cartes KPI ci-dessous.
-  // Le layout charge ses propres compteurs via useHebergeurCounts pour la sidebar.
+  // ── KPI 1 — CA confirmé (filtré par période sélectionnée) ──
+  const caBounds = getPeriodeBounds(periodeCA);
+  const ca = computeCAConfirme(devis, caBounds.start, caBounds.end);
+  const caPeriodeLabel = (periodeCA === 'DDA' || periodeCA === 'DDM')
+    ? `Depuis le ${caBounds.start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : `${periodeCA} ${annee}`;
+
+  // ── KPI 2 — Devis en attente ──
+  const devisAttente = devis.filter(d =>
+    d.isComplementaire !== true && (d.statut === 'EN_ATTENTE' || d.statut === 'EN_ATTENTE_VALIDATION'),
+  );
+  const kpiAttenteCount = devisAttente.length;
+  const kpiAttenteMontant = devisAttente.reduce((s, d) => s + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
+
+  // ── KPI 3 — À facturer (acompte non émis + solde non émis sur séjour passé) ──
+  // Aligné sur l'onglet "Sélectionnés" (pas encore facturé : ni acompte ni solde).
+  const aFacturerAcompte = devis.filter(d =>
+    d.isComplementaire !== true &&
+    (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') &&
+    getFactureAcompte(d) === null && getFactureSolde(d) === null,
+  );
+  const aFacturerSolde = devis.filter(d =>
+    d.isComplementaire !== true &&
+    getFactureAcompte(d) !== null && getFactureSolde(d) === null &&
+    new Date(resolveSejourDateDebut(d)) < today,
+  );
+  const kpiAFacturerCount = aFacturerAcompte.length + aFacturerSolde.length;
+  const kpiAFacturerMontant =
+    aFacturerAcompte.reduce((s, d) => {
+      const ttc = d.montantTTC ?? Number(d.montantTotal) ?? 0;
+      return s + (d.montantAcompte ?? (ttc * (d.pourcentageAcompte ?? 30) / 100));
+    }, 0) +
+    aFacturerSolde.reduce((s, d) => {
+      const ttc = d.montantTTC ?? Number(d.montantTotal) ?? 0;
+      const fa = getFactureAcompte(d);
+      return s + (ttc - (fa ? fa.montantFacture : 0));
+    }, 0);
+
+  // ── KPI 4 — Impayés (factures émises non intégralement réglées) ──
+  let kpiImpayesCount = 0;
+  let kpiImpayesMontant = 0;
+  for (const d of devis) {
+    for (const f of d.factures ?? []) {
+      if (f.typeFacture === 'AVOIR') continue;
+      const verse = f.montantVerseTotal ?? 0;
+      if (verse < f.montantFacture) {
+        kpiImpayesCount++;
+        kpiImpayesMontant += f.montantFacture - verse;
+      }
+    }
+  }
+
+  // Badge "Devis & Facturation" (Actions prioritaires) : actions hébergeur à traiter.
+  const actionsFacturationUrgentes = kpiAFacturerCount + kpiImpayesCount;
+
+  // ── Via LIAVO (sous "Demandes reçues") : séjours signés issus d'un appel d'offres LIAVO ──
+  const viaLiavoSejourIds = new Set<string>();
+  let viaLiavoMontant = 0;
+  for (const d of devis) {
+    if (d.isComplementaire === true) continue;
+    if (d.demandeId == null) continue;
+    if (!STATUTS_CA.includes(d.statut)) continue;
+    viaLiavoMontant += d.montantTTC ?? Number(d.montantTotal) ?? 0;
+    const sid = resolveSejourId(d);
+    if (sid) viaLiavoSejourIds.add(sid);
+  }
+  const viaLiavoCount = viaLiavoSejourIds.size;
 
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg)]">
@@ -274,25 +370,78 @@ export default function HebergeurDashboard() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'S\u00e9jours en convention', value: sejoursConvention.length, color: 'text-[var(--color-primary)]', icon: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21', tooltip: 'S\u00e9jours avec devis confirm\u00e9 en cours ou \u00e0 venir' },
-            { label: 'Devis en attente', value: devisEnAttente, color: 'text-orange-600', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z', tooltip: 'Devis envoy\u00e9s en attente de r\u00e9ponse du client' },
-            { label: 'Devis retenus', value: devisSelectionnes, color: 'text-green-600', icon: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z', tooltip: 'Devis accept\u00e9s par vos clients \u2014 s\u00e9jours confirm\u00e9s' },
-            { label: 'CA pr\u00e9visionnel', value: `${fmt(caPrevi)} \u20ac`, color: 'text-[var(--color-primary)]', icon: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z', tooltip: 'Chiffre d\u2019affaires TTC des s\u00e9jours confirm\u00e9s (devis retenus)' },
-          ].map((kpi, i) => (
-            <div key={i} className="group relative bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                {kpi.tooltip}
-              </div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500">{kpi.label}</p>
-                <svg className={`w-4 h-4 ${kpi.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={kpi.icon} />
-                </svg>
-              </div>
-              <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+
+          {/* KPI 1 \u2014 CA confirm\u00e9 */}
+          <Link href="/dashboard/hebergeur/devis" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Chiffre d&apos;affaires TTC des devis sign\u00e9s, filtr\u00e9 par date de s\u00e9jour
             </div>
-          ))}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500">CA confirm\u00e9</p>
+              <svg className="w-4 h-4 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-[var(--color-primary)]">{fmt(ca.montant)} \u20ac</p>
+            <p className="text-xs text-gray-400 mt-1">{ca.nbSejours} s\u00e9jour{ca.nbSejours > 1 ? 's' : ''} \u00b7 {caPeriodeLabel}</p>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {(['DDA', 'DDM', 'T1', 'T2', 'T3', 'T4'] as PeriodeCA[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPeriodeCA(p); }}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${periodeCA === p ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </Link>
+
+          {/* KPI 2 \u2014 Devis en attente */}
+          <Link href="/dashboard/hebergeur/devis?tab=attente" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Devis envoy\u00e9s en attente de r\u00e9ponse ou de validation direction
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500">Devis en attente</p>
+              <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-orange-600">{kpiAttenteCount} devis</p>
+            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAttenteMontant)} \u20ac</p>
+          </Link>
+
+          {/* KPI 3 \u2014 \u00c0 facturer */}
+          <Link href="/dashboard/hebergeur/devis?tab=selectionnes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              S\u00e9jours sign\u00e9s dont l&apos;acompte ou le solde n&apos;a pas encore \u00e9t\u00e9 factur\u00e9
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500">\u00c0 facturer</p>
+              <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{kpiAFacturerCount} facture{kpiAFacturerCount > 1 ? 's' : ''}</p>
+            <p className="text-xs text-gray-400 mt-1">{fmt(kpiAFacturerMontant)} \u20ac</p>
+          </Link>
+
+          {/* KPI 4 \u2014 Impay\u00e9s */}
+          <Link href="/dashboard/hebergeur/devis?tab=acompte" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Factures \u00e9mises dont le paiement n&apos;a pas \u00e9t\u00e9 int\u00e9gralement enregistr\u00e9
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500">Impay\u00e9s</p>
+              <svg className={`w-4 h-4 ${kpiImpayesCount > 0 ? 'text-red-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <p className={`text-2xl font-bold ${kpiImpayesCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>{kpiImpayesCount} facture{kpiImpayesCount > 1 ? 's' : ''}</p>
+            <p className="text-xs text-gray-400 mt-1">{kpiImpayesCount > 0 ? `${fmt(kpiImpayesMontant)} \u20ac` : 'Aucun impay\u00e9'}</p>
+          </Link>
+
         </div>
 
         {/* Actions prioritaires */}
@@ -314,6 +463,11 @@ export default function HebergeurDashboard() {
               </div>
               <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Demandes reçues</p>
               <p className="text-xs text-gray-500 mt-0.5">Consultez et répondez aux appels d&apos;offres</p>
+              {viaLiavoCount > 0 && (
+                <p className="text-xs text-[var(--color-success)] mt-1 font-medium">
+                  {viaLiavoCount} séjour{viaLiavoCount > 1 ? 's' : ''} signé{viaLiavoCount > 1 ? 's' : ''} via LIAVO · {fmt(viaLiavoMontant)} €
+                </p>
+              )}
             </Link>
 
             {/* Facturation */}
