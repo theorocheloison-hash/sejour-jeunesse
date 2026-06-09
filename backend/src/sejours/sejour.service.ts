@@ -208,14 +208,31 @@ export class SejourService {
     });
     const sejourIdsInvitation = invitations.map(i => i.sejourId);
 
+    // Source 3 : séjours DIRECT dont le client est rattaché à une des organisations du signataire
+    const sejoursDirect = orgIds.length > 0
+      ? await this.prisma.sejour.findMany({
+          where: {
+            clientOrganisationId: { in: orgIds },
+            modeGestion: 'DIRECT',
+            deletedAt: null,
+          },
+          select: { id: true },
+        })
+      : [];
+    const sejourIdsDirectOrg = sejoursDirect.map(s => s.id);
+
     const orConditions: { createurId?: { in: string[] }; id?: { in: string[] } }[] = [];
     if (collegueIds.length > 0) orConditions.push({ createurId: { in: collegueIds } });
-    if (sejourIdsInvitation.length > 0) orConditions.push({ id: { in: sejourIdsInvitation } });
+    const allSejourIds = [...new Set([...sejourIdsInvitation, ...sejourIdsDirectOrg])];
+    if (allSejourIds.length > 0) orConditions.push({ id: { in: allSejourIds } });
 
     if (orConditions.length === 0) return [];
 
     return this.prisma.sejour.findMany({
-      where: { OR: orConditions },
+      where: {
+        OR: orConditions,
+        deletedAt: null,
+      },
       include: {
         createur: {
           select: {
@@ -234,8 +251,8 @@ export class SejourService {
           include: {
             devis: {
               where: {
-                statut: { in: ['EN_ATTENTE_VALIDATION', 'SELECTIONNE'] },
-                typeDocument: 'DEVIS',
+                statut: { in: ['EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+                isComplementaire: false,
               },
               include: {
                 lignes: true,
