@@ -224,6 +224,10 @@ model Sejour {
   lieu            String       @db.VarChar(255)
   dateDebut       DateTime?    @map("date_debut") @db.Date
   dateFin         DateTime?    @map("date_fin") @db.Date
+  moisSouhaite     Int?        @map("mois_souhaite")
+  anneeSouhaitee   Int?        @map("annee_souhaitee")
+  noteDateFlexible String?     @map("note_date_flexible") @db.VarChar(255)
+  dureeNuits       Int?        @map("duree_nuits")
   placesTotales   Int          @map("places_totales")
   placesRestantes Int          @map("places_restantes")
   prix                      Decimal          @default(0) @db.Decimal(10, 2)
@@ -736,8 +740,12 @@ model DemandeDevis {
   sejourId            String        @map("sejour_id") @db.Uuid
   titre               String        @db.VarChar(255)
   description         String?       @db.Text
-  dateDebut           DateTime      @map("date_debut") @db.Date
-  dateFin             DateTime      @map("date_fin") @db.Date
+  dateDebut           DateTime?     @map("date_debut") @db.Date
+  dateFin             DateTime?     @map("date_fin") @db.Date
+  moisSouhaite        Int?          @map("mois_souhaite")
+  anneeSouhaitee      Int?          @map("annee_souhaitee")
+  noteDateFlexible    String?       @map("note_date_flexible") @db.VarChar(255)
+  dureeNuits          Int?          @map("duree_nuits")
   nombreEleves        Int           @map("nombre_eleves")
   nombreAccompagnateurs  Int?      @map("nombre_accompagnateurs")
   heureArrivee           String?   @map("heure_arrivee") @db.VarChar(10)

@@ -77,6 +77,31 @@ function matchesZone(regionCible: string, centre: { ville: string; codePostal: s
   }
 }
 
+/**
+ * Construit le libellé de période d'une demande/séjour : soit les dates fixes,
+ * soit la période flexible (mois · année · note · durée), sinon « Période à définir ».
+ */
+export function buildPeriodeLabel(dto: {
+  dateDebut?: string;
+  dateFin?: string;
+  moisSouhaite?: number;
+  anneeSouhaitee?: number;
+  noteDateFlexible?: string;
+  dureeNuits?: number;
+}): string {
+  const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  if (dto.dateDebut && dto.dateFin) {
+    const fmt = (s: string) => new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${fmt(dto.dateDebut)} → ${fmt(dto.dateFin)}`;
+  }
+  const parts: string[] = [];
+  if (dto.moisSouhaite) parts.push(MOIS[dto.moisSouhaite - 1]);
+  if (dto.anneeSouhaitee) parts.push(String(dto.anneeSouhaitee));
+  if (dto.noteDateFlexible) parts.push(dto.noteDateFlexible);
+  if (dto.dureeNuits) parts.push(`~${dto.dureeNuits} nuits`);
+  return parts.length > 0 ? parts.join(' · ') : 'Période à définir';
+}
+
 @Injectable()
 export class DemandeService {
   constructor(
@@ -89,8 +114,12 @@ export class DemandeService {
       data: {
         titre: dto.titre,
         description: dto.description,
-        dateDebut: new Date(dto.dateDebut),
-        dateFin: new Date(dto.dateFin),
+        dateDebut: dto.dateDebut ? new Date(dto.dateDebut) : null,
+        dateFin: dto.dateFin ? new Date(dto.dateFin) : null,
+        moisSouhaite: dto.moisSouhaite ?? null,
+        anneeSouhaitee: dto.anneeSouhaitee ?? null,
+        noteDateFlexible: dto.noteDateFlexible ?? null,
+        dureeNuits: dto.dureeNuits ?? null,
         nombreEleves: dto.nombreEleves,
         villeHebergement: dto.villeHebergement,
         regionCible: dto.regionCible ?? '',
@@ -115,6 +144,7 @@ export class DemandeService {
       villeHebergement: demande.villeHebergement,
       dateDebut: demande.dateDebut,
       dateFin: demande.dateFin,
+      periodeLabel: buildPeriodeLabel(dto),
       regionCible: demande.regionCible,
       centreDestinataireId: demande.centreDestinataireId,
       typeContexte: demande.sejour?.typeContexte ?? undefined,
@@ -268,15 +298,13 @@ export class DemandeService {
   private async notifierCentresInscrits(demande: {
     titre: string;
     villeHebergement: string;
-    dateDebut: Date;
-    dateFin: Date;
+    dateDebut: Date | null;
+    dateFin: Date | null;
+    periodeLabel: string;
     regionCible: string;
     centreDestinataireId: string | null;
     typeContexte?: string;
   }): Promise<void> {
-    const fmt = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
     if (demande.centreDestinataireId) {
       const centre = await this.prisma.centreHebergement.findUnique({
         where: { id: demande.centreDestinataireId },
@@ -285,7 +313,7 @@ export class DemandeService {
       if (centre?.email) {
         await this.email.sendNouvelleDemandeDevis(
           centre.email, centre.nom, demande.titre,
-          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.villeHebergement, demande.periodeLabel,
           demande.typeContexte,
         );
       }
@@ -305,7 +333,7 @@ export class DemandeService {
       cibles.map((c) =>
         this.email.sendNouvelleDemandeDevis(
           c.email!, c.nom, demande.titre,
-          demande.villeHebergement, fmt(demande.dateDebut), fmt(demande.dateFin),
+          demande.villeHebergement, demande.periodeLabel,
           demande.typeContexte,
         ),
       ),

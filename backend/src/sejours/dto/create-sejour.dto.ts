@@ -29,11 +29,32 @@ export class CreateSejourDto {
   @IsString()
   informationsComplementaires?: string;
 
+  @IsOptional()
   @IsDateString()
-  dateDebut: string;
+  dateDebut?: string;
 
+  @IsOptional()
   @IsDateString()
-  dateFin: string;
+  dateFin?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  moisSouhaite?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  anneeSouhaitee?: number;
+
+  @IsOptional()
+  @IsString()
+  noteDateFlexible?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  dureeNuits?: number;
 
   @IsInt()
   @Min(1)

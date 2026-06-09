@@ -1,0 +1,10 @@
+ALTER TABLE demandes_devis ALTER COLUMN date_debut DROP NOT NULL;
+ALTER TABLE demandes_devis ALTER COLUMN date_fin DROP NOT NULL;
+ALTER TABLE demandes_devis ADD COLUMN mois_souhaite INTEGER;
+ALTER TABLE demandes_devis ADD COLUMN annee_souhaitee INTEGER;
+ALTER TABLE demandes_devis ADD COLUMN note_date_flexible VARCHAR(255);
+ALTER TABLE demandes_devis ADD COLUMN duree_nuits INTEGER;
+ALTER TABLE sejours ADD COLUMN mois_souhaite INTEGER;
+ALTER TABLE sejours ADD COLUMN annee_souhaitee INTEGER;
+ALTER TABLE sejours ADD COLUMN note_date_flexible VARCHAR(255);
+ALTER TABLE sejours ADD COLUMN duree_nuits INTEGER;

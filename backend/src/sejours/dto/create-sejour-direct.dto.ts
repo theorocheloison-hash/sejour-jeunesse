@@ -30,6 +30,25 @@ export class CreateSejourDirectDto {
   @IsDateString()
   dateFin?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  moisSouhaite?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  anneeSouhaitee?: number;
+
+  @IsOptional()
+  @IsString()
+  noteDateFlexible?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  dureeNuits?: number;
+
   @IsInt()
   @Min(0)
   @Type(() => Number)

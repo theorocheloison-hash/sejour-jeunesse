@@ -8,6 +8,7 @@ import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { buildPeriodeLabel } from '../demandes/demande.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -24,8 +25,12 @@ export class SejourService {
         titre:                    dto.titre,
         description:              dto.informationsComplementaires,
         lieu:                     dto.zoneGeographique,
-        dateDebut:                new Date(dto.dateDebut),
-        dateFin:                  new Date(dto.dateFin),
+        ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
+        ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
+        moisSouhaite:             dto.moisSouhaite ?? null,
+        anneeSouhaitee:           dto.anneeSouhaitee ?? null,
+        noteDateFlexible:         dto.noteDateFlexible ?? null,
+        dureeNuits:               dto.dureeNuits ?? null,
         placesTotales:            dto.nombreEleves,
         placesRestantes:          dto.nombreEleves,
         niveauClasse:             dto.niveauClasse ?? null,
@@ -890,10 +895,11 @@ export class SejourService {
 
     // Auto-create DemandeDevis when a sejour is SUBMITTED
     if (statut === StatutSejour.SUBMITTED && sejour.createurId) {
-      // Une DemandeDevis (appel d'offre) exige des dates définies.
-      if (!sejour.dateDebut || !sejour.dateFin) {
+      // Une DemandeDevis (appel d'offre) exige des dates OU une période souhaitée.
+      const hasDateInfo = (sejour.dateDebut && sejour.dateFin) || sejour.moisSouhaite || sejour.noteDateFlexible;
+      if (!hasDateInfo) {
         throw new BadRequestException(
-          'Les dates du séjour doivent être définies avant de le soumettre',
+          'Renseignez des dates ou une période souhaitée avant de soumettre',
         );
       }
       const thematiques = sejour.thematiquesPedagogiques ?? [];
@@ -910,6 +916,10 @@ export class SejourService {
           description:        descParts.join('\n'),
           dateDebut:          sejour.dateDebut,
           dateFin:            sejour.dateFin,
+          moisSouhaite:       sejour.moisSouhaite ?? null,
+          anneeSouhaitee:     sejour.anneeSouhaitee ?? null,
+          noteDateFlexible:   sejour.noteDateFlexible ?? null,
+          dureeNuits:         sejour.dureeNuits ?? null,
           nombreEleves:       sejour.placesTotales,
           villeHebergement:   sejour.lieu,
           regionCible:        sejour.regionSouhaitee ?? '',
@@ -931,8 +941,14 @@ export class SejourService {
       });
 
       // Notifier les hébergeurs de la nouvelle demande
-      const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
-      const dateFin = sejour.dateFin ? sejour.dateFin.toLocaleDateString('fr-FR') : 'À définir';
+      const periodeLabel = buildPeriodeLabel({
+        dateDebut: sejour.dateDebut?.toISOString(),
+        dateFin: sejour.dateFin?.toISOString(),
+        moisSouhaite: sejour.moisSouhaite ?? undefined,
+        anneeSouhaitee: sejour.anneeSouhaitee ?? undefined,
+        noteDateFlexible: sejour.noteDateFlexible ?? undefined,
+        dureeNuits: sejour.dureeNuits ?? undefined,
+      });
       // TODO: ABONNEMENT — réactiver le filtre par abonnement actif
       const centres = await this.prisma.centreHebergement.findMany({
         include: { user: { select: { email: true } } },
@@ -1002,8 +1018,7 @@ export class SejourService {
           centre.nom,
           sejour.titre,
           sejour.lieu ?? '',
-          dateDebut,
-          dateFin,
+          periodeLabel,
         );
       }
 
@@ -1035,6 +1050,10 @@ export class SejourService {
         // (Prisma insère null pour les champs optionnels non fournis).
         ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
         ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
+        ...(dto.moisSouhaite ? { moisSouhaite: dto.moisSouhaite } : {}),
+        ...(dto.anneeSouhaitee ? { anneeSouhaitee: dto.anneeSouhaitee } : {}),
+        ...(dto.noteDateFlexible ? { noteDateFlexible: dto.noteDateFlexible } : {}),
+        ...(dto.dureeNuits ? { dureeNuits: dto.dureeNuits } : {}),
         placesTotales: dto.nombreParticipants,
         placesRestantes: dto.nombreParticipants,
         statut: 'OPTION',
