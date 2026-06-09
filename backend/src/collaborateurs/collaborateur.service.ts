@@ -160,6 +160,7 @@ export class CollaborateurService {
         motDePasse: hashed,
         role: Role.HEBERGEUR,
         emailVerifie: true,
+        compteValide: true,
       },
     });
 
