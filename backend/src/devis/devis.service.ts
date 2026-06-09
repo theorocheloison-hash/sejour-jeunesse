@@ -166,7 +166,7 @@ export class DevisService {
         lignes: true,
         // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé).
         // dateDebut/dateFin/modeGestion alignés sur getDevisById() pour cohérence du type frontend.
-        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, deletedAt: true } },
+        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
           include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
@@ -1259,6 +1259,157 @@ export class DevisService {
     } catch { /* non bloquant */ }
 
     return { success: true, message: 'Devis envoyé par email' };
+  }
+
+  /**
+   * Génère la convention de séjour scolaire (phase 1 : template Sauvageon hardcodé),
+   * la stocke sur OVH, persiste l'URL et envoie un email à l'établissement.
+   * Déclenché par l'hébergeur APRÈS signature du devis (idempotent).
+   */
+  async genererConventionScolaire(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        lignes: true,
+        sejourDirect: {
+          select: {
+            id: true, titre: true, dateDebut: true, dateFin: true,
+            clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true,
+            clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
+            placesTotales: true, nombreAccompagnateurs: true,
+            modeGestion: true, natureSejour: true,
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Un devis complémentaire ne donne pas lieu à une convention');
+    }
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new ForbiddenException('Ce devis n\'est pas un devis direct');
+    }
+    if (!['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut)) {
+      throw new ForbiddenException('Le devis doit être signé pour générer la convention');
+    }
+
+    // Idempotent : si la convention existe déjà, on la retourne sans re-générer.
+    if (devis.conventionUrl) {
+      return { conventionUrl: devis.conventionUrl, alreadyGenerated: true };
+    }
+
+    const sejour = devis.sejourDirect;
+    const fmtDate = (d: Date | null) => d
+      ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+      : 'Dates à confirmer';
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    const montantTTC = devis.montantTTC ?? 0;
+    const pourcentageAcompte = devis.pourcentageAcompte ?? 30;
+    const montantAcompte = devis.montantAcompte ?? (montantTTC * (pourcentageAcompte / 100));
+    const effectifEncadrants = sejour.nombreAccompagnateurs ?? 0;
+    // placesTotales = effectif élèves ; encadrants comptés séparément (nombreAccompagnateurs).
+    const effectifEleves = sejour.placesTotales ?? 0;
+
+    const contactNom = [sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') || 'l\'établissement';
+    const etablissementNom = sejour.clientOrganisation || sejour.clientNom || 'Établissement scolaire';
+    const etablissementAdresse = [sejour.clientAdresse, [sejour.clientCodePostal, sejour.clientVille].filter(Boolean).join(' ')]
+      .filter(Boolean).join(', ') || null;
+
+    const { generateConventionScolaireSauvageonPdf } = await import('./convention-scolaire-sauvageon.pdf.js');
+
+    const pdfBuffer = await generateConventionScolaireSauvageonPdf({
+      centreNom: centre.nom,
+      centreAdresse: centre.adresse ?? '',
+      centreCodePostal: centre.codePostal ?? '',
+      centreVille: centre.ville ?? '',
+      centreTelephone: centre.telephone ?? '',
+      centreEmail: centre.email ?? '',
+      centreSiret: centre.siret ?? '',
+      centreRepresentant: 'Maëva Roche-Loison',
+      etablissementNom,
+      etablissementAdresse,
+      contactNom,
+      contactEmail: sejour.clientEmail,
+      dateDebut: fmtDate(sejour.dateDebut),
+      dateFin: fmtDate(sejour.dateFin),
+      effectifEleves,
+      effectifEncadrants,
+      sejourTitre: sejour.titre,
+      numeroDevis: devis.numeroDevis,
+      lignes: (devis.lignes ?? []).map(l => ({
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: round2(Number(l.prixUnitaire)),
+        tva: l.tva,
+        totalTTC: round2(Number(l.totalTTC)),
+      })),
+      montantHT: round2(devis.montantHT ?? 0),
+      montantTVA: round2(devis.montantTVA ?? 0),
+      montantTTC: round2(montantTTC),
+      pourcentageAcompte,
+      montantAcompte: round2(montantAcompte),
+      dateDocument: fmtDate(new Date()),
+    });
+
+    const conventionUrl = await this.storage.uploadBuffer(
+      pdfBuffer,
+      `convention-${devis.numeroDevis ?? devis.id}.pdf`,
+      'conventions',
+      'application/pdf',
+    );
+
+    await this.prisma.devis.update({
+      where: { id: devis.id },
+      data: { conventionUrl },
+    });
+
+    if (sejour.clientEmail) {
+      await this.email.sendGenericNotification(
+        sejour.clientEmail,
+        `Convention de séjour — ${sejour.titre} · ${centre.nom}`,
+        `<p>Bonjour${contactNom !== 'l\'établissement' ? ` ${contactNom}` : ''},</p>
+         <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${centre.nom}.</p>
+         <table style="width:100%;border-collapse:collapse;margin:16px 0">
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmtDate(sejour.dateDebut)} → ${fmtDate(sejour.dateFin)}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Effectif</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${effectifEleves} élèves · ${effectifEncadrants} encadrants</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+         </table>
+         <p>Merci de nous retourner un exemplaire signé, précédé de la mention « lu et approuvé ».</p>
+         <p style="margin:24px 0">
+           <a href="${conventionUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Télécharger la convention
+           </a>
+         </p>
+         <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${conventionUrl}</p>`,
+        centre.nom,
+        centre.email ? { name: centre.nom, email: centre.email } : undefined,
+      );
+    }
+
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            type: 'DEVIS',
+            description: `Convention de séjour générée — ${sejour.titre}`,
+            metadata: { devisId, sejourId: sejour.id, conventionUrl },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { conventionUrl, success: true };
   }
 
   /**
