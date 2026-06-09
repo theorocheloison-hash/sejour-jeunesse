@@ -296,6 +296,7 @@ model Sejour {
 
   @@index([createurId])
   @@index([statut])
+  @@index([clientOrganisationId], map: "idx_sejours_client_org")
   @@map("sejours")
 }
 
