@@ -22,11 +22,13 @@ export class AuthController {
   }
 
   @Post('register/organisateur')
+  @Throttle({ default: { ttl: 3600000, limit: 10 } })   // 10/heure par IP
   registerOrganisateur(@Body() dto: RegisterOrganisateurDto, @Req() req: Request) {
     return this.authService.registerOrganisateur(dto, req.ip, req.headers['user-agent']);
   }
 
   @Post('register/hebergeur')
+  @Throttle({ default: { ttl: 3600000, limit: 5 } })    // 5/heure par IP
   @UseInterceptors(FileInterceptor('document'))
   registerHebergeur(
     @Body() dto: RegisterHebergeurDto,
@@ -40,6 +42,7 @@ export class AuthController {
   }
 
   @Post('register/signataire')
+  @Throttle({ default: { ttl: 3600000, limit: 10 } })   // 10/heure par IP
   registerSignataire(@Body() dto: RegisterSignataireDto, @Req() req: Request) {
     return this.authService.registerSignataire(dto, req.ip, req.headers['user-agent']);
   }
@@ -70,7 +73,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
