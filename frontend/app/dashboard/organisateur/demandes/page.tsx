@@ -12,6 +12,17 @@ import type { Devis, StatutDevis } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 
+const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
+  const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  if (d.dateDebut && d.dateFin) return `${new Date(d.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})} → ${new Date(d.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
+  const parts: string[] = [];
+  if (d.moisSouhaite) parts.push(MOIS[d.moisSouhaite-1]);
+  if (d.anneeSouhaitee) parts.push(String(d.anneeSouhaitee));
+  if (d.noteDateFlexible) parts.push(d.noteDateFlexible);
+  if (d.dureeNuits) parts.push(`~${d.dureeNuits}n`);
+  return parts.length > 0 ? '📅 ' + parts.join(' · ') : 'Dates à définir';
+};
+
 const STATUT_DEVIS_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
   EN_ATTENTE_VALIDATION: { label: 'Soumis au directeur', cls: 'bg-blue-100 text-blue-700' },
@@ -153,8 +164,6 @@ export default function OrganisateurDemandesPage() {
         ) : (
           <div className="space-y-4">
             {demandes.map((d) => {
-              const dateDebut = new Date(d.dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-              const dateFin = new Date(d.dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
               const devisCount = d._count?.devis ?? 0;
               const expanded = expandedId === d.id;
               const devis = devisMap[d.id] ?? [];
@@ -171,7 +180,7 @@ export default function OrganisateurDemandesPage() {
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                         <span>{d.villeHebergement}</span>
-                        <span>{dateDebut} &rarr; {dateFin}</span>
+                        <span>{afficherDatesDemande(d)}</span>
                         <span>{d.nombreEleves} élève{d.nombreEleves > 1 ? 's' : ''}</span>
                         {d.regionCible && <span>{d.regionCible}</span>}
                         {d.dateButoireReponse && (

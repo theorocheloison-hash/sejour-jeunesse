@@ -9,8 +9,12 @@ export type TypeZone = 'FRANCE' | 'REGION' | 'DEPARTEMENT' | 'VILLE';
 export interface CreateSejourDto {
   titre: string;
   informationsComplementaires?: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut?: string;
+  dateFin?: string;
+  moisSouhaite?: number;
+  anneeSouhaitee?: number;
+  noteDateFlexible?: string;
+  dureeNuits?: number;
   nombreEleves: number;
   niveauClasse?: string;
   thematiquesPedagogiques: string[];
