@@ -208,6 +208,18 @@ export class DevisController {
     return this.devisService.envoyerDevisDirect(id, user.id, centreId, body?.messagePersonnalise);
   }
 
+  /** POST /devis/:id/convention — Générer la convention de séjour scolaire (hébergeur, après signature) */
+  @Post(':id/convention')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  genererConvention(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.genererConventionScolaire(id, user.id, centreId);
+  }
+
   @Get(':id/versements')
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getVersements(@Param('id') id: string) {

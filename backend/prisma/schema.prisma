@@ -850,6 +850,7 @@ model Devis {
   signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
   signatureUserAgent  String?  @map("signature_user_agent") @db.VarChar(500)
   signatureHash       String?  @map("signature_hash") @db.VarChar(64)
+  conventionUrl         String?   @map("convention_url") @db.VarChar(500)
 
   relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
   montantVerseTotal Float @default(0) @map("montant_verse_total")
