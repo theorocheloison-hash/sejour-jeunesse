@@ -151,6 +151,7 @@ export interface Devis {
   signatureDirecteur?: string | null;
   dateSignatureDirecteur?: string | null;
   nomSignataireDirecteur?: string | null;
+  conventionUrl?: string | null;
   estFacture?: boolean;
   dateFacture?: string | null;
   acompteVerse?: boolean;
@@ -457,6 +458,12 @@ export async function envoyerDevisDirect(
     { messagePersonnalise },
   );
   return data;
+}
+
+/** Génère (ou retourne) la convention de séjour scolaire — déclenché par l'hébergeur après signature. */
+export async function genererConvention(devisId: string): Promise<{ conventionUrl: string; success: boolean; alreadyGenerated?: boolean }> {
+  const res = await api.post(`/devis/${devisId}/convention`);
+  return res.data;
 }
 
 /** Retourne uniquement le devis PRINCIPAL du séjour (isComplementaire=false). */
