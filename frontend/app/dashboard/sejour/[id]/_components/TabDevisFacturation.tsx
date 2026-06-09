@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
   getDevisForSejourDirect,
+  getDevisComplementairesForSejour,
+  createDevisComplementaire,
   envoyerDevisDirect,
   emettreFactureAcompte,
   emettreFactureSolde,
@@ -16,6 +18,10 @@ import {
   annulerDevis,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
+import OrganisationSearch from '@/app/dashboard/_shared/OrganisationSearch';
+import type { OrganisationResult } from '@/app/dashboard/_shared/OrganisationSearch';
+
+const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import api from '@/src/lib/api';
@@ -184,14 +190,68 @@ export default function TabDevisFacturation({
   const [annulerLoading, setAnnulerLoading] = useState(false);
   const [showModalAnnuler, setShowModalAnnuler] = useState(false);
 
+  // ── Devis complémentaires ────────────────────────────────────────────────
+  const [complementaires, setComplementaires] = useState<DevisType[]>([]);
+  const [complementairesLoading, setComplementairesLoading] = useState(false);
+  const [showModalComplementaire, setShowModalComplementaire] = useState(false);
+  const [compForm, setCompForm] = useState({
+    destinataireNom: '',
+    destinataireAdresse: '',
+    destinataireCodePostal: '',
+    destinataireVille: '',
+    destinataireSiret: '',
+    destinataireEmail: '',
+    tauxTva: 0,
+    description: '',
+    lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
+  });
+  const [compLoading, setCompLoading] = useState(false);
+  const [compError, setCompError] = useState<string | null>(null);
+  const [compFacturerLoading, setCompFacturerLoading] = useState<string | null>(null); // id du devis en cours
+  const [compFacturesMap, setCompFacturesMap] = useState<Record<string, Facture[]>>({}); // devisId → factures
+  const [compSelectedOrg, setCompSelectedOrg] = useState<OrganisationResult | null>(null);
+
+  const loadComplementaires = useCallback(async () => {
+    if (!isDirect) return;
+    setComplementairesLoading(true);
+    try {
+      const list = await getDevisComplementairesForSejour(sejourId);
+      setComplementaires(list);
+      // Charger les factures de chaque complémentaire
+      const map: Record<string, Facture[]> = {};
+      await Promise.all(
+        list.map(async (c) => {
+          if (c.factures) {
+            map[c.id] = c.factures;
+          } else {
+            try {
+              map[c.id] = await getFacturesForDevis(c.id);
+            } catch { map[c.id] = []; }
+          }
+        })
+      );
+      setCompFacturesMap(map);
+    } catch { /* ignore */ }
+    finally { setComplementairesLoading(false); }
+  }, [isDirect, sejourId]);
+
+  /** Recharge le devis principal ET les complémentaires après une action. */
+  const reloadAllDirect = async () => {
+    const devis = await getDevisForSejourDirect(sejourId);
+    setDirectDevis(devis[0] ?? null);
+    await loadComplementaires();
+  };
+
   useEffect(() => {
     if (!isDirect) return;
     setDirectDevisLoading(true);
-    getDevisForSejourDirect(sejourId)
-      .then(devis => setDirectDevis(devis[0] ?? null))
+    Promise.all([
+      getDevisForSejourDirect(sejourId).then(devis => setDirectDevis(devis[0] ?? null)),
+      loadComplementaires(),
+    ])
       .catch(() => {})
       .finally(() => setDirectDevisLoading(false));
-  }, [isDirect, sejourId]);
+  }, [isDirect, sejourId, loadComplementaires]);
 
   // Devis actif (DIRECT ou COLLAB) normalisé pour le pipeline facturation
   const activeDevisForFacturation = isDirect
@@ -261,8 +321,7 @@ export default function TabDevisFacturation({
     try {
       await emettreFactureAcompte(activeDevisId);
       if (isDirect) {
-        const devis = await getDevisForSejourDirect(sejourId);
-        setDirectDevis(devis[0] ?? null);
+        await reloadAllDirect();
       } else {
         await onBudgetReload();
       }
@@ -280,8 +339,7 @@ export default function TabDevisFacturation({
     try {
       await emettreFactureSolde(activeDevisId);
       if (isDirect) {
-        const devis = await getDevisForSejourDirect(sejourId);
-        setDirectDevis(devis[0] ?? null);
+        await reloadAllDirect();
       } else {
         await onBudgetReload();
       }
@@ -299,8 +357,7 @@ export default function TabDevisFacturation({
     try {
       await emettreFactureTotal(activeDevisId);
       if (isDirect) {
-        const devis = await getDevisForSejourDirect(sejourId);
-        setDirectDevis(devis[0] ?? null);
+        await reloadAllDirect();
       } else {
         await onBudgetReload();
       }
@@ -400,8 +457,7 @@ export default function TabDevisFacturation({
       setShowModalAvoir(false);
       await reloadFactures();
       if (isDirect) {
-        const devis = await getDevisForSejourDirect(sejourId);
-        setDirectDevis(devis[0] ?? null);
+        await reloadAllDirect();
       } else {
         await onBudgetReload();
       }
@@ -421,8 +477,7 @@ export default function TabDevisFacturation({
       await annulerDevis(activeDevisId);
       setShowModalAnnuler(false);
       if (isDirect) {
-        const devis = await getDevisForSejourDirect(sejourId);
-        setDirectDevis(devis[0] ?? null);
+        await reloadAllDirect();
       } else {
         await onBudgetReload();
       }
@@ -434,6 +489,181 @@ export default function TabDevisFacturation({
     } finally {
       setAnnulerLoading(false);
     }
+  };
+
+  // ── Devis complémentaires : handlers ──────────────────────────────────────
+  const handleSelectCompOrg = (org: OrganisationResult) => {
+    setCompSelectedOrg(org);
+    setCompForm(f => ({
+      ...f,
+      destinataireNom: org.nom,
+      destinataireAdresse: org.adresse ?? f.destinataireAdresse,
+      destinataireCodePostal: org.codePostal ?? f.destinataireCodePostal,
+      destinataireVille: org.ville ?? f.destinataireVille,
+      destinataireSiret: org.siret ?? f.destinataireSiret,
+      destinataireEmail: org.email ?? f.destinataireEmail,
+    }));
+  };
+
+  const addCompLigne = () =>
+    setCompForm(f => ({ ...f, lignes: [...f.lignes, { description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }] }));
+  const removeCompLigne = (index: number) =>
+    setCompForm(f => ({ ...f, lignes: f.lignes.filter((_, i) => i !== index) }));
+  const updateCompLigne = (index: number, field: 'description' | 'quantite' | 'prixUnitaire', value: string) =>
+    setCompForm(f => ({
+      ...f,
+      lignes: f.lignes.map((l, i) => i === index
+        ? { ...l, [field]: field === 'description' ? value : Number(value) || 0 }
+        : l),
+    }));
+
+  const calcCompTotaux = () => {
+    return compForm.lignes.map(l => {
+      const totalHT = l.quantite * l.prixUnitaire;
+      const totalTTC = totalHT * (1 + compForm.tauxTva / 100);
+      return { ...l, tva: compForm.tauxTva, totalHT: Math.round(totalHT * 100) / 100, totalTTC: Math.round(totalTTC * 100) / 100 };
+    });
+  };
+
+  const compTotalTTC = calcCompTotaux().reduce((s, l) => s + l.totalTTC, 0);
+
+  const resetCompForm = () => {
+    setCompForm({
+      destinataireNom: '', destinataireAdresse: '', destinataireCodePostal: '',
+      destinataireVille: '', destinataireSiret: '', destinataireEmail: '',
+      tauxTva: 0, description: '',
+      lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
+    });
+    setCompSelectedOrg(null);
+    setCompError(null);
+  };
+
+  const handleCreerComplementaire = async () => {
+    if (!compForm.destinataireNom.trim()) {
+      setCompError('Le nom du destinataire est obligatoire');
+      return;
+    }
+    const lignesCalculees = calcCompTotaux();
+    if (lignesCalculees.length === 0 || lignesCalculees.every(l => l.totalTTC === 0)) {
+      setCompError('Ajoutez au moins une ligne avec un montant');
+      return;
+    }
+    setCompLoading(true);
+    setCompError(null);
+    try {
+      await createDevisComplementaire({
+        sejourDirectId: sejourId,
+        destinataireNom: compForm.destinataireNom.trim(),
+        destinataireAdresse: compForm.destinataireAdresse || undefined,
+        destinataireCodePostal: compForm.destinataireCodePostal || undefined,
+        destinataireVille: compForm.destinataireVille || undefined,
+        destinataireSiret: compForm.destinataireSiret || undefined,
+        destinataireEmail: compForm.destinataireEmail || undefined,
+        tauxTva: compForm.tauxTva,
+        description: compForm.description || undefined,
+        lignes: lignesCalculees,
+      });
+      setShowModalComplementaire(false);
+      resetCompForm();
+      await loadComplementaires();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de la création';
+      setCompError(msg);
+    } finally {
+      setCompLoading(false);
+    }
+  };
+
+  const handleFacturerComplementaire = async (devisId: string) => {
+    setCompFacturerLoading(devisId);
+    try {
+      await emettreFactureTotal(devisId);
+      await loadComplementaires();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? 'Erreur lors de la facturation';
+      onError(msg);
+    } finally {
+      setCompFacturerLoading(null);
+    }
+  };
+
+  const renderDevisComplementaires = () => {
+    if (!isDirect || user.role !== 'HEBERGEUR') return null;
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">Devis complémentaires</h3>
+          <button
+            onClick={() => { resetCompForm(); setShowModalComplementaire(true); }}
+            className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+          >
+            + Ajouter un devis
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">
+          Payeurs additionnels (Association sportive, Mairie, CE…) — chacun reçoit sa propre facture à son nom.
+        </p>
+
+        {complementairesLoading ? (
+          <div className="flex justify-center py-6">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+          </div>
+        ) : complementaires.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">Aucun devis complémentaire.</p>
+        ) : (
+          <div className="space-y-2">
+            {complementaires.map((c) => {
+              const facts = compFacturesMap[c.id] ?? [];
+              const dejaFacture = facts.some(f => f.typeFacture === 'SOLDE' || f.typeFacture === 'ACOMPTE');
+              const annule = c.statut === 'NON_RETENU';
+              return (
+                <div key={c.id} className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {c.destinataireNom ?? 'Destinataire'}
+                        {c.numeroDevis ? <span className="text-gray-400 font-normal"> · {c.numeroDevis}</span> : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {Number(c.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € TTC
+                        {c.description ? ` · ${c.description}` : ''}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      annule ? 'bg-gray-100 text-gray-500' : dejaFacture ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                    }`}>
+                      {annule ? 'Annulé' : dejaFacture ? 'Facturé' : 'Brouillon'}
+                    </span>
+                  </div>
+
+                  {(facts.length > 0 || (!dejaFacture && !annule)) && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                      {facts.map((f) => (
+                        <FacturePdfLink key={f.id} facture={f} onReload={loadComplementaires} />
+                      ))}
+                      {!dejaFacture && !annule && (
+                        <button
+                          onClick={() => handleFacturerComplementaire(c.id)}
+                          disabled={compFacturerLoading === c.id}
+                          className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          {compFacturerLoading === c.id && (
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          )}
+                          Facturer le total
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderFacturationPipeline = () => {
@@ -891,8 +1121,7 @@ export default function TabDevisFacturation({
                               await envoyerDevisDirect(directDevis.id, messagePerso.trim() || undefined);
                               setShowEnvoiModal(false);
                               setEnvoyerSuccess(true);
-                              const devis = await getDevisForSejourDirect(sejourId);
-                              setDirectDevis(devis[0] ?? null);
+                              await reloadAllDirect();
                             } catch {
                               setEnvoiError("Erreur lors de l'envoi du devis. Réessayez.");
                             } finally {
@@ -1032,6 +1261,7 @@ export default function TabDevisFacturation({
               </Link>
             </div>
           )}
+          {renderDevisComplementaires()}
         </div>
       )}
 
@@ -1427,6 +1657,106 @@ export default function TabDevisFacturation({
               >
                 {avoirLoading ? 'Émission...' : 'Émettre l\'avoir'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal création devis complémentaire ─── */}
+      {showModalComplementaire && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !compLoading && setShowModalComplementaire(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Nouveau devis complémentaire</h2>
+            <p className="text-xs text-gray-400 mb-4">Payeur additionnel facturé à son propre nom.</p>
+
+            {compError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">{compError}</div>
+            )}
+
+            {/* Destinataire */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Rechercher l&apos;organisme payeur</label>
+                <OrganisationSearch onSelect={handleSelectCompOrg} placeholder="Association, mairie, entreprise..." />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Nom du destinataire *</label>
+                <input value={compForm.destinataireNom} onChange={e => setCompForm(f => ({ ...f, destinataireNom: e.target.value }))}
+                  className={inputCls} placeholder="ex: Association Sportive du Lycée" />
+              </div>
+              <input value={compForm.destinataireAdresse} onChange={e => setCompForm(f => ({ ...f, destinataireAdresse: e.target.value }))} className={inputCls} placeholder="Adresse" />
+              <div className="grid grid-cols-3 gap-3">
+                <input value={compForm.destinataireCodePostal} onChange={e => setCompForm(f => ({ ...f, destinataireCodePostal: e.target.value }))} className={inputCls} placeholder="Code postal" />
+                <input value={compForm.destinataireVille} onChange={e => setCompForm(f => ({ ...f, destinataireVille: e.target.value }))} className={`col-span-2 ${inputCls}`} placeholder="Ville" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input value={compForm.destinataireSiret} onChange={e => setCompForm(f => ({ ...f, destinataireSiret: e.target.value }))} className={inputCls} placeholder="SIRET (optionnel)" />
+                <input value={compForm.destinataireEmail} onChange={e => setCompForm(f => ({ ...f, destinataireEmail: e.target.value }))} className={inputCls} placeholder="Email (pour la facture)" />
+              </div>
+            </div>
+
+            {/* Lignes */}
+            <div className="mt-5 border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-700">Prestations</p>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">TVA</label>
+                  <select value={compForm.tauxTva} onChange={e => setCompForm(f => ({ ...f, tauxTva: Number(e.target.value) }))}
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs">
+                    <option value={0}>0 %</option>
+                    <option value={5.5}>5,5 %</option>
+                    <option value={10}>10 %</option>
+                    <option value={20}>20 %</option>
+                  </select>
+                </div>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-500">
+                    <th className="py-1 font-medium">Description</th>
+                    <th className="py-1 font-medium w-16 text-right">Qté</th>
+                    <th className="py-1 font-medium w-24 text-right">PU HT</th>
+                    <th className="py-1 font-medium w-24 text-right">Total TTC</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calcCompTotaux().map((l, i) => (
+                    <tr key={i}>
+                      <td className="py-1 pr-2">
+                        <input value={compForm.lignes[i].description} onChange={e => updateCompLigne(i, 'description', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" placeholder="ex: Activités ski" />
+                      </td>
+                      <td className="py-1">
+                        <input type="number" min={0} value={compForm.lignes[i].quantite} onChange={e => updateCompLigne(i, 'quantite', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
+                      </td>
+                      <td className="py-1">
+                        <input type="number" min={0} step="0.01" value={compForm.lignes[i].prixUnitaire} onChange={e => updateCompLigne(i, 'prixUnitaire', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
+                      </td>
+                      <td className="py-1 text-right font-medium">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                      <td className="py-1 text-center">
+                        {compForm.lignes.length > 1 && (
+                          <button onClick={() => removeCompLigne(i)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button onClick={addCompLigne} className="mt-2 text-xs text-[var(--color-primary)] hover:underline">+ Ajouter une ligne</button>
+
+              <div className="mt-3 flex justify-end">
+                <div className="text-sm font-bold">
+                  Total TTC : <span className="text-[var(--color-primary)]">{compTotalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={handleCreerComplementaire} disabled={compLoading}
+                className="flex-1 rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                {compLoading ? 'Création…' : 'Créer le devis complémentaire'}
+              </button>
+              <button onClick={() => setShowModalComplementaire(false)} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
           </div>
         </div>

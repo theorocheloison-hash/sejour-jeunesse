@@ -176,6 +176,22 @@ export class FactureService {
   /** Snapshot destinataire : collab → organisation du créateur du séjour + email enseignant ;
    *  direct → client du séjour. */
   private async construireDestinataire(devis: Awaited<ReturnType<FactureService['chargerDevisProprietaire']>>) {
+    // ── Devis complémentaire : destinataire PROPRE (priorité absolue) ──
+    if (devis.isComplementaire && devis.destinataireNom) {
+      const adresseSerializee = (devis.destinataireAdresse && devis.destinataireCodePostal && devis.destinataireVille)
+        ? `${devis.destinataireAdresse}||${devis.destinataireCodePostal}||${devis.destinataireVille}`
+        : [devis.destinataireAdresse, devis.destinataireCodePostal, devis.destinataireVille].filter(Boolean).join(', ') || null;
+      return {
+        sejourId: devis.sejourDirectId ?? null,
+        destinataireNom: devis.destinataireNom,
+        destinataireAdresse: adresseSerializee,
+        destinataireSiret: devis.destinataireSiret ?? null,
+        destinataireEmail: devis.destinataireEmail ?? null,
+        emailNotif: devis.destinataireEmail ?? null,
+        sejourTitre: devis.sejourDirect?.titre ?? 'votre séjour',
+      };
+    }
+
     if (devis.demandeId && devis.demande) {
       const enseignant = devis.demande.enseignant;
       const createurId = devis.demande.sejour?.createurId ?? null;
@@ -246,8 +262,15 @@ export class FactureService {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
-    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
-      throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
+    if (devis.isComplementaire) {
+      // Un devis complémentaire peut être facturé dès sa création (pas de signature)
+      if (devis.statut === StatutDevis.NON_RETENU) {
+        throw new ForbiddenException('Ce devis a été annulé et ne peut plus être facturé');
+      }
+    } else {
+      if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
+        throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
+      }
     }
     const acompteExistant = await this.prisma.facture.findFirst({
       where: { devisId, typeFacture: 'ACOMPTE' },
@@ -460,8 +483,14 @@ export class FactureService {
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
     // Même guard que emettreAcompte
-    if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
-      throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
+    if (devis.isComplementaire) {
+      if (devis.statut === StatutDevis.NON_RETENU) {
+        throw new ForbiddenException('Ce devis a été annulé et ne peut plus être facturé');
+      }
+    } else {
+      if (devis.statut !== StatutDevis.SELECTIONNE && devis.statut !== StatutDevis.SIGNE_DIRECTION) {
+        throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
+      }
     }
     // Aucune facture (acompte OU solde) ne doit déjà exister
     const factureExistante = await this.prisma.facture.findFirst({

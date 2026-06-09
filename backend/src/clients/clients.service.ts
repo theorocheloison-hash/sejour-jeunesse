@@ -96,6 +96,7 @@ export class ClientsService {
       numeroFacture: true,
       typeDocument: true,
       statut: true,
+      isComplementaire: true,
       montantTotal: true,
       montantTTC: true,
       montantAcompte: true,

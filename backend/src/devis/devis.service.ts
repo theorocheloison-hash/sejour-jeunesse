@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
+import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
@@ -996,6 +997,104 @@ export class DevisService {
   }
 
   /**
+   * Crée un devis COMPLÉMENTAIRE sur un séjour direct : payeur additionnel (AS, Mairie…)
+   * avec destinataire propre. N'impacte ni le séjour, ni le devis principal, ni le CRM.
+   */
+  async createDevisComplementaire(
+    dto: CreateDevisComplementaireDto,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: dto.sejourDirectId },
+      select: { id: true, hebergementSelectionneId: true, deletedAt: true },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    const emetteurId = centre.organisationId ?? centre.id;
+    const numeroDevis = await this.formaterNumeroDevis(emetteurId);
+
+    const montantTTC = dto.lignes.reduce((s, l) => s + (l.totalTTC ?? 0), 0);
+    const montantHT = dto.lignes.reduce((s, l) => s + (l.totalHT ?? 0), 0);
+    const montantTVA = montantTTC - montantHT;
+
+    const devis = await this.prisma.devis.create({
+      data: {
+        sejourDirectId: dto.sejourDirectId,
+        demandeId: null,
+        centreId: centre.id,
+        emetteurId,
+        isComplementaire: true,
+        destinataireNom: dto.destinataireNom,
+        destinataireAdresse: dto.destinataireAdresse ?? null,
+        destinataireCodePostal: dto.destinataireCodePostal ?? null,
+        destinataireVille: dto.destinataireVille ?? null,
+        destinataireSiret: dto.destinataireSiret ?? null,
+        destinataireEmail: dto.destinataireEmail ?? null,
+        montantParEleve: 0, // pas de sens pour un complémentaire (colonne NOT NULL)
+        montantTotal: montantTTC,
+        montantHT,
+        montantTVA,
+        montantTTC,
+        tauxTva: dto.tauxTva ?? 0,
+        description: dto.description,
+        conditionsAnnulation: dto.conditionsAnnulation,
+        statut: StatutDevis.EN_ATTENTE,
+        typeDevis: 'COMPLEMENTAIRE',
+        // Pas d'acompte : les complémentaires sont facturés directement (facture totale).
+        pourcentageAcompte: null,
+        montantAcompte: null,
+        numeroDevis,
+      },
+    });
+
+    await this.prisma.ligneDevis.createMany({
+      data: dto.lignes.map((l) => ({
+        devisId: devis.id,
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva ?? 0,
+        totalHT: l.totalHT,
+        totalTTC: l.totalTTC,
+      })),
+    });
+
+    // NE mute PAS le séjour, ne notifie pas, ne rattache pas de Client CRM.
+    return this.prisma.devis.findUnique({
+      where: { id: devis.id },
+      include: { lignes: true },
+    });
+  }
+
+  /** Liste les devis complémentaires d'un séjour (avec factures + versements). */
+  async getDevisComplementaires(sejourId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { hebergementSelectionneId: true },
+    });
+    if (!sejour || sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+
+    return this.prisma.devis.findMany({
+      where: { sejourDirectId: sejourId, isComplementaire: true },
+      include: {
+        lignes: true,
+        factures: { include: { lignes: true, versements: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
    * Envoie un devis DIRECT par email au client avec lien de signature.
    */
   async envoyerDevisDirect(
@@ -1029,6 +1128,9 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
+    }
     if (devis.centreId !== centre.id) throw new ForbiddenException();
     if (!devis.sejourDirectId || !devis.sejourDirect) {
       throw new ForbiddenException('Ce devis n\'est pas un devis direct');
@@ -1186,6 +1288,7 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Lien de signature invalide');
+    if (devis.isComplementaire) throw new NotFoundException('Lien invalide');
     if (!devis.sejourDirectId) {
       throw new NotFoundException('Ce devis n\'utilise pas la signature par lien');
     }
@@ -1248,6 +1351,9 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
+    }
     if (!devis.sejourDirectId || !devis.sejourDirect) {
       throw new NotFoundException('Devis non éligible à la signature par lien');
     }
@@ -1366,6 +1472,9 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
+    }
     if (!devis.sejourDirectId || !devis.sejourDirect) {
       throw new NotFoundException('Devis non éligible');
     }
@@ -1540,6 +1649,7 @@ export class DevisService {
       const autresActifs = await this.prisma.devis.count({
         where: {
           id: { not: devisId },
+          isComplementaire: false, // les complémentaires ne pilotent pas le statut du séjour
           statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
           OR: [
             { sejourDirectId: sejourCibleId },
