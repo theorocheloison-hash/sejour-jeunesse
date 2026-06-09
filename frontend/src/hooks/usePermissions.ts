@@ -27,7 +27,7 @@ const LOCKED: CentrePermissions = {
 
 export function usePermissions() {
   const { centreActif, user } = useAuth();
-  const [perms, setPerms] = useState<CentrePermissions>(OWNER);
+  const [perms, setPerms] = useState<CentrePermissions>(LOCKED);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
