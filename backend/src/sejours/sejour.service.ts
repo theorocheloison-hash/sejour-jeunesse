@@ -262,7 +262,7 @@ export class SejourService {
                     id: true, nom: true, ville: true, email: true,
                     telephone: true, adresse: true, codePostal: true,
                     siret: true, tvaIntracommunautaire: true, iban: true,
-                    conditionsAnnulation: true,
+                    conditionsAnnulation: true, logoUrl: true,
                   },
                 },
                 demande: {

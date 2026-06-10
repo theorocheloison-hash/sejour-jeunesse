@@ -258,6 +258,31 @@ export class CentreController {
     return this.centreService.uploadBrochure(user.id, file, centreId);
   }
 
+  @Post(':centreId/logo')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadLogo(
+    @CurrentUser() user: JwtUser,
+    @Param('centreId') centreId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    return this.centreService.uploadLogo(user.id, file, centreId);
+  }
+
+  @Delete(':centreId/logo')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  deleteLogo(
+    @CurrentUser() user: JwtUser,
+    @Param('centreId') centreId: string,
+  ) {
+    return this.centreService.deleteLogo(user.id, centreId);
+  }
+
   @Post('documents-upload')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)

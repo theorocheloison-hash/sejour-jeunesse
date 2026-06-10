@@ -205,6 +205,7 @@ export default function SignerDevisPage() {
     pourcentageAcompte: devis.pourcentageAcompte ?? undefined,
     conditionsAnnulation: devis.conditionsAnnulation ?? undefined,
     signatureDirecteur: devis.signatureDirecteur ?? null,
+    logoUrl: centre?.logoUrl ?? null,
   };
 
   return (

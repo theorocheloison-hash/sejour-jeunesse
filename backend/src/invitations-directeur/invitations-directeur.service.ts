@@ -52,6 +52,7 @@ export class InvitationsDirecteurService {
               siret: true,
               telephone: true,
               email: true,
+              logoUrl: true,
             },
           },
           demande: {

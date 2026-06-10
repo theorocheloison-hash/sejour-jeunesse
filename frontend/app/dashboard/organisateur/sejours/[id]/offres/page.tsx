@@ -107,6 +107,7 @@ export default function OffresPage() {
       pourcentageAcompte: d.pourcentageAcompte ?? undefined,
       conditionsAnnulation: d.conditionsAnnulation ?? undefined,
       dateValidite: new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
+      logoUrl: d.centre?.logoUrl ?? null,
     };
   };
 

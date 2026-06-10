@@ -1,9 +1,10 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface FacturePDFProps {
   typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR';
+  logoUrl?: string | null;
   numero: string;
   dateEmission: string; // ISO
   dateEcheance: string; // ISO (= dateEmission + 30 jours)
@@ -87,6 +88,9 @@ const s = StyleSheet.create({
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   emetteur: { maxWidth: '55%' },
+  emetteurRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  emetteurInfos: { flexShrink: 1 },
+  logo: { maxWidth: 120, maxHeight: 60, objectFit: 'contain', marginRight: 12 },
   emetteurNom: { fontSize: 16, fontWeight: 'bold', color: PRIMARY, marginBottom: 4 },
   emetteurDetail: { fontSize: 9, color: '#6B7280', lineHeight: 1.5 },
   headerRight: { alignItems: 'flex-end' },
@@ -150,7 +154,7 @@ const s = StyleSheet.create({
 
 export default function FacturePDF(props: FacturePDFProps) {
   const {
-    typeFacture, numero, dateEmission, dateEcheance,
+    typeFacture, logoUrl, numero, dateEmission, dateEcheance,
     emetteurNom, emetteurAdresse, emetteurSiret, emetteurTva, emetteurEmail, emetteurTel, emetteurIban,
     destinataireNom, destinataireAdresse, destinataireSiret, destinataireEmail,
     titreSejour, lignes, montantHT, montantTVA, montantTTC,
@@ -164,21 +168,32 @@ export default function FacturePDF(props: FacturePDFProps) {
     : typeFacture === 'SOLDE' ? 'FACTURE DE SOLDE'
     : "FACTURE D'AVOIR";
 
+  const emetteurInfos = (
+    <>
+      <Text style={s.emetteurNom}>{emetteurNom}</Text>
+      {emetteurAdresse && <Text style={s.emetteurDetail}>{emetteurAdresse}</Text>}
+      {emetteurSiret && <Text style={s.emetteurDetail}>SIRET : {emetteurSiret}</Text>}
+      {emetteurTva && <Text style={s.emetteurDetail}>TVA intracommunautaire : {emetteurTva}</Text>}
+      {emetteurEmail && <Text style={s.emetteurDetail}>{emetteurEmail}</Text>}
+      {emetteurTel && <Text style={s.emetteurDetail}>{emetteurTel}</Text>}
+      {emetteurIban && <Text style={s.emetteurDetail}>IBAN : {emetteurIban}</Text>}
+    </>
+  );
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
 
         {/* En-tête */}
         <View style={s.header}>
-          <View style={s.emetteur}>
-            <Text style={s.emetteurNom}>{emetteurNom}</Text>
-            {emetteurAdresse && <Text style={s.emetteurDetail}>{emetteurAdresse}</Text>}
-            {emetteurSiret && <Text style={s.emetteurDetail}>SIRET : {emetteurSiret}</Text>}
-            {emetteurTva && <Text style={s.emetteurDetail}>TVA intracommunautaire : {emetteurTva}</Text>}
-            {emetteurEmail && <Text style={s.emetteurDetail}>{emetteurEmail}</Text>}
-            {emetteurTel && <Text style={s.emetteurDetail}>{emetteurTel}</Text>}
-            {emetteurIban && <Text style={s.emetteurDetail}>IBAN : {emetteurIban}</Text>}
-          </View>
+          {logoUrl ? (
+            <View style={[s.emetteur, s.emetteurRow]}>
+              <Image src={logoUrl} style={s.logo} />
+              <View style={s.emetteurInfos}>{emetteurInfos}</View>
+            </View>
+          ) : (
+            <View style={s.emetteur}>{emetteurInfos}</View>
+          )}
           <View style={s.headerRight}>
             <Text style={s.docTitle}>{titre}</Text>
             <Text style={s.docInfo}>N° {numero}</Text>

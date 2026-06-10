@@ -1317,6 +1317,7 @@ export default function TabDevisFacturation({
                   pourcentageAcompte: Number(dd.pourcentageAcompte) || undefined,
                   conditionsAnnulation: dd.conditionsAnnulation ?? undefined,
                   signatureDirecteur: dd.signatureDirecteur ?? null,
+                  logoUrl: dd.centre?.logoUrl ?? null,
                 };
                 return (
                   <div className="space-y-3">
@@ -1434,6 +1435,7 @@ export default function TabDevisFacturation({
               pourcentageAcompte: Number(d.pourcentageAcompte) || undefined,
               conditionsAnnulation: d.conditionsAnnulation ?? undefined,
               signatureDirecteur: d.signatureDirecteur ?? null,
+              logoUrl: c?.logoUrl ?? null,
             };
 
             return (

@@ -22,6 +22,7 @@ export interface Centre {
   description: string | null;
   imageUrl: string | null;
   brochureUrl?: string | null;
+  logoUrl?: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   siret?: string | null;
   siteWeb?: string | null;
@@ -256,6 +257,21 @@ export async function uploadBrochure(file: File): Promise<{ brochureUrl: string 
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return data;
+}
+
+export async function uploadLogo(centreId: string, file: File): Promise<{ logoUrl: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<{ logoUrl: string }>(
+    `/centres/${centreId}/logo`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
+export async function deleteLogo(centreId: string): Promise<void> {
+  await api.delete(`/centres/${centreId}/logo`);
 }
 
 // ─── Multi-centre ───────────────────────────────────────────────────────────

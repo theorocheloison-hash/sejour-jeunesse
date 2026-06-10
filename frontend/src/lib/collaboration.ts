@@ -325,6 +325,7 @@ export interface DevisBudget {
     email: string | null;
     tvaIntracommunautaire: string | null;
     iban: string | null;
+    logoUrl?: string | null;
   } | null;
   documentUrl?: string | null;
   conventionUrl?: string | null;
@@ -687,6 +688,7 @@ export interface DevisPublic {
     siret: string | null; telephone: string | null; email: string | null;
     tvaIntracommunautaire: string | null; iban: string | null;
     brochureUrl: string | null; conditionsAnnulation: string | null;
+    logoUrl?: string | null;
   } | null;
   sejour: {
     id: string; titre: string; lieu: string;

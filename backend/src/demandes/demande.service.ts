@@ -274,6 +274,7 @@ export class DemandeService {
             id: true, nom: true, ville: true, telephone: true, email: true,
             capacite: true, description: true, adresse: true, codePostal: true,
             siret: true, tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+            logoUrl: true,
           },
         },
         demande: {

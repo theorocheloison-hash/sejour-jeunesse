@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, updateMonProfil, uploadCentreImage, uploadBrochure } from '@/src/lib/centre';
+import { getMonProfil, updateMonProfil, uploadCentreImage, uploadBrochure, uploadLogo, deleteLogo } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
 
 const inputCls =
@@ -90,6 +90,9 @@ export default function HebergeurProfilPage() {
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
   const [brochureUploading, setBrochureUploading] = useState(false);
   const [brochureError, setBrochureError] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || user.role !== 'HEBERGEUR') return;
@@ -98,6 +101,7 @@ export default function HebergeurProfilPage() {
         setCentre(c);
         setImageUrl(c.imageUrl ?? null);
         setBrochureUrl(c.brochureUrl ?? null);
+        setLogoUrl(c.logoUrl ?? null);
         setForm({
           nom: c.nom ?? '',
           description: c.description ?? '',
@@ -225,6 +229,47 @@ export default function HebergeurProfilPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !centre) return;
+    // JPG/PNG STRICTEMENT (react-pdf ne supporte pas le webp → crash silencieux du PDF)
+    const allowed = ['image/jpeg', 'image/png'];
+    if (!allowed.includes(file.type)) {
+      setLogoError('Format non supporté. Utilisez JPEG ou PNG uniquement.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('Fichier trop lourd. Maximum 2 Mo.');
+      return;
+    }
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const result = await uploadLogo(centre.id, file);
+      setLogoUrl(result.logoUrl);
+    } catch {
+      setLogoError("Erreur lors de l'upload. Réessayez.");
+    } finally {
+      setLogoUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!centre || !logoUrl) return;
+    if (!window.confirm('Supprimer le logo ? Il n\'apparaîtra plus sur vos devis et factures.')) return;
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      await deleteLogo(centre.id);
+      setLogoUrl(null);
+    } catch {
+      setLogoError('Erreur lors de la suppression. Réessayez.');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   if (isLoading || !user) return null;
 
   return (
@@ -303,6 +348,71 @@ export default function HebergeurProfilPage() {
                       onChange={handleImageUpload}
                     />
                   </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">Logo</h2>
+              <div className="flex items-start gap-6">
+                <div className="shrink-0">
+                  {logoUrl ? (
+                    <div className="flex items-center justify-center h-[60px] w-[120px] rounded-lg bg-gray-100 border border-gray-200 p-1">
+                      <img
+                        src={logoUrl}
+                        alt="Logo de l'établissement"
+                        className="max-h-[60px] max-w-[120px] object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-[60px] w-[120px] rounded-lg bg-gray-100 border border-gray-200">
+                      <svg className="h-7 w-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  {logoError && (
+                    <p className="text-sm text-red-600 mb-2">{logoError}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${logoUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {logoUploading ? (
+                        <>
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                          Upload en cours...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                          </svg>
+                          {logoUrl ? 'Changer le logo' : 'Ajouter un logo'}
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="hidden"
+                        disabled={logoUploading}
+                        onChange={handleLogoUpload}
+                      />
+                    </label>
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleLogoDelete}
+                        disabled={logoUploading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Supprimer le logo
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-3">
+                    Ce logo apparaîtra sur vos devis et factures. Formats : JPEG, PNG. Max 2 Mo.
+                  </p>
                 </div>
               </div>
             </div>

@@ -145,7 +145,7 @@ export class CentreService {
       where: { id: { in: ids } },
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
-        capacite: true, imageUrl: true, statut: true,
+        capacite: true, imageUrl: true, logoUrl: true, statut: true,
         abonnementStatut: true, planAbonnement: true,
         userId: true, // pour calculer isOwned (non exposé dans la réponse)
       },
@@ -154,6 +154,7 @@ export class CentreService {
     return centres.map(c => ({
       id: c.id, nom: c.nom, ville: c.ville, adresse: c.adresse,
       codePostal: c.codePostal, capacite: c.capacite, imageUrl: c.imageUrl,
+      logoUrl: c.logoUrl,
       statut: c.statut, abonnementStatut: c.abonnementStatut,
       planAbonnement: c.planAbonnement,
       isOwned: c.userId === userId,
@@ -1142,6 +1143,52 @@ export class CentreService {
     });
 
     return { brochureUrl };
+  }
+
+  /**
+   * Logo de l'hébergeur affiché en en-tête des devis et factures PDF.
+   * JPG/PNG STRICTEMENT (react-pdf crash silencieusement sur le webp). Max 2 Mo.
+   */
+  async uploadLogo(userId: string, file: Express.Multer.File, centreId?: string | null) {
+    if (!file) throw new BadRequestException('Fichier manquant');
+    const allowed = ['image/jpeg', 'image/png'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Logo : formats acceptés JPG ou PNG uniquement.');
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new BadRequestException('Le logo ne peut pas dépasser 2 Mo.');
+    }
+
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Supprimer l'ancien logo AVANT d'uploader le nouveau (évite les orphelins OVH)
+    if (centre.logoUrl) {
+      await this.storage.delete(centre.logoUrl);
+    }
+
+    const logoUrl = await this.storage.upload(file, 'logos');
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { logoUrl },
+    });
+
+    return { logoUrl };
+  }
+
+  /** Supprime le logo de l'hébergeur (OVH + base). */
+  async deleteLogo(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    if (centre.logoUrl) {
+      await this.storage.delete(centre.logoUrl);
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { logoUrl: null },
+      });
+    }
+
+    return { ok: true };
   }
 
   async uploadDocument(userId: string, file: Express.Multer.File, dto: CreateDocumentDto, centreId?: string | null) {

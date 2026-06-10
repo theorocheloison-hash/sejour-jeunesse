@@ -319,6 +319,7 @@ export class CollaborationService {
                 siret: true,
                 telephone: true,
                 email: true,
+                logoUrl: true,
               },
             },
           },
