@@ -20,13 +20,18 @@ function formatAdressePdf(raw: string | null): string | null {
 }
 
 /** Mappe une Facture (snapshot figé + ses lignes) vers les props du template PDF. */
-export function mapFactureToPdfProps(facture: FactureWithLignesEtendue, titreSejour: string): FacturePDFProps {
+export function mapFactureToPdfProps(
+  facture: FactureWithLignesEtendue,
+  titreSejour: string,
+  logoUrl?: string | null,
+): FacturePDFProps {
   // dateEcheance = dateEmission + 30 jours
   const dateEcheance = new Date(facture.dateEmission);
   dateEcheance.setDate(dateEcheance.getDate() + 30);
 
   return {
     typeFacture: facture.typeFacture as 'ACOMPTE' | 'SOLDE' | 'AVOIR',
+    logoUrl: logoUrl ?? null,
     numero: facture.numero,
     dateEmission: facture.dateEmission.toISOString(),
     dateEcheance: dateEcheance.toISOString(),

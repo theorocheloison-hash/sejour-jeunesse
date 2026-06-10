@@ -50,11 +50,12 @@ export class FactureService {
       factureAnnulee?: { numero: string; dateEmission: Date } | null;
     },
     titreSejour: string,
+    logoUrl?: string | null,
   ): Promise<string | null> {
     try {
       const { mapFactureToPdfProps } = await import('./pdf/facture-pdf.mapper.js');
       const { generateFacturePdf } = await import('./pdf/facture-pdf.generator.js');
-      const props = mapFactureToPdfProps(facture, titreSejour);
+      const props = mapFactureToPdfProps(facture, titreSejour, logoUrl);
       const buffer = await generateFacturePdf(props);
       // Lot 4A : embedding Factur-X (PDF/A-3 + CII XML). Import dynamique.
       // embedFacturX est non bloquant : retourne le buffer original en cas d'échec.
@@ -103,7 +104,7 @@ export class FactureService {
     }
     const titreSejour =
       facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'Non renseigné';
-    const pdfUrl = await this.generateAndStorePdf(facture, titreSejour);
+    const pdfUrl = await this.generateAndStorePdf(facture, titreSejour, centre.logoUrl);
     return { pdfUrl };
   }
 
@@ -330,7 +331,7 @@ export class FactureService {
     });
 
     // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -449,7 +450,7 @@ export class FactureService {
     });
 
     // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -551,7 +552,7 @@ export class FactureService {
     });
 
     // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre);
+    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -696,7 +697,7 @@ export class FactureService {
       'Non renseigné';
 
     // Génération PDF + stockage OVH (fire-and-forget — non bloquant)
-    void this.generateAndStorePdf(avoir, titreSejour);
+    void this.generateAndStorePdf(avoir, titreSejour, centre.logoUrl);
 
     await this.loggerActivite(
       factureAnnulee.sejourId,

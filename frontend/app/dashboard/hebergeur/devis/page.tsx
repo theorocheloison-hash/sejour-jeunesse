@@ -297,6 +297,7 @@ export default function HebergeurDevisPage() {
         ? new Date(new Date(d.dateFacture).getTime() + 30 * 86400000).toISOString()
         : new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
       signatureDirecteur: d.signatureDirecteur ?? undefined,
+      logoUrl: d.centre?.logoUrl ?? null,
     };
   };
 

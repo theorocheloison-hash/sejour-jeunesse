@@ -175,6 +175,7 @@ function SejourCard({
       pourcentageAcompte: dv.pourcentageAcompte ?? undefined,
       conditionsAnnulation: dv.conditionsAnnulation ?? dv.centre?.conditionsAnnulation ?? undefined,
       signatureDirecteur: dv.signatureDirecteur ?? undefined,
+      logoUrl: dv.centre?.logoUrl ?? null,
     };
   };
 

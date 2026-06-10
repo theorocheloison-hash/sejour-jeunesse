@@ -178,6 +178,7 @@ export class DevisService {
             id: true, nom: true, ville: true, adresse: true, codePostal: true,
             siret: true, telephone: true, email: true, capacite: true,
             tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+            logoUrl: true,
           },
         },
         demande: {
@@ -402,6 +403,7 @@ export class DevisService {
             email: true,
             siret: true,
             capacite: true,
+            logoUrl: true,
           },
         },
         demande: {
@@ -1526,6 +1528,7 @@ export class DevisService {
             siret: true, telephone: true, email: true,
             tvaIntracommunautaire: true, iban: true,
             brochureUrl: true, conditionsAnnulation: true,
+            logoUrl: true,
           },
         },
         sejourDirect: {

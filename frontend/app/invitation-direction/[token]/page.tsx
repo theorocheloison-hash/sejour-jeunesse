@@ -115,6 +115,7 @@ function buildPdfProps(invitation: InvitationDirecteurPublic): DevisPDFProps | n
     pourcentageAcompte: d.pourcentageAcompte ?? undefined,
     conditionsAnnulation: d.conditionsAnnulation ?? undefined,
     signatureDirecteur: d.signatureDirecteur ?? null,
+    logoUrl: c.logoUrl ?? null,
   };
 }
 

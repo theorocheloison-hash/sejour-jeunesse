@@ -1,10 +1,11 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { formatParticipants } from '@/src/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface DevisPDFProps {
   typeDocument: 'DEVIS' | 'FACTURE_ACOMPTE' | 'FACTURE_SOLDE';
+  logoUrl?: string | null;
   numeroDocument: string;
   dateDocument: string;
   dateValidite?: string;
@@ -158,6 +159,18 @@ export default function DevisPDF(props: DevisPDFProps) {
     conditionsAnnulation, validationDirection,
   } = props;
 
+  const emetteurInfo = (
+    <>
+      <Text style={s.emetteurNom}>{nomEmetteur}</Text>
+      <Text style={s.emetteurDetail}>{adresseEmetteur}</Text>
+      {siretEmetteur && <Text style={s.emetteurDetail}>SIRET : {siretEmetteur}</Text>}
+      {tvaEmetteur && <Text style={s.emetteurDetail}>TVA : {tvaEmetteur}</Text>}
+      {emailEmetteur && <Text style={s.emetteurDetail}>{emailEmetteur}</Text>}
+      {telEmetteur && <Text style={s.emetteurDetail}>{telEmetteur}</Text>}
+      {ibanEmetteur && <Text style={s.emetteurDetail}>IBAN : {ibanEmetteur}</Text>}
+    </>
+  );
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
@@ -165,13 +178,14 @@ export default function DevisPDF(props: DevisPDFProps) {
         {/* En-tête */}
         <View style={s.header}>
           <View style={s.emetteur}>
-            <Text style={s.emetteurNom}>{nomEmetteur}</Text>
-            <Text style={s.emetteurDetail}>{adresseEmetteur}</Text>
-            {siretEmetteur && <Text style={s.emetteurDetail}>SIRET : {siretEmetteur}</Text>}
-            {tvaEmetteur && <Text style={s.emetteurDetail}>TVA : {tvaEmetteur}</Text>}
-            {emailEmetteur && <Text style={s.emetteurDetail}>{emailEmetteur}</Text>}
-            {telEmetteur && <Text style={s.emetteurDetail}>{telEmetteur}</Text>}
-            {ibanEmetteur && <Text style={s.emetteurDetail}>IBAN : {ibanEmetteur}</Text>}
+            {props.logoUrl ? (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <Image src={props.logoUrl} style={{ maxWidth: 120, maxHeight: 60, objectFit: 'contain', marginRight: 12 }} />
+                <View>{emetteurInfo}</View>
+              </View>
+            ) : (
+              emetteurInfo
+            )}
           </View>
           <View style={s.headerRight}>
             <Text style={s.docTitle}>{titreDocument(typeDocument)}</Text>

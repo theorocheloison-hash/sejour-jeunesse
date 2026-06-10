@@ -224,6 +224,7 @@ export interface Devis {
     tvaIntracommunautaire?: string | null;
     iban?: string | null;
     conditionsAnnulation?: string | null;
+    logoUrl?: string | null;
   };
 }
 
