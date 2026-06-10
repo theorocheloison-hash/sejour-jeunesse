@@ -131,6 +131,12 @@ export default function HebergeurDemandesPage() {
                         <span>{afficherDatesDemande(d)}</span>
                         <span>{d.nombreEleves} élève{d.nombreEleves > 1 ? 's' : ''}</span>
                         {d.enseignant && <span>{d.enseignant.prenom} {d.enseignant.nom}</span>}
+                        {(() => {
+                          const org = d.enseignant?.memberships?.[0]?.organisation;
+                          return org?.nom
+                            ? <span>{org.nom}{org.ville ? ` — ${org.ville}` : ''}</span>
+                            : <span className="text-gray-400">Établissement non renseigné</span>;
+                        })()}
                       </div>
                       {d.description && <p className="mt-2 text-sm text-gray-600">{d.description}</p>}
                     </div>
