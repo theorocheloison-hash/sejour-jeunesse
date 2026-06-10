@@ -2,6 +2,12 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Monorepo : épingle la racine du file-tracing au dossier frontend. Sans cela,
+  // Next infère la racine du dépôt (présence d'un package.json/-lock.json racine)
+  // et imbrique la sortie standalone sous .next/standalone/frontend/, ce qui casse
+  // les chemins du Procfile (cp .next/standalone/.next/static …). cwd = racine de
+  // l'app frontend au build (local et Scalingo).
+  outputFileTracingRoot: process.cwd(),
   async redirects() {
     return [
       // www → apex
