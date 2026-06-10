@@ -661,7 +661,12 @@ export class DevisService {
     return updated;
   }
 
-  async uploadSignatureDocument(devisId: string, userId: string, file: Express.Multer.File) {
+  async uploadSignatureDocument(
+    devisId: string,
+    userId: string,
+    file: Express.Multer.File,
+    nomSignataire?: string,
+  ) {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
@@ -685,12 +690,15 @@ export class DevisService {
 
     const url = await this.storage.upload(file, 'signatures-direction');
 
+    const nomSignataireClean = nomSignataire?.trim().slice(0, 255) || null;
+
     const updated = await this.prisma.devis.update({
       where: { id: devisId },
       data: {
         signatureDocumentUrl: url,
         statut: 'SIGNE_DIRECTION',
         signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
         dateSignatureDirecteur: new Date(),
       },
     });
@@ -1282,6 +1290,18 @@ export class DevisService {
             modeGestion: true, natureSejour: true,
           },
         },
+        // Séjour COLLABORATIF : données portées par la demande + l'enseignant.
+        demande: {
+          select: {
+            enseignantId: true,
+            sejour: {
+              select: {
+                id: true, titre: true, dateDebut: true, dateFin: true,
+                placesTotales: true, nombreAccompagnateurs: true, natureSejour: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
@@ -1289,8 +1309,10 @@ export class DevisService {
     if (devis.isComplementaire) {
       throw new ForbiddenException('Un devis complémentaire ne donne pas lieu à une convention');
     }
-    if (!devis.sejourDirectId || !devis.sejourDirect) {
-      throw new ForbiddenException('Ce devis n\'est pas un devis direct');
+    // DIRECT → séjour porté par sejourDirect ; COLLABORATIF → par demande.sejour.
+    const sejourSource = devis.sejourDirect ?? devis.demande?.sejour ?? null;
+    if (!sejourSource) {
+      throw new ForbiddenException('Ce devis n\'est rattaché à aucun séjour');
     }
     if (!['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut)) {
       throw new ForbiddenException('Le devis doit être signé pour générer la convention');
@@ -1301,7 +1323,7 @@ export class DevisService {
       return { conventionUrl: devis.conventionUrl, alreadyGenerated: true };
     }
 
-    const sejour = devis.sejourDirect;
+    const sejour = sejourSource;
     const fmtDate = (d: Date | null) => d
       ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
       : 'Dates à confirmer';
@@ -1314,10 +1336,38 @@ export class DevisService {
     // placesTotales = effectif élèves ; encadrants comptés séparément (nombreAccompagnateurs).
     const effectifEleves = sejour.placesTotales ?? 0;
 
-    const contactNom = [sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') || 'l\'établissement';
-    const etablissementNom = sejour.clientOrganisation || sejour.clientNom || 'Établissement scolaire';
-    const etablissementAdresse = [sejour.clientAdresse, [sejour.clientCodePostal, sejour.clientVille].filter(Boolean).join(' ')]
-      .filter(Boolean).join(', ') || null;
+    // Contact / établissement : DIRECT → infos client portées par le séjour ;
+    // COLLABORATIF → enseignant créateur + son organisation principale.
+    let contactNom: string;
+    let contactEmail: string | null;
+    let etablissementNom: string;
+    let etablissementAdresse: string | null;
+
+    if (devis.sejourDirect) {
+      const sd = devis.sejourDirect;
+      contactNom = [sd.clientPrenom, sd.clientNom].filter(Boolean).join(' ') || 'l\'établissement';
+      contactEmail = sd.clientEmail;
+      etablissementNom = sd.clientOrganisation || sd.clientNom || 'Établissement scolaire';
+      etablissementAdresse = [sd.clientAdresse, [sd.clientCodePostal, sd.clientVille].filter(Boolean).join(' ')]
+        .filter(Boolean).join(', ') || null;
+    } else {
+      const enseignantId = devis.demande?.enseignantId ?? null;
+      const enseignant = enseignantId
+        ? await this.prisma.user.findUnique({
+            where: { id: enseignantId },
+            select: { prenom: true, nom: true, email: true },
+          })
+        : null;
+      const orga = enseignantId
+        ? await getOrganisationPrincipale(enseignantId, this.prisma)
+        : null;
+      contactNom = [enseignant?.prenom, enseignant?.nom].filter(Boolean).join(' ') || 'l\'établissement';
+      contactEmail = enseignant?.email ?? null;
+      etablissementNom = orga?.nom || 'Établissement scolaire';
+      etablissementAdresse = orga
+        ? [orga.adresse, [orga.codePostal, orga.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null
+        : null;
+    }
 
     const { generateConventionScolaireSauvageonPdf } = await import('./convention-scolaire-sauvageon.pdf.js');
 
@@ -1333,7 +1383,7 @@ export class DevisService {
       etablissementNom,
       etablissementAdresse,
       contactNom,
-      contactEmail: sejour.clientEmail,
+      contactEmail,
       dateDebut: fmtDate(sejour.dateDebut),
       dateFin: fmtDate(sejour.dateFin),
       effectifEleves,
@@ -1367,9 +1417,9 @@ export class DevisService {
       data: { conventionUrl },
     });
 
-    if (sejour.clientEmail) {
+    if (contactEmail) {
       await this.email.sendGenericNotification(
-        sejour.clientEmail,
+        contactEmail,
         `Convention de séjour — ${sejour.titre} · ${centre.nom}`,
         `<p>Bonjour${contactNom !== 'l\'établissement' ? ` ${contactNom}` : ''},</p>
          <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${centre.nom}.</p>
@@ -1684,7 +1734,12 @@ export class DevisService {
   /**
    * Upload scan signé par le client (option 3).
    */
-  async uploadSignaturePublic(token: string, file: Express.Multer.File, req: Request) {
+  async uploadSignaturePublic(
+    token: string,
+    file: Express.Multer.File,
+    req: Request,
+    nomSignataire?: string,
+  ) {
     if (!file || file.mimetype !== 'application/pdf') {
       throw new ForbiddenException('Un fichier PDF est requis');
     }
@@ -1706,12 +1761,15 @@ export class DevisService {
 
     const documentUrl = await this.storage.upload(file, 'signatures');
 
+    const nomSignataireClean = nomSignataire?.trim().slice(0, 255) || null;
+
     await this.prisma.devis.update({
       where: { id: devis.id },
       data: {
         statut: StatutDevis.SELECTIONNE,
         signatureDocumentUrl: documentUrl,
         signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
         dateSignatureDirecteur: new Date(),
         signatureIpAddress: req.ip ?? null,
         signatureUserAgent: (req.headers['user-agent'] as string) ?? null,

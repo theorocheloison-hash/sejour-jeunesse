@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEmail, IsInt, Min } from 'class-validator';
 
 export class UpdateInfosSejourDto {
   @IsOptional()
@@ -40,4 +40,14 @@ export class UpdateInfosSejourDto {
   @IsOptional()
   @IsString()
   clientVille?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  placesTotales?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  nombreAccompagnateurs?: number;
 }

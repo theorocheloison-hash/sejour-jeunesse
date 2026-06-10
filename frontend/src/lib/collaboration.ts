@@ -47,6 +47,7 @@ export interface SejourCollabInfo {
   dateDebut: string | null;
   dateFin: string | null;
   placesTotales: number;
+  nombreAccompagnateurs?: number | null;
   statut: string;
   inscriptionsCloturees: boolean;
   thematiquesPedagogiques: string[];
@@ -326,6 +327,7 @@ export interface DevisBudget {
     iban: string | null;
   } | null;
   documentUrl?: string | null;
+  conventionUrl?: string | null;
   lignes: LigneDevisBudget[];
 }
 
@@ -544,6 +546,8 @@ export async function updateInfosSejour(
     clientAdresse?: string;
     clientCodePostal?: string;
     clientVille?: string;
+    placesTotales?: number;
+    nombreAccompagnateurs?: number;
   },
 ): Promise<{
   id: string;
@@ -557,6 +561,8 @@ export async function updateInfosSejour(
   clientAdresse: string | null;
   clientCodePostal: string | null;
   clientVille: string | null;
+  placesTotales: number;
+  nombreAccompagnateurs: number | null;
 }> {
   const { data } = await api.patch(`/collaboration/${sejourId}/infos`, dto);
   return data;

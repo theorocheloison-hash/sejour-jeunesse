@@ -47,8 +47,9 @@ export class DevisPublicController {
   uploadSignaturePublic(
     @Param('token') token: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: { nomSignataire?: string },
     @Req() req: Request,
   ) {
-    return this.devisService.uploadSignaturePublic(token, file, req);
+    return this.devisService.uploadSignaturePublic(token, file, req, body?.nomSignataire);
   }
 }

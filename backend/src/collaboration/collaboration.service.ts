@@ -1363,6 +1363,8 @@ export class CollaborationService {
       clientAdresse?: string;
       clientCodePostal?: string;
       clientVille?: string;
+      placesTotales?: number;
+      nombreAccompagnateurs?: number;
     },
     userId: string,
   ) {
@@ -1392,6 +1394,8 @@ export class CollaborationService {
         ...(dto.clientAdresse !== undefined && { clientAdresse: dto.clientAdresse }),
         ...(dto.clientCodePostal !== undefined && { clientCodePostal: dto.clientCodePostal }),
         ...(dto.clientVille !== undefined && { clientVille: dto.clientVille }),
+        ...(dto.placesTotales !== undefined && { placesTotales: dto.placesTotales }),
+        ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
       },
     });
 
