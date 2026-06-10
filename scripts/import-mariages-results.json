@@ -1,0 +1,282 @@
+[
+  {
+    "titre": "GL Mariage - Pauline Vuagnat",
+    "sejourId": "cdfe4bfc-65f8-4ed3-a405-7a214d3e9a47",
+    "devisId": "a8dde493-3079-46d6-9f3e-25209267ef0e",
+    "clientNom": "Pauline et Raphael VUAGNAT",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Lucie & Florian",
+    "sejourId": "dac3a216-db55-4dfa-910d-633ebed819a7",
+    "devisId": "116de3a8-7c62-4994-b4e0-da722a1f106c",
+    "clientNom": "Lucie et Florian VERNINE & ELWOOD",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Marlène & Quentin",
+    "sejourId": "8b8a1ca4-3074-40e0-ad73-6c172982ca0e",
+    "devisId": "89d36ef4-4485-4694-9c89-75df650a3d47",
+    "clientNom": "Quentin et Marlène KRAHENBUHL",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Juliette Paget",
+    "sejourId": "0664ee7a-4b1b-4992-9799-f654949ea8f0",
+    "devisId": "9819bb33-83d3-4677-b2e6-56a73b610007",
+    "clientNom": "Juliette PAGET",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Laurine et Anthony",
+    "sejourId": "1b00df89-cee0-41a1-baf4-26694247066f",
+    "devisId": "84f0e04d-862d-4d50-92f1-fa6952c0095e",
+    "clientNom": "Laurine et Anthony VALIN / MARTINET",
+    "signed": true
+  },
+  {
+    "titre": "GL Famille - Heide GEORGE",
+    "sejourId": "ef46d461-b7d3-41e1-8996-ea42986880fb",
+    "devisId": "b8ff1f92-5a4d-43dd-a9e7-348385dee53e",
+    "clientNom": "Heide GEORGE",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Eric DERHILLE",
+    "sejourId": "2b5c7928-8f31-46ba-9747-73ac7411a243",
+    "devisId": "a202f890-66e4-4e3e-bd5b-e63679bff441",
+    "clientNom": "Eric DERHILLE",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Catherine PINEL",
+    "sejourId": "22cc73ea-63ab-4ec7-b50f-16d64b553aa8",
+    "devisId": "bad4b76d-20a7-4c67-a2c4-b9fbd1cd8bf8",
+    "clientNom": "Catherine PINEL",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Yannael GIRERD",
+    "sejourId": "8d5b1290-4d02-48a0-8309-5e0f6e2d2194",
+    "devisId": "1ec4e5cb-eea2-43bf-84a9-211a4580251c",
+    "clientNom": "M Yannael GIRERD",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Hortense & Victor",
+    "sejourId": "44ba57ee-19cd-483f-a06c-0ced9d0b4d27",
+    "devisId": "bdb487e6-b415-4fcb-81bc-c12ca1873792",
+    "clientNom": "Hortense & Viktor DELAME ET MALOVRY",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Alice et Maxime",
+    "sejourId": "71793ea9-5b01-41fe-9910-39c96ce83edf",
+    "devisId": "18412c43-ea9c-4e36-b161-2db89bdd6649",
+    "clientNom": "Alice DOMERC et Maxime LEPRINCE",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Guillaume et Isabelle",
+    "sejourId": "199e4dfa-8196-481f-a149-67696d7cf56a",
+    "devisId": null,
+    "clientNom": "",
+    "signed": false
+  },
+  {
+    "titre": "GL Mariage - Camila et Rory",
+    "sejourId": "98c9e071-2754-43ad-90c4-42b7e221c273",
+    "devisId": "d9cf9bc3-3bef-42ec-bf2f-3c53264cfba8",
+    "clientNom": "Camilla MURRAY",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Anne-Lise et Sylvain",
+    "sejourId": "f15741b6-9e10-44e9-8b95-3bf2bb51f8a5",
+    "devisId": "be854f4f-08ff-4569-9aa6-783cf29cf3a4",
+    "clientNom": "Anne-Lise et Sylvain BERGER",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Laura et Guillaume",
+    "sejourId": "b4c93214-a8ef-4440-82e9-36cb6cc80dc5",
+    "devisId": "9c8c7126-3e57-450f-96bf-53f813756dc3",
+    "clientNom": "Laure et Guillaume PREMET / JULIEN",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Coraline et Remi",
+    "sejourId": "21c607f8-d88c-45fa-ac54-4f6974742cb0",
+    "devisId": "65845757-5dc1-4d98-885c-5a0329767d67",
+    "clientNom": "Coraline DESMITT ET REMI RIGAL",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Pascal EUDES",
+    "sejourId": "a70fb19d-7258-44ae-8912-dac09ab6f5c0",
+    "devisId": "4090e515-8cd6-4e5c-a631-8cc87b835c0c",
+    "clientNom": "Pascal EUDES",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Fabrice et Betty",
+    "sejourId": "5b696dd7-8851-4d9f-9c39-d9bd8a481c08",
+    "devisId": null,
+    "clientNom": "",
+    "signed": false
+  },
+  {
+    "titre": "GL Mariage Cécile et Etienne",
+    "sejourId": "6185c0cc-cb59-44f9-bc52-002e3f9623e4",
+    "devisId": "261e8754-75a5-4d97-a167-cebb8e96e331",
+    "clientNom": "Cécile et Etienne MANTOVANI ET BAJOR",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Chloé MARTINGUERRE",
+    "sejourId": "1d07bf58-6fea-496a-bc9c-a50b271627da",
+    "devisId": "4561b8cb-67f5-434f-a3eb-4aee9c2d66a5",
+    "clientNom": "Chloé MARTIN GUERRE",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Jessica et Clément",
+    "sejourId": "74eddc10-08df-449b-93a1-a6e51726686c",
+    "devisId": "fba9bbb9-5781-43a6-b3d9-4086969559a6",
+    "clientNom": "Mme Jessica PETTROCCHI et Clément",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage Déborah & Gaëtan",
+    "sejourId": "8a095b90-8357-42a0-a6d8-326815779fc0",
+    "devisId": "60158598-b4f2-43e8-b943-49c0545f481d",
+    "clientNom": "Déborah et Gaëtan HABEGGER ET MARRA",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Alice et François",
+    "sejourId": "3de76895-8c2d-4418-96e7-2439fc708cfb",
+    "devisId": "d83cad88-859a-4582-aa53-621a44f4519e",
+    "clientNom": "Alice et François ROLLIN ET TREGOUET",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Myriam et Florian",
+    "sejourId": "b8132e09-def2-49c6-8614-1d65fd1268ba",
+    "devisId": "92457b5f-919b-475a-86aa-63f1a18a087a",
+    "clientNom": "Myriam GROSSETJANIN",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Marie et Nico",
+    "sejourId": "710462b0-05cc-43fa-996e-b7ad4416b0f3",
+    "devisId": "752dd30d-1f5d-47e6-b3d5-61f93604e5ec",
+    "clientNom": "Marie RECH et Nico HASER",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Julie CURTET",
+    "sejourId": "7bb9d77a-7f68-4080-8d00-4b44cfa5a32b",
+    "devisId": "63cd8772-1313-4431-89a8-863efab15e67",
+    "clientNom": "Mme Julie CURTET",
+    "signed": true
+  },
+  {
+    "titre": "GL Anniversaire - Céline JUNIQUE-GIRARD",
+    "sejourId": "cea67f7c-9045-47f1-8d6d-8b1189bf2820",
+    "devisId": null,
+    "clientNom": "Céline et Antoine GIRARD",
+    "signed": false
+  },
+  {
+    "titre": "GL Famille - Heide GEORGE (Noël)",
+    "sejourId": "b747853a-5f72-43cc-8dd5-40bf84a2196c",
+    "devisId": "c7facc54-2833-4579-b564-fee685e342f5",
+    "clientNom": "Heide GEORGE",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Amandine & Maxime",
+    "sejourId": "fa5c24b2-74c1-42f9-b6b5-434e8300bc07",
+    "devisId": "777dd37e-be4c-4390-904e-bbc1ce942a1d",
+    "clientNom": "Amandine & Maxime DUMAINE ET BARIN",
+    "signed": true
+  },
+  {
+    "titre": "GL - Marie BRIENNE",
+    "sejourId": "3f3f2065-0901-4b61-8710-73e08573456c",
+    "devisId": "208915bd-0d27-4062-b617-76e8fe56f4f3",
+    "clientNom": "Marie BRIENNE",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Yeohana & Alexandre",
+    "sejourId": "03e7d530-470a-44df-99a9-0267966cd4da",
+    "devisId": "b3488ba0-2930-4929-a5d4-5c3a2228eb04",
+    "clientNom": "Yeohana FONDEVILLA et Alexandre TONNERIEUX",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Manon REVUZ",
+    "sejourId": "1d261f4c-fb44-441a-ad50-61a573e2c171",
+    "devisId": "0b89b573-aa2a-4335-92a9-443764ff85d6",
+    "clientNom": "Manon REVUZ",
+    "signed": true
+  },
+  {
+    "titre": "GL - Lisa HOMMEL",
+    "sejourId": "08792dd6-8e20-4ebb-9129-efbe1b46e2d8",
+    "devisId": "aab20aac-9614-42f2-828e-fbb3b102b300",
+    "clientNom": "Lisa HOMMEL",
+    "signed": true
+  },
+  {
+    "titre": "GL - Benoit GARRIGUES",
+    "sejourId": "e1f90b13-dadb-47f8-8117-c5f2418eff89",
+    "devisId": "63925e3f-49ad-48aa-8984-f5343809e802",
+    "clientNom": "M Benoit GARRIGUES",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Coline Fernez",
+    "sejourId": "dabaa008-82ac-48e9-869d-1beedac4edcf",
+    "devisId": "27f91443-fc8c-4c0d-95ff-51351799dccf",
+    "clientNom": "Coline FERNEZ et Colin",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Léa et Antoine",
+    "sejourId": "3d1d14b9-ec9e-46d3-91af-afe167742ed6",
+    "devisId": "ee411900-88e1-4be1-8dcc-f22d58cb3f4f",
+    "clientNom": "Léa et Antoine STEINBACH & FLEURET",
+    "signed": true
+  },
+  {
+    "titre": "GL - Aurélie HOUILLON",
+    "sejourId": "e49d0221-6a10-4e90-8310-d0915a1084ea",
+    "devisId": "6a4493de-5e16-48c5-8f84-d5a30c01f205",
+    "clientNom": "Mme Aurélie HOUILLON",
+    "signed": true
+  },
+  {
+    "titre": "GL - Lise CHEVALIER",
+    "sejourId": "75fdea3a-f4bb-4b20-8196-704ef50afdbf",
+    "devisId": "b4ecd058-6990-463b-b844-4a69af953883",
+    "clientNom": "Lise CHEVALIER",
+    "signed": true
+  },
+  {
+    "titre": "GL - Elodie et Alexandre NYS",
+    "sejourId": "f64dffb5-1f96-4c9b-b7d1-398964e9fad4",
+    "devisId": "19be4c86-5f83-408e-9abf-b551346b014d",
+    "clientNom": "Mme Elodie et Alexandre NYS ET MOTTEAU",
+    "signed": true
+  },
+  {
+    "titre": "GL Mariage - Margot et Paulin",
+    "sejourId": "94c46860-8a27-425e-8aab-176ae0482648",
+    "devisId": "150aed89-2392-407e-a7dd-9d471ffaa15f",
+    "clientNom": "Margot BRUN et Paulin TROGON",
+    "signed": true
+  }
+]
