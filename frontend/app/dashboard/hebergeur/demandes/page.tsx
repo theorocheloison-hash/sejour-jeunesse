@@ -7,6 +7,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getDemandesOuvertes, ignorerDemande } from '@/src/lib/demande';
 import { createDevisWithFile } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
+import { RESEAUX_PARTENAIRES } from '@/src/data/reseaux-partenaires';
 
 const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
   const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -125,7 +126,14 @@ export default function HebergeurDemandesPage() {
                 <div key={d.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900">{d.titre}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-gray-900">{d.titre}</h3>
+                        {d.sourceReseau && RESEAUX_PARTENAIRES[d.sourceReseau] && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                            🏔️ via {RESEAUX_PARTENAIRES[d.sourceReseau].nom}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
                         <span>{d.villeHebergement}</span>
                         <span>{afficherDatesDemande(d)}</span>
