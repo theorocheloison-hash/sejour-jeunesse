@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 10/06/2026 — Sync post-commit b0c6b94 (participants + OrganisationSearch public)
+> Dernière mise à jour : 10/06/2026 — Sync post-commit dc8fdfa (auth auto-validation + convention preview + source réseau)
 
 ---
 
@@ -13,6 +13,34 @@
 | `12c7669` | chore: trigger redeploy (commit vide, force un boot propre des deux apps) |
 | `724fe2f` | fix(participants): total élèves + accompagnateurs partout (UI, PDF, emails) via helper `formatParticipants` |
 | `b0c6b94` | feat(appel-offres): sélection établissement via annuaire EN/SIRENE public + OrganisationSearch réutilisable + orga affichée côté hébergeur |
+| `10a0a35` | feat(auth): auto-validation organisateurs/signataires (compteValide=true) + notification admin à chaque création de compte (helper `notifyAdminNewAccount`) |
+| `466631d` | feat(convention): aperçu PDF avant envoi (`buildConventionScolairePdf` + endpoint preview) + maj conditions d'annulation Sauvageon |
+| `819d859` | feat(source-reseau): tag source réseau sur User + DemandeDevis, téléphone /appel-offres (backend + migration) |
+| `dc8fdfa` | feat(source-reseau): bandeau réseau + téléphone + badge « via LMDJ » hébergeur (frontend) |
+
+---
+
+## TRAVAUX RÉALISÉS — Commits `10a0a35` · `466631d` · `819d859` · `dc8fdfa`
+
+### `10a0a35` — Auto-validation comptes + notification admin
+- **`compteValide: true`** pour ORGANISATEUR (`registerOrganisateur`) + organisateur de demande publique (`soumettreDemandePublique`) ; SIGNATAIRE déjà `true` ; **HEBERGEUR inchangé** (validation admin requise).
+- **Cascade login** : détection `COMPTE_DORMANT` désormais basée sur le `magicLinkToken` en attente (et non `compteValide`, qui passe à `true`) → rétro-compatible ; inscriptions classiques basculent sur `EMAIL_NON_VERIFIE`.
+- **`EmailService.notifyAdminNewAccount(user, extra?)`** : helper unique (réutilise `sendGenericNotification`), appelé en fire-and-forget aux 6 points de création (organisateur, signataire, hébergeur [claim+normal], demande publique, invitation admin, collaborateur). Ancienne notif inline hébergeur remplacée.
+
+### `466631d` — Aperçu convention avant envoi
+- **`buildConventionScolairePdf`** (méthode publique) : toute la logique partagée (ownership, statut signé, nature SEJOUR, collecte DIRECT/COLLAB, Buffer PDF) **sans effet de bord**. **Check idempotent supprimé** (PDF toujours régénéré).
+- **`genererConventionScolaire`** réduit au wrapper : upload OVH (même nom de fichier → écrase) + save `conventionUrl` + email + log CRM.
+- **`GET /devis/:id/convention/preview`** (HEBERGEUR + permission devis + CentreId) : PDF `inline`, aucun effet de bord.
+- **Frontend** (2 branches) : state `previewLoading`, bouton « 👁 Prévisualiser » (blob → `window.open`) + « 📤 Envoyer/Renvoyer au client » avec `confirm()` affichant l'email contact (DIRECT `clientEmail` / COLLAB `createur.email`).
+- **CGV Sauvageon** : RÉSERVATION (2 conditions + réattribution), Article 4 (notification écrite + paliers 9 mois / 9-6 mois / 6 mois-jour J), Article 6 (force majeure reformulée).
+
+### `819d859` + `dc8fdfa` — Source réseau (acquisition réseau partenaire)
+- **Migration `20260611_source_reseau_telephone`** : `ADD COLUMN source_reseau VARCHAR(50)` sur **`utilisateurs`** ET **`demandes_devis`** (`telephone` déjà présent → non ajouté).
+- **Schema** : `User.sourceReseau` + `DemandeDevis.sourceReseau`.
+- **`public.service.soumettreDemandePublique`** : DTO `sourceReseau` + `telephone` ; création User avec les deux ; **backfill non destructif** sur User existant (1ʳᵉ acquisition = attribution définitive, jamais écrasée) ; `DemandeDevis` taguée `sourceReseau`.
+- **`findOpen` inchangé** : son `include` renvoie déjà tous les scalaires (`sourceReseau` compris), préservé pour les non-abonnés via `...d`.
+- **Frontend** : mapping partagé **`src/data/reseaux-partenaires.ts`** (`RESEAUX_PARTENAIRES` : lmdj, iddj) ; `/appel-offres` lit `?reseau=` → **bandeau** « accompagnée par {réseau} » + **champ Téléphone** (optionnel) + envoi `sourceReseau`/`telephone` ; vue hébergeur (demandes ouvertes) → **badge « 🏔️ via {réseau} »**.
+- Types frontend : `DemandePubliquePayload.sourceReseau/telephone`, `Demande.sourceReseau`.
 
 ---
 
@@ -209,7 +237,7 @@ Règle appliquée : toute feature hébergeur doit marcher dans les deux modes.
 | Composant | Chemin | Rôle |
 |---|---|---|
 | `CreateSejourModal` | `_shared/CreateSejourModal.tsx` | Modal création séjour/événement avec clientId, dates optionnelles. |
-| `OrganisationSearch` | `_shared/OrganisationSearch.tsx` | Recherche unifiée ÉN + SIRENE. |
+| `OrganisationSearch` | `src/components/OrganisationSearch.tsx` | Recherche unifiée ÉN + SIRENE (déplacé depuis `_shared/` en b0c6b94 ; prop `sireneSearchFn` pour usage public). |
 
 ---
 
