@@ -251,6 +251,39 @@ export class EmailService {
     await this.send(to, subject, html, fromName, replyTo);
   }
 
+  /**
+   * Notifie l'admin (contact@liavo.fr) qu'un nouveau compte a été créé.
+   * Réutilise sendGenericNotification (zéro duplication). À appeler en
+   * fire-and-forget côté appelant : `.catch(() => {})` (jamais bloquant).
+   */
+  async notifyAdminNewAccount(
+    user: { prenom: string; nom: string; email: string; role: string },
+    extra?: string,
+  ): Promise<void> {
+    const ROLE_LABEL: Record<string, string> = {
+      ORGANISATEUR: 'Organisateur',
+      SIGNATAIRE: 'Signataire',
+      HEBERGEUR: 'Hébergeur',
+      ADMIN: 'Admin',
+      RESEAU: 'Réseau',
+      PARENT: 'Parent',
+    };
+    const roleLabel = ROLE_LABEL[user.role] ?? user.role;
+    const date = new Date().toLocaleString('fr-FR');
+    await this.sendGenericNotification(
+      'contact@liavo.fr',
+      `Nouveau compte ${roleLabel} — ${user.prenom} ${user.nom}`,
+      `Un nouveau compte vient d'être créé sur LIAVO.<br><br>` +
+        `Prénom&nbsp;: ${user.prenom}<br>` +
+        `Nom&nbsp;: ${user.nom}<br>` +
+        `Email&nbsp;: ${user.email}<br>` +
+        `Rôle&nbsp;: ${roleLabel}<br>` +
+        `Date&nbsp;: ${date}` +
+        (extra ? `<br>${extra}` : ''),
+      'LIAVO Admin',
+    );
+  }
+
   async sendMagicLink(to: string, prenom: string, titreSejourOuAction: string, magicUrl: string) {
     const html = emailLayout(
       'Votre demande a été envoyée',

@@ -164,6 +164,11 @@ export class CollaborateurService {
       },
     });
 
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+      'Collaborateur d\'équipe (invité par un hébergeur existant).',
+    ).catch(() => {});
+
     // 4. Accepter TOUTES les invitations en attente pour cet email (multi-centres)
     await this.prisma.collaborateurCentre.updateMany({
       where: { inviteEmail: invitation.inviteEmail, acceptedAt: null },

@@ -65,7 +65,7 @@ export class PublicService {
       );
     }
 
-    // 2. Créer ou réutiliser le User dormant (compteValide=false)
+    // 2. Créer ou réutiliser le User (organisateur auto-validé : pas de validation admin)
     let user = existant;
     if (!user) {
       const motDePasseTmp = await bcrypt.hash(randomUUID(), 10);
@@ -76,10 +76,14 @@ export class PublicService {
           email:             emailNorm,
           motDePasse:        motDePasseTmp,
           role:              'ORGANISATEUR',
-          compteValide:      false,
+          compteValide:      true,
           emailVerifie:      false,
         },
       });
+      this.email.notifyAdminNewAccount(
+        { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+        'Créé via une demande publique (/appel-offres).',
+      ).catch(() => {});
     }
 
     // 3. Organisation + Membership
