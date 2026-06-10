@@ -15,6 +15,7 @@ import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { formatParticipants } from '../utils/format.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
@@ -236,7 +237,7 @@ export class DevisService {
             sejour: {
               select: {
                 titre: true, lieu: true, dateDebut: true, dateFin: true,
-                placesTotales: true, niveauClasse: true,
+                placesTotales: true, nombreAccompagnateurs: true, niveauClasse: true,
               },
             },
           },
@@ -797,6 +798,7 @@ export class DevisService {
             dateDebut: true,
             dateFin: true,
             placesTotales: true,
+            nombreAccompagnateurs: true,
             niveauClasse: true,
           },
         },
@@ -1131,6 +1133,7 @@ export class DevisService {
             id: true, titre: true, dateDebut: true, dateFin: true,
             clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true,
             clientOrganisation: true, modeGestion: true, placesTotales: true,
+            nombreAccompagnateurs: true,
             natureSejour: true, typeSejour: true,
           },
         },
@@ -1232,7 +1235,7 @@ export class DevisService {
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.placesTotales}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
        </table>
        ${contratUrl ? `<p style="margin:16px 0">📄 <a href="${contratUrl}" style="color:#1B4060;font-weight:600;text-decoration:underline">Télécharger le contrat PDF</a></p>` : ''}
@@ -1482,6 +1485,7 @@ export class DevisService {
           select: {
             id: true, titre: true, lieu: true,
             dateDebut: true, dateFin: true, placesTotales: true,
+            nombreAccompagnateurs: true,
             clientNom: true, clientPrenom: true, clientEmail: true,
             clientOrganisation: true, natureSejour: true, typeSejour: true,
             clientAdresse: true, clientCodePostal: true, clientVille: true,

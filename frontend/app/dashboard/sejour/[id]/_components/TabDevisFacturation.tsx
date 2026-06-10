@@ -1282,6 +1282,7 @@ export default function TabDevisFacturation({
                   dateDebutSejour: sejour?.dateDebut ?? undefined,
                   dateFinSejour: sejour?.dateFin ?? undefined,
                   nombreEleves: sejour?.placesTotales ?? undefined,
+                  nombreAccompagnateurs: sejour?.nombreAccompagnateurs ?? undefined,
                   lignes: (dd.lignes ?? []).map((l) => ({
                     description: l.description,
                     quantite: Number(l.quantite),
@@ -1397,6 +1398,7 @@ export default function TabDevisFacturation({
               dateDebutSejour: s?.dateDebut ?? undefined,
               dateFinSejour: s?.dateFin ?? undefined,
               nombreEleves: s?.placesTotales ?? undefined,
+              nombreAccompagnateurs: s?.nombreAccompagnateurs ?? undefined,
               niveauClasse: s?.niveauClasse ?? undefined,
               lignes: d.lignes.map((l: any) => ({
                 description: l.description,

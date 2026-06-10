@@ -354,6 +354,7 @@ export interface BudgetData {
     dateDebut: string | null;
     dateFin: string | null;
     placesTotales: number;
+    nombreAccompagnateurs?: number | null;
     createur?: {
       prenom: string;
       nom: string;
@@ -690,6 +691,7 @@ export interface DevisPublic {
   sejour: {
     id: string; titre: string; lieu: string;
     dateDebut: string | null; dateFin: string | null; placesTotales: number;
+    nombreAccompagnateurs?: number | null;
     clientNom: string | null; clientPrenom: string | null; clientEmail: string | null;
     clientOrganisation: string | null; natureSejour: string; typeSejour: string | null;
     clientAdresse: string | null; clientCodePostal: string | null; clientVille: string | null;

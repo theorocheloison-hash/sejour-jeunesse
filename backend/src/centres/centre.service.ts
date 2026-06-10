@@ -537,6 +537,7 @@ export class CentreService {
       },
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
+        nombreAccompagnateurs: true,
         statut: true, hebergementSelectionneId: true,
         // Tous les devis du centre — couleur planning = devis le PLUS AVANCÉ.
         // Lot 1 : factures incluses (la facturation ne mute plus le statut du devis).

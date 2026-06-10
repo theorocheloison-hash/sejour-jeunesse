@@ -9,6 +9,7 @@ import type { DemandeInfo, LigneDevis } from '@/src/lib/devis';
 import { getCatalogue, getMonProfil } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 import { getSejourCollabInfo } from '@/src/lib/collaboration';
+import { formatParticipants } from '@/src/lib/utils';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -93,6 +94,7 @@ function NouveauDevisContent() {
   // Données séjour DIRECT (pour afficher Destinataire + Objet)
   const [directSejour, setDirectSejour] = useState<{
     titre: string; dateDebut: string | null; dateFin: string | null; placesTotales: number;
+    nombreAccompagnateurs?: number | null;
     clientNom: string | null; clientEmail: string | null; clientOrganisation: string | null;
     lieu: string;
   } | null>(null);
@@ -128,6 +130,7 @@ function NouveauDevisContent() {
           dateDebut: s.dateDebut,
           dateFin: s.dateFin,
           placesTotales: s.placesTotales,
+          nombreAccompagnateurs: s.nombreAccompagnateurs,
           clientNom: s.clientNom ?? null,
           clientEmail: s.clientEmail ?? null,
           clientOrganisation: s.clientOrganisation ?? null,
@@ -452,7 +455,7 @@ function NouveauDevisContent() {
                       : ' — Dates à définir'}
                   </p>
                   <div className="flex gap-4 text-xs text-gray-500">
-                    <span>{directSejour.placesTotales} participant{directSejour.placesTotales > 1 ? 's' : ''}</span>
+                    <span>{formatParticipants(directSejour.placesTotales, directSejour.nombreAccompagnateurs)}</span>
                   </div>
                 </div>
               ) : (
@@ -464,7 +467,7 @@ function NouveauDevisContent() {
                   Séjour — {sejour.lieu} — du {new Date(sejour.dateDebut).toLocaleDateString('fr-FR')} au {new Date(sejour.dateFin).toLocaleDateString('fr-FR')}
                 </p>
                 <div className="flex gap-4 text-xs text-gray-500">
-                  <span>{sejour.placesTotales} participant{sejour.placesTotales > 1 ? 's' : ''}</span>
+                  <span>{formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</span>
                   {sejour.niveauClasse && <span>Niveau : {sejour.niveauClasse}</span>}
                 </div>
               </div>
