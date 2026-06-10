@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Param, Patch, Post, Req, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -209,7 +209,7 @@ export class DevisController {
     return this.devisService.envoyerDevisDirect(id, user.id, centreId, body?.messagePersonnalise);
   }
 
-  /** POST /devis/:id/convention — Générer la convention de séjour scolaire (hébergeur, après signature) */
+  /** POST /devis/:id/convention — Générer ET envoyer la convention de séjour scolaire (hébergeur, après signature) */
   @Post(':id/convention')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('devis')
@@ -219,6 +219,28 @@ export class DevisController {
     @CentreId() centreId: string | null,
   ) {
     return this.devisService.genererConventionScolaire(id, user.id, centreId);
+  }
+
+  /**
+   * GET /devis/:id/convention/preview — Aperçu PDF de la convention (hébergeur).
+   * Aucun effet de bord : pas d'upload, pas de save, pas d'email. Renvoie le PDF inline.
+   */
+  @Get(':id/convention/preview')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  async previewConvention(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Res() res: Response,
+  ) {
+    const { buffer } = await this.devisService.buildConventionScolairePdf(id, user.id, centreId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="convention-preview.pdf"',
+      'Content-Length': buffer.length.toString(),
+    });
+    res.end(buffer);
   }
 
   @Get(':id/versements')

@@ -151,10 +151,15 @@ export async function generateConventionScolaireSauvageonPdf(data: ConventionSco
         </View>
 
         <Text style={styles.sectionTitle}>RÉSERVATION</Text>
+        <Text style={styles.paragraph}>La réservation est validée sous deux conditions :</Text>
+        <Text style={styles.bullet}>• Réception du devis et CGV signés avec la mention « bon pour accord ».</Text>
+        <Text style={styles.bullet}>
+          • Réception de l&apos;acompte de {data.pourcentageAcompte}% du montant total dans un délai d&apos;un mois
+          après la date d&apos;envoi du devis.
+        </Text>
         <Text style={styles.paragraph}>
-          La réservation est validée par la réception du devis et des conditions générales de vente
-          signés avec la mention « bon pour accord », accompagnés du versement d&apos;un acompte de {data.pourcentageAcompte}%
-          ({fmt(data.montantAcompte)} €) dans un délai d&apos;un mois.
+          Si ces deux conditions ne sont pas remplies, la SAS le Sauvageon se réserve le droit d&apos;accepter
+          une autre réservation sur les dates concernées.
         </Text>
 
         <Text style={styles.sectionTitle}>REMARQUES GÉNÉRALES</Text>
@@ -247,9 +252,10 @@ export async function generateConventionScolaireSauvageonPdf(data: ConventionSco
         </Text>
 
         <Text style={styles.articleTitle}>Article 4 — Annulation du fait du client</Text>
-        <Text style={styles.bullet}>• Jusqu&apos;à 6 mois avant le début du séjour : remboursement intégral de l&apos;acompte versé.</Text>
-        <Text style={styles.bullet}>• Entre 6 et 3 mois avant le début du séjour : 50% du montant total est retenu.</Text>
-        <Text style={styles.bullet}>• Moins de 3 mois avant le début du séjour : l&apos;intégralité du montant est due.</Text>
+        <Text style={styles.paragraph}>Toute annulation doit être notifiée par écrit au service de réservation.</Text>
+        <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé sera remboursé dans son intégralité.</Text>
+        <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : il sera retenu 50 % du montant du loyer et du montant des prestations directement liées au séjour.</Text>
+        <Text style={styles.bullet}>• Annulation entre 6 mois et le jour du séjour : l&apos;intégralité du devis signé devra être réglée.</Text>
 
         <Text style={styles.articleTitle}>Article 5 — Annulation du fait du Chalet Le Sauvageon</Text>
         <Text style={styles.paragraph}>
@@ -258,8 +264,9 @@ export async function generateConventionScolaireSauvageonPdf(data: ConventionSco
 
         <Text style={styles.articleTitle}>Article 6 — Force majeure</Text>
         <Text style={styles.paragraph}>
-          En cas d&apos;impossibilité d&apos;effectuer le séjour suite à un cas de force majeure, l&apos;intégralité des
-          sommes versées est remboursée.
+          En cas d&apos;impossibilité d&apos;effectuer le séjour suite à un cas de force majeur (type catastrophe
+          climatique ou sanitaire) n&apos;étant du fait ni de la SAS le Sauvageon, ni du fait du client,
+          l&apos;intégralité des prestations seront remboursées.
         </Text>
 
         {/* SIGNATURE */}

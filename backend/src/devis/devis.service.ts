@@ -1277,7 +1277,32 @@ export class DevisService {
    * la stocke sur OVH, persiste l'URL et envoie un email à l'établissement.
    * Déclenché par l'hébergeur APRÈS signature du devis (idempotent).
    */
-  async genererConventionScolaire(devisId: string, userId: string, centreId?: string | null) {
+  /**
+   * Construit le PDF de la convention scolaire (DIRECT ou COLLABORATIF) SANS effet
+   * de bord : aucun upload OVH, aucune sauvegarde `conventionUrl`, aucun email,
+   * aucun log CRM. Partagé par l'aperçu (GET preview) et l'envoi (POST convention).
+   * Effectue les vérifications partagées : ownership, statut signé, nature SEJOUR.
+   * (Méthode publique car appelée aussi par le contrôleur pour l'aperçu.)
+   */
+  async buildConventionScolairePdf(
+    devisId: string,
+    userId: string,
+    centreId?: string | null,
+  ): Promise<{
+    buffer: Buffer;
+    contactEmail: string | null;
+    contactNom: string;
+    sejourTitre: string;
+    sejourId: string;
+    centreId: string;
+    centreNom: string;
+    centreEmail: string | null;
+    dateDebutFmt: string;
+    dateFinFmt: string;
+    effectifEleves: number;
+    effectifEncadrants: number;
+    fileName: string;
+  }> {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
     const devis = await this.prisma.devis.findUnique({
@@ -1321,11 +1346,8 @@ export class DevisService {
       throw new ForbiddenException('Le devis doit être signé pour générer la convention');
     }
 
-    // Idempotent : si la convention existe déjà, on la retourne sans re-générer.
-    if (devis.conventionUrl) {
-      return { conventionUrl: devis.conventionUrl, alreadyGenerated: true };
-    }
-
+    // Pas de court-circuit idempotent : le PDF est toujours (re)construit pour refléter
+    // l'état courant du devis (l'hébergeur peut le modifier puis renvoyer la convention).
     const sejour = sejourSource;
     const fmtDate = (d: Date | null) => d
       ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -1408,29 +1430,54 @@ export class DevisService {
       dateDocument: fmtDate(new Date()),
     });
 
+    return {
+      buffer: pdfBuffer,
+      contactEmail,
+      contactNom,
+      sejourTitre: sejour.titre,
+      sejourId: sejour.id,
+      centreId: centre.id,
+      centreNom: centre.nom,
+      centreEmail: centre.email ?? null,
+      dateDebutFmt: fmtDate(sejour.dateDebut),
+      dateFinFmt: fmtDate(sejour.dateFin),
+      effectifEleves,
+      effectifEncadrants,
+      fileName: `convention-${devis.numeroDevis ?? devis.id}.pdf`,
+    };
+  }
+
+  /**
+   * Génère ET envoie la convention : (re)construit le PDF via buildConventionScolairePdf,
+   * l'upload sur OVH (écrase le précédent — même nom de fichier), sauvegarde conventionUrl,
+   * envoie l'email au contact et journalise l'activité CRM.
+   */
+  async genererConventionScolaire(devisId: string, userId: string, centreId?: string | null) {
+    const built = await this.buildConventionScolairePdf(devisId, userId, centreId);
+
     const conventionUrl = await this.storage.uploadBuffer(
-      pdfBuffer,
-      `convention-${devis.numeroDevis ?? devis.id}.pdf`,
+      built.buffer,
+      built.fileName,
       'conventions',
       'application/pdf',
     );
 
     await this.prisma.devis.update({
-      where: { id: devis.id },
+      where: { id: devisId },
       data: { conventionUrl },
     });
 
-    if (contactEmail) {
+    if (built.contactEmail) {
       await this.email.sendGenericNotification(
-        contactEmail,
-        `Convention de séjour — ${sejour.titre} · ${centre.nom}`,
-        `<p>Bonjour${contactNom !== 'l\'établissement' ? ` ${contactNom}` : ''},</p>
-         <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${centre.nom}.</p>
+        built.contactEmail,
+        `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`,
+        `<p>Bonjour${built.contactNom !== 'l\'établissement' ? ` ${built.contactNom}` : ''},</p>
+         <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${built.centreNom}.</p>
          <table style="width:100%;border-collapse:collapse;margin:16px 0">
-           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
-           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmtDate(sejour.dateDebut)} → ${fmtDate(sejour.dateFin)}</td></tr>
-           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Effectif</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${effectifEleves} élèves · ${effectifEncadrants} encadrants</td></tr>
-           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.sejourTitre}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.dateDebutFmt} → ${built.dateFinFmt}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Effectif</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.effectifEleves} élèves · ${built.effectifEncadrants} encadrants</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.centreNom}</td></tr>
          </table>
          <p>Merci de nous retourner un exemplaire signé, précédé de la mention « lu et approuvé ».</p>
          <p style="margin:24px 0">
@@ -1439,24 +1486,24 @@ export class DevisService {
            </a>
          </p>
          <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${conventionUrl}</p>`,
-        centre.nom,
-        centre.email ? { name: centre.nom, email: centre.email } : undefined,
+        built.centreNom,
+        built.centreEmail ? { name: built.centreNom, email: built.centreEmail } : undefined,
       );
     }
 
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({
-        where: { sejourId: sejour.id },
+        where: { sejourId: built.sejourId },
         select: { clientId: true },
       });
       if (sejourClient) {
         await this.prisma.activiteClient.create({
           data: {
             clientId: sejourClient.clientId,
-            centreId: centre.id,
+            centreId: built.centreId,
             type: 'DEVIS',
-            description: `Convention de séjour générée — ${sejour.titre}`,
-            metadata: { devisId, sejourId: sejour.id, conventionUrl },
+            description: `Convention de séjour générée — ${built.sejourTitre}`,
+            metadata: { devisId, sejourId: built.sejourId, conventionUrl },
           },
         });
       }
