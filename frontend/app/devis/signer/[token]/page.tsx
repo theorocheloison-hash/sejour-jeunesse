@@ -12,6 +12,7 @@ import {
 import type { DevisPublic } from '@/src/lib/collaboration';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import { formatParticipants } from '@/src/lib/utils';
 
 const fmt = (d: string | null) => !d ? 'Dates à définir' : new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
   day: '2-digit', month: 'long', year: 'numeric',
@@ -187,6 +188,7 @@ export default function SignerDevisPage() {
     dateDebutSejour: sejour?.dateDebut ?? undefined,
     dateFinSejour: sejour?.dateFin ?? undefined,
     nombreEleves: sejour?.placesTotales ?? undefined,
+    nombreAccompagnateurs: sejour?.nombreAccompagnateurs ?? undefined,
     lignes: devis.lignes.map((l) => ({
       description: l.description,
       quantite: Number(l.quantite),
@@ -252,7 +254,7 @@ export default function SignerDevisPage() {
               <div><p className="text-xs text-gray-400">Début</p><p className="font-medium">{fmt(sejour.dateDebut)}</p></div>
               <div><p className="text-xs text-gray-400">Fin</p><p className="font-medium">{fmt(sejour.dateFin)}</p></div>
               {sejour.placesTotales > 0 && (
-                <div><p className="text-xs text-gray-400">Participants</p><p className="font-medium">{sejour.placesTotales}</p></div>
+                <div><p className="text-xs text-gray-400">Participants</p><p className="font-medium">{formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</p></div>
               )}
               {sejour.typeSejour && (
                 <div><p className="text-xs text-gray-400">Type</p><p className="font-medium">{sejour.typeSejour.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())}</p></div>

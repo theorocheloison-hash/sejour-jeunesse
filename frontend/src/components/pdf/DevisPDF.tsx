@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { formatParticipants } from '@/src/lib/utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ export interface DevisPDFProps {
   dateDebutSejour?: string;
   dateFinSejour?: string;
   nombreEleves?: number;
+  nombreAccompagnateurs?: number | null;
   niveauClasse?: string;
   lignes: Array<{
     description: string;
@@ -150,7 +152,7 @@ export default function DevisPDF(props: DevisPDFProps) {
     typeDocument, numeroDocument, dateDocument, dateValidite,
     nomEmetteur, adresseEmetteur, siretEmetteur, emailEmetteur, telEmetteur, tvaEmetteur, ibanEmetteur,
     nomDestinataire, etablissementNom, adresseDestinataire, emailDestinataire, telDestinataire,
-    titreSejour, lieuSejour, dateDebutSejour, dateFinSejour, nombreEleves, niveauClasse,
+    titreSejour, lieuSejour, dateDebutSejour, dateFinSejour, nombreEleves, nombreAccompagnateurs, niveauClasse,
     lignes, montantHT, montantTVA, montantTTC,
     montantAcompte, pourcentageAcompte, montantSolde,
     conditionsAnnulation, validationDirection,
@@ -201,7 +203,7 @@ export default function DevisPDF(props: DevisPDFProps) {
             Séjour — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
           </Text>
           <Text style={s.objetSub}>
-            {nombreEleves ? `${nombreEleves} participant${nombreEleves > 1 ? 's' : ''}` : ''}
+            {nombreEleves ? formatParticipants(nombreEleves, nombreAccompagnateurs) : ''}
             {niveauClasse ? ` — ${niveauClasse}` : ''}
           </Text>
         </View>

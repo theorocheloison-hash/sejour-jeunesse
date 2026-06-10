@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDashboardGlobal } from '@/src/lib/centre';
 import { PLANNING_COULEURS, COULEUR_DEMANDE_ATTENTE, derivePlanningStatut } from '@/src/lib/planning-statut';
+import { formatParticipants } from '@/src/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ interface SejourPlanning {
   dateDebut: string;
   dateFin: string;
   placesTotales: number;
+  nombreAccompagnateurs?: number | null;
   statut: string;
   hebergementSelectionneId: string;
   devisDirect?: Array<{ statut: string }>;
@@ -465,7 +467,7 @@ export default function DashboardGlobalPage() {
                             return (
                               <div
                                 key={s.id}
-                                title={`${s.titre}\n${fmtDate(s.dateDebut)} → ${fmtDate(s.dateFin)}\n${s.placesTotales} participants\nStatut : ${couleur.label}`}
+                                title={`${s.titre}\n${fmtDate(s.dateDebut)} → ${fmtDate(s.dateFin)}\n${formatParticipants(s.placesTotales, s.nombreAccompagnateurs)}\nStatut : ${couleur.label}`}
                                 className="absolute rounded-md px-2 py-1 text-xs truncate shadow-sm"
                                 style={{
                                   left: `${pos.leftPct}%`,
@@ -480,7 +482,7 @@ export default function DashboardGlobalPage() {
                                   cursor: 'help',
                                 }}
                               >
-                                {s.placesTotales} pers.
+                                {s.placesTotales + (s.nombreAccompagnateurs ?? 0)} pers.
                               </div>
                             );
                           })}

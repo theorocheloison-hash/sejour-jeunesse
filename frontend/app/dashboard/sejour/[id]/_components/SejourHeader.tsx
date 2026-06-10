@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { updateInfosSejour, deleteSejourDirect } from '@/src/lib/collaboration';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
+import { formatParticipants } from '@/src/lib/utils';
 
 // ─── Statut sejour (barre contexte) ────────────────────────────────────────
 
@@ -193,7 +194,7 @@ export default function SejourHeader({
             {sejour?.dateDebut && sejour?.dateFin && (
               <> · {fmtCtx(sejour.dateDebut)} → {fmtCtx(sejour.dateFin)}</>
             )}
-            {sejour?.placesTotales != null && <> · {sejour.placesTotales} participants</>}
+            {sejour?.placesTotales != null && <> · {formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</>}
           </p>
           {isDirect && (
             <p className="text-xs text-gray-500 truncate">

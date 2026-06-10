@@ -275,6 +275,7 @@ export interface DemandeInfo {
       dateDebut: string;
       dateFin: string;
       placesTotales: number;
+      nombreAccompagnateurs?: number | null;
       niveauClasse?: string | null;
     } | null;
   };

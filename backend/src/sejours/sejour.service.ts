@@ -8,6 +8,7 @@ import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -1298,6 +1299,7 @@ export class SejourService {
       where: { id: sejourId },
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
+        nombreAccompagnateurs: true,
         modeGestion: true, hebergementSelectionneId: true, deletedAt: true,
         clientNom: true, clientOrganisation: true,
       },
@@ -1354,7 +1356,7 @@ export class SejourService {
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.placesTotales}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</td></tr>
        </table>
        <p>En rejoignant, vous aurez accès à l'espace collaboratif : messagerie, documents partagés, planning, journal de séjour.</p>
        <p style="margin:24px 0">
