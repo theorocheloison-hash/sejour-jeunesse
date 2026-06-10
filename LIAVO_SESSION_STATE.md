@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 10/06/2026 — Sync post-commit 47a34e9
+> Dernière mise à jour : 10/06/2026 — Sync post-commit b0c6b94 (participants + OrganisationSearch public)
 
 ---
 
@@ -8,6 +8,58 @@
 | Commit | Description |
 |---|---|
 | `47a34e9` | fix(sejour): signature/convention/participants fonctionnels en mode DIRECT **et** COLLABORATIF (3 fixes + persistance nomSignataire backend) |
+| `c5751df` | docs: maj LIAVO_SESSION_STATE + ajout fichiers projet non suivis (⚠️ a ajouté un `package.json`/`package-lock.json` racine → régression build frontend, cf. `32332d1`) |
+| `32332d1` | fix(frontend): `outputFileTracingRoot` → restaure la sortie standalone plate (déploiement Scalingo réparé) |
+| `12c7669` | chore: trigger redeploy (commit vide, force un boot propre des deux apps) |
+| `724fe2f` | fix(participants): total élèves + accompagnateurs partout (UI, PDF, emails) via helper `formatParticipants` |
+| `b0c6b94` | feat(appel-offres): sélection établissement via annuaire EN/SIRENE public + OrganisationSearch réutilisable + orga affichée côté hébergeur |
+
+---
+
+## TRAVAUX RÉALISÉS — Commits `724fe2f` & `b0c6b94`
+
+### `724fe2f` — Total participants (élèves + accompagnateurs)
+`placesTotales` = effectif ÉLÈVES uniquement ; `nombreAccompagnateurs` séparé. L'hébergeur/enseignant voyaient « 40 participants » pour 45 personnes.
+- **Helper `formatParticipants(placesTotales, nombreAccompagnateurs?)`** (dupliqué `backend/src/utils/format.ts` + `frontend/src/lib/utils.ts`) : accompagnateurs > 0 → « 45 participants (40 élèves + 5 accompagnateurs) » ; sinon → « 40 participants ».
+- **Backend** : `nombreAccompagnateurs` ajouté aux selects + affichages corrigés — `devis.service` (email envoi devis, `getDevisPublicByToken`, `getDevisById`, `getDemandeInfo`), `sejour.service` (email invitation collab), `collaboration.service` (`getBudgetData` → PDF collab), `centre.service` (`getDashboardGlobal` → planning).
+- **Frontend** : `SejourHeader`, `DevisPDF` (prop `nombreAccompagnateurs` + builders), page publique signature, `devis/nouveau`, planning global (tooltip = breakdown ; bloc compact = total seul). Types étendus : `DevisPublic.sejour`, `BudgetData.sejour`, `DemandeInfo.demande.sejour`, `SejourPlanning`.
+- **Non touché** (intentionnel) : convention/contrat PDF (déjà corrects), libellés « Nombre d'élèves » (corrects), export déclaration TAM (hors-scolaire), champs de saisie & logique create/update.
+
+### `b0c6b94` — Établissement annuaire public sur /appel-offres
+- **Backend** : `GET /public/organisations/search` réutilise `OrganisationsService.searchExternal` (OrganisationsModule importé dans PublicModule) — **zéro duplication**.
+- **`OrganisationSearch`** : nouveau prop optionnel `sireneSearchFn` (défaut = `api.get('/organisations/search')`, comportement authentifié inchangé) ; `SireneRaw` exporté ; **composant déplacé** `app/dashboard/_shared/` → `src/components/OrganisationSearch.tsx` (imports des 2 appelants mis à jour : `clients`, `TabDevisFacturation`).
+- **`/appel-offres`** : champ texte libre remplacé par OrganisationSearch (fetch public) + encadré sélection « nom — ville » + fallback saisie manuelle ; établissement **obligatoire** (`canAdvance` + bouton Envoyer gatés) ; `handleSubmit` transmet `etablissementNom/Ville/Uai` (`DemandePubliquePayload` inchangé).
+- **Cascade hébergeur** : `demande.service.findOpen` expose l'organisation principale de l'enseignant (`memberships` isPrimary), **préservée pour les non-abonnés** (seul l'email reste masqué) ; type `Demande` étendu ; liste des demandes affiche « org — ville » / « Établissement non renseigné ».
+
+---
+
+## INCIDENT PROD 10/06 — Déploiements bloqués (résolu)
+
+**Symptôme** : tous les déploiements backend depuis le 09/06 en `crashed-error`, frontend en crash au boot. Prod backend servait encore l'ancien conteneur (code d'avant le 09/06).
+
+### Migrations Prisma échouées résolues (table `_prisma_migrations`)
+Deux migrations dont la **DDL était déjà appliquée en prod** mais **non enregistrées comme terminées** (`finished_at` NULL) bloquaient `prisma migrate deploy` (P3009 puis P3018) :
+
+1. **`20260609_devis_complementaire`** (P3009) — ses 7 colonnes (`is_complementaire` + 6 `destinataire_*`) existaient déjà sur `devis`.
+2. **`20260609_convention_url`** (P3018 : `column "convention_url" already exists`) — colonne déjà présente, surfacée une fois la 1ʳᵉ débloquée.
+
+**Résolution** (via `scalingo … pgsql-console`, sans migration SQL nouvelle) :
+```sql
+UPDATE "_prisma_migrations" SET finished_at = NOW(), applied_steps_count = 1
+WHERE migration_name = '<nom>' AND finished_at IS NULL;
+```
+- Vérifié ensuite que les 2 migrations récentes restantes ne bloquaient pas : `20260609_dates_flexibles` (non appliquée, colonnes absentes → s'applique proprement) et `20260609_idx_sejours_client_org` (`CREATE INDEX IF NOT EXISTS`, idempotent). Toutes deux appliquées au boot suivant.
+- ⚠️ Table `_prisma_migrations` contient du **cruft historique** (lignes `finished_at` NULL depuis mars, dont 6 doublons `20260331_add_apidae_source_nullable_user`). `migrate deploy` les ignore (non bloquantes) — laissées en l'état, ne pas y toucher sans raison.
+
+### Fix build frontend (Scalingo) — commit `32332d1`
+- **Crash** : `cp: cannot create directory '.next/standalone/.next/static': No such file or directory`.
+- **Cause** : l'ajout d'un `package.json`/`package-lock.json` **à la racine du dépôt** (commit `c5751df`) a fait inférer à Next 16 la racine du monorepo au niveau du dépôt → sortie standalone imbriquée sous `.next/standalone/frontend/`, cassant les chemins du `frontend/Procfile` (qui attend une sortie plate).
+- **Fix** : `outputFileTracingRoot: process.cwd()` dans `next.config.ts` → sortie plate restaurée (`.next/standalone/{server.js,.next/…}`). `output: 'standalone'` était déjà présent.
+- **Leçon** : ajouter un manifest npm à la racine d'un monorepo change l'inférence de racine de Next → toujours épingler `outputFileTracingRoot` au dossier de l'app.
+
+### État final (vérifié)
+- **Backend** : deploy `12c7669` `success`, `running`, `migrate deploy` propre, *Nest application successfully started* (port 20910) — **nouveau code en ligne**.
+- **Frontend** : deploy `32332d1` `success`, `running`.
 
 ---
 
@@ -190,10 +242,11 @@ Règle appliquée : toute feature hébergeur doit marcher dans les deux modes.
 6. **Notifier Yves Massard** que multi-user est live (3 centres Florimont/YAKA/Nants)
 
 ### Priorité moyenne
-7. APIDAE Connect : SSO OAuth2 (dès credentials reçus) — estimé 0.5j
-8. Inviter-enseignant → OrganisationSearch partagé
-9. Convention configurable par centre (quand 2e centre actif hors Sauvageon)
-10. Stripe Checkout (deadline novembre 2026)
+7. **Filtre capacité min/max sur demandes de devis** : hébergeur configure capaciteMin (nouveau champ) + capacite existant = max, demandes hors plage masquées ou déprioritisées. Remontée terrain hébergeur. Estimé 0.5j. Argument différenciateur vs LMDJ pour CA 30/06.
+8. APIDAE Connect : SSO OAuth2 (dès credentials reçus) — estimé 0.5j
+9. Inviter-enseignant → OrganisationSearch partagé
+10. Convention configurable par centre (quand 2e centre actif hors Sauvageon)
+11. Stripe Checkout (deadline novembre 2026)
 
 ### Priorité basse / long terme
 11. Invitations parents 2/enfant
