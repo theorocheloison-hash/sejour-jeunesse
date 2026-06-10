@@ -1,5 +1,5 @@
 'use client';
-import { useState, Suspense } from 'react';
+import { useState, Suspense, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { soumettreDemandePublique } from '@/src/lib/public';
@@ -202,41 +202,57 @@ function AppelOffresContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/"><Logo size="sm" showTagline={false} /></Link>
-            <Link href="/catalogue" className="text-sm text-gray-500 hover:text-gray-900">← Catalogue</Link>
+      {reseauInfo ? (
+        <header className="bg-white border-b border-gray-200">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 py-4">
+            <div className="flex items-center gap-4 min-w-0">
+              {reseauInfo.logo ? (
+                <img src={reseauInfo.logo} alt={reseauInfo.nom} className="h-12 w-auto" />
+              ) : (
+                <span className="text-lg font-bold truncate" style={{ color: reseauInfo.couleurPrimaire }}>
+                  {reseauInfo.nom}
+                </span>
+              )}
+              <div className="border-l border-gray-200 pl-4 flex flex-col">
+                <span className="text-[10px] uppercase tracking-wide text-gray-400">propulsé par</span>
+                <div className="opacity-60"><Logo size="sm" showTagline={false} /></div>
+              </div>
+            </div>
+            {(reseauInfo.tel || reseauInfo.email) && (
+              <div className="text-right text-xs text-gray-500 shrink-0">
+                {reseauInfo.tel && <div>📞 {reseauInfo.tel}</div>}
+                {reseauInfo.email && <div>{reseauInfo.email}</div>}
+              </div>
+            )}
           </div>
-        </div>
-      </nav>
+        </header>
+      ) : (
+        <nav className="bg-white border-b border-gray-200">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center justify-between">
+              <Link href="/"><Logo size="sm" showTagline={false} /></Link>
+              <Link href="/catalogue" className="text-sm text-gray-500 hover:text-gray-900">← Catalogue</Link>
+            </div>
+          </div>
+        </nav>
+      )}
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main
+        className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
+        style={reseauInfo ? ({ '--color-primary': reseauInfo.couleurSecondaire } as CSSProperties) : undefined}
+      >
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            {estContactDirect ? `Envoyer une demande à ${centreNom ?? 'ce centre'}` : "Lancer un appel d'offres"}
+            {estContactDirect
+              ? `Envoyer une demande à ${centreNom ?? 'ce centre'}`
+              : (reseauInfo?.titrePage ?? "Lancer un appel d'offres")}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             {estContactDirect
               ? 'Décrivez votre séjour — le centre vous répondra directement.'
-              : 'Décrivez votre séjour — les centres de votre zone vous envoient leurs devis.'}
+              : (reseauInfo?.sousTitrePage ?? 'Décrivez votre séjour — les centres de votre zone vous envoient leurs devis.')}
           </p>
         </div>
-
-        {reseauInfo && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">
-                Votre demande est accompagnée par {reseauInfo.nom}
-              </p>
-              {reseauInfo.tel && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  📞 {reseauInfo.tel} · {reseauInfo.email}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
 
         <StepIndicator current={step} labels={stepLabels} />
 
