@@ -185,8 +185,9 @@ export class DevisController {
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body() body: { nomSignataire?: string },
   ) {
-    return this.devisService.uploadSignatureDocument(id, user.id, file);
+    return this.devisService.uploadSignatureDocument(id, user.id, file, body?.nomSignataire);
   }
 
   // ── Facturation migrée vers FactureModule (Lot 1) ──

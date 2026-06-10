@@ -161,7 +161,11 @@ export default function TabDevisFacturation({
     setConventionSuccess(false);
     try {
       const { alreadyGenerated } = await genererConvention(devisId);
-      await reloadAllDirect();
+      if (isDirect) {
+        await reloadAllDirect();
+      } else {
+        await onBudgetReload();
+      }
       if (!alreadyGenerated) setConventionSuccess(true);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
@@ -1172,12 +1176,20 @@ export default function TabDevisFacturation({
                 )}
               </div>
 
-              {(directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION') && directDevis.nomSignataireDirecteur && (
+              {/* Bloc « Devis signé » — affiché dès lors que le devis est signé
+                  (en ligne OU scan uploadé). Le scan ne renseigne pas le nom du
+                  signataire : on retombe alors sur la date seule. */}
+              {(directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION')
+                && (directDevis.nomSignataireDirecteur || directDevis.dateSignatureDirecteur) && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                   <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
                   <p className="text-xs text-green-700 mt-1">
-                    Signé par {directDevis.nomSignataireDirecteur}
-                    {directDevis.dateSignatureDirecteur && ` le ${new Date(directDevis.dateSignatureDirecteur).toLocaleDateString('fr-FR')}`}
+                    {directDevis.nomSignataireDirecteur
+                      ? `Signé par ${directDevis.nomSignataireDirecteur}`
+                      : 'Document signé'}
+                    {directDevis.dateSignatureDirecteur && (
+                      ` le ${new Date(directDevis.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(directDevis.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                    )}
                   </p>
                 </div>
               )}
@@ -1514,6 +1526,80 @@ export default function TabDevisFacturation({
                 ) : (
                   <DevisPDFInline data={pdfProps} />
                 )}
+
+                {/* Bloc « Devis signé » — COLLABORATIF, côté hébergeur. Affiché dès
+                    lors que le devis est signé (en ligne OU scan uploadé : le scan
+                    ne renseigne pas le nom → date seule). */}
+                {user.role === 'HEBERGEUR'
+                  && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION')
+                  && (d.nomSignataireDirecteur || d.dateSignatureDirecteur) && (
+                  <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+                    <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      {d.nomSignataireDirecteur
+                        ? `Signé par ${d.nomSignataireDirecteur}`
+                        : 'Document signé'}
+                      {d.dateSignatureDirecteur && (
+                        ` le ${new Date(d.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(d.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Convention de séjour scolaire — COLLABORATIF + nature SEJOUR + devis signé */}
+                {sejour?.natureSejour === 'SEJOUR'
+                  && user.role === 'HEBERGEUR'
+                  && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(d.statut) && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
+                    </div>
+
+                    {d.conventionUrl ? (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <a
+                          href={d.conventionUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                          📄 Télécharger la convention
+                        </a>
+                        <button
+                          onClick={() => handleGenererConvention(d.id)}
+                          disabled={conventionLoading}
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          {conventionLoading && (
+                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                          )}
+                          {conventionLoading ? 'Génération…' : 'Regénérer'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleGenererConvention(d.id)}
+                        disabled={conventionLoading}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {conventionLoading && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        )}
+                        {conventionLoading ? 'Génération en cours…' : '📄 Générer la convention'}
+                      </button>
+                    )}
+
+                    {conventionSuccess && (
+                      <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
+                        ✅ Convention générée et envoyée par email
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {renderFacturationPipeline()}
               </div>
             );

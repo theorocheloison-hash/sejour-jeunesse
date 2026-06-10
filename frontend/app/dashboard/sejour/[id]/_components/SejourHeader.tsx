@@ -67,6 +67,8 @@ export default function SejourHeader({
     clientAdresse: '',
     clientCodePostal: '',
     clientVille: '',
+    placesTotales: 0,
+    nombreAccompagnateurs: 0,
   });
   const [infosLoading, setInfosLoading] = useState(false);
 
@@ -83,11 +85,14 @@ export default function SejourHeader({
       clientAdresse: sejour.clientAdresse ?? '',
       clientCodePostal: sejour.clientCodePostal ?? '',
       clientVille: sejour.clientVille ?? '',
+      placesTotales: sejour.placesTotales ?? 0,
+      nombreAccompagnateurs: sejour.nombreAccompagnateurs ?? 0,
     });
   }, [
     sejour.titre, sejour.dateDebut, sejour.dateFin,
     sejour.clientNom, sejour.clientPrenom, sejour.clientEmail, sejour.clientTelephone,
     sejour.clientAdresse, sejour.clientCodePostal, sejour.clientVille,
+    sejour.placesTotales, sejour.nombreAccompagnateurs,
   ]);
 
   const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
@@ -101,6 +106,9 @@ export default function SejourHeader({
         titre: infosForm.titre || undefined,
         dateDebut: infosForm.dateDebut || undefined,
         dateFin: infosForm.dateFin || undefined,
+        // Participants — éditables dans les deux modes (DIRECT et COLLABORATIF).
+        placesTotales: infosForm.placesTotales,
+        nombreAccompagnateurs: infosForm.nombreAccompagnateurs,
         // Champs client (séjour DIRECT uniquement) — string vide → undefined
         // pour ne pas écraser une valeur existante.
         ...(isDirect && {
@@ -117,6 +125,8 @@ export default function SejourHeader({
         titre: updated.titre,
         dateDebut: updated.dateDebut,
         dateFin: updated.dateFin,
+        placesTotales: updated.placesTotales,
+        nombreAccompagnateurs: updated.nombreAccompagnateurs,
         ...(isDirect && {
           clientNom: updated.clientNom,
           clientPrenom: updated.clientPrenom,
@@ -213,6 +223,29 @@ export default function SejourHeader({
                   onChange={e => setInfosForm(f => ({ ...f, dateFin: e.target.value }))}
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
+              </div>
+              {/* Participants — éditables dans les deux modes (DIRECT et COLLABORATIF). */}
+              <div className="flex gap-2">
+                <label className="flex-1 text-xs text-gray-500">
+                  Participants
+                  <input
+                    type="number"
+                    min={0}
+                    value={infosForm.placesTotales}
+                    onChange={e => setInfosForm(f => ({ ...f, placesTotales: Number(e.target.value) || 0 }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </label>
+                <label className="flex-1 text-xs text-gray-500">
+                  Accompagnateurs
+                  <input
+                    type="number"
+                    min={0}
+                    value={infosForm.nombreAccompagnateurs}
+                    onChange={e => setInfosForm(f => ({ ...f, nombreAccompagnateurs: Number(e.target.value) || 0 }))}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </label>
               </div>
               {isDirect && (
                 <>
