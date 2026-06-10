@@ -19,8 +19,8 @@ import {
   genererConvention,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
-import OrganisationSearch from '@/app/dashboard/_shared/OrganisationSearch';
-import type { OrganisationResult } from '@/app/dashboard/_shared/OrganisationSearch';
+import OrganisationSearch from '@/src/components/OrganisationSearch';
+import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';

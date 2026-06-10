@@ -29,7 +29,10 @@ export interface Demande {
   activitesSouhaitees?: string | null;
   informationsComplementaires?: string | null;
   budgetMaxParEleve?: number | null;
-  enseignant?: { id: string; prenom: string; nom: string; email: string };
+  enseignant?: {
+    id: string; prenom: string; nom: string; email: string;
+    memberships?: { organisation: { nom: string | null; ville: string | null } }[];
+  };
   sejour?: { niveauClasse: string | null; thematiquesPedagogiques: string[] } | null;
   _count?: { devis: number };
   createdAt: string;

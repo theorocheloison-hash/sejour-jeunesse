@@ -9,11 +9,22 @@ import EtapeGeographie from '@/src/components/sejour/EtapeGeographie';
 import EtapeRecapitulatif from '@/src/components/sejour/EtapeRecapitulatif';
 import { INITIAL_DATA } from '@/src/components/sejour/shared';
 import type { SejourFormData } from '@/src/components/sejour/shared';
+import OrganisationSearch from '@/src/components/OrganisationSearch';
+import type { OrganisationResult, SireneRaw } from '@/src/components/OrganisationSearch';
 
 const HORS_SCOLAIRE_TYPES = new Set([
   'MAIRIE','COLLECTIVITE_TERRITORIALE','CENTRE_LOISIRS',
   'ASSOCIATION','COMITE_ENTREPRISE','ENTREPRISE','MICRO_ENTREPRISE',
 ]);
+
+// Recherche SIRENE publique (sans JWT) — alimente OrganisationSearch sur cette page publique.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.liavo.fr';
+const sirenePublic = async (q: string, signal: AbortSignal): Promise<SireneRaw[]> => {
+  const res = await fetch(`${API_BASE}/public/organisations/search?q=${encodeURIComponent(q)}`, { signal });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.results ?? [];
+};
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50';
 
@@ -73,7 +84,11 @@ function AppelOffresContent() {
   const [prenom, setPrenom]           = useState('');
   const [nom, setNom]                 = useState('');
   const [email, setEmail]             = useState('');
-  const [etablissementNom, setEtablissementNom] = useState('');
+  // Établissement : sélection annuaire (selectedOrg) OU saisie manuelle (fallback).
+  const [selectedOrg, setSelectedOrg] = useState<OrganisationResult | null>(null);
+  const [manualMode, setManualMode]   = useState(false);
+  const [manualNom, setManualNom]     = useState('');
+  const [manualVille, setManualVille] = useState('');
   const [isPending, setIsPending]     = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [success, setSuccess]         = useState(false);
@@ -98,6 +113,12 @@ function AppelOffresContent() {
       return !!(base && form.niveauClasse && form.thematiquesPedagogiques.length > 0);
     }
     if (step === stepForGeo) return !!(form.typeZone && form.zoneGeographique && form.dateButoireDevis);
+    if (step === stepForCoord) {
+      // Établissement obligatoire : annuaire sélectionné OU saisie manuelle (nom + ville).
+      return manualMode
+        ? !!(manualNom.trim() && manualVille.trim())
+        : !!selectedOrg;
+    }
     return true;
   };
 
@@ -117,7 +138,9 @@ function AppelOffresContent() {
       await soumettreDemandePublique({
         prenom, nom, email,
         typeStructure:           typeStructure || undefined,
-        etablissementNom:        etablissementNom || undefined,
+        etablissementNom:        (manualMode ? manualNom.trim() : selectedOrg?.nom) || undefined,
+        etablissementVille:      (manualMode ? manualVille.trim() : selectedOrg?.ville) || undefined,
+        etablissementUai:        manualMode ? undefined : (selectedOrg?.uai ?? undefined),
         titre:                   form.titre,
         dateDebut:               form.dateDebut,
         dateFin:                 form.dateFin,
@@ -268,9 +291,45 @@ function AppelOffresContent() {
                   placeholder="votre@email.fr" className={inputCls} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom de votre établissement</label>
-                <input type="text" value={etablissementNom} onChange={(e) => setEtablissementNom(e.target.value)}
-                  placeholder="Ex : Collège Victor Hugo, Mairie de Morillon…" className={inputCls} />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Votre établissement *</label>
+
+                {manualMode ? (
+                  <div className="space-y-2">
+                    <input type="text" value={manualNom} onChange={(e) => setManualNom(e.target.value)}
+                      placeholder="Nom de l'établissement *" className={inputCls} />
+                    <input type="text" value={manualVille} onChange={(e) => setManualVille(e.target.value)}
+                      placeholder="Ville *" className={inputCls} />
+                    <button type="button"
+                      onClick={() => { setManualMode(false); setManualNom(''); setManualVille(''); }}
+                      className="text-xs text-[var(--color-primary)] hover:underline">
+                      ← Rechercher dans l&apos;annuaire
+                    </button>
+                  </div>
+                ) : selectedOrg ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)] bg-[var(--color-primary)]/5 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{selectedOrg.nom}</p>
+                      {selectedOrg.ville && <p className="text-xs text-gray-500">{selectedOrg.ville}</p>}
+                    </div>
+                    <button type="button" onClick={() => setSelectedOrg(null)}
+                      className="shrink-0 text-gray-400 hover:text-red-500 text-lg leading-none" aria-label="Réinitialiser l'établissement">
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <OrganisationSearch
+                      onSelect={(org) => setSelectedOrg(org)}
+                      placeholder="Rechercher votre établissement…"
+                      sireneSearchFn={sirenePublic}
+                    />
+                    <button type="button"
+                      onClick={() => { setManualMode(true); setSelectedOrg(null); }}
+                      className="mt-1 text-xs text-[var(--color-primary)] hover:underline">
+                      Mon établissement n&apos;apparaît pas
+                    </button>
+                  </>
+                )}
               </div>
               <p className="text-xs text-gray-400 mt-2">
                 Votre espace LIAVO sera créé automatiquement. Vous recevrez un lien par email pour y accéder.
@@ -290,7 +349,7 @@ function AppelOffresContent() {
                 Suivant →
               </button>
             ) : (
-              <button type="button" onClick={handleSubmit} disabled={isPending}
+              <button type="button" onClick={handleSubmit} disabled={isPending || !canAdvance()}
                 className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed">
                 {isPending
                   ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi…</>

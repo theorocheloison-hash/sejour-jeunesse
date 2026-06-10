@@ -195,7 +195,16 @@ export class DemandeService {
         ],
       },
       include: {
-        enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
+        enseignant: {
+          select: {
+            id: true, prenom: true, nom: true, email: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: { organisation: { select: { nom: true, ville: true } } },
+              take: 1,
+            },
+          },
+        },
         sejour: { select: { niveauClasse: true, thematiquesPedagogiques: true } },
         _count: { select: { devis: true } },
       },
@@ -213,6 +222,8 @@ export class DemandeService {
             prenom: d.enseignant.prenom,
             nom: d.enseignant.nom,
             email: null,
+            // L'établissement reste affiché même sans abonnement (seul l'email est masqué).
+            memberships: d.enseignant.memberships,
           },
         };
       });

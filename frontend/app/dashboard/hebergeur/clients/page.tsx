@@ -16,8 +16,8 @@ import type { Client, ContactClient, Rappel } from '@/src/lib/clients';
 import { getActivitesClient, createActiviteClient, envoyerBrochureClient } from '@/src/lib/clients';
 import type { ActiviteClient } from '@/src/lib/clients';
 import CreateSejourModal from '@/app/dashboard/_shared/CreateSejourModal';
-import OrganisationSearch from '@/app/dashboard/_shared/OrganisationSearch';
-import type { OrganisationResult } from '@/app/dashboard/_shared/OrganisationSearch';
+import OrganisationSearch from '@/src/components/OrganisationSearch';
+import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 

@@ -20,14 +20,8 @@ export interface OrganisationResult {
   source: 'API_EN' | 'API_SIRENE';
 }
 
-interface OrganisationSearchProps {
-  onSelect: (org: OrganisationResult) => void;
-  placeholder?: string;
-  className?: string;
-}
-
 // Résultat brut renvoyé par /organisations/search (annuaire SIRENE).
-interface SireneRaw {
+export interface SireneRaw {
   siren: string | null;
   siret: string | null;
   nom: string;
@@ -37,6 +31,20 @@ interface SireneRaw {
   departement: string | null;
   typeStructure: string | null;
   source: string;
+}
+
+interface OrganisationSearchProps {
+  onSelect: (org: OrganisationResult) => void;
+  placeholder?: string;
+  className?: string;
+  /**
+   * Fonction de recherche SIRENE optionnelle. Si fournie, elle est utilisée à la
+   * place de l'appel authentifié `api.get('/organisations/search')`. Permet
+   * d'utiliser le composant sur une page publique (sans JWT) en lui passant un
+   * fetch vers `/public/organisations/search`. Par défaut → comportement
+   * authentifié inchangé (aucun appelant existant ne casse).
+   */
+  sireneSearchFn?: (query: string, signal: AbortSignal) => Promise<SireneRaw[]>;
 }
 
 function normalise(s: string): string {
@@ -94,7 +102,7 @@ function mapSirene(r: SireneRaw): OrganisationResult {
   };
 }
 
-export default function OrganisationSearch({ onSelect, placeholder, className }: OrganisationSearchProps) {
+export default function OrganisationSearch({ onSelect, placeholder, className, sireneSearchFn }: OrganisationSearchProps) {
   const [query, setQuery] = useState('');
   const [enResults, setEnResults] = useState<OrganisationResult[]>([]);
   const [sireneResults, setSireneResults] = useState<OrganisationResult[]>([]);
@@ -142,9 +150,15 @@ export default function OrganisationSearch({ onSelect, placeholder, className }:
       const controller = new AbortController();
       abortRef.current = controller;
 
+      // Recherche SIRENE : fonction injectée (contexte public) ou appel authentifié par défaut.
+      const sirenePromise: Promise<SireneRaw[]> = sireneSearchFn
+        ? sireneSearchFn(q, controller.signal)
+        : api.get('/organisations/search', { params: { q }, signal: controller.signal })
+            .then(r => r.data?.results ?? []);
+
       const [enResult, sireneResult] = await Promise.allSettled([
         searchEtablissement(q),
-        api.get('/organisations/search', { params: { q }, signal: controller.signal }).then(r => r.data?.results ?? []),
+        sirenePromise,
       ]);
 
       if (controller.signal.aborted) return;
