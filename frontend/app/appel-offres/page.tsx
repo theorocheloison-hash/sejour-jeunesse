@@ -11,6 +11,7 @@ import { INITIAL_DATA } from '@/src/components/sejour/shared';
 import type { SejourFormData } from '@/src/components/sejour/shared';
 import OrganisationSearch from '@/src/components/OrganisationSearch';
 import type { OrganisationResult, SireneRaw } from '@/src/components/OrganisationSearch';
+import { RESEAUX_PARTENAIRES } from '@/src/data/reseaux-partenaires';
 
 const HORS_SCOLAIRE_TYPES = new Set([
   'MAIRIE','COLLECTIVITE_TERRITORIALE','CENTRE_LOISIRS',
@@ -73,6 +74,8 @@ function AppelOffresContent() {
   const searchParams = useSearchParams();
   const centreId  = searchParams.get('centreId') ?? undefined;
   const centreNom = searchParams.get('centreNom') ?? undefined;
+  const reseauParam = searchParams.get('reseau') ?? undefined;
+  const reseauInfo = reseauParam ? RESEAUX_PARTENAIRES[reseauParam] : undefined;
 
   const estContactDirect = !!centreId;
 
@@ -84,6 +87,7 @@ function AppelOffresContent() {
   const [prenom, setPrenom]           = useState('');
   const [nom, setNom]                 = useState('');
   const [email, setEmail]             = useState('');
+  const [telephone, setTelephone]     = useState('');
   // Établissement : sélection annuaire (selectedOrg) OU saisie manuelle (fallback).
   const [selectedOrg, setSelectedOrg] = useState<OrganisationResult | null>(null);
   const [manualMode, setManualMode]   = useState(false);
@@ -164,6 +168,8 @@ function AppelOffresContent() {
         moinsde6ans:             estHorsScolaireUser ? form.moinsde6ans : undefined,
         typeAccueilACM:          estHorsScolaireUser ? form.typeAccueilACM : undefined,
         projetEducatif:          estHorsScolaireUser ? form.projetEducatif : undefined,
+        sourceReseau:            reseauParam || undefined,
+        telephone:               telephone || undefined,
       });
       setSubmittedEmail(email);
       setSuccess(true);
@@ -216,6 +222,21 @@ function AppelOffresContent() {
               : 'Décrivez votre séjour — les centres de votre zone vous envoient leurs devis.'}
           </p>
         </div>
+
+        {reseauInfo && (
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">
+                Votre demande est accompagnée par {reseauInfo.nom}
+              </p>
+              {reseauInfo.tel && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  📞 {reseauInfo.tel} · {reseauInfo.email}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         <StepIndicator current={step} labels={stepLabels} />
 
@@ -289,6 +310,11 @@ function AppelOffresContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Email professionnel *</label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                   placeholder="votre@email.fr" className={inputCls} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone</label>
+                <input type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)}
+                  placeholder="06 12 34 56 78" className={inputCls} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Votre établissement *</label>
