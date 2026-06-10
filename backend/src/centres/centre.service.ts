@@ -822,6 +822,12 @@ export class CentreService {
       },
     });
 
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+      'Créé via une invitation admin'
+        + (invitation.centrePrecreerNom ? ` — ${invitation.centrePrecreerNom}` : ''),
+    ).catch(() => {});
+
     let centre: Awaited<ReturnType<typeof this.prisma.centreHebergement.findUnique>>;
     let centreExistantApidae:
       | Awaited<ReturnType<typeof this.prisma.centreHebergement.findFirst>>

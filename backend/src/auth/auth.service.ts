@@ -73,6 +73,8 @@ export class AuthService {
         role: Role.ORGANISATEUR,
         telephone: dto.telephone ?? null,
         emailVerifie: false,
+        // Organisateur : pas de validation admin requise (≠ hébergeur).
+        compteValide: true,
         tokenVerification: token,
         tokenVerificationExpires: tokenExpires,
         accompagnateurTokenPending: dto.accompagnateurToken ?? null,
@@ -110,6 +112,10 @@ export class AuthService {
     }
 
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
+
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+    ).catch(() => {});
 
     return {
       message: 'Inscription réussie. Vérifiez votre email pour activer votre compte.',
@@ -177,6 +183,10 @@ export class AuthService {
 
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
 
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+    ).catch(() => {});
+
     return {
       message: 'Inscription réussie. Vérifiez votre email pour activer votre compte.',
       user: { id: user.id, email: user.email, role: user.role },
@@ -227,6 +237,15 @@ export class AuthService {
     } catch (err) {
       console.error('[registerHebergeur] liaison collaborateur échec', err);
     }
+
+    // Notification admin (fire-and-forget) — couvre les deux modes (claim + normal).
+    // L'hébergeur reste compteValide=false : validation admin requise pour se connecter.
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+      `Centre&nbsp;: ${dto.nomCentre}`
+        + (dto.ville ? `<br>Ville&nbsp;: ${dto.ville}` : '')
+        + (dto.siret ? `<br>SIRET&nbsp;: ${dto.siret}` : ''),
+    ).catch(() => {});
 
     // ── Mode revendication catalogue : créer UNIQUEMENT le user. Le centre,
     //    l'organisation et le membership de claim sont gérés par claimFromCatalogue. ──
@@ -370,12 +389,7 @@ export class AuthService {
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
     await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
 
-    this.email.sendGenericNotification(
-      'contact@liavo.fr',
-      'Nouvel hébergeur inscrit — compte à valider',
-      `Un nouvel hébergeur vient de s'inscrire.<br><br>Nom&nbsp;: ${dto.prenom} ${dto.nom}<br>Email&nbsp;: ${dto.email}<br>Centre&nbsp;: ${dto.nomCentre}<br>Ville&nbsp;: ${dto.ville}<br>SIRET&nbsp;: ${dto.siret ?? 'Non renseigné'}<br><br>Connectez-vous au dashboard admin pour valider.`,
-      'LIAVO Admin',
-    ).catch(err => console.error('[registerHebergeur] Echec email admin', err));
+    // Notification admin envoyée plus haut via notifyAdminNewAccount (couvre claim + normal).
 
     return {
       message: 'Inscription réussie. Votre compte est en attente de validation.',
@@ -503,15 +517,19 @@ export class AuthService {
         motDePasse: true,
         compteValide: true,
         emailVerifie: true,
+        magicLinkToken: true,
         reseauNom: true,
       },
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
 
     // Compte dormant (non-hébergeur uniquement) : flux magic-link existant conservé.
-    // Un compte ni validé ni email-vérifié provient d'une demande passée (lien magic
-    // expiré) — on propose un nouveau lien d'accès, sans exiger de mot de passe.
-    if (user.role !== 'HEBERGEUR' && !user.compteValide && !user.emailVerifie) {
+    // Provient d'une demande publique (pas de mot de passe réel) avec un lien magic
+    // encore en attente — on propose un nouveau lien plutôt qu'une erreur d'identifiants.
+    // Détection via le magic-link en attente (et non via compteValide) : les
+    // organisateurs/signataires sont désormais auto-validés (compteValide=true) mais
+    // doivent rester sur le flux « vérifier mon email » (gate 2), pas « compte dormant ».
+    if (user.role !== 'HEBERGEUR' && !user.emailVerifie && user.magicLinkToken) {
       throw new UnauthorizedException('COMPTE_DORMANT');
     }
 
