@@ -44,6 +44,8 @@ export interface DemandePubliqueDto {
   moinsde6ans?: boolean;
   typeAccueilACM?: string;
   projetEducatif?: string;
+  sourceReseau?: string;
+  telephone?: string;
 }
 
 @Injectable()
@@ -78,12 +80,29 @@ export class PublicService {
           role:              'ORGANISATEUR',
           compteValide:      true,
           emailVerifie:      false,
+          telephone:         dto.telephone ?? null,
+          sourceReseau:      dto.sourceReseau ?? null,
         },
       });
       this.email.notifyAdminNewAccount(
         { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
         'Créé via une demande publique (/appel-offres).',
       ).catch(() => {});
+    }
+
+    // User existant réutilisé : on n'écrase JAMAIS le 1er sourceReseau (= 1ʳᵉ acquisition).
+    if (user && !user.sourceReseau && dto.sourceReseau) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { sourceReseau: dto.sourceReseau },
+      });
+      user = { ...user, sourceReseau: dto.sourceReseau };
+    }
+    if (user && !user.telephone && dto.telephone) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { telephone: dto.telephone },
+      });
     }
 
     // 3. Organisation + Membership
@@ -149,6 +168,7 @@ export class PublicService {
           activitesSouhaitees:   dto.activitesSouhaitees ?? null,
           informationsComplementaires: dto.informationsComplementaires ?? null,
           budgetMaxParEleve:     dto.budgetMaxParEleve ?? null,
+          sourceReseau:          dto.sourceReseau ?? null,
         },
       });
       return { sejour, demande };

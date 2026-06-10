@@ -173,6 +173,9 @@ model User {
   reseauNom              String?  @map("reseau_nom") @db.VarChar(100)
   reseauNomComplet       String?  @map("reseau_nom_complet") @db.VarChar(255)
 
+  // Source réseau d'acquisition (ex: "lmdj") — 1ʳᵉ acquisition, persistée pour la fidélité
+  sourceReseau           String?  @map("source_reseau") @db.VarChar(50)
+
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -758,6 +761,7 @@ model DemandeDevis {
   budgetMaxParEleve      Float?    @map("budget_max_par_eleve")
   villeHebergement    String        @map("ville_hebergement") @db.VarChar(255)
   regionCible         String        @default("") @map("region_cible") @db.VarChar(255)
+  sourceReseau        String?       @map("source_reseau") @db.VarChar(50)
   dateButoireReponse  DateTime?     @map("date_butoire_reponse") @db.Date
   statut              StatutDemande @default(OUVERTE)
   enseignantId        String        @map("enseignant_id") @db.Uuid

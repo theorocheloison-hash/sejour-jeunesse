@@ -21,6 +21,7 @@ export interface Demande {
   statut: StatutDemande;
   sejourId: string;
   enseignantId: string;
+  sourceReseau?: string | null;
   nombreAccompagnateurs?: number | null;
   heureArrivee?: string | null;
   heureDepart?: string | null;

@@ -64,6 +64,8 @@ export interface DemandePubliquePayload {
   moinsde6ans?: boolean;
   typeAccueilACM?: string;
   projetEducatif?: string;
+  sourceReseau?: string;
+  telephone?: string;
 }
 
 export async function searchCentresPublics(search: string): Promise<CentrePublic[]> {
