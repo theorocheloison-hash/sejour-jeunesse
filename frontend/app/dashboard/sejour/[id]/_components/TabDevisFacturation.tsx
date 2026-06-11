@@ -121,8 +121,13 @@ function FacturePdfLink({ facture, onReload }: { facture: Facture; onReload: () 
         try {
           await regenererFacturePdf(facture.id);
           await onReload();
-        } catch { /* ignore */ }
-        finally { setRegenerating(false); }
+        } catch (err: unknown) {
+          const msg = (err as { response?: { data?: { message?: string } } })
+            ?.response?.data?.message ?? 'Erreur lors de la régénération du PDF';
+          alert(msg);
+        } finally {
+          setRegenerating(false);
+        }
       }}
       disabled={regenerating}
       className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
@@ -921,7 +926,7 @@ export default function TabDevisFacturation({
         )}
 
         <div className="flex items-center gap-2 flex-wrap pt-2">
-          {factureActive && etatFacturation !== 'SOLDE' && (
+          {factureActive && resteDu > 0 && (
             <button
               onClick={() => setShowAddVersement(true)}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
