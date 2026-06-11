@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import { getMesDevis, getFactureAcompte } from '@/src/lib/devis';
-import { getMonProfil } from '@/src/lib/centre';
+import { getMesCentres } from '@/src/lib/centre';
 import { getMesNonLus } from '@/src/lib/collaboration';
-import type { Centre } from '@/src/lib/centre';
+import type { CentreResume } from '@/src/lib/centre';
 
 export function useHebergeurCounts() {
-  const [centre, setCentre] = useState<Centre | null>(null);
+  // getMesCentres() (pas getMonProfil) : ce dernier porte @RequirePermission('parametres')
+  // et est rejeté pour un collaborateur sans ce droit → centre null + sidebar vide.
+  const [centre, setCentre] = useState<CentreResume | null>(null);
   const [demandesCount, setDemandesCount] = useState(0);
   const [rappelsCount, setRappelsCount] = useState(0);
   const [actionsFactCount, setActionsFactCount] = useState(0);
@@ -18,7 +20,7 @@ export function useHebergeurCounts() {
   const load = useCallback(async () => {
     try {
       const [profil, demandes, rappels, devis, nonLus] = await Promise.all([
-        getMonProfil().catch(() => null),
+        getMesCentres().then(cs => cs[0] ?? null).catch(() => null),
         getDemandesOuvertes().catch(() => []),
         getRappelsToday().catch(() => []),
         getMesDevis().catch(() => []),
