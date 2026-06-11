@@ -48,6 +48,31 @@ export class UpdateDevisDto {
   @IsString()
   telEntreprise?: string;
 
+  // Destinataire (devis complémentaire : payeur additionnel avec destinataire propre)
+  @IsOptional()
+  @IsString()
+  destinataireNom?: string;
+
+  @IsOptional()
+  @IsString()
+  destinataireAdresse?: string;
+
+  @IsOptional()
+  @IsString()
+  destinataireCodePostal?: string;
+
+  @IsOptional()
+  @IsString()
+  destinataireVille?: string;
+
+  @IsOptional()
+  @IsString()
+  destinataireSiret?: string;
+
+  @IsOptional()
+  @IsString()
+  destinataireEmail?: string;
+
   @IsOptional()
   @IsNumber()
   tauxTva?: number;
