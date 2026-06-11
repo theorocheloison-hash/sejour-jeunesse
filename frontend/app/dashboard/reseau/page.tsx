@@ -55,13 +55,21 @@ const ONBOARDING_LABELS = ['Profil complet', 'Mandat signé', 'Agrément renseig
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, accent }: { label: string; value: number | string; sub?: string; accent?: string }) {
+function KpiCard({ label, value, description, accent, onClick }: {
+  label: string;
+  value: number | string;
+  description?: string;
+  accent?: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+    <div
+      className={`bg-white rounded-2xl border border-gray-200 shadow-sm p-5 ${onClick ? 'cursor-pointer hover:border-[var(--color-primary)] hover:shadow-md transition-all' : ''}`}
+      onClick={onClick}
+    >
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>
-        {value}{sub && <span className="text-sm font-medium text-gray-400 ml-1">{sub}</span>}
-      </p>
+      <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>{value}</p>
+      {description && <p className="text-xs text-gray-400 mt-1">{description}</p>}
     </div>
   );
 }
@@ -462,13 +470,12 @@ function SortableHeader({
 
 function exportCSV(stats: ReseauStats) {
   const headers = ['Nom', 'Ville', 'Département', 'Capacité', 'Statut', 'Profil (/4)',
-    'Demandes reçues', 'Demandes via réseau', 'Devis envoyés', 'Devis retenus', 'CA généré (€)', 'Dernière activité'];
+    'Demandes via réseau', 'Dernière activité'];
   const rows = stats.centres.map(c => [
     c.nom, c.ville, c.departement ?? '', c.capacite,
     c.statut === 'ACTIVE' ? 'Actif' : c.statut === 'PENDING' ? 'En attente' : 'Suspendu',
     c.onboardingScore,
-    c.demandesRecues, c.demandesReseau, c.devisEnvoyes, c.devisSelectionnes,
-    c.caGenere, new Date(c.derniereActivite).toLocaleDateString('fr-FR'),
+    c.demandesReseau, new Date(c.derniereActivite).toLocaleDateString('fr-FR'),
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -554,11 +561,7 @@ export default function ReseauDashboardPage() {
       case 'ville': va = a.ville; vb = b.ville; break;
       case 'capacite': va = a.capacite; vb = b.capacite; break;
       case 'onboarding': va = a.onboardingScore; vb = b.onboardingScore; break;
-      case 'demandes': va = a.demandesRecues; vb = b.demandesRecues; break;
       case 'reseau': va = a.demandesReseau; vb = b.demandesReseau; break;
-      case 'devis': va = a.devisEnvoyes; vb = b.devisEnvoyes; break;
-      case 'retenus': va = a.devisSelectionnes; vb = b.devisSelectionnes; break;
-      case 'ca': va = a.caGenere; vb = b.caGenere; break;
       case 'activite': va = a.derniereActivite; vb = b.derniereActivite; break;
       default: va = a.nom; vb = b.nom;
     }
@@ -654,20 +657,20 @@ export default function ReseauDashboardPage() {
             <div>
               <p className="text-xs font-semibold text-[var(--color-primary)] uppercase tracking-wide mb-2">Apport du réseau{displayName ? ` ${displayName}` : ''}</p>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Demandes via réseau" value={stats.kpis.demandesReseau} sub={`/ ${stats.kpis.demandesRecues}`} accent="text-[var(--color-primary)]" />
-                <KpiCard label="Devis convertis via réseau" value={stats.kpis.devisReseau} />
-                <KpiCard label="CA via réseau" value={formatEuros(stats.kpis.caReseau)} sub={`/ ${formatEuros(stats.kpis.caTotal)}`} accent="text-[var(--color-accent)]" />
-                <KpiCard label="Taux de conversion réseau" value={stats.kpis.demandesReseau === 0 ? '—' : `${stats.kpis.tauxConversionReseau} %`} />
+                <KpiCard label="Demandes via réseau" value={stats.kpis.demandesReseau} description="Demandes d'enseignants arrivées via votre réseau" accent="text-[var(--color-primary)]" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('toutes'); }} />
+                <KpiCard label="Devis convertis via réseau" value={stats.kpis.devisReseau} description="Devis retenus suite à une demande réseau" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('converties'); }} />
+                <KpiCard label="CA via réseau" value={formatEuros(stats.kpis.caReseau)} description="Chiffre d'affaires généré par vos demandes" accent="text-[var(--color-accent)]" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('converties'); }} />
+                <KpiCard label="Taux de conversion réseau" value={stats.kpis.demandesReseau === 0 ? '—' : `${stats.kpis.tauxConversionReseau} %`} description="Demandes réseau transformées en séjour" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('toutes'); }} />
               </div>
             </div>
             {/* KPIs ligne 2 — vue d'ensemble */}
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vue d&apos;ensemble</p>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Centres membres" value={stats.kpis.totalCentres} />
-                <KpiCard label="Centres actifs" value={stats.kpis.centresActifs} accent="text-[var(--color-success)]" />
-                <KpiCard label="Enseignants acquis" value={stats.kpis.enseignantsAcquis} />
-                <KpiCard label="Enseignants fidélisés" value={stats.kpis.enseignantsFidelises} accent="text-[var(--color-primary)]" />
+                <KpiCard label="Centres membres" value={stats.kpis.totalCentres} description="Centres rattachés à votre réseau sur Liavo" />
+                <KpiCard label="Centres actifs" value={stats.kpis.centresActifs} description="Centres avec un compte actif" accent="text-[var(--color-success)]" />
+                <KpiCard label="Enseignants acquis" value={stats.kpis.enseignantsAcquis} description="Enseignants inscrits via votre réseau" />
+                <KpiCard label="Enseignants fidélisés" value={stats.kpis.enseignantsFidelises} description="Enseignants revenus pour un 2e séjour" accent="text-[var(--color-primary)]" />
               </div>
             </div>
 
@@ -777,11 +780,7 @@ export default function ReseauDashboardPage() {
                         <SortableHeader col="capacite" label="Capacité" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                         <SortableHeader col="onboarding" label="Profil" current={sortCol} dir={sortDir} onSort={handleSort} />
-                        <SortableHeader col="demandes" label="Demandes" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="reseau" label="Via réseau" current={sortCol} dir={sortDir} onSort={handleSort} />
-                        <SortableHeader col="devis" label="Devis" current={sortCol} dir={sortDir} onSort={handleSort} />
-                        <SortableHeader col="retenus" label="Retenus" current={sortCol} dir={sortDir} onSort={handleSort} />
-                        <SortableHeader col="ca" label="CA généré" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="activite" label="Dernière activité" current={sortCol} dir={sortDir} onSort={handleSort} />
                       </tr>
                     </thead>
@@ -807,11 +806,7 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3 text-sm text-gray-500">{c.capacite}</td>
                           <td className="px-4 py-3"><StatutBadge statut={c.statut} /></td>
                           <td className="px-4 py-3"><OnboardingDots centre={c} /></td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{c.demandesRecues}</td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-primary)]">{c.demandesReseau}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{c.devisEnvoyes}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.devisSelectionnes}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatEuros(c.caGenere)}</td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(c.derniereActivite)}</td>
                         </tr>
                       ))}
