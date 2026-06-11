@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, uploadCentreImage } from '@/src/lib/centre';
+import { getMonProfil, getMesCentres, uploadCentreImage } from '@/src/lib/centre';
+import type { Centre } from '@/src/lib/centre';
 import { getMesDevis, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
 import type { Devis } from '@/src/lib/devis';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
@@ -81,7 +82,11 @@ export default function HebergeurDashboard() {
   const loadData = useCallback(async () => {
     try {
       const [profil, mesDevis, sejours, mesDemandes, rappels] = await Promise.all([
-        getMonProfil(),
+        // getMonProfil() porte @RequirePermission('parametres') : rejeté pour un
+        // collaborateur sans ce droit → fallback CentreResume (dashboard de base).
+        // Cast en Centre (sous-type structurel) : les champs absents (telephone,
+        // abonnementActifJusquAu) sont undefined au runtime et lus en optional-chaining.
+        getMonProfil().catch(async () => ((await getMesCentres())[0] ?? null) as Centre | null),
         getMesDevis(),
         getMesSejoursConvention(),
         getDemandesOuvertes().catch(() => []),
