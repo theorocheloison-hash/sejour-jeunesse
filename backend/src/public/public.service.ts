@@ -32,6 +32,7 @@ export interface DemandePubliqueDto {
   niveauClasse?: string;
   thematiquesPedagogiques?: string[];
   regionCible?: string;
+  departementsCibles?: string[];
   villeHebergement?: string;
   centreDestinataireId?: string;
   dateButoireReponse?: string;
@@ -190,6 +191,7 @@ export class PublicService {
           nombreEleves:          dto.nombreEleves,
           villeHebergement:      dto.villeHebergement ?? dto.etablissementVille ?? '',
           regionCible:           dto.regionCible ?? '',
+          departementsCibles:    dto.departementsCibles ?? [],
           enseignantId:          user!.id,
           centreDestinataireId:  dto.centreDestinataireId ?? null,
           dateButoireReponse:    dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,
@@ -227,6 +229,7 @@ export class PublicService {
       villeHebergement: dto.villeHebergement ?? dto.etablissementVille ?? '',
       periodeLabel: buildPeriodeLabel(dto),
       regionCible: dto.regionCible ?? '',
+      departementsCibles: dto.departementsCibles ?? [],
       centreDestinataireId: dto.centreDestinataireId ?? null,
       typeContexte: typeContexte,
     }).catch((err) => console.error('[PUBLIC] Erreur notification centres:', err));
@@ -239,6 +242,7 @@ export class PublicService {
     villeHebergement: string;
     periodeLabel: string;
     regionCible: string;
+    departementsCibles: string[];
     centreDestinataireId: string | null;
     typeContexte?: string;
   }): Promise<void> {
@@ -319,9 +323,15 @@ export class PublicService {
       }
     };
 
-    const cibles = centres.filter((c) =>
-      matchesZone(demande.regionCible, { ville: c.ville, codePostal: c.codePostal ?? '' }),
-    );
+    // departementsCibles (codes, ex. ['73','74']) PRIME sur regionCible quand renseigné.
+    const cibles = centres.filter((c) => {
+      const centreInfo = { ville: c.ville, codePostal: c.codePostal ?? '' };
+      if (demande.departementsCibles.length > 0) {
+        const deptCode = getDeptCode(centreInfo.codePostal);
+        return demande.departementsCibles.some((d) => d.split(' - ')[0] === deptCode);
+      }
+      return matchesZone(demande.regionCible, centreInfo);
+    });
 
     await Promise.allSettled(
       cibles.map((c) =>

@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDemandeDto {
@@ -49,6 +49,11 @@ export class CreateDemandeDto {
   @IsOptional()
   @IsString()
   regionCible?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  departementsCibles?: string[];
 
   @IsOptional()
   @IsDateString()

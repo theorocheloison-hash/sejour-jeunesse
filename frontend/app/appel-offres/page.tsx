@@ -79,10 +79,18 @@ function AppelOffresContent() {
 
   const estContactDirect = !!centreId;
 
-  // Steps : 1=TypeStructure, 2=Infos, 3=Géographie(si pas contact direct), 4=Récap, 5=Coordonnées
-  // Contact direct : 1=TypeStructure, 2=Infos, 3=Récap, 4=Coordonnées
+  // Réseau avec départements par défaut (ex. LMDJ 73/74) : on saute le step Destination
+  // et on auto-remplit la zone. Pas applicable en contact direct (un centre précis est déjà ciblé).
+  const skipDestination = !!reseauInfo?.departementsDefaut?.length && !estContactDirect;
+
+  // Steps : 1=TypeStructure, 2=Infos, 3=Géographie(si destination), 4=Récap, 5=Coordonnées
+  // Sans destination (contact direct OU réseau pré-rempli) : 1=Type, 2=Infos, 3=Récap, 4=Coordonnées
   const [step, setStep]               = useState(1);
-  const [form, setForm]               = useState<SejourFormData>(INITIAL_DATA);
+  const [form, setForm]               = useState<SejourFormData>(() =>
+    skipDestination
+      ? { ...INITIAL_DATA, typeZone: 'DEPARTEMENT', departementsCibles: reseauInfo!.departementsDefaut! }
+      : INITIAL_DATA,
+  );
   const [typeStructure, setTypeStructure] = useState('');
   const [prenom, setPrenom]           = useState('');
   const [nom, setNom]                 = useState('');
@@ -99,15 +107,16 @@ function AppelOffresContent() {
   const [submittedEmail, setSubmittedEmail] = useState('');
 
   const estHorsScolaireUser = HORS_SCOLAIRE_TYPES.has(typeStructure);
-  const stepLabels = estContactDirect
+  const sansDestination = estContactDirect || skipDestination;
+  const stepLabels = sansDestination
     ? ['Type', 'Informations', 'Récapitulatif', 'Coordonnées']
     : ['Type', 'Informations', 'Destination', 'Récapitulatif', 'Coordonnées'];
   const totalSteps = stepLabels.length;
 
   // Mapping step → composant
-  const stepForGeo   = estContactDirect ? 99 : 3;
-  const stepForRecap = estContactDirect ? 3 : 4;
-  const stepForCoord = estContactDirect ? 4 : 5;
+  const stepForGeo   = sansDestination ? 99 : 3;
+  const stepForRecap = sansDestination ? 3 : 4;
+  const stepForCoord = sansDestination ? 4 : 5;
 
   const canAdvance = () => {
     if (step === 1) return !!typeStructure;
@@ -130,7 +139,7 @@ function AppelOffresContent() {
   };
 
   const buildRegionCible = () => {
-    if (!form.typeZone || form.typeZone === 'FRANCE') return undefined;
+    if (!form.typeZone || form.typeZone === 'FRANCE' || !form.zoneGeographique) return undefined;
     if (form.typeZone === 'REGION')      return `REGION:${form.zoneGeographique}`;
     if (form.typeZone === 'DEPARTEMENT') return `DEPARTEMENT:${form.zoneGeographique}`;
     if (form.typeZone === 'VILLE')       return `VILLE:${form.zoneGeographique}`;
@@ -161,6 +170,7 @@ function AppelOffresContent() {
         niveauClasse:            estHorsScolaireUser ? undefined : form.niveauClasse || undefined,
         thematiquesPedagogiques: estHorsScolaireUser ? [] : form.thematiquesPedagogiques,
         regionCible:             buildRegionCible(),
+        departementsCibles:      form.departementsCibles.length ? form.departementsCibles : undefined,
         villeHebergement:        form.zoneGeographique || undefined,
         centreDestinataireId:    centreId,
         dateButoireReponse:      form.dateButoireDevis || undefined,
