@@ -313,6 +313,13 @@ export class DevisService {
         montantAcompte: dto.montantAcompte ?? devis.montantAcompte,
         // numeroDevis non overridable : conservé tel quel (attribué à la création)
         typeDevis: dto.typeDevis ?? devis.typeDevis,
+        // Destinataire (devis complémentaire) — modifiable après création
+        destinataireNom: dto.destinataireNom ?? devis.destinataireNom,
+        destinataireAdresse: dto.destinataireAdresse ?? devis.destinataireAdresse,
+        destinataireCodePostal: dto.destinataireCodePostal ?? devis.destinataireCodePostal,
+        destinataireVille: dto.destinataireVille ?? devis.destinataireVille,
+        destinataireSiret: dto.destinataireSiret ?? devis.destinataireSiret,
+        destinataireEmail: dto.destinataireEmail ?? devis.destinataireEmail,
       },
     });
 
