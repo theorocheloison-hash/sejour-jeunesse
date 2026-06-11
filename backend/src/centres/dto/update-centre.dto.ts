@@ -42,6 +42,10 @@ export class UpdateCentreDto {
 
   @IsOptional()
   @IsString()
+  siret?: string;
+
+  @IsOptional()
+  @IsString()
   tvaIntracommunautaire?: string;
 
   @IsOptional()
