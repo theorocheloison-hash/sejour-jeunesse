@@ -111,11 +111,12 @@ const s = StyleSheet.create({
   tableHeaderCell: { fontSize: 8, fontWeight: 'bold', color: '#FFFFFF', textTransform: 'uppercase' },
   tableRow: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: BORDER },
   tableRowAlt: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: BORDER, backgroundColor: GREY_ROW },
-  cellDesc: { width: '40%' },
-  cellQte: { width: '12%', textAlign: 'right' },
-  cellPU: { width: '18%', textAlign: 'right' },
-  cellTVA: { width: '12%', textAlign: 'right' },
-  cellTotal: { width: '18%', textAlign: 'right' },
+  cellDesc: { width: '38%' },
+  cellQte: { width: '10%', textAlign: 'right' },
+  cellPU: { width: '14%', textAlign: 'right' },
+  cellTVA: { width: '10%', textAlign: 'right' },
+  cellTotal: { width: '14%', textAlign: 'right' },
+  cellTotalTTC: { width: '14%', textAlign: 'right' },
   cellText: { fontSize: 9, color: GREY_TEXT },
   // Totaux
   totauxBlock: { marginTop: 12, alignItems: 'flex-end' },
@@ -229,6 +230,7 @@ export default function DevisPDF(props: DevisPDFProps) {
           <Text style={[s.tableHeaderCell, s.cellPU]}>PU HT</Text>
           <Text style={[s.tableHeaderCell, s.cellTVA]}>TVA %</Text>
           <Text style={[s.tableHeaderCell, s.cellTotal]}>Total HT</Text>
+          <Text style={[s.tableHeaderCell, s.cellTotalTTC]}>Total TTC</Text>
         </View>
         {lignes.map((l, i) => (
           <View key={i} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
@@ -237,6 +239,7 @@ export default function DevisPDF(props: DevisPDFProps) {
             <Text style={[s.cellText, s.cellPU]}>{fmtMontant(l.prixUnitaire)} €</Text>
             <Text style={[s.cellText, s.cellTVA]}>{l.tva} %</Text>
             <Text style={[s.cellText, s.cellTotal]}>{fmtMontant(l.totalHT)} €</Text>
+            <Text style={[s.cellText, s.cellTotalTTC]}>{fmtMontant(l.totalTTC)} €</Text>
           </View>
         ))}
 
