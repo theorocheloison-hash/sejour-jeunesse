@@ -119,6 +119,7 @@ export interface ReseauCentre {
   abonnementStatut: string;
   source: string | null;
   demandesRecues: number;
+  demandesReseau: number;
   devisEnvoyes: number;
   devisSelectionnes: number;
   caGenere: number;
@@ -144,6 +145,12 @@ export interface ReseauStats {
     devisSelectionnes: number;
     caTotal: number;
     tauxReponse: number;
+    demandesReseau: number;
+    devisReseau: number;
+    caReseau: number;
+    tauxConversionReseau: number;
+    enseignantsAcquis: number;
+    enseignantsFidelises: number;
   };
   centres: ReseauCentre[];
 }
@@ -156,6 +163,43 @@ export async function getReseauStats(reseau: string): Promise<ReseauStats> {
 export async function getMyReseauStats(periode?: string): Promise<ReseauStats> {
   const params = periode ? { periode } : {};
   const { data } = await api.get<ReseauStats>('/reseau/stats', { params });
+  return data;
+}
+
+export interface DemandeReseauReponse {
+  centreNom: string;
+  centreVille: string;
+  statut: string;
+  montantTTC: number | null;
+  dateReponse: string;
+}
+
+export interface DemandeReseau {
+  id: string;
+  createdAt: string;
+  statut: string;
+  titre: string;
+  dateDebut: string | null;
+  dateFin: string | null;
+  moisSouhaite: number | null;
+  anneeSouhaitee: number | null;
+  dureeNuits: number | null;
+  placesTotales: number;
+  nombreAccompagnateurs: number | null;
+  niveauClasse: string | null;
+  typeContexte: string;
+  departementsCibles: string[];
+  regionCible: string;
+  description: string | null;
+  enseignant: { id: string; prenom: string; nom: string; email: string; telephone: string | null };
+  organisation: { nom: string; ville: string | null; uai: string | null } | null;
+  nombreReponses: number;
+  reponses: DemandeReseauReponse[];
+}
+
+export async function getReseauDemandes(periode?: string): Promise<DemandeReseau[]> {
+  const params = periode ? { periode } : {};
+  const { data } = await api.get<DemandeReseau[]>('/reseau/demandes', { params });
   return data;
 }
 
