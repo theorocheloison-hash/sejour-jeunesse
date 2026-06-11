@@ -151,6 +151,13 @@ export class ReseauController {
     return this.adminService.getReseauStats(reseau, periode, req.user.reseauNomComplet);
   }
 
+  @Get('demandes')
+  getMyReseauDemandes(@Request() req: any, @Query('periode') periode?: string) {
+    const reseau = req.user.reseauNom;
+    if (!reseau) throw new Error('Compte réseau non configuré');
+    return this.adminService.getReseauDemandes(reseau, periode);
+  }
+
   @Get('centres/:id')
   getCentreDetail(@Request() req: any, @Param('id') id: string) {
     const reseau = req.user.reseauNom;

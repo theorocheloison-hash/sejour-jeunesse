@@ -333,7 +333,7 @@ export class AdminService {
         createdAt: true,
         devis: {
           where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
-          select: { statut: true, montantTTC: true, createdAt: true },
+          select: { statut: true, montantTTC: true, createdAt: true, demande: { select: { sourceReseau: true } } },
         },
         demandesDestinees: {
           where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
@@ -360,6 +360,36 @@ export class AdminService {
       ? Math.round((devisEnvoyes / demandesRecues) * 100)
       : 0;
 
+    // ── KPIs par source réseau (sourceReseau = slug 'lmdj' ; reseauNom = 'LMDJ' → insensitive) ──
+    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION']);
+
+    const demandesSourceReseau = await this.prisma.demandeDevis.findMany({
+      where: {
+        sourceReseau: { equals: reseau, mode: 'insensitive' },
+        ...(dateFrom ? { createdAt: { gte: dateFrom } } : {}),
+      },
+      select: { id: true, devis: { select: { statut: true, montantTTC: true } } },
+    });
+    const demandesReseau = demandesSourceReseau.length;
+    const devisRetenusReseau = demandesSourceReseau
+      .flatMap(d => d.devis)
+      .filter(dv => RETENUS.has(dv.statut));
+    const devisReseau = devisRetenusReseau.length;
+    const caReseau = devisRetenusReseau.reduce((sum, dv) => sum + (dv.montantTTC ?? 0), 0);
+    const tauxConversionReseau = demandesReseau > 0
+      ? Math.round((devisReseau / demandesReseau) * 100)
+      : 0;
+
+    const enseignantsReseau = await this.prisma.user.findMany({
+      where: {
+        sourceReseau: { equals: reseau, mode: 'insensitive' },
+        ...(dateFrom ? { createdAt: { gte: dateFrom } } : {}),
+      },
+      select: { _count: { select: { sejoursCreer: true } } },
+    });
+    const enseignantsAcquis = enseignantsReseau.length;
+    const enseignantsFidelises = enseignantsReseau.filter(u => u._count.sejoursCreer >= 2).length;
+
     return {
       reseau,
       nomComplet: nomComplet ?? reseau,
@@ -372,6 +402,12 @@ export class AdminService {
         devisSelectionnes,
         caTotal,
         tauxReponse,
+        demandesReseau,
+        devisReseau,
+        caReseau,
+        tauxConversionReseau,
+        enseignantsAcquis,
+        enseignantsFidelises,
       },
       centres: centres.map(c => {
         const onboardingDetails = {
@@ -396,6 +432,9 @@ export class AdminService {
           statut: c.statut,
           abonnementStatut: c.abonnementStatut,
           demandesRecues: c.demandesDestinees.length,
+          demandesReseau: c.devis.filter(
+            d => (d.demande?.sourceReseau ?? '').toLowerCase() === reseau.toLowerCase(),
+          ).length,
           devisEnvoyes: c.devis.length,
           devisSelectionnes: c.devis.filter(d => d.statut === 'SELECTIONNE').length,
           caGenere: c.devis
@@ -409,6 +448,90 @@ export class AdminService {
         };
       }),
     };
+  }
+
+  async getReseauDemandes(reseau: string, periode?: string) {
+    let dateFrom: Date | undefined;
+    const now = new Date();
+    if (periode === '30j') dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    else if (periode === '90j') dateFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else if (periode === 'saison') {
+      const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      dateFrom = new Date(year, 8, 1);
+    }
+
+    const demandes = await this.prisma.demandeDevis.findMany({
+      where: {
+        sourceReseau: { equals: reseau, mode: 'insensitive' },
+        ...(dateFrom ? { createdAt: { gte: dateFrom } } : {}),
+      },
+      select: {
+        id: true, createdAt: true, statut: true, titre: true,
+        dateDebut: true, dateFin: true, moisSouhaite: true, anneeSouhaitee: true,
+        dureeNuits: true, nombreAccompagnateurs: true,
+        departementsCibles: true, regionCible: true, description: true,
+        sejour: { select: { placesTotales: true, niveauClasse: true, typeContexte: true } },
+        enseignant: {
+          select: {
+            id: true, prenom: true, nom: true, email: true, telephone: true,
+            memberships: {
+              where: { isPrimary: true },
+              select: { organisation: { select: { nom: true, ville: true, uai: true } } },
+              take: 1,
+            },
+          },
+        },
+        devis: {
+          select: {
+            statut: true, montantTTC: true, createdAt: true,
+            centre: { select: { nom: true, ville: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return demandes.map(d => ({
+      id: d.id,
+      createdAt: d.createdAt.toISOString(),
+      statut: d.statut,
+      titre: d.titre,
+      dateDebut: d.dateDebut ? d.dateDebut.toISOString() : null,
+      dateFin: d.dateFin ? d.dateFin.toISOString() : null,
+      moisSouhaite: d.moisSouhaite,
+      anneeSouhaitee: d.anneeSouhaitee,
+      dureeNuits: d.dureeNuits,
+      placesTotales: d.sejour?.placesTotales ?? 0,
+      nombreAccompagnateurs: d.nombreAccompagnateurs,
+      niveauClasse: d.sejour?.niveauClasse ?? null,
+      typeContexte: d.sejour?.typeContexte ?? 'SCOLAIRE',
+      departementsCibles: d.departementsCibles,
+      regionCible: d.regionCible,
+      description: d.description,
+      enseignant: {
+        id: d.enseignant.id,
+        prenom: d.enseignant.prenom,
+        nom: d.enseignant.nom,
+        email: d.enseignant.email,
+        telephone: d.enseignant.telephone,
+      },
+      organisation: d.enseignant.memberships[0]
+        ? {
+            nom: d.enseignant.memberships[0].organisation.nom,
+            ville: d.enseignant.memberships[0].organisation.ville,
+            uai: d.enseignant.memberships[0].organisation.uai,
+          }
+        : null,
+      nombreReponses: d.devis.length,
+      reponses: d.devis.map(dv => ({
+        centreNom: dv.centre.nom,
+        centreVille: dv.centre.ville,
+        statut: dv.statut,
+        montantTTC: dv.montantTTC,
+        dateReponse: dv.createdAt.toISOString(),
+      })),
+    }));
   }
 
   async getReseauCentreDetail(centreId: string, reseau: string) {
