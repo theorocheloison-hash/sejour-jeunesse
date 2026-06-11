@@ -88,7 +88,13 @@ function AppelOffresContent() {
   const [step, setStep]               = useState(1);
   const [form, setForm]               = useState<SejourFormData>(() =>
     skipDestination
-      ? { ...INITIAL_DATA, typeZone: 'DEPARTEMENT', departementsCibles: reseauInfo!.departementsDefaut! }
+      ? {
+          ...INITIAL_DATA,
+          typeZone: 'DEPARTEMENT',
+          departementsCibles: reseauInfo!.departementsDefaut!,
+          // Step Destination sauté → date butoire non saisie : défaut J+30.
+          dateButoireDevis: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }
       : INITIAL_DATA,
   );
   const [typeStructure, setTypeStructure] = useState('');
