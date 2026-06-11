@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -70,6 +70,43 @@ function KpiCard({ label, value, description, accent, onClick }: {
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
       <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>{value}</p>
       {description && <p className="text-xs text-gray-400 mt-1">{description}</p>}
+    </div>
+  );
+}
+
+// ─── Funnel pipeline (onglet Demandes) ───────────────────────────────────────
+
+const CONFIRME_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
+
+function FunnelPipeline({ demandes, kpis, active, onSelect }: {
+  demandes: DemandeReseau[];
+  kpis: ReseauStats['kpis'];
+  active: 'all' | 'avec_reponse' | 'confirmes';
+  onSelect: (f: 'all' | 'avec_reponse' | 'confirmes') => void;
+}) {
+  const avecProposition = demandes.filter(d => d.nombreReponses > 0).length;
+  const blocs = [
+    { key: 'all' as const,          label: 'Demandes',            sub: 'reçues',              value: kpis.demandesReseau,        color: 'bg-blue-50 text-blue-700 border-blue-200',   ring: 'ring-blue-400' },
+    { key: 'avec_reponse' as const, label: 'Avec proposition(s)', sub: '≥1 centre a répondu', value: avecProposition,            color: 'bg-sky-50 text-sky-700 border-sky-200',      ring: 'ring-sky-400' },
+    { key: 'confirmes' as const,    label: 'Séjours confirmés',   sub: 'devis signé',         value: kpis.devisReseau,           color: 'bg-green-50 text-green-700 border-green-200', ring: 'ring-green-400' },
+    { key: 'confirmes' as const,    label: 'CA généré',           sub: 'via le réseau',       value: formatEuros(kpis.caReseau), color: 'bg-amber-50 text-amber-700 border-amber-200', ring: 'ring-amber-400' },
+  ];
+  return (
+    <div className="flex flex-col sm:flex-row items-stretch gap-2">
+      {blocs.map((b, i) => (
+        <Fragment key={i}>
+          <button
+            type="button"
+            onClick={() => onSelect(b.key)}
+            className={`flex-1 text-left rounded-xl border p-4 transition ${b.color} ${active === b.key ? `ring-2 ${b.ring} border-transparent` : 'hover:shadow-sm'}`}
+          >
+            <p className="text-2xl font-bold">{b.value}</p>
+            <p className="text-sm font-semibold">{b.label}</p>
+            <p className="text-[11px] opacity-70">{b.sub}</p>
+          </button>
+          {i < blocs.length - 1 && <div className="hidden sm:flex items-center text-gray-300 text-xl">▸</div>}
+        </Fragment>
+      ))}
     </div>
   );
 }
@@ -505,7 +542,7 @@ export default function ReseauDashboardPage() {
   const [tab, setTab] = useState<'centres' | 'demandes'>('centres');
   const [demandes, setDemandes] = useState<DemandeReseau[]>([]);
   const [demandesLoading, setDemandesLoading] = useState(false);
-  const [demandeStatutFiltre, setDemandeStatutFiltre] = useState<'toutes' | 'ouvertes' | 'repondues' | 'converties'>('toutes');
+  const [funnelFilter, setFunnelFilter] = useState<'all' | 'avec_reponse' | 'confirmes'>('all');
   const [selectedDemande, setSelectedDemande] = useState<DemandeReseau | null>(null);
 
   useEffect(() => {
@@ -542,6 +579,7 @@ export default function ReseauDashboardPage() {
 
   const handlePeriodeChange = (p: string) => {
     setPeriode(p);
+    setFunnelFilter('all');
   };
 
   if (isLoading || !user) return null;
@@ -577,9 +615,8 @@ export default function ReseauDashboardPage() {
   };
 
   const demandesFiltrees = demandes.filter(d => {
-    if (demandeStatutFiltre === 'ouvertes') return d.statut === 'OUVERTE';
-    if (demandeStatutFiltre === 'repondues') return d.nombreReponses > 0;
-    if (demandeStatutFiltre === 'converties') return d.reponses.some(r => r.statut === 'SELECTIONNE' || r.statut === 'SIGNE_DIRECTION');
+    if (funnelFilter === 'avec_reponse') return d.nombreReponses > 0;
+    if (funnelFilter === 'confirmes') return d.reponses.some(r => CONFIRME_STATUTS.includes(r.statut));
     return true;
   });
 
@@ -657,10 +694,10 @@ export default function ReseauDashboardPage() {
             <div>
               <p className="text-xs font-semibold text-[var(--color-primary)] uppercase tracking-wide mb-2">Apport du réseau{displayName ? ` ${displayName}` : ''}</p>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Demandes via réseau" value={stats.kpis.demandesReseau} description="Demandes d'enseignants arrivées via votre réseau" accent="text-[var(--color-primary)]" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('toutes'); }} />
-                <KpiCard label="Devis convertis via réseau" value={stats.kpis.devisReseau} description="Devis retenus suite à une demande réseau" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('converties'); }} />
-                <KpiCard label="CA via réseau" value={formatEuros(stats.kpis.caReseau)} description="Chiffre d'affaires généré par vos demandes" accent="text-[var(--color-accent)]" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('converties'); }} />
-                <KpiCard label="Taux de conversion réseau" value={stats.kpis.demandesReseau === 0 ? '—' : `${stats.kpis.tauxConversionReseau} %`} description="Demandes réseau transformées en séjour" onClick={() => { setTab('demandes'); setDemandeStatutFiltre('toutes'); }} />
+                <KpiCard label="Demandes via réseau" value={stats.kpis.demandesReseau} description="Demandes d'enseignants arrivées via votre réseau" accent="text-[var(--color-primary)]" onClick={() => { setTab('demandes'); setFunnelFilter('all'); }} />
+                <KpiCard label="Devis convertis via réseau" value={stats.kpis.devisReseau} description="Devis retenus suite à une demande réseau" onClick={() => { setTab('demandes'); setFunnelFilter('confirmes'); }} />
+                <KpiCard label="CA via réseau" value={formatEuros(stats.kpis.caReseau)} description="Chiffre d'affaires généré par vos demandes" accent="text-[var(--color-accent)]" onClick={() => { setTab('demandes'); setFunnelFilter('confirmes'); }} />
+                <KpiCard label="Taux de conversion réseau" value={stats.kpis.demandesReseau === 0 ? '—' : `${stats.kpis.tauxConversionReseau} %`} description="Demandes réseau transformées en séjour" onClick={() => { setTab('demandes'); setFunnelFilter('all'); }} />
               </div>
             </div>
             {/* KPIs ligne 2 — vue d'ensemble */}
@@ -820,14 +857,9 @@ export default function ReseauDashboardPage() {
 
             {tab === 'demandes' && (
               demandesLoading ? <LoadingSpinner /> : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-1">
-                    {([['toutes', 'Toutes'], ['ouvertes', 'Ouvertes'], ['repondues', 'Répondues'], ['converties', 'Converties']] as const).map(([val, label]) => (
-                      <button key={val} onClick={() => setDemandeStatutFiltre(val)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${demandeStatutFiltre === val ? 'bg-[var(--color-primary)] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
-                        {label}
-                      </button>
-                    ))}
+                <div className="space-y-4">
+                  <FunnelPipeline demandes={demandes} kpis={stats.kpis} active={funnelFilter} onSelect={setFunnelFilter} />
+                  <div className="flex items-center">
                     <span className="text-xs text-gray-400 ml-auto">{demandesFiltrees.length} demande{demandesFiltrees.length > 1 ? 's' : ''}</span>
                   </div>
                   {demandesFiltrees.length === 0 ? (
