@@ -164,12 +164,12 @@ export class FactureService {
 
     return {
       emetteurId,
-      emetteurNom: devis.nomEntreprise ?? orga?.raisonSociale ?? orga?.nom ?? centre.nom,
-      emetteurAdresse: devis.adresseEntreprise ?? (adresseCentre || adresseOrga || null),
-      emetteurSiret: devis.siretEntreprise ?? orga?.siret ?? centre.siret ?? null,
+      emetteurNom: devis.nomEntreprise || orga?.raisonSociale || orga?.nom || centre.nom,
+      emetteurAdresse: devis.adresseEntreprise || adresseCentre || adresseOrga || null,
+      emetteurSiret: devis.siretEntreprise || orga?.siret || centre.siret || null,
       emetteurTva: centre.tvaIntracommunautaire ?? null,
-      emetteurEmail: devis.emailEntreprise ?? centre.email ?? null,
-      emetteurTel: devis.telEntreprise ?? centre.telephone ?? null,
+      emetteurEmail: devis.emailEntreprise || centre.email || null,
+      emetteurTel: devis.telEntreprise || centre.telephone || null,
       emetteurIban: centre.iban ?? null,
     };
   }
