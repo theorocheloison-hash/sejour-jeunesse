@@ -422,13 +422,13 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
           {/* Contact enseignant — appel / requalification */}
           <div className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 p-4 space-y-1.5">
             <p className="text-xs font-semibold text-[var(--color-primary)] uppercase">Contact enseignant</p>
-            <p className="text-sm font-medium text-gray-900">{e.prenom} {e.nom}</p>
+            <p className="text-base font-bold text-gray-900">{e.prenom} {e.nom}</p>
             {demande.organisation && (
               <p className="text-xs text-gray-500">{demande.organisation.nom}{demande.organisation.ville ? ` · ${demande.organisation.ville}` : ''}</p>
             )}
             <a href={`mailto:${e.email}`} className="block text-sm text-[var(--color-primary)] hover:underline break-all">{e.email}</a>
             {e.telephone
-              ? <a href={`tel:${e.telephone.replace(/\s/g, '')}`} className="block text-sm font-semibold text-gray-900 hover:underline">📞 {e.telephone}</a>
+              ? <a href={`tel:${e.telephone.replace(/\s/g, '')}`} className="mt-1 inline-flex items-center gap-1.5 text-base font-bold text-[var(--color-primary)] hover:underline">📞 {e.telephone}</a>
               : <p className="text-sm text-gray-400">Téléphone non renseigné</p>}
           </div>
 
@@ -539,7 +539,7 @@ export default function ReseauDashboardPage() {
   const [search, setSearch] = useState('');
   const [sortCol, setSortCol] = useState<string>('nom');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [tab, setTab] = useState<'centres' | 'demandes'>('centres');
+  const [tab, setTab] = useState<'centres' | 'demandes'>('demandes');
   const [demandes, setDemandes] = useState<DemandeReseau[]>([]);
   const [demandesLoading, setDemandesLoading] = useState(false);
   const [funnelFilter, setFunnelFilter] = useState<'all' | 'avec_reponse' | 'confirmes'>('all');
@@ -713,7 +713,7 @@ export default function ReseauDashboardPage() {
 
             {/* Onglets */}
             <div className="flex items-center gap-1 border-b border-gray-200">
-              {(['centres', 'demandes'] as const).map(t => (
+              {(['demandes', 'centres'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === t ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
                   {t === 'centres' ? 'Centres' : 'Demandes'}
