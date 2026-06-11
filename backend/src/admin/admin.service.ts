@@ -327,7 +327,7 @@ export class AdminService {
       where: { reseau },
       select: {
         id: true, nom: true, ville: true, departement: true,
-        capacite: true, statut: true, abonnementStatut: true,
+        capacite: true, statut: true, abonnementStatut: true, userId: true,
         mandatFacturationAccepte: true, siret: true,
         agrementEducationNationale: true, description: true, telephone: true,
         createdAt: true,
@@ -344,7 +344,9 @@ export class AdminService {
     });
 
     const totalCentres = centres.length;
-    const centresActifs = centres.filter(c => c.statut === 'ACTIVE').length;
+    // "Actif" = un hébergeur a créé un compte et revendiqué ce centre (userId non null).
+    // Les centres importés (APIDAE/scraping) sans compte restent dans totalCentres seulement.
+    const centresActifs = centres.filter(c => c.statut === 'ACTIVE' && c.userId !== null).length;
 
     const tousLesDevis = centres.flatMap(c => c.devis);
     const toutesLesDemandes = centres.flatMap(c => c.demandesDestinees);
