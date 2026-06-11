@@ -112,7 +112,10 @@ function AppelOffresContent() {
   const canAdvance = () => {
     if (step === 1) return !!typeStructure;
     if (step === 2) {
-      const base = form.titre && form.dateDebut && form.dateFin && form.nbEleves;
+      const datesOk = form.datesFlexibles
+        ? (form.moisSouhaite || form.noteDateFlexible || form.dureeNuits)  // au moins un champ période
+        : (form.dateDebut && form.dateFin);
+      const base = form.titre && datesOk && form.nbEleves;
       if (estHorsScolaireUser) return !!(base && form.ageMin && form.ageMax && form.typeAccueilACM && form.projetEducatif);
       return !!(base && form.niveauClasse && form.thematiquesPedagogiques.length > 0);
     }
@@ -146,8 +149,14 @@ function AppelOffresContent() {
         etablissementVille:      (manualMode ? manualVille.trim() : selectedOrg?.ville) || undefined,
         etablissementUai:        manualMode ? undefined : (selectedOrg?.uai ?? undefined),
         titre:                   form.titre,
-        dateDebut:               form.dateDebut,
-        dateFin:                 form.dateFin,
+        ...(form.datesFlexibles
+          ? {
+              moisSouhaite:     form.moisSouhaite ? parseInt(form.moisSouhaite, 10) : undefined,
+              anneeSouhaitee:   form.anneeSouhaitee ? parseInt(form.anneeSouhaitee, 10) : undefined,
+              noteDateFlexible: form.noteDateFlexible || undefined,
+              dureeNuits:       form.dureeNuits ? parseInt(form.dureeNuits, 10) : undefined,
+            }
+          : { dateDebut: form.dateDebut, dateFin: form.dateFin }),
         nombreEleves:            parseInt(form.nbEleves, 10),
         niveauClasse:            estHorsScolaireUser ? undefined : form.niveauClasse || undefined,
         thematiquesPedagogiques: estHorsScolaireUser ? [] : form.thematiquesPedagogiques,

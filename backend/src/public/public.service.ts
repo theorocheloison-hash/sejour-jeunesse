@@ -22,8 +22,12 @@ export interface DemandePubliqueDto {
   etablissementVille?: string;
   etablissementUai?: string;
   titre: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut?: string;
+  dateFin?: string;
+  moisSouhaite?: number;
+  anneeSouhaitee?: number;
+  noteDateFlexible?: string;
+  dureeNuits?: number;
   nombreEleves: number;
   niveauClasse?: string;
   thematiquesPedagogiques?: string[];
@@ -46,6 +50,27 @@ export interface DemandePubliqueDto {
   projetEducatif?: string;
   sourceReseau?: string;
   telephone?: string;
+}
+
+const MOIS_LABELS = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
+
+/** Libellé de période pour les emails : dates fixes → "01/06/2027 → 05/06/2027", sinon période flexible. */
+function buildPeriodeLabel(dto: DemandePubliqueDto): string {
+  if (dto.dateDebut && dto.dateFin) {
+    const fmt = (d: string) =>
+      new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${fmt(dto.dateDebut)} → ${fmt(dto.dateFin)}`;
+  }
+  const parts = [
+    dto.moisSouhaite ? MOIS_LABELS[dto.moisSouhaite - 1] : null,
+    dto.anneeSouhaitee ? String(dto.anneeSouhaitee) : null,
+    dto.noteDateFlexible || null,
+    dto.dureeNuits ? `≈ ${dto.dureeNuits} nuits` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' ') : 'Dates flexibles';
 }
 
 @Injectable()
@@ -132,8 +157,12 @@ export class PublicService {
         data: {
           titre:                   dto.titre,
           lieu:                    dto.villeHebergement ?? dto.etablissementVille ?? '',
-          dateDebut:               new Date(dto.dateDebut),
-          dateFin:                 new Date(dto.dateFin),
+          ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
+          ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
+          moisSouhaite:            dto.moisSouhaite ?? null,
+          anneeSouhaitee:          dto.anneeSouhaitee ?? null,
+          noteDateFlexible:        dto.noteDateFlexible ?? null,
+          dureeNuits:              dto.dureeNuits ?? null,
           placesTotales:           dto.nombreEleves,
           placesRestantes:         dto.nombreEleves,
           niveauClasse:            dto.niveauClasse ?? null,
@@ -152,8 +181,12 @@ export class PublicService {
         data: {
           sejourId:              sejour.id,
           titre:                 dto.titre,
-          dateDebut:             new Date(dto.dateDebut),
-          dateFin:               new Date(dto.dateFin),
+          ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
+          ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
+          moisSouhaite:          dto.moisSouhaite ?? null,
+          anneeSouhaitee:        dto.anneeSouhaitee ?? null,
+          noteDateFlexible:      dto.noteDateFlexible ?? null,
+          dureeNuits:            dto.dureeNuits ?? null,
           nombreEleves:          dto.nombreEleves,
           villeHebergement:      dto.villeHebergement ?? dto.etablissementVille ?? '',
           regionCible:           dto.regionCible ?? '',
@@ -192,8 +225,7 @@ export class PublicService {
     this.notifierCentresInscrits({
       titre: dto.titre,
       villeHebergement: dto.villeHebergement ?? dto.etablissementVille ?? '',
-      dateDebut: new Date(dto.dateDebut),
-      dateFin: new Date(dto.dateFin),
+      periodeLabel: buildPeriodeLabel(dto),
       regionCible: dto.regionCible ?? '',
       centreDestinataireId: dto.centreDestinataireId ?? null,
       typeContexte: typeContexte,
@@ -205,15 +237,11 @@ export class PublicService {
   private async notifierCentresInscrits(demande: {
     titre: string;
     villeHebergement: string;
-    dateDebut: Date;
-    dateFin: Date;
+    periodeLabel: string;
     regionCible: string;
     centreDestinataireId: string | null;
     typeContexte?: string;
   }): Promise<void> {
-    const fmt = (d: Date) =>
-      d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
     if (demande.centreDestinataireId) {
       const centre = await this.prisma.centreHebergement.findUnique({
         where: { id: demande.centreDestinataireId },
@@ -222,7 +250,7 @@ export class PublicService {
       if (centre?.email) {
         await this.email.sendNouvelleDemandeDevis(
           centre.email, centre.nom, demande.titre,
-          demande.villeHebergement, `${fmt(demande.dateDebut)} → ${fmt(demande.dateFin)}`,
+          demande.villeHebergement, demande.periodeLabel,
         );
       }
       return;
@@ -299,7 +327,7 @@ export class PublicService {
       cibles.map((c) =>
         this.email.sendNouvelleDemandeDevis(
           c.email!, c.nom, demande.titre,
-          demande.villeHebergement, `${fmt(demande.dateDebut)} → ${fmt(demande.dateFin)}`,
+          demande.villeHebergement, demande.periodeLabel,
         ),
       ),
     );

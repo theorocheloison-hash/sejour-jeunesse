@@ -40,8 +40,12 @@ export interface DemandePubliquePayload {
   etablissementVille?: string;
   etablissementUai?: string;
   titre: string;
-  dateDebut: string;
-  dateFin: string;
+  dateDebut?: string;
+  dateFin?: string;
+  moisSouhaite?: number;
+  anneeSouhaitee?: number;
+  noteDateFlexible?: string;
+  dureeNuits?: number;
   nombreEleves: number;
   niveauClasse?: string;
   thematiquesPedagogiques?: string[];
