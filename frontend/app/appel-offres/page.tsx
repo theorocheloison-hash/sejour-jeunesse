@@ -218,12 +218,13 @@ function AppelOffresContent() {
                 <div className="opacity-60"><Logo size="sm" showTagline={false} /></div>
               </div>
             </div>
-            {(reseauInfo.tel || reseauInfo.email) && (
-              <div className="text-right text-xs text-gray-500 shrink-0">
-                {reseauInfo.tel && <div>📞 {reseauInfo.tel}</div>}
-                {reseauInfo.email && <div>{reseauInfo.email}</div>}
-              </div>
-            )}
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Une question ? On vous accompagne</p>
+              <a href="tel:+33450456954" className="text-base font-semibold text-gray-900 hover:underline">
+                📞 04 50 45 69 54
+              </a>
+              <p className="text-xs text-gray-400 mt-0.5">{reseauInfo.email}</p>
+            </div>
           </div>
         </header>
       ) : (
