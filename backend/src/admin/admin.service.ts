@@ -490,6 +490,7 @@ export class AdminService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     return demandes.map(d => ({
@@ -548,7 +549,7 @@ export class AdminService {
         mandatFacturationAccepte: true, mandatFacturationAccepteAt: true,
         imageUrl: true, createdAt: true,
         devis: {
-          select: { statut: true, montantTTC: true, createdAt: true },
+          select: { statut: true, montantTTC: true, createdAt: true, demande: { select: { sourceReseau: true } } },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },

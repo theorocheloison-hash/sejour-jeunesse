@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMyReseauStats,
+  getReseauDemandes,
   inviterCentreReseau,
   getReseauCentreDetail,
   type ReseauStats,
   type ReseauCentre,
+  type DemandeReseau,
 } from '@/src/lib/admin';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -20,6 +22,26 @@ function formatDate(d: string): string {
 
 function formatEuros(n: number): string {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+}
+
+function demandePeriode(d: DemandeReseau): string {
+  if (d.dateDebut && d.dateFin) return `${formatDate(d.dateDebut)} → ${formatDate(d.dateFin)}`;
+  const MOIS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+  const parts: string[] = [];
+  if (d.moisSouhaite) parts.push(MOIS[d.moisSouhaite - 1]);
+  if (d.anneeSouhaitee) parts.push(String(d.anneeSouhaitee));
+  if (d.dureeNuits) parts.push(`~${d.dureeNuits} nuits`);
+  return parts.length ? parts.join(' ') : 'Période à définir';
+}
+
+function DemandeStatutBadge({ statut }: { statut: string }) {
+  const map: Record<string, { cls: string; label: string }> = {
+    OUVERTE: { cls: 'bg-green-100 text-green-700', label: 'Ouverte' },
+    FERMEE: { cls: 'bg-gray-100 text-gray-600', label: 'Fermée' },
+    ANNULEE: { cls: 'bg-red-100 text-red-700', label: 'Annulée' },
+  };
+  const s = map[statut] ?? { cls: 'bg-gray-100 text-gray-600', label: statut };
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}>{s.label}</span>;
 }
 
 const PERIODES: { value: string; label: string }[] = [
@@ -33,11 +55,13 @@ const ONBOARDING_LABELS = ['Profil complet', 'Mandat signé', 'Agrément renseig
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
+function KpiCard({ label, value, sub, accent }: { label: string; value: number | string; sub?: string; accent?: string }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>{value}</p>
+      <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>
+        {value}{sub && <span className="text-sm font-medium text-gray-400 ml-1">{sub}</span>}
+      </p>
     </div>
   );
 }
@@ -184,10 +208,11 @@ const DEVIS_STATUT_LABELS: Record<string, string> = {
   REFUSE: 'Refusé',
   EN_ATTENTE_VALIDATION: 'Validation',
   SELECTIONNE: 'Retenu',
+  SIGNE_DIRECTION: 'Signé',
   NON_RETENU: 'Non retenu',
 };
 
-function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () => void }) {
+function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string; reseauLabel: string; onClose: () => void }) {
   const [centre, setCentre] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -308,9 +333,14 @@ function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () 
                   <p className="text-xs font-medium text-gray-500 uppercase mb-2">Derniers devis</p>
                   <div className="space-y-1.5">
                     {centre.devis.slice(0, 5).map((d: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                      <div key={i} className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2">
                         <span className="text-gray-500">{formatDate(d.createdAt)}</span>
-                        <span className="text-xs font-medium text-gray-600">{DEVIS_STATUT_LABELS[d.statut] ?? d.statut}</span>
+                        <div className="flex items-center gap-1.5">
+                          {d.demande?.sourceReseau && (
+                            <span className="inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-primary)]">via {reseauLabel}</span>
+                          )}
+                          <span className="text-xs font-medium text-gray-600">{DEVIS_STATUT_LABELS[d.statut] ?? d.statut}</span>
+                        </div>
                         <span className="font-medium text-gray-900">{d.montantTTC ? formatEuros(d.montantTTC) : '—'}</span>
                       </div>
                     ))}
@@ -319,6 +349,85 @@ function CentreSlideOver({ centreId, onClose }: { centreId: string; onClose: () 
               )}
             </div>
           )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Slide-over demande detail ───────────────────────────────────────────────
+
+function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeReseau; reseauLabel: string; onClose: () => void }) {
+  const e = demande.enseignant;
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-[28rem] max-w-full bg-white shadow-xl border-l border-gray-200 z-50 overflow-y-auto">
+        <div className="p-5 space-y-5 relative">
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+
+          <div className="pt-2">
+            <div className="flex items-center gap-2">
+              <DemandeStatutBadge statut={demande.statut} />
+              <span className="text-xs text-gray-400">{formatDate(demande.createdAt)}</span>
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 mt-2">{demande.titre}</h2>
+          </div>
+
+          {/* Contact enseignant — appel / requalification */}
+          <div className="rounded-xl border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 p-4 space-y-1.5">
+            <p className="text-xs font-semibold text-[var(--color-primary)] uppercase">Contact enseignant</p>
+            <p className="text-sm font-medium text-gray-900">{e.prenom} {e.nom}</p>
+            {demande.organisation && (
+              <p className="text-xs text-gray-500">{demande.organisation.nom}{demande.organisation.ville ? ` · ${demande.organisation.ville}` : ''}</p>
+            )}
+            <a href={`mailto:${e.email}`} className="block text-sm text-[var(--color-primary)] hover:underline break-all">{e.email}</a>
+            {e.telephone
+              ? <a href={`tel:${e.telephone.replace(/\s/g, '')}`} className="block text-sm font-semibold text-gray-900 hover:underline">📞 {e.telephone}</a>
+              : <p className="text-sm text-gray-400">Téléphone non renseigné</p>}
+          </div>
+
+          {/* Détails séjour */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><span className="text-gray-500">Période</span><p className="font-medium">{demandePeriode(demande)}</p></div>
+            <div><span className="text-gray-500">Effectif</span><p className="font-medium">{demande.placesTotales} élèves{demande.nombreAccompagnateurs ? ` + ${demande.nombreAccompagnateurs}` : ''}</p></div>
+            {demande.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{demande.niveauClasse}</p></div>}
+            <div><span className="text-gray-500">Contexte</span><p className="font-medium">{demande.typeContexte === 'SCOLAIRE' ? 'Scolaire' : 'Hors-scolaire'}</p></div>
+            {demande.departementsCibles.length > 0 && (
+              <div className="col-span-2"><span className="text-gray-500">Départements ciblés</span><p className="font-medium">{demande.departementsCibles.join(', ')}</p></div>
+            )}
+          </div>
+
+          {demande.description && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Description</p>
+              <p className="text-sm text-gray-700 whitespace-pre-line">{demande.description}</p>
+            </div>
+          )}
+
+          {/* Réponses hébergeurs */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase mb-2">Réponses hébergeurs ({demande.nombreReponses})</p>
+            {demande.reponses.length === 0 ? (
+              <p className="text-sm text-gray-400">Aucune réponse pour le moment.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {demande.reponses.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{r.centreNom}</p>
+                      <p className="text-xs text-gray-400">{r.centreVille} · {formatDate(r.dateReponse)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-medium text-gray-600">{DEVIS_STATUT_LABELS[r.statut] ?? r.statut}</p>
+                      <p className="font-medium text-gray-900">{r.montantTTC ? formatEuros(r.montantTTC) : '—'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-300 text-center">Demande acquise via {reseauLabel}</p>
         </div>
       </div>
     </>
@@ -353,12 +462,12 @@ function SortableHeader({
 
 function exportCSV(stats: ReseauStats) {
   const headers = ['Nom', 'Ville', 'Département', 'Capacité', 'Statut', 'Profil (/4)',
-    'Demandes reçues', 'Devis envoyés', 'Devis retenus', 'CA généré (€)', 'Dernière activité'];
+    'Demandes reçues', 'Demandes via réseau', 'Devis envoyés', 'Devis retenus', 'CA généré (€)', 'Dernière activité'];
   const rows = stats.centres.map(c => [
     c.nom, c.ville, c.departement ?? '', c.capacite,
     c.statut === 'ACTIVE' ? 'Actif' : c.statut === 'PENDING' ? 'En attente' : 'Suspendu',
     c.onboardingScore,
-    c.demandesRecues, c.devisEnvoyes, c.devisSelectionnes,
+    c.demandesRecues, c.demandesReseau, c.devisEnvoyes, c.devisSelectionnes,
     c.caGenere, new Date(c.derniereActivite).toLocaleDateString('fr-FR'),
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
@@ -386,6 +495,11 @@ export default function ReseauDashboardPage() {
   const [search, setSearch] = useState('');
   const [sortCol, setSortCol] = useState<string>('nom');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [tab, setTab] = useState<'centres' | 'demandes'>('centres');
+  const [demandes, setDemandes] = useState<DemandeReseau[]>([]);
+  const [demandesLoading, setDemandesLoading] = useState(false);
+  const [demandeStatutFiltre, setDemandeStatutFiltre] = useState<'toutes' | 'ouvertes' | 'repondues' | 'converties'>('toutes');
+  const [selectedDemande, setSelectedDemande] = useState<DemandeReseau | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || (user.role !== 'RESEAU' && user.role !== 'ADMIN'))) {
@@ -405,6 +519,19 @@ export default function ReseauDashboardPage() {
   useEffect(() => {
     loadStats(periode);
   }, [loadStats, periode]);
+
+  const loadDemandes = useCallback((p: string) => {
+    if (!user || (user.role !== 'RESEAU' && user.role !== 'ADMIN')) return;
+    setDemandesLoading(true);
+    getReseauDemandes(p)
+      .then(setDemandes)
+      .catch(() => {})
+      .finally(() => setDemandesLoading(false));
+  }, [user]);
+
+  useEffect(() => {
+    if (tab === 'demandes') loadDemandes(periode);
+  }, [tab, periode, loadDemandes]);
 
   const handlePeriodeChange = (p: string) => {
     setPeriode(p);
@@ -428,6 +555,7 @@ export default function ReseauDashboardPage() {
       case 'capacite': va = a.capacite; vb = b.capacite; break;
       case 'onboarding': va = a.onboardingScore; vb = b.onboardingScore; break;
       case 'demandes': va = a.demandesRecues; vb = b.demandesRecues; break;
+      case 'reseau': va = a.demandesReseau; vb = b.demandesReseau; break;
       case 'devis': va = a.devisEnvoyes; vb = b.devisEnvoyes; break;
       case 'retenus': va = a.devisSelectionnes; vb = b.devisSelectionnes; break;
       case 'ca': va = a.caGenere; vb = b.caGenere; break;
@@ -444,6 +572,13 @@ export default function ReseauDashboardPage() {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(col); setSortDir('asc'); }
   };
+
+  const demandesFiltrees = demandes.filter(d => {
+    if (demandeStatutFiltre === 'ouvertes') return d.statut === 'OUVERTE';
+    if (demandeStatutFiltre === 'repondues') return d.nombreReponses > 0;
+    if (demandeStatutFiltre === 'converties') return d.reponses.some(r => r.statut === 'SELECTIONNE' || r.statut === 'SIGNE_DIRECTION');
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -515,17 +650,42 @@ export default function ReseauDashboardPage() {
           <EmptyState text={error} />
         ) : stats ? (
           <div className="space-y-6">
-            {/* KPIs */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-              <KpiCard label="Centres membres" value={stats.kpis.totalCentres} />
-              <KpiCard label="Centres actifs" value={stats.kpis.centresActifs} accent="text-[var(--color-success)]" />
-              <KpiCard label="Demandes reçues" value={stats.kpis.demandesRecues} />
-              <KpiCard label="Devis envoyés" value={stats.kpis.devisEnvoyes} />
-              <KpiCard label="Devis retenus" value={stats.kpis.devisSelectionnes} accent="text-[var(--color-primary)]" />
-              <KpiCard label="CA total réseau" value={formatEuros(stats.kpis.caTotal)} accent="text-[var(--color-accent)]" />
-              <KpiCard label="Taux de réponse" value={stats.kpis.demandesRecues === 0 ? '—' : `${stats.kpis.tauxReponse} %`} />
+            {/* KPIs ligne 1 — apport réseau */}
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-primary)] uppercase tracking-wide mb-2">Apport du réseau{displayName ? ` ${displayName}` : ''}</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard label="Demandes via réseau" value={stats.kpis.demandesReseau} sub={`/ ${stats.kpis.demandesRecues}`} accent="text-[var(--color-primary)]" />
+                <KpiCard label="Devis convertis via réseau" value={stats.kpis.devisReseau} />
+                <KpiCard label="CA via réseau" value={formatEuros(stats.kpis.caReseau)} sub={`/ ${formatEuros(stats.kpis.caTotal)}`} accent="text-[var(--color-accent)]" />
+                <KpiCard label="Taux de conversion réseau" value={stats.kpis.demandesReseau === 0 ? '—' : `${stats.kpis.tauxConversionReseau} %`} />
+              </div>
+            </div>
+            {/* KPIs ligne 2 — vue d'ensemble */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Vue d&apos;ensemble</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard label="Centres membres" value={stats.kpis.totalCentres} />
+                <KpiCard label="Centres actifs" value={stats.kpis.centresActifs} accent="text-[var(--color-success)]" />
+                <KpiCard label="Enseignants acquis" value={stats.kpis.enseignantsAcquis} />
+                <KpiCard label="Enseignants fidélisés" value={stats.kpis.enseignantsFidelises} accent="text-[var(--color-primary)]" />
+              </div>
             </div>
 
+            {/* Onglets */}
+            <div className="flex items-center gap-1 border-b border-gray-200">
+              {(['centres', 'demandes'] as const).map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === t ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                  {t === 'centres' ? 'Centres' : 'Demandes'}
+                  {t === 'demandes' && demandes.length > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-[var(--color-primary)]/10 px-1.5 text-[10px] font-semibold text-[var(--color-primary)]">{demandes.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {tab === 'centres' && (
+            <>
             {/* Onboarding réseau */}
             {stats.centres.length > 0 && (() => {
               const total = stats.centres.length;
@@ -618,6 +778,7 @@ export default function ReseauDashboardPage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                         <SortableHeader col="onboarding" label="Profil" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="demandes" label="Demandes" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="reseau" label="Via réseau" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="devis" label="Devis" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="retenus" label="Retenus" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="ca" label="CA généré" current={sortCol} dir={sortDir} onSort={handleSort} />
@@ -647,6 +808,7 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3"><StatutBadge statut={c.statut} /></td>
                           <td className="px-4 py-3"><OnboardingDots centre={c} /></td>
                           <td className="px-4 py-3 text-sm text-gray-500">{c.demandesRecues}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-[var(--color-primary)]">{c.demandesReseau}</td>
                           <td className="px-4 py-3 text-sm text-gray-500">{c.devisEnvoyes}</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.devisSelectionnes}</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatEuros(c.caGenere)}</td>
@@ -657,6 +819,65 @@ export default function ReseauDashboardPage() {
                   </table>
                 </div>
               </div>
+            )}
+            </>
+            )}
+
+            {tab === 'demandes' && (
+              demandesLoading ? <LoadingSpinner /> : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1">
+                    {([['toutes', 'Toutes'], ['ouvertes', 'Ouvertes'], ['repondues', 'Répondues'], ['converties', 'Converties']] as const).map(([val, label]) => (
+                      <button key={val} onClick={() => setDemandeStatutFiltre(val)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${demandeStatutFiltre === val ? 'bg-[var(--color-primary)] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+                        {label}
+                      </button>
+                    ))}
+                    <span className="text-xs text-gray-400 ml-auto">{demandesFiltrees.length} demande{demandesFiltrees.length > 1 ? 's' : ''}</span>
+                  </div>
+                  {demandesFiltrees.length === 0 ? (
+                    <EmptyState text="Aucune demande pour cette période." />
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Enseignant</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Téléphone</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effectif</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Période</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Réponses</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {demandesFiltrees.map(d => (
+                              <tr key={d.id} className="hover:bg-gray-50 transition cursor-pointer" onClick={() => setSelectedDemande(d)}>
+                                <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(d.createdAt)}</td>
+                                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                                  <span className="font-medium text-gray-900">{d.enseignant.prenom} {d.enseignant.nom}</span>
+                                  {d.organisation && <span className="block text-xs text-gray-400">{d.organisation.nom}</span>}
+                                </td>
+                                <td className="px-4 py-3 text-sm whitespace-nowrap" onClick={ev => ev.stopPropagation()}>
+                                  {d.enseignant.telephone
+                                    ? <a href={`tel:${d.enseignant.telephone.replace(/\s/g, '')}`} className="text-[var(--color-primary)] font-medium hover:underline">{d.enseignant.telephone}</a>
+                                    : <span className="text-gray-300">—</span>}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-500">{d.placesTotales}</td>
+                                <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{demandePeriode(d)}</td>
+                                <td className="px-4 py-3"><DemandeStatutBadge statut={d.statut} /></td>
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{d.nombreReponses}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
             )}
           </div>
         ) : null}
@@ -670,7 +891,10 @@ export default function ReseauDashboardPage() {
         />
       )}
       {selectedCentreId && (
-        <CentreSlideOver centreId={selectedCentreId} onClose={() => setSelectedCentreId(null)} />
+        <CentreSlideOver centreId={selectedCentreId} reseauLabel={stats?.reseau ?? 'réseau'} onClose={() => setSelectedCentreId(null)} />
+      )}
+      {selectedDemande && (
+        <DemandeSlideOver demande={selectedDemande} reseauLabel={stats?.reseau ?? 'réseau'} onClose={() => setSelectedDemande(null)} />
       )}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
