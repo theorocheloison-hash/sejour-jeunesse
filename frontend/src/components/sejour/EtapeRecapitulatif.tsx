@@ -46,7 +46,11 @@ export default function EtapeRecapitulatif({ form, estHorsScolaireUser = false }
           </Section>
         )}
         <Section title="Appel d'offres">
-          <Row label="Zone g&eacute;ographique" value={zoneLabel(form.typeZone, form.zoneGeographique)} />
+          <Row label="Zone g&eacute;ographique" value={
+            form.departementsCibles.length
+              ? `Département(s) ${form.departementsCibles.join(', ')}`
+              : zoneLabel(form.typeZone, form.zoneGeographique)
+          } />
           <Row label="Date butoire" value={formatDate(form.dateButoireDevis)} />
         </Section>
         {form.informationsComplementaires && (

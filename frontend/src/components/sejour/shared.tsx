@@ -10,6 +10,7 @@ export interface SejourFormData {
   informationsComplementaires: string;
   typeZone: TypeZone | '';
   zoneGeographique: string;
+  departementsCibles: string[];
   dateButoireDevis: string;
   nombreAccompagnateurs: string;
   heureArrivee: string;
@@ -40,6 +41,7 @@ export const INITIAL_DATA: SejourFormData = {
   informationsComplementaires: '',
   typeZone: '',
   zoneGeographique: '',
+  departementsCibles: [],
   dateButoireDevis: '',
   nombreAccompagnateurs: '',
   heureArrivee: '',

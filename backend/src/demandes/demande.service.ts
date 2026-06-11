@@ -78,6 +78,22 @@ function matchesZone(regionCible: string, centre: { ville: string; codePostal: s
 }
 
 /**
+ * Matching zone d'une demande vers un centre.
+ * `departementsCibles` (codes, ex. ['73','74']) PRIME sur `regionCible` quand renseigné :
+ * le centre matche s'il est dans l'un des départements ciblés. Sinon, fallback `regionCible`.
+ */
+function matchesDemandeZone(
+  demande: { regionCible: string; departementsCibles: string[] },
+  centre: { ville: string; codePostal: string },
+): boolean {
+  if (demande.departementsCibles && demande.departementsCibles.length > 0) {
+    const deptCode = getDeptCode(centre.codePostal);
+    return demande.departementsCibles.some((d) => d.split(' - ')[0] === deptCode);
+  }
+  return matchesZone(demande.regionCible, centre);
+}
+
+/**
  * Construit le libellé de période d'une demande/séjour : soit les dates fixes,
  * soit la période flexible (mois · année · note · durée), sinon « Période à définir ».
  */
@@ -123,6 +139,7 @@ export class DemandeService {
         nombreEleves: dto.nombreEleves,
         villeHebergement: dto.villeHebergement,
         regionCible: dto.regionCible ?? '',
+        departementsCibles: dto.departementsCibles ?? [],
         dateButoireReponse: dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,
         nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
         heureArrivee: dto.heureArrivee ?? null,
@@ -146,6 +163,7 @@ export class DemandeService {
       dateFin: demande.dateFin,
       periodeLabel: buildPeriodeLabel(dto),
       regionCible: demande.regionCible,
+      departementsCibles: demande.departementsCibles,
       centreDestinataireId: demande.centreDestinataireId,
       typeContexte: demande.sejour?.typeContexte ?? undefined,
     }).catch((err) => console.error('[DEMANDE] Erreur notification centres:', err));
@@ -212,7 +230,7 @@ export class DemandeService {
     });
 
     return demandes
-      .filter((d) => matchesZone(d.regionCible, centre))
+      .filter((d) => matchesDemandeZone(d, centre))
       .map((d) => {
         if (accesComplet) return d;
         return {
@@ -314,6 +332,7 @@ export class DemandeService {
     dateFin: Date | null;
     periodeLabel: string;
     regionCible: string;
+    departementsCibles: string[];
     centreDestinataireId: string | null;
     typeContexte?: string;
   }): Promise<void> {
@@ -338,7 +357,7 @@ export class DemandeService {
     });
 
     const cibles = centres.filter((c) =>
-      matchesZone(demande.regionCible, { ville: c.ville, codePostal: c.codePostal }),
+      matchesDemandeZone(demande, { ville: c.ville, codePostal: c.codePostal }),
     );
 
     await Promise.allSettled(

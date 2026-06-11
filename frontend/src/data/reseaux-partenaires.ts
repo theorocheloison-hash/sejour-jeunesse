@@ -8,6 +8,7 @@ export interface ReseauPartenaire {
   baseline: string;        // sous le logo
   titrePage: string;       // remplace "Lancer un appel d'offres"
   sousTitrePage: string;   // remplace le sous-titre standard
+  departementsDefaut?: string[]; // codes dépt (ex. ['73','74']) — si renseigné, le step Destination est sauté et auto-rempli
 }
 
 // Réseaux partenaires : clé = slug d'URL (?reseau=lmdj) et valeur stockée en base (sourceReseau).
@@ -22,6 +23,7 @@ export const RESEAUX_PARTENAIRES: Record<string, ReseauPartenaire> = {
     baseline: 'Ressources · Réseau · Classes & Colos',
     titrePage: 'Confiez-nous votre recherche d\'hébergement',
     sousTitrePage: 'Notre réseau compte plus de 100 centres de vacances agréés en Savoie et Haute-Savoie. Décrivez votre projet et recevez des propositions personnalisées.',
+    departementsDefaut: ['73', '74'],
   },
   iddj: {
     nom: 'Isère Drôme Destination Juniors',
