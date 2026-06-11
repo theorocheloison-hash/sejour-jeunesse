@@ -402,6 +402,8 @@ export class DevisService {
             telephone: true,
             email: true,
             siret: true,
+            tvaIntracommunautaire: true,
+            iban: true,
             capacite: true,
             logoUrl: true,
           },

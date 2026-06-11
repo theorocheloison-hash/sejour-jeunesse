@@ -152,6 +152,7 @@ function NouveauDevisContent() {
         setCatalogue(cat);
         setNomEntreprise(infoData.centre.nom);
         setAdresseEntreprise(`${infoData.centre.adresse}, ${infoData.centre.codePostal} ${infoData.centre.ville}`);
+        setSiretEntreprise(infoData.centre.siret ?? '');
         setEmailEntreprise(infoData.centre.email ?? '');
         setTelEntreprise(infoData.centre.telephone ?? '');
         setLignes([makeLigneForm({ quantite: String(infoData.demande.nombreEleves ?? 1) })]);
