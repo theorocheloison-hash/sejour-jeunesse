@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
+import { normaliserDepartements } from '../utils/departements.js';
 
 const TYPE_HORS_SCOLAIRE = new Set([
   'MAIRIE', 'COLLECTIVITE_TERRITORIALE', 'CENTRE_LOISIRS',
@@ -191,7 +192,7 @@ export class PublicService {
           nombreEleves:          dto.nombreEleves,
           villeHebergement:      dto.villeHebergement ?? dto.etablissementVille ?? '',
           regionCible:           dto.regionCible ?? '',
-          departementsCibles:    dto.departementsCibles ?? [],
+          departementsCibles:    normaliserDepartements(dto.departementsCibles),
           enseignantId:          user!.id,
           centreDestinataireId:  dto.centreDestinataireId ?? null,
           dateButoireReponse:    dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,

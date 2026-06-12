@@ -20,6 +20,7 @@ import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
+import { normaliserDepartement } from '../utils/departements.js';
 
 // ── Configuration des champs d'inscription (saisie directe participants) ──
 export const CHAMPS_STANDARD_INSCRIPTION = [
@@ -775,7 +776,7 @@ export class CentreService {
         ville: data.ville,
         codePostal: data.codePostal,
         capacite: data.capacite,
-        departement: data.departement ?? null,
+        departement: normaliserDepartement(data.departement),
         apidaeId: data.identifiantEN,
         source: 'API_EN',
         organisationId: organisation.id,
@@ -858,7 +859,7 @@ export class CentreService {
           codePostal:  invitation.centrePrecreerCodePostal ?? '',
           capacite:    invitation.centrePrecreerCapacite ?? 0,
           siret:       invitation.centrePrecreerSiret ?? null,
-          departement: invitation.centrePrecreerDepartement ?? null,
+          departement: normaliserDepartement(invitation.centrePrecreerDepartement),
           email:       invitation.email,
           userId:      user.id,
           statut:      'ACTIVE',
@@ -1094,6 +1095,8 @@ export class CentreService {
       where: { id: centre.id },
       data: {
         ...dto,
+        // departement normalisé vers le code INSEE (override le ...dto brut).
+        ...(dto.departement !== undefined && { departement: normaliserDepartement(dto.departement) }),
         ...(dto.equipements !== undefined && { equipements: { set: dto.equipements } }),
         ...(dto.thematiquesCentre !== undefined && { thematiquesCentre: { set: dto.thematiquesCentre } }),
         ...(dto.activitesCentre !== undefined && { activitesCentre: { set: dto.activitesCentre } }),
