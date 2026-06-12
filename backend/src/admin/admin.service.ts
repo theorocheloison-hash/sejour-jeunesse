@@ -474,7 +474,15 @@ export class AdminService {
         dateDebut: true, dateFin: true, moisSouhaite: true, anneeSouhaitee: true,
         dureeNuits: true, nombreAccompagnateurs: true,
         departementsCibles: true, regionCible: true, description: true,
-        sejour: { select: { placesTotales: true, niveauClasse: true, typeContexte: true } },
+        typePension: true, transportAller: true, transportSurPlace: true,
+        heureArrivee: true, heureDepart: true, budgetMaxParEleve: true,
+        activitesSouhaitees: true, informationsComplementaires: true, dateButoireReponse: true,
+        sejour: {
+          select: {
+            placesTotales: true, niveauClasse: true, typeContexte: true,
+            ageMin: true, ageMax: true, projetEducatif: true, thematiquesPedagogiques: true,
+          },
+        },
         enseignant: {
           select: {
             id: true, prenom: true, nom: true, email: true, telephone: true,
@@ -514,6 +522,19 @@ export class AdminService {
       departementsCibles: d.departementsCibles,
       regionCible: d.regionCible,
       description: d.description,
+      typePension: d.typePension,
+      transportAller: d.transportAller,
+      transportSurPlace: d.transportSurPlace,
+      heureArrivee: d.heureArrivee,
+      heureDepart: d.heureDepart,
+      budgetMaxParEleve: d.budgetMaxParEleve,
+      activitesSouhaitees: d.activitesSouhaitees,
+      informationsComplementaires: d.informationsComplementaires,
+      dateButoireReponse: d.dateButoireReponse ? d.dateButoireReponse.toISOString() : null,
+      ageMin: d.sejour?.ageMin ?? null,
+      ageMax: d.sejour?.ageMax ?? null,
+      projetEducatif: d.sejour?.projetEducatif ?? null,
+      thematiquesPedagogiques: d.sejour?.thematiquesPedagogiques ?? [],
       enseignant: {
         id: d.enseignant.id,
         prenom: d.enseignant.prenom,
