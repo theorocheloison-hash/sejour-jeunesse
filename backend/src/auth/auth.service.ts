@@ -18,6 +18,7 @@ import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { ClaimService } from '../organisations/claim.service.js';
+import { normaliserDepartement } from '../utils/departements.js';
 
 @Injectable()
 export class AuthService {
@@ -307,7 +308,7 @@ export class AuthService {
         description: dto.description ?? null,
         email: dto.emailContact ?? null,
         siret: dto.siret ?? null,
-        departement: dto.departement ?? null,
+        departement: normaliserDepartement(dto.departement),
         agrementEducationNationale: dto.agrementEducationNationale ?? null,
         typeSejours: dto.typeSejours ?? [],
         reseau: dto.reseau ?? null,

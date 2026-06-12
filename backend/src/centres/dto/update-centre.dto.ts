@@ -27,6 +27,10 @@ export class UpdateCentreDto {
   email?: string;
 
   @IsOptional()
+  @IsString()
+  departement?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)

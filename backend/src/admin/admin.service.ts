@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from '../centres/trial.helper.js';
+import { normaliserDepartement } from '../utils/departements.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -928,7 +929,7 @@ export class AdminService {
               data: {
                 nom,
                 ville,
-                ...(item.departement && { departement: item.departement }),
+                ...(item.departement && { departement: normaliserDepartement(item.departement) }),
                 ...(item.codePostal && { codePostal: item.codePostal }),
                 adresse: item.adresse ?? '',
                 ...(item.telephone && { telephone: item.telephone }),
@@ -961,7 +962,7 @@ export class AdminService {
             data: {
               nom,
               ville,
-              departement: item.departement ?? null,
+              departement: normaliserDepartement(item.departement),
               codePostal: item.codePostal ?? null,
               adresse: item.adresse ?? '',
               telephone: item.telephone ?? null,

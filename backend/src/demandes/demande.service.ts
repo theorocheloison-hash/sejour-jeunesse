@@ -4,6 +4,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { normaliserDepartements } from '../utils/departements.js';
 
 // Département → Région mapping (code postal → région)
 const DEPT_TO_REGION: Record<string, string> = {
@@ -139,7 +140,7 @@ export class DemandeService {
         nombreEleves: dto.nombreEleves,
         villeHebergement: dto.villeHebergement,
         regionCible: dto.regionCible ?? '',
-        departementsCibles: dto.departementsCibles ?? [],
+        departementsCibles: normaliserDepartements(dto.departementsCibles),
         dateButoireReponse: dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,
         nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
         heureArrivee: dto.heureArrivee ?? null,
