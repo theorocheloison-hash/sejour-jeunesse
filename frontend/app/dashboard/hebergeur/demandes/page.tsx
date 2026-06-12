@@ -9,6 +9,12 @@ import { createDevisWithFile } from '@/src/lib/devis';
 import type { Demande } from '@/src/lib/demande';
 import { RESEAUX_PARTENAIRES } from '@/src/data/reseaux-partenaires';
 
+const TYPE_PENSION_LABELS: Record<string, string> = {
+  PENSION_COMPLETE: 'Pension complète',
+  DEMI_PENSION: 'Demi-pension',
+  GESTION_LIBRE: 'Gestion libre',
+};
+
 const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
   const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   if (d.dateDebut && d.dateFin) return `${new Date(d.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})} → ${new Date(d.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
@@ -333,7 +339,26 @@ export default function HebergeurDemandesPage() {
                     <p className="font-medium">{detailDemande.budgetMaxParEleve} &euro;</p>
                   </div>
                 )}
+                {(detailDemande.sejour?.ageMin != null || detailDemande.sejour?.ageMax != null) && (
+                  <div>
+                    <p className="text-xs text-gray-400">Tranche d&apos;âge</p>
+                    <p className="font-medium">{detailDemande.sejour?.ageMin ?? '?'} - {detailDemande.sejour?.ageMax ?? '?'} ans</p>
+                  </div>
+                )}
               </div>
+
+              {detailDemande.typePension && detailDemande.typePension.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Type de pension</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {detailDemande.typePension.map((p) => (
+                      <span key={p} className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                        {TYPE_PENSION_LABELS[p] ?? p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {detailDemande.transportAller && (
                 <div className="col-span-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
                   {detailDemande.transportAller === 'BESOIN_TRANSPORTEUR'
@@ -388,10 +413,26 @@ export default function HebergeurDemandesPage() {
                 </div>
               )}
 
+              {detailDemande.sejour?.projetEducatif && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Projet éducatif</p>
+                  <p className="text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-line">{detailDemande.sejour.projetEducatif}</p>
+                </div>
+              )}
+
               <div className="border-t border-gray-100 pt-3">
                 <p className="text-xs text-gray-400 mb-2">Contact enseignant</p>
                 <p className="font-medium">{detailDemande.enseignant?.prenom} {detailDemande.enseignant?.nom}</p>
-                <p className="text-gray-500">{detailDemande.enseignant?.email}</p>
+                {detailDemande.enseignant?.email && <p className="text-gray-500">{detailDemande.enseignant.email}</p>}
+                {detailDemande.enseignant?.telephone && (
+                  <a href={`tel:${detailDemande.enseignant.telephone.replace(/\s/g, '')}`} className="inline-block text-[var(--color-primary)] font-medium hover:underline">
+                    📞 {detailDemande.enseignant.telephone}
+                  </a>
+                )}
+                {(() => {
+                  const org = detailDemande.enseignant?.memberships?.[0]?.organisation;
+                  return org?.nom ? <p className="text-gray-500 mt-1">{org.nom}{org.ville ? ` — ${org.ville}` : ''}</p> : null;
+                })()}
               </div>
 
               {detailDemande.dateButoireReponse && (

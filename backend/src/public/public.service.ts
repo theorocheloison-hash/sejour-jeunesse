@@ -34,6 +34,7 @@ export interface DemandePubliqueDto {
   thematiquesPedagogiques?: string[];
   regionCible?: string;
   departementsCibles?: string[];
+  typePension?: string[];
   villeHebergement?: string;
   centreDestinataireId?: string;
   dateButoireReponse?: string;
@@ -193,6 +194,7 @@ export class PublicService {
           villeHebergement:      dto.villeHebergement ?? dto.etablissementVille ?? '',
           regionCible:           dto.regionCible ?? '',
           departementsCibles:    normaliserDepartements(dto.departementsCibles),
+          typePension:           dto.typePension ?? [],
           enseignantId:          user!.id,
           centreDestinataireId:  dto.centreDestinataireId ?? null,
           dateButoireReponse:    dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,

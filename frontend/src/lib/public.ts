@@ -53,6 +53,7 @@ export interface DemandePubliquePayload {
   zoneGeographique?: string;
   regionCible?: string;
   departementsCibles?: string[];
+  typePension?: string[];
   villeHebergement?: string;
   centreDestinataireId?: string;
   dateButoireReponse?: string;

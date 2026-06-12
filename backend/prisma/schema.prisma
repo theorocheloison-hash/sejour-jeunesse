@@ -764,6 +764,7 @@ model DemandeDevis {
   villeHebergement    String        @map("ville_hebergement") @db.VarChar(255)
   regionCible         String        @default("") @map("region_cible") @db.VarChar(255)
   departementsCibles  String[]      @map("departements_cibles")
+  typePension         String[]      @default([]) @map("type_pension")
   sourceReseau        String?       @map("source_reseau") @db.VarChar(50)
   dateButoireReponse  DateTime?     @map("date_butoire_reponse") @db.Date
   statut              StatutDemande @default(OUVERTE)

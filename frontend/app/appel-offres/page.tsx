@@ -102,6 +102,7 @@ function AppelOffresContent() {
   const [nom, setNom]                 = useState('');
   const [email, setEmail]             = useState('');
   const [telephone, setTelephone]     = useState('');
+  const [typePension, setTypePension] = useState<string[]>([]);
   // Établissement : sélection annuaire (selectedOrg) OU saisie manuelle (fallback).
   const [selectedOrg, setSelectedOrg] = useState<OrganisationResult | null>(null);
   const [manualMode, setManualMode]   = useState(false);
@@ -186,6 +187,7 @@ function AppelOffresContent() {
         transportAller:          form.transportAller || undefined,
         transportSurPlace:       form.transportSurPlace,
         activitesSouhaitees:     form.activitesSouhaitees || undefined,
+        typePension:             typePension.length ? typePension : undefined,
         budgetMaxParEleve:       form.budgetMaxParEleve ? parseFloat(form.budgetMaxParEleve) : undefined,
         informationsComplementaires: form.informationsComplementaires || undefined,
         ageMin:                  estHorsScolaireUser && form.ageMin ? parseInt(form.ageMin, 10) : undefined,
@@ -321,7 +323,30 @@ function AppelOffresContent() {
 
           {/* Step 2 — Infos séjour */}
           {step === 2 && (
-            <EtapeInfos form={form} setForm={setForm} estHorsScolaireUser={estHorsScolaireUser} />
+            <>
+              <EtapeInfos form={form} setForm={setForm} estHorsScolaireUser={estHorsScolaireUser} />
+              <div className="mt-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type de pension <span className="text-gray-400 font-normal">(optionnel)</span>
+                </label>
+                <div className="space-y-2">
+                  {([['PENSION_COMPLETE', 'Pension complète'], ['DEMI_PENSION', 'Demi-pension'], ['GESTION_LIBRE', 'Gestion libre']] as const).map(([val, label]) => {
+                    const checked = typePension.includes(val);
+                    return (
+                      <label key={val} className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setTypePension((prev) => checked ? prev.filter((v) => v !== val) : [...prev, val])}
+                          className="h-4 w-4 rounded border-gray-300 accent-[var(--color-primary)]"
+                        />
+                        <span className="text-sm text-gray-700">{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
           )}
 
           {/* Step 3 — Géographie (appel d'offres uniquement) */}
