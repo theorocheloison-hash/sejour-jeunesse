@@ -109,6 +109,7 @@ export class EmailService {
     sejourTitre: string,
     centreNom: string,
     montant: string,
+    magicUrl?: string,
   ) {
     const html = emailLayout(
       'Nouveau devis reçu',
@@ -118,9 +119,9 @@ export class EmailService {
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centreNom}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant total</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montant} €</td></tr>
        </table>
-       <p>Connectez-vous pour consulter le détail et comparer les offres.</p>`,
-      'Voir les devis',
-      `${FRONTEND_URL}/dashboard/teacher`,
+       <p>Cliquez ci-dessous pour consulter le détail du devis.${magicUrl ? ' Aucun mot de passe requis.' : ''}</p>`,
+      'Consulter le devis',
+      magicUrl ?? `${FRONTEND_URL}/login`,
     );
     await this.send(to, `Nouveau devis — ${sejourTitre}`, html);
   }

@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -146,12 +146,22 @@ export class DevisService {
       select: { titre: true },
     });
     if (enseignant && sejour) {
+      // Magic link pour accès direct sans mot de passe (inline pour éviter une
+      // dépendance circulaire vers AuthService — logique identique à genererMagicUrl).
+      const magicToken = randomUUID();
+      const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await this.prisma.user.update({
+        where: { id: demande.enseignantId! },
+        data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
+      });
+      const magicUrl = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/auth/magic/${magicToken}`;
       await this.email.sendDevisRecu(
         enseignant.email,
         `${enseignant.prenom} ${enseignant.nom}`,
         sejour.titre,
         centre.nom,
         String(dto.montantTotal),
+        magicUrl,
       );
     }
 
