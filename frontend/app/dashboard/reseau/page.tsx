@@ -402,6 +402,12 @@ function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string;
 
 // ─── Slide-over demande detail ───────────────────────────────────────────────
 
+const TYPE_PENSION_LABELS: Record<string, string> = {
+  PENSION_COMPLETE: 'Pension complète',
+  DEMI_PENSION: 'Demi-pension',
+  GESTION_LIBRE: 'Gestion libre',
+};
+
 function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeReseau; reseauLabel: string; onClose: () => void }) {
   const e = demande.enseignant;
   return (
@@ -438,15 +444,86 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
             <div><span className="text-gray-500">Effectif</span><p className="font-medium">{demande.placesTotales} élèves{demande.nombreAccompagnateurs ? ` + ${demande.nombreAccompagnateurs}` : ''}</p></div>
             {demande.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{demande.niveauClasse}</p></div>}
             <div><span className="text-gray-500">Contexte</span><p className="font-medium">{demande.typeContexte === 'SCOLAIRE' ? 'Scolaire' : 'Hors-scolaire'}</p></div>
+            {(demande.ageMin != null || demande.ageMax != null) && (
+              <div><span className="text-gray-500">Tranche d&apos;âge</span><p className="font-medium">{demande.ageMin ?? '?'} - {demande.ageMax ?? '?'} ans</p></div>
+            )}
+            {demande.heureArrivee && <div><span className="text-gray-500">Arrivée</span><p className="font-medium">{demande.heureArrivee}</p></div>}
+            {demande.heureDepart && <div><span className="text-gray-500">Départ</span><p className="font-medium">{demande.heureDepart}</p></div>}
+            {demande.budgetMaxParEleve != null && (
+              <div><span className="text-gray-500">Budget max / élève</span><p className="font-medium">{demande.budgetMaxParEleve} €</p></div>
+            )}
             {demande.departementsCibles.length > 0 && (
               <div className="col-span-2"><span className="text-gray-500">Départements ciblés</span><p className="font-medium">{demande.departementsCibles.join(', ')}</p></div>
             )}
           </div>
 
+          {/* Transport */}
+          {demande.transportAller && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+              {demande.transportAller === 'BESOIN_TRANSPORTEUR'
+                ? 'Transport aller demandé — à inclure dans le devis'
+                : "Transport aller : déjà prévu par l'enseignant"}
+            </div>
+          )}
+          {demande.transportSurPlace !== null && (
+            <p className="text-sm text-gray-600">Transport sur place : {demande.transportSurPlace ? 'Autonome' : 'Non prévu'}</p>
+          )}
+
+          {/* Type de pension */}
+          {demande.typePension.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Type de pension</p>
+              <div className="flex flex-wrap gap-1.5">
+                {demande.typePension.map((p) => (
+                  <span key={p} className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">{TYPE_PENSION_LABELS[p] ?? p}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Thématiques pédagogiques */}
+          {demande.thematiquesPedagogiques.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Thématiques pédagogiques</p>
+              <div className="flex flex-wrap gap-1.5">
+                {demande.thematiquesPedagogiques.map((t) => (
+                  <span key={t} className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {demande.activitesSouhaitees && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Activités souhaitées</p>
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-line">{demande.activitesSouhaitees}</p>
+            </div>
+          )}
+
+          {demande.informationsComplementaires && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Informations complémentaires</p>
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-line">{demande.informationsComplementaires}</p>
+            </div>
+          )}
+
+          {demande.projetEducatif && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Projet éducatif</p>
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 whitespace-pre-line">{demande.projetEducatif}</p>
+            </div>
+          )}
+
           {demande.description && (
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase mb-1">Description</p>
               <p className="text-sm text-gray-700 whitespace-pre-line">{demande.description}</p>
+            </div>
+          )}
+
+          {demande.dateButoireReponse && (
+            <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+              <p className="text-xs font-medium text-orange-700">Date limite de réponse : {formatDate(demande.dateButoireReponse)}</p>
             </div>
           )}
 
