@@ -156,6 +156,7 @@ model User {
   nom            String   @db.VarChar(100)
   email          String   @unique @db.VarChar(255)
   motDePasse     String   @map("mot_de_passe") @db.VarChar(255)
+  motDePasseDefini   Boolean  @default(false) @map("mot_de_passe_defini")
   telephone         String?  @db.VarChar(20)
   dateNaissance     DateTime? @map("date_naissance") @db.Date
   emailVerifie      Boolean  @default(false) @map("email_verifie")

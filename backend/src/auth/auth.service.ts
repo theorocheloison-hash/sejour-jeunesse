@@ -43,6 +43,7 @@ export class AuthService {
         nom: dto.nom,
         email: dto.email,
         motDePasse: hashed,
+        motDePasseDefini: true,
         role: dto.role ?? Role.PARENT,
         telephone: dto.telephone,
       },
@@ -70,6 +71,7 @@ export class AuthService {
         nom: dto.nom,
         email: dto.email,
         motDePasse: hashed,
+        motDePasseDefini: true,
         role: Role.ORGANISATEUR,
         telephone: dto.telephone ?? null,
         emailVerifie: false,
@@ -142,6 +144,7 @@ export class AuthService {
         nom: dto.nom,
         email: dto.email,
         motDePasse: hashed,
+        motDePasseDefini: true,
         role: Role.SIGNATAIRE,
         telephone: dto.telephone ?? null,
         emailVerifie: false,
@@ -218,6 +221,7 @@ export class AuthService {
           nom: dto.nom,
           email: dto.email,
           motDePasse: hashed,
+          motDePasseDefini: true,
           role: Role.HEBERGEUR,
           telephone: dto.telephone ?? null,
           emailVerifie: false,
@@ -485,22 +489,15 @@ export class AuthService {
 
   async renvoyerMagicLink(email: string) {
     const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, prenom: true, compteValide: true },
+      where: { email: email.toLowerCase().trim() },
+      select: { id: true, prenom: true, motDePasseDefini: true },
     });
-    if (!user || user.compteValide) {
-      return { message: 'Si cet email correspond à une demande en cours, un lien a été envoyé.' };
+    if (!user || user.motDePasseDefini) {
+      return { message: 'Si cet email correspond à un compte, un lien a été envoyé.' };
     }
-    const magicToken = randomUUID();
-    const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
-    });
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const magicUrl = `${frontendUrl}/auth/magic/${magicToken}`;
-    await this.email.sendMagicLink(user.email, user.prenom, 'votre demande de séjour', magicUrl);
-    return { message: 'Lien d\'accès envoyé.' };
+    const magicUrl = await this.genererMagicUrl(user.id);
+    await this.email.sendMagicLink(email, user.prenom, 'votre séjour', magicUrl);
+    return { message: 'Si cet email correspond à un compte, un lien a été envoyé.' };
   }
 
   // ── Login ────────────────────────────────────────────────────────────
@@ -515,25 +512,22 @@ export class AuthService {
         nom: true,
         role: true,
         motDePasse: true,
+        motDePasseDefini: true,
         compteValide: true,
         emailVerifie: true,
-        magicLinkToken: true,
         reseauNom: true,
       },
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
 
-    // Compte dormant (non-hébergeur uniquement) : flux magic-link existant conservé.
-    // Provient d'une demande publique (pas de mot de passe réel) avec un lien magic
-    // encore en attente — on propose un nouveau lien plutôt qu'une erreur d'identifiants.
-    // Détection via le magic-link en attente (et non via compteValide) : les
-    // organisateurs/signataires sont désormais auto-validés (compteValide=true) mais
-    // doivent rester sur le flux « vérifier mon email » (gate 2), pas « compte dormant ».
-    if (user.role !== 'HEBERGEUR' && !user.emailVerifie && user.magicLinkToken) {
+    // Gate 0 : compte sans mot de passe défini (demande publique → magic link).
+    // Placé AVANT bcrypt pour renvoyer un message utile plutôt qu'« Identifiants invalides »
+    // (le mot de passe est un UUID aléatoire inconnu de l'utilisateur).
+    if (!user.motDePasseDefini) {
       throw new UnauthorizedException('COMPTE_DORMANT');
     }
 
-    // Gate 1 : mot de passe (avant tout, pour ne pas divulguer l'état du compte).
+    // Gate 1 : mot de passe.
     const isValid = await bcrypt.compare(dto.password, user.motDePasse);
     if (!isValid) throw new UnauthorizedException('Identifiants invalides');
 
@@ -640,6 +634,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         motDePasse: hash,
+        motDePasseDefini: true,
         resetPasswordToken: null,
         resetPasswordExpires: null,
       },
@@ -650,37 +645,39 @@ export class AuthService {
 
   async consommerMagicLink(token: string, res: any) {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-
     const user = await this.prisma.user.findFirst({
-      where: {
-        magicLinkToken: token,
-        magicLinkExpires: { gte: new Date() },
-      },
-      select: { id: true, email: true, role: true },
+      where: { magicLinkToken: token, magicLinkExpires: { gte: new Date() } },
+      select: { id: true, email: true, role: true, motDePasseDefini: true },
     });
-
     if (!user) {
       return res.redirect(`${frontendUrl}/login?error=magic_link_expired`);
     }
-
-    // Activer le compte + invalider le token
     await this.prisma.user.update({
       where: { id: user.id },
-      data: {
-        compteValide:     true,
-        emailVerifie:     true,
-        magicLinkToken:   null,
-        magicLinkExpires: null,
-      },
+      data: { compteValide: true, emailVerifie: true, magicLinkToken: null, magicLinkExpires: null },
     });
-
-    // Générer JWT et rediriger
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwt.sign(payload);
-
+    const needsPassword = !user.motDePasseDefini;
     return res.redirect(
-      `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&onboarding=true`
+      `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&onboarding=true${needsPassword ? '&needsPassword=true' : ''}`
     );
+  }
+
+  /**
+   * Génère un magic link frais pour un utilisateur et retourne l'URL.
+   * Réutilisable partout (notifications, relance, etc.).
+   * Chaque appel écrase le précédent (un seul magic link actif).
+   */
+  async genererMagicUrl(userId: string): Promise<string> {
+    const magicToken = randomUUID();
+    const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
+    });
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    return `${frontendUrl}/auth/magic/${magicToken}`;
   }
 
   private buildAuthResponse(user: {
@@ -716,7 +713,7 @@ export class AuthService {
     const hash = await bcrypt.hash(password, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { motDePasse: hash },
+      data: { motDePasse: hash, motDePasseDefini: true },
     });
     return { success: true };
   }
