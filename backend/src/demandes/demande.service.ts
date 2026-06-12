@@ -141,6 +141,7 @@ export class DemandeService {
         villeHebergement: dto.villeHebergement,
         regionCible: dto.regionCible ?? '',
         departementsCibles: normaliserDepartements(dto.departementsCibles),
+        typePension: dto.typePension ?? [],
         dateButoireReponse: dto.dateButoireReponse ? new Date(dto.dateButoireReponse) : null,
         nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
         heureArrivee: dto.heureArrivee ?? null,
@@ -216,7 +217,7 @@ export class DemandeService {
       include: {
         enseignant: {
           select: {
-            id: true, prenom: true, nom: true, email: true,
+            id: true, prenom: true, nom: true, email: true, telephone: true,
             memberships: {
               where: { isPrimary: true },
               select: { organisation: { select: { nom: true, ville: true } } },
@@ -224,7 +225,12 @@ export class DemandeService {
             },
           },
         },
-        sejour: { select: { niveauClasse: true, thematiquesPedagogiques: true } },
+        sejour: {
+          select: {
+            niveauClasse: true, thematiquesPedagogiques: true,
+            ageMin: true, ageMax: true, projetEducatif: true,
+          },
+        },
         _count: { select: { devis: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -241,7 +247,8 @@ export class DemandeService {
             prenom: d.enseignant.prenom,
             nom: d.enseignant.nom,
             email: null,
-            // L'établissement reste affiché même sans abonnement (seul l'email est masqué).
+            // Contact (email + téléphone) masqué sans abonnement ; l'établissement reste visible.
+            telephone: null,
             memberships: d.enseignant.memberships,
           },
         };

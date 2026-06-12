@@ -30,11 +30,18 @@ export interface Demande {
   activitesSouhaitees?: string | null;
   informationsComplementaires?: string | null;
   budgetMaxParEleve?: number | null;
+  typePension?: string[];
   enseignant?: {
-    id: string; prenom: string; nom: string; email: string;
+    id: string; prenom: string; nom: string; email: string | null; telephone?: string | null;
     memberships?: { organisation: { nom: string | null; ville: string | null } }[];
   };
-  sejour?: { niveauClasse: string | null; thematiquesPedagogiques: string[] } | null;
+  sejour?: {
+    niveauClasse: string | null;
+    thematiquesPedagogiques: string[];
+    ageMin?: number | null;
+    ageMax?: number | null;
+    projetEducatif?: string | null;
+  } | null;
   _count?: { devis: number };
   createdAt: string;
 }

@@ -158,6 +158,7 @@ export class AdminService {
               nombreEleves: invitation.nbElevesEstime,
               villeHebergement: invitation.villeCentre,
               statut: 'OUVERTE',
+              typePension: [],
               centreDestinataireId: centreId,
             },
           });

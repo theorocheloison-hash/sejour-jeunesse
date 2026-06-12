@@ -222,6 +222,7 @@ export class InvitationCollaborationService {
                 nombreEleves: sejourData?.placesTotales ?? invitation.nbElevesEstime,
                 villeHebergement: sejourData?.lieu ?? '',
                 statut: 'FERMEE',
+                typePension: [],
                 centreDestinataireId: devisDirect.centreId,
               },
             });
@@ -278,6 +279,7 @@ export class InvitationCollaborationService {
           nombreEleves: invitation.nbElevesEstime,
           villeHebergement: invitation.centre.ville,
           statut: 'OUVERTE',
+          typePension: [],
           centreDestinataireId: invitation.centreId,
           nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
           heureArrivee: invitation.heureArrivee ?? null,

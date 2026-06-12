@@ -56,6 +56,11 @@ export class CreateDemandeDto {
   departementsCibles?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  typePension?: string[];
+
+  @IsOptional()
   @IsDateString()
   dateButoireReponse?: string;
 
