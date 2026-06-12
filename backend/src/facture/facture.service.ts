@@ -74,6 +74,35 @@ export class FactureService {
     }
   }
 
+  /**
+   * Régénère le PDF d'une facture après un changement de versement.
+   * Fire-and-forget, non bloquant, non critique.
+   */
+  private async refreshFacturePdf(factureId: string, logoUrl?: string | null): Promise<void> {
+    try {
+      const facture = await this.prisma.facture.findUnique({
+        where: { id: factureId },
+        include: {
+          lignes: true,
+          versements: { orderBy: { datePaiement: 'asc' } },
+          factureAnnulee: { select: { numero: true, dateEmission: true } },
+          devis: {
+            include: {
+              demande: { include: { sejour: { select: { titre: true } } } },
+              sejourDirect: { select: { titre: true } },
+            },
+          },
+        },
+      });
+      if (!facture) return;
+      const titreSejour =
+        facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'Non renseigné';
+      await this.generateAndStorePdf(facture, titreSejour, logoUrl);
+    } catch (e) {
+      console.error('refreshFacturePdf error:', e instanceof Error ? e.message : String(e));
+    }
+  }
+
   /** Régénère le PDF d'une facture (cas où la génération initiale a échoué). */
   async regenererPdf(
     factureId: string,
@@ -97,11 +126,8 @@ export class FactureService {
     });
     if (!facture) throw new NotFoundException('Facture introuvable');
     if (facture.devis.centreId !== centre.id) throw new ForbiddenException('Accès refusé');
-    if (facture.pdfUrl) {
-      throw new ForbiddenException(
-        'Cette facture possède déjà un PDF. La régénération n\'est autorisée que si la génération initiale a échoué.',
-      );
-    }
+    // Le PDF peut être régénéré à tout moment (ex: après ajout de versement).
+    // Le fichier OVH est écrasé (même filename = même URL publique).
     const titreSejour =
       facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'Non renseigné';
     const pdfUrl = await this.generateAndStorePdf(facture, titreSejour, centre.logoUrl);
@@ -785,6 +811,10 @@ export class FactureService {
     });
 
     await this.resyncMontantVerseDevis(facture.devisId);
+
+    // Régénérer le PDF avec les versements à jour (fire-and-forget)
+    void this.refreshFacturePdf(factureId, centre.logoUrl);
+
     return updated;
   }
 
@@ -812,6 +842,10 @@ export class FactureService {
     });
 
     await this.resyncMontantVerseDevis(updated.devisId);
+
+    // Régénérer le PDF avec les versements à jour (fire-and-forget)
+    void this.refreshFacturePdf(factureId, centre.logoUrl);
+
     return updated;
   }
 
