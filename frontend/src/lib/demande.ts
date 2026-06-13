@@ -33,7 +33,7 @@ export interface Demande {
   typePension?: string[];
   enseignant?: {
     id: string; prenom: string; nom: string; email: string | null; telephone?: string | null;
-    memberships?: { organisation: { nom: string | null; ville: string | null } }[];
+    memberships?: { organisation: { nom: string | null; ville: string | null; typeStructure?: string | null } }[];
   };
   sejour?: {
     niveauClasse: string | null;
@@ -41,6 +41,7 @@ export interface Demande {
     ageMin?: number | null;
     ageMax?: number | null;
     projetEducatif?: string | null;
+    typeContexte?: string | null;
   } | null;
   _count?: { devis: number };
   createdAt: string;
