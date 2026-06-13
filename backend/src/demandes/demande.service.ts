@@ -220,7 +220,7 @@ export class DemandeService {
             id: true, prenom: true, nom: true, email: true, telephone: true,
             memberships: {
               where: { isPrimary: true },
-              select: { organisation: { select: { nom: true, ville: true } } },
+              select: { organisation: { select: { nom: true, ville: true, typeStructure: true } } },
               take: 1,
             },
           },
@@ -228,7 +228,7 @@ export class DemandeService {
         sejour: {
           select: {
             niveauClasse: true, thematiquesPedagogiques: true,
-            ageMin: true, ageMax: true, projetEducatif: true,
+            ageMin: true, ageMax: true, projetEducatif: true, typeContexte: true,
           },
         },
         _count: { select: { devis: true } },

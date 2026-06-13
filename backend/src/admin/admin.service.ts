@@ -488,7 +488,7 @@ export class AdminService {
             id: true, prenom: true, nom: true, email: true, telephone: true,
             memberships: {
               where: { isPrimary: true },
-              select: { organisation: { select: { nom: true, ville: true, uai: true } } },
+              select: { organisation: { select: { nom: true, ville: true, uai: true, typeStructure: true } } },
               take: 1,
             },
           },
@@ -547,6 +547,7 @@ export class AdminService {
             nom: d.enseignant.memberships[0].organisation.nom,
             ville: d.enseignant.memberships[0].organisation.ville,
             uai: d.enseignant.memberships[0].organisation.uai,
+            typeStructure: d.enseignant.memberships[0].organisation.typeStructure ?? null,
           }
         : null,
       nombreReponses: d.devis.length,

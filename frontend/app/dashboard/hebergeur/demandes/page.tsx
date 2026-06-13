@@ -15,6 +15,29 @@ const TYPE_PENSION_LABELS: Record<string, string> = {
   GESTION_LIBRE: 'Gestion libre',
 };
 
+const TYPE_STRUCTURE_LABELS: Record<string, string> = {
+  COLLEGE_LYCEE: 'Collège / Lycée',
+  ECOLE_PRIMAIRE: 'École primaire',
+  MAIRIE: 'Mairie',
+  COLLECTIVITE_TERRITORIALE: 'Collectivité territoriale',
+  CENTRE_LOISIRS: 'Centre de loisirs',
+  ASSOCIATION: 'Association',
+  COMITE_ENTREPRISE: "Comité d'entreprise",
+  ENTREPRISE: 'Entreprise',
+  MICRO_ENTREPRISE: 'Micro-entreprise',
+  AUTRE: 'Autre',
+};
+
+function ContexteBadge({ typeContexte }: { typeContexte?: string | null }) {
+  if (!typeContexte) return null;
+  const scolaire = typeContexte === 'SCOLAIRE';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${scolaire ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-purple-50 border border-purple-200 text-purple-700'}`}>
+      {scolaire ? 'Scolaire' : 'Hors scolaire'}
+    </span>
+  );
+}
+
 const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
   const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   if (d.dateDebut && d.dateFin) return `${new Date(d.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})} → ${new Date(d.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
@@ -134,6 +157,7 @@ export default function HebergeurDemandesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-gray-900">{d.titre}</h3>
+                        <ContexteBadge typeContexte={d.sejour?.typeContexte} />
                         {d.sourceReseau && RESEAUX_PARTENAIRES[d.sourceReseau] && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-medium text-blue-700">
                             🏔️ via {RESEAUX_PARTENAIRES[d.sourceReseau].nom}
@@ -311,6 +335,18 @@ export default function HebergeurDemandesPage() {
                   <p className="text-xs text-gray-400">Destination</p>
                   <p className="font-medium">{detailDemande.villeHebergement}</p>
                 </div>
+                {detailDemande.sejour?.typeContexte && (
+                  <div>
+                    <p className="text-xs text-gray-400">Contexte</p>
+                    <ContexteBadge typeContexte={detailDemande.sejour.typeContexte} />
+                  </div>
+                )}
+                {detailDemande.enseignant?.memberships?.[0]?.organisation?.typeStructure && (
+                  <div>
+                    <p className="text-xs text-gray-400">Type de structure</p>
+                    <p className="font-medium">{TYPE_STRUCTURE_LABELS[detailDemande.enseignant.memberships[0].organisation.typeStructure] ?? detailDemande.enseignant.memberships[0].organisation.typeStructure}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-gray-400">Élèves</p>
                   <p className="font-medium">{detailDemande.nombreEleves}</p>

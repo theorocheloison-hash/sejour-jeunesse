@@ -205,7 +205,7 @@ export interface DemandeReseau {
   projetEducatif: string | null;
   thematiquesPedagogiques: string[];
   enseignant: { id: string; prenom: string; nom: string; email: string; telephone: string | null };
-  organisation: { nom: string; ville: string | null; uai: string | null } | null;
+  organisation: { nom: string; ville: string | null; uai: string | null; typeStructure: string | null } | null;
   nombreReponses: number;
   reponses: DemandeReseauReponse[];
 }

@@ -408,6 +408,29 @@ const TYPE_PENSION_LABELS: Record<string, string> = {
   GESTION_LIBRE: 'Gestion libre',
 };
 
+const TYPE_STRUCTURE_LABELS: Record<string, string> = {
+  COLLEGE_LYCEE: 'Collège / Lycée',
+  ECOLE_PRIMAIRE: 'École primaire',
+  MAIRIE: 'Mairie',
+  COLLECTIVITE_TERRITORIALE: 'Collectivité territoriale',
+  CENTRE_LOISIRS: 'Centre de loisirs',
+  ASSOCIATION: 'Association',
+  COMITE_ENTREPRISE: "Comité d'entreprise",
+  ENTREPRISE: 'Entreprise',
+  MICRO_ENTREPRISE: 'Micro-entreprise',
+  AUTRE: 'Autre',
+};
+
+function ContexteBadge({ typeContexte }: { typeContexte?: string | null }) {
+  if (!typeContexte) return null;
+  const scolaire = typeContexte === 'SCOLAIRE';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${scolaire ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-purple-50 border border-purple-200 text-purple-700'}`}>
+      {scolaire ? 'Scolaire' : 'Hors scolaire'}
+    </span>
+  );
+}
+
 function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeReseau; reseauLabel: string; onClose: () => void }) {
   const e = demande.enseignant;
   return (
@@ -444,6 +467,9 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
             <div><span className="text-gray-500">Effectif</span><p className="font-medium">{demande.placesTotales} élèves{demande.nombreAccompagnateurs ? ` + ${demande.nombreAccompagnateurs}` : ''}</p></div>
             {demande.niveauClasse && <div><span className="text-gray-500">Niveau</span><p className="font-medium">{demande.niveauClasse}</p></div>}
             <div><span className="text-gray-500">Contexte</span><p className="font-medium">{demande.typeContexte === 'SCOLAIRE' ? 'Scolaire' : 'Hors-scolaire'}</p></div>
+            {demande.organisation?.typeStructure && (
+              <div><span className="text-gray-500">Type de structure</span><p className="font-medium">{TYPE_STRUCTURE_LABELS[demande.organisation.typeStructure] ?? demande.organisation.typeStructure}</p></div>
+            )}
             {(demande.ageMin != null || demande.ageMax != null) && (
               <div><span className="text-gray-500">Tranche d&apos;âge</span><p className="font-medium">{demande.ageMin ?? '?'} - {demande.ageMax ?? '?'} ans</p></div>
             )}
@@ -963,6 +989,7 @@ export default function ReseauDashboardPage() {
                                 <td className="px-4 py-3 text-sm whitespace-nowrap">
                                   <span className="font-medium text-gray-900">{d.enseignant.prenom} {d.enseignant.nom}</span>
                                   {d.organisation && <span className="block text-xs text-gray-400">{d.organisation.nom}</span>}
+                                  <span className="mt-0.5 inline-block"><ContexteBadge typeContexte={d.typeContexte} /></span>
                                 </td>
                                 <td className="px-4 py-3 text-sm whitespace-nowrap" onClick={ev => ev.stopPropagation()}>
                                   {d.enseignant.telephone
