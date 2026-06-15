@@ -181,6 +181,33 @@ export default function FacturePDF(props: FacturePDFProps) {
     </>
   );
 
+  // ─── Reste à payer (AFFICHAGE uniquement — le montant facturé reste figé) ────
+  // Calcul fait UNE SEULE FOIS ; resteBlock réutilisé dans ACOMPTE + SOLDE (2 branches).
+  // Non inséré sur les AVOIR (pas de versement). Edge case trop-perçu → "Soldé ✓".
+  const totalVerse = (versements ?? []).reduce((sum, v) => sum + v.montant, 0);
+  const resteAPayer = montantFacture - totalVerse;
+  const resteBlock =
+    totalVerse > 0 ? (
+      resteAPayer > 0.01 ? (
+        <>
+          <View style={s.totauxRow}>
+            <Text style={s.totauxLabel}>Versements reçus</Text>
+            <Text style={s.totauxValue}>{fmtMontant(totalVerse)} €</Text>
+          </View>
+          <View style={s.totauxRow}>
+            <Text style={s.totauxSolde}>Reste à payer</Text>
+            <Text style={s.totauxSolde}>{fmtMontant(resteAPayer)} €</Text>
+          </View>
+        </>
+      ) : (
+        <View style={s.totauxRow}>
+          <Text style={{ ...s.totauxSolde, color: '#16A34A', fontSize: 10, width: '100%', textAlign: 'right' }}>
+            Soldé ✓
+          </Text>
+        </View>
+      )
+    ) : null;
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
@@ -267,6 +294,7 @@ export default function FacturePDF(props: FacturePDFProps) {
               <Text style={s.totauxAccent}>{fmtMontant(montantFacture)} €</Text>
             </View>
           )}
+          {typeFacture === 'ACOMPTE' && resteBlock}
 
           {typeFacture === 'SOLDE' && (
             (montantAcompteDejaFacture ?? 0) > 0 ? (
@@ -279,13 +307,17 @@ export default function FacturePDF(props: FacturePDFProps) {
                   <Text style={s.totauxSolde}>Solde à régler</Text>
                   <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
                 </View>
+                {resteBlock}
               </>
             ) : (
               // Facture "total" (sans acompte préalable) : pas de mention d'acompte
-              <View style={s.totauxRow}>
-                <Text style={s.totauxSolde}>Total à régler</Text>
-                <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
-              </View>
+              <>
+                <View style={s.totauxRow}>
+                  <Text style={s.totauxSolde}>Total à régler</Text>
+                  <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
+                </View>
+                {resteBlock}
+              </>
             )
           )}
 
