@@ -17,6 +17,7 @@ import {
   emettreAvoir,
   annulerDevis,
   genererConvention,
+  envoyerFactureParEmail,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import OrganisationSearch from '@/src/components/OrganisationSearch';
@@ -237,6 +238,14 @@ export default function TabDevisFacturation({
   const [avoirError, setAvoirError] = useState<string | null>(null);
   const [annulerLoading, setAnnulerLoading] = useState(false);
   const [showModalAnnuler, setShowModalAnnuler] = useState(false);
+
+  // ── Modale envoi facture par email ────────────────────────
+  const [showEnvoiFactureModal, setShowEnvoiFactureModal] = useState(false);
+  const [envoiFactureTarget, setEnvoiFactureTarget] = useState<Facture | null>(null);
+  const [envoiFactureEmail, setEnvoiFactureEmail] = useState('');
+  const [envoiFactureMessage, setEnvoiFactureMessage] = useState('');
+  const [envoiFactureLoading, setEnvoiFactureLoading] = useState(false);
+  const [envoiFactureSuccess, setEnvoiFactureSuccess] = useState(false);
 
   // ── Devis complémentaires ────────────────────────────────────────────────
   const [complementaires, setComplementaires] = useState<DevisType[]>([]);
@@ -539,6 +548,47 @@ export default function TabDevisFacturation({
     }
   };
 
+  const handleOpenEnvoiFacture = (facture: Facture) => {
+    setEnvoiFactureTarget(facture);
+    // Pré-remplir email : priorité facture.destinataireEmail
+    setEnvoiFactureEmail(facture.destinataireEmail ?? '');
+    // Message par défaut
+    const label = facture.typeFacture === 'ACOMPTE' ? "la facture d'acompte"
+      : facture.typeFacture === 'AVOIR' ? "l'avoir"
+      : 'la facture de solde';
+    const montant = facture.montantFacture < 0
+      ? `−${Math.abs(facture.montantFacture).toFixed(2).replace('.', ',')} €`
+      : `${facture.montantFacture.toFixed(2).replace('.', ',')} €`;
+    const titre = isDirect
+      ? (sejour as any).titre ?? 'votre séjour'
+      : budgetData?.sejour?.titre ?? 'votre séjour';
+    setEnvoiFactureMessage(
+      `Bonjour,\n\nVeuillez trouver ci-joint ${label} n°${facture.numero} d'un montant de ${montant} relative au séjour « ${titre} ».\n\nCordialement`
+    );
+    setEnvoiFactureSuccess(false);
+    setShowEnvoiFactureModal(true);
+  };
+
+  const handleEnvoiFacture = async () => {
+    if (!envoiFactureTarget || !envoiFactureEmail.trim()) return;
+    setEnvoiFactureLoading(true);
+    try {
+      await envoyerFactureParEmail(
+        envoiFactureTarget.id,
+        envoiFactureEmail.trim(),
+        envoiFactureMessage,
+      );
+      setEnvoiFactureSuccess(true);
+      setTimeout(() => setShowEnvoiFactureModal(false), 1500);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message ?? "Erreur lors de l'envoi";
+      onError(msg);
+    } finally {
+      setEnvoiFactureLoading(false);
+    }
+  };
+
   // ── Devis complémentaires : handlers ──────────────────────────────────────
   const handleSelectCompOrg = (org: OrganisationResult) => {
     setCompSelectedOrg(org);
@@ -689,7 +739,20 @@ export default function TabDevisFacturation({
                   {(facts.length > 0 || (!dejaFacture && !annule)) && (
                     <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
                       {facts.map((f) => (
-                        <FacturePdfLink key={f.id} facture={f} onReload={loadComplementaires} />
+                        <React.Fragment key={f.id}>
+                          <FacturePdfLink facture={f} onReload={loadComplementaires} />
+                          {f.pdfUrl && (
+                            <button
+                              onClick={() => handleOpenEnvoiFacture(f)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                              </svg>
+                              Envoyer par email
+                            </button>
+                          )}
+                        </React.Fragment>
                       ))}
                       {!dejaFacture && !annule && (
                         <button
@@ -752,10 +815,24 @@ export default function TabDevisFacturation({
 
         {(factureAcompte || factureSolde || avoirSurAcompte || avoirSurSolde) && (
           <div className="flex items-center gap-2 flex-wrap">
-            {factureAcompte && <FacturePdfLink facture={factureAcompte} onReload={reloadFactures} />}
-            {factureSolde && <FacturePdfLink facture={factureSolde} onReload={reloadFactures} />}
-            {avoirSurAcompte && <FacturePdfLink facture={avoirSurAcompte} onReload={reloadFactures} />}
-            {avoirSurSolde && <FacturePdfLink facture={avoirSurSolde} onReload={reloadFactures} />}
+            {[factureAcompte, factureSolde, avoirSurAcompte, avoirSurSolde]
+              .filter((f): f is Facture => !!f)
+              .map((f) => (
+                <React.Fragment key={f.id}>
+                  <FacturePdfLink facture={f} onReload={reloadFactures} />
+                  {f.pdfUrl && (
+                    <button
+                      onClick={() => handleOpenEnvoiFacture(f)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                      Envoyer par email
+                    </button>
+                  )}
+                </React.Fragment>
+              ))}
           </div>
         )}
 
@@ -1964,6 +2041,74 @@ export default function TabDevisFacturation({
               </button>
               <button onClick={() => setShowModalComplementaire(false)} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modale envoi facture par email ────────────────────── */}
+      {showEnvoiFactureModal && envoiFactureTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Envoyer {envoiFactureTarget.typeFacture === 'ACOMPTE' ? "la facture d'acompte" : envoiFactureTarget.typeFacture === 'AVOIR' ? "l'avoir" : 'la facture de solde'} par email
+            </h3>
+
+            {envoiFactureSuccess ? (
+              <div className="flex items-center gap-2 text-green-600 py-8 justify-center">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                <span className="font-medium">Facture envoyée à {envoiFactureEmail}</span>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Destinataire</label>
+                    <input
+                      type="email"
+                      value={envoiFactureEmail}
+                      onChange={(e) => setEnvoiFactureEmail(e.target.value)}
+                      placeholder="Ex : comptabilite@ecole.fr"
+                      className={inputCls}
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea
+                      value={envoiFactureMessage}
+                      onChange={(e) => setEnvoiFactureMessage(e.target.value)}
+                      rows={6}
+                      className={inputCls}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    La facture {envoiFactureTarget.numero} sera envoyée en pièce jointe (PDF).
+                    {envoiFactureTarget.typeFacture !== 'AVOIR' && (
+                      <> Montant : {envoiFactureTarget.montantFacture.toFixed(2).replace('.', ',')} €</>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setShowEnvoiFactureModal(false)}
+                    disabled={envoiFactureLoading}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleEnvoiFacture}
+                    disabled={envoiFactureLoading || !envoiFactureEmail.trim()}
+                    className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+                  >
+                    {envoiFactureLoading ? 'Envoi…' : 'Envoyer'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

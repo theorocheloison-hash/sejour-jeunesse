@@ -422,6 +422,19 @@ export async function supprimerVersement(factureId: string, versementId: string)
   return data;
 }
 
+/** Envoie une facture par email avec le PDF en pièce jointe. */
+export async function envoyerFactureParEmail(
+  factureId: string,
+  email: string,
+  message: string,
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(
+    `/factures/${factureId}/envoyer`,
+    { email, message },
+  );
+  return data;
+}
+
 // ── PDF facture (Lot 2 : généré côté serveur, stocké sur OVH) ────────────────
 
 /**
