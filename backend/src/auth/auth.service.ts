@@ -45,7 +45,7 @@ export class AuthService {
         email: dto.email,
         motDePasse: hashed,
         motDePasseDefini: true,
-        role: dto.role ?? Role.PARENT,
+        role: Role.PARENT,
         telephone: dto.telephone,
       },
     });

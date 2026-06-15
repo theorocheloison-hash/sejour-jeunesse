@@ -1,11 +1,9 @@
 import {
   IsEmail,
-  IsEnum,
   IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
-import { Role } from '@prisma/client';
 
 export class RegisterDto {
   @IsString()
@@ -24,8 +22,4 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   telephone?: string;
-
-  @IsOptional()
-  @IsEnum(Role, { message: 'Rôle invalide' })
-  role?: Role;
 }
