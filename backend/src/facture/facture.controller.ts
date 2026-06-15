@@ -80,6 +80,19 @@ export class FactureController {
     );
   }
 
+  /** POST /factures/:id/envoyer — envoie la facture par email avec PDF joint */
+  @Post(':id/envoyer')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
+  envoyerParEmail(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() body: { email: string; message: string },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.envoyerFactureParEmail(id, body, user.id, centreId);
+  }
+
   /** GET /factures/devis/:devisId — factures liées à un devis */
   @Get('devis/:devisId')
   @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)

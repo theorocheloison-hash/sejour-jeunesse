@@ -59,6 +59,7 @@ export class EmailService {
     html: string,
     fromName?: string,
     replyTo?: { name: string; email: string },
+    attachment?: Array<{ content: string; name: string }>,
   ) {
     if (!BREVO_API_KEY) {
       console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
@@ -73,6 +74,7 @@ export class EmailService {
         ...(replyTo ? { replyTo } : {}),
         subject,
         htmlContent: html,
+        ...(attachment ? { attachment } : {}),
       });
       console.log(`[EMAIL OK] ${subject} → ${to}`);
     } catch (err: any) {
@@ -250,6 +252,24 @@ export class EmailService {
       replyTo?.name,
     );
     await this.send(to, subject, html, fromName, replyTo);
+  }
+
+  /**
+   * Envoie une facture par email avec le PDF en pièce jointe.
+   * Action manuelle déclenchée par l'hébergeur (découplée de l'émission).
+   * Le replyTo pointe vers le centre : le destinataire répond directement à l'hébergeur.
+   */
+  async sendFactureParEmail(
+    to: string,
+    subject: string,
+    messageHtml: string,
+    pdfBuffer: Buffer,
+    pdfFilename: string,
+    replyTo: { name: string; email: string },
+  ): Promise<void> {
+    const base64 = pdfBuffer.toString('base64');
+    const html = emailLayout(subject, messageHtml, undefined, undefined, replyTo.name);
+    await this.send(to, subject, html, undefined, replyTo, [{ content: base64, name: pdfFilename }]);
   }
 
   /**

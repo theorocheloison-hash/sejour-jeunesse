@@ -356,8 +356,8 @@ export class FactureService {
       include: { lignes: true, versements: true },
     });
 
-    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
+    // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
+    await this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -366,17 +366,17 @@ export class FactureService {
       { factureId: facture.id, devisId, type: 'ACOMPTE' },
     );
 
-    // Notification destinataire (non bloquant)
-    try {
-      if (destinataire.emailNotif) {
+    // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
+    if (devis.demandeId && destinataire.emailNotif) {
+      try {
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
-          `Facture d'acompte émise — ${destinataire.sejourTitre}`,
-          `L'hébergeur a émis une facture d'acompte (${numero}) d'un montant de ${montantFormate} € pour « ${destinataire.sejourTitre} ».`,
+          `Facture d'acompte disponible — ${destinataire.sejourTitre}`,
+          `Une facture d'acompte (${numero}) d'un montant de ${montantFormate} € a été émise pour « ${destinataire.sejourTitre} ». Consultez votre espace LIAVO pour plus de détails.`,
         );
-      }
-    } catch { /* non bloquant */ }
+      } catch { /* non bloquant */ }
+    }
 
     return facture;
   }
@@ -475,8 +475,8 @@ export class FactureService {
       include: { lignes: true, versements: true },
     });
 
-    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
+    // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
+    await this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -485,16 +485,17 @@ export class FactureService {
       { factureId: facture.id, devisId, type: 'SOLDE' },
     );
 
-    try {
-      if (destinataire.emailNotif) {
+    // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
+    if (devis.demandeId && destinataire.emailNotif) {
+      try {
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
-          `Facture de solde émise — ${destinataire.sejourTitre}`,
-          `L'hébergeur a émis la facture de solde (${numero}) d'un montant de ${montantFormate} € pour « ${destinataire.sejourTitre} ».`,
+          `Facture de solde disponible — ${destinataire.sejourTitre}`,
+          `La facture de solde (${numero}) d'un montant de ${montantFormate} € a été émise pour « ${destinataire.sejourTitre} ». Consultez votre espace LIAVO pour plus de détails.`,
         );
-      }
-    } catch { /* non bloquant */ }
+      } catch { /* non bloquant */ }
+    }
 
     return facture;
   }
@@ -577,8 +578,8 @@ export class FactureService {
       include: { lignes: true, versements: true },
     });
 
-    // Génération PDF + stockage OVH (fire-and-forget — non bloquant sur la réponse HTTP)
-    void this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
+    // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
+    await this.generateAndStorePdf(facture, destinataire.sejourTitre, devis.centre.logoUrl);
 
     await this.loggerActivite(
       destinataire.sejourId,
@@ -587,17 +588,17 @@ export class FactureService {
       { factureId: facture.id, devisId, type: 'SOLDE' },
     );
 
-    // Même notification que emettreFactureSolde (non bloquant)
-    try {
-      if (destinataire.emailNotif) {
+    // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
+    if (devis.demandeId && destinataire.emailNotif) {
+      try {
         const montantFormate = montantTTC.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
-          `Facture de solde émise — ${destinataire.sejourTitre}`,
-          `L'hébergeur a émis la facture de solde (${numero}) d'un montant de ${montantFormate} € pour « ${destinataire.sejourTitre} ».`,
+          `Facture de solde disponible — ${destinataire.sejourTitre}`,
+          `La facture de solde (${numero}) d'un montant de ${montantFormate} € a été émise pour « ${destinataire.sejourTitre} ». Consultez votre espace LIAVO pour plus de détails.`,
         );
-      }
-    } catch { /* non bloquant */ }
+      } catch { /* non bloquant */ }
+    }
 
     return facture;
   }
@@ -733,6 +734,76 @@ export class FactureService {
     );
 
     return avoir;
+  }
+
+  /**
+   * Envoie une facture déjà émise par email, avec le PDF Factur-X en pièce jointe.
+   * Action MANUELLE déclenchée par l'hébergeur (découplée de l'émission). Le replyTo
+   * pointe vers le centre, pas vers LIAVO : le destinataire répond directement à l'hébergeur.
+   */
+  async envoyerFactureParEmail(
+    factureId: string,
+    dto: { email: string; message: string },
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const facture = await this.prisma.facture.findUnique({
+      where: { id: factureId },
+      include: {
+        devis: {
+          select: {
+            id: true, centreId: true,
+            centre: { select: { nom: true, email: true } },
+            demande: { include: { sejour: { select: { id: true, titre: true } } } },
+            sejourDirect: { select: { id: true, titre: true } },
+          },
+        },
+      },
+    });
+    if (!facture) throw new NotFoundException('Facture introuvable');
+    if (facture.devis.centreId !== centre.id) {
+      throw new ForbiddenException('Cette facture ne vous appartient pas');
+    }
+    if (!facture.pdfUrl) {
+      throw new ForbiddenException('Le PDF de la facture n\'est pas encore disponible. Réessayez dans quelques secondes.');
+    }
+
+    // Récupérer le PDF depuis OVH (URL publique)
+    const pdfResponse = await fetch(facture.pdfUrl);
+    if (!pdfResponse.ok) {
+      throw new ForbiddenException('Impossible de récupérer le PDF de la facture');
+    }
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+
+    const centreNom = facture.devis.centre?.nom ?? 'L\'hébergeur';
+    const centreEmail = facture.devis.centre?.email;
+    const titreSejour =
+      facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'votre séjour';
+
+    // Envoyer avec PJ + replyTo centre
+    await this.email.sendFactureParEmail(
+      dto.email,
+      `${facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte" : facture.typeFacture === 'AVOIR' ? 'Avoir' : 'Facture de solde'} — ${titreSejour}`,
+      `<p>${dto.message.replace(/\n/g, '<br>')}</p>`,
+      pdfBuffer,
+      `${facture.numero}.pdf`,
+      centreEmail
+        ? { name: centreNom, email: centreEmail }
+        : { name: 'LIAVO', email: 'contact@liavo.fr' },
+    );
+
+    // Log CRM
+    const sejourId = facture.devis.demande?.sejour?.id ?? facture.devis.sejourDirect?.id ?? null;
+    await this.loggerActivite(
+      sejourId,
+      centre.id,
+      `Facture ${facture.numero} envoyée par email à ${dto.email}`,
+      { factureId: facture.id, destinataire: dto.email, type: 'ENVOI_FACTURE' },
+    );
+
+    return { success: true };
   }
 
   // ── Consultation ──────────────────────────────────────────────────────────
