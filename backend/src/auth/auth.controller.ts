@@ -49,6 +49,7 @@ export class AuthController {
 
   @Post('verify-email/:token')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })   // 10/heure par IP (retry légitime possible)
   verifyEmail(@Param('token') token: string) {
     return this.authService.verifyEmail(token);
   }
@@ -85,6 +86,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 900000 } })   // 5/15 min par IP (token sans MDP à valider)
   resetPassword(@Body() body: { token: string; password: string }) {
     return this.authService.reinitialiserMotDePasse(body.token, body.password);
   }

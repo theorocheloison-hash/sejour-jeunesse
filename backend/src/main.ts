@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  // Derrière le reverse proxy Scalingo : faire confiance au 1er proxy pour que
+  // req.ip lise X-Forwarded-For (IP client réelle) au lieu de l'IP du proxy.
+  // Sans cela, le ThrottlerGuard rate-limite sur une IP unique = compteur global.
+  // '1' (et non 'true') pour ne truster qu'un seul proxy (non spoofable au-delà).
+  app.set('trust proxy', 1);
 
   // Limite body JSON (imports volumineux, ex. POST /admin/sync-lmdj)
   app.use(json({ limit: '5mb' }));
