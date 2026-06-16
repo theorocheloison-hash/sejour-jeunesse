@@ -418,7 +418,7 @@ export default function HebergeurDashboard() {
           </Link>
 
           {/* KPI 3 — À facturer */}
-          <Link href="/dashboard/hebergeur/devis?tab=selectionnes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href="/dashboard/hebergeur/devis?tab=a-facturer" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Séjours signés dont l&apos;acompte ou le solde n&apos;a pas encore été facturé
             </div>
@@ -433,7 +433,7 @@ export default function HebergeurDashboard() {
           </Link>
 
           {/* KPI 4 — Impayés */}
-          <Link href="/dashboard/hebergeur/devis?tab=acompte" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href="/dashboard/hebergeur/devis?tab=impayes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Factures émises dont le paiement n&apos;a pas été intégralement enregistré
             </div>

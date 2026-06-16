@@ -21,15 +21,31 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   FACTURE_SOLDE:         { label: 'Facture solde',       cls: 'bg-teal-100 text-teal-700' },
 };
 
-type OngletDevis = 'attente' | 'selectionnes' | 'signes' | 'acompte' | 'solde';
+type OngletDevis = 'attente' | 'selectionnes' | 'signes' | 'a-facturer' | 'acompte' | 'solde' | 'impayes';
 
 const ONGLETS: { key: OngletDevis; label: string }[] = [
   { key: 'attente',      label: 'En attente' },
   { key: 'selectionnes', label: 'Sélectionnés' },
   { key: 'signes',       label: 'Signé direction' },
+  { key: 'a-facturer',   label: 'À facturer' },
   { key: 'acompte',      label: 'Facture acompte' },
   { key: 'solde',        label: 'Facture solde' },
+  { key: 'impayes',      label: 'Impayés' },
 ];
+
+/** Date de début du séjour (collab → demande.sejour, direct → sejourDirect, fallback createdAt). */
+function resolveSejourDateDebut(d: Devis): string {
+  return d.demande?.sejour?.dateDebut ?? d.sejourDirect?.dateDebut ?? d.createdAt;
+}
+
+/** Somme des restes dus sur les factures émises (hors avoir) d'un devis. */
+function resteImpaye(d: Devis): number {
+  return (d.factures ?? []).reduce((sum, f) => {
+    if (f.typeFacture === 'AVOIR') return sum;
+    const reste = f.montantFacture - (f.montantVerseTotal ?? 0);
+    return sum + (reste > 0 ? reste : 0);
+  }, 0);
+}
 
 // ─── Normalize for accent-insensitive search ────────────────────────────────
 
@@ -87,16 +103,25 @@ function matchesOnglet(d: Devis, onglet: OngletDevis): boolean {
     case 'signes':
       // Signé direction (ou signature présente) mais pas encore facturé
       return (d.statut === 'SIGNE_DIRECTION' || !!d.signatureDirecteur) && !hasAcompte && !hasSolde;
+    case 'a-facturer':
+      // Aligné sur le KPI dashboard : acompte à émettre, OU solde à émettre (séjour passé).
+      return d.isComplementaire !== true && (
+        ((d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') && !hasAcompte && !hasSolde) ||
+        (hasAcompte && !hasSolde && new Date(resolveSejourDateDebut(d)) < new Date())
+      );
     case 'acompte':
       return hasAcompte && !hasSolde;
     case 'solde':
       return hasSolde;
+    case 'impayes':
+      // Au moins une facture émise (hors avoir) non intégralement réglée.
+      return resteImpaye(d) > 0;
   }
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
-const VALID_TABS: OngletDevis[] = ['attente', 'selectionnes', 'signes', 'acompte', 'solde'];
+const VALID_TABS: OngletDevis[] = ['attente', 'selectionnes', 'signes', 'a-facturer', 'acompte', 'solde', 'impayes'];
 
 export default function HebergeurDevisPage() {
   const router = useRouter();
@@ -118,6 +143,10 @@ export default function HebergeurDevisPage() {
     tabParam && VALID_TABS.includes(tabParam as OngletDevis) ? (tabParam as OngletDevis) : 'attente',
   );
 
+  // Synchronise l'onglet sélectionné avec le param URL (?tab=) au changement de lien.
+  useEffect(() => {
+    if (tabParam && VALID_TABS.includes(tabParam as OngletDevis)) setOnglet(tabParam as OngletDevis);
+  }, [tabParam]);
 
   const loadDevis = useCallback(() => {
     if (user?.role === 'HEBERGEUR') {
@@ -155,9 +184,14 @@ export default function HebergeurDevisPage() {
   const isSearching = searchQuery.length >= 2;
 
   const filteredDevis = useMemo(() => {
-    return devisList
+    const list = devisList
       .filter((d) => matchesSearch(d, searchQuery))
       .filter((d) => isSearching ? true : matchesOnglet(d, onglet));
+    // Onglet Impayés : les plus gros restes dus en premier.
+    if (!isSearching && onglet === 'impayes') {
+      return [...list].sort((a, b) => resteImpaye(b) - resteImpaye(a));
+    }
+    return list;
   }, [devisList, searchQuery, onglet, isSearching]);
 
   const actionsUrgentes = useMemo(() => {
@@ -172,7 +206,7 @@ export default function HebergeurDevisPage() {
   }, [devisList]);
 
   const ongletCounts = useMemo(() => {
-    const counts: Record<OngletDevis, number> = { attente: 0, selectionnes: 0, signes: 0, acompte: 0, solde: 0 };
+    const counts: Record<OngletDevis, number> = { attente: 0, selectionnes: 0, signes: 0, 'a-facturer': 0, acompte: 0, solde: 0, impayes: 0 };
     devisList.forEach((d) => {
       for (const key of ONGLETS.map(o => o.key)) {
         if (matchesOnglet(d, key)) counts[key]++;
