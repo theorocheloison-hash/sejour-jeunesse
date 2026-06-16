@@ -186,6 +186,10 @@ function NouveauDevisContent() {
       montantHT += ligneHT;
       montantTTC += ligneTTC;
     });
+    // Arrondir les sommes accumulées : une somme de valeurs déjà arrondies peut
+    // produire un artéfact float (ex: 4112.50 + 8200.30 = 12312.800000000001).
+    montantHT = round2(montantHT);
+    montantTTC = round2(montantTTC);
     montantTVA = round2(montantTTC - montantHT);
     const montantAcompte = round2(montantTTC * (pourcentageAcompte / 100));
     const resteAPayer = round2(montantTTC - montantAcompte);

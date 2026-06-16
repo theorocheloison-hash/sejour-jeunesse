@@ -17,6 +17,7 @@ type LigneForm = {
 let ligneKeyCounter = 0;
 const newLigneKey = () => `dl-${++ligneKeyCounter}`;
 const makeLigne = (): LigneForm => ({ key: newLigneKey(), description: '', quantite: '1', prixUnitaire: '', tva: '10' });
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export default function InviterEnseignantPage() {
   const { user } = useAuth();
@@ -76,17 +77,20 @@ export default function InviterEnseignantPage() {
 
   const calculs = useMemo(() => {
     let montantHT = 0;
-    let montantTVA = 0;
+    let montantTTC = 0;
     lignes.forEach(l => {
+      // L'utilisateur saisit un prix TTC ; le HT est dérivé (cohérent avec les builders).
       const qte = parseFloat(l.quantite) || 0;
-      const pu = parseFloat(l.prixUnitaire) || 0;
+      const puTTC = parseFloat(l.prixUnitaire) || 0;
       const tvaRate = parseFloat(l.tva) || 0;
-      const ht = qte * pu;
-      montantHT += ht;
-      montantTVA += ht * (tvaRate / 100);
+      const puHT = round2(puTTC / (1 + tvaRate / 100));
+      montantHT += round2(puHT * qte);
+      montantTTC += round2(puTTC * qte);
     });
-    const montantTTC = montantHT + montantTVA;
-    const montantAcompte = montantTTC * (pourcentageAcompte / 100);
+    montantHT = round2(montantHT);
+    montantTTC = round2(montantTTC);
+    const montantTVA = round2(montantTTC - montantHT);
+    const montantAcompte = round2(montantTTC * (pourcentageAcompte / 100));
     return { montantHT, montantTVA, montantTTC, montantAcompte };
   }, [lignes, pourcentageAcompte]);
 
@@ -157,17 +161,18 @@ export default function InviterEnseignantPage() {
     const lignesValides = lignes
       .filter(l => l.description.trim() && (parseFloat(l.prixUnitaire) || 0) > 0)
       .map(l => {
+        // Prix saisi en TTC ; prixUnitaire stocké HT (convention backend, RÈGLE 4).
         const qte = parseFloat(l.quantite) || 0;
-        const pu = parseFloat(l.prixUnitaire) || 0;
+        const puTTC = parseFloat(l.prixUnitaire) || 0;
         const tvaRate = parseFloat(l.tva) || 0;
-        const ht = qte * pu;
+        const puHT = round2(puTTC / (1 + tvaRate / 100));
         return {
           description: l.description,
           quantite: qte,
-          prixUnitaire: pu,
+          prixUnitaire: puHT,
           tva: tvaRate,
-          totalHT: Math.round(ht * 100) / 100,
-          totalTTC: Math.round(ht * (1 + tvaRate / 100) * 100) / 100,
+          totalHT: round2(puHT * qte),
+          totalTTC: round2(puTTC * qte),
         };
       });
 
@@ -175,11 +180,11 @@ export default function InviterEnseignantPage() {
       description: description.trim() || undefined,
       conditionsAnnulation: conditionsAnnulation.trim() || undefined,
       tauxTva: 10,
-      montantHT: Math.round(calculs.montantHT * 100) / 100,
-      montantTVA: Math.round(calculs.montantTVA * 100) / 100,
-      montantTTC: Math.round(calculs.montantTTC * 100) / 100,
+      montantHT: round2(calculs.montantHT),
+      montantTVA: round2(calculs.montantTVA),
+      montantTTC: round2(calculs.montantTTC),
       pourcentageAcompte,
-      montantAcompte: Math.round(calculs.montantAcompte * 100) / 100,
+      montantAcompte: round2(calculs.montantAcompte),
       lignes: lignesValides,
     } : undefined;
 
@@ -483,7 +488,7 @@ export default function InviterEnseignantPage() {
                             type="number" step="0.01"
                             value={l.prixUnitaire}
                             onChange={e => setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prixUnitaire: e.target.value } : x))}
-                            placeholder="PU HT €"
+                            placeholder="PU TTC €"
                             className={inputCls}
                           />
                           <input
@@ -517,7 +522,7 @@ export default function InviterEnseignantPage() {
                             onChange={e => {
                               const p = catalogue.find(c => c.id === e.target.value);
                               if (!p) return;
-                              setLignes(prev => [...prev, { key: newLigneKey(), description: p.nom, quantite: '1', prixUnitaire: String(p.prixUnitaireHT), tva: String(p.tva) }]);
+                              setLignes(prev => [...prev, { key: newLigneKey(), description: p.nom, quantite: '1', prixUnitaire: String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))), tva: String(p.tva) }]);
                               e.target.value = '';
                             }}
                             defaultValue=""
@@ -525,7 +530,7 @@ export default function InviterEnseignantPage() {
                           >
                             <option value="" disabled>+ Depuis le catalogue</option>
                             {catalogue.map(p => (
-                              <option key={p.id} value={p.id}>{p.nom} — {p.prixUnitaireHT.toFixed(2)} € HT</option>
+                              <option key={p.id} value={p.id}>{p.nom} — {(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))).toFixed(2)} € TTC</option>
                             ))}
                           </select>
                         )}

@@ -24,6 +24,7 @@ import OrganisationSearch from '@/src/components/OrganisationSearch';
 import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
+const round2 = (n: number) => Math.round(n * 100) / 100;
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import api from '@/src/lib/api';
@@ -620,13 +621,17 @@ export default function TabDevisFacturation({
 
   const calcCompTotaux = () => {
     return compForm.lignes.map(l => {
-      const totalHT = l.quantite * l.prixUnitaire;
-      const totalTTC = totalHT * (1 + compForm.tauxTva / 100);
-      return { ...l, tva: compForm.tauxTva, totalHT: Math.round(totalHT * 100) / 100, totalTTC: Math.round(totalTTC * 100) / 100 };
+      // L'utilisateur saisit un prix TTC (cohérent avec les autres builders). Le HT est
+      // dérivé. prixUnitaire est stocké HT en base (convention backend, RÈGLE 4).
+      const puTTC = l.prixUnitaire;
+      const puHT = round2(puTTC / (1 + compForm.tauxTva / 100));
+      const totalTTC = round2(puTTC * l.quantite);
+      const totalHT = round2(puHT * l.quantite);
+      return { ...l, prixUnitaire: puHT, tva: compForm.tauxTva, totalHT, totalTTC };
     });
   };
 
-  const compTotalTTC = calcCompTotaux().reduce((s, l) => s + l.totalTTC, 0);
+  const compTotalTTC = round2(calcCompTotaux().reduce((s, l) => s + l.totalTTC, 0));
 
   const resetCompForm = () => {
     setCompForm({
@@ -2022,7 +2027,7 @@ export default function TabDevisFacturation({
                   <tr className="text-left text-gray-500">
                     <th className="py-1 font-medium">Description</th>
                     <th className="py-1 font-medium w-16 text-right">Qté</th>
-                    <th className="py-1 font-medium w-24 text-right">PU HT</th>
+                    <th className="py-1 font-medium w-24 text-right">PU TTC</th>
                     <th className="py-1 font-medium w-24 text-right">Total TTC</th>
                     <th className="w-8"></th>
                   </tr>

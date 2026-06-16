@@ -95,9 +95,15 @@ export default function ModifierDevisPage() {
         setNombreAccompagnateurs(devis.demande?.nombreAccompagnateurs ?? 0);
         // Pre-fill lignes
         if (devis.lignes && devis.lignes.length > 0) {
-          setLignes(devis.lignes.map((l: LigneDevis) =>
-            makeLigneForm(l.description, String(l.quantite), String(round2(l.prixUnitaire * (1 + l.tva / 100))), String(l.tva))
-          ));
+          setLignes(devis.lignes.map((l: LigneDevis) => {
+            // Pré-remplir le champ « PU TTC » avec le prix TTC d'origine. On reconstitue
+            // depuis totalTTC/quantite (et NON prixUnitaire×(1+tva)) pour garantir
+            // l'idempotence : round2(79.55×1.10)=87.51 ≠ 87.50 saisi à l'origine.
+            const puTTC = l.quantite > 0
+              ? round2(l.totalTTC / l.quantite)
+              : round2(l.prixUnitaire * (1 + l.tva / 100));
+            return makeLigneForm(l.description, String(l.quantite), String(puTTC), String(l.tva));
+          }));
         } else {
           setLignes([makeLigneForm()]);
         }
@@ -128,6 +134,10 @@ export default function ModifierDevisPage() {
       montantHT += ligneHT;
       montantTTC += ligneTTC;
     });
+    // Arrondir les sommes accumulées : une somme de valeurs déjà arrondies peut
+    // produire un artéfact float (ex: 4112.50 + 8200.30 = 12312.800000000001).
+    montantHT = round2(montantHT);
+    montantTTC = round2(montantTTC);
     montantTVA = round2(montantTTC - montantHT);
     const montantAcompte = round2(montantTTC * (pourcentageAcompte / 100));
     const resteAPayer = round2(montantTTC - montantAcompte);

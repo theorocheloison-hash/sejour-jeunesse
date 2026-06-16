@@ -11,6 +11,9 @@ import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
+/** Arrondi monétaire à 2 décimales — neutralise les artéfacts float IEEE 754. */
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
 /** Ligne d'un avoir (Lot 3). Quantités/totaux NÉGATIFS, prixUnitaire positif. */
 interface LigneAvoirDto {
   description: string;
@@ -312,9 +315,9 @@ export class FactureService {
     const annee = new Date().getFullYear();
     const numero = `FA-${annee}-${String(await this.sequence.generer(emetteur.emetteurId, 'FACTURE')).padStart(4, '0')}`;
 
-    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
     const pourcentage = devis.pourcentageAcompte ?? 30;
-    const montantFacture = devis.montantAcompte ?? (montantTTC * pourcentage / 100);
+    const montantFacture = round2(devis.montantAcompte ?? (montantTTC * pourcentage / 100));
 
     const facture = await this.prisma.facture.create({
       data: {
@@ -335,8 +338,8 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: devis.montantHT ?? 0,
-        montantTVA: devis.montantTVA ?? 0,
+        montantHT: round2(devis.montantHT ?? 0),
+        montantTVA: round2(devis.montantTVA ?? 0),
         montantTTC,
         tauxTva: devis.tauxTva ?? 0,
         montantFacture,
@@ -402,7 +405,7 @@ export class FactureService {
       throw new ForbiddenException('La facture de solde a déjà été émise pour ce devis');
     }
 
-    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
     const acompte = factureAcompte.montantFacture;
     let acompteNet = acompte;
     if (montantTTC <= acompte) {
@@ -418,14 +421,14 @@ export class FactureService {
         );
       }
       // avoir.montantFacture est négatif (ex : -240) → réduit l'acompte net
-      acompteNet = acompte + avoir.montantFacture; // ex : 1440 + (-240) = 1200
+      acompteNet = round2(acompte + avoir.montantFacture); // ex : 1440 + (-240) = 1200
       if (acompteNet < 0) {
         throw new ForbiddenException(
           'L\'avoir dépasse le montant de l\'acompte — situation comptable incohérente.'
         );
       }
     }
-    const montantFacture = Math.max(0, montantTTC - acompteNet);
+    const montantFacture = round2(Math.max(0, montantTTC - acompteNet));
 
     const emetteur = await this.construireEmetteur(devis);
     const destinataire = await this.construireDestinataire(devis);
@@ -452,8 +455,8 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: devis.montantHT ?? 0,
-        montantTVA: devis.montantTVA ?? 0,
+        montantHT: round2(devis.montantHT ?? 0),
+        montantTVA: round2(devis.montantTVA ?? 0),
         montantTTC,
         tauxTva: devis.tauxTva ?? 0,
         montantFacture,
@@ -607,7 +610,7 @@ export class FactureService {
     const annee = new Date().getFullYear();
     const numero = `FS-${annee}-${String(await this.sequence.generer(emetteur.emetteurId, 'FACTURE')).padStart(4, '0')}`;
 
-    const montantTTC = devis.montantTTC ?? Number(devis.montantTotal);
+    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
 
     const facture = await this.prisma.facture.create({
       data: {
@@ -628,8 +631,8 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: devis.montantHT ?? 0,
-        montantTVA: devis.montantTVA ?? 0,
+        montantHT: round2(devis.montantHT ?? 0),
+        montantTVA: round2(devis.montantTVA ?? 0),
         montantTTC,
         tauxTva: devis.tauxTva ?? 0,
         montantFacture: montantTTC,        // 100 % — pas d'acompte déduit
@@ -738,10 +741,10 @@ export class FactureService {
     const numero = `AV-${annee}-${String(await this.sequence.generer(factureAnnulee.emetteurId, 'AVOIR')).padStart(4, '0')}`;
 
     // Montants de l'avoir (négatifs)
-    const montantHT = dto.lignes.reduce((acc, l) => acc + l.totalHT, 0);
-    const montantTTC = dto.lignes.reduce((acc, l) => acc + l.totalTTC, 0);
-    const montantTVA = montantTTC - montantHT;
-    const montantFacture = -dto.montant;
+    const montantHT = round2(dto.lignes.reduce((acc, l) => acc + l.totalHT, 0));
+    const montantTTC = round2(dto.lignes.reduce((acc, l) => acc + l.totalTTC, 0));
+    const montantTVA = round2(montantTTC - montantHT);
+    const montantFacture = round2(-dto.montant);
 
     const avoir = await this.prisma.facture.create({
       data: {
