@@ -237,6 +237,8 @@ export default function HebergeurDashboard() {
   for (const d of devis) {
     for (const f of d.factures ?? []) {
       if (f.typeFacture === 'AVOIR') continue;
+      // Un acompte validé n'est jamais un impayé (micro-écart d'arrondi/frais ignoré).
+      if (f.typeFacture === 'ACOMPTE' && f.acompteVerse) continue;
       const verse = f.montantVerseTotal ?? 0;
       if (verse < f.montantFacture) {
         kpiImpayesCount++;

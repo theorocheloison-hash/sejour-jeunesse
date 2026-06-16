@@ -456,7 +456,7 @@ export class CentreService {
       where: { devis: { centreId: { in: centreIds } } },
       select: {
         id: true, numero: true, typeFacture: true, montantFacture: true,
-        montantVerseTotal: true, dateEmission: true,
+        montantVerseTotal: true, dateEmission: true, acompteVerse: true,
         devis: {
           select: {
             centreId: true,
@@ -467,7 +467,9 @@ export class CentreService {
       },
     });
     const facturesImpayees = facturesEmises
-      .filter(f => (f.montantVerseTotal ?? 0) < f.montantFacture)
+      // Un acompte validé n'est jamais un impayé (micro-écart d'arrondi/frais ignoré).
+      .filter(f => (f.montantVerseTotal ?? 0) < f.montantFacture
+        && !(f.typeFacture === 'ACOMPTE' && f.acompteVerse))
       .map(f => ({
         id: f.id, centreId: f.devis.centreId,
         montantTTC: f.montantFacture, // "dû" = montant de CETTE facture

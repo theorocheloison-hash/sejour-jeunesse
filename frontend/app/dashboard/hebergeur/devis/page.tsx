@@ -42,6 +42,8 @@ function resolveSejourDateDebut(d: Devis): string {
 function resteImpaye(d: Devis): number {
   return (d.factures ?? []).reduce((sum, f) => {
     if (f.typeFacture === 'AVOIR') return sum;
+    // Un acompte validé n'est jamais un impayé (micro-écart d'arrondi/frais ignoré).
+    if (f.typeFacture === 'ACOMPTE' && f.acompteVerse) return sum;
     const reste = f.montantFacture - (f.montantVerseTotal ?? 0);
     return sum + (reste > 0 ? reste : 0);
   }, 0);
