@@ -144,6 +144,18 @@ export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): st
   const adrEmetteur = parseAdresse(facture.emetteurAdresse);
   const adrDestinataire = parseAdresse(facture.destinataireAdresse);
 
+  // BG-16 Moyen de paiement (virement SEPA, TypeCode 58) + IBAN émetteur — BG-17.
+  // Conditionnel : certains centres n'ont pas encore renseigné leur IBAN.
+  const paymentMeansXml = facture.emetteurIban
+    ? `
+      <ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>58</ram:TypeCode>
+        <ram:PayeePartyCreditorFinancialAccount>
+          <ram:IBANID>${escXml(facture.emetteurIban)}</ram:IBANID>
+        </ram:PayeePartyCreditorFinancialAccount>
+      </ram:SpecifiedTradeSettlementPaymentMeans>`
+    : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
   xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -169,6 +181,7 @@ export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): st
 ${lignesXml}
 
     <ram:ApplicableHeaderTradeAgreement>
+      <ram:BuyerReference>${escXml(facture.destinataireSiret ?? 'SANS OBJET')}</ram:BuyerReference>
       <ram:SellerTradeParty>
         <ram:Name>${escXml(facture.emetteurNom)}</ram:Name>${sellerSiret}
         <ram:PostalTradeAddress>
@@ -195,7 +208,7 @@ ${lignesXml}
     <ram:ApplicableHeaderTradeDelivery/>
 
     <ram:ApplicableHeaderTradeSettlement>
-      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>${paymentMeansXml}
       <ram:ApplicableTradeTax>
         <ram:CalculatedAmount>${fmtAmt(facture.montantTVA)}</ram:CalculatedAmount>
         <ram:TypeCode>VAT</ram:TypeCode>
