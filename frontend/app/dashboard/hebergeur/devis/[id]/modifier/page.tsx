@@ -274,6 +274,10 @@ export default function ModifierDevisPage() {
   const dateValidite = new Date(Date.now() + validiteJours * 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  // Facture d'acompte déjà émise (figée) : ses lignes/montant ne bougent pas. Les
+  // modifications du devis n'ajustent QUE la future facture de solde (total révisé − acompte).
+  const factureAcompte = devisOriginal?.factures?.find(f => f.typeFacture === 'ACOMPTE') ?? null;
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
@@ -291,6 +295,13 @@ export default function ModifierDevisPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loadError && (
           <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{loadError}</div>
+        )}
+
+        {factureAcompte && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 mb-6">
+            <strong>⚠️ Ce devis a une facture d&apos;acompte émise ({factureAcompte.numero} — {fmt(factureAcompte.montantFacture)} €).</strong>
+            <br />Vos modifications ajusteront le montant de la facture de solde. L&apos;acompte déjà facturé ne sera pas modifié.
+          </div>
         )}
 
         {/* ═══ DEVIS DOCUMENT ═══════════════════════════════════════════════ */}
@@ -648,6 +659,12 @@ export default function ModifierDevisPage() {
                     <span className="font-medium text-gray-700">{fmt(calculs.resteAPayer)} €</span>
                   </div>
                 </div>
+                {factureAcompte && calculs.montantTTC < factureAcompte.montantFacture && (
+                  <p className="text-red-600 text-sm mt-1">
+                    ⚠️ Le nouveau total ({fmt(calculs.montantTTC)} €) est inférieur à l&apos;acompte déjà facturé ({fmt(factureAcompte.montantFacture)} €).
+                    Vous devrez émettre un avoir avant de facturer le solde.
+                  </p>
+                )}
               </div>
             </div>
           </div>
