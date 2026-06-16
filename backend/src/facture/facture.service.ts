@@ -497,6 +497,79 @@ export class FactureService {
       } catch { /* non bloquant */ }
     }
 
+    // ── Re-balance : déplacer les versements overflow de l'acompte vers le solde ──
+    const versementsAcompte = await this.prisma.versementPaiement.findMany({
+      where: { factureId: factureAcompte.id },
+      orderBy: { datePaiement: 'asc' },
+    });
+
+    let cumul = 0;
+    const idsADeplacer: string[] = [];
+    for (const v of versementsAcompte) {
+      if (cumul >= factureAcompte.montantFacture) {
+        // Ce versement est en overflow → le déplacer vers le solde
+        idsADeplacer.push(v.id);
+      } else {
+        cumul += v.montant;
+      }
+    }
+
+    if (idsADeplacer.length > 0) {
+      // Déplacer les versements vers la facture de solde
+      await this.prisma.versementPaiement.updateMany({
+        where: { id: { in: idsADeplacer } },
+        data: { factureId: facture.id },
+      });
+
+      // Recalculer montantVerseTotal sur l'acompte
+      const aggAcompte = await this.prisma.versementPaiement.aggregate({
+        where: { factureId: factureAcompte.id },
+        _sum: { montant: true },
+      });
+      const totalAcompte = aggAcompte._sum.montant ?? 0;
+      await this.prisma.facture.update({
+        where: { id: factureAcompte.id },
+        data: {
+          montantVerseTotal: totalAcompte,
+          acompteVerse: totalAcompte >= factureAcompte.montantFacture * 0.99,
+        },
+      });
+
+      // Recalculer montantVerseTotal sur le solde
+      const aggSolde = await this.prisma.versementPaiement.aggregate({
+        where: { factureId: facture.id },
+        _sum: { montant: true },
+      });
+      const totalSolde = aggSolde._sum.montant ?? 0;
+      await this.prisma.facture.update({
+        where: { id: facture.id },
+        data: {
+          montantVerseTotal: totalSolde,
+          acompteVerse: totalSolde >= facture.montantFacture * 0.99,
+        },
+      });
+
+      // Régénérer les PDFs des DEUX factures (versements ont changé)
+      await this.generateAndStorePdf(
+        await this.prisma.facture.findUniqueOrThrow({
+          where: { id: factureAcompte.id },
+          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } }, factureAnnulee: { select: { numero: true, dateEmission: true } } },
+        }),
+        destinataire.sejourTitre,
+        devis.centre.logoUrl,
+      );
+      await this.generateAndStorePdf(
+        await this.prisma.facture.findUniqueOrThrow({
+          where: { id: facture.id },
+          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } }, factureAnnulee: { select: { numero: true, dateEmission: true } } },
+        }),
+        destinataire.sejourTitre,
+        devis.centre.logoUrl,
+      );
+
+      await this.resyncMontantVerseDevis(devisId);
+    }
+
     return facture;
   }
 
@@ -849,18 +922,35 @@ export class FactureService {
   }
 
   async ajouterVersement(
-    factureId: string,
+    devisId: string,
     dto: { montant: number; datePaiement: string; reference?: string; modePaiement?: string },
     userId: string,
     centreId?: string | null,
   ) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
-    const facture = await this.chargerFactureProprietaire(factureId, centre.id);
 
+    // Charger toutes les factures du devis (hors avoirs)
+    const factures = await this.prisma.facture.findMany({
+      where: { devisId, typeFacture: { in: ['ACOMPTE', 'SOLDE'] } },
+      include: { devis: { select: { centreId: true } } },
+      orderBy: { dateEmission: 'asc' },
+    });
+    if (factures.length === 0) {
+      throw new NotFoundException('Aucune facture trouvée pour ce devis');
+    }
+    if (factures[0].devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+
+    // Routage : première facture avec un solde restant > 0
+    const cible = factures.find(f => (f.montantVerseTotal ?? 0) < f.montantFacture * 0.99)
+      ?? factures[factures.length - 1]; // fallback : dernière facture (trop-perçu)
+
+    // Créer le versement sur la facture cible
     await this.prisma.versementPaiement.create({
       data: {
-        devisId: facture.devisId,
-        factureId,
+        devisId,
+        factureId: cible.id,
         montant: dto.montant,
         datePaiement: new Date(dto.datePaiement),
         reference: dto.reference ?? null,
@@ -868,23 +958,23 @@ export class FactureService {
       },
     });
 
-    const nouveauTotal = (facture.montantVerseTotal ?? 0) + dto.montant;
-    const verseComplet = nouveauTotal >= facture.montantFacture * 0.99;
+    const nouveauTotal = (cible.montantVerseTotal ?? 0) + dto.montant;
+    const verseComplet = nouveauTotal >= cible.montantFacture * 0.99;
 
     const updated = await this.prisma.facture.update({
-      where: { id: factureId },
+      where: { id: cible.id },
       data: {
         montantVerseTotal: nouveauTotal,
         acompteVerse: verseComplet,
-        ...(verseComplet && !facture.acompteVerse ? { dateVersement: new Date() } : {}),
+        ...(verseComplet && !cible.acompteVerse ? { dateVersement: new Date() } : {}),
       },
       include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } } },
     });
 
-    await this.resyncMontantVerseDevis(facture.devisId);
+    await this.resyncMontantVerseDevis(devisId);
 
     // Régénérer le PDF avec les versements à jour (fire-and-forget)
-    void this.refreshFacturePdf(factureId, centre.logoUrl);
+    void this.refreshFacturePdf(cible.id, centre.logoUrl);
 
     return updated;
   }

@@ -80,6 +80,17 @@ export class FactureController {
     );
   }
 
+  /** POST /factures/versements — enregistre un versement avec routage auto vers la bonne facture */
+  @Post('versements')
+  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
+  ajouterVersement(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { devisId: string; montant: number; datePaiement: string; reference?: string; modePaiement?: string },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.ajouterVersement(body.devisId, body, user.id, centreId);
+  }
+
   /** POST /factures/:id/envoyer — envoie la facture par email avec PDF joint */
   @Post(':id/envoyer')
   @Roles(Role.HEBERGEUR)
@@ -98,18 +109,6 @@ export class FactureController {
   @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)
   getFacturesForDevis(@Param('devisId') devisId: string) {
     return this.factureService.getFacturesForDevis(devisId);
-  }
-
-  /** POST /factures/:id/versements — enregistre un versement sur une facture */
-  @Post(':id/versements')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  ajouterVersement(
-    @CurrentUser() user: JwtUser,
-    @Param('id') id: string,
-    @Body() body: { montant: number; datePaiement: string; reference?: string; modePaiement?: string },
-    @CentreId() centreId: string | null,
-  ) {
-    return this.factureService.ajouterVersement(id, body, user.id, centreId);
   }
 
   /** PATCH /factures/:id/versements/:vid/supprimer */

@@ -368,8 +368,14 @@ export default function TabDevisFacturation({
   const factureSolde = factures.find(f => f.typeFacture === 'SOLDE') ?? null;
   const etatFacturation: 'AUCUNE' | 'ACOMPTE' | 'SOLDE' =
     factureSolde ? 'SOLDE' : factureAcompte ? 'ACOMPTE' : 'AUCUNE';
-  // Facture cible des versements : la dernière émise (solde si présent, sinon acompte).
+  // Facture la plus récente (solde si présent, sinon acompte) — fallback pour la suppression de versement.
   const factureActive = factureSolde ?? factureAcompte;
+  // Cible du prochain versement — miroir du routage backend : 1re facture non soldée, sinon la dernière.
+  const facturesPayables = factures.filter(f => f.typeFacture !== 'AVOIR');
+  const factureCibleVersement =
+    facturesPayables.find(f => (f.montantVerseTotal ?? 0) < f.montantFacture * 0.99)
+    ?? facturesPayables[facturesPayables.length - 1]
+    ?? null;
   const versements: VersementPaiement[] = factures.flatMap(f => f.versements ?? []);
 
   const handleFacturerAcompte = async () => {
@@ -427,11 +433,11 @@ export default function TabDevisFacturation({
   };
 
   const handleAjouterVersement = async () => {
-    if (!factureActive || !versementForm.montant || !versementForm.datePaiement) return;
+    if (!activeDevisId || !versementForm.montant || !versementForm.datePaiement) return;
     setVersementSaving(true);
     try {
       await ajouterVersement(
-        factureActive.id,
+        activeDevisId,
         parseFloat(versementForm.montant),
         versementForm.datePaiement,
         versementForm.reference || undefined,
@@ -931,9 +937,9 @@ export default function TabDevisFacturation({
           <div className="border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Nouveau versement</p>
-              {factureActive && (
+              {factureCibleVersement && (
                 <p className="text-[11px] text-gray-500">
-                  Montant attendu : <span className="font-semibold text-gray-700">{factureActive.montantFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                  Montant attendu : <span className="font-semibold text-gray-700">{Math.max(0, factureCibleVersement.montantFacture - (factureCibleVersement.montantVerseTotal ?? 0)).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                 </p>
               )}
             </div>
@@ -1003,7 +1009,7 @@ export default function TabDevisFacturation({
         )}
 
         <div className="flex items-center gap-2 flex-wrap pt-2">
-          {factureActive && resteDu > 0 && (
+          {factures.length > 0 && resteDu > 0 && (
             <button
               onClick={() => setShowAddVersement(true)}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"

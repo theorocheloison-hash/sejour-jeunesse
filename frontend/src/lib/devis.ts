@@ -410,9 +410,9 @@ export async function getFacturesForDevis(devisId: string): Promise<Facture[]> {
   return data;
 }
 
-/** Enregistre un versement sur une facture (Lot 1 : ciblé par factureId). */
-export async function ajouterVersement(factureId: string, montant: number, datePaiement: string, reference?: string, modePaiement?: string): Promise<Facture> {
-  const { data } = await api.post<Facture>(`/factures/${factureId}/versements`, { montant, datePaiement, reference, modePaiement });
+/** Enregistre un versement (routage auto vers la bonne facture : acompte d'abord, puis solde). */
+export async function ajouterVersement(devisId: string, montant: number, datePaiement: string, reference?: string, modePaiement?: string): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/versements', { devisId, montant, datePaiement, reference, modePaiement });
   return data;
 }
 
