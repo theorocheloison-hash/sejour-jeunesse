@@ -335,8 +335,6 @@ export default function TabDevisFacturation({
 
   const activeDevisId = activeDevisForFacturation?.id ?? null;
   const activeDevisStatut = activeDevisForFacturation?.statut ?? null;
-  // factures incluses dans la réponse devis (Lot 1 backend) si présentes
-  const activeDevisFactures = activeDevisForFacturation?.factures ?? null;
 
   // Recharge les factures du devis depuis l'API (source de vérité après chaque action).
   const reloadFactures = async () => {
@@ -350,11 +348,8 @@ export default function TabDevisFacturation({
     if (!activeDevisId || !activeDevisStatut) return;
     const FACTURATION_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
     if (!FACTURATION_STATUTS.includes(activeDevisStatut)) return;
-    // Factures déjà incluses dans la réponse devis → on les utilise sans appel réseau.
-    if (activeDevisFactures) {
-      setFactures(activeDevisFactures);
-      return;
-    }
+    // Toujours recharger via l'API (source de vérité) — pas de short-circuit avec
+    // les factures du devis initial, potentiellement stales après un versement.
     setFacturesLoading(true);
     getFacturesForDevis(activeDevisId)
       .then(setFactures)
@@ -444,6 +439,8 @@ export default function TabDevisFacturation({
         versementForm.modePaiement || undefined,
       );
       await reloadFactures();
+      // Puis reload du devis pour rafraîchir les montants agrégés (montantVerseTotal) du header.
+      if (isDirect) { await reloadAllDirect(); } else { await onBudgetReload(); }
       setVersementForm({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
       setShowAddVersement(false);
     } catch {
