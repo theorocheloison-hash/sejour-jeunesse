@@ -652,6 +652,7 @@ export class CentreService {
         siret: true,
         agrementEducationNationale: true,
         typeSejours: true,
+        apidaeId: true,
       },
       take: 10,
       orderBy: { nom: 'asc' },
@@ -701,10 +702,13 @@ export class CentreService {
     const prismaKeys = new Set(
       prismaResults.map((r) => `${normalise(r.nom)}|${normalise(r.ville)}`),
     );
+    const prismaApidaeIds = new Set(
+      prismaResults.filter(r => r.apidaeId).map(r => r.apidaeId),
+    );
 
     const prismaTagged = prismaResults.map((r) => ({ ...r, _source: 'BASE' as const }));
     const enDedup = enResults
-      .filter((r) => !prismaKeys.has(`${normalise(r.nom)}|${normalise(r.ville)}`))
+      .filter((r) => !prismaKeys.has(`${normalise(r.nom)}|${normalise(r.ville)}`) && !prismaApidaeIds.has(r.id))
       .map((r) => ({ ...r, _source: 'API_EN' as const }));
 
     return [...prismaTagged, ...enDedup];
@@ -737,10 +741,13 @@ export class CentreService {
   }): Promise<{ centreId: string; organisationId: string }> {
     // 1. Vérifier qu'un centre avec cet identifiant EN n'existe pas déjà
     const existant = await this.prisma.centreHebergement.findFirst({
-      where: { apidaeId: data.identifiantEN, source: 'API_EN' },
-      select: { id: true, organisationId: true },
+      where: { apidaeId: data.identifiantEN },
+      select: { id: true, organisationId: true, ville: true },
     });
-    if (existant) {
+    const normaliseVille = (s: string): string =>
+      (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+    if (existant && normaliseVille(existant.ville ?? '') === normaliseVille(data.ville ?? '')) {
       if (existant.organisationId) {
         return { centreId: existant.id, organisationId: existant.organisationId };
       }
