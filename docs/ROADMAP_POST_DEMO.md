@@ -55,6 +55,21 @@ Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau 
    - "rectorat", "DSDEN" → caché si non scolaire
    - "directeur d'école" → "signataire" générique
 
+### Envoi factures — flow "Transmettre au gestionnaire" (V2)
+> Contexte : le chantier "Envoi facture par email" (juin 2026) a découplé émission et envoi.
+> L'hébergeur peut envoyer la facture PDF par email à qui il veut. Mais en COLLAB,
+> l'enseignant ne connaît pas toujours l'email du comptable.
+
+**Flow cible :**
+1. Hébergeur émet la facture → enseignant notifié ("facture dispo sur la plateforme")
+2. Côté enseignant/signataire, bouton "Transmettre au gestionnaire" sur la facture
+3. Saisie email du comptable → génération d'un token public (pattern `tokenSignature` du devis)
+4. Le comptable reçoit un lien → page publique `/facture/[token]` → consulte + télécharge le PDF sans compte LIAVO
+5. À terme : intégration Chorus Pro pour les collectivités publiques (cf. Priorité 3)
+
+**Pré-requis :** champ `emailComptable` optionnel sur Organisation (pré-remplissage récurrents).
+**Estimé :** 2-3 jours. **Trigger :** après premier séjour COLLAB facturé en production.
+
 ### Landing page — screenshots produit
 - 3-4 screenshots réels du dashboard dans les sections de la landing
 - Basés sur retours qualitatifs de 3-5 personnes cibles
@@ -89,6 +104,34 @@ Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau 
 - Générer les menus de la semaine à partir des régimes alimentaires et allergies (autorisations parentales)
 - Intégration avec catalogue repas du Sauvageon
 - Estimé : 3-5 jours
+
+### Intégrations externes — approche progressive
+> Contexte : les hébergeurs type Sauvageon font du scolaire semaine + mariage/séminaire weekend.
+> Besoin validé à confirmer avec Yves Massard et premiers clients onboardés.
+
+**Phase 1 — Flux iCal lecture seule (0,5j)**
+- Endpoint `GET /centres/:id/calendar.ics?token=xxx`
+- Retourne tous séjours + indisponibilités en format .ics standard
+- Compatible Google Calendar, Outlook, Apple Calendar, la plupart des PMS
+- Token d'auth dans l'URL (pas de session)
+- **Trigger :** dès qu'un hébergeur demande "voir mes séjours dans mon agenda"
+
+**Phase 2 — Export CSV factures (0,5j)**
+- Bouton "Exporter" dans le dashboard facturation
+- CSV : numéro, date, client, HT, TVA, TTC, statut
+- Import direct dans Pennylane / Henrri / comptable
+- **Trigger :** dès qu'un hébergeur utilise un logiciel de compta
+
+**Phase 3 — Webhooks événementiels (1-2j)**
+- Modèle : `WebhookEndpoint { centreId, url, events[], secret, active }`
+- Événements : sejour.created, devis.signed, facture.emitted, versement.added
+- Ouvre la porte Zapier/Make/n8n sans connecteur natif
+- **Trigger :** premier client qui demande une automation
+
+**NON prévu (sauf signal récurrent 3+ clients) :**
+- Intégrations PMS natives (Amenitiz, Reservit, Mews) — API propriétaires, semaines/connecteur
+- Sync bidirectionnelle Google Calendar — complexité conflits, iCal suffit
+- API publique OAuth2 — produit en soi, pas avant 50+ clients actifs
 
 ### Appel d'offres transport
 - Nouveau type de demande, nouveaux fournisseurs (autocaristes)
