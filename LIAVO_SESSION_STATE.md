@@ -1,5 +1,5 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 16/06/2026 — Session marathon facturation + UX + conformité
+> Dernière mise à jour : 16/06/2026 soir — Session marathon facturation + UX + catalogue + arrondi
 
 ---
 
@@ -13,89 +13,70 @@
 | *(merged)* | fix(frontend): suppression short-circuit stale factures + reload devis après versement |
 | *(merged)* | refactor(devis-page): cartes facturées simplifiées + suppression code mort suivi paiement (−325 lignes) |
 | *(merged)* | fix(factur-x): ajout BT-10 BuyerReference + BG-16 PaymentMeans/IBAN (conformité EN 16931) |
+| `399b598` | docs: ajout docs architecture, commercial, juridique, roadmaps, prompts CC — gitignore audits sécu |
+| `60f1396` | feat(sejours): tri par date — séjours à venir en premier |
+| *(batch)* | feat(dashboard): KPIs cliquables — onglets À facturer et Impayés |
+| *(batch)* | fix(catalogue): dédup searchPublic par apidaeId + garde-fou materialiserCentreEN |
+| *(batch)* | fix(impayés): exclure les acomptes validés du filtre impayés (3 sites) |
+| `7816beb` | feat(facturation): ajustement devis après acompte — lien Ajuster avant solde + bandeau + garde-fou |
+| `abc2191` | fix(arrondi): TTC-first + round2 payload dans tous les builders devis + facture.service — 5 fichiers |
 
 ---
 
-## TRAVAUX RÉALISÉS SESSION 16/06/2026
+## TRAVAUX RÉALISÉS SESSION 16/06/2026 (suite après-midi/soir)
 
-### 1. Découplage émission / envoi factures (backend + frontend)
+### 8. Fix doublon catalogue Le Choucas
 
-**Problème** : ~30 clients mariages ont reçu des emails "Facture d'acompte émise" avec bouton "Accéder à la plateforme" alors qu'ils n'ont pas de compte. Causé par l'émission automatique d'emails à chaque facturation.
+**Problème** : "Centre de vacances Le Choucas" (LMDJ_WEB en base) + "centre de montagne le choucas" (API EN live) = doublon affiché dans le catalogue. La dédup searchPublic ne matchait que par nom+ville normalisés (noms différents). Risque : un enseignant clique le résultat API EN → materialiserCentreEN crée un vrai doublon en base.
 
-**Fix** :
-- `emettreAcompte`, `emettreFactureSolde`, `emettreFactureTotal` : email auto supprimé pour DIRECT. Notif conservée pour COLLAB (enseignant = user plateforme, texte recadré "facture disponible").
-- 3× `void` → `await` sur `generateAndStorePdf` (PDF garanti prêt pour envoi ultérieur)
-- Nouveau endpoint `POST /factures/:id/envoyer` { email, message } — envoi manuel avec PDF Brevo en PJ + replyTo centre
-- `email.service.ts` : `send()` supporte les pièces jointes Brevo (6e param `attachment`)
-- `sendFactureParEmail()` nouvelle méthode : PDF base64, sans bouton plateforme, avec replyTo
-- Frontend : bouton "Envoyer par email" à côté de chaque FacturePdfLink (5 instances) + modale email/message pré-remplie
-- Log CRM `ENVOI_FACTURE` à chaque envoi
+**Fix** (centre.service.ts, 2 modifications) :
+- searchPublic : dédup par apidaeId en plus de nom+ville (nouveau Set prismaApidaeIds)
+- materialiserCentreEN : retrait du filtre `source: 'API_EN'` + garde-fou ville (évite collision d'IDs APIDAE/EN)
+- Data : UPDATE apidae_id = '89512731' sur la fiche Le Choucas (identifiant EN récupéré via API)
 
-### 2. Routage automatique des versements + re-balance
+### 9. Fix impayés faux positifs
 
-**Problème** : le bouton "Ajouter un versement" ciblait toujours `factureActive` (dernière facture). Tous les versements saisis avant l'émission du solde restaient sur l'acompte → overflow, PDFs incohérents.
+**Problème** : Marie BRIENNE apparaissait dans "Impayés" (FA-2026-0013, 2102.10€ facturé, 2100€ versé, acompteVerse=true). Écart 2.10€ = arrondi bancaire. Le filtre comparait strictement montantVerseTotal < montantFacture sans tenir compte du flag acompteVerse.
 
-**Fix** :
-- Ancien `POST /factures/:id/versements` supprimé → nouveau `POST /factures/versements` { devisId }
-- Routage auto : acompte d'abord (première facture avec resteDû > 0), puis solde
-- Re-balance à l'émission du solde (`emettreFactureSolde`) : détecte overflow acompte, déplace versements excédentaires vers le solde, recalcule montantVerseTotal, régénère les 2 PDFs
-- Frontend : `handleAjouterVersement` passe `activeDevisId` + hint "Montant attendu" sur facture cible
-- `emettreFactureTotal` non touché (pas d'acompte préalable)
+**Fix** (3 fichiers) : exclure les factures ACOMPTE dont acompteVerse === true du calcul impayés.
+- devis/page.tsx : helper resteImpaye
+- page.tsx : KPI Impayés  
+- centre.service.ts : getDashboardGlobal facturesImpayees (ajout acompteVerse au select)
 
-### 3. Fix state stale après versement
+### 10. Ajustement devis après acompte (avant solde)
 
-**Problème** : après ajout d'un versement, le versement n'apparaissait pas sans refresh. Un useEffect court-circuitait avec `activeDevisFactures` (données du devis initial).
+**Problème** : le frontend masquait le bouton "Modifier" dès qu'une facture existait. L'hébergeur ne pouvait pas ajuster les lignes du devis (ex: 72 personnes au lieu de 80) avant de facturer le solde. Le backend supportait déjà la modification (updateDevis accepte SELECTIONNE/SIGNE_DIRECTION).
 
-**Fix** : suppression du short-circuit `if (activeDevisFactures) { setFactures(activeDevisFactures); return; }`. Le useEffect charge toujours via `getFacturesForDevis`. Ajout `reloadAllDirect()` / `onBudgetReload()` après `reloadFactures()` dans `handleAjouterVersement`.
+**Fix** (3 fichiers frontend) :
+- devis/page.tsx : lien "Ajuster avant solde" (amber) sur cartes facturées si fa && !fs && statut signé
+- TabDevisFacturation.tsx : même lien aux 2 emplacements (direct l.1272 + collab l.1601)
+- modifier/page.tsx : bandeau ⚠️ "facture acompte émise" + garde-fou rouge si total < acompte
 
-### 4. Refonte page Devis & Facturation (devis/page.tsx)
+### 11. Fix arrondi monétaire TTC-first (systémique)
 
-**Problème** : onglets "Facture acompte" et "Facture solde" affichaient des cartes surchargées (contact enseignant, 2x PDF, suivi paiement, générer solde, Chorus Pro). Bug cascade : `handleAjouterVersement` cassé en prod (passait factureId au lieu de devisId).
+**Problème** : 6 devis sur 74 avaient des artéfacts float (12312.802, 22019.38..., 6000.01). Cause : sommes de lignes non round2'd avant envoi + certains builders calculaient TTC depuis HT au lieu de TTC saisi.
 
-**Fix** :
-- Cartes facturées (fa || fs) : rendu compact — badge facture + statut paiement + PDF + "Ouvrir le dossier →"
-- Cartes sans facture : rendu existant conservé (contact enseignant + émettre acompte)
-- Code mort supprimé : modale versement (JSX + state + handler), `handleChorusXml`, `handleFacturerSolde`, imports orphelins (−325 lignes)
-- Bug `ajouterVersement(factureId)` éliminé à la source (code supprimé, pas patché)
+**Fix** (5 fichiers, +70 −43) :
+- nouveau/page.tsx : round2 sur montantHT/montantTTC accumulés dans le payload
+- modifier/page.tsx : idem + pré-remplissage prix via round2(totalTTC/quantite) pour idempotence
+- TabDevisFacturation.tsx : complémentaires basculés TTC-first (label PU HT → PU TTC, formule inversée)
+- inviter-enseignant/page.tsx : brouillon devis basculé TTC-first
+- facture.service.ts : helper round2 + arrondi sur montantFacture dans emettreAcompte/Solde/Total/Avoir
 
-### 5. Conformité Factur-X EN 16931
+Convention confirmée : l'hébergeur saisit TTC partout. HT = dérivé. prixUnitaire stocké HT en base (inchangé).
 
-**Problème** : le XML CII embarqué manquait BT-10 (BuyerReference) et BG-16 (PaymentMeans/IBAN). Bloquant pour import dans Sage/Pennylane/Cegid.
+### 12. Data fixes SQL prod (arrondi)
 
-**Fix** dans `facture-x.ts` (+14 lignes) :
-- `<ram:BuyerReference>` : SIRET destinataire ou "SANS OBJET" — premier enfant de ApplicableHeaderTradeAgreement
-- `<ram:SpecifiedTradeSettlementPaymentMeans>` : TypeCode 58 (SEPA) + IBANID — conditionné par emetteurIban, positionné AVANT ApplicableTradeTax (conformité séquence XSD CII D16B)
-- Validé sur factur-x.org/verifier : "Facture Factur-X valide · Profil détecté : EN16931 · Structure XML valide"
-
-### 6. Data fixes SQL prod
-
-- Re-balance versements Alice et Maxime : versement 6 930 € déplacé FA-0035 → FS-0036
-- Re-balance versements Heide GEORGE : versement 3 500 € splitté en 3 150 (acompte) + 350 (solde)
-- 5 devis forcés SELECTIONNE + séjours CONVENTION (mariages déjà signés hors plateforme)
-- 2 devis additionnels (Gloria et Gyslain, Nadège et Jérôme)
-
-### 7. Roadmap & docs
-
-- `docs/ROADMAP_POST_DEMO.md` : ajout "Envoi facture gestionnaire V2" (token public, pattern tokenSignature) + "Intégrations externes" (iCal 0,5j, export CSV factures 0,5j, webhooks 1-2j)
-- Message comptable Yves Massard préparé (conformité Factur-X + import logiciel comptable)
-- Audit UX complet : dashboard, planning, CRM, séjours, page séjour
+- 3 devis corrigés : DEV-2026-003 (12312.80), DEV-2026-0003 (22019.38), DEV-2026-0004/Juliette (6000.00)
+- Facture FS-2026-0038 + lignes associées corrigées (Juliette)
 
 ---
 
-## PROMPTS CC EN ATTENTE D'EXÉCUTION
-
-| Prompt | Fichier(s) | Statut |
-|---|---|---|
-| Tri séjours (à venir d'abord) | sejours/page.tsx | Prêt, pas encore exécuté |
-| KPIs dashboard cliquables (impayés + à facturer) | page.tsx + devis/page.tsx | Prêt, pas encore exécuté |
-
----
-
-## ÉTAT PROD AU 16/06/2026
+## ÉTAT PROD AU 16/06/2026 SOIR
 
 ### Bugs connus
 - Aucun bug bloquant identifié
-- Les factures émises avant le deploy du routage auto ont potentiellement des overflow non re-balancés (2 cas fixés manuellement, les autres sont OK)
+- Impayés : 1 vrai (Jean-Baptiste et Amélie, acompte en attente de paiement)
 
 ### Infra
 - Scalingo : 2× M (512Mo) + PostgreSQL Starter 512M = 36€ HT/mois
@@ -107,11 +88,15 @@
 - ~40 factures émises (acompte + solde)
 - Factur-X EN 16931 validé
 - 7 devis forcés SELECTIONNE (mariages 2026-2027 déjà signés)
+- Données arrondies propres (6 devis corrigés)
 
-### Premier lead inbound
-- **Hôtel Les Choucas** (Sixt-Fer-à-Cheval, 74) — demande de démo via LinkedIn
-- Doublon dans le catalogue APIDAE à nettoyer
-- Compte à créer
+### Lead inbound — Hôtel Les Choucas
+- **Contact** : directrice, appel téléphonique direct
+- **Besoin** : devis, facturation, planning
+- **Démo** : 17/06 à 14h AU SAUVAGEON (en personne)
+- **Centre en base** : ID `507d5133-23d2-42e5-8900-9e748e62bf98`, apidaeId `89512731`, source LMDJ_WEB, pas de userId
+- **Doublon catalogue fixé** : searchPublic dédup par apidaeId + materialiserCentreEN garde-fou
+- **Invitation** : à créer le matin du 17/06 via dashboard admin (CAS 1, centreExistantId) — email contact@choucashotel.fr ou email perso directrice
 
 ---
 
@@ -119,7 +104,8 @@
 
 | Date | Événement | Statut |
 |---|---|---|
-| **18/06** | Démo Marie Charvolin (CDI LMDJ) | Scénario prêt, prompts UX en attente |
+| **17/06 14h** | Démo Les Choucas (directrice, au Sauvageon) | Prêt — données propres, features déployées |
+| **18/06** | Démo Marie Charvolin (CDI LMDJ) | Scénario prêt dans docs/commercial/SCENARIO_DEMO_MARIE_18_06.md |
 | **30/06** | CA LMDJ — pitch partenariat | Message porté par Marie |
 | **01/09/2026** | Obligation réception e-invoicing (toutes entreprises) | Factur-X validé |
 | **01/09/2027** | Obligation émission e-invoicing (PME) | Roadmap intégration PA |
@@ -130,13 +116,15 @@
 
 ## PROCHAINS CHANTIERS (par priorité)
 
-### Avant le 18/06 (DEMAIN)
-- [ ] Exécuter prompt CC tri séjours
-- [ ] Exécuter prompt CC KPIs dashboard
-- [ ] Commit + deploy les 2
-- [ ] Nettoyage catalogue Le Choucas (doublon APIDAE)
-- [ ] Préparer démo Le Choucas
+### Matin 17/06 (avant démo 14h)
+- [ ] Créer invitation Les Choucas (CAS 1, centreExistantId)
+- [ ] Run-through rapide démo Marie (scénario dans docs/commercial/)
+- [ ] Vérifier planning Sauvageon (données visibles prochaines semaines)
+- [ ] Vérifier qu'un dossier Sauvageon a le parcours complet (signé + acompte, pas de solde) pour montrer "Ajuster avant solde"
+
+### Avant le 18/06 (démo Marie)
 - [ ] Run-through complet scénario démo Marie
+- [ ] Vérifier dashboard réseau avec données test LMDJ
 
 ### Avant le 30/06
 - [ ] Préparer les chiffres Pôle Montagne pour Marie
@@ -147,9 +135,15 @@
 - [ ] Régénérer les 4 PDFs post-rebalance (FA-0033, FA-0035, FS-0034, FS-0036)
 - [ ] Envoyer message comptable Yves Massard
 
-### Post-démo — UX (quick wins identifiés audit 16/06)
+### Post-démo — UX quick wins
 - [ ] CRM : onglet "Clients" par défaut (exclut imports massifs)
 - [ ] Bandeau "action en attente" : dismiss persistant ou contextuel
+- [ ] Modale ajustement montant avant facture de solde (parcours complet — devis builder réutilisé)
+
+### Post-CA — Refonte page Devis envoyés
+- Titre trompeur, compteurs inutiles à l'échelle, pas de tri/filtre, tooltips manquants
+- Cible : tableau filtrable/triable, recherche, pagination, export CSV
+- Estimation : 2-3j — doc : docs/ROADMAP_POST_DEMO.md
 
 ### Post-CA — Monétisation
 - Doc : `docs/commercial/MONETISATION_PLAN.md`

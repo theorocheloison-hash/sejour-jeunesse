@@ -163,6 +163,20 @@ Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau 
 
 ---
 
+## Refonte page "Devis envoyés" (post-CA)
+
+La page actuelle est une liste déroulante avec 7 onglets comptés. Problèmes identifiés :
+
+- **Titre trompeur** : "Devis envoyés" ne couvre pas la réalité (inclut factures, impayés, acomptes)
+- **Compteurs inutiles à l'échelle** : afficher "150" sur l'onglet "Facture solde" n'apporte rien — besoin de filtres (période, client, montant, statut paiement)
+- **Pas de tri** : impossible de trier par date, montant, client. Une liste déroulante de 150+ items est inutilisable
+- **Tooltips manquants** : les onglets (À facturer, Signé direction, etc.) ne sont pas explicites pour un hébergeur non technique — ajouter des tooltips explicatifs
+- **Refonte cible** : tableau filtrable/triable avec recherche, pagination, export CSV. Les onglets deviennent des filtres combinables (statut × période × client). Le compteur devient un résumé contextuel ("7 devis à facturer pour 45 200 €")
+
+Estimation : 2-3j. Dépendance : aucune. Priorité : post-validation commerciale LMDJ.
+
+---
+
 ## Priorité 4 — Financement
 
 Séquence validée :
