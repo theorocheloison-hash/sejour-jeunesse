@@ -63,6 +63,16 @@ export default function HebergeurSejoursPage() {
         (s.createur?.nom ?? '').toLowerCase().includes(q)
       );
     }
+    // Tri : séjours à venir d'abord (le plus proche en tête), puis passés (le plus récent en tête).
+    list = [...list].sort((a, b) => {
+      const now = new Date().toISOString().slice(0, 10);
+      const aFuture = (a.dateDebut ?? '') >= now;
+      const bFuture = (b.dateDebut ?? '') >= now;
+      if (aFuture && !bFuture) return -1;
+      if (!aFuture && bFuture) return 1;
+      if (aFuture && bFuture) return (a.dateDebut ?? '').localeCompare(b.dateDebut ?? '');
+      return (b.dateDebut ?? '').localeCompare(a.dateDebut ?? '');
+    });
     return list;
   }, [sejours, filtreStatut, filtreNature, searchQuery]);
 
