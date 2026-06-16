@@ -100,3 +100,7 @@ $RECYCLE.BIN/
 # Données confidentielles LIAVO (RIB, clés, juridique)
 # ========================
 LIAVO/
+
+# Audits sécurité — vulnérabilités détaillées, ne JAMAIS versionner
+docs/audits/
+docs/prompts/AUDIT_SECURITE_COMPLET.md
