@@ -95,6 +95,26 @@ export default function AdminInvitationsPage() {
       setSearchResults([]);
       return;
     }
+    // Collage d'un UUID → résolution directe du centre par id (pas de search-by-name).
+    const trimmed = searchQuery.trim();
+    if (UUID_RE.test(trimmed)) {
+      setSearching(true);
+      api.get<{ id: string; nom: string; ville: string } | null>(`/public/centres/${trimmed}`)
+        .then(({ data }) => {
+          if (data && UUID_RE.test(data.id)) {
+            setSelectedCentreId(data.id);
+            setSelectedCentreLabel(`${data.nom} — ${data.ville}`);
+            setNomCentre(data.nom);
+            setSearchQuery('');
+            setSearchResults([]);
+          } else {
+            setSearchResults([]);
+          }
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {

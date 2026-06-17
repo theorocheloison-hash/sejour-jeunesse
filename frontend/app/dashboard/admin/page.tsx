@@ -1081,6 +1081,13 @@ export default function AdminDashboardPage() {
               )}
             </button>
           ))}
+          {/* Lien de navigation externe au système d'onglets (page dédiée). */}
+          <Link
+            href="/dashboard/admin/invitations"
+            className="px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          >
+            Invitations
+          </Link>
         </div>
 
         {/* Tab content */}
