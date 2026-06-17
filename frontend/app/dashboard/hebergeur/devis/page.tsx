@@ -15,7 +15,7 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
   EN_ATTENTE_VALIDATION: { label: 'En validation',       cls: 'bg-blue-100 text-blue-700' },
   SELECTIONNE:           { label: 'Sélectionné',         cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
-  SIGNE_DIRECTION:       { label: 'Signé direction',     cls: 'bg-purple-100 text-purple-700' },
+  SIGNE_DIRECTION:       { label: 'Signé',               cls: 'bg-purple-100 text-purple-700' },
   NON_RETENU:            { label: 'Non retenu',          cls: 'bg-gray-100 text-gray-600' },
   FACTURE_ACOMPTE:       { label: 'Facture acompte',     cls: 'bg-indigo-100 text-indigo-700' },
   FACTURE_SOLDE:         { label: 'Facture solde',       cls: 'bg-teal-100 text-teal-700' },
@@ -23,19 +23,31 @@ const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
 
 type OngletDevis = 'attente' | 'selectionnes' | 'signes' | 'a-facturer' | 'acompte' | 'solde' | 'impayes';
 
-const ONGLETS: { key: OngletDevis; label: string }[] = [
-  { key: 'attente',      label: 'En attente' },
-  { key: 'selectionnes', label: 'Sélectionnés' },
-  { key: 'signes',       label: 'Signé direction' },
-  { key: 'a-facturer',   label: 'À facturer' },
-  { key: 'acompte',      label: 'Facture acompte' },
-  { key: 'solde',        label: 'Facture solde' },
-  { key: 'impayes',      label: 'Impayés' },
+const ONGLETS: { key: OngletDevis; label: string; tooltip: string }[] = [
+  { key: 'attente',      label: 'En attente',      tooltip: 'Devis envoyés en attente de réponse du client' },
+  { key: 'selectionnes', label: 'Sélectionnés',    tooltip: 'Devis acceptés par le client, en attente de signature' },
+  { key: 'signes',       label: 'Signé',           tooltip: 'Devis signés, en attente de facturation' },
+  { key: 'a-facturer',   label: 'À facturer',      tooltip: 'Acompte ou solde à émettre' },
+  { key: 'acompte',      label: 'Facture acompte', tooltip: 'Factures d\'acompte émises' },
+  { key: 'solde',        label: 'Facture solde',   tooltip: 'Factures de solde émises' },
+  { key: 'impayes',      label: 'Impayés',         tooltip: 'Factures avec un reste à payer' },
 ];
+
+// Onglets à valeur monétaire : le badge affiche aussi le montant total TTC (ou reste dû).
+const MONETARY_ONGLETS = new Set<OngletDevis>(['a-facturer', 'acompte', 'solde', 'impayes']);
 
 /** Date de début du séjour (collab → demande.sejour, direct → sejourDirect, fallback createdAt). */
 function resolveSejourDateDebut(d: Devis): string {
   return d.demande?.sejour?.dateDebut ?? d.sejourDirect?.dateDebut ?? d.createdAt;
+}
+
+/** Nom du client pour le tri (créateur du séjour, sinon enseignant). Helper module → utilisable dans les useMemo. */
+function resolveClientNom(d: Devis): string {
+  const c = d.demande?.sejour?.createur;
+  if (c) return `${c.prenom} ${c.nom}`;
+  const e = d.demande?.enseignant;
+  if (e) return `${e.prenom} ${e.nom}`;
+  return '';
 }
 
 /** Somme des restes dus sur les factures émises (hors avoir) d'un devis. */
@@ -144,6 +156,9 @@ export default function HebergeurDevisPage() {
   const [onglet, setOnglet] = useState<OngletDevis>(
     tabParam && VALID_TABS.includes(tabParam as OngletDevis) ? (tabParam as OngletDevis) : 'attente',
   );
+  // Tri de la liste (sauf onglet impayés qui garde son tri par reste dû décroissant).
+  const [sortBy, setSortBy] = useState<'date' | 'montant' | 'client'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Synchronise l'onglet sélectionné avec le param URL (?tab=) au changement de lien.
   useEffect(() => {
@@ -189,12 +204,26 @@ export default function HebergeurDevisPage() {
     const list = devisList
       .filter((d) => matchesSearch(d, searchQuery))
       .filter((d) => isSearching ? true : matchesOnglet(d, onglet));
-    // Onglet Impayés : les plus gros restes dus en premier.
+    // Onglet Impayés : les plus gros restes dus en premier (tri custom non appliqué).
     if (!isSearching && onglet === 'impayes') {
       return [...list].sort((a, b) => resteImpaye(b) - resteImpaye(a));
     }
-    return list;
-  }, [devisList, searchQuery, onglet, isSearching]);
+    // Tri custom (s'applique aussi en mode recherche).
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      if (sortBy === 'montant') {
+        const ma = Number(a.montantTTC) || Number(a.montantTotal) || 0;
+        const mb = Number(b.montantTTC) || Number(b.montantTotal) || 0;
+        return (ma - mb) * dir;
+      }
+      if (sortBy === 'client') {
+        return resolveClientNom(a).localeCompare(resolveClientNom(b), 'fr', { sensitivity: 'base' }) * dir;
+      }
+      return (
+        new Date(resolveSejourDateDebut(a)).getTime() - new Date(resolveSejourDateDebut(b)).getTime()
+      ) * dir;
+    });
+  }, [devisList, searchQuery, onglet, isSearching, sortBy, sortDir]);
 
   const actionsUrgentes = useMemo(() => {
     const aFacturer = devisList.filter(d =>
@@ -207,15 +236,38 @@ export default function HebergeurDevisPage() {
     return { aFacturer, aValider, total: aFacturer.length + aValider.length };
   }, [devisList]);
 
-  const ongletCounts = useMemo(() => {
-    const counts: Record<OngletDevis, number> = { attente: 0, selectionnes: 0, signes: 0, 'a-facturer': 0, acompte: 0, solde: 0, impayes: 0 };
+  // Résumé contextuel par onglet : nombre + montant total TTC (reste dû pour impayés).
+  const ongletSummaries = useMemo(() => {
+    const summaries: Record<OngletDevis, { count: number; montant: number }> = {
+      attente: { count: 0, montant: 0 },
+      selectionnes: { count: 0, montant: 0 },
+      signes: { count: 0, montant: 0 },
+      'a-facturer': { count: 0, montant: 0 },
+      acompte: { count: 0, montant: 0 },
+      solde: { count: 0, montant: 0 },
+      impayes: { count: 0, montant: 0 },
+    };
     devisList.forEach((d) => {
       for (const key of ONGLETS.map(o => o.key)) {
-        if (matchesOnglet(d, key)) counts[key]++;
+        if (matchesOnglet(d, key)) {
+          summaries[key].count++;
+          summaries[key].montant += key === 'impayes'
+            ? resteImpaye(d)
+            : (Number(d.montantTTC) || Number(d.montantTotal) || 0);
+        }
       }
     });
-    return counts;
+    return summaries;
   }, [devisList]);
+
+  const handleSort = (key: 'date' | 'montant' | 'client') => {
+    if (sortBy === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(key);
+      setSortDir(key === 'client' ? 'asc' : 'desc');
+    }
+  };
 
   const handleFacturerAcompte = async (id: string) => {
     setFacturantId(id);
@@ -354,8 +406,8 @@ export default function HebergeurDevisPage() {
       )}
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Devis envoyés</h1>
-        <p className="text-sm text-gray-500 mb-6">Suivez vos propositions et devis en cours</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Devis &amp; Facturation</h1>
+        <p className="text-sm text-gray-500 mb-6">Devis, acomptes, factures et suivi des paiements</p>
 
         {error && (
           <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
@@ -397,6 +449,7 @@ export default function HebergeurDevisPage() {
             <button
               key={o.key}
               onClick={() => setOnglet(o.key)}
+              title={o.tooltip}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 onglet === o.key
                   ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
@@ -404,13 +457,31 @@ export default function HebergeurDevisPage() {
               }`}
             >
               {o.label}
-              {ongletCounts[o.key] > 0 && (
+              {ongletSummaries[o.key].count > 0 && (
                 <span className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
                   onglet === o.key ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'bg-gray-100 text-gray-500'
                 }`}>
-                  {ongletCounts[o.key]}
+                  {MONETARY_ONGLETS.has(o.key)
+                    ? `${ongletSummaries[o.key].count} · ${ongletSummaries[o.key].montant.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €`
+                    : ongletSummaries[o.key].count}
                 </span>
               )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Barre de tri ── */}
+        <div className="flex items-center gap-4 mb-4">
+          <span className="text-xs text-gray-400">Trier par</span>
+          {([['date', 'Date'], ['montant', 'Montant'], ['client', 'Client']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => handleSort(key)}
+              className={sortBy === key
+                ? 'text-xs font-semibold text-[var(--color-primary)] underline'
+                : 'text-xs font-medium text-gray-500 hover:text-gray-900'}
+            >
+              {label} {sortBy === key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
             </button>
           ))}
         </div>
