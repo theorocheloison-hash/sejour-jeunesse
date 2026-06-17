@@ -580,6 +580,8 @@ model CentreHebergement {
   thematiquesCentre   String[]          @default([]) @map("thematiques_centre")
   activitesCentre     String[]          @default([]) @map("activites_centre")
   capaciteAdultes     Int?              @map("capacite_adultes")
+  capaciteGroupeMin   Int?              @map("capacite_groupe_min")
+  capaciteGroupeMax   Int?              @map("capacite_groupe_max")
   periodeOuverture    String?           @map("periode_ouverture") @db.VarChar(255)
   reseau              String?           @map("reseau") @db.VarChar(100)
   apidaeId            String?           @map("apidae_id") @db.VarChar(20)

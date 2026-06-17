@@ -46,6 +46,8 @@ interface FormState {
   thematiquesCentre: string[];
   activitesCentre: string[];
   capaciteAdultes: string;
+  capaciteGroupeMin: string;
+  capaciteGroupeMax: string;
   periodeOuverture: string;
 }
 
@@ -69,6 +71,8 @@ const INITIAL: FormState = {
   thematiquesCentre: [],
   activitesCentre: [],
   capaciteAdultes: '',
+  capaciteGroupeMin: '',
+  capaciteGroupeMax: '',
   periodeOuverture: '',
 };
 
@@ -122,6 +126,8 @@ export default function HebergeurProfilPage() {
           thematiquesCentre: c.thematiquesCentre ?? [],
           activitesCentre: c.activitesCentre ?? [],
           capaciteAdultes: c.capaciteAdultes ? String(c.capaciteAdultes) : '',
+          capaciteGroupeMin: c.capaciteGroupeMin != null ? String(c.capaciteGroupeMin) : '',
+          capaciteGroupeMax: c.capaciteGroupeMax != null ? String(c.capaciteGroupeMax) : '',
           periodeOuverture: c.periodeOuverture ?? '',
         });
       })
@@ -147,6 +153,13 @@ export default function HebergeurProfilPage() {
   };
 
   const handleSubmit = async () => {
+    // Validation UX : si les deux bornes sont renseignées, min ≤ max.
+    if (form.capaciteGroupeMin && form.capaciteGroupeMax
+      && parseInt(form.capaciteGroupeMin, 10) > parseInt(form.capaciteGroupeMax, 10)) {
+      setError('La capacité groupe minimum ne peut pas dépasser la capacité maximum.');
+      setSuccess(false);
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -170,6 +183,8 @@ export default function HebergeurProfilPage() {
         thematiquesCentre: form.thematiquesCentre,
         activitesCentre: form.activitesCentre,
         capaciteAdultes: form.capaciteAdultes ? parseInt(form.capaciteAdultes, 10) : undefined,
+        capaciteGroupeMin: form.capaciteGroupeMin ? parseInt(form.capaciteGroupeMin, 10) : undefined,
+        capaciteGroupeMax: form.capaciteGroupeMax ? parseInt(form.capaciteGroupeMax, 10) : undefined,
         periodeOuverture: form.periodeOuverture || undefined,
       });
       setSuccess(true);
@@ -485,6 +500,22 @@ export default function HebergeurProfilPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Site web</label>
                     <input type="text" value={form.siteWeb} onChange={set('siteWeb')} placeholder="https://..." className={inputCls} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1.5">Taille de groupe acceptée</p>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Les demandes diffusées (non adressées directement à votre centre) hors de cette fourchette ne vous seront pas proposées. Laissez vide pour tout recevoir.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Capacité groupe minimum</label>
+                      <input type="number" value={form.capaciteGroupeMin} onChange={set('capaciteGroupeMin')} min={0} placeholder="Ex: 20" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Capacité groupe maximum</label>
+                      <input type="number" value={form.capaciteGroupeMax} onChange={set('capaciteGroupeMax')} min={0} placeholder="Ex: 80" className={inputCls} />
+                    </div>
                   </div>
                 </div>
               </div>

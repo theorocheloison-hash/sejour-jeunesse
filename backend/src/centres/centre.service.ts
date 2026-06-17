@@ -18,6 +18,7 @@ import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
+import { matchesCapacite } from '../demandes/demande.service.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from './trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
@@ -351,7 +352,10 @@ export class CentreService {
     const centreIds = allCentres.map(c => c.id);
     const centres = await this.prisma.centreHebergement.findMany({
       where: { id: { in: centreIds } },
-      select: { id: true, nom: true, ville: true, capacite: true, imageUrl: true },
+      select: {
+        id: true, nom: true, ville: true, capacite: true, imageUrl: true,
+        capaciteGroupeMin: true, capaciteGroupeMax: true,
+      },
     });
     if (centres.length === 0) return null;
 
@@ -360,7 +364,7 @@ export class CentreService {
     const fin = periodeFin ? new Date(periodeFin) : new Date(now.getFullYear(), 11, 31, 23, 59, 59);
 
     // KPI 1 : À traiter
-    const demandesOuvertes = await this.prisma.demandeDevis.findMany({
+    const demandesOuvertesRaw = await this.prisma.demandeDevis.findMany({
       where: {
         statut: 'OUVERTE',
         OR: [
@@ -372,11 +376,22 @@ export class CentreService {
       },
       select: {
         id: true, titre: true, dateDebut: true, dateFin: true, nombreEleves: true,
+        nombreAccompagnateurs: true,
         dateButoireReponse: true, centreDestinataireId: true,
         enseignant: { select: { prenom: true, nom: true } },
       },
       orderBy: { dateButoireReponse: 'asc' },
       take: 20,
+    });
+
+    // Post-filtre capacité (broadcast uniquement). Appliqué AVANT les compteurs (nbUrgents,
+    // aTraiter.total, aTraiterDetail) pour ne pas fausser les KPIs.
+    const demandesOuvertes = demandesOuvertesRaw.filter((d) => {
+      // Demande ciblée vers l'un de mes centres → toujours incluse (hors fourchette inclus).
+      if (d.centreDestinataireId != null) return true;
+      // Broadcast → incluse si AU MOINS UN centre de l'hébergeur accepte ce total.
+      const total = (d.nombreEleves ?? 0) + (d.nombreAccompagnateurs ?? 0);
+      return centres.some((c) => matchesCapacite(total, c));
     });
 
     const devisEnAttenteReponse = await this.prisma.devis.findMany({

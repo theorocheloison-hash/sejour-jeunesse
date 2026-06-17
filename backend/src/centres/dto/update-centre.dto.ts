@@ -89,6 +89,16 @@ export class UpdateCentreDto {
   capaciteAdultes?: number;
 
   @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  capaciteGroupeMin?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  capaciteGroupeMax?: number;
+
+  @IsOptional()
   @IsString()
   periodeOuverture?: string;
 }

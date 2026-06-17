@@ -95,6 +95,19 @@ function matchesDemandeZone(
 }
 
 /**
+ * Filtre capacité : le total participants (élèves + accompagnateurs) doit tenir dans
+ * la fourchette [capaciteGroupeMin, capaciteGroupeMax] du centre. NULL = pas de borne.
+ */
+export function matchesCapacite(
+  totalParticipants: number,
+  centre: { capaciteGroupeMin: number | null; capaciteGroupeMax: number | null },
+): boolean {
+  if (centre.capaciteGroupeMin != null && totalParticipants < centre.capaciteGroupeMin) return false;
+  if (centre.capaciteGroupeMax != null && totalParticipants > centre.capaciteGroupeMax) return false;
+  return true;
+}
+
+/**
  * Construit le libellé de période d'une demande/séjour : soit les dates fixes,
  * soit la période flexible (mois · année · note · durée), sinon « Période à définir ».
  */
@@ -167,6 +180,8 @@ export class DemandeService {
       regionCible: demande.regionCible,
       departementsCibles: demande.departementsCibles,
       centreDestinataireId: demande.centreDestinataireId,
+      nombreEleves: demande.nombreEleves,
+      nombreAccompagnateurs: demande.nombreAccompagnateurs,
       typeContexte: demande.sejour?.typeContexte ?? undefined,
     }).catch((err) => console.error('[DEMANDE] Erreur notification centres:', err));
 
@@ -238,6 +253,13 @@ export class DemandeService {
 
     return demandes
       .filter((d) => matchesDemandeZone(d, centre))
+      .filter((d) => {
+        // Demande ciblée vers ce centre → toujours visible, hors fourchette inclus.
+        if (d.centreDestinataireId === centre.id) return true;
+        // Broadcast → filtre capacité sur le total participants (élèves + accompagnateurs).
+        const total = (d.nombreEleves ?? 0) + (d.nombreAccompagnateurs ?? 0);
+        return matchesCapacite(total, centre);
+      })
       .map((d) => {
         if (accesComplet) return d;
         return {
@@ -342,6 +364,8 @@ export class DemandeService {
     regionCible: string;
     departementsCibles: string[];
     centreDestinataireId: string | null;
+    nombreEleves: number;
+    nombreAccompagnateurs: number | null;
     typeContexte?: string;
   }): Promise<void> {
     if (demande.centreDestinataireId) {
@@ -361,11 +385,18 @@ export class DemandeService {
 
     const centres = await this.prisma.centreHebergement.findMany({
       where: { statut: 'ACTIVE', email: { not: null }, userId: { not: null } },
-      select: { nom: true, email: true, ville: true, codePostal: true },
+      select: {
+        nom: true, email: true, ville: true, codePostal: true,
+        capaciteGroupeMin: true, capaciteGroupeMax: true,
+      },
     });
 
+    // Broadcast : on ne notifie que les centres dont la zone ET la fourchette de
+    // capacité matchent (total participants = élèves + accompagnateurs).
+    const totalParticipants = demande.nombreEleves + (demande.nombreAccompagnateurs ?? 0);
     const cibles = centres.filter((c) =>
-      matchesDemandeZone(demande, { ville: c.ville, codePostal: c.codePostal }),
+      matchesDemandeZone(demande, { ville: c.ville, codePostal: c.codePostal }) &&
+      matchesCapacite(totalParticipants, c),
     );
 
     await Promise.allSettled(
