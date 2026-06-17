@@ -184,3 +184,16 @@ Séquence validée :
 2. Start-up & Go Emergence post-SIREN — en cours
 3. Réseau Entreprendre Haute-Savoie — 6 mois
 4. BPI — 12-18 mois avec pilote rectorat
+
+## KPI "CA apporté par le réseau" (demande Marie Charvolin)
+
+Besoin validé : l'hébergeur doit voir combien de séjours et de CA il a obtenu grâce aux appels d'offres relayés par son réseau (LMDJ, IDDJ, etc.).
+
+Ancienne implémentation supprimée (17/06) : compteur "X séjours signés via LIAVO" sous "Demandes reçues" — mal placé et pas filtré par réseau.
+
+Pistes de réintégration (à valider avec Marie le 18/06) :
+- KPI card dédiée sur le dashboard hébergeur, filtrée par sourceReseau
+- Section dans un futur dashboard réseau côté hébergeur
+- Filtre "source" dans la page Devis & Facturation
+
+Données disponibles : demandeId sur le devis (non-null = via appel d'offres), sourceReseau sur la demande/user.
