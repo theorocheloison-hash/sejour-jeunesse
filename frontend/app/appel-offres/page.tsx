@@ -137,10 +137,10 @@ function AppelOffresContent() {
     }
     if (step === stepForGeo) return !!(form.typeZone && form.zoneGeographique && form.dateButoireDevis);
     if (step === stepForCoord) {
+      // Téléphone obligatoire : l'hébergeur doit pouvoir rappeler l'organisateur.
       // Établissement obligatoire : annuaire sélectionné OU saisie manuelle (nom + ville).
-      return manualMode
-        ? !!(manualNom.trim() && manualVille.trim())
-        : !!selectedOrg;
+      const telOk = !!telephone.trim();
+      return telOk && (manualMode ? !!(manualNom.trim() && manualVille.trim()) : !!selectedOrg);
     }
     return true;
   };
@@ -196,7 +196,7 @@ function AppelOffresContent() {
         typeAccueilACM:          estHorsScolaireUser ? form.typeAccueilACM : undefined,
         projetEducatif:          estHorsScolaireUser ? form.projetEducatif : undefined,
         sourceReseau:            reseauParam || undefined,
-        telephone:               telephone || undefined,
+        telephone:               telephone.trim() || undefined,
       });
       setSubmittedEmail(email);
       setSuccess(true);
@@ -379,7 +379,7 @@ function AppelOffresContent() {
                   placeholder="votre@email.fr" className={inputCls} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Téléphone *</label>
                 <input type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)}
                   placeholder="06 12 34 56 78" className={inputCls} />
               </div>

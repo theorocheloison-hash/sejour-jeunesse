@@ -155,11 +155,25 @@ export class PublicService {
       ? 'HORS_SCOLAIRE'
       : 'SCOLAIRE';
 
+    // villeHebergement = destination du séjour. En contact direct, la step géographie est sautée
+    // (un centre précis est déjà ciblé) → on résout la ville depuis le centre destinataire, jamais
+    // depuis la ville de l'école (qui peut être ailleurs que le centre, ex. mairie ≠ centre).
+    let villeHebergementResolved = dto.villeHebergement || '';
+    if (!villeHebergementResolved && dto.centreDestinataireId) {
+      const centreDest = await this.prisma.centreHebergement.findUnique({
+        where: { id: dto.centreDestinataireId },
+        select: { ville: true },
+      });
+      villeHebergementResolved = centreDest?.ville || dto.etablissementVille || '';
+    } else if (!villeHebergementResolved) {
+      villeHebergementResolved = dto.etablissementVille || '';
+    }
+
     const { sejour, demande } = await this.prisma.$transaction(async (tx) => {
       const sejour = await tx.sejour.create({
         data: {
           titre:                   dto.titre,
-          lieu:                    dto.villeHebergement ?? dto.etablissementVille ?? '',
+          lieu:                    villeHebergementResolved,
           ...(dto.dateDebut ? { dateDebut: new Date(dto.dateDebut) } : {}),
           ...(dto.dateFin ? { dateFin: new Date(dto.dateFin) } : {}),
           moisSouhaite:            dto.moisSouhaite ?? null,
@@ -191,7 +205,7 @@ export class PublicService {
           noteDateFlexible:      dto.noteDateFlexible ?? null,
           dureeNuits:            dto.dureeNuits ?? null,
           nombreEleves:          dto.nombreEleves,
-          villeHebergement:      dto.villeHebergement ?? dto.etablissementVille ?? '',
+          villeHebergement:      villeHebergementResolved,
           regionCible:           dto.regionCible ?? '',
           departementsCibles:    normaliserDepartements(dto.departementsCibles),
           typePension:           dto.typePension ?? [],
@@ -229,7 +243,7 @@ export class PublicService {
     // Notification fire-and-forget aux hébergeurs inscrits dont la zone matche
     this.notifierCentresInscrits({
       titre: dto.titre,
-      villeHebergement: dto.villeHebergement ?? dto.etablissementVille ?? '',
+      villeHebergement: villeHebergementResolved,
       periodeLabel: buildPeriodeLabel(dto),
       regionCible: dto.regionCible ?? '',
       departementsCibles: dto.departementsCibles ?? [],
