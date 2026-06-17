@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 01/06/2026 (Lot 4A Factur-X EN 16931)
+> Dernière mise à jour : 16/06/2026 (découplage émission/envoi factures + routage versements)
 
 ---
 
@@ -82,6 +82,41 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ---
 
 ## Chantiers récents livrés
+
+### 16/06/2026 — Découplage émission/envoi factures + routage versements
+
+**Découplage émission / envoi des factures (commits 564a85a + 6f9f648)**
+- **Problème** : les 3 méthodes d'émission (`emettreAcompte`, `emettreFactureSolde`,
+  `emettreFactureTotal`) envoyaient un email automatique au destinataire → l'hébergeur
+  n'avait aucun contrôle. Émission = silencieuse désormais ; envoi = action manuelle.
+- **Émission** : plus d'email auto en mode DIRECT. En COLLAB, notification enseignant
+  conservée (conditionnée par `devis.demandeId`, texte « disponible — consultez votre
+  espace LIAVO »). `void → await generateAndStorePdf` (×3) : le PDF est garanti prêt
+  pour un envoi ultérieur.
+- **Nouvel endpoint** `POST /factures/:id/envoyer { email, message }` (HEBERGEUR +
+  permission facturation) : récupère le PDF Factur-X depuis OVH, l'envoie en pièce
+  jointe avec `replyTo` = email du centre (le destinataire répond à l'hébergeur, pas
+  à LIAVO). Log CRM `ENVOI_FACTURE`.
+- **email.service** : `send()` accepte un `attachment?` optionnel (PJ Brevo base64) ;
+  nouvelle méthode `sendFactureParEmail()`.
+- **Frontend** : bouton « Envoyer par email » à côté de chaque facture émise (acompte,
+  solde, avoir, complémentaires) + modale de saisie email/message (pré-remplie). Pas de
+  fermeture au clic backdrop (cohérent avec les autres modales).
+
+**Routage auto des versements + re-balance (commit 13156f0)**
+- **Problème** : « Ajouter un versement » ciblait toujours `factureActive` (dernière
+  facture émise) → les versements saisis avant l'émission du solde restaient sur
+  l'acompte (overflow), PDFs incohérents.
+- **Endpoint remplacé** : `POST /factures/:id/versements` → `POST /factures/versements
+  { devisId }`. ⚠️ Backend + frontend à déployer ensemble.
+- **Routage auto** : le versement va sur la première facture non soldée (acompte
+  d'abord, puis solde), fallback dernière facture si trop-perçu.
+- **Re-balance à l'émission du solde** : les versements en overflow sur l'acompte sont
+  déplacés vers le solde, `montantVerseTotal`/`acompteVerse` recalculés sur les deux
+  factures, PDFs des deux factures régénérés. `emettreFactureTotal` non concerné.
+- **Frontend** : `handleAjouterVersement` passe `activeDevisId` ; hint « montant
+  attendu » pointe sur la facture cible réelle (reste dû) ; bouton conditionné par
+  `factures.length > 0`. `factureActive` ne sert plus qu'au fallback de suppression.
 
 ### 01/06/2026 — TAM Phase 1 + qualifications encadrants
 
