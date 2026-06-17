@@ -673,16 +673,17 @@ export class CentreService {
       .then((res) => res.json())
       .then((data: { results: Array<Record<string, any>> }) =>
         (data.results ?? []).map((r) => ({
-          id: String(r.identifiant),
-          nom: r.nom_de_la_structure_d_accueil_et_d_hebergement_fr as string,
+          id: String(r.identifiant ?? ''),
+          nom: String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr ?? ''),
           adresse: '',
-          ville: r.nom_du_lieu_d_accueil_ville as string,
-          codePostal: r.nom_du_lieu_d_accueil_code_postal as string,
+          ville: String(r.nom_du_lieu_d_accueil_ville ?? ''),
+          codePostal: String(r.nom_du_lieu_d_accueil_code_postal ?? ''),
           telephone: null,
           email: null,
-          capacite: (r.nombre_de_lits_pour_les_eleves as number) ?? 0,
-          description: (r.description_longue as string) ?? null,
-          departement: r.nom_du_lieu_d_accueil_departement as string,
+          // Number(...) || 0 : NaN (type inattendu) est falsy mais pas nullish → seul || le rattrape.
+          capacite: Number(r.nombre_de_lits_pour_les_eleves) || 0,
+          description: r.description_longue ? String(r.description_longue) : null,
+          departement: r.nom_du_lieu_d_accueil_departement ? String(r.nom_du_lieu_d_accueil_departement) : null,
           siret: null,
           agrementEducationNationale: null,
           typeSejours: [] as string[],
