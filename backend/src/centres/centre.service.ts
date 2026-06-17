@@ -672,7 +672,7 @@ export class CentreService {
       .then((res) => res.json())
       .then((data: { results: Array<Record<string, any>> }) =>
         (data.results ?? []).map((r) => ({
-          id: r.identifiant as string,
+          id: String(r.identifiant),
           nom: r.nom_de_la_structure_d_accueil_et_d_hebergement_fr as string,
           adresse: '',
           ville: r.nom_du_lieu_d_accueil_ville as string,
