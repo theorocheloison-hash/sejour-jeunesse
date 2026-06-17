@@ -270,7 +270,7 @@ export default function DevisPDF(props: DevisPDFProps) {
                 <Text style={s.totauxValue}>{fmtMontant(montantAcompte)} €</Text>
               </View>
               <View style={s.totauxRow}>
-                <Text style={{ fontSize: 10, fontWeight: 'bold', color: PRIMARY }}>Solde à régler</Text>
+                <Text style={{ fontSize: 10, fontWeight: 'bold', color: PRIMARY }}>Montant du solde</Text>
                 <Text style={{ fontSize: 10, fontWeight: 'bold', color: PRIMARY }}>{fmtMontant(montantSolde)} €</Text>
               </View>
             </>

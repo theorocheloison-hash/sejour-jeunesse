@@ -304,7 +304,7 @@ export default function FacturePDF(props: FacturePDFProps) {
                   <Text style={s.totauxValue}>{fmtMontant(montantAcompteDejaFacture ?? 0)} €</Text>
                 </View>
                 <View style={s.totauxRow}>
-                  <Text style={s.totauxSolde}>Solde à régler</Text>
+                  <Text style={s.totauxSolde}>Montant du solde</Text>
                   <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
                 </View>
                 {resteBlock}
@@ -313,7 +313,7 @@ export default function FacturePDF(props: FacturePDFProps) {
               // Facture "total" (sans acompte préalable) : pas de mention d'acompte
               <>
                 <View style={s.totauxRow}>
-                  <Text style={s.totauxSolde}>Total à régler</Text>
+                  <Text style={s.totauxSolde}>Montant dû</Text>
                   <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
                 </View>
                 {resteBlock}
