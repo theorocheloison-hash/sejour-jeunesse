@@ -250,19 +250,6 @@ export default function HebergeurDashboard() {
   // Badge "Devis & Facturation" (Actions prioritaires) : actions hébergeur à traiter.
   const actionsFacturationUrgentes = kpiAFacturerCount + kpiImpayesCount;
 
-  // ── Via LIAVO (sous "Demandes reçues") : séjours signés issus d'un appel d'offres LIAVO ──
-  const viaLiavoSejourIds = new Set<string>();
-  let viaLiavoMontant = 0;
-  for (const d of devis) {
-    if (d.isComplementaire === true) continue;
-    if (d.demandeId == null) continue;
-    if (!STATUTS_CA.includes(d.statut)) continue;
-    viaLiavoMontant += d.montantTTC ?? Number(d.montantTotal) ?? 0;
-    const sid = resolveSejourId(d);
-    if (sid) viaLiavoSejourIds.add(sid);
-  }
-  const viaLiavoCount = viaLiavoSejourIds.size;
-
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg)]">
 
@@ -470,11 +457,6 @@ export default function HebergeurDashboard() {
               </div>
               <p className="text-sm font-semibold text-gray-900 group-hover:text-[var(--color-primary)]">Demandes reçues</p>
               <p className="text-xs text-gray-500 mt-0.5">Consultez et répondez aux appels d&apos;offres</p>
-              {viaLiavoCount > 0 && (
-                <p className="text-xs text-[var(--color-success)] mt-1 font-medium">
-                  {viaLiavoCount} séjour{viaLiavoCount > 1 ? 's' : ''} signé{viaLiavoCount > 1 ? 's' : ''} via LIAVO · {fmt(viaLiavoMontant)} €
-                </p>
-              )}
             </Link>
 
             {/* Facturation */}
