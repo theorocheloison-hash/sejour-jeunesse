@@ -175,8 +175,14 @@ export class HebergementService {
     const enResults = apiData.results.map(mapRecord);
 
     const liavoBas = new Set(liavoResults.map(r => r.nom.toLowerCase().trim()));
+    // Dédup par apidaeId (identifiant EN) : les noms diffèrent souvent entre base
+    // et API EN, le match par nom seul laisse passer des doublons. centres = brut
+    // Prisma (contient apidaeId), liavoResults est déjà mappé et ne l'a pas.
+    const liavoApidaeIds = new Set(
+      centres.filter((c: any) => c.apidaeId).map((c: any) => String(c.apidaeId))
+    );
     const enFiltered = enResults.filter(
-      r => !liavoBas.has(r.nom.toLowerCase().trim())
+      r => !liavoBas.has(r.nom.toLowerCase().trim()) && !liavoApidaeIds.has(String(r.id))
     );
 
     return {
