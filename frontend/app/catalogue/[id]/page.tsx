@@ -208,7 +208,8 @@ export default function CentrePublicPage() {
                 </a>
               )}
 
-              {/* ── Revendication hébergeur ── */}
+              {/* ── Revendication hébergeur — masquée si le centre est déjà revendiqué ── */}
+              {!centre.isClaimed && (
               <div className="mt-6 pt-5 border-t border-gray-200">
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide text-center mb-3">
                   Vous gérez ce centre ?
@@ -245,6 +246,7 @@ export default function CentrePublicPage() {
                   </>
                 )}
               </div>
+              )}
             </div>
           </div>
         </div>

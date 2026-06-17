@@ -22,6 +22,7 @@ interface CentrePublic {
   description: string | null;
   departement: string | null;
   siret: string | null;
+  isClaimed?: boolean;
 }
 
 type Mode = 'search' | 'claim' | 'manual';
@@ -298,14 +299,23 @@ export default function NouveauCentrePage() {
                           {c.capacite ? ` · ${c.capacite} places` : ''}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectCentre(c)}
-                        className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-white whitespace-nowrap hover:opacity-90 transition"
-                        style={{ background: 'var(--color-primary)', fontWeight: 500 }}
-                      >
-                        C&apos;est mon centre →
-                      </button>
+                      {c.isClaimed ? (
+                        <span
+                          className="shrink-0 rounded-lg px-3 py-1.5 text-xs whitespace-nowrap"
+                          style={{ background: 'var(--color-bg)', color: 'var(--color-text-muted)', fontWeight: 500 }}
+                        >
+                          Déjà revendiqué
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCentre(c)}
+                          className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-white whitespace-nowrap hover:opacity-90 transition"
+                          style={{ background: 'var(--color-primary)', fontWeight: 500 }}
+                        >
+                          C&apos;est mon centre →
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

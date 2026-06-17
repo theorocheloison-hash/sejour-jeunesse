@@ -204,6 +204,13 @@ export class ClaimService {
       }
     }
 
+    // Garde « source de vérité » : un centre dont le userId est déjà renseigné est
+    // revendiqué (validé OU en attente) → refus pour tout autre hébergeur, sans
+    // dépendre du membership VALIDE de l'organisation.
+    if (centreUserId && centreUserId !== userId) {
+      throw new BadRequestException('Ce centre est déjà revendiqué par un autre hébergeur.');
+    }
+
     // ── 2. Organisation — créée AVANT le centre ──
     // Ordre de résolution : (1) centre existant déjà rattaché à une org,
     // (2) org du membership VALIDE de l'hébergeur (cas multi-centre), (3) dédup

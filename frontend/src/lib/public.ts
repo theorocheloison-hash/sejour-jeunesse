@@ -19,6 +19,7 @@ export interface CentrePublic {
   periodeOuverture: string | null;
   source: string | null;
   apidaeId: string | null;
+  isClaimed?: boolean;
   // Champs supplémentaires retournés par searchPublic (API EN)
   region?: string;
   capaciteEleves?: number | null;

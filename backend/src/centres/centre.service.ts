@@ -655,6 +655,7 @@ export class CentreService {
         agrementEducationNationale: true,
         typeSejours: true,
         apidaeId: true,
+        userId: true,
       },
       take: 10,
       orderBy: { nom: 'asc' },
@@ -708,10 +709,16 @@ export class CentreService {
       prismaResults.filter(r => r.apidaeId).map(r => r.apidaeId),
     );
 
-    const prismaTagged = prismaResults.map((r) => ({ ...r, _source: 'BASE' as const }));
+    // userId = source de vérité de la revendication ; on ne l'expose jamais, on
+    // dérive isClaimed. Les records EN ne sont pas en base → jamais revendiqués.
+    const prismaTagged = prismaResults.map(({ userId, ...rest }) => ({
+      ...rest,
+      isClaimed: !!userId,
+      _source: 'BASE' as const,
+    }));
     const enDedup = enResults
       .filter((r) => !prismaKeys.has(`${normalise(r.nom)}|${normalise(r.ville)}`) && !prismaApidaeIds.has(r.id))
-      .map((r) => ({ ...r, _source: 'API_EN' as const }));
+      .map((r) => ({ ...r, isClaimed: false, _source: 'API_EN' as const }));
 
     return [...prismaTagged, ...enDedup];
   }
@@ -727,10 +734,13 @@ export class CentreService {
         imageUrl: true, siteWeb: true, typeSejours: true, thematiquesCentre: true,
         activitesCentre: true, equipements: true, accessiblePmr: true,
         agrementEducationNationale: true, periodeOuverture: true, departement: true,
-        source: true, apidaeId: true, organisationId: true,
+        source: true, apidaeId: true, organisationId: true, userId: true,
       },
     });
-    return centre ?? null;
+    if (!centre) return null;
+    // userId non exposé → on dérive isClaimed (source de vérité de la revendication).
+    const { userId, ...rest } = centre;
+    return { ...rest, isClaimed: !!userId };
   }
 
   async materialiserCentreEN(data: {

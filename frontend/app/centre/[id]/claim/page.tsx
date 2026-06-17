@@ -41,6 +41,11 @@ function ClaimCentreContent() {
       api.get(`/public/centres/${id}`)
         .then(({ data }) => {
           if (!data) { setEtape('error'); setError('Centre introuvable'); return; }
+          if (data.isClaimed) {
+            setEtape('error');
+            setError('Ce centre est déjà revendiqué par un autre hébergeur.');
+            return;
+          }
           setCentreInfo({ nom: data.nom, ville: data.ville, capacite: data.capacite });
           setOrganisationId(data.organisationId ?? null);
           setResolvedCentreId(id);

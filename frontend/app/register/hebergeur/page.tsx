@@ -56,6 +56,7 @@ interface CentrePublic {
   siret: string | null;
   agrementEducationNationale: string | null;
   typeSejours: string[];
+  isClaimed?: boolean;
 }
 
 function RegisterHebergeurContent() {
@@ -594,30 +595,53 @@ function RegisterHebergeurContent() {
               {/* Results */}
               {searchResults.length > 0 && (
                 <div className="space-y-2 max-h-64 overflow-auto">
-                  {searchResults.map((centre) => (
-                    <button
-                      key={centre.id}
-                      type="button"
-                      onClick={() => handleSelectCentre(centre)}
-                      className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)]/50 transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{centre.nom}</p>
-                          <p className="text-xs text-gray-500">{centre.adresse}, {centre.ville} ({centre.codePostal})</p>
+                  {searchResults.map((centre) => {
+                    const agrement = centre.agrementEducationNationale && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        Agréé EN
+                      </span>
+                    );
+                    // Centre déjà revendiqué : non sélectionnable (pas de claim affiché).
+                    if (centre.isClaimed) {
+                      return (
+                        <div
+                          key={centre.id}
+                          className="w-full text-left rounded-lg border border-gray-200 bg-gray-50 p-3 opacity-70"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{centre.nom}</p>
+                              <p className="text-xs text-gray-500">{centre.adresse}, {centre.ville} ({centre.codePostal})</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {agrement}
+                              <span className="text-xs font-semibold text-gray-400">Déjà revendiqué</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {centre.agrementEducationNationale && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-success)]">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                              Agréé EN
-                            </span>
-                          )}
-                          <span className="text-xs font-semibold text-[var(--color-primary)]">Sélectionner</span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={centre.id}
+                        type="button"
+                        onClick={() => handleSelectCentre(centre)}
+                        className="w-full text-left rounded-lg border border-gray-200 p-3 hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)]/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{centre.nom}</p>
+                            <p className="text-xs text-gray-500">{centre.adresse}, {centre.ville} ({centre.codePostal})</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {agrement}
+                            <span className="text-xs font-semibold text-[var(--color-primary)]">Sélectionner</span>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

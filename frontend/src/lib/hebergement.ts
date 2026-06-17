@@ -24,6 +24,7 @@ export interface Hebergement {
   periodeOuverture: string | null;
   source: string | null;
   reseau: string | null;
+  isClaimed: boolean;
 }
 
 export interface SearchHebergementParams {

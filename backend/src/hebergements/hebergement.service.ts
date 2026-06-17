@@ -57,6 +57,8 @@ function mapRecord(r: ApiRecord) {
     accessible: r.accessibilite_de_la_structure_d_accueil_et_d_hebergement_aux_eleves_en_situation_de_handicap === 'Oui',
     avisSecurite: r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite,
     periodeOuverture: r.periode_d_ouverture_annuelle_de_la_structure_pour_l_accueil_des_eleves_dans_le_cadre_de_voyages_scol,
+    // Record EN : pas en base, donc jamais revendiqué.
+    isClaimed: false,
   };
 }
 
@@ -99,6 +101,8 @@ function mapCentre(c: any) {
     periodeOuverture: c.periodeOuverture ?? null,
     source: c.source ?? null,
     reseau: c.reseau ?? null,
+    // userId non-null = centre déjà revendiqué (source de vérité). Non exposé tel quel.
+    isClaimed: !!c.userId,
   };
 }
 
