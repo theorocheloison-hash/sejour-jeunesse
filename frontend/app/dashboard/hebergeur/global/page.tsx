@@ -100,7 +100,7 @@ interface DashboardData {
     aTraiter: { total: number; urgents: number; description: string };
     aFacturer: { total: number; montant: number; description: string };
     paiementsEnAttente: { total: number; montant: number; description: string };
-    chiffreAffaires: { encaisse: number; previsionnel: number; periodeDebut: string; periodeFin: string; description: string };
+    chiffreAffaires: { encaisse: number; previsionnel: number; caViaReseau: number; reseauNom: string | null; periodeDebut: string; periodeFin: string; description: string };
   };
   aTraiterDetail: { demandes: DemandeATraiter[]; devis: DevisATraiter[] };
   aFacturerDetail: { acomptes: DevisAFacturer[]; soldes: DevisAFacturer[] };
@@ -416,6 +416,9 @@ export default function DashboardGlobalPage() {
               <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Prévisionnel</span>
               <div className="text-base" style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>{fmtEUR0(data.kpis.chiffreAffaires.previsionnel)}</div>
             </div>
+            {data.kpis.chiffreAffaires.caViaReseau > 0 && data.kpis.chiffreAffaires.reseauNom && (
+              <p className="text-xs text-green-600 mt-1">dont {fmtEUR0(data.kpis.chiffreAffaires.caViaReseau)} via {data.kpis.chiffreAffaires.reseauNom}</p>
+            )}
           </div>
         </div>
 

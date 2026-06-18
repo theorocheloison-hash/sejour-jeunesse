@@ -685,7 +685,7 @@ function ReseauxTab() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Demandes</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Devis</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Retenus</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CA réseau</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -696,7 +696,7 @@ function ReseauxTab() {
                           <td className="px-4 py-3 text-sm text-gray-500">{c.demandesRecues}</td>
                           <td className="px-4 py-3 text-sm text-gray-500">{c.devisEnvoyes}</td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.devisSelectionnes}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.caGenere.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.caViaReseau.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</td>
                         </tr>
                       ))}
                     </tbody>

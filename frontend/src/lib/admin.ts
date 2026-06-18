@@ -122,7 +122,7 @@ export interface ReseauCentre {
   demandesReseau: number;
   devisEnvoyes: number;
   devisSelectionnes: number;
-  caGenere: number;
+  caViaReseau: number;
   derniereActivite: string;
   onboardingScore: number;
   onboardingDetails: {

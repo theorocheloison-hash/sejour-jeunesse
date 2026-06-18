@@ -335,7 +335,7 @@ export class AdminService {
         createdAt: true,
         devis: {
           where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
-          select: { statut: true, montantTTC: true, createdAt: true, demande: { select: { sourceReseau: true } } },
+          select: { statut: true, montantTTC: true, isComplementaire: true, createdAt: true, demande: { select: { sourceReseau: true } } },
         },
         demandesDestinees: {
           where: dateFrom ? { createdAt: { gte: dateFrom } } : undefined,
@@ -353,10 +353,14 @@ export class AdminService {
     const tousLesDevis = centres.flatMap(c => c.devis);
     const toutesLesDemandes = centres.flatMap(c => c.demandesDestinees);
 
+    // Un devis facturé (acompte/solde) est toujours du CA confirmé → on l'inclut au même
+    // titre que SELECTIONNE/SIGNE_DIRECTION dans tous les calculs de devis « retenus ».
+    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']);
+
     const devisEnvoyes = tousLesDevis.length;
-    const devisSelectionnes = tousLesDevis.filter(d => d.statut === 'SELECTIONNE').length;
+    const devisSelectionnes = tousLesDevis.filter(d => RETENUS.has(d.statut)).length;
     const caTotal = tousLesDevis
-      .filter(d => d.statut === 'SELECTIONNE')
+      .filter(d => RETENUS.has(d.statut))
       .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0);
 
     const demandesRecues = toutesLesDemandes.length;
@@ -365,19 +369,18 @@ export class AdminService {
       : 0;
 
     // ── KPIs par source réseau (sourceReseau = slug 'lmdj' ; reseauNom = 'LMDJ' → insensitive) ──
-    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION']);
 
     const demandesSourceReseau = await this.prisma.demandeDevis.findMany({
       where: {
         sourceReseau: { equals: reseau, mode: 'insensitive' },
         ...(dateFrom ? { createdAt: { gte: dateFrom } } : {}),
       },
-      select: { id: true, devis: { select: { statut: true, montantTTC: true } } },
+      select: { id: true, devis: { select: { statut: true, montantTTC: true, isComplementaire: true } } },
     });
     const demandesReseau = demandesSourceReseau.length;
     const devisRetenusReseau = demandesSourceReseau
       .flatMap(d => d.devis)
-      .filter(dv => RETENUS.has(dv.statut));
+      .filter(dv => RETENUS.has(dv.statut) && !dv.isComplementaire);
     const devisReseau = devisRetenusReseau.length;
     const caReseau = devisRetenusReseau.reduce((sum, dv) => sum + (dv.montantTTC ?? 0), 0);
     const tauxConversionReseau = demandesReseau > 0
@@ -440,9 +443,15 @@ export class AdminService {
             d => (d.demande?.sourceReseau ?? '').toLowerCase() === reseau.toLowerCase(),
           ).length,
           devisEnvoyes: c.devis.length,
-          devisSelectionnes: c.devis.filter(d => d.statut === 'SELECTIONNE').length,
-          caGenere: c.devis
-            .filter(d => d.statut === 'SELECTIONNE')
+          devisSelectionnes: c.devis.filter(d => RETENUS.has(d.statut)).length,
+          // CA réellement généré VIA le réseau : devis retenus (hors complémentaires)
+          // dont la demande provient bien de ce réseau (et non tout le CA du centre).
+          caViaReseau: c.devis
+            .filter(
+              d => RETENUS.has(d.statut)
+                && !d.isComplementaire
+                && (d.demande?.sourceReseau ?? '').toLowerCase() === reseau.toLowerCase(),
+            )
             .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0),
           derniereActivite: c.devis.length > 0
             ? c.devis.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
@@ -575,7 +584,7 @@ export class AdminService {
         mandatFacturationAccepte: true, mandatFacturationAccepteAt: true,
         imageUrl: true, createdAt: true,
         devis: {
-          select: { statut: true, montantTTC: true, createdAt: true, demande: { select: { sourceReseau: true } } },
+          select: { statut: true, montantTTC: true, isComplementaire: true, createdAt: true, demande: { select: { sourceReseau: true } } },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -587,7 +596,19 @@ export class AdminService {
       },
     });
     if (!centre) throw new NotFoundException('Centre introuvable dans ce réseau');
-    return centre;
+
+    // CA généré via le réseau sur les devis retournés (retenus, hors complémentaires,
+    // dont la demande provient bien de ce réseau).
+    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']);
+    const caViaReseau = centre.devis
+      .filter(
+        d => RETENUS.has(d.statut)
+          && !d.isComplementaire
+          && (d.demande?.sourceReseau ?? '').toLowerCase() === reseau.toLowerCase(),
+      )
+      .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0);
+
+    return { ...centre, caViaReseau };
   }
 
   async inviterCentreReseau(reseau: string, email: string, nomCentre: string) {

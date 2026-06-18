@@ -354,7 +354,7 @@ export class CentreService {
       where: { id: { in: centreIds } },
       select: {
         id: true, nom: true, ville: true, capacite: true, imageUrl: true,
-        capaciteGroupeMin: true, capaciteGroupeMax: true,
+        capaciteGroupeMin: true, capaciteGroupeMax: true, reseau: true,
       },
     });
     if (centres.length === 0) return null;
@@ -534,6 +534,23 @@ export class CentreService {
     });
     const caPrevisionnel = previsionnel.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
 
+    // CA ventilé « via réseau » : si au moins un centre de l'hébergeur appartient à un
+    // réseau, on isole le CA confirmé issu de demandes provenant de ce réseau.
+    const reseauNom = centres.find(c => c.reseau)?.reseau ?? null;
+    let caViaReseau = 0;
+    if (reseauNom) {
+      const devisReseau = await this.prisma.devis.findMany({
+        where: {
+          centreId: { in: centreIds },
+          statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+          isComplementaire: false,
+          demande: { sourceReseau: { equals: reseauNom, mode: 'insensitive' } },
+        },
+        select: { montantTTC: true },
+      });
+      caViaReseau = devisReseau.reduce((sum, d) => sum + (d.montantTTC ?? 0), 0);
+    }
+
     // KPI 5 (Lot 1) : factures émises (nombre + montant total facturé) sur le périmètre.
     const facturesEmisesAgg = await this.prisma.facture.aggregate({
       where: { devis: { centreId: { in: centreIds } } },
@@ -624,6 +641,8 @@ export class CentreService {
         chiffreAffaires: {
           encaisse: Math.round(((caEncaisse._sum.montant ?? 0) + (caEncaisseDL._sum.montant ?? 0)) * 100) / 100,
           previsionnel: Math.round(caPrevisionnel * 100) / 100,
+          caViaReseau: Math.round(caViaReseau * 100) / 100,
+          reseauNom,
           periodeDebut: debut.toISOString(),
           periodeFin: fin.toISOString(),
           description: 'CA encaissé et prévisionnel sur la période',

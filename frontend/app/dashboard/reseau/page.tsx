@@ -287,6 +287,12 @@ function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string;
                 <p className="text-xs text-gray-400">{centre.adresse}, {centre.codePostal}</p>
               </div>
 
+              {/* CA généré via le réseau — mis en évidence */}
+              <div className="rounded-xl bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20 p-4">
+                <p className="text-xs font-medium text-[var(--color-primary)] uppercase tracking-wide">CA généré via {reseauLabel}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">{formatEuros(centre.caViaReseau ?? 0)}</p>
+              </div>
+
               {!(centre.description) && centre.source === 'APIDAE' && (
                 <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
                   <p className="text-xs font-semibold text-blue-700 mb-1">Importé depuis APIDAE</p>
@@ -703,6 +709,7 @@ export default function ReseauDashboardPage() {
       case 'capacite': va = a.capacite; vb = b.capacite; break;
       case 'onboarding': va = a.onboardingScore; vb = b.onboardingScore; break;
       case 'reseau': va = a.demandesReseau; vb = b.demandesReseau; break;
+      case 'caReseau': va = a.caViaReseau; vb = b.caViaReseau; break;
       case 'activite': va = a.derniereActivite; vb = b.derniereActivite; break;
       default: va = a.nom; vb = b.nom;
     }
@@ -921,6 +928,7 @@ export default function ReseauDashboardPage() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                         <SortableHeader col="onboarding" label="Profil" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="reseau" label="Via réseau" current={sortCol} dir={sortDir} onSort={handleSort} />
+                        <SortableHeader col="caReseau" label="CA réseau" current={sortCol} dir={sortDir} onSort={handleSort} />
                         <SortableHeader col="activite" label="Dernière activité" current={sortCol} dir={sortDir} onSort={handleSort} />
                       </tr>
                     </thead>
@@ -947,6 +955,7 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3"><StatutBadge statut={c.statut} /></td>
                           <td className="px-4 py-3"><OnboardingDots centre={c} /></td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-primary)]">{c.demandesReseau}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-[var(--color-accent)] whitespace-nowrap">{formatEuros(c.caViaReseau)}</td>
                           <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(c.derniereActivite)}</td>
                         </tr>
                       ))}
