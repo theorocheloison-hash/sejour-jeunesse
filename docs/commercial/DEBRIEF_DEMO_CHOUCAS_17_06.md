@@ -17,14 +17,14 @@
 - Aucun blocker identifié
 
 ## Demandes de fonctionnalités
-1. **Module pilotage** (prioritaire) : tableau de bord avec CA, taux d'occupation, marges. Deuxième demande (après Marie Charvolin). Aligné avec le plan Pilotage à 79€/mois.
+1. **Module pilotage** (prioritaire) : tableau de bord avec CA, taux d'occupation, marges. Deuxième demande (après Marie Charvolin). Aligné avec le plan Pilotage à 69€/mois.
 2. **Intégration PMS** (à terme) : elles gèrent aussi des gîtes. Pas notre enjeu immédiat. Si demande récurrente d'autres centres → intégration API PMS existant (Mews, Amenitiz), pas rebuild.
 
 ## Actions
 - [x] Créer invitation Les Choucas (CAS 1, centreExistantId)
-- [ ] Vérifier que l'inscription se passe bien
+- [x] Inscription validée (statut "Utilisée" sur le dashboard admin)
 - [ ] Relancer dans 1 semaine pour premier feedback usage
-- [ ] Mentionner le closing Les Choucas à Marie le 18/06 (preuve de traction)
+- [x] Mentionner le closing à Marie le 18/06
 
 ## Impact stratégique
-Premier centre hors Sauvageon à signer. Validation produit par un acteur indépendant. Argument fort pour le CA LMDJ du 30/06 : "un centre adhérent utilise déjà LIAVO et veut que ça passe par la centrale."
+Premier centre hors Sauvageon à signer. Validation produit par un acteur indépendant. Nora a envoyé spontanément un email positif à LMDJ. Argument fort pour le CA LMDJ du 30/06.
