@@ -155,23 +155,26 @@ export class AuthService {
       },
     });
 
-    // Membership automatique si invitation avec organisationId
-    if (dto.organisationId) {
-      await findOrCreateMembership(this.prisma, {
-        userId:         user.id,
-        organisationId: dto.organisationId,
-        role:           'MEMBRE',
-        isPrimary:      true,
-        claimStatut:    'NON_APPLICABLE',
-      });
-    }
-
-    // Marquer l'invitation comme utilisée si token présent
-    if (dto.invitationToken) {
-      await this.prisma.invitationDirecteur.updateMany({
+    // B8 fix : membership UNIQUEMENT si l'invitation est valide et correspond à l'organisationId.
+    // Sans invitation validée → pas de membership (l'organisationId du body seul ne suffit pas).
+    if (dto.organisationId && dto.invitationToken) {
+      const invitation = await this.prisma.invitationDirecteur.findFirst({
         where: { token: dto.invitationToken, utilisedAt: null },
-        data:  { utilisedAt: new Date() },
-      }).catch(() => {}); // non bloquant
+        select: { id: true, organisationId: true },
+      });
+      if (invitation && invitation.organisationId === dto.organisationId) {
+        await findOrCreateMembership(this.prisma, {
+          userId:         user.id,
+          organisationId: dto.organisationId,
+          role:           'MEMBRE',
+          isPrimary:      true,
+          claimStatut:    'NON_APPLICABLE',
+        });
+        await this.prisma.invitationDirecteur.update({
+          where: { id: invitation.id },
+          data:  { utilisedAt: new Date() },
+        });
+      }
     }
 
     await this.prisma.consentementRgpd.create({
@@ -517,6 +520,7 @@ export class AuthService {
         compteValide: true,
         emailVerifie: true,
         reseauNom: true,
+        tokenVersion: true,
       },
     });
     if (!user) throw new UnauthorizedException('Identifiants invalides');
@@ -625,11 +629,11 @@ export class AuthService {
         resetPasswordToken: token,
         resetPasswordExpires: { gt: new Date() },
       },
-      select: { id: true },
+      select: { id: true, tokenVersion: true },
     });
     if (!user) throw new BadRequestException('Lien invalide ou expiré');
 
-    const hash = await bcrypt.hash(nouveauMotDePasse, 10);
+    const hash = await bcrypt.hash(nouveauMotDePasse, 12);
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -638,6 +642,7 @@ export class AuthService {
         motDePasseDefini: true,
         resetPasswordToken: null,
         resetPasswordExpires: null,
+        tokenVersion: (user.tokenVersion ?? 0) + 1,
       },
     });
 
@@ -648,20 +653,33 @@ export class AuthService {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const user = await this.prisma.user.findFirst({
       where: { magicLinkToken: token, magicLinkExpires: { gte: new Date() } },
-      select: { id: true, email: true, role: true, motDePasseDefini: true },
+      select: { id: true, email: true, role: true, motDePasseDefini: true, tokenVersion: true },
     });
     if (!user) {
       return res.redirect(`${frontendUrl}/login?error=magic_link_expired`);
     }
+
+    // B3 fix : ne lever QUE emailVerifie — ne pas forcer compteValide
+    // (préserve la validation admin pour HEBERGEUR)
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { compteValide: true, emailVerifie: true, magicLinkToken: null, magicLinkExpires: null },
+      data: { emailVerifie: true, magicLinkToken: null, magicLinkExpires: null },
     });
-    const payload = { sub: user.id, email: user.email, role: user.role };
+
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion ?? 0 };
     const accessToken = this.jwt.sign(payload);
     const needsPassword = !user.motDePasseDefini;
+
+    // Refresh token pour le magic link aussi
+    const refreshToken = randomUUID();
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken, refreshTokenExpires },
+    });
+
     return res.redirect(
-      `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&onboarding=true${needsPassword ? '&needsPassword=true' : ''}`
+      `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}&onboarding=true${needsPassword ? '&needsPassword=true' : ''}`
     );
   }
 
@@ -672,7 +690,7 @@ export class AuthService {
    */
   async genererMagicUrl(userId: string): Promise<string> {
     const magicToken = randomUUID();
-    const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const magicExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
     await this.prisma.user.update({
       where: { id: userId },
       data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
@@ -681,22 +699,57 @@ export class AuthService {
     return `${frontendUrl}/auth/magic/${magicToken}`;
   }
 
-  private buildAuthResponse(user: {
+  async refreshAccessToken(token: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        refreshToken: token,
+        refreshTokenExpires: { gte: new Date() },
+      },
+      select: {
+        id: true, email: true, prenom: true, nom: true, role: true,
+        reseauNom: true, tokenVersion: true,
+        compteValide: true,
+      },
+    });
+    if (!user) throw new UnauthorizedException('Refresh token invalide ou expiré');
+
+    // Gate hébergeur (cohérent avec validate)
+    if (user.role === 'HEBERGEUR' && !user.compteValide) {
+      throw new UnauthorizedException('Compte suspendu');
+    }
+
+    return this.buildAuthResponse(user);
+  }
+
+  private async buildAuthResponse(user: {
     id: string;
     email: string;
     prenom: string;
     nom: string;
     role: string;
     reseauNom?: string | null;
+    tokenVersion?: number;
   }) {
+    const tokenVersion = user.tokenVersion ?? 0;
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role,
       reseau: user.reseauNom ?? null,
+      tokenVersion,
     };
+
+    // Refresh token : UUID rotatif, 30 jours, stocké en base
+    const refreshToken = randomUUID();
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken, refreshTokenExpires },
+    });
+
     return {
       access_token: this.jwt.sign(payload),
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -707,14 +760,36 @@ export class AuthService {
     };
   }
 
-  async definirMotDePasse(userId: string, password: string): Promise<{ success: boolean }> {
+  async definirMotDePasse(userId: string, password: string, ancienMotDePasse?: string): Promise<{ success: boolean }> {
     if (!password || password.length < 8) {
       throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères.');
     }
-    const hash = await bcrypt.hash(password, 10);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { motDePasseDefini: true, motDePasse: true, tokenVersion: true },
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    // Si un mot de passe existe déjà → exiger l'ancien (pas de reset silencieux via JWT volé)
+    if (user.motDePasseDefini) {
+      if (!ancienMotDePasse) {
+        throw new BadRequestException('L\'ancien mot de passe est requis.');
+      }
+      const isValid = await bcrypt.compare(ancienMotDePasse, user.motDePasse);
+      if (!isValid) {
+        throw new UnauthorizedException('Ancien mot de passe incorrect.');
+      }
+    }
+
+    const hash = await bcrypt.hash(password, 12);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { motDePasse: hash, motDePasseDefini: true },
+      data: {
+        motDePasse: hash,
+        motDePasseDefini: true,
+        tokenVersion: (user.tokenVersion ?? 0) + 1,
+      },
     });
     return { success: true };
   }

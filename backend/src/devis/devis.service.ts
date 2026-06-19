@@ -154,7 +154,7 @@ export class DevisService {
       // Magic link pour accès direct sans mot de passe (inline pour éviter une
       // dépendance circulaire vers AuthService — logique identique à genererMagicUrl).
       const magicToken = randomUUID();
-      const magicExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const magicExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
       await this.prisma.user.update({
         where: { id: demande.enseignantId! },
         data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },

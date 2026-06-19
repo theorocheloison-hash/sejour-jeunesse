@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Le backend retourne prenom/nom — type fidèle à la réponse réelle
     type BackendLoginResponse = {
       access_token: string;
+      refresh_token?: string;
       user: { id: string; email: string; prenom: string; nom: string; role: User['role'] };
     };
 
@@ -150,6 +151,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     Cookies.set(COOKIE_TOKEN, data.access_token, COOKIE_OPTS);
+    if (data.refresh_token) {
+      localStorage.setItem('liavo-refresh-token', data.refresh_token);
+    }
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
 
@@ -168,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     Cookies.remove(COOKIE_TOKEN);
     localStorage.removeItem(LS_USER);
+    localStorage.removeItem('liavo-refresh-token');
     if (typeof window !== 'undefined') localStorage.removeItem(LS_CENTRE_ACTIF);
     setUser(null);
     setCentres([]);

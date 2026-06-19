@@ -94,8 +94,15 @@ export class AuthController {
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  setPassword(@CurrentUser() user: JwtUser, @Body() body: { password: string }) {
-    return this.authService.definirMotDePasse(user.id, body.password);
+  setPassword(@CurrentUser() user: JwtUser, @Body() body: { password: string; ancienMotDePasse?: string }) {
+    return this.authService.definirMotDePasse(user.id, body.password, body.ancienMotDePasse);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })  // 10/min par IP
+  refresh(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshAccessToken(body.refreshToken);
   }
 
   @Get('sirene/:siret')

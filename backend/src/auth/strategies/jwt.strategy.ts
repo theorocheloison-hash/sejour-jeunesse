@@ -23,12 +23,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload & { tokenVersion?: number }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, role: true, reseauNom: true, reseauNomComplet: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        reseauNom: true,
+        reseauNomComplet: true,
+        compteValide: true,
+        tokenVersion: true,
+      },
     });
     if (!user) throw new UnauthorizedException('Token invalide');
+
+    // Révocation : si tokenVersion a été incrémenté (changement MDP, suspension), rejeter
+    if (payload.tokenVersion !== undefined && user.tokenVersion !== payload.tokenVersion) {
+      throw new UnauthorizedException('Session expirée');
+    }
+
+    // Gate hébergeur : admin peut suspendre via compteValide=false
+    if (user.role === 'HEBERGEUR' && !user.compteValide) {
+      throw new UnauthorizedException('Compte suspendu');
+    }
+
     return user;
   }
 }

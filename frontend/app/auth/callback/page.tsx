@@ -30,6 +30,7 @@ function CallbackContent() {
     const token = params.get('token');
     const onboarding = params.get('onboarding');
     const wantsPassword = params.get('needsPassword') === 'true';
+    const refreshTokenParam = params.get('refreshToken');
 
     // Nettoyer le hash de l'URL immédiatement (avant tout traitement)
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -58,6 +59,9 @@ function CallbackContent() {
       };
 
       Cookies.set('token', token, { expires: 7, sameSite: 'lax' });
+      if (refreshTokenParam) {
+        localStorage.setItem('liavo-refresh-token', refreshTokenParam);
+      }
       localStorage.setItem('sj_user_v2', JSON.stringify(user));
 
       const target = ROLE_ROUTES[user.role] ?? '/dashboard/organisateur';

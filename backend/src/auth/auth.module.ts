@@ -15,7 +15,7 @@ import { OrganisationsModule } from '../organisations/organisations.module.js';
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '7d' },
+        signOptions: { expiresIn: '1h' },
       }),
       inject: [ConfigService],
     }),
