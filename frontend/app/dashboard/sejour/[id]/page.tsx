@@ -85,6 +85,8 @@ import TabDevisFacturation from './_components/TabDevisFacturation';
 import TabNotes from './_components/TabNotes';
 import TabParticipantsSaisieDirecte from './_components/TabParticipantsSaisieDirecte';
 import SejourHeader from './_components/SejourHeader';
+import SecureImage from '@/src/components/SecureImage';
+import SecureFileLink from '@/src/components/SecureFileLink';
 
 function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
   const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
@@ -500,11 +502,10 @@ function PhotoGrid({ photos }: { photos: { id: string; url: string }[] }) {
   if (photos.length === 0) return null;
   if (photos.length === 1) {
     return (
-      <img
-        src={photos[0].url}
-        alt=""
-        onClick={() => window.open(photos[0].url, '_blank')}
-        className="mt-3 rounded-xl max-h-96 object-cover w-full cursor-pointer"
+      <SecureImage
+        url={photos[0].url}
+        className="mt-3 rounded-xl max-h-96 object-cover w-full"
+        openOnClick
       />
     );
   }
@@ -512,12 +513,11 @@ function PhotoGrid({ photos }: { photos: { id: string; url: string }[] }) {
     return (
       <div className="mt-3 grid grid-cols-2 gap-2">
         {photos.map((p) => (
-          <img
+          <SecureImage
             key={p.id}
-            src={p.url}
-            alt=""
-            onClick={() => window.open(p.url, '_blank')}
-            className="rounded-xl object-cover w-full aspect-square cursor-pointer"
+            url={p.url}
+            className="rounded-xl object-cover w-full aspect-square"
+            openOnClick
           />
         ))}
       </div>
@@ -526,12 +526,11 @@ function PhotoGrid({ photos }: { photos: { id: string; url: string }[] }) {
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
       {photos.map((p, i) => (
-        <img
+        <SecureImage
           key={p.id}
-          src={p.url}
-          alt=""
-          onClick={() => window.open(p.url, '_blank')}
-          className={`rounded-xl object-cover w-full aspect-square cursor-pointer ${i === 0 ? 'col-span-2 row-span-2 aspect-auto h-full' : ''}`}
+          url={p.url}
+          className={`rounded-xl object-cover w-full aspect-square ${i === 0 ? 'col-span-2 row-span-2 aspect-auto h-full' : ''}`}
+          openOnClick
         />
       ))}
     </div>
@@ -2527,48 +2526,54 @@ export default function CollaborationPage() {
                   )}
 
                   {/* Document médical */}
-                  {selectedParticipant.documentMedicalUrl && (() => {
-                    const url = resolveFileUrl(selectedParticipant.documentMedicalUrl);
-                    return url ? (
-                      <div className="flex items-center gap-2">
-                        <a href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          Voir le document médical
-                        </a>
-                        <a href={url} download className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                          </svg>
-                        </a>
-                      </div>
-                    ) : null;
-                  })()}
+                  {selectedParticipant.documentMedicalUrl && (
+                    <div className="flex items-center gap-2">
+                      <SecureFileLink
+                        url={resolveFileUrl(selectedParticipant.documentMedicalUrl)}
+                        className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Voir le document médical
+                      </SecureFileLink>
+                      <SecureFileLink
+                        url={resolveFileUrl(selectedParticipant.documentMedicalUrl)}
+                        download
+                        className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                      </SecureFileLink>
+                    </div>
+                  )}
 
                   {/* Attestation assurance */}
-                  {selectedParticipant.attestationAssuranceUrl && (() => {
-                    const url = resolveFileUrl(selectedParticipant.attestationAssuranceUrl);
-                    return url ? (
-                      <div className="flex items-center gap-2">
-                        <a href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          Voir l&apos;attestation d&apos;assurance
-                        </a>
-                        <a href={url} download className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                          </svg>
-                        </a>
-                      </div>
-                    ) : null;
-                  })()}
+                  {selectedParticipant.attestationAssuranceUrl && (
+                    <div className="flex items-center gap-2">
+                      <SecureFileLink
+                        url={resolveFileUrl(selectedParticipant.attestationAssuranceUrl)}
+                        className="flex-1 flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Voir l&apos;attestation d&apos;assurance
+                      </SecureFileLink>
+                      <SecureFileLink
+                        url={resolveFileUrl(selectedParticipant.attestationAssuranceUrl)}
+                        download
+                        className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
+                      </SecureFileLink>
+                    </div>
+                  )}
 
                   {/* Signé le */}
                   {selectedParticipant.signeeAt && (
