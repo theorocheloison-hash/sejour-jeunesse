@@ -27,6 +27,9 @@ export class StorageService {
     console.log('StorageService initialized (OVH S3)');
   }
 
+  /** Dossiers dont le contenu reste public (catalogue, branding). Tout le reste = privé. */
+  private static readonly PUBLIC_FOLDERS = new Set(['logos', 'centres']);
+
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
     const ALLOWED_MIME_TYPES = new Set([
       'image/jpeg',
@@ -63,7 +66,7 @@ export class StorageService {
         Key: key,
         Body: file.buffer,
         ContentType: mimeToExt[file.mimetype] ? file.mimetype : 'application/octet-stream',
-        ACL: ObjectCannedACL.public_read,
+        ...(StorageService.PUBLIC_FOLDERS.has(folder.split('/')[0]) ? { ACL: ObjectCannedACL.public_read } : {}),
       }));
     } catch (e) {
       console.error('S3 upload error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
@@ -86,7 +89,7 @@ export class StorageService {
         Key: key,
         Body: buffer,
         ContentType: mimetype,
-        ACL: ObjectCannedACL.public_read,
+        ...(StorageService.PUBLIC_FOLDERS.has(folder.split('/')[0]) ? { ACL: ObjectCannedACL.public_read } : {}),
       }));
     } catch (e) {
       console.error('S3 uploadBuffer error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
