@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
+import { getSignedUrl as s3GetSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -106,5 +107,27 @@ export class StorageService {
     } catch {
       // ignore — fichier déjà supprimé ou introuvable
     }
+  }
+
+  /**
+   * Génère une URL signée S3 (TTL par défaut 15 min).
+   * Si l'URL ne correspond pas au bucket, retourne l'URL originale (asset public / URL externe).
+   */
+  async generateSignedUrl(url: string, ttl = 900): Promise<string> {
+    const key = this.getKeyFromUrl(url);
+    if (!key) return url;
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    // Cast : drift de versions @aws-sdk/client-s3 vs s3-request-presigner
+    // (double déclaration du type Client @smithy) — incompatibilité structurelle, pas runtime.
+    return s3GetSignedUrl(this.client as never, command, { expiresIn: ttl });
+  }
+
+  /** Extrait la clé S3 depuis une URL publique OVH. Retourne null si pas notre bucket. */
+  private getKeyFromUrl(url: string): string | null {
+    const publicBase = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`;
+    if (url.startsWith(publicBase)) return url.slice(publicBase.length);
+    const parts = url.split(`/${this.bucket}/`);
+    if (parts.length > 1) return parts[1];
+    return null;
   }
 }
