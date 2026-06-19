@@ -88,14 +88,14 @@ export class DevisController {
 
   @Get('a-valider')
   @Roles(Role.SIGNATAIRE)
-  getDevisAValider() {
-    return this.devisService.getDevisAValider();
+  getDevisAValider(@CurrentUser() user: JwtUser) {
+    return this.devisService.getDevisAValider(user.id);
   }
 
   @Get('factures-acompte')
   @Roles(Role.SIGNATAIRE)
-  getFacturesAcompte() {
-    return this.devisService.getFacturesAcompte();
+  getFacturesAcompte(@CurrentUser() user: JwtUser) {
+    return this.devisService.getFacturesAcompte(user.id);
   }
 
   @Get('demande/:demandeId')

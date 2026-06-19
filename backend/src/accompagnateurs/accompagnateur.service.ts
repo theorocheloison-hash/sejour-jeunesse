@@ -10,6 +10,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateAccompagnateurDto } from './dto/create-accompagnateur.dto.js';
 import { SignerAccompagnateurDto } from './dto/signer-accompagnateur.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -80,9 +81,50 @@ export class AccompagnateurService {
     return accompagnateur;
   }
 
-  async getBySejour(sejourId: string) {
+  async getBySejour(sejourId: string, user: { id: string; role: string }) {
+    // Ownership check par rôle
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { createurId: true, hebergementSelectionneId: true },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+
+    if (user.role === 'ORGANISATEUR') {
+      if (sejour.createurId !== user.id) throw new ForbiddenException('Accès refusé');
+    } else if (user.role === 'SIGNATAIRE' || user.role === 'AUTORITE') {
+      const linked = await isSignataireLinkedToSejour(this.prisma, user.id, sejourId);
+      if (!linked) throw new ForbiddenException('Accès refusé');
+    } else if (user.role === 'HEBERGEUR') {
+      if (!sejour.hebergementSelectionneId) throw new ForbiddenException('Accès refusé');
+      const centre = await this.prisma.centreHebergement.findFirst({
+        where: { id: sejour.hebergementSelectionneId, userId: user.id },
+        select: { id: true },
+      });
+      if (!centre) throw new ForbiddenException('Accès refusé');
+    }
+
     return this.prisma.accompagnateurMission.findMany({
       where: { sejourId },
+      select: {
+        id: true,
+        sejourId: true,
+        prenom: true,
+        nom: true,
+        email: true,
+        telephone: true,
+        signeeAt: true,
+        signatureNom: true,
+        moyenTransport: true,
+        diplome: true,
+        qualificationAutre: true,
+        accesCollaboratif: true,
+        roleCollaboratif: true,
+        contactUrgenceNom: true,
+        contactUrgenceTel: true,
+        userId: true,
+        createdAt: true,
+        // tokenAcces EXCLU — jamais nécessaire à l'affichage liste
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

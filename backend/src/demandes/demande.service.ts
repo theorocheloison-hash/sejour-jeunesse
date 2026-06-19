@@ -5,6 +5,7 @@ import { CreateDemandeDto } from './dto/create-demande.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { normaliserDepartements } from '../utils/departements.js';
+import { assertSignataireCanAccessDemande, assertHebergeurCanAccessDemande } from '../auth/ownership.helper.js';
 
 // Département → Région mapping (code postal → région)
 const DEPT_TO_REGION: Record<string, string> = {
@@ -287,7 +288,7 @@ export class DemandeService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user: { id: string; role: string }, centreId?: string | null) {
     const demande = await this.prisma.demandeDevis.findUnique({
       where: { id },
       include: {
@@ -300,6 +301,17 @@ export class DemandeService {
       },
     });
     if (!demande) throw new NotFoundException('Demande introuvable');
+
+    // Ownership par rôle
+    if (user.role === 'ORGANISATEUR') {
+      if (demande.enseignantId !== user.id) throw new ForbiddenException('Accès refusé');
+    } else if (user.role === 'SIGNATAIRE') {
+      await assertSignataireCanAccessDemande(this.prisma, user, id);
+    } else if (user.role === 'HEBERGEUR') {
+      const centre = await getCentreForUser(this.prisma, user.id, centreId);
+      await assertHebergeurCanAccessDemande(this.prisma, centre.id, id);
+    }
+
     return demande;
   }
 
@@ -313,6 +325,10 @@ export class DemandeService {
       throw new ForbiddenException('Accès refusé');
     }
 
+    if (user.role === 'SIGNATAIRE') {
+      await assertSignataireCanAccessDemande(this.prisma, user, demandeId);
+    }
+
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
@@ -321,7 +337,7 @@ export class DemandeService {
           select: {
             id: true, nom: true, ville: true, telephone: true, email: true,
             capacite: true, description: true, adresse: true, codePostal: true,
-            siret: true, tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+            siret: true, tvaIntracommunautaire: true, conditionsAnnulation: true,
             logoUrl: true,
           },
         },

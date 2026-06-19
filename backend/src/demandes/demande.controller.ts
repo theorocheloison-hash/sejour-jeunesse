@@ -43,8 +43,8 @@ export class DemandeController {
 
   @Get(':id')
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
-  findOne(@Param('id') id: string) {
-    return this.demandeService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.demandeService.findOne(id, user, centreId);
   }
 
   @Get(':id/devis/comparatif')

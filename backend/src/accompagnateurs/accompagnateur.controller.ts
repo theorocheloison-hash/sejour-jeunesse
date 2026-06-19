@@ -44,8 +44,8 @@ export class AccompagnateurController {
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE, Role.AUTORITE, Role.HEBERGEUR)
-  getBySejour(@Param('sejourId') sejourId: string) {
-    return this.service.getBySejour(sejourId);
+  getBySejour(@Param('sejourId') sejourId: string, @CurrentUser() user: JwtUser) {
+    return this.service.getBySejour(sejourId, user);
   }
 
   /** GET /accompagnateurs/signer/:token — Infos publiques (PAS de guard) */

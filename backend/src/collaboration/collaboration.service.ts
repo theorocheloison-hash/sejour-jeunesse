@@ -6,6 +6,7 @@ import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 
 @Injectable()
 export class CollaborationService {
@@ -38,6 +39,28 @@ export class CollaborationService {
     } catch { /* non bloquant */ }
   }
 
+  private async notifierHebergeur(
+    sejour: {
+      id: string;
+      titre: string;
+      hebergementSelectionne?: { userId: string | null } | null;
+    },
+    actionAuteurId: string,
+    sujet: string,
+    corps: string,
+  ): Promise<void> {
+    const hebergeurUserId = sejour.hebergementSelectionne?.userId;
+    if (!hebergeurUserId || hebergeurUserId === actionAuteurId) return;
+    const hebergeur = await this.prisma.user.findUnique({
+      where: { id: hebergeurUserId },
+      select: { email: true, prenom: true },
+    });
+    if (!hebergeur?.email) return;
+    try {
+      await this.email.sendGenericNotification(hebergeur.email, sujet, corps);
+    } catch { /* non bloquant */ }
+  }
+
   /** Vérifie que le séjour est en CONVENTION et que l'utilisateur y a accès */
   async verifyAccess(sejourId: string, userId: string, role?: string) {
     const sejour = await this.prisma.sejour.findUnique({
@@ -65,7 +88,7 @@ export class CollaborationService {
     }
 
     const isCreateur = sejour.createurId === userId;
-    const isDirector = role === 'SIGNATAIRE';
+    const isDirector = role === 'SIGNATAIRE' && await isSignataireLinkedToSejour(this.prisma, userId, sejourId);
 
     const accompagnateurAcces = await this.prisma.accompagnateurMission.findFirst({
       where: {
@@ -158,6 +181,20 @@ export class CollaborationService {
        <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
     ).catch(() => {});
 
+    this.notifierHebergeur(
+      sejour,
+      userId,
+      `Nouveau message sur le séjour — ${sejour.titre}`,
+      `<p>Bonjour,</p>
+       <p>Un nouveau message a été posté sur l'espace collaboratif du séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir le message
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
     return message;
   }
 
@@ -242,6 +279,20 @@ export class CollaborationService {
       `Nouveau document sur votre séjour — ${sejour.titre}`,
       `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
        <p>Un nouveau document <strong>${dto.nom}</strong> a été ajouté sur l'espace collaboratif de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir le document
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
+    this.notifierHebergeur(
+      sejour,
+      userId,
+      `Nouveau document sur le séjour — ${sejour.titre}`,
+      `<p>Bonjour,</p>
+       <p>Un nouveau document <strong>${dto.nom}</strong> a été ajouté sur l'espace collaboratif du séjour <strong>${sejour.titre}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le document
@@ -1121,6 +1172,20 @@ export class CollaborationService {
       `Nouvelle publication sur votre séjour — ${sejour.titre}`,
       `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
        <p>Une nouvelle publication a été ajoutée dans le journal de votre séjour <strong>${sejour.titre}</strong>.</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir la publication
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Pour ne plus recevoir ces notifications, répondez à cet email avec "Se désabonner".</p>`,
+    ).catch(() => {});
+
+    this.notifierHebergeur(
+      sejour,
+      userId,
+      `Nouvelle publication sur le séjour — ${sejour.titre}`,
+      `<p>Bonjour,</p>
+       <p>Une nouvelle publication a été ajoutée dans le journal du séjour <strong>${sejour.titre}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir la publication

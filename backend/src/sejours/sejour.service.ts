@@ -8,6 +8,7 @@ import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
 
@@ -291,7 +292,7 @@ export class SejourService {
     });
   }
 
-  async getSejourDetail(id: string) {
+  async getSejourDetail(id: string, user: { id: string }) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id },
       include: {
@@ -336,6 +337,7 @@ export class SejourService {
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
+    await assertSignataireCanAccessSejour(this.prisma, user, id);
     const orgaCreateur = sejour.createur?.id
       ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
       : null;
@@ -410,6 +412,9 @@ export class SejourService {
     // ORGANISATEUR can only see their own
     if (user.role === Role.ORGANISATEUR && sejour.createurId !== user.id) {
       throw new ForbiddenException('Accès refusé');
+    }
+    if (user.role === Role.SIGNATAIRE) {
+      await assertSignataireCanAccessSejour(this.prisma, user, id);
     }
 
     const orgaCreateur = sejour.createur?.id
@@ -905,6 +910,10 @@ export class SejourService {
         throw new ForbiddenException('Ce séjour ne vous appartient pas');
       if (statut !== StatutSejour.SUBMITTED)
         throw new ForbiddenException('Les enseignants peuvent uniquement soumettre un séjour');
+    }
+
+    if (user.role === Role.SIGNATAIRE || user.role === Role.AUTORITE) {
+      await assertSignataireCanAccessSejour(this.prisma, user, id);
     }
 
     const updated = await this.prisma.sejour.update({

@@ -88,7 +88,7 @@ export class FactureController {
     @Body() body: { devisId: string; montant: number; datePaiement: string; reference?: string; modePaiement?: string },
     @CentreId() centreId: string | null,
   ) {
-    return this.factureService.ajouterVersement(body.devisId, body, user.id, centreId);
+    return this.factureService.ajouterVersement(body.devisId, body, user, centreId);
   }
 
   /** POST /factures/:id/envoyer — envoie la facture par email avec PDF joint */
@@ -107,8 +107,12 @@ export class FactureController {
   /** GET /factures/devis/:devisId — factures liées à un devis */
   @Get('devis/:devisId')
   @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)
-  getFacturesForDevis(@Param('devisId') devisId: string) {
-    return this.factureService.getFacturesForDevis(devisId);
+  getFacturesForDevis(
+    @Param('devisId') devisId: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.getFacturesForDevis(devisId, user, centreId);
   }
 
   /** PATCH /factures/:id/versements/:vid/supprimer */
@@ -120,28 +124,41 @@ export class FactureController {
     @Param('vid') vid: string,
     @CentreId() centreId: string | null,
   ) {
-    return this.factureService.supprimerVersement(id, vid, user.id, centreId);
+    return this.factureService.supprimerVersement(id, vid, user, centreId);
   }
 
   /** PATCH /factures/:id/valider-acompte */
   @Patch(':id/valider-acompte')
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  validerAcompte(@Param('id') id: string) {
-    return this.factureService.validerAcompte(id);
+  validerAcompte(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.validerAcompte(id, user, centreId);
   }
 
   /** GET /factures/:id/chorus-xml */
   @Get(':id/chorus-xml')
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  getChorusXml(@Param('id') id: string) {
-    return this.factureService.getChorusXml(id);
+  getChorusXml(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.factureService.getChorusXml(id, user, centreId);
   }
 
   /** GET /factures/:id/pdf — redirige (302) vers l'URL OVH du PDF de la facture */
   @Get(':id/pdf')
   @Roles(Role.HEBERGEUR, Role.SIGNATAIRE)
-  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
-    const facture = await this.factureService.getFactureById(id);
+  async downloadPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Res() res: Response,
+  ) {
+    const facture = await this.factureService.getFactureByIdWithOwnership(id, user, centreId);
     if (!facture?.pdfUrl) {
       throw new NotFoundException('PDF non disponible pour cette facture');
     }

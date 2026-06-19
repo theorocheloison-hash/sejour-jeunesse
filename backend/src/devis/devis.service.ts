@@ -17,6 +17,11 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { SequenceService } from '../sequence/sequence.service.js';
+import {
+  assertSignataireCanAccessDemande,
+  assertHebergeurCanAccessDemande,
+  getSignataireSejourIds,
+} from '../auth/ownership.helper.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -405,6 +410,10 @@ export class DevisService {
       }
     }
 
+    if (user.role === 'SIGNATAIRE') {
+      await assertSignataireCanAccessDemande(this.prisma, user, demandeId);
+    }
+
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
@@ -420,7 +429,6 @@ export class DevisService {
             email: true,
             siret: true,
             tvaIntracommunautaire: true,
-            iban: true,
             capacite: true,
             logoUrl: true,
           },
@@ -486,6 +494,11 @@ export class DevisService {
     // SIGNATAIRE can only reject a devis (NON_RETENU)
     // Selection is done by ORGANISATEUR via EN_ATTENTE_VALIDATION → signerDevis
     if (userRole === Role.SIGNATAIRE) {
+      if (devis.demandeId) {
+        await assertSignataireCanAccessDemande(this.prisma, { id: userId }, devis.demandeId);
+      } else {
+        throw new ForbiddenException('Accès refusé');
+      }
       if (statut !== StatutDevis.NON_RETENU) {
         throw new ForbiddenException('Les directeurs peuvent uniquement refuser un devis');
       }
@@ -606,6 +619,9 @@ export class DevisService {
       throw new ForbiddenException('Cette action n\'est pas disponible pour les séjours en gestion directe');
     }
     const demandeId: string = devis.demandeId;
+
+    // Ownership SIGNATAIRE (R2) — un signataire ne peut signer que les devis de son établissement
+    await assertSignataireCanAccessDemande(this.prisma, user, devis.demandeId);
 
     if (devis.statut === StatutDevis.EN_ATTENTE_VALIDATION) {
       await this.prisma.devis.update({
@@ -757,11 +773,17 @@ export class DevisService {
     return updated;
   }
 
-  async getDevisAValider() {
+  async getDevisAValider(userId: string) {
+    const sejourIds = await getSignataireSejourIds(this.prisma, userId);
+    if (sejourIds.length === 0) return [];
     return this.prisma.devis.findMany({
       where: {
         statut: StatutDevis.EN_ATTENTE_VALIDATION,
         typeDocument: 'DEVIS',
+        OR: [
+          { demande: { sejourId: { in: sejourIds } } },
+          { sejourDirectId: { in: sejourIds } },
+        ],
       },
       include: {
         lignes: true,
@@ -827,6 +849,8 @@ export class DevisService {
     });
     if (!demande) throw new NotFoundException('Demande introuvable');
 
+    await assertHebergeurCanAccessDemande(this.prisma, centre.id, demandeId);
+
     return { demande, centre };
   }
 
@@ -834,9 +858,20 @@ export class DevisService {
    * Factures d'acompte en attente de validation (dashboard SIGNATAIRE).
    * Lot 1 : lit l'entité Facture (type ACOMPTE non encore validée), plus le devis.
    */
-  async getFacturesAcompte() {
+  async getFacturesAcompte(userId: string) {
+    const sejourIds = await getSignataireSejourIds(this.prisma, userId);
+    if (sejourIds.length === 0) return [];
     return this.prisma.facture.findMany({
-      where: { typeFacture: 'ACOMPTE', acompteVerse: false },
+      where: {
+        typeFacture: 'ACOMPTE',
+        acompteVerse: false,
+        devis: {
+          OR: [
+            { demande: { sejourId: { in: sejourIds } } },
+            { sejourDirectId: { in: sejourIds } },
+          ],
+        },
+      },
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' as const } },

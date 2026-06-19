@@ -99,8 +99,8 @@ export class SejourController {
   /** GET /sejours/:id/detail — Détail complet du séjour (directeur) */
   @Get(':id/detail')
   @Roles(Role.SIGNATAIRE)
-  getSejourDetail(@Param('id') id: string) {
-    return this.sejourService.getSejourDetail(id);
+  getSejourDetail(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.sejourService.getSejourDetail(id, user);
   }
 
   /** GET /sejours/:id/dossier-pedagogique — Données enrichies du séjour */

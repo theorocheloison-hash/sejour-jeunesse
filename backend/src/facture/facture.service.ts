@@ -10,6 +10,7 @@ import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { assertSignataireCanAccessDemande, assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 
 /** Arrondi monétaire à 2 décimales — neutralise les artéfacts float IEEE 754. */
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -142,6 +143,15 @@ export class FactureService {
     return this.prisma.facture.findUnique({ where: { id: factureId } });
   }
 
+  async getFactureByIdWithOwnership(
+    factureId: string,
+    user: { id: string; role: string },
+    centreId?: string | null,
+  ) {
+    await this.assertFactureOwnership(factureId, user, centreId);
+    return this.prisma.facture.findUnique({ where: { id: factureId } });
+  }
+
   // ── Helpers internes ──────────────────────────────────────────────────────
 
   private async chargerDevisProprietaire(devisId: string, centreId: string) {
@@ -170,6 +180,36 @@ export class FactureService {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
     return devis;
+  }
+
+  /**
+   * Vérifie qu'un user a le droit d'accéder à une facture.
+   * HEBERGEUR : facture.devis.centreId === centre actif
+   * SIGNATAIRE : R1/R2 via le séjour/la demande liés au devis
+   */
+  private async assertFactureOwnership(
+    factureId: string,
+    user: { id: string; role: string },
+    centreId?: string | null,
+  ) {
+    const facture = await this.prisma.facture.findUnique({
+      where: { id: factureId },
+      select: { devis: { select: { centreId: true, demandeId: true, sejourDirectId: true } } },
+    });
+    if (!facture) throw new NotFoundException('Facture introuvable');
+
+    if (user.role === 'HEBERGEUR') {
+      const centre = await getCentreForUser(this.prisma, user.id, centreId);
+      if (facture.devis.centreId !== centre.id) throw new ForbiddenException('Accès refusé');
+    } else if (user.role === 'SIGNATAIRE') {
+      if (facture.devis.demandeId) {
+        await assertSignataireCanAccessDemande(this.prisma, user, facture.devis.demandeId);
+      } else if (facture.devis.sejourDirectId) {
+        await assertSignataireCanAccessSejour(this.prisma, user, facture.devis.sejourDirectId);
+      } else {
+        throw new ForbiddenException('Accès refusé');
+      }
+    }
   }
 
   /** Snapshot émetteur : devis pro > organisation légale > centre. */
@@ -884,7 +924,26 @@ export class FactureService {
 
   // ── Consultation ──────────────────────────────────────────────────────────
 
-  async getFacturesForDevis(devisId: string) {
+  async getFacturesForDevis(devisId: string, user: { id: string; role: string }, centreId?: string | null) {
+    // Ownership check
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      select: { centreId: true, demandeId: true, sejourDirectId: true },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (user.role === 'HEBERGEUR') {
+      const centre = await getCentreForUser(this.prisma, user.id, centreId);
+      if (devis.centreId !== centre.id) throw new ForbiddenException('Accès refusé');
+    } else if (user.role === 'SIGNATAIRE') {
+      if (devis.demandeId) {
+        await assertSignataireCanAccessDemande(this.prisma, user, devis.demandeId);
+      } else if (devis.sejourDirectId) {
+        await assertSignataireCanAccessSejour(this.prisma, user, devis.sejourDirectId);
+      } else {
+        throw new ForbiddenException('Accès refusé');
+      }
+    }
+
     return this.prisma.facture.findMany({
       where: { devisId },
       include: {
@@ -927,10 +986,33 @@ export class FactureService {
   async ajouterVersement(
     devisId: string,
     dto: { montant: number; datePaiement: string; reference?: string; modePaiement?: string },
-    userId: string,
+    user: { id: string; role: string },
     centreId?: string | null,
   ) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    // Ownership par rôle — HEBERGEUR via centre, SIGNATAIRE via R1/R2
+    let ownerCentreId: string;
+    let logoUrl: string | null = null;
+
+    if (user.role === 'HEBERGEUR') {
+      const centre = await getCentreForUser(this.prisma, user.id, centreId);
+      ownerCentreId = centre.id;
+      logoUrl = centre.logoUrl;
+    } else {
+      const devis = await this.prisma.devis.findUnique({
+        where: { id: devisId },
+        select: { centreId: true, demandeId: true, sejourDirectId: true, centre: { select: { logoUrl: true } } },
+      });
+      if (!devis) throw new NotFoundException('Devis introuvable');
+      if (devis.demandeId) {
+        await assertSignataireCanAccessDemande(this.prisma, user, devis.demandeId);
+      } else if (devis.sejourDirectId) {
+        await assertSignataireCanAccessSejour(this.prisma, user, devis.sejourDirectId);
+      } else {
+        throw new ForbiddenException('Accès refusé');
+      }
+      ownerCentreId = devis.centreId;
+      logoUrl = devis.centre?.logoUrl ?? null;
+    }
 
     // Charger toutes les factures du devis (hors avoirs)
     const factures = await this.prisma.facture.findMany({
@@ -941,7 +1023,7 @@ export class FactureService {
     if (factures.length === 0) {
       throw new NotFoundException('Aucune facture trouvée pour ce devis');
     }
-    if (factures[0].devis.centreId !== centre.id) {
+    if (factures[0].devis.centreId !== ownerCentreId) {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
 
@@ -977,14 +1059,27 @@ export class FactureService {
     await this.resyncMontantVerseDevis(devisId);
 
     // Régénérer le PDF avec les versements à jour (fire-and-forget)
-    void this.refreshFacturePdf(cible.id, centre.logoUrl);
+    void this.refreshFacturePdf(cible.id, logoUrl);
 
     return updated;
   }
 
-  async supprimerVersement(factureId: string, versementId: string, userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-    await this.chargerFactureProprietaire(factureId, centre.id);
+  async supprimerVersement(factureId: string, versementId: string, user: { id: string; role: string }, centreId?: string | null) {
+    // Ownership par rôle
+    let logoUrl: string | null = null;
+
+    if (user.role === 'HEBERGEUR') {
+      const centre = await getCentreForUser(this.prisma, user.id, centreId);
+      await this.chargerFactureProprietaire(factureId, centre.id);
+      logoUrl = centre.logoUrl;
+    } else {
+      await this.assertFactureOwnership(factureId, user, centreId);
+      const facture = await this.prisma.facture.findUnique({
+        where: { id: factureId },
+        select: { devis: { select: { centre: { select: { logoUrl: true } } } } },
+      });
+      logoUrl = facture?.devis?.centre?.logoUrl ?? null;
+    }
 
     const versement = await this.prisma.versementPaiement.findUnique({ where: { id: versementId } });
     if (!versement || versement.factureId !== factureId) {
@@ -1008,13 +1103,14 @@ export class FactureService {
     await this.resyncMontantVerseDevis(updated.devisId);
 
     // Régénérer le PDF avec les versements à jour (fire-and-forget)
-    void this.refreshFacturePdf(factureId, centre.logoUrl);
+    void this.refreshFacturePdf(factureId, logoUrl);
 
     return updated;
   }
 
   /** Valide le règlement d'une facture d'acompte (SIGNATAIRE/HEBERGEUR). */
-  async validerAcompte(factureId: string) {
+  async validerAcompte(factureId: string, user: { id: string; role: string }, centreId?: string | null) {
+    await this.assertFactureOwnership(factureId, user, centreId);
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
       include: {
@@ -1058,7 +1154,8 @@ export class FactureService {
 
   // ── Chorus Pro (Factur-X / UBL) ────────────────────────────────────────────
 
-  async getChorusXml(factureId: string) {
+  async getChorusXml(factureId: string, user: { id: string; role: string }, centreId?: string | null) {
+    await this.assertFactureOwnership(factureId, user, centreId);
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
       include: { lignes: true, devis: { include: { centre: { select: { mandatFacturationAccepte: true } } } } },
