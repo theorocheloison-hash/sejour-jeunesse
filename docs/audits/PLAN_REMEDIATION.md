@@ -12,8 +12,8 @@
 |----------|---------|------|-------|
 | CRITIQUE | 6       | 6    | 0     |
 | HAUTE    | 10      | 10   | 0     |
-| MOYENNE  | 14      | 8    | 6     |
-| BASSE    | 4       | 0    | 4     |
+| MOYENNE  | 14      | 14   | 0     |
+| BASSE    | 4       | 1    | 3     |
 
 **Tous les findings CRITIQUE et HAUTE sont fermés.**
 
@@ -141,6 +141,7 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 | 6l | **C5** /public/demande body:any | DTO typé + CAPTCHA | Avant marketing public |
 | 6m | CORS_ORIGIN fallback dans services | `autorisation.service.ts` et `accompagnateur.service.ts` utilisent `process.env.CORS_ORIGIN` comme fallback FRONTEND_URL. CORS_ORIGIN supprimé du code CORS (LOT 4), variable env potentiellement obsolète. Remplacer par `process.env.FRONTEND_URL` uniquement. | Au fil de l'eau |
 | 6n | lierCompte token expiration | `accompagnateur.service.ts` `lierCompte()` utilise tokenAcces sans vérifier tokenExpiresAt (ajouté en 3d). Endpoint authentifié (JWT) donc risque faible. Ajouter `assertTokenNotExpired`. | Au fil de l'eau |
+| 6o | 3 iframes src=URL OVH privée | `TabDevisFacturation` (2×) + `offres/page.tsx` (1×) affichent un aperçu PDF inline via `<iframe src={documentUrl}>`. SecureFileLink ne couvre pas les iframes. Passer le src par `useSecureUrl`. | Avant H11 si données sensibles |
 
 ---
 
@@ -170,12 +171,14 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 19/06  LOT 2 ✅ (auth hardening)
 19/06  LOT 3 ✅ (storage privé — gate dur mineurs)
        ────────────────────────────────
-RESTE  LOT 3c/3d/3e/3f (tokens + purge + call sites) . 1,5j
+RESTE  LOT 3c/3d/3e/3f (tokens + purge + call sites) . ✅ 22/06
        LOT 4 quick wins (Helmet/CORS/multer/enum/XSS) . ✅ 22/06
        LOT 4a (httpOnly cookie) ...................... 1j
-       LOT 5 (purge git IBAN) ........................ 0,5j
+       LOT 5a (purge git IBAN) ....................... ✅ 22/06
+       LOT 5b (IBAN dynamique contrat PDF) ........... ✅ 22/06
+       LOT 5c (.gitignore) ........................... ✅ 22/06
        LOT 6 (maintenance continue) .................. au fil de l'eau
-       H11 (script re-tagging ACL OVH) ............... 0,5j
+       H11 (re-tagging ACL OVH) ...................... ✅ N/A (0 données sensibles en prod)
 ```
 
-**Restant estimé : ~4,5j de dev** + actions manuelles hors-code.
+**Restant estimé : ~1j de dev** (LOT 4a httpOnly cookie) + LOT 6 au fil de l'eau.
