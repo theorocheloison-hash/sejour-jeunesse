@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import api from '@/src/lib/api';
+import { setInMemoryToken } from '@/src/lib/api';
 import type { User, LoginDto, OrganisationResume } from '@/src/types/auth';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restaure la session depuis localStorage au montage
   useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
+
     // Migration cache v1 → v2 : forcer re-login si ancien format présent
     const oldStored = localStorage.getItem(LS_USER_OLD);
     if (oldStored && !localStorage.getItem(LS_USER)) {
@@ -78,12 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Restaure l'user depuis localStorage (hint UI).
-    // La validation réelle se fait via le cookie httpOnly sur la première requête API.
-    // Si le cookie a expiré → 401 → refresh interceptor → redirect login.
     try {
       const stored = localStorage.getItem(LS_USER);
       if (stored) {
         setUser(JSON.parse(stored) as User);
+        // Obtenir un access token frais via refresh (fire-and-forget).
+        // Le cookie refresh_token (30j) est envoyé par fetch natif.
+        fetch(`${apiBase}/auth/refresh`, { method: 'POST', credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d?.access_token) setInMemoryToken(d.access_token); })
+          .catch(() => {});
         setLoading(false);
         return;
       }
@@ -91,11 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // localStorage corrompu — on ignore
     }
 
-    // httpOnly cookie : JS ne peut pas lire le token.
-    // Vérifier la session côté serveur si localStorage est vide.
-    // fetch natif (et non api.get) pour bypasser l'interceptor 401 → refresh
-    // qui boucle en incognito sans cookie (redirect /login → remount → relance).
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
+    // Pas de localStorage — vérifier si un cookie httpOnly valide existe.
+    // fetch natif pour bypasser l'interceptor 401.
     fetch(`${apiBase}/users/me`, { credentials: 'include' })
       .then(r => {
         if (!r.ok) throw new Error('not authenticated');
@@ -112,11 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
           localStorage.setItem(LS_USER, JSON.stringify(restored));
           setUser(restored);
+          // Obtenir un access token frais
+          fetch(`${apiBase}/auth/refresh`, { method: 'POST', credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.access_token) setInMemoryToken(d.access_token); })
+            .catch(() => {});
         }
       })
-      .catch(() => {
-        // Pas de session valide — rester déconnecté
-      })
+      .catch(() => {})
       .finally(() => {
         setLoading(false);
       });
@@ -169,6 +176,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data } = await api.post<BackendLoginResponse>('/auth/login', dto);
 
+    // Stocker le access token en mémoire pour les appels API via Authorization header
+    setInMemoryToken(data.access_token);
+
     const user: User = {
       id:        data.user.id,
       email:     data.user.email,
@@ -194,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const logout = useCallback(async () => {
+    setInMemoryToken(null);
     try {
       await api.post('/auth/logout');
     } catch { /* best effort — le backend clear les cookies */ }
