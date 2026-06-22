@@ -2731,21 +2731,21 @@ export default function CollaborationPage() {
                       </div>
                       {d.url && (
                         <div className="shrink-0 flex items-center gap-2">
-                          <a href={d.url} target="_blank" rel="noopener noreferrer"
+                          <SecureFileLink url={d.url}
                             className="text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors inline-flex items-center gap-1">
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             Voir
-                          </a>
-                          <a href={d.url} download
+                          </SecureFileLink>
+                          <SecureFileLink url={d.url} download
                             className="text-xs font-medium text-[var(--color-primary)] border border-[var(--color-primary)] rounded-lg px-2.5 py-1.5 hover:bg-[var(--color-primary-light)] transition-colors inline-flex items-center gap-1">
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                             </svg>
                             Télécharger
-                          </a>
+                          </SecureFileLink>
                         </div>
                       )}
                     </div>
@@ -2857,21 +2857,21 @@ export default function CollaborationPage() {
                     <span className="text-xs text-gray-400">par {d.uploader.prenom} {d.uploader.nom}</span>
                   </div>
                   <div className="shrink-0 flex items-center gap-2">
-                    <a href={d.url} target="_blank" rel="noopener noreferrer"
+                    <SecureFileLink url={d.url}
                       className="text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors inline-flex items-center gap-1">
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       Voir
-                    </a>
-                    <a href={d.url} download
+                    </SecureFileLink>
+                    <SecureFileLink url={d.url} download
                       className="text-xs font-medium text-[var(--color-primary)] border border-[var(--color-primary)] rounded-lg px-2.5 py-1.5 hover:bg-[var(--color-primary-light)] transition-colors inline-flex items-center gap-1">
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                       </svg>
                       Télécharger
-                    </a>
+                    </SecureFileLink>
                   </div>
                 </div>
               ))}

@@ -27,6 +27,7 @@ const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm foc
 const round2 = (n: number) => Math.round(n * 100) / 100;
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
+import SecureFileLink from '@/src/components/SecureFileLink';
 import api from '@/src/lib/api';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
@@ -1320,17 +1321,15 @@ export default function TabDevisFacturation({
                   </div>
 
                   {directDevis.conventionUrl && (
-                    <a
-                      href={directDevis.conventionUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <SecureFileLink
+                      url={directDevis.conventionUrl}
                       className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                       </svg>
                       📄 Télécharger la convention
-                    </a>
+                    </SecureFileLink>
                   )}
 
                   <div className="flex items-center gap-3 flex-wrap">
@@ -1427,17 +1426,15 @@ export default function TabDevisFacturation({
                     />
                     {dd.documentUrl ? (
                       <div className="space-y-3">
-                        <a
-                          href={dd.documentUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <SecureFileLink
+                          url={dd.documentUrl}
                           className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                           </svg>
                           Télécharger le devis PDF
-                        </a>
+                        </SecureFileLink>
                         <iframe
                           src={dd.documentUrl}
                           className="w-full rounded-2xl border border-gray-200 shadow-sm"
@@ -1602,14 +1599,12 @@ export default function TabDevisFacturation({
                       </span>
                     )}
                     {d.signatureDocumentUrl && (
-                      <a
-                        href={d.signatureDocumentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <SecureFileLink
+                        url={d.signatureDocumentUrl}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 px-3 py-2 text-xs font-medium text-purple-700 hover:bg-purple-50"
                       >
                         Voir le document signé
-                      </a>
+                      </SecureFileLink>
                     )}
                   </div>
                   {user.role === 'HEBERGEUR' && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(d.statut) && (
@@ -1638,17 +1633,15 @@ export default function TabDevisFacturation({
                 </div>
                 {d.documentUrl ? (
                   <div className="space-y-3">
-                    <a
-                      href={d.documentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <SecureFileLink
+                      url={d.documentUrl}
                       className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                       </svg>
                       Télécharger le devis PDF
-                    </a>
+                    </SecureFileLink>
                     <iframe
                       src={d.documentUrl}
                       className="w-full rounded-2xl border border-gray-200 shadow-sm"
@@ -1689,17 +1682,15 @@ export default function TabDevisFacturation({
                     </div>
 
                     {d.conventionUrl && (
-                      <a
-                        href={d.conventionUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <SecureFileLink
+                        url={d.conventionUrl}
                         className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
                         📄 Télécharger la convention
-                      </a>
+                      </SecureFileLink>
                     )}
 
                     <div className="flex items-center gap-3 flex-wrap">
@@ -1738,17 +1729,15 @@ export default function TabDevisFacturation({
                 {(user.role === 'ORGANISATEUR' || user.role === 'SIGNATAIRE') && d.conventionUrl && (
                   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Convention de séjour</h3>
-                    <a
-                      href={d.conventionUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <SecureFileLink
+                      url={d.conventionUrl}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                       </svg>
                       📄 Convention séjour scolaire
-                    </a>
+                    </SecureFileLink>
                   </div>
                 )}
 

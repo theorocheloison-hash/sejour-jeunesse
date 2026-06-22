@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDocuments, uploadCentreDocument } from '@/src/lib/centre';
 import type { DocumentCentre } from '@/src/lib/centre';
+import SecureFileLink from '@/src/components/SecureFileLink';
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
@@ -145,9 +146,9 @@ export default function DocumentsPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {d.url && (
-                      <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
+                      <SecureFileLink url={d.url} className="text-xs font-medium text-[var(--color-primary)] hover:underline">
                         Télécharger
-                      </a>
+                      </SecureFileLink>
                     )}
                     {expirationBadge(d.dateExpiration)}
                   </div>

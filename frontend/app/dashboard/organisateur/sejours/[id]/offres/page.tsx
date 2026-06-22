@@ -10,6 +10,7 @@ import type { Demande } from '@/src/lib/demande';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import SecureFileLink from '@/src/components/SecureFileLink';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
@@ -285,17 +286,15 @@ export default function OffresPage() {
                 <div className="pt-2 space-y-3">
                   {selectedDevis.documentUrl ? (
                     <>
-                      <a
-                        href={selectedDevis.documentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <SecureFileLink
+                        url={selectedDevis.documentUrl}
                         className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
                         Télécharger le devis PDF
-                      </a>
+                      </SecureFileLink>
                       <iframe
                         src={selectedDevis.documentUrl}
                         style={{ width: '100%', height: '60vh', minHeight: 400, border: 'none', borderRadius: 8 }}

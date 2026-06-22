@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
+import SecureFileLink from '@/src/components/SecureFileLink';
 import {
   getAdminStats,
   getHebergeurs,
@@ -809,14 +810,12 @@ function ClaimsCentresTab() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {c.claimDocumentUrl ? (
-                        <a
-                          href={c.claimDocumentUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <SecureFileLink
+                          url={c.claimDocumentUrl}
                           className="text-xs text-[var(--color-primary)] hover:underline"
                         >
                           Voir le document ↗
-                        </a>
+                        </SecureFileLink>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}

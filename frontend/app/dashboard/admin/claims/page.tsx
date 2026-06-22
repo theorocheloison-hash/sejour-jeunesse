@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
+import SecureFileLink from '@/src/components/SecureFileLink';
 
 interface ClaimEnAttente {
   id: string;
@@ -253,14 +254,12 @@ export default function AdminClaimsPage() {
 
                   <div className="flex flex-col gap-2 shrink-0">
                     {claim.claimDocumentUrl ? (
-                      <a
-                        href={claim.claimDocumentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <SecureFileLink
+                        url={claim.claimDocumentUrl}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
                         Voir le justificatif
-                      </a>
+                      </SecureFileLink>
                     ) : (
                       <span className="text-xs text-gray-400">Aucun document</span>
                     )}
@@ -336,10 +335,10 @@ export default function AdminClaimsPage() {
 
                         <div className="flex flex-col gap-2 shrink-0">
                           {c.claimDocumentUrl ? (
-                            <a href={c.claimDocumentUrl} target="_blank" rel="noopener noreferrer"
+                            <SecureFileLink url={c.claimDocumentUrl}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
                               Voir le justificatif
-                            </a>
+                            </SecureFileLink>
                           ) : (
                             <span className="text-xs text-gray-400">Aucun document — en attente</span>
                           )}
