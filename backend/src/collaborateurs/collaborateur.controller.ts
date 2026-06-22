@@ -1,5 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { Role } from '@prisma/client';
+import { setAuthCookies } from '../auth/auth-cookies.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -45,8 +47,13 @@ export class CollaborateurController {
 
   /** POST /collaborateurs/register — Inscription simplifiée d'un collaborateur invité (public). */
   @Post('register')
-  register(@Body() dto: RegisterCollaborateurDto) {
-    return this.collaborateurService.registerCollaborateur(dto);
+  async register(
+    @Body() dto: RegisterCollaborateurDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.collaborateurService.registerCollaborateur(dto);
+    setAuthCookies(res, result.access_token, result.refresh_token);
+    return result;
   }
 
   /** POST /collaborateurs/accepter — Accepter une invitation (user connecté). */

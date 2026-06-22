@@ -8,13 +8,16 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
+import { setAuthCookies } from '../auth/auth-cookies.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -197,8 +200,13 @@ export class CentreController {
   }
 
   @Post('register')
-  register(@Body() dto: RegisterCentreDto) {
-    return this.centreService.register(dto);
+  async register(
+    @Body() dto: RegisterCentreDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.centreService.register(dto);
+    setAuthCookies(res, result.access_token, result.refresh_token);
+    return result;
   }
 
   @Post('materialiser-en')

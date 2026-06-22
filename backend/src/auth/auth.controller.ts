@@ -11,35 +11,7 @@ import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser, type JwtUser } from './decorators/current-user.decorator.js';
-
-const isProduction = process.env.NODE_ENV === 'production';
-
-const COOKIE_OPTS_ACCESS = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: 'lax' as const,
-  maxAge: 60 * 60 * 1000, // 1h — aligné sur JWT_EXPIRES_IN
-  path: '/',
-};
-
-const COOKIE_OPTS_REFRESH = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: 'lax' as const,
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30j — aligné sur refreshTokenExpires
-  path: '/',
-};
-
-// Pose les 2 cookies httpOnly (Phase 1 4a). Les tokens restent aussi dans le body
-// pour rester compatible avec le frontend actuel (js-cookie + Authorization header).
-function setAuthCookies(
-  res: Response,
-  accessToken: string,
-  refreshToken: string,
-): void {
-  res.cookie('token', accessToken, COOKIE_OPTS_ACCESS);
-  res.cookie('refresh_token', refreshToken, COOKIE_OPTS_REFRESH);
-}
+import { setAuthCookies, isProduction } from './auth-cookies.js';
 
 @Controller('auth')
 export class AuthController {

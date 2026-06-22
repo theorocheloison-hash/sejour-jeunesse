@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -176,11 +177,21 @@ export class CollaborateurService {
     });
 
     // 5. JWT + user (login automatique)
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // JWT access token avec tokenVersion (cohérent avec auth.service.ts)
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: 0 };
     const access_token = this.jwtService.sign(payload);
+
+    // Refresh token rotatif 30j (même pattern que auth.service.buildAuthResponse)
+    const refreshToken = randomUUID();
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken, refreshTokenExpires },
+    });
 
     return {
       access_token,
+      refresh_token: refreshToken,
       user: { id: user.id, email: user.email, prenom: user.prenom, nom: user.nom, role: user.role },
     };
   }

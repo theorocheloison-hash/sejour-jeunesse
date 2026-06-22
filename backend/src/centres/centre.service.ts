@@ -6,6 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -1032,9 +1033,20 @@ export class CentreService {
       claimStatut: 'NON_APPLICABLE',
     });
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: 0 };
+    const access_token = this.jwt.sign(payload);
+
+    // Refresh token rotatif 30j (même pattern que auth.service.buildAuthResponse)
+    const refreshToken = randomUUID();
+    const refreshTokenExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken, refreshTokenExpires },
+    });
+
     return {
-      access_token: this.jwt.sign(payload),
+      access_token,
+      refresh_token: refreshToken,
       user: { id: user.id, email: user.email, prenom: user.prenom, nom: user.nom, role: user.role },
       centre,
     };
