@@ -82,11 +82,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Si le cookie a expiré → 401 → refresh interceptor → redirect login.
     try {
       const stored = localStorage.getItem(LS_USER);
-      if (stored) setUser(JSON.parse(stored) as User);
+      if (stored) {
+        setUser(JSON.parse(stored) as User);
+        setLoading(false);
+        return;
+      }
     } catch {
       // localStorage corrompu — on ignore
     }
-    setLoading(false);
+
+    // httpOnly cookie : JS ne peut pas lire le token.
+    // Vérifier la session côté serveur si localStorage est vide.
+    api.get('/users/me')
+      .then(({ data }: { data: any }) => {
+        if (data?.id) {
+          const restored: User = {
+            id: data.id,
+            email: data.email,
+            firstName: data.prenom,
+            lastName: data.nom,
+            role: data.role,
+          };
+          localStorage.setItem(LS_USER, JSON.stringify(restored));
+          setUser(restored);
+        }
+      })
+      .catch(() => {
+        // Pas de session valide — rester déconnecté
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   // Charge les centres de l'hébergeur — réagit aux changements d'utilisateur
