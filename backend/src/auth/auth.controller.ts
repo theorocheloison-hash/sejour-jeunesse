@@ -29,7 +29,7 @@ export class AuthController {
 
   @Post('register/hebergeur')
   @Throttle({ default: { ttl: 3600000, limit: 5 } })    // 5/heure par IP
-  @UseInterceptors(FileInterceptor('document'))
+  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: 10 * 1024 * 1024 } }))
   registerHebergeur(
     @Body() dto: RegisterHebergeurDto,
     @Req() req: Request,

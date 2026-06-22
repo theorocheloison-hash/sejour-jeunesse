@@ -3,11 +3,19 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  // En-têtes de sécurité HTTP (nosniff, X-Frame-Options, Referrer-Policy, HSTS…).
+  // CSP désactivé : l'API ne sert que du JSON (le magic link est un 302, pas un body HTML).
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true },
+  }));
 
   // Derrière le reverse proxy Scalingo : faire confiance au 1er proxy pour que
   // req.ip lise X-Forwarded-For (IP client réelle) au lieu de l'IP du proxy.
@@ -23,11 +31,10 @@ async function bootstrap() {
     res.status(200).json({ status: 'ok' });
   });
 
-  // CORS whitelist — CORS_ORIGIN doit être défini sur Railway (ex: https://liavo.fr)
+  // CORS — origines autorisées (Scalingo Paris)
   const ALLOWED_ORIGINS = [
     'https://liavo.fr',
     'https://www.liavo.fr',
-    process.env.CORS_ORIGIN,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : null,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:3001' : null,
   ].filter(Boolean) as string[];

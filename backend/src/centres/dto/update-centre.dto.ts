@@ -1,5 +1,5 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class UpdateCentreDto {
   @IsOptional()
@@ -42,6 +42,13 @@ export class UpdateCentreDto {
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => {
+    if (typeof value === 'string' && value.trim() && !/^https?:\/\//i.test(value)) {
+      return `https://${value}`;
+    }
+    return value;
+  })
+  @Matches(/^https?:\/\//i, { message: 'Le site web doit commencer par http:// ou https://' })
   siteWeb?: string;
 
   @IsOptional()

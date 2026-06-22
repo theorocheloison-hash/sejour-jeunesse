@@ -292,7 +292,7 @@ export class CollaborationController {
   }
 
   @Post(':sejourId/documents')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   createDocument(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
@@ -377,7 +377,7 @@ export class CollaborationController {
   /** POST /collaboration/:sejourId/journal — Créer un post + photos (ORGANISATEUR, HEBERGEUR) */
   @Post(':sejourId/journal')
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
-  @UseInterceptors(FilesInterceptor('photos', 6))
+  @UseInterceptors(FilesInterceptor('photos', 6, { limits: { fileSize: 5 * 1024 * 1024 } }))
   async createJournalPost(
     @Param('sejourId') sejourId: string,
     @Body('contenu') contenu: string,

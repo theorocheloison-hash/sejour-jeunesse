@@ -46,7 +46,7 @@ export class CentreController {
   @Post('claim-from-catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  @UseInterceptors(FileInterceptor('document'))
+  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: 10 * 1024 * 1024 } }))
   claimFromCatalogue(
     @CurrentUser() user: JwtUser,
     @Body() dto: ClaimCentreDto,
@@ -62,7 +62,7 @@ export class CentreController {
   @Post(':id/upload-justificatif')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HEBERGEUR)
-  @UseInterceptors(FileInterceptor('document'))
+  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: 10 * 1024 * 1024 } }))
   uploadJustificatif(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
@@ -234,7 +234,7 @@ export class CentreController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
   @RequirePermission('parametres')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   uploadImage(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
@@ -248,7 +248,7 @@ export class CentreController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
   @RequirePermission('parametres')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   uploadBrochure(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
@@ -262,7 +262,7 @@ export class CentreController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
   @RequirePermission('parametres')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
   uploadLogo(
     @CurrentUser() user: JwtUser,
     @Param('centreId') centreId: string,
@@ -287,7 +287,7 @@ export class CentreController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
   @RequirePermission('parametres')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   uploadDocument(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,

@@ -54,7 +54,7 @@ export class AutorisationController {
   @Post('import-csv')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async importCsv(
     @UploadedFile() file: Express.Multer.File,
     @Body('sejourId') sejourId: string,
@@ -150,7 +150,7 @@ export class AutorisationController {
 
   /** POST /autorisations/:token/document — Upload document médical (PAS de guard) */
   @Post(':token/document')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   uploadDocument(
     @Param('token') token: string,
     @UploadedFile() file: Express.Multer.File,

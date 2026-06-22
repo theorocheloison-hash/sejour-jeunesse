@@ -507,6 +507,10 @@ export class AuthService {
   // ── Login ────────────────────────────────────────────────────────────
 
   async login(dto: LoginDto) {
+    // Hash factice (bcrypt 12 rounds d'une chaîne aléatoire) pour garantir un temps
+    // de réponse constant même si l'utilisateur n'existe pas (anti timing oracle).
+    const DUMMY_HASH = '$2b$12$zaLk1a47UZc53FAmRBXI9O5RqlXxpzS5.SI9NHpsXOYavERAiuqNK';
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: {
@@ -523,18 +527,20 @@ export class AuthService {
         tokenVersion: true,
       },
     });
-    if (!user) throw new UnauthorizedException('Identifiants invalides');
 
-    // Gate 0 : compte sans mot de passe défini (demande publique → magic link).
-    // Placé AVANT bcrypt pour renvoyer un message utile plutôt qu'« Identifiants invalides »
-    // (le mot de passe est un UUID aléatoire inconnu de l'utilisateur).
-    if (!user.motDePasseDefini) {
-      throw new UnauthorizedException('COMPTE_DORMANT');
+    // Toujours exécuter bcrypt (timing constant) : sur DUMMY_HASH si l'user n'existe
+    // pas ou n'a pas encore défini son mot de passe (motDePasse = UUID aléatoire).
+    const isValid = await bcrypt.compare(
+      dto.password,
+      user && user.motDePasseDefini ? user.motDePasse : DUMMY_HASH,
+    );
+
+    if (!user || !isValid) {
+      throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Gate 1 : mot de passe.
-    const isValid = await bcrypt.compare(dto.password, user.motDePasse);
-    if (!isValid) throw new UnauthorizedException('Identifiants invalides');
+    // À partir d'ici le mot de passe est validé — les messages spécifiques
+    // ne permettent plus d'énumérer les emails (l'attaquant doit connaître le MDP).
 
     // Gate 2 : email vérifié.
     if (!user.emailVerifie) {
