@@ -5,6 +5,7 @@ const baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
 const api = axios.create({
   baseURL,
   withCredentials: true, // cookie httpOnly envoyé si le navigateur coopère
+  adapter: 'xhr',
 });
 
 // ── Token en mémoire (backup du cookie httpOnly) ──────────────────────────
