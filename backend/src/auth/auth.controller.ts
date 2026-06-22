@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res, UnauthorizedException, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
@@ -12,13 +12,47 @@ import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser, type JwtUser } from './decorators/current-user.decorator.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+const COOKIE_OPTS_ACCESS = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: 'lax' as const,
+  maxAge: 60 * 60 * 1000, // 1h — aligné sur JWT_EXPIRES_IN
+  path: '/',
+};
+
+const COOKIE_OPTS_REFRESH = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: 'lax' as const,
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30j — aligné sur refreshTokenExpires
+  path: '/',
+};
+
+// Pose les 2 cookies httpOnly (Phase 1 4a). Les tokens restent aussi dans le body
+// pour rester compatible avec le frontend actuel (js-cookie + Authorization header).
+function setAuthCookies(
+  res: Response,
+  accessToken: string,
+  refreshToken: string,
+): void {
+  res.cookie('token', accessToken, COOKIE_OPTS_ACCESS);
+  res.cookie('refresh_token', refreshToken, COOKIE_OPTS_REFRESH);
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    setAuthCookies(res, result.access_token, result.refresh_token);
+    return result;
   }
 
   @Post('register/organisateur')
@@ -75,8 +109,13 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    setAuthCookies(res, result.access_token, result.refresh_token);
+    return result; // body inchangé — backward compat
   }
 
   @Post('forgot-password')
@@ -101,8 +140,37 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 10 } })  // 10/min par IP
-  refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshAccessToken(body.refreshToken);
+  async refresh(
+    @Body() body: { refreshToken?: string },
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // Dual mode : cookie httpOnly d'abord, puis body (ancien frontend)
+    const refreshToken = req.cookies?.refresh_token ?? body?.refreshToken;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token requis');
+    }
+    const result = await this.authService.refreshAccessToken(refreshToken);
+    setAuthCookies(res, result.access_token, result.refresh_token);
+    return result;
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax' as const,
+      path: '/',
+    });
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax' as const,
+      path: '/',
+    });
+    return { success: true };
   }
 
   @Get('sirene/:siret')

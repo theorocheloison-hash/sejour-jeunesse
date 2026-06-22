@@ -4,6 +4,7 @@ import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -16,6 +17,10 @@ async function bootstrap() {
     contentSecurityPolicy: false,
     hsts: { maxAge: 31536000, includeSubDomains: true },
   }));
+
+  // Parse les cookies (JWT httpOnly — Phase 1 4a). Doit précéder CORS et les routes
+  // pour que req.cookies soit peuplé avant la JwtStrategy.
+  app.use(cookieParser());
 
   // Derrière le reverse proxy Scalingo : faire confiance au 1er proxy pour que
   // req.ip lise X-Forwarded-For (IP client réelle) au lieu de l'IP du proxy.

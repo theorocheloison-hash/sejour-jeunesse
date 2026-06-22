@@ -684,6 +684,22 @@ export class AuthService {
       data: { refreshToken, refreshTokenExpires },
     });
 
+    // Phase 1 4a : poser les cookies httpOnly (le hash dans l'URL reste pour backward compat)
+    res.cookie('token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 60 * 60 * 1000,
+      path: '/',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
     return res.redirect(
       `${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}&refreshToken=${encodeURIComponent(refreshToken)}&onboarding=true${needsPassword ? '&needsPassword=true' : ''}`
     );
