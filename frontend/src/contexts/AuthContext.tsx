@@ -9,16 +9,18 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 import axios from 'axios';
 import api from '@/src/lib/api';
-import { setInMemoryToken } from '@/src/lib/api';
 import type { User, LoginDto, OrganisationResume } from '@/src/types/auth';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
+const COOKIE_TOKEN = 'token';
 const LS_USER      = 'sj_user_v2';
 const LS_USER_OLD  = 'sj_user';
 const LS_CENTRE_ACTIF = 'liavo-centre-actif';
+const COOKIE_OPTS  = { expires: 7, sameSite: 'lax' as const };
 
 // ─── Multi-centre ─────────────────────────────────────────────────────────────
 
@@ -68,65 +70,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [centreActif, setCentreActifState] = useState<string | null>(null);
   const router                  = useRouter();
 
-  // Restaure la session depuis localStorage au montage
+  // Restaure la session depuis le cookie + localStorage au montage
   useEffect(() => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
-
     // Migration cache v1 → v2 : forcer re-login si ancien format présent
     const oldStored = localStorage.getItem(LS_USER_OLD);
     if (oldStored && !localStorage.getItem(LS_USER)) {
       localStorage.removeItem(LS_USER_OLD);
+      Cookies.remove(COOKIE_TOKEN);
       setLoading(false);
       return;
     }
 
-    // Restaure l'user depuis localStorage (hint UI).
+    const token = Cookies.get(COOKIE_TOKEN);
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const stored = localStorage.getItem(LS_USER);
-      if (stored) {
-        setUser(JSON.parse(stored) as User);
-        // Obtenir un access token frais via refresh (fire-and-forget).
-        // Le cookie refresh_token (30j) est envoyé par fetch natif.
-        fetch(`${apiBase}/auth/refresh`, { method: 'POST', credentials: 'include' })
-          .then(r => r.ok ? r.json() : null)
-          .then(d => { if (d?.access_token) setInMemoryToken(d.access_token); })
-          .catch(() => {});
-        setLoading(false);
-        return;
-      }
+      if (stored) setUser(JSON.parse(stored) as User);
     } catch {
       // localStorage corrompu — on ignore
     }
-
-    // Pas de localStorage — vérifier si un cookie httpOnly valide existe.
-    // fetch natif pour bypasser l'interceptor 401.
-    fetch(`${apiBase}/users/me`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) throw new Error('not authenticated');
-        return r.json();
-      })
-      .then((data: any) => {
-        if (data?.id) {
-          const restored: User = {
-            id: data.id,
-            email: data.email,
-            firstName: data.prenom,
-            lastName: data.nom,
-            role: data.role,
-          };
-          localStorage.setItem(LS_USER, JSON.stringify(restored));
-          setUser(restored);
-          // Obtenir un access token frais
-          fetch(`${apiBase}/auth/refresh`, { method: 'POST', credentials: 'include' })
-            .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d?.access_token) setInMemoryToken(d.access_token); })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        setLoading(false);
-      });
+    setLoading(false);
   }, []);
 
   // Charge les centres de l'hébergeur — réagit aux changements d'utilisateur
@@ -176,9 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data } = await api.post<BackendLoginResponse>('/auth/login', dto);
 
-    // Stocker le access token en mémoire pour les appels API via Authorization header
-    setInMemoryToken(data.access_token);
-
     const user: User = {
       id:        data.user.id,
       email:     data.user.email,
@@ -187,7 +150,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role:      data.user.role,
     };
 
-    // Tokens gérés par cookies httpOnly (posés par le backend) — rien à stocker côté JS
+    Cookies.set(COOKIE_TOKEN, data.access_token, COOKIE_OPTS);
+    if (data.refresh_token) {
+      localStorage.setItem('liavo-refresh-token', data.refresh_token);
+    }
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
 
@@ -203,13 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push(redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard');
   }, [router]);
 
-  const logout = useCallback(async () => {
-    setInMemoryToken(null);
-    try {
-      await api.post('/auth/logout');
-    } catch { /* best effort — le backend clear les cookies */ }
+  const logout = useCallback(() => {
+    Cookies.remove(COOKIE_TOKEN);
     localStorage.removeItem(LS_USER);
-    localStorage.removeItem('liavo-refresh-token'); // cleanup legacy
+    localStorage.removeItem('liavo-refresh-token');
     if (typeof window !== 'undefined') localStorage.removeItem(LS_CENTRE_ACTIF);
     setUser(null);
     setCentres([]);

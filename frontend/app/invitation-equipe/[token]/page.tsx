@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Cookies from 'js-cookie';
 import axios from 'axios';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
@@ -90,11 +91,7 @@ export default function InvitationEquipePage() {
       const { data } = await api.post('/collaborateurs/register', { token, prenom, nom, password });
       // Login automatique : on pose le cookie + le cache user, puis full reload
       // pour que l'AuthProvider ré-hydrate la session (router.push ne remonte pas le provider).
-      // Cet endpoint ne pose pas de cookie httpOnly (hors scope Phase 1) : cookie classique
-      // lu par le JWT strategy (fallback). Retiré en Phase 3 côté backend.
-      if (data.access_token && typeof document !== 'undefined') {
-        document.cookie = `token=${encodeURIComponent(data.access_token)}; path=/; max-age=3600; samesite=lax${window.location.protocol === 'https:' ? '; secure' : ''}`;
-      }
+      Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
       localStorage.setItem('sj_user_v2', JSON.stringify({
         id: data.user.id,
         email: data.user.email,

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 import { getInvitation, registerCentre } from '@/src/lib/centre';
 import type { Invitation } from '@/src/lib/centre';
 
@@ -54,12 +55,7 @@ export default function InscriptionHebergementPage() {
         capacite: parseInt(capacite, 10),
         description: description || undefined,
       });
-      // Cet endpoint ne pose pas de cookie httpOnly (hors scope Phase 1) : on pose un
-      // cookie classique lu par le JWT strategy (fallback). Retiré en Phase 3 quand le
-      // backend posera le cookie httpOnly sur /centres/register.
-      if (result.access_token && typeof document !== 'undefined') {
-        document.cookie = `token=${encodeURIComponent(result.access_token)}; path=/; max-age=3600; samesite=lax${window.location.protocol === 'https:' ? '; secure' : ''}`;
-      }
+      Cookies.set('token', result.access_token, { expires: 7, sameSite: 'lax' });
       localStorage.setItem('sj_user', JSON.stringify(result.user));
       router.push('/dashboard/hebergeur');
     } catch {

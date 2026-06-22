@@ -1,29 +1,24 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
 
 const api = axios.create({
   baseURL,
-  withCredentials: true, // cookie httpOnly envoyé si le navigateur coopère
 });
 
-// ── Token en mémoire (backup du cookie httpOnly) ──────────────────────────
-// Le backend retourne access_token dans le body (backward compat Phase 1).
-// On le stocke en mémoire JS et on l'envoie via Authorization header.
-// Le dual extractor backend lit le cookie d'abord, puis le header en fallback.
-// Perdu au refresh page → récupéré via /auth/refresh au prochain init.
-let inMemoryToken: string | null = null;
+api.interceptors.request.use((config) => {
+  // js-cookie n'est disponible que côté navigateur
+  const token =
+    typeof window !== 'undefined' ? Cookies.get('token') : undefined;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-export function setInMemoryToken(token: string | null) {
-  inMemoryToken = token;
-}
-
-// ── Request interceptor : Authorization + X-Centre-Id ────────────────────
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    if (inMemoryToken && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${inMemoryToken}`;
-    }
     const centreId = localStorage.getItem('liavo-centre-actif');
     if (centreId) {
       config.headers['X-Centre-Id'] = centreId;
@@ -32,13 +27,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor : refresh 401 ───────────────────────────────────
+// ── Refresh token : interceptor 401 ──────────────────────────────────────
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
 
-const processQueue = (error: unknown) => {
+const processQueue = (error: unknown, token: string | null) => {
   failedQueue.forEach(({ resolve, reject }) => {
-    error ? reject(error) : resolve();
+    token ? resolve(token) : reject(error);
   });
   failedQueue = [];
 };
@@ -48,6 +43,8 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Ne pas refresh pour les routes auth (login, register, refresh lui-même)
+    // ni pour les requêtes déjà retentées
     if (
       !originalRequest ||
       originalRequest.url?.startsWith('/auth/') ||
@@ -60,42 +57,58 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Si un refresh est déjà en cours, mettre en queue
     if (isRefreshing) {
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
-      }).then(() => api(originalRequest));
+      }).then((token) => {
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return api(originalRequest);
+      });
     }
 
     (originalRequest as any)._retry = true;
     isRefreshing = true;
 
-    try {
-      // fetch natif pour le refresh — envoie le cookie de manière fiable
-      // (contrairement à axios dans le contexte React/Next.js)
-      const refreshRes = await fetch(`${baseURL}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!refreshRes.ok) throw new Error('refresh failed');
-      const refreshData = await refreshRes.json();
-      if (refreshData?.access_token) {
-        inMemoryToken = refreshData.access_token;
-      }
+    const refreshToken = typeof window !== 'undefined'
+      ? localStorage.getItem('liavo-refresh-token')
+      : null;
 
-      processQueue(null);
+    if (!refreshToken) {
       isRefreshing = false;
-
-      // Retry avec le nouveau token en mémoire (header Authorization)
-      return api(originalRequest);
-    } catch (refreshError) {
-      processQueue(refreshError);
-      isRefreshing = false;
-
+      // Pas de refresh token → nettoyage + redirect login
       if (typeof window !== 'undefined') {
-        inMemoryToken = null;
+        Cookies.remove('token');
         localStorage.removeItem('sj_user_v2');
         localStorage.removeItem('liavo-refresh-token');
-        localStorage.removeItem('liavo-centre-actif');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+
+    try {
+      const { data } = await axios.post(`${baseURL}/auth/refresh`, { refreshToken });
+
+      // Stocker les nouveaux tokens
+      Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' as const });
+      if (data.refresh_token) {
+        localStorage.setItem('liavo-refresh-token', data.refresh_token);
+      }
+
+      processQueue(null, data.access_token);
+      isRefreshing = false;
+
+      originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+      return api(originalRequest);
+    } catch (refreshError) {
+      processQueue(refreshError, null);
+      isRefreshing = false;
+
+      // Refresh échoué → nettoyage complet + redirect login
+      if (typeof window !== 'undefined') {
+        Cookies.remove('token');
+        localStorage.removeItem('sj_user_v2');
+        localStorage.removeItem('liavo-refresh-token');
         window.location.href = '/login';
       }
       return Promise.reject(refreshError);
