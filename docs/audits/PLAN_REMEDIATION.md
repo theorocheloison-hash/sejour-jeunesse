@@ -139,6 +139,8 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 | 6j | **C2** ordre-mission-pdf IDOR | Ownership sur accompagnateur.id | Au fil de l'eau |
 | 6k | **C4** /public/centres expose PENDING | Filtrer `statut: 'VALIDE'` | Au fil de l'eau |
 | 6l | **C5** /public/demande body:any | DTO typé + CAPTCHA | Avant marketing public |
+| 6m | CORS_ORIGIN fallback dans services | `autorisation.service.ts` et `accompagnateur.service.ts` utilisent `process.env.CORS_ORIGIN` comme fallback FRONTEND_URL. CORS_ORIGIN supprimé du code CORS (LOT 4), variable env potentiellement obsolète. Remplacer par `process.env.FRONTEND_URL` uniquement. | Au fil de l'eau |
+| 6n | lierCompte token expiration | `accompagnateur.service.ts` `lierCompte()` utilise tokenAcces sans vérifier tokenExpiresAt (ajouté en 3d). Endpoint authentifié (JWT) donc risque faible. Ajouter `assertTokenNotExpired`. | Au fil de l'eau |
 
 ---
 
@@ -169,7 +171,8 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 19/06  LOT 3 ✅ (storage privé — gate dur mineurs)
        ────────────────────────────────
 RESTE  LOT 3c/3d/3e/3f (tokens + purge + call sites) . 1,5j
-       LOT 4 (httpOnly + Helmet + CORS) .............. 2j
+       LOT 4 quick wins (Helmet/CORS/multer/enum/XSS) . ✅ 22/06
+       LOT 4a (httpOnly cookie) ...................... 1j
        LOT 5 (purge git IBAN) ........................ 0,5j
        LOT 6 (maintenance continue) .................. au fil de l'eau
        H11 (script re-tagging ACL OVH) ............... 0,5j
