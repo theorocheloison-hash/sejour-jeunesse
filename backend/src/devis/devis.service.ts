@@ -1269,6 +1269,9 @@ export class DevisService {
           resteAPayer: round2(resteAPayer),
           dateSignature: fmt(new Date()),
           numeroDevis: devis.numeroDevis,
+          iban: centre.iban,
+          bic: null,     // TODO: ajouter bic au modèle CentreHebergement quand multi-centre
+          banque: null,  // TODO: idem
         });
 
         contratUrl = await this.storage.uploadBuffer(

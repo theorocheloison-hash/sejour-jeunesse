@@ -88,6 +88,10 @@ export interface ContratData {
   signatureClient?: string | null;
   // Numéro
   numeroDevis?: string | null;
+  // Coordonnées bancaires (dynamiques depuis centre.iban)
+  iban?: string | null;
+  bic?: string | null;
+  banque?: string | null;
 }
 
 const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
@@ -185,15 +189,15 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
           <Text style={styles.ibanTitle}>Coordonnées bancaires pour le virement de l&apos;acompte</Text>
           <View style={styles.ibanRow}>
             <Text style={styles.ibanLabel}>IBAN</Text>
-            <Text style={styles.ibanValue}>FR76 1810 6000 2796 7820 4408 470</Text>
+            <Text style={styles.ibanValue}>{data.iban ?? '—'}</Text>
           </View>
           <View style={styles.ibanRow}>
             <Text style={styles.ibanLabel}>BIC</Text>
-            <Text style={styles.ibanValue}>***REDACTED***</Text>
+            <Text style={styles.ibanValue}>{data.bic ?? '—'}</Text>
           </View>
           <View style={styles.ibanRow}>
             <Text style={styles.ibanLabel}>Banque</Text>
-            <Text style={styles.ibanValue}>Crédit Agricole des Savoie — Samoens</Text>
+            <Text style={styles.ibanValue}>{data.banque ?? '—'}</Text>
           </View>
           <Text style={[styles.label, { marginTop: 4 }]}>
             Référence virement : {data.numeroDevis} — {data.nomClient}
