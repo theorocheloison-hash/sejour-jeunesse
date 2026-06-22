@@ -93,8 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // httpOnly cookie : JS ne peut pas lire le token.
     // Vérifier la session côté serveur si localStorage est vide.
-    api.get('/users/me')
-      .then(({ data }: { data: any }) => {
+    // fetch natif (et non api.get) pour bypasser l'interceptor 401 → refresh
+    // qui boucle en incognito sans cookie (redirect /login → remount → relance).
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr';
+    fetch(`${apiBase}/users/me`, { credentials: 'include' })
+      .then(r => {
+        if (!r.ok) throw new Error('not authenticated');
+        return r.json();
+      })
+      .then((data: any) => {
         if (data?.id) {
           const restored: User = {
             id: data.id,
