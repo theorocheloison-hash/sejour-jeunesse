@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense, type FormEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
@@ -325,7 +324,11 @@ function RegisterHebergeurContent() {
           prenom: form.prenom,
           nomContact: form.nom,
         });
-        Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
+        // /centres/register ne pose pas de cookie httpOnly (hors scope Phase 1) : cookie
+        // classique lu par le JWT strategy (fallback). Retiré en Phase 3 côté backend.
+        if (data.access_token && typeof document !== 'undefined') {
+          document.cookie = `token=${encodeURIComponent(data.access_token)}; path=/; max-age=3600; samesite=lax${window.location.protocol === 'https:' ? '; secure' : ''}`;
+        }
         localStorage.setItem('sj_user_v2', JSON.stringify({
           id:        data.user.id,
           email:     data.user.email,

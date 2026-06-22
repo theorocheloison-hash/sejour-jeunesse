@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, Suspense, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { Logo } from '@/app/components/Logo';
 import api from '@/src/lib/api';
 
@@ -30,7 +29,6 @@ function CallbackContent() {
     const token = params.get('token');
     const onboarding = params.get('onboarding');
     const wantsPassword = params.get('needsPassword') === 'true';
-    const refreshTokenParam = params.get('refreshToken');
 
     // Nettoyer le hash de l'URL immédiatement (avant tout traitement)
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -58,11 +56,16 @@ function CallbackContent() {
         role:      payload.role,
       };
 
-      Cookies.set('token', token, { expires: 7, sameSite: 'lax' });
-      if (refreshTokenParam) {
-        localStorage.setItem('liavo-refresh-token', refreshTokenParam);
-      }
       localStorage.setItem('sj_user_v2', JSON.stringify(user));
+
+      // Fallback : si le cookie httpOnly n'a pas été posé par le redirect backend
+      // (ex: proxy Next.js qui avale les Set-Cookie), poser un cookie classique.
+      // Ce cookie sera lu par le JWT strategy (fallback Bearer header via l'interceptor).
+      // Non-httpOnly mais préférable à un magic link cassé. Phase 3 retirera ce fallback
+      // une fois le routing magic link vérifié.
+      if (token && typeof document !== 'undefined') {
+        document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax${window.location.protocol === 'https:' ? '; secure' : ''}`;
+      }
 
       const target = ROLE_ROUTES[user.role] ?? '/dashboard/organisateur';
       const finalDest = onboarding === 'true' ? `${target}?onboarding=true` : target;
