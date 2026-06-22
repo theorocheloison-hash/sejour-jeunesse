@@ -11,6 +11,7 @@ import { CreateAccompagnateurDto } from './dto/create-accompagnateur.dto.js';
 import { SignerAccompagnateurDto } from './dto/signer-accompagnateur.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
+import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -38,6 +39,7 @@ export class AccompagnateurService {
         roleCollaboratif: dto.accesCollaboratif ? (dto.roleCollaboratif ?? 'LECTURE') : null,
         diplome: dto.diplome ?? null,
         qualificationAutre: dto.qualificationAutre ?? null,
+        tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       },
     });
 
@@ -150,6 +152,7 @@ export class AccompagnateurService {
       },
     });
     if (!accompagnateur) throw new NotFoundException('Ordre de mission introuvable');
+    assertTokenNotExpired(accompagnateur.tokenExpiresAt, 'Accompagnateur');
 
     const sejour = accompagnateur.sejour;
     const c = sejour.createur;
@@ -199,6 +202,7 @@ export class AccompagnateurService {
       where: { tokenAcces: token },
     });
     if (!accompagnateur) throw new NotFoundException('Ordre de mission introuvable');
+    assertTokenNotExpired(accompagnateur.tokenExpiresAt, 'Accompagnateur');
     if (accompagnateur.signeeAt) throw new ConflictException('Cet ordre de mission a déjà été signé');
 
     return this.prisma.accompagnateurMission.update({

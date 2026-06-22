@@ -376,6 +376,7 @@ model AutorisationParentale {
   emailEnvoye       Boolean   @default(false) @map("email_envoye")
   champsPersonnalises Json?   @map("champs_personnalises")
   sourceInscription String?   @map("source_inscription") @db.VarChar(20)
+  tokenExpiresAt    DateTime? @map("token_expires_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
   sejour  Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
@@ -409,6 +410,7 @@ model AccompagnateurMission {
   // qualificationAutre : précision libre si diplome = AUTRE ou complément
   diplome             String?  @map("diplome") @db.VarChar(50)
   qualificationAutre  String?  @map("qualification_autre") @db.VarChar(255)
+  tokenExpiresAt      DateTime? @map("token_expires_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
 

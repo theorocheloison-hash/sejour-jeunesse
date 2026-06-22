@@ -12,6 +12,7 @@ export class JournalPublicController {
       where: { tokenAcces: token },
       select: {
         id: true,
+        tokenExpiresAt: true,
         elevePrenom: true,
         eleveNom: true,
         sejour: {
@@ -53,6 +54,9 @@ export class JournalPublicController {
     });
 
     if (!autorisation) throw new NotFoundException('Lien invalide ou expiré');
+    if (autorisation.tokenExpiresAt && autorisation.tokenExpiresAt < new Date()) {
+      throw new NotFoundException('Lien invalide ou expiré');
+    }
     return autorisation;
   }
 }

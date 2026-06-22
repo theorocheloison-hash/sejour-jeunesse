@@ -12,6 +12,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
+import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -74,6 +75,7 @@ export class AutorisationService {
         eleveNom: dto.eleveNom,
         elevePrenom: dto.elevePrenom,
         parentEmail: dto.parentEmail,
+        tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       },
     });
 
@@ -106,6 +108,7 @@ export class AutorisationService {
         eleveNom: dto.eleveNom,
         elevePrenom: dto.elevePrenom,
         parentEmail: dto.parentEmail,
+        tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       },
     });
   }
@@ -192,6 +195,7 @@ export class AutorisationService {
       },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    assertTokenNotExpired(autorisation.tokenExpiresAt, 'Autorisation');
 
     const sejour = autorisation.sejour;
     const hebergement = sejour.hebergements[0] ?? null;
@@ -234,6 +238,7 @@ export class AutorisationService {
       where: { tokenAcces: token },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    assertTokenNotExpired(autorisation.tokenExpiresAt, 'Autorisation');
     if (autorisation.signeeAt)
       throw new ConflictException('Cette autorisation a déjà été signée');
 
@@ -270,6 +275,7 @@ export class AutorisationService {
       where: { tokenAcces: token },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    assertTokenNotExpired(autorisation.tokenExpiresAt, 'Autorisation');
 
     const isAssurance = type === 'assurance';
     const folder = isAssurance ? 'attestations-assurance' : 'documents-medicaux';
@@ -397,6 +403,7 @@ export class AutorisationService {
         elevePrenom: prenom,
         parentEmail,
         sourceInscription: 'CSV',
+        tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       };
       if (colTaille !== -1 && cols[colTaille]?.trim()) {
         const v = parseInt(cols[colTaille].trim(), 10);
@@ -508,6 +515,7 @@ export class AutorisationService {
             eleveDateNaissance: parseDateOrNull(p.eleveDateNaissance),
             sourceInscription: 'SAISIE_DIRECTE',
             emailEnvoye: false,
+            tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
             ...(p.champsPersonnalises != null
               ? { champsPersonnalises: p.champsPersonnalises as Prisma.InputJsonValue }
               : {}),
@@ -596,6 +604,20 @@ export class AutorisationService {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     if (autorisation.signeeAt !== null)
       throw new ForbiddenException('Impossible de supprimer une autorisation signée');
+
+    // Suppression des fichiers OVH associés (fire-and-forget — ne doit pas bloquer
+    // la suppression). storage.delete() prend une URL et extrait la clé en interne.
+    const urlsToDelete = [
+      autorisation.documentMedicalUrl,
+      autorisation.attestationAssuranceUrl,
+    ].filter(Boolean) as string[];
+    for (const url of urlsToDelete) {
+      try {
+        await this.storage.delete(url);
+      } catch (err) {
+        console.error(`[deleteAutorisation] Échec suppression fichier ${url}:`, err);
+      }
+    }
 
     // Les EleveGroupe liés sont supprimés en cascade (onDelete: Cascade).
     await this.prisma.autorisationParentale.delete({ where: { id } });
