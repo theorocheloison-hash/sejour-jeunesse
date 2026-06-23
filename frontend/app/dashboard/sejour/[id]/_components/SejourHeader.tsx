@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { updateInfosSejour, deleteSejourDirect } from '@/src/lib/collaboration';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
@@ -52,6 +52,7 @@ export default function SejourHeader({
   onError,
   onDeleted,
 }: SejourHeaderProps) {
+  const router = useRouter();
   const isHebergeur = user.role === 'HEBERGEUR';
   const isDirector = user.role === 'SIGNATAIRE';
   const sejourStatut = sejour?.statut ?? 'DRAFT';
@@ -150,15 +151,23 @@ export default function SejourHeader({
     /* ── Barre de contexte sticky (remplace l'ancienne topbar pour tous les rôles) */
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between gap-4 print:hidden">
       <div className="flex items-center gap-3 min-w-0">
-        <Link
-          href={retourHref}
+        <button
+          onClick={() => {
+            // Si l'utilisateur a un historique de navigation dans l'app, revenir en arrière.
+            // Sinon (accès direct par URL), fallback vers la page par défaut.
+            if (window.history.length > 1 && document.referrer) {
+              router.back();
+            } else {
+              router.push(retourHref);
+            }
+          }}
           className="shrink-0 text-gray-400 hover:text-gray-700 transition-colors"
           aria-label="Retour"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
-        </Link>
+        </button>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate flex items-center">
             <span className="truncate">{sejour?.titre ?? '—'}</span>
