@@ -16,6 +16,7 @@ export const SOUS_TYPES_SEJOUR = [
   { value: 'COLONIE_VACANCES', label: 'Colonie de vacances' },
   { value: 'CAMP_SPORTIF', label: 'Camp sportif' },
   { value: 'SEJOUR_LINGUISTIQUE', label: 'Séjour linguistique' },
+  { value: 'SEJOUR_ETUDIANT', label: 'Séjour étudiant' },
   { value: 'AUTRE_SEJOUR', label: 'Autre séjour' },
 ];
 
