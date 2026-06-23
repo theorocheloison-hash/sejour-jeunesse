@@ -174,6 +174,7 @@ export default function HebergeurProfilPage() {
         ville: form.ville,
         telephone: form.telephone || undefined,
         email: form.email || undefined,
+        siret: form.siret || undefined,
         tvaIntracommunautaire: form.tvaIntracommunautaire || undefined,
         iban: form.iban || undefined,
         equipements: form.equipements,
