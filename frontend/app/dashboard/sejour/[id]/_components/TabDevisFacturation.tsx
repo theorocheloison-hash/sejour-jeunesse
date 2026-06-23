@@ -22,6 +22,9 @@ import {
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
 import OrganisationSearch from '@/src/components/OrganisationSearch';
 import type { OrganisationResult } from '@/src/components/OrganisationSearch';
+import CatalogueSuggestionInput from '@/src/components/CatalogueSuggestionInput';
+import { getCatalogue } from '@/src/lib/centre';
+import type { ProduitCatalogue } from '@/src/lib/centre';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -250,10 +253,10 @@ export default function TabDevisFacturation({
     destinataireVille: '',
     destinataireSiret: '',
     destinataireEmail: '',
-    tauxTva: 0,
     description: '',
     lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
   });
+  const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [compLoading, setCompLoading] = useState(false);
   const [compError, setCompError] = useState<string | null>(null);
   const [compFacturerLoading, setCompFacturerLoading] = useState<string | null>(null); // id du devis en cours
@@ -301,6 +304,12 @@ export default function TabDevisFacturation({
       .catch(() => {})
       .finally(() => setDirectDevisLoading(false));
   }, [isDirect, sejourId, loadComplementaires]);
+
+  // Catalogue produits pour l'autocomplete des lignes (HEBERGEUR uniquement, comme le devis principal).
+  useEffect(() => {
+    if (!isDirect) return; // Pas de catalogue en mode collab
+    getCatalogue().then(setCatalogue).catch(() => {});
+  }, [isDirect]);
 
   // Devis actif (DIRECT ou COLLAB) normalisé pour le pipeline facturation
   const activeDevisForFacturation = isDirect
@@ -602,7 +611,7 @@ export default function TabDevisFacturation({
     setCompForm(f => ({ ...f, lignes: [...f.lignes, { description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }] }));
   const removeCompLigne = (index: number) =>
     setCompForm(f => ({ ...f, lignes: f.lignes.filter((_, i) => i !== index) }));
-  const updateCompLigne = (index: number, field: 'description' | 'quantite' | 'prixUnitaire', value: string) =>
+  const updateCompLigne = (index: number, field: 'description' | 'quantite' | 'prixUnitaire' | 'tva', value: string) =>
     setCompForm(f => ({
       ...f,
       lignes: f.lignes.map((l, i) => i === index
@@ -610,15 +619,33 @@ export default function TabDevisFacturation({
         : l),
     }));
 
+  /**
+   * Sélection d'un produit catalogue : remplit description + prix TTC + TVA de la ligne
+   * en un seul setState (sinon les closures React s'écraseraient). Identique au devis principal.
+   */
+  const selectCompProduit = (index: number, produit: ProduitCatalogue) =>
+    setCompForm(f => ({
+      ...f,
+      lignes: f.lignes.map((l, i) => i === index
+        ? {
+            ...l,
+            description: produit.nom,
+            prixUnitaire: produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100)),
+            tva: produit.tva ?? 0,
+          }
+        : l),
+    }));
+
   const calcCompTotaux = () => {
     return compForm.lignes.map(l => {
       // L'utilisateur saisit un prix TTC (cohérent avec les autres builders). Le HT est
       // dérivé. prixUnitaire est stocké HT en base (convention backend, RÈGLE 4).
+      // TVA par ligne, comme le devis principal.
       const puTTC = l.prixUnitaire;
-      const puHT = round2(puTTC / (1 + compForm.tauxTva / 100));
+      const puHT = round2(puTTC / (1 + l.tva / 100));
       const totalTTC = round2(puTTC * l.quantite);
       const totalHT = round2(puHT * l.quantite);
-      return { ...l, prixUnitaire: puHT, tva: compForm.tauxTva, totalHT, totalTTC };
+      return { ...l, prixUnitaire: puHT, totalHT, totalTTC };
     });
   };
 
@@ -628,7 +655,7 @@ export default function TabDevisFacturation({
     setCompForm({
       destinataireNom: '', destinataireAdresse: '', destinataireCodePostal: '',
       destinataireVille: '', destinataireSiret: '', destinataireEmail: '',
-      tauxTva: 0, description: '',
+      description: '',
       lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
     });
     setCompSelectedOrg(null);
@@ -645,6 +672,10 @@ export default function TabDevisFacturation({
       setCompError('Ajoutez au moins une ligne avec un montant');
       return;
     }
+    // Taux de TVA du devis dérivé en moyenne pondérée des lignes (comme le devis principal).
+    const totalHT = lignesCalculees.reduce((s, l) => s + l.totalHT, 0);
+    const totalTVA = lignesCalculees.reduce((s, l) => s + (l.totalTTC - l.totalHT), 0);
+    const tauxTvaDevis = totalHT > 0 ? round2((totalTVA / totalHT) * 100) : 0;
     setCompLoading(true);
     setCompError(null);
     try {
@@ -656,7 +687,7 @@ export default function TabDevisFacturation({
         destinataireVille: compForm.destinataireVille || undefined,
         destinataireSiret: compForm.destinataireSiret || undefined,
         destinataireEmail: compForm.destinataireEmail || undefined,
-        tauxTva: compForm.tauxTva,
+        tauxTva: tauxTvaDevis,
         description: compForm.description || undefined,
         lignes: lignesCalculees,
       });
@@ -1986,16 +2017,6 @@ export default function TabDevisFacturation({
             <div className="mt-5 border-t border-gray-100 pt-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-gray-700">Prestations</p>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500">TVA</label>
-                  <select value={compForm.tauxTva} onChange={e => setCompForm(f => ({ ...f, tauxTva: Number(e.target.value) }))}
-                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs">
-                    <option value={0}>0 %</option>
-                    <option value={5.5}>5,5 %</option>
-                    <option value={10}>10 %</option>
-                    <option value={20}>20 %</option>
-                  </select>
-                </div>
               </div>
               <table className="w-full text-xs">
                 <thead>
@@ -2003,6 +2024,7 @@ export default function TabDevisFacturation({
                     <th className="py-1 font-medium">Description</th>
                     <th className="py-1 font-medium w-16 text-right">Qté</th>
                     <th className="py-1 font-medium w-24 text-right">PU TTC</th>
+                    <th className="py-1 font-medium w-16 text-right">TVA %</th>
                     <th className="py-1 font-medium w-24 text-right">Total TTC</th>
                     <th className="w-8"></th>
                   </tr>
@@ -2011,13 +2033,23 @@ export default function TabDevisFacturation({
                   {calcCompTotaux().map((l, i) => (
                     <tr key={i}>
                       <td className="py-1 pr-2">
-                        <input value={compForm.lignes[i].description} onChange={e => updateCompLigne(i, 'description', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" placeholder="ex: Activités ski" />
+                        <CatalogueSuggestionInput
+                          value={compForm.lignes[i].description}
+                          onChange={v => updateCompLigne(i, 'description', v)}
+                          catalogue={catalogue}
+                          onSelect={p => selectCompProduit(i, p)}
+                          placeholder="ex: Activités ski"
+                          className="w-full rounded border border-gray-300 px-2 py-1"
+                        />
                       </td>
                       <td className="py-1">
                         <input type="number" min={0} value={compForm.lignes[i].quantite} onChange={e => updateCompLigne(i, 'quantite', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
                       </td>
                       <td className="py-1">
                         <input type="number" min={0} step="0.01" value={compForm.lignes[i].prixUnitaire} onChange={e => updateCompLigne(i, 'prixUnitaire', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
+                      </td>
+                      <td className="py-1">
+                        <input type="number" min={0} step="0.1" value={compForm.lignes[i].tva} onChange={e => updateCompLigne(i, 'tva', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
                       </td>
                       <td className="py-1 text-right font-medium">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
                       <td className="py-1 text-center">
@@ -2029,7 +2061,15 @@ export default function TabDevisFacturation({
                   ))}
                 </tbody>
               </table>
-              <button onClick={addCompLigne} className="mt-2 text-xs text-[var(--color-primary)] hover:underline">+ Ajouter une ligne</button>
+              <button
+                onClick={addCompLigne}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-300 py-2.5 text-sm font-medium text-gray-500 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ajouter une ligne
+              </button>
 
               <div className="mt-3 flex justify-end">
                 <div className="text-sm font-bold">

@@ -10,6 +10,7 @@ import { getCatalogue, getMonProfil } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 import { getSejourCollabInfo } from '@/src/lib/collaboration';
 import { formatParticipants } from '@/src/lib/utils';
+import CatalogueSuggestionInput from '@/src/components/CatalogueSuggestionInput';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -73,8 +74,6 @@ function NouveauDevisContent() {
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [showCatalogueDropdown, setShowCatalogueDropdown] = useState(false);
   const [catalogueSearch, setCatalogueSearch] = useState('');
-  const [activeDescriptionKey, setActiveDescriptionKey] = useState<string | null>(null);
-  const [descriptionSearch, setDescriptionSearch] = useState('');
 
   // Acompte
   const [pourcentageAcompte, setPourcentageAcompte] = useState(30);
@@ -219,8 +218,6 @@ function NouveauDevisContent() {
         ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva) }
         : l
     ));
-    setActiveDescriptionKey(null);
-    setDescriptionSearch('');
   }, []);
 
   // ── Submit ──
@@ -511,47 +508,15 @@ function NouveauDevisContent() {
               return (
                 <Fragment key={l.key}>
                 <div className="grid grid-cols-12 gap-2 items-center py-2 border-b border-gray-50 group">
-                  <div className="col-span-12 sm:col-span-3 relative">
-                    <input
-                      value={activeDescriptionKey === l.key ? descriptionSearch : l.description}
-                      onChange={(e) => {
-                        setActiveDescriptionKey(l.key);
-                        setDescriptionSearch(e.target.value);
-                        updateLigne(l.key, 'description', e.target.value);
-                      }}
-                      onFocus={() => {
-                        setActiveDescriptionKey(l.key);
-                        setDescriptionSearch(l.description);
-                      }}
-                      onBlur={() => setTimeout(() => {
-                        setActiveDescriptionKey(null);
-                        setDescriptionSearch('');
-                      }, 150)}
+                  <div className="col-span-12 sm:col-span-3">
+                    <CatalogueSuggestionInput
+                      value={l.description}
+                      onChange={(v) => updateLigne(l.key, 'description', v)}
+                      catalogue={catalogue}
+                      onSelect={(p) => selectProduitForLigne(l.key, p)}
                       placeholder="Description"
                       className="w-full text-sm border-0 border-b border-transparent focus:border-indigo-400 focus:ring-0 px-0 py-1 bg-transparent"
                     />
-                    {activeDescriptionKey === l.key && descriptionSearch.length >= 2 && (() => {
-                      const results = catalogue.filter(p =>
-                        p.nom.toLowerCase().includes(descriptionSearch.toLowerCase())
-                      );
-                      if (results.length === 0) return null;
-                      return (
-                        <div className="absolute left-0 top-8 z-50 w-96 bg-white rounded-xl border border-gray-200 shadow-lg max-h-48 overflow-y-auto">
-                          {results.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => selectProduitForLigne(l.key, p)}
-                              className="w-full flex items-start justify-between gap-2 px-3 py-2 text-left hover:bg-[var(--color-primary-light)] border-b border-gray-50 last:border-0"
-                            >
-                              <span className="text-sm text-gray-900 line-clamp-2">{p.nom}</span>
-                              <span className="text-xs text-gray-500 shrink-0 ml-2">{((p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100)))).toFixed(2)} € TTC</span>
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })()}
                   </div>
                   <div className="col-span-4 sm:col-span-2">
                     <input value={l.quantite} onChange={(e) => updateLigne(l.key, 'quantite', e.target.value)}
