@@ -1052,8 +1052,8 @@ function ClientsPage() {
 
       {/* Modale nouveau client */}
       {showNewClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowNewClient(false); setSelectedOrg(null); setClientType('PROFESSIONNEL'); }}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-4">Nouveau client</h2>
 
             {/* Toggle Particulier / Professionnel */}
@@ -1288,8 +1288,8 @@ function ClientsPage() {
       )}
 
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImport(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-4">Importer des prospects</h2>
             <p className="text-sm text-gray-500 mb-4">Import depuis l&apos;annuaire de l&apos;Éducation Nationale par académie.</p>
             <div className="space-y-3">

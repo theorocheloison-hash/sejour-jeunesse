@@ -286,8 +286,8 @@ function HebergeursTab() {
 
       {/* Refus modal */}
       {showRefusModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowRefusModal(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Refuser l&apos;hébergeur</h3>
             <textarea
               value={motifRefus}
@@ -860,8 +860,8 @@ function ClaimsCentresTab() {
 
       {/* Refus modal */}
       {refusFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRefusFor(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">Refuser le claim</h3>
             <p className="text-xs text-gray-500 mb-3">La raison sera transmise à l&apos;hébergeur.</p>
             <textarea

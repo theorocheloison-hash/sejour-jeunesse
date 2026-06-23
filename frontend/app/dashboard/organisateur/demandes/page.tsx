@@ -276,10 +276,8 @@ export default function OrganisateurDemandesPage() {
 
       {/* Modale soumettre au directeur */}
       {soumettreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => { setSoumettreModal(null); setSoumettreResult(null); setEmailDirecteur(''); setNeedsEmail(false); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
-            onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h2 className="text-base font-bold text-gray-900 mb-2">Soumettre au directeur</h2>
 
             {soumettreResult ? (

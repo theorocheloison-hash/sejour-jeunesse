@@ -206,8 +206,8 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Inviter un centre</h2>
         {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
         <div className="space-y-3">

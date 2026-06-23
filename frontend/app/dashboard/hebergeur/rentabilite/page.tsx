@@ -624,11 +624,9 @@ export default function HebergeurRentabilitePage() {
       {formOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={closeForm}
         >
           <div
             className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-base font-semibold text-gray-900">

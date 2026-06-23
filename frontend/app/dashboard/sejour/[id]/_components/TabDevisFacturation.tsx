@@ -202,16 +202,6 @@ export default function TabDevisFacturation({
     }
   };
 
-  // Fermeture de la modale d'envoi sur Escape
-  useEffect(() => {
-    if (!showEnvoiModal) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !envoyerLoading) setShowEnvoiModal(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [showEnvoiModal, envoyerLoading]);
-
   // ── Invitation direction (devis collab) ─────────────────────
   const [showInvitationDirection, setShowInvitationDirection] = useState(false);
   const [invitationEmail, setInvitationEmail] = useState('');
@@ -1194,11 +1184,9 @@ export default function TabDevisFacturation({
                 {showEnvoiModal && directDevis && (
                   <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
-                    onClick={() => { if (!envoyerLoading) setShowEnvoiModal(false); }}
                   >
                     <div
                       className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       <h2 className="text-base font-semibold text-gray-900">
                         Envoyer le devis à{' '}
@@ -1750,8 +1738,8 @@ export default function TabDevisFacturation({
 
       {/* ── Modale invitation direction ─── */}
       {showInvitationDirection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setShowInvitationDirection(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             {invitationSent ? (
               <div className="text-center">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-50">
@@ -1871,11 +1859,9 @@ export default function TabDevisFacturation({
       {showModalAvoir && avoirFactureSource && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => setShowModalAvoir(false)}
         >
           <div
             className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
           >
             <div>
               <h3 className="text-lg font-bold text-gray-900">Émettre un avoir</h3>
@@ -1965,8 +1951,8 @@ export default function TabDevisFacturation({
 
       {/* ── Modal création devis complémentaire ─── */}
       {showModalComplementaire && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !compLoading && setShowModalComplementaire(false)}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-1">Nouveau devis complémentaire</h2>
             <p className="text-xs text-gray-400 mb-4">Payeur additionnel facturé à son propre nom.</p>
 

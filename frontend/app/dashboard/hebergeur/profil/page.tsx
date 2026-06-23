@@ -740,8 +740,8 @@ export default function HebergeurProfilPage() {
 
                     {/* Modale confirmation mandat */}
                     {showMandatModal && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowMandatModal(false)}>
-                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md mx-4 p-6">
                           <h3 className="text-base font-bold text-gray-900 mb-4">Accepter le mandat de facturation</h3>
                           <p className="text-sm text-gray-600 mb-4">
                             Avant d&apos;accepter, veuillez prendre connaissance du mandat de facturation qui autorise LIAVO à émettre des factures Chorus Pro en votre nom.

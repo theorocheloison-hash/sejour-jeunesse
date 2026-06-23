@@ -2167,8 +2167,8 @@ export default function CollaborationPage() {
 
             {/* Modale groupe (HEBERGEUR uniquement) */}
             {groupeModal?.open && user.role === 'HEBERGEUR' && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setGroupeModal(null)}>
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
                   <h2 className="text-sm font-semibold text-gray-900 mb-4">{groupeModal.editId ? 'Modifier le groupe' : 'Nouveau groupe'}</h2>
                   <div className="space-y-3">
                     <div>
@@ -3567,10 +3567,8 @@ export default function CollaborationPage() {
 
         {/* ── Modale planning (création/édition) ─── */}
         {planModal?.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-            onClick={() => setPlanModal(null)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
-              onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-gray-900">
                   {planModal.editId ? 'Modifier l\'activité' : 'Ajouter une activité'}
