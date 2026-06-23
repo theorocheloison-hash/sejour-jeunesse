@@ -8,6 +8,7 @@ import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-stat
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
 import CreateSejourModal, { normalise } from '@/app/dashboard/_shared/CreateSejourModal';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getJourFerie, getVacancesZones, isCalendrierPerime } from '@/src/data/calendrier-france';
 
 // Style de hachures diagonales appliqué aux statuts OPTION / INDISPONIBLE
 const HACHURES_BG = `repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 8px)`;
@@ -413,6 +414,17 @@ function PlanningContent() {
       </nav>
 
       <main className="px-4 py-4">
+        {/* Alerte maintenance (admin uniquement) : données vacances bientôt expirées */}
+        {user.role === 'ADMIN' && isCalendrierPerime() && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-2">
+            <span className="shrink-0">⚠️</span>
+            <span>
+              Les données de vacances scolaires arrivent à expiration (dernière période couverte jusqu&apos;au{' '}
+              <strong>1er septembre 2027</strong>). Pensez à mettre à jour{' '}
+              <code className="rounded bg-amber-100 px-1 py-0.5 text-xs">src/data/calendrier-france.ts</code>.
+            </span>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
@@ -467,15 +479,24 @@ function PlanningContent() {
             <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="w-14 shrink-0 border-r border-gray-100" />
               {viewDays.map((day, di) => {
-                const isToday = dateStr(new Date()) === dateStr(day);
+                const ds = dateStr(day);
+                const isToday = dateStr(new Date()) === ds;
+                const jourFerie = getJourFerie(ds);
+                const vacances = getVacancesZones(ds);
                 return (
-                  <div key={di} className={`flex-1 border-r border-gray-100 last:border-0 text-center py-2 ${isToday ? 'bg-blue-50' : ''}`}>
+                  <div key={di} className={`flex-1 border-r border-gray-100 last:border-0 text-center py-2 ${isToday ? 'bg-blue-50' : jourFerie ? 'bg-red-50' : ''}`}>
                     <p className={`text-xs font-medium ${isToday ? 'text-[var(--color-primary)]' : 'text-gray-500'}`}>
                       {day.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase()}
                     </p>
                     <p className={`text-sm font-bold ${isToday ? 'text-[var(--color-primary)]' : 'text-gray-900'}`}>
                       {day.getDate()}
                     </p>
+                    {jourFerie && (
+                      <p className="text-[9px] text-red-500 font-medium truncate px-0.5">{jourFerie}</p>
+                    )}
+                    {vacances && (
+                      <p className="text-[9px] text-purple-500 truncate px-0.5">Vac. {vacances.zones}</p>
+                    )}
                   </div>
                 );
               })}
@@ -498,11 +519,12 @@ function PlanningContent() {
                 const isToday = dateStr(new Date()) === ds;
                 const disposJour = disposForDay(ds);
                 const sejoursJour = sejoursForDay(ds);
+                const vacances = getVacancesZones(ds);
 
                 return (
                   <div
                     key={di}
-                    className={`flex-1 border-r border-gray-100 last:border-0 relative cursor-pointer ${isToday ? 'bg-blue-50/30' : ''}`}
+                    className={`flex-1 border-r border-gray-100 last:border-0 relative cursor-pointer ${isToday ? 'bg-blue-50/30' : vacances ? 'bg-purple-50/30' : ''}`}
                     style={{ height: totalHeight }}
                     onClick={() => handleCellClick(ds)}
                   >
@@ -596,15 +618,23 @@ function PlanningContent() {
                     const isToday = ds === dateStr(new Date());
                     const sj = sejoursForDay(ds);
                     const disposJour = disposForDay(ds);
+                    const jourFerie = getJourFerie(ds);
+                    const vacances = getVacancesZones(ds);
                     return (
                       <div
                         key={di}
-                        className={`h-24 border-r border-gray-100 last:border-0 p-1 overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-blue-50' : ''}`}
+                        className={`h-24 border-r border-gray-100 last:border-0 p-1 overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-blue-50' : jourFerie ? 'bg-red-50' : vacances ? 'bg-purple-50/40' : ''}`}
                         onClick={() => handleCellClick(ds)}
                       >
-                        <p className={`text-xs font-medium mb-1 ${isToday ? 'text-[var(--color-primary)] font-bold' : 'text-gray-600'}`}>
+                        <p className={`text-xs font-medium ${isToday ? 'text-[var(--color-primary)] font-bold' : 'text-gray-600'}`}>
                           {day.getDate()}
                         </p>
+                        {jourFerie && (
+                          <span className="block text-[10px] text-red-500 font-medium truncate leading-tight">{jourFerie}</span>
+                        )}
+                        {vacances && (
+                          <span className="block text-[9px] text-purple-500 font-medium truncate leading-tight mb-0.5">Vac. {vacances.zones}</span>
+                        )}
                         {disposJour.length > 0 && (
                           <div
                             className="text-xs rounded px-1 truncate mb-0.5"
