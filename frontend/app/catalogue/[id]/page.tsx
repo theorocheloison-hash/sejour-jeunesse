@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import api from '@/src/lib/api';
 import { getHebergementPublic } from '@/src/lib/hebergement';
 import type { Hebergement } from '@/src/lib/hebergement';
@@ -22,15 +21,15 @@ export default function CentrePublicPage() {
   // appelle le claim si hébergeur, sinon invite à se connecter en hébergeur.
   const handleClaim = async () => {
     if (!centre) return;
-    const token = Cookies.get('token');
-    if (!token) {
+    const storedUser = localStorage.getItem('sj_user_v2');
+    if (!storedUser) {
       window.location.href =
         `/register/hebergeur?claimCatalogueId=${encodeURIComponent(centre.id)}` +
         `&claimCentreNom=${encodeURIComponent(centre.nom)}`;
       return;
     }
     let role: string | null = null;
-    try { role = JSON.parse(localStorage.getItem('sj_user_v2') ?? 'null')?.role ?? null; } catch {}
+    try { role = JSON.parse(storedUser)?.role ?? null; } catch {}
     if (role !== 'HEBERGEUR') {
       setClaimState('error');
       setClaimMsg('Connectez-vous avec un compte hébergeur pour revendiquer ce centre.');
@@ -59,9 +58,8 @@ export default function CentrePublicPage() {
 
   useEffect(() => {
     try {
-      const token = Cookies.get('token');
       const role = JSON.parse(localStorage.getItem('sj_user_v2') ?? 'null')?.role ?? null;
-      setIsHebergeur(!!token && role === 'HEBERGEUR');
+      setIsHebergeur(role === 'HEBERGEUR');
     } catch { /* ignore */ }
   }, []);
 

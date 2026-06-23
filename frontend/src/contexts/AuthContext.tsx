@@ -9,18 +9,15 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import axios from 'axios';
 import api from '@/src/lib/api';
 import type { User, LoginDto, OrganisationResume } from '@/src/types/auth';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
-const COOKIE_TOKEN = 'token';
 const LS_USER      = 'sj_user_v2';
 const LS_USER_OLD  = 'sj_user';
 const LS_CENTRE_ACTIF = 'liavo-centre-actif';
-const COOKIE_OPTS  = { expires: 7, sameSite: 'lax' as const };
 
 // ─── Multi-centre ─────────────────────────────────────────────────────────────
 
@@ -70,22 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [centreActif, setCentreActifState] = useState<string | null>(null);
   const router                  = useRouter();
 
-  // Restaure la session depuis le cookie + localStorage au montage
+  // Restaure la session depuis localStorage au montage
   useEffect(() => {
     // Migration cache v1 → v2 : forcer re-login si ancien format présent
     const oldStored = localStorage.getItem(LS_USER_OLD);
     if (oldStored && !localStorage.getItem(LS_USER)) {
       localStorage.removeItem(LS_USER_OLD);
-      Cookies.remove(COOKIE_TOKEN);
       setLoading(false);
       return;
     }
 
-    const token = Cookies.get(COOKIE_TOKEN);
-    if (!token) {
-      setLoading(false);
-      return;
-    }
     try {
       const stored = localStorage.getItem(LS_USER);
       if (stored) setUser(JSON.parse(stored) as User);
@@ -150,10 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role:      data.user.role,
     };
 
-    Cookies.set(COOKIE_TOKEN, data.access_token, COOKIE_OPTS);
-    if (data.refresh_token) {
-      localStorage.setItem('liavo-refresh-token', data.refresh_token);
-    }
+    // Les cookies httpOnly (access + refresh) sont posés par le backend
+    // dans le Set-Cookie de la réponse proxiée. On ne stocke que le profil.
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
 
@@ -169,10 +158,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push(redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard');
   }, [router]);
 
-  const logout = useCallback(() => {
-    Cookies.remove(COOKIE_TOKEN);
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Si le logout API échoue (réseau, token expiré), on nettoie quand même côté client
+    }
     localStorage.removeItem(LS_USER);
-    localStorage.removeItem('liavo-refresh-token');
+    localStorage.removeItem('liavo-refresh-token'); // nettoyage résiduel ancien format
     if (typeof window !== 'undefined') localStorage.removeItem(LS_CENTRE_ACTIF);
     setUser(null);
     setCentres([]);

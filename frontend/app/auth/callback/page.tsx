@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, Suspense, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { Logo } from '@/app/components/Logo';
 import api from '@/src/lib/api';
 
@@ -30,7 +29,6 @@ function CallbackContent() {
     const token = params.get('token');
     const onboarding = params.get('onboarding');
     const wantsPassword = params.get('needsPassword') === 'true';
-    const refreshTokenParam = params.get('refreshToken');
 
     // Nettoyer le hash de l'URL immédiatement (avant tout traitement)
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -58,10 +56,8 @@ function CallbackContent() {
         role:      payload.role,
       };
 
-      Cookies.set('token', token, { expires: 7, sameSite: 'lax' });
-      if (refreshTokenParam) {
-        localStorage.setItem('liavo-refresh-token', refreshTokenParam);
-      }
+      // Les cookies httpOnly sont déjà posés par le backend (consommerMagicLink)
+      // via le proxy. On ne stocke que le profil user pour la session restore.
       localStorage.setItem('sj_user_v2', JSON.stringify(user));
 
       const target = ROLE_ROUTES[user.role] ?? '/dashboard/organisateur';
@@ -88,7 +84,7 @@ function CallbackContent() {
     setPending(true);
     setError(null);
     try {
-      // Le cookie `token` est déjà posé → api ajoute le Bearer automatiquement.
+      // Le cookie httpOnly est déjà posé par le backend — envoyé automatiquement.
       await api.post('/auth/set-password', { password });
       router.replace(dest);
     } catch {

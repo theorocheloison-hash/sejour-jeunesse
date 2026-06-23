@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import axios from 'axios';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
@@ -89,9 +88,10 @@ export default function InvitationEquipePage() {
     }
     try {
       const { data } = await api.post('/collaborateurs/register', { token, prenom, nom, password });
-      // Login automatique : on pose le cookie + le cache user, puis full reload
-      // pour que l'AuthProvider ré-hydrate la session (router.push ne remonte pas le provider).
-      Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
+      // Login automatique : cookies httpOnly posés par le backend via
+      // POST /collaborateurs/register (Phase 3). On ne stocke que le profil, puis
+      // full reload pour que l'AuthProvider ré-hydrate la session (router.push ne
+      // remonte pas le provider).
       localStorage.setItem('sj_user_v2', JSON.stringify({
         id: data.user.id,
         email: data.user.email,

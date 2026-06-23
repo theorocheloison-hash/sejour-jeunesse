@@ -2,14 +2,15 @@
 import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.liavo.fr';
-
 export default function MagicLinkPage() {
   const { token } = useParams<{ token: string }>();
 
   useEffect(() => {
     if (token) {
-      window.location.href = `${API_BASE}/auth/magic/${token}`;
+      // Navigation pleine page vers le backend via le proxy rewrite.
+      // Le backend consomme le magic link, pose les cookies httpOnly,
+      // et redirige (302) vers /auth/callback#token=...
+      window.location.href = `/api/auth/magic/${token}`;
     }
   }, [token]);
 

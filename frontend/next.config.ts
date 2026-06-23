@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
   // les chemins du Procfile (cp .next/standalone/.next/static …). cwd = racine de
   // l'app frontend au build (local et Scalingo).
   outputFileTracingRoot: process.cwd(),
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://api.liavo.fr'}/:path*`,
+      },
+    ];
+  },
   async redirects() {
     return [
       // www → apex

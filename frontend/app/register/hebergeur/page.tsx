@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense, type FormEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
@@ -318,6 +317,7 @@ function RegisterHebergeurContent() {
       }
 
       // CAS 1 — invitation admin avec centre existant : POST /centres/register
+      // Les cookies httpOnly sont posés par le backend (Phase 3).
       if (invitationInfo?.cas === 1) {
         const { data } = await api.post('/centres/register', {
           token: urlToken,
@@ -325,7 +325,6 @@ function RegisterHebergeurContent() {
           prenom: form.prenom,
           nomContact: form.nom,
         });
-        Cookies.set('token', data.access_token, { expires: 7, sameSite: 'lax' });
         localStorage.setItem('sj_user_v2', JSON.stringify({
           id:        data.user.id,
           email:     data.user.email,

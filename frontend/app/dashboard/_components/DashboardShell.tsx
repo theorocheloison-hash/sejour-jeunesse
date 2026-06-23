@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { logoutAction } from '../actions';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { Logo } from '@/app/components/Logo';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -31,6 +31,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({ role, title, children }: DashboardShellProps) {
+  const { logout } = useAuth();
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -45,14 +46,13 @@ export default function DashboardShell({ role, title, children }: DashboardShell
             <span className="hidden sm:inline-flex items-center rounded-full bg-[var(--color-primary-light)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)] ring-1 ring-inset ring-[var(--color-primary)]/10">
               {ROLE_LABELS[role] ?? role}
             </span>
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Se déconnecter
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Se déconnecter
+            </button>
           </div>
         </div>
       </nav>

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { getInvitation, registerCentre } from '@/src/lib/centre';
 import type { Invitation } from '@/src/lib/centre';
 
@@ -55,8 +54,15 @@ export default function InscriptionHebergementPage() {
         capacite: parseInt(capacite, 10),
         description: description || undefined,
       });
-      Cookies.set('token', result.access_token, { expires: 7, sameSite: 'lax' });
-      localStorage.setItem('sj_user', JSON.stringify(result.user));
+      // Cookies httpOnly posés par le backend via POST /centres/register (Phase 3).
+      // Fix bug : sj_user → sj_user_v2 (clé correcte attendue par AuthContext).
+      localStorage.setItem('sj_user_v2', JSON.stringify({
+        id:        result.user.id,
+        email:     result.user.email,
+        firstName: result.user.prenom,
+        lastName:  result.user.nom,
+        role:      result.user.role,
+      }));
       router.push('/dashboard/hebergeur');
     } catch {
       setError('Erreur lors de l\'inscription. Vérifiez les informations saisies.');
