@@ -55,6 +55,11 @@ export class CreateSejourDirectDto {
   nombreParticipants!: number;
 
   @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  nombreAccompagnateurs?: number;
+
+  @IsOptional()
   @IsString()
   clientNom?: string;
 

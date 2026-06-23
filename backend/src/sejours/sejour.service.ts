@@ -1085,6 +1085,7 @@ export class SejourService {
         ...(dto.dureeNuits ? { dureeNuits: dto.dureeNuits } : {}),
         placesTotales: dto.nombreParticipants,
         placesRestantes: dto.nombreParticipants,
+        nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
         statut: 'OPTION',
         modeGestion: 'DIRECT',
         natureSejour: dto.natureSejour,

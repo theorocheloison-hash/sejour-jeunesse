@@ -234,6 +234,7 @@ export async function createSejourDirect(dto: {
   dateDebut?: string;
   dateFin?: string;
   nombreParticipants: number;
+  nombreAccompagnateurs?: number;
   clientNom?: string;
   clientPrenom?: string;
   clientEmail?: string;

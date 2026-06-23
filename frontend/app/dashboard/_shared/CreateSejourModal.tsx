@@ -73,6 +73,7 @@ export default function CreateSejourModal({
     dateDebut: initialDates?.dateDebut ?? '',
     dateFin: initialDates?.dateFin ?? '',
     nombreParticipants: '',
+    nombreAccompagnants: '',
     clientNom: initialClient?.nom ?? '',
     clientPrenom: initialClient?.prenom ?? '',
     clientEmail: initialClient?.email ?? '',
@@ -240,6 +241,7 @@ export default function CreateSejourModal({
         dateDebut: datesADefinir ? undefined : form.dateDebut,
         dateFin: datesADefinir ? undefined : form.dateFin,
         nombreParticipants: parseInt(form.nombreParticipants) || 0,
+        nombreAccompagnateurs: parseInt(form.nombreAccompagnants) || undefined,
         clientNom: form.clientNom.trim() || undefined,
         clientPrenom: form.clientPrenom.trim() || undefined,
         clientEmail: form.clientEmail.trim() || undefined,
@@ -362,11 +364,19 @@ export default function CreateSejourModal({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">{labelParticipants}</label>
-            <input type="number" min="0" value={form.nombreParticipants} onChange={set('nombreParticipants')}
-              placeholder="ex: 48"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{labelParticipants}</label>
+              <input type="number" min="0" value={form.nombreParticipants} onChange={set('nombreParticipants')}
+                placeholder="ex: 48"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Accompagnants</label>
+              <input type="number" min="0" value={form.nombreAccompagnants} onChange={set('nombreAccompagnants')}
+                placeholder="ex: 4"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+            </div>
           </div>
 
           <div className="border-t border-gray-100 pt-4">
