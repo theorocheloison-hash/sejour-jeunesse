@@ -316,6 +316,7 @@ export class FactureService {
           data: {
             clientId: sejourClient.clientId,
             centreId,
+            sejourId,
             type: 'FACTURE',
             description,
             metadata,
@@ -898,10 +899,12 @@ export class FactureService {
     const titreSejour =
       facture.devis.demande?.sejour?.titre ?? facture.devis.sejourDirect?.titre ?? 'votre séjour';
 
+    const sujetFacture = `${facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte" : facture.typeFacture === 'AVOIR' ? 'Avoir' : 'Facture de solde'} — ${titreSejour}`;
+
     // Envoyer avec PJ + replyTo centre
     await this.email.sendFactureParEmail(
       dto.email,
-      `${facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte" : facture.typeFacture === 'AVOIR' ? 'Avoir' : 'Facture de solde'} — ${titreSejour}`,
+      sujetFacture,
       `<p>${dto.message.replace(/\n/g, '<br>')}</p>`,
       pdfBuffer,
       `${facture.numero}.pdf`,
@@ -916,7 +919,15 @@ export class FactureService {
       sejourId,
       centre.id,
       `Facture ${facture.numero} envoyée par email à ${dto.email}`,
-      { factureId: facture.id, destinataire: dto.email, type: 'ENVOI_FACTURE' },
+      {
+        factureId: facture.id,
+        destinataire: dto.email,
+        type: 'ENVOI_FACTURE',
+        emailType: 'FACTURE',
+        to: dto.email,
+        subject: sujetFacture,
+        messagePreview: dto.message?.trim().slice(0, 2000) ?? '',
+      },
     );
 
     return { success: true };

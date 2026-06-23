@@ -1379,6 +1379,31 @@ export class SejourService {
       centre.nom,
     );
 
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            sejourId: sejour.id,
+            type: 'EMAIL',
+            description: `Invitation organisateur envoyée à ${emailOrganisateur.trim()}`,
+            metadata: {
+              emailType: 'INVITATION',
+              to: emailOrganisateur.trim(),
+              subject: `${centre.nom} vous invite à collaborer sur un séjour`,
+              messagePreview: '',
+            },
+            userId,
+          },
+        });
+      }
+    } catch { /* non bloquant — jamais faire échouer l'envoi */ }
+
     return { success: true, message: 'Invitation envoyée' };
   }
 }

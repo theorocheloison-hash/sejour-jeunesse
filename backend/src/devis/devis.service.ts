@@ -1320,9 +1320,18 @@ export class DevisService {
           data: {
             clientId: sejourClient.clientId,
             centreId: centre.id,
+            sejourId: sejour.id,
             type: 'DEVIS',
             description: `Devis ${devis.numeroDevis ?? ''} envoyé — ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
-            metadata: { devisId, sejourId: sejour.id },
+            metadata: {
+              devisId,
+              sejourId: sejour.id,
+              emailType: 'DEVIS',
+              to: clientEmail,
+              subject: `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
+              messagePreview: messagePersonnalise?.trim().slice(0, 2000) ?? '',
+            },
+            userId,
           },
         });
       }
@@ -1526,10 +1535,12 @@ export class DevisService {
       data: { conventionUrl },
     });
 
+    const sujetConvention = `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`;
+
     if (built.contactEmail) {
       await this.email.sendGenericNotification(
         built.contactEmail,
-        `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`,
+        sujetConvention,
         `<p>Bonjour${built.contactNom !== 'l\'établissement' ? ` ${built.contactNom}` : ''},</p>
          <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${built.centreNom}.</p>
          <table style="width:100%;border-collapse:collapse;margin:16px 0">
@@ -1560,9 +1571,25 @@ export class DevisService {
           data: {
             clientId: sejourClient.clientId,
             centreId: built.centreId,
+            sejourId: built.sejourId,
             type: 'DEVIS',
-            description: `Convention de séjour générée — ${built.sejourTitre}`,
-            metadata: { devisId, sejourId: built.sejourId, conventionUrl },
+            description: built.contactEmail
+              ? `Convention envoyée — ${built.sejourTitre}`
+              : `Convention générée — ${built.sejourTitre}`,
+            metadata: {
+              devisId,
+              sejourId: built.sejourId,
+              conventionUrl,
+              ...(built.contactEmail
+                ? {
+                    emailType: 'CONVENTION',
+                    to: built.contactEmail,
+                    subject: sujetConvention,
+                    messagePreview: '',
+                  }
+                : {}),
+            },
+            userId,
           },
         });
       }
