@@ -1,102 +1,63 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 16/06/2026 soir — Session marathon facturation + UX + catalogue + arrondi
+> Dernière mise à jour : 23/06/2026 — LOT 4a complet (3 phases). Migration httpOnly cookies terminée.
 
 ---
 
-## COMMITS SESSION 16/06/2026
+## COMMITS SESSION 23/06/2026
 
 | Commit | Description |
 |---|---|
-| `564a85a` | feat(facturation): découplage émission/envoi factures — suppression email auto DIRECT, notif COLLAB conservée, POST /factures/:id/envoyer avec PDF PJ |
-| `6f9f648` | feat(facturation): bouton "Envoyer par email" + modale saisie email/message sur chaque facture |
-| *(merged)* | fix(facturation): routage auto versements POST /factures/versements { devisId } + re-balance overflow acompte→solde à l'émission du solde |
-| *(merged)* | fix(frontend): suppression short-circuit stale factures + reload devis après versement |
-| *(merged)* | refactor(devis-page): cartes facturées simplifiées + suppression code mort suivi paiement (−325 lignes) |
-| *(merged)* | fix(factur-x): ajout BT-10 BuyerReference + BG-16 PaymentMeans/IBAN (conformité EN 16931) |
-| `399b598` | docs: ajout docs architecture, commercial, juridique, roadmaps, prompts CC — gitignore audits sécu |
-| `60f1396` | feat(sejours): tri par date — séjours à venir en premier |
-| *(batch)* | feat(dashboard): KPIs cliquables — onglets À facturer et Impayés |
-| *(batch)* | fix(catalogue): dédup searchPublic par apidaeId + garde-fou materialiserCentreEN |
-| *(batch)* | fix(impayés): exclure les acomptes validés du filtre impayés (3 sites) |
-| `7816beb` | feat(facturation): ajustement devis après acompte — lien Ajuster avant solde + bandeau + garde-fou |
-| `abc2191` | fix(arrondi): TTC-first + round2 payload dans tous les builders devis + facture.service — 5 fichiers |
+| `391291f` | feat(auth): LOT 4a Phase 3 backend — `auth-cookies.ts` helper partagé, `setAuthCookies` sur `centres/register` + `collaborateurs/register`, refresh token rotatif 30j. Backward compatible. |
+| `28cb4da` | fix(auth): LOT 4a Phase 2 frontend — proxy rewrite `/api/*` → `api.liavo.fr/*`, suppression js-cookie, baseURL `/api`, refresh sans body, fix bug `sj_user`→`sj_user_v2`, DashboardShell migré `useAuth().logout()`, suppression code mort. 15 fichiers. |
 
 ---
 
-## TRAVAUX RÉALISÉS SESSION 16/06/2026 (suite après-midi/soir)
+## COMMITS SESSION 22/06/2026
 
-### 8. Fix doublon catalogue Le Choucas
-
-**Problème** : "Centre de vacances Le Choucas" (LMDJ_WEB en base) + "centre de montagne le choucas" (API EN live) = doublon affiché dans le catalogue. La dédup searchPublic ne matchait que par nom+ville normalisés (noms différents). Risque : un enseignant clique le résultat API EN → materialiserCentreEN crée un vrai doublon en base.
-
-**Fix** (centre.service.ts, 2 modifications) :
-- searchPublic : dédup par apidaeId en plus de nom+ville (nouveau Set prismaApidaeIds)
-- materialiserCentreEN : retrait du filtre `source: 'API_EN'` + garde-fou ville (évite collision d'IDs APIDAE/EN)
-- Data : UPDATE apidae_id = '89512731' sur la fiche Le Choucas (identifiant EN récupéré via API)
-
-### 9. Fix impayés faux positifs
-
-**Problème** : Marie BRIENNE apparaissait dans "Impayés" (FA-2026-0013, 2102.10€ facturé, 2100€ versé, acompteVerse=true). Écart 2.10€ = arrondi bancaire. Le filtre comparait strictement montantVerseTotal < montantFacture sans tenir compte du flag acompteVerse.
-
-**Fix** (3 fichiers) : exclure les factures ACOMPTE dont acompteVerse === true du calcul impayés.
-- devis/page.tsx : helper resteImpaye
-- page.tsx : KPI Impayés  
-- centre.service.ts : getDashboardGlobal facturesImpayees (ajout acompteVerse au select)
-
-### 10. Ajustement devis après acompte (avant solde)
-
-**Problème** : le frontend masquait le bouton "Modifier" dès qu'une facture existait. L'hébergeur ne pouvait pas ajuster les lignes du devis (ex: 72 personnes au lieu de 80) avant de facturer le solde. Le backend supportait déjà la modification (updateDevis accepte SELECTIONNE/SIGNE_DIRECTION).
-
-**Fix** (3 fichiers frontend) :
-- devis/page.tsx : lien "Ajuster avant solde" (amber) sur cartes facturées si fa && !fs && statut signé
-- TabDevisFacturation.tsx : même lien aux 2 emplacements (direct l.1272 + collab l.1601)
-- modifier/page.tsx : bandeau ⚠️ "facture acompte émise" + garde-fou rouge si total < acompte
-
-### 11. Fix arrondi monétaire TTC-first (systémique)
-
-**Problème** : 6 devis sur 74 avaient des artéfacts float (12312.802, 22019.38..., 6000.01). Cause : sommes de lignes non round2'd avant envoi + certains builders calculaient TTC depuis HT au lieu de TTC saisi.
-
-**Fix** (5 fichiers, +70 −43) :
-- nouveau/page.tsx : round2 sur montantHT/montantTTC accumulés dans le payload
-- modifier/page.tsx : idem + pré-remplissage prix via round2(totalTTC/quantite) pour idempotence
-- TabDevisFacturation.tsx : complémentaires basculés TTC-first (label PU HT → PU TTC, formule inversée)
-- inviter-enseignant/page.tsx : brouillon devis basculé TTC-first
-- facture.service.ts : helper round2 + arrondi sur montantFacture dans emettreAcompte/Solde/Total/Avoir
-
-Convention confirmée : l'hébergeur saisit TTC partout. HT = dérivé. prixUnitaire stocké HT en base (inchangé).
-
-### 12. Data fixes SQL prod (arrondi)
-
-- 3 devis corrigés : DEV-2026-003 (12312.80), DEV-2026-0003 (22019.38), DEV-2026-0004/Juliette (6000.00)
-- Facture FS-2026-0038 + lignes associées corrigées (Juliette)
+| Commit | Description |
+|---|---|
+| `a99ea29` | fix(security): LOT 3c/3d/3e — token expiration AutorisationParentale + AccompagnateurMission, storage cleanup on delete |
+| *(22/06)* | feat(security): LOT 3f — SecureFileLink migration 15 call sites |
+| `5d97896` | feat(security): LOT 4 quick wins — Helmet HSTS, CORS cleanup, login anti-enumeration, Multer limits, siteWeb XSS |
+| `a947f2e` | feat(auth): LOT 4a Phase 1 — cookie-parser, cookieThenBearerExtractor dual, setAuthCookies httpOnly, POST /auth/logout |
+| *(22/06)* | fix(security): LOT 5a/5b/5c — purge IBAN git, IBAN dynamique contrat, .gitignore .env.production |
 
 ---
 
-## ÉTAT PROD AU 16/06/2026 SOIR
+## ÉTAT PROD AU 23/06/2026
 
-### Bugs connus
-- Aucun bug bloquant identifié
-- Impayés : 1 vrai (Jean-Baptiste et Amélie, acompte en attente de paiement)
+### Sécurité — bilan
 
-### Infra
-- Scalingo : 2× M (512Mo) + PostgreSQL Starter 512M = 36€ HT/mois
-- OVH Object Storage : bucket `liavo-uploads`, CORS configuré
-- Brevo : DKIM/DMARC configurés, pièces jointes supportées
+| Sévérité | Trouvés | Fixé | Reste |
+|----------|---------|------|-------|
+| CRITIQUE | 6       | 6    | 0     |
+| HAUTE    | 10      | 10   | 0     |
+| MOYENNE  | 14      | 14   | 0     |
+| BASSE    | 4       | 4    | 0     |
 
-### Données Sauvageon en prod
-- ~63 séjours/événements (mariages + anniversaires + séminaires)
-- ~40 factures émises (acompte + solde)
-- Factur-X EN 16931 validé
-- 7 devis forcés SELECTIONNE (mariages 2026-2027 déjà signés)
-- Données arrondies propres (6 devis corrigés)
+**Tous les findings fermés. LOT 4a (3 phases) terminé.** Le frontend n'expose plus aucun token côté JavaScript. Cookies auth = httpOnly, Secure, SameSite=lax, posés exclusivement par le backend.
 
-### Lead inbound — Hôtel Les Choucas
-- **Contact** : directrice, appel téléphonique direct
-- **Besoin** : devis, facturation, planning
-- **Démo** : 17/06 à 14h AU SAUVAGEON (en personne)
-- **Centre en base** : ID `507d5133-23d2-42e5-8900-9e748e62bf98`, apidaeId `89512731`, source LMDJ_WEB, pas de userId
-- **Doublon catalogue fixé** : searchPublic dédup par apidaeId + materialiserCentreEN garde-fou
-- **Invitation** : à créer le matin du 17/06 via dashboard admin (CAS 1, centreExistantId) — email contact@choucashotel.fr ou email perso directrice
+Reste : LOT 6 maintenance continue + checklist hors-code H1-H9.
+
+### Bugs corrigés cette session
+
+- ✅ Bug `sj_user` vs `sj_user_v2` inscription-hebergement (commit 28cb4da)
+- ✅ DashboardShell logout incohérent (server action → `useAuth().logout()`)
+
+### Bugs connus restants
+
+- **`caViaReseau`** hébergeur placé dans `global/page.tsx` au lieu de `hebergeur/page.tsx` → invisible
+- **Matching `findOpen()`** : utilise `codePostal` pas `departement` ; `centresNotifies` hardcodé à 0
+- **7 call sites `demandeDevis.create`** à centraliser (future refacto)
+- **6m CORS_ORIGIN fallback** : `autorisation.service.ts` et `accompagnateur.service.ts` → remplacer par `FRONTEND_URL`
+
+### Clients
+
+- **Sauvageon** : client ancre, ~63 séjours, production active
+- **Les Choucas** (Sixt-Fer-à-Cheval) : signé 17/06, 2 mois gratuits puis plan Complet
+- **Alticlub** : client actif
+- **Pôle Montagne** (Yves Massard) : 3 centres, trial 6 mois (→ 01/12/2026)
+- **LMDJ** : en veille stratégique, CA 30/06
 
 ---
 
@@ -104,56 +65,39 @@ Convention confirmée : l'hébergeur saisit TTC partout. HT = dérivé. prixUnit
 
 | Date | Événement | Statut |
 |---|---|---|
-| **17/06 14h** | Démo Les Choucas (directrice, au Sauvageon) | Prêt — données propres, features déployées |
-| **18/06** | Démo Marie Charvolin (CDI LMDJ) | Scénario prêt dans docs/commercial/SCENARIO_DEMO_MARIE_18_06.md |
-| **30/06** | CA LMDJ — pitch partenariat | Message porté par Marie |
-| **01/09/2026** | Obligation réception e-invoicing (toutes entreprises) | Factur-X validé |
-| **01/09/2027** | Obligation émission e-invoicing (PME) | Roadmap intégration PA |
-| Nov 2026 | PSP paiement récurrent | Roadmap |
+| **30/06** | CA LMDJ — pitch partenariat | En attente retour |
+| **Fin juillet** | Infrastructure paiement SEPA | Roadmap |
+| **01/09/2026** | Obligation réception e-invoicing | Factur-X validé |
+| **01/12/2026** | Fin trial Pôle Montagne | — |
 | 31/12/2026 | Clôture 1er exercice LIAVO SASU | — |
 
 ---
 
 ## PROCHAINS CHANTIERS (par priorité)
 
-### Matin 17/06 (avant démo 14h)
-- [ ] Créer invitation Les Choucas (CAS 1, centreExistantId)
-- [ ] Run-through rapide démo Marie (scénario dans docs/commercial/)
-- [ ] Vérifier planning Sauvageon (données visibles prochaines semaines)
-- [ ] Vérifier qu'un dossier Sauvageon a le parcours complet (signé + acompte, pas de solde) pour montrer "Ajuster avant solde"
+### Sécurité — LOT 6 maintenance
 
-### Avant le 18/06 (démo Marie)
-- [ ] Run-through complet scénario démo Marie
-- [ ] Vérifier dashboard réseau avec données test LMDJ
+- [ ] 6m : CORS_ORIGIN fallback → FRONTEND_URL
+- [ ] 6o : 3 iframes src=URL OVH privée → useSecureUrl
+- [ ] 6n : lierCompte token expiration
+- [ ] H1-H9 : checklist hors-code
+- [ ] Secrets à rotation : JWT_SECRET, S3 keys, DATABASE_URL, Brevo key
 
-### Avant le 30/06
-- [ ] Préparer les chiffres Pôle Montagne pour Marie
-- [ ] Export rapport dashboard réseau
+### Features & monétisation
 
-### Opérationnel
-- [ ] Finir saisie données Sauvageon sur LIAVO
-- [ ] Régénérer les 4 PDFs post-rebalance (FA-0033, FA-0035, FS-0034, FS-0036)
-- [ ] Envoyer message comptable Yves Massard
-
-### Post-démo — UX quick wins
-- [ ] CRM : onglet "Clients" par défaut (exclut imports massifs)
-- [ ] Bandeau "action en attente" : dismiss persistant ou contextuel
-- [ ] Modale ajustement montant avant facture de solde (parcours complet — devis builder réutilisé)
-
-### Post-CA — Refonte page Devis envoyés
-- Titre trompeur, compteurs inutiles à l'échelle, pas de tri/filtre, tooltips manquants
-- Cible : tableau filtrable/triable, recherche, pagination, export CSV
-- Estimation : 2-3j — doc : docs/ROADMAP_POST_DEMO.md
-
-### Post-CA — Monétisation
-- Doc : `docs/commercial/MONETISATION_PLAN.md`
-
-### Post-CA — Technique
-- [ ] Audit sécurité (PLAN_REMEDIATION.md — LOT 1 IDOR prioritaire)
+- [ ] Paiement SEPA (mandats prélèvement) — fin juillet
+- [ ] Vidéo motion design landing page
+- [ ] Module pilotage hébergeur (CA, taux occupation, marges)
 - [ ] Chantier UX séjour (ARCHITECTURE_UX_SEJOUR_FINAL.md — ~7j)
-- [ ] Intégrations externes : iCal (0,5j), export CSV factures (0,5j), webhooks (1-2j)
-- [ ] Flow "Transmettre au gestionnaire" facture (token public, 2-3j)
-- [ ] Intégration PA e-invoicing (Pennylane ou Cegid, quand 5+ centres)
+- [ ] CRM pipeline dérivé
+- [ ] Planning couleurs par statut
+- [ ] PSP à trancher : Mollie EU vs Frisbii/PayPlug FR
+
+### Dette technique
+
+- [ ] Fusionner 3 DevisBuilder dupliqués (1-2j)
+- [ ] Découper `sejour/[id]/page.tsx` (~3 200 lignes)
+- [ ] DashboardShell unification (4-6j)
 
 ---
 
@@ -164,8 +108,19 @@ Convention confirmée : l'hébergeur saisit TTC partout. HT = dérivé. prixUnit
 | Positionnement LIAVO × réseaux | `docs/POSITIONNEMENT_LIAVO_RESEAUX.md` |
 | Architecture UX séjour | `docs/ARCHITECTURE_UX_SEJOUR_FINAL.md` |
 | Plan monétisation | `docs/commercial/MONETISATION_PLAN.md` |
-| Scénario démo Marie | `docs/commercial/SCENARIO_DEMO_MARIE_18_06.md` |
-| Audit sécurité | `docs/audits/AUDIT_SECURITE_2026-06.md` |
 | Plan remédiation | `docs/audits/PLAN_REMEDIATION.md` |
-| Roadmap post-démo | `docs/ROADMAP_POST_DEMO.md` |
+| Analyse httpOnly Phase 2 | `docs/audits/ANALYSE_HTTPONLY_PHASE2.md` |
 | Dette technique | `docs/DETTE_TECHNIQUE.md` |
+
+---
+
+## STACK & COMMANDES RAPPEL
+
+- **Backend** : NestJS 11, Prisma ORM, PostgreSQL 17, Scalingo Paris (`liavo-backend`)
+- **Frontend** : Next.js 16.1.6, React 19.2.3, TypeScript 5, Tailwind 4, axios 1.13.6, Scalingo Paris (`liavo-frontend`)
+- **Stockage** : OVH Object Storage Gravelines (`liavo-uploads`, presigning activé)
+- **Emails** : Brevo FR
+- **Repo local** : `C:\Users\Roche-Loison\Desktop\sejour-jeunesse`
+- **CC** : `cd C:\Users\Roche-Loison\Desktop\sejour-jeunesse && claude`
+- **SQL prod** : `scalingo --app liavo-backend --region osc-fr1 pgsql-console`
+- **Déploiement** : auto sur push main
