@@ -25,10 +25,24 @@ const ACTIVITE_ICONS: Record<string, string> = {
   VISITE: '👁',
   NOTE: '📝',
   DEVIS: '📄',
+  FACTURE: '🧾',
   SIGNATURE: '✍️',
   VERSEMENT: '💰',
   BROCHURE: '📖',
 };
+
+// ── Metadata email (log d'envoi) ───────────────────────────────────────────────
+
+interface EmailMetadata {
+  emailType: string;
+  to: string;
+  subject?: string;
+  messagePreview?: string;
+}
+
+function isEmailMetadata(m: unknown): m is EmailMetadata {
+  return !!m && typeof m === 'object' && 'emailType' in m && 'to' in m;
+}
 
 const ACTIVITE_TYPES_MANUELS: { value: string; label: string }[] = [
   { value: 'APPEL', label: '📞 Appel' },
@@ -138,6 +152,15 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
   const [showActiviteForm, setShowActiviteForm] = useState(false);
   const [activiteForm, setActiviteForm] = useState({ type: 'NOTE', description: '' });
   const [activiteSending, setActiviteSending] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const loadActivites = useCallback(async () => {
     try {
@@ -284,15 +307,47 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
           <p className="text-xs text-gray-400 py-4 text-center">Aucune activité enregistrée pour ce séjour.</p>
         ) : (
           <ul className="space-y-3">
-            {activites.map((a) => (
-              <li key={a.id} className="flex items-start gap-3">
-                <span className="text-base leading-6 w-6 text-center shrink-0">{ACTIVITE_ICONS[a.type] ?? '•'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{a.description}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{formatDateRelative(a.createdAt)}</p>
-                </div>
-              </li>
-            ))}
+            {activites.map((a) => {
+              const emailMeta = isEmailMetadata(a.metadata) ? a.metadata : null;
+              const isExpanded = expandedIds.has(a.id);
+
+              return (
+                <li key={a.id} className="flex items-start gap-3">
+                  <span className="text-base leading-6 w-6 text-center shrink-0">
+                    {ACTIVITE_ICONS[a.type] ?? '•'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className={emailMeta ? 'cursor-pointer hover:text-[var(--color-primary)]' : ''}
+                      onClick={() => emailMeta && toggleExpand(a.id)}
+                    >
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">
+                        {a.description}
+                        {emailMeta && (
+                          <span className="ml-1 text-[10px] text-gray-400">
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {formatDateRelative(a.createdAt)}
+                      </p>
+                    </div>
+                    {emailMeta && isExpanded && (
+                      <div className="mt-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600 space-y-1">
+                        <p><span className="font-medium text-gray-700">À :</span> {emailMeta.to}</p>
+                        {emailMeta.subject && (
+                          <p><span className="font-medium text-gray-700">Objet :</span> {emailMeta.subject}</p>
+                        )}
+                        {emailMeta.messagePreview && (
+                          <p><span className="font-medium text-gray-700">Message :</span> {emailMeta.messagePreview}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
