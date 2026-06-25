@@ -23,7 +23,7 @@ export default function AbonnementPage() {
     }
   }, [user]);
 
-  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) {
+  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
     setPlanChoisi(plan);
     setAnnuelChoisi(annual);
     setUpgradeRequested(true);

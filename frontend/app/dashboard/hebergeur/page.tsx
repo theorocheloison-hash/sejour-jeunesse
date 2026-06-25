@@ -12,6 +12,7 @@ import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
 import type { RappelToday } from '@/src/lib/clients';
 import { getTableauRentabilite } from '@/src/lib/rentabilite';
+import { getAbonnementStatut } from '@/src/lib/abonnement';
 import type { TableauRentabilite } from '@/src/lib/rentabilite';
 
 // ─── CA confirmé : helpers réutilisables (futur : page /ca avec graphique annuel) ───
@@ -98,24 +99,12 @@ export default function HebergeurDashboard() {
       setDemandes(mesDemandes);
       setRappelsAujourdhui(rappels);
 
-      const exp = profil?.abonnementActifJusquAu;
-      const actif =
-        profil?.abonnementStatut === 'ACTIF' &&
-        profil?.planAbonnement === 'COMPLET' &&
-        !!exp &&
-        new Date(exp) >= new Date();
-      const estExpiré =
-        profil?.abonnementStatut === 'ACTIF' &&
-        profil?.planAbonnement === 'COMPLET' &&
-        !!exp &&
-        new Date(exp) < new Date();
-      setEssaiActif(actif);
-      setEssaiExpire(estExpiré);
-      setJoursRestants(
-        actif
-          ? Math.ceil((new Date(exp).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          : 0,
-      );
+      const aboStatut = await getAbonnementStatut().catch(() => null);
+      if (aboStatut) {
+        setEssaiActif(aboStatut.isTrial);
+        setEssaiExpire(aboStatut.trialExpire);
+        setJoursRestants(aboStatut.joursRestants);
+      }
     } catch {}
     const claimData = await api
       .get('/organisations/mon-claim-statut')
