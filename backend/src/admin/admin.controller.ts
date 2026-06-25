@@ -63,6 +63,11 @@ export class AdminController {
     return this.adminService.getCentres(search);
   }
 
+  @Get('abonnements')
+  getAbonnements() {
+    return this.adminService.getAbonnements();
+  }
+
   @Get('reseau/:reseau/stats')
   getReseauStats(@Param('reseau') reseau: string) {
     return this.adminService.getReseauStats(reseau);

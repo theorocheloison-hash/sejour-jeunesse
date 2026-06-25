@@ -313,6 +313,26 @@ export class AdminService {
     });
   }
 
+  async getAbonnements() {
+    return this.prisma.centreHebergement.findMany({
+      select: {
+        id: true,
+        nom: true,
+        planAbonnement: true,
+        abonnement: true,
+        abonnementStatut: true,
+        abonnementActifJusquAu: true,
+        trialStartedAt: true,
+        mollieCustomerId: true,
+        mollieSubscriptionId: true,
+        mollieMandatId: true,
+        userId: true,
+        user: { select: { email: true, prenom: true, nom: true } },
+      },
+      orderBy: { nom: 'asc' },
+    });
+  }
+
   // ─── Réseau partenaire ──────────────────────────────────────────────────────
 
   async getReseauStats(reseau: string, periode?: string, nomComplet?: string) {

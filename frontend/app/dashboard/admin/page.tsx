@@ -19,6 +19,7 @@ import {
   validateCentreClaim,
   getCentresPending,
   validateCentrePending,
+  getAdminAbonnements,
   type AdminStats,
   type Hebergeur,
   type Utilisateur,
@@ -26,17 +27,19 @@ import {
   type ReseauStats,
   type CentreClaim,
   type CentrePendingItem,
+  type CentreAbonnement,
 } from '@/src/lib/admin';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending';
+type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'stats',           label: 'Vue générale' },
   { value: 'hebergeurs',      label: 'Hébergeurs' },
   { value: 'utilisateurs',    label: 'Utilisateurs' },
   { value: 'centres',         label: 'Centres' },
+  { value: 'abonnements',     label: 'Abonnements' },
   { value: 'claims-centres',  label: 'Claims centres' },
   { value: 'centres-pending', label: 'Centres en attente' },
   { value: 'reseaux',         label: 'Réseaux partenaires' },
@@ -999,6 +1002,107 @@ function CentresPendingTab() {
 
 // ─── Shared components ───────────────────────────────────────────────────────
 
+function AbonnementsTab() {
+  const [abonnements, setAbonnements] = useState<CentreAbonnement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAdminAbonnements()
+      .then(setAbonnements)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
+    DECOUVERTE: { bg: '#F0EFEB', color: '#888780' },
+    ESSENTIEL: { bg: '#E6EEF4', color: '#1B4060' },
+    COMPLET: { bg: '#1B4060', color: '#FFFFFF' },
+    PILOTAGE: { bg: '#C87D2E', color: '#FFFFFF' },
+  };
+
+  const frequenceLabel = (f: string | null) =>
+    f === 'MENSUEL' ? 'Mensuel' : f === 'ANNUEL' ? 'Annuel' : '—';
+
+  const statutBadgeClass = (s: string) =>
+    s === 'ACTIF' ? 'bg-green-100 text-green-700'
+    : s === 'SUSPENDU' ? 'bg-red-100 text-red-700'
+    : 'bg-gray-100 text-gray-600';
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-500">{abonnements.length} centre{abonnements.length > 1 ? 's' : ''}</p>
+
+      {loading ? <LoadingSpinner /> : abonnements.length === 0 ? (
+        <EmptyState text="Aucun centre" />
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fréquence</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actif jusqu&apos;au</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trial</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mandat</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {abonnements.map((a) => {
+                  const badge = PLAN_BADGE[a.planAbonnement] ?? PLAN_BADGE.DECOUVERTE;
+                  const expiré = !!a.abonnementActifJusquAu && new Date(a.abonnementActifJusquAu) < new Date();
+                  return (
+                    <tr key={a.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">{a.nom}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {a.user ? (
+                          <div>
+                            <div className="text-sm text-gray-900">{a.user.prenom} {a.user.nom}</div>
+                            <div className="text-xs text-gray-400">{a.user.email}</div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', borderRadius: 20,
+                          padding: '2px 10px', fontSize: 11, fontWeight: 600,
+                          backgroundColor: badge.bg, color: badge.color,
+                        }}>
+                          {a.planAbonnement}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{frequenceLabel(a.abonnement)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statutBadgeClass(a.abonnementStatut)}`}>
+                          {a.abonnementStatut}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 text-sm whitespace-nowrap ${expiré ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                        {a.abonnementActifJusquAu ? formatDate(a.abonnementActifJusquAu) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {a.trialStartedAt ? `Oui · ${formatDate(a.trialStartedAt)}` : 'Non'}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        {a.mollieMandatId ? '✅' : '❌'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex justify-center py-12">
@@ -1094,6 +1198,7 @@ export default function AdminDashboardPage() {
         {tab === 'hebergeurs' && <HebergeursTab />}
         {tab === 'utilisateurs' && <UtilisateursTab />}
         {tab === 'centres' && <CentresTab />}
+        {tab === 'abonnements' && <AbonnementsTab />}
         {tab === 'claims-centres' && <ClaimsCentresTab />}
         {tab === 'centres-pending' && <CentresPendingTab />}
         {tab === 'reseaux' && <ReseauxTab />}

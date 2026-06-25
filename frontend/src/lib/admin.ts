@@ -287,3 +287,23 @@ export async function validateCentrePending(
   );
   return data;
 }
+
+export interface CentreAbonnement {
+  id: string;
+  nom: string;
+  planAbonnement: string;
+  abonnement: string | null;
+  abonnementStatut: string;
+  abonnementActifJusquAu: string | null;
+  trialStartedAt: string | null;
+  mollieCustomerId: string | null;
+  mollieSubscriptionId: string | null;
+  mollieMandatId: string | null;
+  userId: string | null;
+  user: { email: string; prenom: string; nom: string } | null;
+}
+
+export async function getAdminAbonnements(): Promise<CentreAbonnement[]> {
+  const { data } = await api.get<CentreAbonnement[]>('/admin/abonnements');
+  return data;
+}
