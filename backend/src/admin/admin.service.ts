@@ -333,6 +333,13 @@ export class AdminService {
     });
   }
 
+  async getFacturesLiavo() {
+    return this.prisma.factureLiavo.findMany({
+      orderBy: { dateEmission: 'desc' },
+      include: { centre: { select: { nom: true } } },
+    });
+  }
+
   // ─── Réseau partenaire ──────────────────────────────────────────────────────
 
   async getReseauStats(reseau: string, periode?: string, nomComplet?: string) {

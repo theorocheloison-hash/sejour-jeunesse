@@ -630,7 +630,30 @@ model CentreHebergement {
   activitesClients ActiviteClient[]
   facturesPrestataires FacturePrestataire[]
   collaborateurs   CollaborateurCentre[]
+  facturesLiavo    FactureLiavo[]
   @@map("centres_hebergement")
+}
+
+model FactureLiavo {
+  id              String   @id @default(uuid()) @db.Uuid
+  centreId        String   @map("centre_id") @db.Uuid
+  numero          String   @unique @db.VarChar(20)
+  dateEmission    DateTime @map("date_emission")
+  montantHT       Int      @map("montant_ht")
+  montantTVA      Int      @default(0) @map("montant_tva")
+  montantTTC      Int      @map("montant_ttc")
+  description     String   @db.Text
+  planAbonnement  String   @map("plan_abonnement") @db.VarChar(20)
+  typeAbonnement  String   @map("type_abonnement") @db.VarChar(20)
+  molliePaymentId String?  @map("mollie_payment_id") @db.VarChar(50)
+  pdfUrl          String?  @map("pdf_url") @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([centreId])
+  @@index([dateEmission])
+  @@map("factures_liavo")
 }
 
 // ============================================================

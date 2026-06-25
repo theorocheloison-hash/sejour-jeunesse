@@ -36,6 +36,7 @@ export interface FacturePDFProps {
   montantAcompteDejaFacture: number | null; // SOLDE uniquement
   conditionsAnnulation: string | null;
   tauxTva: number;
+  mentionTVA?: string | null;
   // Avoir (Lot 3)
   factureAnnuleeNumero?: string | null;
   factureAnnuleeDate?: string | null;
@@ -277,10 +278,17 @@ export default function FacturePDF(props: FacturePDFProps) {
             <Text style={s.totauxLabel}>Total HT</Text>
             <Text style={s.totauxValue}>{fmtMontant(montantHT)} €</Text>
           </View>
-          <View style={s.totauxRow}>
-            <Text style={s.totauxLabel}>TVA</Text>
-            <Text style={s.totauxValue}>{fmtMontant(montantTVA)} €</Text>
-          </View>
+          {props.mentionTVA ? (
+            <View style={s.totauxRow}>
+              <Text style={{ ...s.totauxLabel, fontSize: 8 }}>{props.mentionTVA}</Text>
+              <Text style={s.totauxValue}>0,00 €</Text>
+            </View>
+          ) : (
+            <View style={s.totauxRow}>
+              <Text style={s.totauxLabel}>TVA ({props.tauxTva ?? 0} %)</Text>
+              <Text style={s.totauxValue}>{fmtMontant(montantTVA)} €</Text>
+            </View>
+          )}
           <View style={s.totauxTTC}>
             <Text style={s.totauxTTCLabel}>Total TTC</Text>
             <Text style={s.totauxTTCValue}>{fmtMontant(montantTTC)} €</Text>

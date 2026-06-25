@@ -16,6 +16,7 @@ import { AbonnementModule } from './abonnements/abonnement.module.js';
 import { DemandeModule } from './demandes/demande.module.js';
 import { DevisModule } from './devis/devis.module.js';
 import { FactureModule } from './facture/facture.module.js';
+import { FactureLiavoModule } from './facture-liavo/facture-liavo.module.js';
 import { RentabiliteModule } from './rentabilite/rentabilite.module.js';
 import { ActivitesClientModule } from './activites-client/activites-client.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
@@ -56,6 +57,7 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
     DemandeModule,
     DevisModule,
     FactureModule,
+    FactureLiavoModule,
     RentabiliteModule,
     ActivitesClientModule,
     CollaborationModule,

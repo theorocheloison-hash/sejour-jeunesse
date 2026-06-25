@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import createMollieClient, { SequenceType } from '@mollie/api-client';
 
 const mollieClient = createMollieClient({
@@ -30,7 +31,10 @@ function centsToMollie(cents: number): string {
 
 @Injectable()
 export class AbonnementService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private factureLiavoService: FactureLiavoService,
+  ) {}
 
   // ── Simuler (existant — admin/test, pas de paiement réel) ─────────────
 
@@ -285,6 +289,22 @@ export class AbonnementService {
         // L'abonnement est activé mais la récurrence a échoué — sera géré manuellement
       }
 
+      try {
+        const prixPlanFacture = frequence === 'ANNUEL'
+          ? PRIX_ANNUEL[centre.planAbonnement] ?? 0
+          : PRIX_MENSUEL[centre.planAbonnement] ?? 0;
+        const nbCentresFacture = await this.prisma.centreHebergement.count({
+          where: { userId: centre.userId!, statut: 'ACTIVE' },
+        });
+        const centresSuppFacture = Math.max(0, nbCentresFacture - 1);
+        const prixSuppFacture = centresSuppFacture * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
+        await this.factureLiavoService.emettre(
+          centre.id, prixPlanFacture + prixSuppFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
+        );
+      } catch (err) {
+        console.error('[mollie-webhook] Erreur émission facture LIAVO:', err);
+      }
+
       return { received: true, activated: true };
     }
 
@@ -308,6 +328,22 @@ export class AbonnementService {
           abonnementActifJusquAu: expiration,
         },
       });
+
+      try {
+        const prixPlanFacture = frequence === 'ANNUEL'
+          ? PRIX_ANNUEL[centre.planAbonnement] ?? 0
+          : PRIX_MENSUEL[centre.planAbonnement] ?? 0;
+        const nbCentresFacture = await this.prisma.centreHebergement.count({
+          where: { userId: centre.userId!, statut: 'ACTIVE' },
+        });
+        const centresSuppFacture = Math.max(0, nbCentresFacture - 1);
+        const prixSuppFacture = centresSuppFacture * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
+        await this.factureLiavoService.emettre(
+          centre.id, prixPlanFacture + prixSuppFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
+        );
+      } catch (err) {
+        console.error('[mollie-webhook] Erreur émission facture LIAVO:', err);
+      }
 
       return { received: true, renewed: true };
     }

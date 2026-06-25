@@ -68,6 +68,11 @@ export class AdminController {
     return this.adminService.getAbonnements();
   }
 
+  @Get('factures-liavo')
+  getFacturesLiavo() {
+    return this.adminService.getFacturesLiavo();
+  }
+
   @Get('reseau/:reseau/stats')
   getReseauStats(@Param('reseau') reseau: string) {
     return this.adminService.getReseauStats(reseau);
