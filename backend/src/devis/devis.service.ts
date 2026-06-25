@@ -170,6 +170,33 @@ export class DevisService {
       );
     }
 
+    // Log CRM non bloquant — client peut ne pas être rattaché en collab
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: demande.sejourId },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            sejourId: demande.sejourId,
+            type: 'DEVIS',
+            description: `Devis ${numeroDevis} soumis — ${sejour?.titre ?? ''}`,
+            metadata: {
+              devisId: devis.id,
+              emailType: 'DEVIS_COLLAB',
+              to: enseignant?.email ?? '',
+              subject: `Nouveau devis reçu — ${sejour?.titre ?? ''}`,
+              messagePreview: '',
+            },
+            userId,
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
     return fullDevis;
   }
 
@@ -391,6 +418,32 @@ export class DevisService {
           'Devis modifié par l\'hébergeur',
           `Bonjour ${demande.enseignant.prenom},\n\nL'hébergeur a apporté des modifications au devis pour le séjour "${demande.sejour.titre}". Connectez-vous à LIAVO pour consulter les changements.\n\nCordialement,\nL'équipe LIAVO`,
         );
+        // Log CRM non bloquant
+        try {
+          const sejourClient = await this.prisma.sejourClient.findFirst({
+            where: { sejourId: demande.sejourId },
+            select: { clientId: true },
+          });
+          if (sejourClient) {
+            await this.prisma.activiteClient.create({
+              data: {
+                clientId: sejourClient.clientId,
+                centreId: centre.id,
+                sejourId: demande.sejourId,
+                type: 'EMAIL',
+                description: `Notification modification devis — ${demande.sejour.titre}`,
+                metadata: {
+                  devisId: id,
+                  emailType: 'MODIFICATION_DEVIS_AUTO',
+                  to: demande.enseignant.email,
+                  subject: 'Devis modifié par l\'hébergeur',
+                  messagePreview: '',
+                },
+                userId,
+              },
+            });
+          }
+        } catch { /* non bloquant */ }
       }
     }
 
@@ -696,6 +749,36 @@ export class DevisService {
       );
     }
 
+    // Log CRM non bloquant
+    try {
+      const sejourIdLog = devis.demande?.sejour?.id;
+      if (sejourIdLog) {
+        const sejourClient = await this.prisma.sejourClient.findFirst({
+          where: { sejourId: sejourIdLog },
+          select: { clientId: true },
+        });
+        if (sejourClient) {
+          await this.prisma.activiteClient.create({
+            data: {
+              clientId: sejourClient.clientId,
+              centreId: devis.centreId,
+              sejourId: sejourIdLog,
+              type: 'SIGNATURE',
+              description: `Devis signé par la direction — ${devis.demande?.sejour?.titre ?? ''}`,
+              metadata: {
+                devisId,
+                emailType: 'SIGNATURE_DIRECTION',
+                to: devis.centre?.user?.email ?? '',
+                subject: `Devis signé par la direction — ${devis.demande?.sejour?.titre ?? ''}`,
+                messagePreview: '',
+              },
+              userId: user.id,
+            },
+          });
+        }
+      }
+    } catch { /* non bloquant */ }
+
     return updated;
   }
 
@@ -769,6 +852,36 @@ export class DevisService {
          </p>`,
       );
     }
+
+    // Log CRM non bloquant
+    try {
+      const sejourIdLog = devis.demande?.sejourId;
+      if (sejourIdLog) {
+        const sejourClient = await this.prisma.sejourClient.findFirst({
+          where: { sejourId: sejourIdLog },
+          select: { clientId: true },
+        });
+        if (sejourClient) {
+          await this.prisma.activiteClient.create({
+            data: {
+              clientId: sejourClient.clientId,
+              centreId: devis.centreId,
+              sejourId: sejourIdLog,
+              type: 'SIGNATURE',
+              description: `Document signé uploadé — ${devis.demande?.sejour?.titre ?? ''}`,
+              metadata: {
+                devisId,
+                emailType: 'SIGNATURE_UPLOAD',
+                to: centre?.user?.email ?? '',
+                subject: `Devis signé — ${devis.demande?.sejour?.titre ?? ''}`,
+                messagePreview: '',
+              },
+              userId,
+            },
+          });
+        }
+      }
+    } catch { /* non bloquant */ }
 
     return updated;
   }
@@ -949,6 +1062,33 @@ export class DevisService {
        </p>
        <p style="font-size:12px;color:#9ca3af;">Connectez-vous à LIAVO pour voir les détails complets.</p>`,
     );
+
+    // Log CRM non bloquant
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            sejourId: sejour.id,
+            type: 'EMAIL',
+            description: `Notification modification envoyée — ${sejour.titre}`,
+            metadata: {
+              devisId,
+              emailType: 'MODIFICATION_DEVIS',
+              to: enseignant.email,
+              subject: `Votre devis a été mis à jour — ${sejour.titre}`,
+              messagePreview: '',
+            },
+            userId,
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
 
     return { success: true };
   }
@@ -1777,6 +1917,7 @@ export class DevisService {
           data: {
             clientId: sejourClient.clientId,
             centreId: devis.centreId,
+            sejourId: sejour.id,
             type: 'SIGNATURE',
             description: `Devis ${devis.numeroDevis ?? ''} signé par ${body.nomSignataire}`,
             metadata: { devisId: devis.id, sejourId: sejour.id },
@@ -1866,6 +2007,32 @@ export class DevisService {
       devis.centre?.nom,
     );
 
+    // Log CRM non bloquant
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: sejour.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: devis.centreId,
+            sejourId: sejour.id,
+            type: 'EMAIL',
+            description: `Invitation direction envoyée — ${sejour.titre}`,
+            metadata: {
+              devisId: devis.id,
+              emailType: 'INVITATION_DIRECTION',
+              to: body.emailDirecteur.trim(),
+              subject: `Devis à valider — ${sejour.titre}`,
+              messagePreview: '',
+            },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
     return { success: true, message: 'Invitation envoyée à la direction' };
   }
 
@@ -1934,6 +2101,32 @@ export class DevisService {
         );
       } catch { /* non bloquant */ }
     }
+
+    // Log CRM non bloquant
+    try {
+      const sejourClient = await this.prisma.sejourClient.findFirst({
+        where: { sejourId: devis.sejourDirect!.id },
+        select: { clientId: true },
+      });
+      if (sejourClient) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: devis.centreId,
+            sejourId: devis.sejourDirect!.id,
+            type: 'SIGNATURE',
+            description: `Document signé uploadé — ${devis.sejourDirect!.titre}`,
+            metadata: {
+              devisId: devis.id,
+              emailType: 'SIGNATURE_UPLOAD',
+              to: devis.centre?.email ?? '',
+              subject: `Document signé reçu — ${devis.sejourDirect!.titre}`,
+              messagePreview: '',
+            },
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
 
     return { success: true, message: 'Document signé reçu' };
   }
@@ -2018,10 +2211,9 @@ export class DevisService {
 
     // Log CRM non bloquant
     try {
-      const sejourId = devis.sejourDirectId;
-      if (sejourId) {
+      if (sejourCibleId) {
         const sejourClient = await this.prisma.sejourClient.findFirst({
-          where: { sejourId },
+          where: { sejourId: sejourCibleId },
           select: { clientId: true },
         });
         if (sejourClient) {
@@ -2029,9 +2221,11 @@ export class DevisService {
             data: {
               clientId: sejourClient.clientId,
               centreId: centre.id,
+              sejourId: sejourCibleId,
               type: 'ANNULATION',
               description: `Devis ${devis.numeroDevis ?? devisId} annulé`,
               metadata: { devisId },
+              userId,
             },
           });
         }
