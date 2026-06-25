@@ -111,6 +111,18 @@ export class DevisController {
     return this.devisService.getDemandeInfo(demandeId, user.id, centreId);
   }
 
+  /** GET /devis/sejour/:sejourId — Devis principal actif d'un séjour (DIRECT ou COLLAB) */
+  @Get('sejour/:sejourId')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  getDevisForSejour(
+    @CurrentUser() user: JwtUser,
+    @Param('sejourId') sejourId: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.getDevisForSejour(sejourId, user.id, centreId);
+  }
+
   @Get(':id/detail')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('devis')

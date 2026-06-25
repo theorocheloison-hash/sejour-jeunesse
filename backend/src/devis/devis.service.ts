@@ -261,6 +261,83 @@ export class DevisService {
     });
   }
 
+  /**
+   * Retourne le devis principal actif d'un séjour (DIRECT ou COLLAB).
+   * Unifie les deux chemins de données existants.
+   */
+  async getDevisForSejour(sejourId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findFirst({
+      where: {
+        centreId: centre.id,
+        isComplementaire: false,
+        statut: { not: StatutDevis.NON_RETENU },
+        OR: [
+          { sejourDirectId: sejourId },
+          { demande: { sejourId } },
+        ],
+      },
+      include: {
+        lignes: true,
+        sejourDirect: {
+          select: {
+            id: true, titre: true, dateDebut: true, dateFin: true,
+            modeGestion: true, natureSejour: true, deletedAt: true,
+          },
+        },
+        factures: {
+          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          orderBy: { dateEmission: 'asc' as const },
+        },
+        centre: {
+          select: {
+            id: true, nom: true, ville: true, adresse: true, codePostal: true,
+            siret: true, telephone: true, email: true,
+            tvaIntracommunautaire: true, iban: true, conditionsAnnulation: true,
+            logoUrl: true,
+          },
+        },
+        demande: {
+          include: {
+            enseignant: {
+              select: {
+                id: true, prenom: true, nom: true, email: true, telephone: true,
+                memberships: {
+                  where: { isPrimary: true },
+                  select: {
+                    organisation: { select: { nom: true, ville: true, uai: true } },
+                  },
+                  take: 1,
+                },
+              },
+            },
+            sejour: {
+              select: {
+                id: true, titre: true, dateDebut: true, dateFin: true, niveauClasse: true, statut: true,
+                createur: {
+                  select: {
+                    prenom: true, nom: true,
+                    memberships: {
+                      where: { isPrimary: true },
+                      select: {
+                        organisation: { select: { nom: true, ville: true } },
+                      },
+                      take: 1,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return devis;
+  }
+
   async getDevisById(id: string, userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
