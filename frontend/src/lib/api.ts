@@ -17,6 +17,30 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Intercepteur PlanGuard : 403 PLAN_INSUFFICIENT → événement global ──
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.error === 'PLAN_INSUFFICIENT'
+    ) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('plan-insufficient', {
+          detail: {
+            planRequired: error.response.data.planRequired,
+            planActuel: error.response.data.planActuel,
+            message: error.response.data.message,
+          },
+        }));
+      }
+      // On rejette quand même pour que l'appelant puisse gérer s'il veut
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  },
+);
+
 // ── Refresh token : interceptor 401 ──────────────────────────────────────────
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];

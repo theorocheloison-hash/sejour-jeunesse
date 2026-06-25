@@ -11,11 +11,14 @@ import { CreateRappelDto } from './dto/create-rappel.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('clients')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
 @Roles(Role.HEBERGEUR)
 @RequirePermission('crm')
+@RequirePlan('COMPLET')
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 

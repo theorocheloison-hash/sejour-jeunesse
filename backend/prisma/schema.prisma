@@ -576,6 +576,7 @@ model CentreHebergement {
   mollieSubscriptionId String?   @map("mollie_subscription_id") @db.VarChar(50)
   mollieMandatId       String?   @map("mollie_mandat_id") @db.VarChar(50)
   trialStartedAt       DateTime? @map("trial_started_at")
+  dernierEmailAlerteAt DateTime? @map("dernier_email_alerte_at")
   siret               String?           @map("siret") @db.VarChar(14)
   siteWeb             String?           @map("site_web") @db.VarChar(500)
   tvaIntracommunautaire String?         @map("tva_intracommunautaire") @db.VarChar(20)

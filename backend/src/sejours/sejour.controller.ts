@@ -19,9 +19,12 @@ import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateStatusDto }  from './dto/update-status.dto.js';
 import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('sejours')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@RequirePlan('ESSENTIEL')
 export class SejourController {
   constructor(private readonly sejourService: SejourService) {}
 

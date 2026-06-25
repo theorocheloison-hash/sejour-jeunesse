@@ -14,9 +14,12 @@ import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('devis')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
+@RequirePlan('ESSENTIEL')
 export class DevisController {
   constructor(private readonly devisService: DevisService) {}
 

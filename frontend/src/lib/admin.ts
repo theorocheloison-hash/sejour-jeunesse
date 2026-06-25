@@ -307,3 +307,36 @@ export async function getAdminAbonnements(): Promise<CentreAbonnement[]> {
   const { data } = await api.get<CentreAbonnement[]>('/admin/abonnements');
   return data;
 }
+
+export interface FactureLiavo {
+  id: string;
+  numero: string;
+  dateEmission: string;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  description: string;
+  planAbonnement: string;
+  typeAbonnement: string;
+  pdfUrl: string | null;
+  centreId: string;
+  centre: { nom: string };
+}
+
+export async function getAdminFacturesLiavo(): Promise<FactureLiavo[]> {
+  const { data } = await api.get<FactureLiavo[]>('/admin/factures-liavo');
+  return data;
+}
+
+export interface MetriquesAbonnements {
+  totalCentres: number;
+  trialActifs: number;
+  trialExpires: number;
+  aboPayes: number;
+  mrr: number;
+}
+
+export async function getAdminMetriquesAbonnements(): Promise<MetriquesAbonnements> {
+  const { data } = await api.get<MetriquesAbonnements>('/admin/metriques-abonnements');
+  return data;
+}

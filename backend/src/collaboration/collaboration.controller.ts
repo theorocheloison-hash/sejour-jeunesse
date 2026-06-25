@@ -26,10 +26,13 @@ import { UpdateInfosSejourDto } from './dto/update-infos-sejour.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('collaboration')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
 @Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
+@RequirePlan('COMPLET')
 export class CollaborationController {
   constructor(private readonly service: CollaborationService) {}
 

@@ -9,9 +9,12 @@ import { CentreId } from '../centres/centre-id.decorator.js';
 import { FactureService } from './facture.service.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('factures')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
+@RequirePlan('ESSENTIEL')
 export class FactureController {
   constructor(private readonly factureService: FactureService) {}
 

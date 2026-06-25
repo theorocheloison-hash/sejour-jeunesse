@@ -22,9 +22,12 @@ import { RentabiliteService } from './rentabilite.service.js';
 import { CreateFacturePrestatireDto } from './dto/create-facture-prestataire.dto.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('rentabilite')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
+@RequirePlan('PILOTAGE')
 export class RentabiliteController {
   constructor(private readonly rentabiliteService: RentabiliteService) {}
 

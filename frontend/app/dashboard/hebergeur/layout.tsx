@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import HebergeurSidebar from './_components/HebergeurSidebar';
 import { useHebergeurCounts } from './_components/useHebergeurCounts';
 import { usePermissions } from '@/src/hooks/usePermissions';
+import PlanInsufficientModal from '@/src/components/PlanInsufficientModal';
 
 export default function HebergeurLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -35,6 +36,7 @@ export default function HebergeurLayout({ children }: { children: React.ReactNod
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {children}
       </div>
+      <PlanInsufficientModal />
     </div>
   );
 }

@@ -6,10 +6,13 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { ActivitesClientService, type CreateActiviteDto } from './activites-client.service.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('clients/:clientId/activites')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
 @Roles(Role.HEBERGEUR)
+@RequirePlan('COMPLET')
 export class ActivitesClientController {
   constructor(private readonly service: ActivitesClientService) {}
 

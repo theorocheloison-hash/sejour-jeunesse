@@ -340,6 +340,41 @@ export class AdminService {
     });
   }
 
+  async getMetriquesAbonnements() {
+    const now = new Date();
+    const [totalCentres, trialActifs, trialExpires, aboPayes, aboActifsPayes] = await Promise.all([
+      this.prisma.centreHebergement.count({ where: { statut: 'ACTIVE' } }),
+      this.prisma.centreHebergement.count({
+        where: {
+          abonnementStatut: 'ACTIF', trialStartedAt: { not: null }, mollieMandatId: null,
+          abonnementActifJusquAu: { gte: now },
+        },
+      }),
+      this.prisma.centreHebergement.count({
+        where: {
+          trialStartedAt: { not: null }, mollieMandatId: null,
+          OR: [{ abonnementActifJusquAu: { lt: now } }, { abonnementActifJusquAu: null }],
+        },
+      }),
+      this.prisma.centreHebergement.count({
+        where: { mollieMandatId: { not: null }, abonnementStatut: 'ACTIF' },
+      }),
+      // MRR = somme des prix mensuels des abonnements actifs payés
+      this.prisma.centreHebergement.findMany({
+        where: { mollieMandatId: { not: null }, abonnementStatut: 'ACTIF' },
+        select: { planAbonnement: true, abonnement: true },
+      }),
+    ]);
+
+    const PRIX_MENSUEL_MAP: Record<string, number> = { ESSENTIEL: 29, COMPLET: 49, PILOTAGE: 69 };
+    const mrr = aboActifsPayes.reduce((sum, c) => {
+      const prix = PRIX_MENSUEL_MAP[c.planAbonnement] ?? 0;
+      return sum + (c.abonnement === 'ANNUEL' ? Math.round(prix * 100 / 12) / 100 : prix);
+    }, 0);
+
+    return { totalCentres, trialActifs, trialExpires, aboPayes, mrr: Math.round(mrr * 100) / 100 };
+  }
+
   // ─── Réseau partenaire ──────────────────────────────────────────────────────
 
   async getReseauStats(reseau: string, periode?: string, nomComplet?: string) {

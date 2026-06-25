@@ -20,6 +20,8 @@ import {
   getCentresPending,
   validateCentrePending,
   getAdminAbonnements,
+  getAdminFacturesLiavo,
+  getAdminMetriquesAbonnements,
   type AdminStats,
   type Hebergeur,
   type Utilisateur,
@@ -28,11 +30,13 @@ import {
   type CentreClaim,
   type CentrePendingItem,
   type CentreAbonnement,
+  type FactureLiavo,
+  type MetriquesAbonnements,
 } from '@/src/lib/admin';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements';
+type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements' | 'factures-liavo';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'stats',           label: 'Vue générale' },
@@ -40,6 +44,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'utilisateurs',    label: 'Utilisateurs' },
   { value: 'centres',         label: 'Centres' },
   { value: 'abonnements',     label: 'Abonnements' },
+  { value: 'factures-liavo',  label: 'Factures LIAVO' },
   { value: 'claims-centres',  label: 'Claims centres' },
   { value: 'centres-pending', label: 'Centres en attente' },
   { value: 'reseaux',         label: 'Réseaux partenaires' },
@@ -1002,8 +1007,89 @@ function CentresPendingTab() {
 
 // ─── Shared components ───────────────────────────────────────────────────────
 
+function FacturesLiavoTab() {
+  const [factures, setFactures] = useState<FactureLiavo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAdminFacturesLiavo()
+      .then(setFactures)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
+    DECOUVERTE: { bg: '#F0EFEB', color: '#888780' },
+    ESSENTIEL: { bg: '#E6EEF4', color: '#1B4060' },
+    COMPLET: { bg: '#1B4060', color: '#FFFFFF' },
+    PILOTAGE: { bg: '#C87D2E', color: '#FFFFFF' },
+  };
+
+  const totalHT = factures.reduce((sum, f) => sum + f.montantHT, 0) / 100;
+
+  return (
+    <div className="space-y-4">
+      {loading ? <LoadingSpinner /> : factures.length === 0 ? (
+        <EmptyState text="Aucune facture LIAVO" />
+      ) : (
+        <>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Numéro</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fréquence</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant HT</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">PDF</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {factures.map((f) => {
+                    const badge = PLAN_BADGE[f.planAbonnement] ?? PLAN_BADGE.DECOUVERTE;
+                    return (
+                      <tr key={f.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3 whitespace-nowrap" style={{ fontFamily: 'monospace', fontSize: 13, color: '#111827' }}>{f.numero}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{f.centre.nom}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', borderRadius: 20,
+                            padding: '2px 10px', fontSize: 11, fontWeight: 600,
+                            backgroundColor: badge.bg, color: badge.color,
+                          }}>
+                            {f.planAbonnement}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{f.typeAbonnement === 'ANNUEL' ? 'Annuel' : 'Mensuel'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{(f.montantHT / 100).toFixed(2)} €</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(f.dateEmission)}</td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                          {f.pdfUrl ? (
+                            <SecureFileLink url={f.pdfUrl} className="text-[var(--color-primary)] hover:underline">Télécharger</SecureFileLink>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="text-sm text-gray-700 font-medium">
+            Total : {totalHT.toFixed(2)} € HT — {factures.length} facture{factures.length > 1 ? 's' : ''}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AbonnementsTab() {
   const [abonnements, setAbonnements] = useState<CentreAbonnement[]>([]);
+  const [metriques, setMetriques] = useState<MetriquesAbonnements | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -1011,6 +1097,7 @@ function AbonnementsTab() {
       .then(setAbonnements)
       .catch(() => {})
       .finally(() => setLoading(false));
+    getAdminMetriquesAbonnements().then(setMetriques).catch(() => {});
   }, []);
 
   const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
@@ -1030,6 +1117,16 @@ function AbonnementsTab() {
 
   return (
     <div className="space-y-4">
+      {metriques && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <KpiCard label="Centres actifs" value={metriques.totalCentres} />
+          <KpiCard label="Trials actifs" value={metriques.trialActifs} accent="#C87D2E" />
+          <KpiCard label="Trials expirés" value={metriques.trialExpires} accent="#9C2B2B" />
+          <KpiCard label="Abonnements payés" value={metriques.aboPayes} accent="#1E5C42" />
+          <KpiCard label="MRR" value={`${metriques.mrr.toFixed(2)} €/mois`} accent="#1B4060" />
+        </div>
+      )}
+
       <p className="text-xs text-gray-500">{abonnements.length} centre{abonnements.length > 1 ? 's' : ''}</p>
 
       {loading ? <LoadingSpinner /> : abonnements.length === 0 ? (
@@ -1199,6 +1296,7 @@ export default function AdminDashboardPage() {
         {tab === 'utilisateurs' && <UtilisateursTab />}
         {tab === 'centres' && <CentresTab />}
         {tab === 'abonnements' && <AbonnementsTab />}
+        {tab === 'factures-liavo' && <FacturesLiavoTab />}
         {tab === 'claims-centres' && <ClaimsCentresTab />}
         {tab === 'centres-pending' && <CentresPendingTab />}
         {tab === 'reseaux' && <ReseauxTab />}

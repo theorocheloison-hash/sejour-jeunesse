@@ -17,6 +17,7 @@ import { AdminService } from './admin.service.js';
 import { ClaimService } from '../organisations/claim.service.js';
 import { InvitationService } from '../invitations/invitation.service.js';
 import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto.js';
+import { CronAlertesService } from '../abonnements/cron-alertes.service.js';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,6 +27,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly claimService: ClaimService,
     private readonly invitationService: InvitationService,
+    private readonly cronAlertesService: CronAlertesService,
   ) {}
 
   @Get('stats')
@@ -71,6 +73,19 @@ export class AdminController {
   @Get('factures-liavo')
   getFacturesLiavo() {
     return this.adminService.getFacturesLiavo();
+  }
+
+  @Get('metriques-abonnements')
+  getMetriquesAbonnements() {
+    return this.adminService.getMetriquesAbonnements();
+  }
+
+  @Post('cron/alertes-expiration')
+  async cronAlertes() {
+    const alertes = await this.cronAlertesService.envoyerAlertes();
+    const expires = await this.cronAlertesService.envoyerAlertesExpires();
+    const renouvellements = await this.cronAlertesService.envoyerAlertesRenouvellement();
+    return { ...alertes, ...expires, ...renouvellements };
   }
 
   @Get('reseau/:reseau/stats')
