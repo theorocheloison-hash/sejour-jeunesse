@@ -1,53 +1,73 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAbonnementStatut } from '@/src/lib/abonnement';
+import { getAbonnementStatut, checkoutAbonnement, annulerAbonnement } from '@/src/lib/abonnement';
 import type { AbonnementStatut } from '@/src/lib/abonnement';
 import PricingTable from '@/app/components/PricingTable';
 
-export default function AbonnementPage() {
-  const router = useRouter();
-  const { user, isLoading } = useAuth();
-  const [abo, setAbo] = useState<AbonnementStatut | null>(null);
-  const [upgradeRequested, setUpgradeRequested] = useState(false);
-  const [planChoisi, setPlanChoisi] = useState<string | null>(null);
-  const [annuelChoisi, setAnnuelChoisi] = useState(false);
+const PLAN_LABELS: Record<string, string> = {
+  DECOUVERTE: 'Découverte',
+  ESSENTIEL: 'Essentiel',
+  COMPLET: 'Complet',
+  PILOTAGE: 'Pilotage',
+};
 
+function formatDateFr(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function AbonnementContent() {
+  const { user, isLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const [abo, setAbo] = useState<AbonnementStatut | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.role === 'HEBERGEUR') {
-      getAbonnementStatut().then(setAbo).catch(() => {});
-    }
-  }, [user]);
+    getAbonnementStatut()
+      .then(setAbo)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
-  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
-    setPlanChoisi(plan);
-    setAnnuelChoisi(annual);
-    setUpgradeRequested(true);
+  async function reloadStatut() {
+    const statut = await getAbonnementStatut().catch(() => null);
+    if (statut) setAbo(statut);
+  }
+
+  async function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
+    setCheckoutLoading(true);
+    try {
+      const result = await checkoutAbonnement(plan, annual ? 'ANNUEL' : 'MENSUEL');
+      window.location.href = result.checkoutUrl;
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Erreur lors de la création du paiement. Réessayez.';
+      alert(msg);
+      setCheckoutLoading(false);
+    }
+    // Pas de finally : window.location.href quitte la page en cas de succès.
+  }
+
+  async function handleAnnuler() {
+    const dateFin = formatDateFr(abo?.actifJusquAu ?? null);
+    if (!window.confirm('Êtes-vous sûr ? Votre abonnement restera actif jusqu\'au ' + dateFin + '.')) {
+      return;
+    }
+    try {
+      await annulerAbonnement();
+      await reloadStatut();
+    } catch {
+      alert('Erreur lors de l\'annulation. Réessayez.');
+    }
   }
 
   if (isLoading || !user) return null;
 
-  const PLAN_LABELS: Record<string, string> = {
-    DECOUVERTE: 'Plan Découverte',
-    ESSENTIEL: 'Plan Essentiel',
-    COMPLET: 'Plan Complet',
-  };
-  const nomPlan = abo?.statut === 'ACTIF' && abo.plan
-    ? `${PLAN_LABELS[abo.plan] ?? abo.plan} — ${abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}`
-    : null;
-
-  const PLAN_LABELS_UPGRADE: Record<string, string> = {
-    ESSENTIEL: 'Plan Essentiel',
-    COMPLET: 'Plan Complet',
-  };
-  const planLabel = planChoisi ? PLAN_LABELS_UPGRADE[planChoisi] ?? planChoisi : 'un abonnement';
-  const periodeLabel = annuelChoisi ? 'annuel' : 'mensuel';
-  const mailtoBody = `Bonjour,%0A%0AJe souhaite activer le ${planLabel} (${periodeLabel}) sur LIAVO.%0A%0AMon centre : [votre nom de centre]%0A%0AMerci.`;
-  const mailtoSubject = `Activation ${planLabel} ${periodeLabel} — LIAVO`;
+  const checkoutSuccess = searchParams.get('checkout') === 'success';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,114 +83,159 @@ export default function AbonnementPage() {
         <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>Abonnement</h1>
         <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>Gérez votre plan et vos accès.</p>
 
-        {/* ── Bandeau statut ──────────────────────────────────────────── */}
-        {abo?.statut === 'ACTIF' ? (
-          <div style={{
-            backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
-            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-          }}>
-            <span style={{
-              fontSize: 12, fontWeight: 600, color: '#1E5C42',
-              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+        {/* ── Retour de Mollie (checkout=success) ─────────────────────── */}
+        {checkoutSuccess && !loading && (
+          abo?.mandatActif ? (
+            <div style={{
+              backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
+              borderRadius: 12, padding: '16px 20px', marginBottom: 24,
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
             }}>
-              Abonnement actif
-            </span>
-            <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
-              {nomPlan}
-            </span>
-            {abo.actifJusquAu && (
-              <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
-                &middot; Actif jusqu&apos;au{' '}
-                <strong>
-                  {new Date(abo.actifJusquAu).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </strong>
+              <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+                <strong>Abonnement activé !</strong> Merci pour votre confiance.
               </span>
-            )}
-          </div>
-        ) : abo?.statut === 'SUSPENDU' ? (
-          <div style={{
-            backgroundColor: '#FDECEA', border: '1px solid #9C2B2B',
-            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-          }}>
-            <span style={{
-              fontSize: 12, fontWeight: 600, color: '#9C2B2B',
-              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
-            }}>
-              Abonnement suspendu
-            </span>
-            <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
-              Contactez-nous pour réactiver :{' '}
-              <a href="mailto:contact@liavo.fr" style={{ color: '#9C2B2B', fontWeight: 500 }}>contact@liavo.fr</a>
-            </span>
-          </div>
-        ) : (
-          <div style={{
-            backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
-            borderRadius: 12, padding: '16px 20px', marginBottom: 32,
-            display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <span style={{
-              fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)',
-              backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
-              border: '1px solid var(--color-border)',
-            }}>
-              Plan Découverte — gratuit
-            </span>
-          </div>
-        )}
-
-        {upgradeRequested && (
-          <div style={{
-            backgroundColor: '#E8F0F8',
-            border: '1px solid #1B4060',
-            borderRadius: 12,
-            padding: '20px 24px',
-            marginBottom: 24,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 16,
-          }}>
-            <svg style={{ width: 20, height: 20, color: '#1B4060', flexShrink: 0, marginTop: 2 }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            <div>
-              <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#1B4060' }}>
-                Activation de votre abonnement
-              </p>
-              <p style={{ margin: '0 0 12px', fontSize: 14, color: '#4a4a4a', lineHeight: 1.6 }}>
-                {`Le paiement en ligne sera disponible prochainement.
-                Pour activer le ${planLabel} (${periodeLabel}) dès maintenant,
-                contactez-nous — nous vous répondons sous 24h.`}
-              </p>
-              <a
-                href={`mailto:contact@liavo.fr?subject=${encodeURIComponent(mailtoSubject).replace(/%20/g, '+')}&body=${mailtoBody}`}
-                style={{
-                  display: 'inline-block',
-                  backgroundColor: '#1B4060',
-                  color: '#fff',
-                  padding: '9px 20px',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                }}
-              >
-                Contacter LIAVO → contact@liavo.fr
-              </a>
             </div>
-          </div>
+          ) : (
+            <div style={{
+              backgroundColor: '#E8F0F8', border: '1px solid #1B4060',
+              borderRadius: 12, padding: '16px 20px', marginBottom: 24,
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: 14, color: 'var(--color-text)', lineHeight: 1.6 }}>
+                Votre paiement SEPA est en cours de traitement. L&apos;activation sera effective sous 2 jours ouvrés. Vous recevrez un email de confirmation.
+              </span>
+            </div>
+          )
         )}
 
-        <PricingTable
-          showCurrentPlan
-          currentStatut={abo?.statut ?? null}
-          onUpgrade={handleUpgrade}
-        />
+        {/* ── Bandeau statut ──────────────────────────────────────────── */}
+        {!loading && abo && (() => {
+          // 1. Essai en cours
+          if (abo.isTrial && abo.actif) {
+            return (
+              <div style={{
+                backgroundColor: '#FFF8E6', border: '1px solid #C87D2E',
+                borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <span style={{
+                  fontSize: 12, fontWeight: 600, color: '#C87D2E',
+                  backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+                }}>
+                  Essai gratuit
+                </span>
+                <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+                  Plan Pilotage &middot; <strong>{abo.joursRestants} jours restants</strong>
+                </span>
+              </div>
+            );
+          }
+          // 2. Essai expiré
+          if (abo.trialExpire) {
+            return (
+              <div style={{
+                backgroundColor: '#FDECEA', border: '1px solid #9C2B2B',
+                borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+                  Votre essai gratuit a expiré. Activez un abonnement pour retrouver l&apos;accès complet.
+                </span>
+              </div>
+            );
+          }
+          // 3. Abonnement actif payé
+          if (abo.actif && abo.mandatActif) {
+            return (
+              <>
+                <div style={{
+                  backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
+                  borderRadius: 12, padding: '16px 20px', marginBottom: abo.mollieSubscriptionId ? 8 : 32,
+                  display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, color: '#1E5C42',
+                    backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+                  }}>
+                    Abonnement actif
+                  </span>
+                  <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+                    Plan {PLAN_LABELS[abo.plan] ?? abo.plan} &middot; {abo.type === 'MENSUEL' ? 'Mensuel' : 'Annuel'}
+                  </span>
+                  {abo.actifJusquAu && (
+                    <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
+                      &middot; Actif jusqu&apos;au <strong>{formatDateFr(abo.actifJusquAu)}</strong>
+                    </span>
+                  )}
+                </div>
+                {abo.mandatActif && abo.mollieSubscriptionId && (
+                  <button
+                    onClick={handleAnnuler}
+                    style={{
+                      display: 'block', marginBottom: 32, background: 'none', border: 'none',
+                      padding: 0, fontSize: 13, color: 'var(--color-text-muted)',
+                      textDecoration: 'underline', cursor: 'pointer',
+                    }}
+                  >
+                    Annuler le renouvellement automatique
+                  </button>
+                )}
+              </>
+            );
+          }
+          // 4. Découverte / défaut
+          return (
+            <div style={{
+              backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
+              borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <span style={{
+                fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)',
+                backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+                border: '1px solid var(--color-border)',
+              }}>
+                Plan Découverte — gratuit
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* ── Plans ───────────────────────────────────────────────────── */}
+        <div style={{ position: 'relative' }}>
+          {checkoutLoading && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 10,
+              backgroundColor: 'rgba(255,255,255,0.8)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+              borderRadius: 12,
+            }}>
+              <span style={{
+                width: 18, height: 18, borderRadius: '50%',
+                border: '2px solid #C8C6BC', borderTopColor: '#1B4060',
+                animation: 'spin 0.7s linear infinite', display: 'inline-block',
+              }} />
+              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)' }}>
+                Redirection vers Mollie...
+              </span>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
+          <PricingTable
+            showCurrentPlan
+            currentStatut={abo?.statut ?? null}
+            onUpgrade={handleUpgrade}
+          />
+        </div>
       </main>
     </div>
+  );
+}
+
+export default function AbonnementPage() {
+  return (
+    <Suspense fallback={null}>
+      <AbonnementContent />
+    </Suspense>
   );
 }
