@@ -1294,7 +1294,7 @@ export default function TabDevisFacturation({
                   </div>
                 )}
 
-                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(directDevis.statut) && (
+                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(directDevis.statut) && !factureAcompte && (
                   <Link
                     href={`/dashboard/hebergeur/devis/${directDevis.id}/modifier`}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -1626,7 +1626,7 @@ export default function TabDevisFacturation({
                       </SecureFileLink>
                     )}
                   </div>
-                  {user.role === 'HEBERGEUR' && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(d.statut) && (
+                  {user.role === 'HEBERGEUR' && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && !factureAcompte && (
                     <a
                       href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                       className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
