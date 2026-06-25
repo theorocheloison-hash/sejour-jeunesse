@@ -26,6 +26,12 @@ export class AbonnementController {
     return this.abonnementService.getStatut(user.id, centreId);
   }
 
+  @Post('trial')
+  @Roles(Role.HEBERGEUR)
+  activerTrial(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.abonnementService.activerTrial(user.id, centreId);
+  }
+
   @Post('checkout')
   @Roles(Role.HEBERGEUR)
   checkout(@CurrentUser() user: JwtUser, @Body() dto: CheckoutAbonnementDto, @CentreId() centreId: string | null) {

@@ -54,20 +54,54 @@ export class AbonnementService {
     });
   }
 
+  // ── Trial 30j Pilotage (tout déverrouillé pour découvrir) ─────────────
+
+  async activerTrial(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    if (centre.trialStartedAt) {
+      throw new BadRequestException('La période d\'essai a déjà été utilisée pour ce centre');
+    }
+
+    if (centre.mollieMandatId) {
+      throw new BadRequestException('Ce centre a déjà un abonnement actif');
+    }
+
+    const now = new Date();
+    const expiration = new Date(now);
+    expiration.setDate(expiration.getDate() + 30);
+
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: {
+        planAbonnement: PlanAbonnement.PILOTAGE,
+        abonnementStatut: StatutAbonnement.ACTIF,
+        abonnementActifJusquAu: expiration,
+        trialStartedAt: now,
+      },
+    });
+  }
+
   // ── Statut ────────────────────────────────────────────────────────────────
 
   async getStatut(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const now = new Date();
     const expiration = centre.abonnementActifJusquAu;
+
     const actif =
       centre.abonnementStatut === 'ACTIF' &&
       !!expiration &&
       expiration >= now;
+
     const joursRestants =
       actif && expiration
         ? Math.ceil((expiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
+
+    // Distinguer trial (pas de mandat) vs abonnement payé (mandat signé)
+    const isTrial = actif && !!centre.trialStartedAt && !centre.mollieMandatId;
+    const trialExpire = !actif && !!centre.trialStartedAt && !centre.mollieMandatId;
 
     return {
       type: centre.abonnement,
@@ -78,6 +112,8 @@ export class AbonnementService {
       joursRestants,
       mandatActif: !!centre.mollieMandatId,
       mollieSubscriptionId: centre.mollieSubscriptionId ?? null,
+      isTrial,
+      trialExpire,
     };
   }
 
