@@ -114,6 +114,7 @@ export class AbonnementService {
       mollieSubscriptionId: centre.mollieSubscriptionId ?? null,
       isTrial,
       trialExpire,
+      trialUsed: !!centre.trialStartedAt,
     };
   }
 
@@ -133,6 +134,25 @@ export class AbonnementService {
       select: { email: true, prenom: true, nom: true },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    // Si une subscription existe déjà, l'annuler avant d'en créer une nouvelle
+    // (upgrade ou changement de fréquence). L'accès reste actif jusqu'à la fin
+    // de la période en cours, la nouvelle subscription prendra le relais.
+    if (centre.mollieSubscriptionId && centre.mollieCustomerId) {
+      try {
+        await mollieClient.customerSubscriptions.cancel(
+          centre.mollieSubscriptionId,
+          { customerId: centre.mollieCustomerId },
+        );
+      } catch (err) {
+        console.warn('[checkout] Erreur annulation ancienne subscription:', err);
+        // Non bloquant : on continue avec la nouvelle subscription
+      }
+      await this.prisma.centreHebergement.update({
+        where: { id: centre.id },
+        data: { mollieSubscriptionId: null },
+      });
+    }
 
     // Calculer le montant : plan + centres supplémentaires
     const nbCentresActifs = await this.prisma.centreHebergement.count({
@@ -271,7 +291,9 @@ export class AbonnementService {
     // ── Paiement récurrent réussi → prolonger l'abonnement ──
     if (payment.status === 'paid' && payment.sequenceType === 'recurring') {
       const frequence = centre.abonnement;
-      const base = centre.abonnementActifJusquAu ?? new Date();
+      const now = new Date();
+      const oldExp = centre.abonnementActifJusquAu;
+      const base = oldExp && oldExp > now ? oldExp : now;
       const expiration = new Date(base);
       if (frequence === 'ANNUEL') {
         expiration.setFullYear(expiration.getFullYear() + 1);
