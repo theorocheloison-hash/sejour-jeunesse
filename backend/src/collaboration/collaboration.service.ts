@@ -358,7 +358,7 @@ export class CollaborationService {
       where: { sejourId },
       include: {
         devis: {
-          where: { statut: 'SELECTIONNE' },
+          where: { statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] } },
           include: {
             lignes: true,
             centre: {
