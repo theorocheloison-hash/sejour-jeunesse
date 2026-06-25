@@ -5,7 +5,7 @@ import { useState } from 'react';
 interface PricingTableProps {
   showCurrentPlan?: boolean;
   currentStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU' | null;
-  onUpgrade?: (plan: 'ESSENTIEL' | 'COMPLET', annual: boolean) => void;
+  onUpgrade?: (plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) => void;
 }
 
 function CheckIcon({ color, bg }: { color: string; bg: string }) {
@@ -59,13 +59,13 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
 
   const isCurrentDecouverte = !showCurrentPlan || !currentStatut || currentStatut === 'INACTIF';
 
-  function handleUpgradePlan(plan: 'ESSENTIEL' | 'COMPLET') {
+  function handleUpgradePlan(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE') {
     if (onUpgrade) {
       onUpgrade(plan, isAnnual);
       return;
     }
     // Fallback landing : mailto
-    const label = plan === 'ESSENTIEL' ? 'Essentiel' : 'Complet';
+    const label = plan === 'ESSENTIEL' ? 'Essentiel' : plan === 'PILOTAGE' ? 'Pilotage' : 'Complet';
     const subject = encodeURIComponent(`Abonnement ${label} LIAVO — ${isAnnual ? 'Annuel' : 'Mensuel'}`);
     const body = encodeURIComponent(`Bonjour, je souhaite activer le plan ${label} (${isAnnual ? 'annuel' : 'mensuel'}) pour mon centre.`);
     window.location.href = `mailto:contact@liavo.fr?subject=${subject}&body=${body}`;
@@ -138,10 +138,12 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
         )}
       </div>
 
+      <style>{`@media (max-width: 768px) { .pricing-grid { grid-template-columns: 1fr !important; } }`}</style>
+
       {/* Grid */}
-      <div style={{
+      <div className="pricing-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
         gap: 12,
         marginBottom: '2rem',
       }}>
@@ -187,15 +189,7 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
         </div>
 
         {/* ── Essentiel ── */}
-        <div style={{ ...cardBase, border: '2px solid #1B4060' }}>
-          <div style={{
-            position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
-            background: '#1B4060', color: 'white',
-            fontSize: 11, fontWeight: 600, padding: '3px 12px',
-            borderRadius: 20, whiteSpace: 'nowrap', letterSpacing: '0.04em',
-          }}>
-            Le plus choisi
-          </div>
+        <div style={cardBase}>
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#1B4060', marginBottom: 8 }}>
             Essentiel
           </div>
@@ -231,19 +225,27 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
         </div>
 
         {/* ── Complet ── */}
-        <div style={{ ...cardBase, border: '1.5px solid #C87D2E' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C87D2E', marginBottom: 8 }}>
+        <div style={{ ...cardBase, border: '2px solid #1B4060' }}>
+          <div style={{
+            position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
+            background: '#1B4060', color: 'white',
+            fontSize: 11, fontWeight: 600, padding: '3px 12px',
+            borderRadius: 20, whiteSpace: 'nowrap', letterSpacing: '0.04em',
+          }}>
+            Le plus choisi
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#1B4060', marginBottom: 8 }}>
             Complet
           </div>
           <div style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text, #2C2C2A)', lineHeight: 1 }}>
-              {isAnnual ? '49' : '59'}
+              {isAnnual ? '41' : '49'}
             </span>
             <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>€ HT/mois</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted, #888780)', marginBottom: 12, minHeight: 16 }}>
             {isAnnual
-              ? <span>590€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>118€ économisés</span></span>
+              ? <span>490€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>98€ économisés</span></span>
               : <span>&nbsp;</span>
             }
           </div>
@@ -252,13 +254,58 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
             Pour piloter chaque séjour et fidéliser vos clients dans la durée.
           </div>
           <ul style={featureList}>
-            <FeatureRow label="Tout Essentiel" checkColor="#C87D2E" checkBg="#FEF3E2" />
-            <FeatureRow label="Espace collaboratif hébergeur + enseignant" checkColor="#C87D2E" checkBg="#FEF3E2" />
-            <FeatureRow label="Planning, messagerie, documents partagés" checkColor="#C87D2E" checkBg="#FEF3E2" />
-            <FeatureRow label="CRM hébergeur (clients, contacts, rappels)" checkColor="#C87D2E" checkBg="#FEF3E2" />
+            <FeatureRow label="Tout Essentiel" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="Espace collaboratif hébergeur + enseignant" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="Planning, messagerie, documents partagés" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="CRM hébergeur (clients, contacts, rappels)" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="Convention scolaire" checkColor="#1B4060" checkBg="#E6EEF4" />
           </ul>
           <button
             onClick={() => handleUpgradePlan('COMPLET')}
+            style={{ ...ctaBase, background: '#1B4060', color: 'white', border: 'none', cursor: 'pointer' }}
+          >
+            {onUpgrade ? 'Activer ce plan' : 'Commencer'}
+          </button>
+        </div>
+
+        {/* ── Pilotage ── */}
+        <div style={{ ...cardBase, border: '1.5px solid #C87D2E' }}>
+          <div style={{
+            position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
+            background: '#C87D2E', color: 'white',
+            fontSize: 11, fontWeight: 600, padding: '3px 12px',
+            borderRadius: 20, whiteSpace: 'nowrap', letterSpacing: '0.04em',
+          }}>
+            Tout inclus
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#C87D2E', marginBottom: 8 }}>
+            Pilotage
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text, #2C2C2A)', lineHeight: 1 }}>
+              {isAnnual ? '58' : '69'}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>€ HT/mois</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #888780)', marginBottom: 12, minHeight: 16 }}>
+            {isAnnual
+              ? <span>690€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>138€ économisés</span></span>
+              : <span>&nbsp;</span>
+            }
+          </div>
+          <div style={divider} />
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', lineHeight: 1.5, marginBottom: 12 }}>
+            Pour piloter votre activité avec des données clés et un accompagnement dédié.
+          </div>
+          <ul style={featureList}>
+            <FeatureRow label="Tout Complet" checkColor="#C87D2E" checkBg="#FEF3E2" />
+            <FeatureRow label="Module pilotage (CA, marges, occupation)" checkColor="#C87D2E" checkBg="#FEF3E2" />
+            <FeatureRow label="Tableau de rentabilité par séjour" checkColor="#C87D2E" checkBg="#FEF3E2" />
+            <FeatureRow label="Export données avancé" checkColor="#C87D2E" checkBg="#FEF3E2" />
+            <FeatureRow label="Support prioritaire" checkColor="#C87D2E" checkBg="#FEF3E2" />
+          </ul>
+          <button
+            onClick={() => handleUpgradePlan('PILOTAGE')}
             style={{ ...ctaBase, background: '#C87D2E', color: 'white', border: 'none', cursor: 'pointer' }}
           >
             {onUpgrade ? 'Activer ce plan' : 'Commencer'}
@@ -266,6 +313,12 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
         </div>
 
       </div>
+
+      <p style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
+        Multi-centre : +39€/mois par centre supplémentaire (plans Complet et Pilotage).
+        <br />
+        TVA non applicable, art. 293 B du CGI.
+      </p>
 
     </div>
   );
