@@ -1,5 +1,35 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 23/06/2026 — Sécurité LOT 4a complet. Feedback Maeva (Les Choucas) 8/8 items résolus. Timeline emails enrichie.
+> Dernière mise à jour : 25/06/2026 — Audit email logging : 2/9 flux couverts, 7 manquants identifiés. Investigation modification devis collab SELECTIONNE.
+
+---
+
+## SESSION 25/06/2026 — Analyse (pas de commit)
+
+### Audit email logging dans timeline "Notes & suivi"
+
+Audit complet de `devis.service.ts` (~82KB). Résultat : **2 flux sur 9 loggent correctement** une `ActiviteClient` avec `sejourId` colonne directe + metadata enrichie.
+
+| # | Flux | État | Action |
+|---|------|------|--------|
+| 1 | `envoyerDevisDirect()` | ✅ Loggé (type DEVIS, emailType DEVIS) | — |
+| 2 | `genererConventionScolaire()` | ✅ Loggé (type DEVIS, emailType CONVENTION) | — |
+| 3 | `signerDevisDirect()` | ⚠️ Loggé SANS `sejourId` colonne | Ajouter `sejourId` dans `data` |
+| 4 | `annulerDevis()` | ⚠️ Loggé SANS `sejourId` colonne | Ajouter `sejourId` dans `data` |
+| 5 | `create()` (devis collab) | ❌ Pas de log | Ajouter activité |
+| 6 | `signerDevis()` (direction collab) | ❌ Pas de log | Ajouter activité |
+| 7 | `notifierEnseignantModification()` | ❌ Pas de log | Ajouter activité |
+| 8 | `uploadSignaturePublic/Document()` | ❌ Pas de log | Ajouter activité |
+| 9 | `envoyerADirection()` | ❌ Pas de log | Ajouter activité |
+
+**Piège identifié** : pour les flux COLLAB (#5, #6, #7), le `sejourClient` n'existe peut-être pas encore (rattachement CRM = à la sélection du devis). Le `try/catch` existant couvre ce cas.
+
+### Investigation modification devis collab SELECTIONNE
+
+**Backend** : `updateDevis()` autorise déjà `SELECTIONNE` et `SIGNE_DIRECTION`. Pas de changement backend nécessaire.
+
+**Frontend** : à investiguer dans `TabDevisFacturation.tsx` (109KB) — le bouton "Modifier" pourrait être masqué ou absent pour les devis collab. La page `/dashboard/hebergeur/devis/[id]/modifier` (38KB) pourrait ne pas charger correctement les données collab.
+
+**Risque identifié** : `updateDevis()` notifie l'enseignant seulement si `statut === 'SELECTIONNE'`. Si modification post-SIGNE_DIRECTION → enseignant non notifié. Vérifier si c'est le comportement voulu.
 
 ---
 
@@ -121,6 +151,8 @@
 
 ### 3. Features produit
 
+- [ ] **Email logging : finaliser couverture** — 7 flux manquants dans `devis.service.ts` (~1h, 3 passes). Prompt de reprise prêt : `PROMPT_REPRISE_25_06_2026.md`
+- [ ] **Modification devis collab SELECTIONNE** — backend OK, frontend à investiguer (TabDevisFacturation.tsx + page modifier)
 - [ ] Module pilotage hébergeur (CA, taux occupation, marges) — demandé par Les Choucas et Yves Massard, aligné plan Pilotage 79€/mois
 - [ ] Chantier UX séjour (ARCHITECTURE_UX_SEJOUR_FINAL.md — ~7j)
 - [ ] CRM pipeline dérivé (statut calculé, kanban 5 colonnes)

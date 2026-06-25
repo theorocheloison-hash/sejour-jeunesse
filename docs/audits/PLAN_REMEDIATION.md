@@ -1,7 +1,7 @@
 # PLAN DE REMÉDIATION SÉCURITÉ — LIAVO
 
 > **Rédigé le 15/06/2026** — basé sur l'audit `docs/audits/AUDIT_SECURITE_2026-06.md` (Sections A→E) et `docs/audits/REMEDIATION_IDOR_ANALYSE.md`.
-> **Dernière MAJ : 23/06/2026** — LOTs 0→5 complets. LOT 4a complet (3 phases). Migration httpOnly cookies terminée.
+> **Dernière MAJ : 25/06/2026** — LOTs 0→5 complets. LOT 4a complet (3 phases). Migration httpOnly cookies terminée. Aucun changement depuis 23/06.
 > **Méthode** : chaque lot = un ou plusieurs prompts CC dédiés. Backend et frontend séparés. `tsc --noEmit` + `npm run build` = 0 erreurs avant tout commit.
 
 ---
