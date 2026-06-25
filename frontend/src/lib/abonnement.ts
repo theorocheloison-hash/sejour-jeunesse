@@ -25,8 +25,8 @@ export async function getAbonnementStatut(): Promise<AbonnementStatut> {
   return data;
 }
 
-export async function checkoutAbonnement(plan: string, frequence: string): Promise<{ checkoutUrl: string; montant: number; plan: string; frequence: string }> {
-  const { data } = await api.post('/abonnements/checkout', { plan, frequence });
+export async function souscrireAbonnement(plan: string, frequence: string, iban: string, titulaire: string): Promise<{ success: boolean; plan: string; frequence: string; montant: number }> {
+  const { data } = await api.post('/abonnements/souscrire', { plan, frequence, iban, titulaire });
   return data;
 }
 

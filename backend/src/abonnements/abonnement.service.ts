@@ -3,14 +3,11 @@ import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
-import createMollieClient, { SequenceType } from '@mollie/api-client';
+import createMollieClient, { MandateMethod } from '@mollie/api-client';
 
 const mollieClient = createMollieClient({
   apiKey: process.env.MOLLIE_API_KEY ?? '',
 });
-
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-const BACKEND_URL = process.env.BACKEND_URL ?? 'https://api.liavo.fr';
 
 const PRIX_MENSUEL: Record<string, number> = {
   ESSENTIEL: 2900,
@@ -122,9 +119,9 @@ export class AbonnementService {
     };
   }
 
-  // ── Checkout (première étape — capture du mandat SEPA) ────────────────
+  // ── Souscription SEPA (mandat directdebit via IBAN, sans carte) ──────────
 
-  async creerCheckout(userId: string, plan: string, frequence: string, centreId?: string | null) {
+  async souscrire(userId: string, plan: string, frequence: string, iban: string, titulaire: string, centreId?: string | null) {
     if (!['ESSENTIEL', 'COMPLET', 'PILOTAGE'].includes(plan)) {
       throw new BadRequestException('Plan invalide');
     }
@@ -139,9 +136,9 @@ export class AbonnementService {
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
-    // Si une subscription existe déjà, l'annuler avant d'en créer une nouvelle
-    // (upgrade ou changement de fréquence). L'accès reste actif jusqu'à la fin
-    // de la période en cours, la nouvelle subscription prendra le relais.
+    const ibanClean = iban.replace(/\s+/g, '').toUpperCase();
+
+    // Si une subscription existe déjà, l'annuler (upgrade/changement)
     if (centre.mollieSubscriptionId && centre.mollieCustomerId) {
       try {
         await mollieClient.customerSubscriptions.cancel(
@@ -149,8 +146,7 @@ export class AbonnementService {
           { customerId: centre.mollieCustomerId },
         );
       } catch (err) {
-        console.warn('[checkout] Erreur annulation ancienne subscription:', err);
-        // Non bloquant : on continue avec la nouvelle subscription
+        console.warn('[souscrire] Erreur annulation ancienne subscription:', err);
       }
       await this.prisma.centreHebergement.update({
         where: { id: centre.id },
@@ -158,12 +154,11 @@ export class AbonnementService {
       });
     }
 
-    // Calculer le montant : plan + centres supplémentaires
+    // Calculer le montant
     const nbCentresActifs = await this.prisma.centreHebergement.count({
       where: { userId, statut: 'ACTIVE' },
     });
     const centresSupp = Math.max(0, nbCentresActifs - 1);
-
     const prixPlan = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
     const prixCentresSupp = centresSupp * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
     const montantTotal = prixPlan + prixCentresSupp;
@@ -178,32 +173,52 @@ export class AbonnementService {
       mollieCustomerId = customer.id;
     }
 
-    // Stocker le plan + fréquence choisis AVANT le redirect (le webhook les lira)
+    // Créer le mandat SEPA directement avec l'IBAN
+    const mandate = await mollieClient.customerMandates.create({
+      customerId: mollieCustomerId,
+      method: MandateMethod.directdebit,
+      consumerName: titulaire,
+      consumerAccount: ibanClean,
+    });
+
+    // Créer la subscription (Mollie attend la validation du mandat avant de prélever)
+    const interval = frequence === 'ANNUEL' ? '12 months' : '1 month';
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + 1);
+    const intervalLabel = frequence === 'ANNUEL' ? 'annuel' : 'mensuel';
+
+    const subscription = await mollieClient.customerSubscriptions.create({
+      customerId: mollieCustomerId,
+      amount: { value: centsToMollie(montantTotal), currency: 'EUR' },
+      interval,
+      description: `Abonnement LIAVO ${plan} ${intervalLabel} — ${centre.nom}`,
+      startDate: startDate.toISOString().split('T')[0],
+      mandateId: mandate.id,
+    });
+
+    // Grace period : accès immédiat pendant la validation du mandat SEPA (2-5 jours).
+    // Le webhook mettra l'expiration réelle quand le 1er prélèvement réussit.
+    const now = new Date();
+    const gracePeriod = new Date(now);
+    gracePeriod.setDate(gracePeriod.getDate() + 14);
+    // Si le trial actuel est plus long que le grace period, le garder
+    const currentExp = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : null;
+    const expiration = currentExp && currentExp > gracePeriod ? currentExp : gracePeriod;
+
     await this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
         mollieCustomerId,
-        planAbonnement: plan as PlanAbonnement,
-        abonnement: frequence as TypeAbonnement,
-        // Statut reste INACTIF jusqu'à confirmation webhook
+        mollieMandatId: mandate.id,
+        mollieSubscriptionId: subscription.id,
+        planAbonnement: plan as any,
+        abonnement: frequence as any,
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: expiration,
       },
     });
 
-    // Créer le premier paiement (capture le mandat SEPA)
-    const intervalLabel = frequence === 'ANNUEL' ? 'annuel' : 'mensuel';
-    const payment = await mollieClient.payments.create({
-      amount: { value: centsToMollie(montantTotal), currency: 'EUR' },
-      description: `Abonnement LIAVO ${plan} ${intervalLabel} — ${centre.nom}`,
-      sequenceType: SequenceType.first,
-      customerId: mollieCustomerId,
-      redirectUrl: `${FRONTEND_URL}/dashboard/hebergeur/abonnement?checkout=success`,
-      webhookUrl: `${BACKEND_URL}/abonnements/webhook`,
-    });
-
-    const checkoutUrl = payment.getCheckoutUrl();
-    if (!checkoutUrl) throw new BadRequestException('Impossible de créer le lien de paiement Mollie');
-
-    return { checkoutUrl, montant: montantTotal, plan, frequence };
+    return { success: true, plan, frequence, montant: montantTotal };
   }
 
   // ── Webhook Mollie ────────────────────────────────────────────────────────
@@ -228,84 +243,6 @@ export class AbonnementService {
     if (!centre) {
       console.error('[mollie-webhook] Centre introuvable pour customerId:', customerId);
       return { received: true };
-    }
-
-    // ── Premier paiement réussi → activer + créer l'abonnement récurrent ──
-    if (payment.status === 'paid' && payment.sequenceType === 'first') {
-      const mandatId = payment.mandateId ?? null;
-      const frequence = centre.abonnement; // MENSUEL ou ANNUEL, stocké dans creerCheckout
-      const now = new Date();
-      const expiration = new Date(now);
-      if (frequence === 'ANNUEL') {
-        expiration.setFullYear(expiration.getFullYear() + 1);
-      } else {
-        expiration.setMonth(expiration.getMonth() + 1);
-      }
-
-      // Activer l'abonnement
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: {
-          mollieMandatId: mandatId,
-          abonnementStatut: StatutAbonnement.ACTIF,
-          abonnementActifJusquAu: expiration,
-        },
-      });
-
-      // Créer l'abonnement récurrent Mollie (démarre après la 1ère période)
-      try {
-        const startDate = new Date(now);
-        if (frequence === 'ANNUEL') {
-          startDate.setFullYear(startDate.getFullYear() + 1);
-        } else {
-          startDate.setMonth(startDate.getMonth() + 1);
-        }
-
-        const nbCentresActifs = await this.prisma.centreHebergement.count({
-          where: { userId: centre.userId!, statut: 'ACTIVE' },
-        });
-        const centresSupp = Math.max(0, nbCentresActifs - 1);
-        const prixPlan = frequence === 'ANNUEL'
-          ? PRIX_ANNUEL[centre.planAbonnement] ?? 0
-          : PRIX_MENSUEL[centre.planAbonnement] ?? 0;
-        const prixCentresSupp = centresSupp * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
-        const montant = prixPlan + prixCentresSupp;
-
-        const interval = frequence === 'ANNUEL' ? '12 months' : '1 month';
-        const subscription = await mollieClient.customerSubscriptions.create({
-          customerId,
-          amount: { value: centsToMollie(montant), currency: 'EUR' },
-          interval,
-          description: `Abonnement LIAVO ${centre.planAbonnement} — ${centre.nom}`,
-          startDate: startDate.toISOString().split('T')[0],
-        });
-
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
-          data: { mollieSubscriptionId: subscription.id },
-        });
-      } catch (err) {
-        console.error('[mollie-webhook] Erreur création subscription:', err);
-        // L'abonnement est activé mais la récurrence a échoué — sera géré manuellement
-      }
-
-      try {
-        const prixPlanFacture = frequence === 'ANNUEL'
-          ? PRIX_ANNUEL[centre.planAbonnement] ?? 0
-          : PRIX_MENSUEL[centre.planAbonnement] ?? 0;
-        const nbCentresFacture = await this.prisma.centreHebergement.count({
-          where: { userId: centre.userId!, statut: 'ACTIVE' },
-        });
-        const centresSuppFacture = Math.max(0, nbCentresFacture - 1);
-        const prixSuppFacture = centresSuppFacture * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
-        await this.factureLiavoService.emettre(
-          centre.id, prixPlanFacture + prixSuppFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
-        );
-      } catch (err) {
-        console.error('[mollie-webhook] Erreur émission facture LIAVO:', err);
-      }
-
-      return { received: true, activated: true };
     }
 
     // ── Paiement récurrent réussi → prolonger l'abonnement ──

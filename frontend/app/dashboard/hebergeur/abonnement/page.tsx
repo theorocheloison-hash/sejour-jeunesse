@@ -1,10 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAbonnementStatut, checkoutAbonnement, annulerAbonnement } from '@/src/lib/abonnement';
+import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement } from '@/src/lib/abonnement';
 import type { AbonnementStatut } from '@/src/lib/abonnement';
 import PricingTable from '@/app/components/PricingTable';
 
@@ -20,12 +19,18 @@ function formatDateFr(iso: string | null): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function AbonnementContent() {
+export default function AbonnementPage() {
   const { user, isLoading } = useAuth();
-  const searchParams = useSearchParams();
   const [abo, setAbo] = useState<AbonnementStatut | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showIbanForm, setShowIbanForm] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [selectedAnnual, setSelectedAnnual] = useState(false);
+  const [iban, setIban] = useState('');
+  const [titulaire, setTitulaire] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     getAbonnementStatut()
@@ -34,22 +39,35 @@ function AbonnementContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function reloadStatut() {
-    const statut = await getAbonnementStatut().catch(() => null);
-    if (statut) setAbo(statut);
+  function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
+    setSelectedPlan(plan);
+    setSelectedAnnual(annual);
+    setShowIbanForm(true);
+    setFormError(null);
+    setSuccessMessage(null);
   }
 
-  async function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
-    setCheckoutLoading(true);
+  async function handleSubmitIban() {
+    const ibanClean = iban.replace(/\s+/g, '').toUpperCase();
+    if (ibanClean.length < 15) { setFormError('IBAN trop court'); return; }
+    if (!titulaire.trim()) { setFormError('Titulaire requis'); return; }
+    if (!selectedPlan) return;
+
+    setSubmitting(true);
+    setFormError(null);
     try {
-      const result = await checkoutAbonnement(plan, annual ? 'ANNUEL' : 'MENSUEL');
-      window.location.href = result.checkoutUrl;
+      await souscrireAbonnement(selectedPlan, selectedAnnual ? 'ANNUEL' : 'MENSUEL', ibanClean, titulaire.trim());
+      setShowIbanForm(false);
+      setSuccessMessage('Abonnement activé ! Votre premier prélèvement sera effectué sous 2-3 jours ouvrés.');
+      setIban('');
+      setTitulaire('');
+      const updated = await getAbonnementStatut();
+      setAbo(updated);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Erreur lors de la création du paiement. Réessayez.';
-      alert(msg);
-      setCheckoutLoading(false);
+      setFormError(err?.response?.data?.message || 'Erreur lors de l\'activation. Vérifiez votre IBAN et réessayez.');
+    } finally {
+      setSubmitting(false);
     }
-    // Pas de finally : window.location.href quitte la page en cas de succès.
   }
 
   async function handleAnnuler() {
@@ -59,15 +77,14 @@ function AbonnementContent() {
     }
     try {
       await annulerAbonnement();
-      await reloadStatut();
+      const updated = await getAbonnementStatut().catch(() => null);
+      if (updated) setAbo(updated);
     } catch {
       alert('Erreur lors de l\'annulation. Réessayez.');
     }
   }
 
   if (isLoading || !user) return null;
-
-  const checkoutSuccess = searchParams.get('checkout') === 'success';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -83,34 +100,22 @@ function AbonnementContent() {
         <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4 }}>Abonnement</h1>
         <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 32 }}>Gérez votre plan et vos accès.</p>
 
-        {/* ── Retour de Mollie (checkout=success) ─────────────────────── */}
-        {checkoutSuccess && !loading && (
-          abo?.mandatActif ? (
-            <div style={{
-              backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
-              borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            }}>
-              <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
-                <strong>Abonnement activé !</strong> Merci pour votre confiance.
-              </span>
-            </div>
-          ) : (
-            <div style={{
-              backgroundColor: '#E8F0F8', border: '1px solid #1B4060',
-              borderRadius: 12, padding: '16px 20px', marginBottom: 24,
-              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            }}>
-              <span style={{ fontSize: 14, color: 'var(--color-text)', lineHeight: 1.6 }}>
-                Votre paiement SEPA est en cours de traitement. L&apos;activation sera effective sous 2 jours ouvrés. Vous recevrez un email de confirmation.
-              </span>
-            </div>
-          )
-        )}
-
         {/* ── Bandeau statut ──────────────────────────────────────────── */}
-        {!loading && abo && (() => {
-          // 1. Essai en cours
+        {!loading && (() => {
+          // 1. Succès souscription
+          if (successMessage) {
+            return (
+              <div style={{
+                backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
+                borderRadius: 12, padding: '16px 20px', marginBottom: 24,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: 14, color: 'var(--color-text)' }}>{successMessage}</span>
+              </div>
+            );
+          }
+          if (!abo) return null;
+          // 2. Essai en cours
           if (abo.isTrial && abo.actif) {
             return (
               <div style={{
@@ -130,7 +135,7 @@ function AbonnementContent() {
               </div>
             );
           }
-          // 2. Essai expiré
+          // 3. Essai expiré
           if (abo.trialExpire) {
             return (
               <div style={{
@@ -144,7 +149,7 @@ function AbonnementContent() {
               </div>
             );
           }
-          // 3. Abonnement actif payé
+          // 4. Abonnement actif payé
           if (abo.actif && abo.mandatActif) {
             return (
               <>
@@ -183,7 +188,7 @@ function AbonnementContent() {
               </>
             );
           }
-          // 4. Découverte / défaut
+          // 5. Découverte / défaut
           return (
             <div style={{
               backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)',
@@ -201,41 +206,79 @@ function AbonnementContent() {
           );
         })()}
 
-        {/* ── Plans ───────────────────────────────────────────────────── */}
-        <div style={{ position: 'relative' }}>
-          {checkoutLoading && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 10,
-              backgroundColor: 'rgba(255,255,255,0.8)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-              borderRadius: 12,
-            }}>
-              <span style={{
-                width: 18, height: 18, borderRadius: '50%',
-                border: '2px solid #C8C6BC', borderTopColor: '#1B4060',
-                animation: 'spin 0.7s linear infinite', display: 'inline-block',
-              }} />
-              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text)' }}>
-                Redirection vers Mollie...
-              </span>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {/* ── Formulaire IBAN (souscription SEPA) ──────────────────────── */}
+        {showIbanForm && selectedPlan && (
+          <div style={{
+            background: 'white', border: '1px solid var(--color-border, #D3D1C7)',
+            borderRadius: 12, padding: 24, marginBottom: 24,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1B4060', margin: 0 }}>
+                Activer le plan {PLAN_LABELS[selectedPlan]} — {selectedAnnual ? 'Annuel' : 'Mensuel'}
+              </h3>
+              <button onClick={() => setShowIbanForm(false)} style={{ background: 'none', border: 'none', fontSize: 13, color: '#888', cursor: 'pointer' }}>
+                Annuler
+              </button>
             </div>
-          )}
-          <PricingTable
-            showCurrentPlan
-            currentStatut={abo?.statut ?? null}
-            onUpgrade={handleUpgrade}
-          />
-        </div>
+
+            <p style={{ fontSize: 14, color: '#4a4a4a', marginBottom: 20 }}>
+              Montant : <strong>{selectedAnnual
+                ? `${(((selectedPlan === 'ESSENTIEL' ? 290 : selectedPlan === 'COMPLET' ? 490 : 690) * 100) / 100).toFixed(0)}€ HT/an`
+                : `${selectedPlan === 'ESSENTIEL' ? 29 : selectedPlan === 'COMPLET' ? 49 : 69}€ HT/mois`
+              }</strong>
+            </p>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 4 }}>IBAN</label>
+              <input
+                type="text"
+                placeholder="FR76 1234 5678 9012 3456 7890 123"
+                value={iban}
+                onChange={(e) => setIban(e.target.value)}
+                style={{ width: '100%', border: '1px solid #D3D1C7', borderRadius: 8, padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 4 }}>Titulaire du compte</label>
+              <input
+                type="text"
+                placeholder="Nom du titulaire"
+                value={titulaire}
+                onChange={(e) => setTitulaire(e.target.value)}
+                style={{ width: '100%', border: '1px solid #D3D1C7', borderRadius: 8, padding: '10px 12px', fontSize: 14, boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {formError && (
+              <p style={{ fontSize: 13, color: '#9C2B2B', marginBottom: 12 }}>{formError}</p>
+            )}
+
+            <button
+              onClick={handleSubmitIban}
+              disabled={submitting}
+              style={{
+                width: '100%', background: '#1B4060', color: 'white', border: 'none',
+                borderRadius: 8, padding: '12px 0', fontSize: 14, fontWeight: 600,
+                cursor: submitting ? 'wait' : 'pointer', opacity: submitting ? 0.7 : 1,
+              }}
+            >
+              {submitting ? 'Activation en cours...' : 'Activer le prélèvement SEPA'}
+            </button>
+
+            <p style={{ fontSize: 11, color: '#888', marginTop: 10, lineHeight: 1.5 }}>
+              En activant, vous autorisez LIAVO SASU (SIREN 102 994 910) à prélever le montant indiqué sur ce compte via prélèvement SEPA Core.
+              Vous pouvez annuler à tout moment depuis cette page.
+            </p>
+          </div>
+        )}
+
+        <PricingTable
+          showCurrentPlan
+          currentStatut={abo?.statut ?? null}
+          onUpgrade={handleUpgrade}
+        />
       </main>
     </div>
-  );
-}
-
-export default function AbonnementPage() {
-  return (
-    <Suspense fallback={null}>
-      <AbonnementContent />
-    </Suspense>
   );
 }

@@ -6,7 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { AbonnementService } from './abonnement.service.js';
 import { SimulerAbonnementDto } from './dto/simuler-abonnement.dto.js';
-import { CheckoutAbonnementDto } from './dto/checkout-abonnement.dto.js';
+import { SouscrireAbonnementDto } from './dto/souscrire-abonnement.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 
 @Controller('abonnements')
@@ -32,10 +32,10 @@ export class AbonnementController {
     return this.abonnementService.activerTrial(user.id, centreId);
   }
 
-  @Post('checkout')
+  @Post('souscrire')
   @Roles(Role.HEBERGEUR)
-  checkout(@CurrentUser() user: JwtUser, @Body() dto: CheckoutAbonnementDto, @CentreId() centreId: string | null) {
-    return this.abonnementService.creerCheckout(user.id, dto.plan, dto.frequence, centreId);
+  souscrire(@CurrentUser() user: JwtUser, @Body() dto: SouscrireAbonnementDto, @CentreId() centreId: string | null) {
+    return this.abonnementService.souscrire(user.id, dto.plan, dto.frequence, dto.iban, dto.titulaire, centreId);
   }
 
   @Post('annuler')
