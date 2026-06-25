@@ -499,6 +499,7 @@ enum PlanAbonnement {
   DECOUVERTE
   ESSENTIEL
   COMPLET
+  PILOTAGE
 }
 
 // ============================================================
@@ -571,6 +572,10 @@ model CentreHebergement {
   abonnementActifJusquAu DateTime?      @map("abonnement_actif_jusqua") @db.Date
   abonnementStatut    StatutAbonnement  @default(INACTIF) @map("abonnement_statut")
   planAbonnement      PlanAbonnement    @default(DECOUVERTE) @map("plan_abonnement")
+  mollieCustomerId     String?   @map("mollie_customer_id") @db.VarChar(50)
+  mollieSubscriptionId String?   @map("mollie_subscription_id") @db.VarChar(50)
+  mollieMandatId       String?   @map("mollie_mandat_id") @db.VarChar(50)
+  trialStartedAt       DateTime? @map("trial_started_at")
   siret               String?           @map("siret") @db.VarChar(14)
   siteWeb             String?           @map("site_web") @db.VarChar(500)
   tvaIntracommunautaire String?         @map("tva_intracommunautaire") @db.VarChar(20)
