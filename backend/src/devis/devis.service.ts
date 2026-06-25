@@ -886,6 +886,95 @@ export class DevisService {
     return updated;
   }
 
+  /**
+   * L'hébergeur enregistre une signature direction reçue hors plateforme (email, courrier).
+   * Accepte un PDF signé (optionnel) et un nom de signataire.
+   * Fonctionne pour les devis COLLAB et DIRECT au statut SELECTIONNE.
+   */
+  async marquerDevisSigneHebergeur(
+    devisId: string,
+    userId: string,
+    file?: Express.Multer.File,
+    nomSignataire?: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        demande: { select: { sejourId: true, sejour: { select: { titre: true } } } },
+        sejourDirect: { select: { id: true, titre: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) {
+      throw new ForbiddenException('Ce devis ne vous appartient pas');
+    }
+    if (devis.statut !== 'SELECTIONNE') {
+      throw new ForbiddenException(
+        'Le devis doit être au statut Sélectionné pour enregistrer la signature direction',
+      );
+    }
+
+    let signatureDocumentUrl: string | null = null;
+    if (file && file.mimetype === 'application/pdf') {
+      signatureDocumentUrl = await this.storage.upload(file, 'signatures-direction');
+    }
+
+    const nomSignataireClean = nomSignataire?.trim().slice(0, 255) || null;
+    const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+    const sejourTitre = devis.sejourDirect?.titre ?? devis.demande?.sejour?.titre ?? '';
+
+    const updated = await this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        statut: StatutDevis.SIGNE_DIRECTION,
+        ...(signatureDocumentUrl ? { signatureDocumentUrl } : {}),
+        signatureDirecteur: nomSignataireClean
+          ? `Signé par ${nomSignataireClean} — enregistré le ${new Date().toLocaleDateString('fr-FR')}`
+          : `Signature direction enregistrée le ${new Date().toLocaleDateString('fr-FR')}`,
+        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
+        dateSignatureDirecteur: new Date(),
+      },
+    });
+
+    if (sejourId) {
+      await this.prisma.sejour.update({
+        where: { id: sejourId },
+        data: { statut: StatutSejour.SIGNE_DIRECTION },
+      });
+    }
+
+    // Log CRM non bloquant
+    try {
+      if (sejourId) {
+        const sejourClient = await this.prisma.sejourClient.findFirst({
+          where: { sejourId },
+          select: { clientId: true },
+        });
+        if (sejourClient) {
+          await this.prisma.activiteClient.create({
+            data: {
+              clientId: sejourClient.clientId,
+              centreId: centre.id,
+              sejourId,
+              type: 'SIGNATURE',
+              description: `Signature direction enregistrée — ${sejourTitre}`,
+              metadata: {
+                devisId,
+                emailType: 'SIGNATURE_DIRECTION_HEBERGEUR',
+              },
+              userId,
+            },
+          });
+        }
+      }
+    } catch { /* non bloquant */ }
+
+    return updated;
+  }
+
   async getDevisAValider(userId: string) {
     const sejourIds = await getSignataireSejourIds(this.prisma, userId);
     if (sejourIds.length === 0) return [];

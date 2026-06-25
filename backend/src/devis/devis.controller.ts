@@ -190,6 +190,21 @@ export class DevisController {
     return this.devisService.uploadSignatureDocument(id, user.id, file, body?.nomSignataire);
   }
 
+  /** POST /devis/:id/marquer-signe — L'hébergeur enregistre une signature direction reçue hors plateforme */
+  @Post(':id/marquer-signe')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  @UseInterceptors(FileInterceptor('file'))
+  marquerSigne(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() body: { nomSignataire?: string },
+    @CentreId() centreId: string | null,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.devisService.marquerDevisSigneHebergeur(id, user.id, file, body?.nomSignataire, centreId);
+  }
+
   // ── Facturation migrée vers FactureModule (Lot 1) ──
   // Routes supprimées : PATCH facturer-acompte/facturer-solde/valider-acompte,
   // POST versements, PATCH versements/:vid/supprimer, GET chorus-xml.
