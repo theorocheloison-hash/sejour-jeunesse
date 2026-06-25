@@ -1335,8 +1335,6 @@ export default function CollaborationPage() {
             user={user}
             isDirect={isDirect}
             budgetData={budgetData}
-            budgetLoading={budgetLoading}
-            onBudgetReload={loadBudget}
             onError={setMutationError}
           />
         )}

@@ -41,8 +41,6 @@ interface TabDevisFacturationProps {
   user: User;
   isDirect: boolean;
   budgetData: BudgetData | null;
-  budgetLoading: boolean;
-  onBudgetReload: () => Promise<void>;
   onError: (message: string) => void;
 }
 
@@ -150,8 +148,6 @@ export default function TabDevisFacturation({
   user,
   isDirect,
   budgetData,
-  budgetLoading,
-  onBudgetReload,
   onError,
 }: TabDevisFacturationProps) {
   // ── Devis DIRECT ────────────────────────────────────────────

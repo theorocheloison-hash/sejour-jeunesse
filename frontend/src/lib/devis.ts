@@ -482,12 +482,6 @@ export async function genererConvention(devisId: string): Promise<{ conventionUr
   return res.data;
 }
 
-/** Retourne uniquement le devis PRINCIPAL du séjour (isComplementaire=false). */
-export async function getDevisForSejourDirect(sejourDirectId: string): Promise<Devis[]> {
-  const { data } = await api.get<Devis[]>('/devis/mes-devis');
-  return data.filter(d => d.sejourDirectId === sejourDirectId && !d.isComplementaire);
-}
-
 /** Retourne le devis principal actif d'un séjour (DIRECT ou COLLAB). Endpoint unifié. */
 export async function getDevisForSejour(sejourId: string): Promise<Devis | null> {
   const { data } = await api.get<Devis | null>(`/devis/sejour/${sejourId}`);
