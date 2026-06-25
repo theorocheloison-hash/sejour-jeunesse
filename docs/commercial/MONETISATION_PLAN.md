@@ -1,10 +1,10 @@
 # LIAVO — Plan de monétisation : Pricing, Gating & Paiement
 
 > **Rédigé le 11/06/2026** — Document de cadrage complet
-> **Dernière mise à jour** : 18/06/2026 — Simplification grille tarifaire (tarif unique, suppression distinction mensuel/annuel)
-> **Statut** — Grille pricing validée par Théo. Aucun code modifié.
+> **Dernière mise à jour** : 25/06/2026 — PSP tranché : Mollie. Pricing mensuel + annuel réintroduit (remise ~17%, prix ronds).
+> **Statut** — Grille pricing validée par Théo. Compte Mollie créé. Aucun code modifié.
 > **Référence complémentaire** — `docs/commercial/BUSINESS_MODEL.md` (modèle historique)
-> **Prochaine étape** — Choix du prestataire de paiement puis implémentation
+> **Prochaine étape** — Intégration backend Mollie SEPA + migration Prisma PILOTAGE
 
 ---
 
@@ -14,30 +14,40 @@
 
 | | Découverte | Essentiel | Complet | Pilotage |
 |---|---|---|---|---|
-| **Prix HT/mois** | Gratuit | 29 € | 49 € | 69 € |
-
-Tarif unique mensuel. Pas de distinction mensuel/annuel. Pas de remise engagement.
+| **Mensuel HT** | Gratuit | 29 €/mois | 49 €/mois | 69 €/mois |
+| **Annuel HT** | Gratuit | 290 €/an | 490 €/an | 690 €/an |
+| **Économie annuelle** | — | 58 € (2 mois offerts) | 98 € (2 mois offerts) | 138 € (2 mois offerts) |
 
 Pilotage = palier tout inclus (inclut toutes les features Complet + module pilotage). Ce n'est PAS un add-on facturé en plus du Complet.
+
+L'hébergeur choisit sa fréquence (mensuel ou annuel) au moment de la souscription. Même mandat SEPA, seule la fréquence de prélèvement change. Prix annuels = montants ronds adaptés aux bons de commande assos/mairies.
 
 ### 1.2 Multi-centre
 
 - Disponible uniquement à partir du plan **Complet**
-- Prix : **+39 € HT/mois par centre supplémentaire**
+- Prix : **+39 € HT/mois** ou **+390 € HT/an** par centre supplémentaire
 - Le centre supplémentaire hérite du plan de l'hébergeur (Complet ou Pilotage)
 - Pas de remise dégressive pour le moment (à réévaluer à 5+ centres)
+- Exemple Pôle Montagne (Complet + 1 centre supp) : 88 €/mois ou 880 €/an
 
 ### 1.3 Historique tarifaire
 
-> **Grille précédente (11/06/2026 → 18/06/2026)** — supprimée pour simplification :
+> **Grille v2 (18/06/2026 → 25/06/2026)** — tarif unique mensuel, pas de distinction mensuel/annuel :
+>
+> | | Découverte | Essentiel | Complet | Pilotage |
+> |---|---|---|---|---|
+> | Prix mensuel HT | 0€ | 29€ | 49€ | 69€ |
+>
+> Raison du changement v3 : réintroduction de l'option annuelle avec prix ronds (290/490/690/390€) pour faciliter les bons de commande assos/mairies. Remise ~17% = 2 mois offerts.
+
+> **Grille v1 (11/06/2026 → 18/06/2026)** — supprimée pour simplification :
 >
 > | | Découverte | Essentiel | Complet | Pilotage |
 > |---|---|---|---|---|
 > | Prix mensuel HT | 0€ | 39€ | 59€ | 79€ |
 > | Prix annuel HT | 0€ | 32€/mois (390€/an) | 49€/mois (590€/an) | 66€/mois (790€/an) |
-> | Remise annuelle | — | ~17% (2 mois offerts) | ~17% | ~17% |
 >
-> Raison du changement : trop de complexité (double grille mensuel/annuel), confusion en démo, écart entre le doc et la page live. Simplification en tarif unique.
+> Raison du changement v2 : trop de complexité, confusion en démo, prix trop élevés.
 
 ---
 
@@ -105,8 +115,7 @@ Les adhérents LMDJ paient déjà une cotisation réseau (~28K€/an pour le ré
 | Webhooks fiables | ★★★ | ✅ | ✅ | ❓ |
 | Stripe-like DX | ★ | ✅ (le plus proche) | 🟡 | ❓ |
 
-**Recommandation** : Mollie. Le meilleur DX, SEPA natif, webhooks fiables. EU (pas FR) mais pas de data US.
-**Alternative FR** : PayPlug si la souveraineté FR est un impératif client (appels d'offres publics).
+**Décision : Mollie.** SEPA B2B prélèvement automatique uniquement (pas CB récurrente). 0,25€ fixe par transaction quel que soit le montant — le tarif le plus avantageux sur des montants B2B (ex : 0,04% sur 700€ annuel). EU (NL, agréé ACPR), pas de data US. Mandat électronique natif, nom LIAVO visible sur relevé client. Plafond par défaut 1 000€ — demander extension à 5 000€ dès l'ouverture du compte (pour abonnements annuels Pilotage multi-centre). PayPlug écarté (pas de SEPA B2B natif). Frisbii écarté (API insuffisamment documentée).
 
 ### 3.2 Architecture technique
 
@@ -175,26 +184,23 @@ Endpoints :
 ## 6. Env vars à configurer (selon PSP choisi)
 
 ```bash
-# Mollie
+# Mollie (PSP retenu)
 MOLLIE_API_KEY=test_xxxxxxxx
 MOLLIE_WEBHOOK_SECRET=xxxxx
-
-# OU PayPlug
-PAYPLUG_SECRET_KEY=sk_test_xxxxx
-
-# OU Stripe (écarté)
-STRIPE_SECRET_KEY=sk_test_xxxxx
-STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 
 # URLs de redirection
 FRONTEND_URL=https://liavo.fr
 ```
 
 Produits/Prix à créer chez le PSP (mode test puis live) :
-- LIAVO Essentiel : 2900 centimes (29€/mois)
-- LIAVO Complet : 4900 centimes (49€/mois)
-- LIAVO Pilotage : 6900 centimes (69€/mois)
-- Centre supplémentaire : 3900 centimes (39€/mois)
+- LIAVO Essentiel mensuel : 2900 centimes (29€/mois)
+- LIAVO Essentiel annuel : 29000 centimes (290€/an)
+- LIAVO Complet mensuel : 4900 centimes (49€/mois)
+- LIAVO Complet annuel : 49000 centimes (490€/an)
+- LIAVO Pilotage mensuel : 6900 centimes (69€/mois)
+- LIAVO Pilotage annuel : 69000 centimes (690€/an)
+- Centre supplémentaire mensuel : 3900 centimes (39€/mois)
+- Centre supplémentaire annuel : 39000 centimes (390€/an)
 
 ---
 
@@ -221,12 +227,13 @@ Produits/Prix à créer chez le PSP (mode test puis live) :
 
 ## 8. Questions ouvertes
 
-- [ ] **Durée du trial** : 30 jours ou 60 jours ?
-- [ ] **Souveraineté** : EU acceptable (→ Mollie) ou FR obligatoire (→ Frisbii/PayPlug) ?
-- [ ] **Frisbii** : SDK Node.js ? Pricing ? Qualité API ? → envoyer un email commercial.
-- [ ] **Multi-centre annuel** : le +39€/centre est mensuel. Remise volume à définir.
-- [ ] **Upgrade mid-cycle** : prorata ou plein tarif le mois suivant ?
-- [ ] **Downgrade** : possible ? Effectif à la fin de la période en cours ?
+- [x] **Durée du trial** : 30 jours en Pilotage complet.
+- [x] **Souveraineté** : EU acceptable → Mollie retenu.
+- [x] **Mode de paiement** : SEPA B2B uniquement, mandat électronique Mollie.
+- [x] **Multi-centre annuel** : +390€/an/centre supplémentaire.
+- [x] **Fréquence** : mensuel + annuel au choix, remise ~17% sur l'annuel.
+- [x] **Upgrade mid-cycle** : nouveau prix appliqué au prélèvement suivant, pas de prorata.
+- [x] **Downgrade** : possible, sur demande manuelle uniquement (contact LIAVO). Effectif en fin de période. Données en lecture seule sur les modules désactivés.
 - [ ] **CRM simplifié dans Essentiel** : rien validé. Mais un hébergeur Essentiel qui fait des devis voudra retrouver ses clients. Risque UX à surveiller.
 - [ ] **Licence réseau** : LMDJ pourrait-il payer un forfait LIAVO (inclus dans cotisation) pour offrir un plan Essentiel à ses adhérents ? À explorer post-CA 30/06.
 
@@ -238,19 +245,26 @@ Produits/Prix à créer chez le PSP (mode test puis live) :
 |---|---|---|
 | Nombre de plans | 4 (Découverte, Essentiel, Complet, Pilotage) | 11/06/2026 |
 | Pilotage | Palier tout inclus à 69€, pas un add-on | 18/06/2026 |
-| **Simplification pricing** | **Tarif unique mensuel, suppression distinction mensuel/annuel** | **18/06/2026** |
-| **Essentiel** | **29€ HT/mois (baissé depuis 39€)** | **18/06/2026** |
-| **Complet** | **49€ HT/mois (baissé depuis 59€)** | **18/06/2026** |
-| **Pilotage** | **69€ HT/mois (baissé depuis 79€)** | **18/06/2026** |
-| Multi-centre | Complet+ uniquement, +39€/centre supp | 11/06/2026 |
-| Remise annuelle | ~~17%~~ Supprimée — tarif unique | 18/06/2026 |
+| **Simplification pricing** | ~~Tarif unique mensuel~~ → réintroduit mensuel+annuel (v3) | 18/06 → 25/06 |
+| **Pricing v3** | **Mensuel (29/49/69€) + Annuel ronds (290/490/690€), remise ~17%** | **25/06/2026** |
+| **Essentiel** | **29€/mois ou 290€/an** | **25/06/2026** |
+| **Complet** | **49€/mois ou 490€/an** | **25/06/2026** |
+| **Pilotage** | **69€/mois ou 690€/an** | **25/06/2026** |
+| **Centre supp** | **39€/mois ou 390€/an** | **25/06/2026** |
+| Remise annuelle | **~17% réintroduite** — prix annuels ronds | 25/06/2026 |
 | CRM dans Essentiel | Non. Essentiel = devis + facturation uniquement | 11/06/2026 |
 | Documents partagés dans Essentiel | Non. Uniquement avec espace collaboratif (Complet+) | 11/06/2026 |
 | Multi-user dans Essentiel | Non. Uniquement Complet+ | 11/06/2026 |
 | Adhérents LMDJ Découverte | Réponse PDF + coordonnées enseignant sur demandes LMDJ | 11/06/2026 |
 | LMDJ paye LIAVO | Non. Gratuit en échange de l'acquisition masse | 11/06/2026 |
 | Stripe | Écarté (souveraineté numérique) | 11/06/2026 |
-| Prestataire paiement | À trancher : Mollie (EU) vs Frisbii/PayPlug (FR) | En attente |
+| Prestataire paiement | **Mollie** (EU/NL, agréé ACPR) | 25/06/2026 |
+| Mode de paiement | **SEPA B2B prélèvement automatique uniquement** (pas CB récurrente) | 25/06/2026 |
+| **TVA** | Franchise de base art. 293 B CGI (1er exercice LIAVO SASU) | 25/06/2026 |
+| **Trial** | 30j Pilotage complet, blocage souple à expiration | 25/06/2026 |
+| **Upgrade mid-cycle** | Nouveau prix au prélèvement suivant, pas de prorata | 25/06/2026 |
+| **Downgrade** | Sur demande manuelle, fin de période, données en lecture seule | 25/06/2026 |
+| **Tarif Mollie SEPA** | **0,35€ fixe par transaction** (SEPA Core) | 25/06/2026 |
 
 ---
 
