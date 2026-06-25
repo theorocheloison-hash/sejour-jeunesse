@@ -54,3 +54,33 @@ export async function getCentresForUser(prisma: PrismaService, userId: string) {
     .map(cc => cc.centre);
   return [...owned, ...fromCollab];
 }
+
+/**
+ * Retourne les IDs de tous les centres accessibles par un user :
+ * centres dont il est propriétaire + centres où il est collaborateur accepté.
+ * Si centreId est fourni, vérifie l'accès à ce centre spécifique via getCentreForUser
+ * (qui lève NotFoundException/ForbiddenException si non autorisé) et retourne [centreId].
+ */
+export async function getCentreIdsForUser(
+  prisma: PrismaService,
+  userId: string,
+  centreId?: string | null,
+): Promise<string[]> {
+  if (centreId) {
+    const centre = await getCentreForUser(prisma, userId, centreId);
+    return [centre.id];
+  }
+  const owned = await prisma.centreHebergement.findMany({
+    where: { userId, statut: 'ACTIVE' },
+    select: { id: true },
+  });
+  const collabs = await prisma.collaborateurCentre.findMany({
+    where: { userId, acceptedAt: { not: null }, centre: { statut: 'ACTIVE' } },
+    select: { centreId: true },
+  });
+  const ids = new Set([
+    ...owned.map((c) => c.id),
+    ...collabs.map((c) => c.centreId),
+  ]);
+  return [...ids];
+}

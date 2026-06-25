@@ -6,6 +6,7 @@ import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
+import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 
 @Injectable()
@@ -450,22 +451,8 @@ export class CollaborationService {
   // ── Vue hébergeur : mes séjours en convention ─────────────────
 
   async getMesSejoursConvention(userId: string, centreId?: string | null) {
-    let centreIds: string[];
-    if (centreId) {
-      const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (!centre) return [];
-      centreIds = [centre.id];
-    } else {
-      const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      centreIds = centres.map((c) => c.id);
-      if (centreIds.length === 0) return [];
-    }
+    const centreIds = await getCentreIdsForUser(this.prisma, userId, centreId);
+    if (centreIds.length === 0) return [];
 
     return this.prisma.sejour.findMany({
       where: {
@@ -490,22 +477,8 @@ export class CollaborationService {
    * Exclut les séjours soft-deleted.
    */
   async getMesSejoursPlanning(userId: string, centreId?: string | null) {
-    let centreIds: string[];
-    if (centreId) {
-      const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (!centre) return [];
-      centreIds = [centre.id];
-    } else {
-      const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      centreIds = centres.map((c) => c.id);
-      if (centreIds.length === 0) return [];
-    }
+    const centreIds = await getCentreIdsForUser(this.prisma, userId, centreId);
+    if (centreIds.length === 0) return [];
 
     return this.prisma.sejour.findMany({
       where: {
@@ -554,22 +527,8 @@ export class CollaborationService {
    * par l'hébergeur, agrégé et par séjour.
    */
   async getMesNonLus(userId: string, centreId?: string | null) {
-    let centreIds: string[];
-    if (centreId) {
-      const centre = await this.prisma.centreHebergement.findFirst({
-        where: { id: centreId, userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      if (!centre) return { total: 0, parSejour: [] };
-      centreIds = [centre.id];
-    } else {
-      const centres = await this.prisma.centreHebergement.findMany({
-        where: { userId, statut: 'ACTIVE' },
-        select: { id: true },
-      });
-      centreIds = centres.map((c) => c.id);
-      if (centreIds.length === 0) return { total: 0, parSejour: [] };
-    }
+    const centreIds = await getCentreIdsForUser(this.prisma, userId, centreId);
+    if (centreIds.length === 0) return { total: 0, parSejour: [] };
 
     const sejours = await this.prisma.sejour.findMany({
       where: {
