@@ -151,6 +151,7 @@ export interface Devis {
   signatureDirecteur?: string | null;
   dateSignatureDirecteur?: string | null;
   nomSignataireDirecteur?: string | null;
+  signatureDocumentUrl?: string | null;
   conventionUrl?: string | null;
   estFacture?: boolean;
   dateFacture?: string | null;
@@ -485,6 +486,12 @@ export async function genererConvention(devisId: string): Promise<{ conventionUr
 export async function getDevisForSejourDirect(sejourDirectId: string): Promise<Devis[]> {
   const { data } = await api.get<Devis[]>('/devis/mes-devis');
   return data.filter(d => d.sejourDirectId === sejourDirectId && !d.isComplementaire);
+}
+
+/** Retourne le devis principal actif d'un séjour (DIRECT ou COLLAB). Endpoint unifié. */
+export async function getDevisForSejour(sejourId: string): Promise<Devis | null> {
+  const { data } = await api.get<Devis | null>(`/devis/sejour/${sejourId}`);
+  return data;
 }
 
 /** Retourne les devis complémentaires d'un séjour direct. */

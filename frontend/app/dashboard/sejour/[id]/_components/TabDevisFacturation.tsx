@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  getDevisForSejourDirect,
+  getDevisForSejour,
   getDevisComplementairesForSejour,
   createDevisComplementaire,
   envoyerDevisDirect,
@@ -155,8 +155,8 @@ export default function TabDevisFacturation({
   onError,
 }: TabDevisFacturationProps) {
   // ── Devis DIRECT ────────────────────────────────────────────
-  const [directDevis, setDirectDevis] = useState<DevisType | null>(null);
-  const [directDevisLoading, setDirectDevisLoading] = useState(false);
+  const [devis, setDevis] = useState<DevisType | null>(null);
+  const [devisLoading, setDevisLoading] = useState(false);
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
   const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
@@ -190,11 +190,7 @@ export default function TabDevisFacturation({
     setConventionSuccess(false);
     try {
       await genererConvention(devisId);
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
       setConventionSuccess(true);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
@@ -293,22 +289,22 @@ export default function TabDevisFacturation({
     finally { setComplementairesLoading(false); }
   }, [isDirect, sejourId]);
 
-  /** Recharge le devis principal ET les complémentaires après une action. */
-  const reloadAllDirect = async () => {
-    const devis = await getDevisForSejourDirect(sejourId);
-    setDirectDevis(devis[0] ?? null);
-    await loadComplementaires();
+  /** Recharge le devis principal (DIRECT ou COLLAB) */
+  const reloadDevis = async () => {
+    const d = await getDevisForSejour(sejourId);
+    setDevis(d);
   };
 
   useEffect(() => {
-    if (!isDirect) return;
-    setDirectDevisLoading(true);
-    Promise.all([
-      getDevisForSejourDirect(sejourId).then(devis => setDirectDevis(devis[0] ?? null)),
-      loadComplementaires(),
-    ])
+    setDevisLoading(true);
+    getDevisForSejour(sejourId)
+      .then(d => setDevis(d))
       .catch(() => {})
-      .finally(() => setDirectDevisLoading(false));
+      .finally(() => setDevisLoading(false));
+  }, [sejourId]);
+
+  useEffect(() => {
+    if (isDirect) loadComplementaires();
   }, [isDirect, sejourId, loadComplementaires]);
 
   // Catalogue produits pour l'autocomplete des lignes (HEBERGEUR uniquement, comme le devis principal).
@@ -318,27 +314,16 @@ export default function TabDevisFacturation({
   }, [isDirect]);
 
   // Devis actif (DIRECT ou COLLAB) normalisé pour le pipeline facturation
-  const activeDevisForFacturation = isDirect
-    ? directDevis
-      ? {
-          id: directDevis.id,
-          statut: directDevis.statut,
-          montantTTC: Number(directDevis.montantTTC ?? 0),
-          montantAcompte: Number(directDevis.montantAcompte ?? 0),
-          pourcentageAcompte: Number(directDevis.pourcentageAcompte ?? 30),
-          factures: directDevis.factures ?? null,
-        }
-      : null
-    : budgetData?.devis
-      ? {
-          id: budgetData.devis.id,
-          statut: budgetData.devis.statut,
-          montantTTC: Number(budgetData.devis.montantTTC ?? budgetData.devis.montantTotal ?? 0),
-          montantAcompte: Number(budgetData.devis.montantAcompte ?? 0),
-          pourcentageAcompte: Number(budgetData.devis.pourcentageAcompte ?? 30),
-          factures: (budgetData.devis as { factures?: Facture[] }).factures ?? null,
-        }
-      : null;
+  const activeDevisForFacturation = devis
+    ? {
+        id: devis.id,
+        statut: devis.statut,
+        montantTTC: Number(devis.montantTTC ?? 0),
+        montantAcompte: Number(devis.montantAcompte ?? 0),
+        pourcentageAcompte: Number(devis.pourcentageAcompte ?? 30),
+        factures: devis.factures ?? null,
+      }
+    : null;
 
   const activeDevisId = activeDevisForFacturation?.id ?? null;
   const activeDevisStatut = activeDevisForFacturation?.statut ?? null;
@@ -385,11 +370,7 @@ export default function TabDevisFacturation({
     setFacturerLoading(true);
     try {
       await emettreFactureAcompte(activeDevisId);
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
       await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation de l\'acompte');
@@ -403,11 +384,7 @@ export default function TabDevisFacturation({
     setFacturerLoading(true);
     try {
       await emettreFactureSolde(activeDevisId);
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
       await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation du solde');
@@ -421,11 +398,7 @@ export default function TabDevisFacturation({
     setFacturerLoading(true);
     try {
       await emettreFactureTotal(activeDevisId);
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
       await reloadFactures();
     } catch {
       onError('Erreur lors de la facturation du total');
@@ -447,7 +420,7 @@ export default function TabDevisFacturation({
       );
       await reloadFactures();
       // Puis reload du devis pour rafraîchir les montants agrégés (montantVerseTotal) du header.
-      if (isDirect) { await reloadAllDirect(); } else { await onBudgetReload(); }
+      await reloadDevis();
       setVersementForm({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
       setShowAddVersement(false);
     } catch {
@@ -523,11 +496,7 @@ export default function TabDevisFacturation({
       await emettreAvoir(avoirFactureSource.id, avoirMontant, avoirMotif, lignesSelectionnees);
       setShowModalAvoir(false);
       await reloadFactures();
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message ?? 'Erreur lors de l\'émission de l\'avoir';
@@ -543,11 +512,7 @@ export default function TabDevisFacturation({
     try {
       await annulerDevis(activeDevisId);
       setShowModalAnnuler(false);
-      if (isDirect) {
-        await reloadAllDirect();
-      } else {
-        await onBudgetReload();
-      }
+      await reloadDevis();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message ?? 'Erreur lors de l\'annulation';
@@ -1116,43 +1081,43 @@ export default function TabDevisFacturation({
       {/* ── Devis DIRECT — rendu dynamique ─── */}
       {isDirect && (
         <div className="space-y-4">
-          {directDevisLoading ? (
+          {devisLoading ? (
             <div className="flex justify-center py-8">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
             </div>
-          ) : directDevis ? (
+          ) : devis ? (
             <>
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900">
-                      Devis {directDevis.numeroDevis ?? ''}
+                      Devis {devis.numeroDevis ?? ''}
                     </h3>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Créé le {new Date(directDevis.createdAt).toLocaleDateString('fr-FR')}
+                      Créé le {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                     etatFacturation === 'SOLDE' ? 'bg-teal-100 text-teal-700' :
                     etatFacturation === 'ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
-                    directDevis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
-                    directDevis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
-                    directDevis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700') :
-                    directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
+                    devis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
+                    devis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
+                    devis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700') :
+                    devis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
                     {etatFacturation === 'SOLDE' ? 'Soldé' :
                      etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
-                     directDevis.statut === 'EN_ATTENTE' ? 'Brouillon' :
-                     directDevis.statut === 'SELECTIONNE' ? 'Signé' :
-                     directDevis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'Signé' : 'Signé direction') :
-                     directDevis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
-                     directDevis.statut === 'NON_RETENU' ? 'Non retenu' :
-                     directDevis.statut}
+                     devis.statut === 'EN_ATTENTE' ? 'Brouillon' :
+                     devis.statut === 'SELECTIONNE' ? 'Signé' :
+                     devis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'Signé' : 'Signé direction') :
+                     devis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
+                     devis.statut === 'NON_RETENU' ? 'Non retenu' :
+                     devis.statut}
                   </span>
                 </div>
 
-                {(directDevis.lignes ?? []).length > 0 && (
+                {(devis.lignes ?? []).length > 0 && (
                   <table className="w-full text-xs mb-4">
                     <thead>
                       <tr className="border-b border-gray-200">
@@ -1163,7 +1128,7 @@ export default function TabDevisFacturation({
                       </tr>
                     </thead>
                     <tbody>
-                      {(directDevis.lignes ?? []).map((l, i) => (
+                      {(devis.lignes ?? []).map((l, i) => (
                         <tr key={i} className="border-b border-gray-50">
                           <td className="py-2">{l.description}</td>
                           <td className="py-2 text-right">{l.quantite}</td>
@@ -1176,27 +1141,27 @@ export default function TabDevisFacturation({
                 )}
 
                 <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
-                  {directDevis.montantHT != null && (
-                    <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{Number(directDevis.montantHT).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                  {devis.montantHT != null && (
+                    <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{Number(devis.montantHT).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
                   )}
-                  {directDevis.montantTVA != null && (
-                    <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{Number(directDevis.montantTVA).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                  {devis.montantTVA != null && (
+                    <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{Number(devis.montantTVA).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
                   )}
                   <div className="flex justify-between font-bold">
                     <span>Total TTC</span>
-                    <span className="text-[var(--color-primary)]">{Number(directDevis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                    <span className="text-[var(--color-primary)]">{Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                   </div>
-                  {directDevis.montantAcompte != null && Number(directDevis.montantAcompte) > 0 && (
+                  {devis.montantAcompte != null && Number(devis.montantAcompte) > 0 && (
                     <div className="flex justify-between text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
-                      <span>Acompte ({directDevis.pourcentageAcompte ?? 30}%)</span>
-                      <span className="font-semibold">{Number(directDevis.montantAcompte).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                      <span>Acompte ({devis.pourcentageAcompte ?? 30}%)</span>
+                      <span className="font-semibold">{Number(devis.montantAcompte).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {sejour?.clientEmail && directDevis.statut === 'EN_ATTENTE' && (
+                {sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
                   <button
                     onClick={() => { setMessagePerso(''); setEnvoiError(null); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
@@ -1206,7 +1171,7 @@ export default function TabDevisFacturation({
                   </button>
                 )}
 
-                {!sejour?.clientEmail && directDevis.statut === 'EN_ATTENTE' && (
+                {!sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
                   <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                     Renseignez l&apos;email du client pour pouvoir envoyer le devis par email.
                   </p>
@@ -1218,7 +1183,7 @@ export default function TabDevisFacturation({
                   </p>
                 )}
 
-                {showEnvoiModal && directDevis && (
+                {showEnvoiModal && devis && (
                   <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
                   >
@@ -1277,10 +1242,10 @@ export default function TabDevisFacturation({
                             setEnvoyerLoading(true);
                             setEnvoiError(null);
                             try {
-                              await envoyerDevisDirect(directDevis.id, messagePerso.trim() || undefined);
+                              await envoyerDevisDirect(devis.id, messagePerso.trim() || undefined);
                               setShowEnvoiModal(false);
                               setEnvoyerSuccess(true);
-                              await reloadAllDirect();
+                              await reloadDevis();
                             } catch {
                               setEnvoiError("Erreur lors de l'envoi du devis. Réessayez.");
                             } finally {
@@ -1300,18 +1265,18 @@ export default function TabDevisFacturation({
                   </div>
                 )}
 
-                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(directDevis.statut) && !factureAcompte && (
+                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut) && !factureAcompte && (
                   <Link
-                    href={`/dashboard/hebergeur/devis/${directDevis.id}/modifier`}
+                    href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
                   >
                     Modifier le devis
                   </Link>
                 )}
                 {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
-                {factureAcompte && !factureSolde && (directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION') && (
+                {factureAcompte && !factureSolde && (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') && (
                   <Link
-                    href={`/dashboard/hebergeur/devis/${directDevis.id}/modifier`}
+                    href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
                     className="rounded-lg border border-amber-300 px-4 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
                   >
                     Ajuster avant solde
@@ -1322,16 +1287,16 @@ export default function TabDevisFacturation({
               {/* Bloc « Devis signé » — affiché dès lors que le devis est signé
                   (en ligne OU scan uploadé). Le scan ne renseigne pas le nom du
                   signataire : on retombe alors sur la date seule. */}
-              {(directDevis.statut === 'SELECTIONNE' || directDevis.statut === 'SIGNE_DIRECTION')
-                && (directDevis.nomSignataireDirecteur || directDevis.dateSignatureDirecteur) && (
+              {(devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION')
+                && (devis.nomSignataireDirecteur || devis.dateSignatureDirecteur) && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
                   <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
                   <p className="text-xs text-green-700 mt-1">
-                    {directDevis.nomSignataireDirecteur
-                      ? `Signé par ${directDevis.nomSignataireDirecteur}`
+                    {devis.nomSignataireDirecteur
+                      ? `Signé par ${devis.nomSignataireDirecteur}`
                       : 'Document signé'}
-                    {directDevis.dateSignatureDirecteur && (
-                      ` le ${new Date(directDevis.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(directDevis.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                    {devis.dateSignatureDirecteur && (
+                      ` le ${new Date(devis.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(devis.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
                     )}
                   </p>
                 </div>
@@ -1339,15 +1304,15 @@ export default function TabDevisFacturation({
 
               {/* Convention de séjour scolaire — DIRECT + nature SEJOUR + devis signé */}
               {sejour?.natureSejour === 'SEJOUR'
-                && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(directDevis.statut) && (
+                && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut) && (
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
                   </div>
 
-                  {directDevis.conventionUrl && (
+                  {devis.conventionUrl && (
                     <SecureFileLink
-                      url={directDevis.conventionUrl}
+                      url={devis.conventionUrl}
                       className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1359,7 +1324,7 @@ export default function TabDevisFacturation({
 
                   <div className="flex items-center gap-3 flex-wrap">
                     <button
-                      onClick={() => handlePreviewConvention(directDevis.id)}
+                      onClick={() => handlePreviewConvention(devis.id)}
                       disabled={previewLoading}
                       className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                     >
@@ -1369,14 +1334,14 @@ export default function TabDevisFacturation({
                       {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
                     </button>
                     <button
-                      onClick={() => handleGenererConvention(directDevis.id, sejour?.clientEmail)}
+                      onClick={() => handleGenererConvention(devis.id, sejour?.clientEmail)}
                       disabled={conventionLoading}
                       className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                     >
                       {conventionLoading && (
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       )}
-                      {conventionLoading ? 'Envoi…' : directDevis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
+                      {conventionLoading ? 'Envoi…' : devis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
                     </button>
                   </div>
 
@@ -1390,7 +1355,7 @@ export default function TabDevisFacturation({
 
               {/* Aperçu PDF du devis (signé ou non) — au-dessus de la section Facturation */}
               {(() => {
-                const dd = directDevis!;
+                const dd = devis!;
                 const cc = dd.centre;
                 const htCalc = Number(dd.montantHT) || (dd.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
                 const ttcCalc = Number(dd.montantTTC) || Number(dd.montantTotal) || 0;
@@ -1495,24 +1460,24 @@ export default function TabDevisFacturation({
       {/* ── Devis collaboratif ─── */}
       {!isDirect && (
         <div>
-          {budgetLoading && (
+          {devisLoading && (
             <div className="flex justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
             </div>
           )}
 
-          {!budgetLoading && !budgetData?.devis && (
+          {!devisLoading && !devis && (
             <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
               <p className="text-sm text-gray-500">Aucun devis sélectionné pour ce séjour.</p>
             </div>
           )}
 
-          {!budgetLoading && budgetData?.devis && (() => {
-            const d = budgetData.devis!;
+          {!devisLoading && devis && budgetData?.sejour && (() => {
+            const d = devis!;
             const s = budgetData.sejour;
             const c = d.centre;
             const createur = s?.createur;
-            const htCalc = Number(d.montantHT) || d.lignes.reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
+            const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
             const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
             const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
 
@@ -1540,7 +1505,7 @@ export default function TabDevisFacturation({
               nombreEleves: s?.placesTotales ?? undefined,
               nombreAccompagnateurs: s?.nombreAccompagnateurs ?? undefined,
               niveauClasse: s?.niveauClasse ?? undefined,
-              lignes: d.lignes.map((l: any) => ({
+              lignes: (d.lignes ?? []).map((l: any) => ({
                 description: l.description,
                 quantite: Number(l.quantite),
                 prixUnitaire: Number(l.prixUnitaire),
@@ -1602,7 +1567,7 @@ export default function TabDevisFacturation({
                               await api.post(`/devis/${d.id}/upload-signature`, formData, {
                                 headers: { 'Content-Type': 'multipart/form-data' },
                               });
-                              await onBudgetReload();
+                              await reloadDevis();
                             } catch (err) {
                               console.error('[upload-signature]', err);
                               onError('Une erreur est survenue. Veuillez réessayer.');
@@ -1688,7 +1653,7 @@ export default function TabDevisFacturation({
                                       headers: { 'Content-Type': 'multipart/form-data' },
                                     });
                                     setShowMarquerSigne(false);
-                                    await onBudgetReload();
+                                    await reloadDevis();
                                   } catch (err) {
                                     console.error('[marquer-signe]', err);
                                     onError('Une erreur est survenue. Veuillez réessayer.');
@@ -1899,12 +1864,12 @@ export default function TabDevisFacturation({
                     </button>
                     <button
                       onClick={async () => {
-                        if (!invitationEmail.trim() || !sejour || !budgetData?.devis) return;
+                        if (!invitationEmail.trim() || !sejour || !devis) return;
                         setInvitationSending(true);
                         try {
                           await api.post('/invitations-directeur', {
                             sejourId: sejour.id,
-                            devisId: budgetData.devis.id,
+                            devisId: devis.id,
                             emailDirecteur: invitationEmail.trim(),
                             enseignantPrenom: user.firstName,
                             sejourTitre: sejour.titre,
