@@ -194,6 +194,7 @@ export class AbonnementService {
       description: `Abonnement LIAVO ${plan} ${intervalLabel} — ${centre.nom}`,
       startDate: startDate.toISOString().split('T')[0],
       mandateId: mandate.id,
+      webhookUrl: `${process.env.BACKEND_URL || 'https://api.liavo.fr'}/abonnements/webhook`,
     });
 
     // Grace period : accès immédiat pendant la validation du mandat SEPA (2-5 jours).
