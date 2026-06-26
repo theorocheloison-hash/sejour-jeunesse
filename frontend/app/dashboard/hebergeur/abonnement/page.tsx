@@ -31,6 +31,7 @@ export default function AbonnementPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [cgvAcceptee, setCgvAcceptee] = useState(false);
 
   useEffect(() => {
     getAbonnementStatut()
@@ -45,6 +46,7 @@ export default function AbonnementPage() {
     setShowIbanForm(true);
     setFormError(null);
     setSuccessMessage(null);
+    setCgvAcceptee(false);
   }
 
   async function handleSubmitIban() {
@@ -52,11 +54,12 @@ export default function AbonnementPage() {
     if (ibanClean.length < 15) { setFormError('IBAN trop court'); return; }
     if (!titulaire.trim()) { setFormError('Titulaire requis'); return; }
     if (!selectedPlan) return;
+    if (!cgvAcceptee) { setFormError('Vous devez accepter les Conditions Générales de Vente'); return; }
 
     setSubmitting(true);
     setFormError(null);
     try {
-      await souscrireAbonnement(selectedPlan, selectedAnnual ? 'ANNUEL' : 'MENSUEL', ibanClean, titulaire.trim());
+      await souscrireAbonnement(selectedPlan, selectedAnnual ? 'ANNUEL' : 'MENSUEL', ibanClean, titulaire.trim(), cgvAcceptee);
       setShowIbanForm(false);
       setSuccessMessage('Abonnement activé ! Votre premier prélèvement sera effectué sous 2-3 jours ouvrés.');
       setIban('');
@@ -216,7 +219,7 @@ export default function AbonnementPage() {
               <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1B4060', margin: 0 }}>
                 Activer le plan {PLAN_LABELS[selectedPlan]} — {selectedAnnual ? 'Annuel' : 'Mensuel'}
               </h3>
-              <button onClick={() => setShowIbanForm(false)} style={{ background: 'none', border: 'none', fontSize: 13, color: '#888', cursor: 'pointer' }}>
+              <button onClick={() => { setShowIbanForm(false); setCgvAcceptee(false); }} style={{ background: 'none', border: 'none', fontSize: 13, color: '#888', cursor: 'pointer' }}>
                 Annuler
               </button>
             </div>
@@ -250,17 +253,33 @@ export default function AbonnementPage() {
               />
             </div>
 
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <input
+                type="checkbox"
+                id="cgv-checkbox"
+                checked={cgvAcceptee}
+                onChange={(e) => setCgvAcceptee(e.target.checked)}
+                style={{ marginTop: 3, accentColor: '#1B4060' }}
+              />
+              <label htmlFor="cgv-checkbox" style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+                J&apos;accepte les{' '}
+                <a href="/legal/cgv-hebergeurs" target="_blank" rel="noopener noreferrer" style={{ color: '#1B4060', textDecoration: 'underline' }}>
+                  Conditions Générales de Vente
+                </a>
+              </label>
+            </div>
+
             {formError && (
               <p style={{ fontSize: 13, color: '#9C2B2B', marginBottom: 12 }}>{formError}</p>
             )}
 
             <button
               onClick={handleSubmitIban}
-              disabled={submitting}
+              disabled={submitting || !cgvAcceptee}
               style={{
                 width: '100%', background: '#1B4060', color: 'white', border: 'none',
                 borderRadius: 8, padding: '12px 0', fontSize: 14, fontWeight: 600,
-                cursor: submitting ? 'wait' : 'pointer', opacity: submitting ? 0.7 : 1,
+                cursor: submitting ? 'wait' : (!cgvAcceptee ? 'not-allowed' : 'pointer'), opacity: (submitting || !cgvAcceptee) ? 0.7 : 1,
               }}
             >
               {submitting ? 'Activation en cours...' : 'Activer le prélèvement SEPA'}
