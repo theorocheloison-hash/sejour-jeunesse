@@ -1,4 +1,4 @@
-import { IsString, Matches, MinLength } from 'class-validator';
+import { IsBoolean, IsString, Matches, MinLength } from 'class-validator';
 
 export class SouscrireAbonnementDto {
   @IsString()
@@ -15,4 +15,7 @@ export class SouscrireAbonnementDto {
   @IsString()
   @MinLength(2)
   titulaire: string;
+
+  @IsBoolean()
+  cgvAcceptee: boolean;
 }

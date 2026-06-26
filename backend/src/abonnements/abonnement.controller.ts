@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -34,8 +35,14 @@ export class AbonnementController {
 
   @Post('souscrire')
   @Roles(Role.HEBERGEUR)
-  souscrire(@CurrentUser() user: JwtUser, @Body() dto: SouscrireAbonnementDto, @CentreId() centreId: string | null) {
-    return this.abonnementService.souscrire(user.id, dto.plan, dto.frequence, dto.iban, dto.titulaire, centreId);
+  souscrire(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: SouscrireAbonnementDto,
+    @CentreId() centreId: string | null,
+    @Req() req: Request,
+  ) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || null;
+    return this.abonnementService.souscrire(user.id, dto.plan, dto.frequence, dto.iban, dto.titulaire, centreId, dto.cgvAcceptee, ip);
   }
 
   @Post('annuler')

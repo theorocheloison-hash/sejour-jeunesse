@@ -199,6 +199,7 @@ model User {
   visitesSejourHebergeur SejourVisiteHebergeur[]
   centresCollaborateur   CollaborateurCentre[] @relation("collaborateur")
   invitationsEnvoyees    CollaborateurCentre[] @relation("inviteur")
+  acceptationsCgv        AcceptationCgv[]
 
   @@map("utilisateurs")
 }
@@ -632,6 +633,7 @@ model CentreHebergement {
   facturesPrestataires FacturePrestataire[]
   collaborateurs   CollaborateurCentre[]
   facturesLiavo    FactureLiavo[]
+  acceptationsCgv  AcceptationCgv[]
   @@map("centres_hebergement")
 }
 
@@ -655,6 +657,21 @@ model FactureLiavo {
   @@index([centreId])
   @@index([dateEmission])
   @@map("factures_liavo")
+}
+
+model AcceptationCgv {
+  id         String   @id @default(uuid()) @db.Uuid
+  centreId   String   @map("centre_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  plan       String
+  frequence  String
+  ipAddress  String?  @map("ip_address")
+  acceptedAt DateTime @default(now()) @map("accepted_at")
+
+  centre CentreHebergement @relation(fields: [centreId], references: [id])
+  user   User              @relation(fields: [userId], references: [id])
+
+  @@map("acceptations_cgv")
 }
 
 // ============================================================

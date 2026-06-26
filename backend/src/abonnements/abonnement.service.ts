@@ -121,7 +121,10 @@ export class AbonnementService {
 
   // ── Souscription SEPA (mandat directdebit via IBAN, sans carte) ──────────
 
-  async souscrire(userId: string, plan: string, frequence: string, iban: string, titulaire: string, centreId?: string | null) {
+  async souscrire(userId: string, plan: string, frequence: string, iban: string, titulaire: string, centreId?: string | null, cgvAcceptee?: boolean, ip?: string | null) {
+    if (!cgvAcceptee) {
+      throw new BadRequestException('Vous devez accepter les Conditions Générales de Vente');
+    }
     if (!['ESSENTIEL', 'COMPLET', 'PILOTAGE'].includes(plan)) {
       throw new BadRequestException('Plan invalide');
     }
@@ -216,6 +219,16 @@ export class AbonnementService {
         abonnement: frequence as any,
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: expiration,
+      },
+    });
+
+    await this.prisma.acceptationCgv.create({
+      data: {
+        centreId: centre.id,
+        userId,
+        plan,
+        frequence,
+        ipAddress: ip ?? null,
       },
     });
 
