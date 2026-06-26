@@ -16,6 +16,7 @@ export default function CentrePublicPage() {
   const [claimMsg, setClaimMsg] = useState<string>('');
   const [claimFile, setClaimFile] = useState<File | null>(null);
   const [isHebergeur, setIsHebergeur] = useState(false);
+  const [showClaimForm, setShowClaimForm] = useState(false);
 
   // Bouton « Je gère ce centre » : redirige vers l'inscription si non connecté,
   // appelle le claim si hébergeur, sinon invite à se connecter en hébergeur.
@@ -216,23 +217,43 @@ export default function CentrePublicPage() {
                   <p className="rounded-lg bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-3 py-2.5 text-xs text-[var(--color-success)] text-center">
                     {claimMsg}
                   </p>
-                ) : (
+                ) : showClaimForm ? (
                   <>
-                    {isHebergeur && (
-                      <div className="mb-3 space-y-2">
-                        <JustificatifHint />
-                        <input
-                          type="file"
-                          accept="application/pdf,image/jpeg,image/png"
-                          onChange={(e) => setClaimFile(e.target.files?.[0] ?? null)}
-                          className="block w-full text-xs text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-primary)] file:text-white file:px-3 file:py-1.5 file:text-xs file:cursor-pointer hover:file:opacity-90"
-                        />
-                        <p className="text-[11px] text-gray-400">Justificatif optionnel — accélère la validation.</p>
-                      </div>
-                    )}
+                    <div className="mb-3 space-y-2">
+                      <JustificatifHint />
+                      <input
+                        type="file"
+                        accept="application/pdf,image/jpeg,image/png"
+                        onChange={(e) => setClaimFile(e.target.files?.[0] ?? null)}
+                        className="block w-full text-xs text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-primary)] file:text-white file:px-3 file:py-1.5 file:text-xs file:cursor-pointer hover:file:opacity-90"
+                      />
+                      <p className="text-[11px] text-gray-400">Justificatif optionnel — accélère la validation.</p>
+                    </div>
                     <button
                       type="button"
                       onClick={handleClaim}
+                      disabled={claimState === 'loading'}
+                      className="w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-60"
+                    >
+                      {claimState === 'loading' ? 'Envoi…' : 'Confirmer la revendication'}
+                    </button>
+                    {claimState === 'error' && (
+                      <p className="mt-2 text-xs text-red-600 text-center">{claimMsg}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowClaimForm(false)}
+                      style={{ background: 'none', border: 'none' }}
+                      className="mt-2 mx-auto block text-sm text-gray-500 cursor-pointer underline"
+                    >
+                      Annuler
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => (isHebergeur ? setShowClaimForm(true) : handleClaim())}
                       disabled={claimState === 'loading'}
                       className="w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--color-primary)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-60"
                     >
