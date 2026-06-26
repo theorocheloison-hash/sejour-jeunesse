@@ -195,13 +195,13 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
           </div>
           <div style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text, #2C2C2A)', lineHeight: 1 }}>
-              {isAnnual ? '24' : '29'}
+              {isAnnual ? '290' : '29'}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>€ HT/mois</span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>{isAnnual ? '€ HT/an' : '€ HT/mois'}</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted, #888780)', marginBottom: 12, minHeight: 16 }}>
             {isAnnual
-              ? <span>290€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>58€ économisés</span></span>
+              ? <span>soit 24€ HT/mois · <span style={{ color: '#1E5C42', fontWeight: 600 }}>58€ économisés</span></span>
               : <span>&nbsp;</span>
             }
           </div>
@@ -239,13 +239,13 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
           </div>
           <div style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text, #2C2C2A)', lineHeight: 1 }}>
-              {isAnnual ? '41' : '49'}
+              {isAnnual ? '490' : '49'}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>€ HT/mois</span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>{isAnnual ? '€ HT/an' : '€ HT/mois'}</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted, #888780)', marginBottom: 12, minHeight: 16 }}>
             {isAnnual
-              ? <span>490€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>98€ économisés</span></span>
+              ? <span>soit 41€ HT/mois · <span style={{ color: '#1E5C42', fontWeight: 600 }}>98€ économisés</span></span>
               : <span>&nbsp;</span>
             }
           </div>
@@ -283,13 +283,13 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
           </div>
           <div style={{ marginBottom: 4 }}>
             <span style={{ fontSize: 28, fontWeight: 600, color: 'var(--color-text, #2C2C2A)', lineHeight: 1 }}>
-              {isAnnual ? '58' : '69'}
+              {isAnnual ? '690' : '69'}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>€ HT/mois</span>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', fontWeight: 400 }}>{isAnnual ? '€ HT/an' : '€ HT/mois'}</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--color-text-muted, #888780)', marginBottom: 12, minHeight: 16 }}>
             {isAnnual
-              ? <span>690€ HT/an · <span style={{ color: '#1E5C42', fontWeight: 600 }}>138€ économisés</span></span>
+              ? <span>soit 58€ HT/mois · <span style={{ color: '#1E5C42', fontWeight: 600 }}>138€ économisés</span></span>
               : <span>&nbsp;</span>
             }
           </div>
