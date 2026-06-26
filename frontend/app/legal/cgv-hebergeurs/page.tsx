@@ -29,7 +29,7 @@ export default function CgvHebergeurPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Conditions Générales de Vente — Hébergeurs</h1>
-          <p className="text-sm text-gray-500">Version 1.0 — En vigueur depuis mars 2026 — Applicables aux centres d&apos;hébergement</p>
+          <p className="text-sm text-gray-500">Version 1.1 — En vigueur depuis juin 2026 — Applicables aux centres d&apos;hébergement</p>
         </div>
 
         <div className={infoCls}>
@@ -67,21 +67,32 @@ export default function CgvHebergeurPage() {
 
         <div className={sectionCls}>
           <h2 className={h2Cls}>3. Abonnement et tarification</h2>
-          <div className={warnCls}>
-            <p className="text-sm text-amber-800 font-semibold mb-1">Tarifs en cours de définition</p>
-            <p className="text-sm text-amber-800">
-              Les tarifs d&apos;abonnement sont en cours de finalisation. Les premiers hébergeurs partenaires bénéficieront d&apos;un accès préférentiel. Contactez <a href="mailto:contact@liavo.fr" className="text-amber-700 underline">contact@liavo.fr</a> pour connaître les conditions applicables à votre situation.
-            </p>
-          </div>
 
           <h3 className={h3Cls}>3.1 Formules disponibles</h3>
           <p className={pCls}>
-            LIAVO propose des abonnements mensuels et annuels. Le détail des formules et des tarifs en vigueur est accessible depuis l&apos;espace d&apos;inscription hébergeur sur liavo.fr.
+            LIAVO propose trois formules d&apos;abonnement, disponibles en facturation mensuelle ou annuelle :
+          </p>
+          <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
+            <li className={liCls}><strong>Essentiel</strong> — 29 € HT/mois ou 290 € HT/an</li>
+            <li className={liCls}><strong>Complet</strong> — 49 € HT/mois ou 490 € HT/an</li>
+            <li className={liCls}><strong>Pilotage</strong> — 69 € HT/mois ou 690 € HT/an</li>
+          </ul>
+          <p className={pCls}>
+            Un supplément de 39 € HT/mois (ou 390 € HT/an) par centre supplémentaire est applicable à partir du deuxième centre, pour les formules Complet et Pilotage.
+          </p>
+          <p className={pCls}>
+            Le détail des fonctionnalités incluses dans chaque formule est accessible depuis la page Abonnement de l&apos;espace hébergeur.
+          </p>
+          <p className={pCls}>
+            TVA non applicable, article 293 B du Code général des impôts.
           </p>
 
           <h3 className={h3Cls}>3.2 Modalités de paiement</h3>
           <p className={pCls}>
-            Le paiement s&apos;effectue par prélèvement bancaire ou virement. Les factures sont émises mensuellement ou annuellement selon la formule choisie. Tout abonnement commencé est dû intégralement.
+            Le paiement s&apos;effectue par prélèvement SEPA Core, opéré par notre prestataire de paiement Mollie (Mollie B.V., enregistrée auprès de l&apos;ACPR). L&apos;Hébergeur autorise le prélèvement en renseignant son IBAN lors de la souscription. Les prélèvements sont effectués automatiquement selon la périodicité choisie (mensuelle ou annuelle).
+          </p>
+          <p className={pCls}>
+            L&apos;Hébergeur peut exercer son droit de remboursement SEPA dans un délai de 8 semaines suivant le prélèvement, auprès de sa banque. L&apos;Hébergeur peut annuler le renouvellement automatique à tout moment depuis son espace LIAVO.
           </p>
 
           <h3 className={h3Cls}>3.3 Révision tarifaire</h3>
