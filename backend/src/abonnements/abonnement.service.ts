@@ -3,6 +3,7 @@ import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
+import { EmailService } from '../email/email.service.js';
 import createMollieClient, { MandateMethod } from '@mollie/api-client';
 
 const mollieClient = createMollieClient({
@@ -31,7 +32,17 @@ export class AbonnementService {
   constructor(
     private prisma: PrismaService,
     private factureLiavoService: FactureLiavoService,
+    private emailService: EmailService,
   ) {}
+
+  private maskIban(iban: string): string {
+    const clean = iban.replace(/\s+/g, '');
+    if (clean.length <= 6) return clean;
+    const prefix = clean.slice(0, 2);
+    const suffix = clean.slice(-4);
+    const masked = '•'.repeat(clean.length - 6);
+    return `${prefix}${masked}${suffix}`;
+  }
 
   // ── Simuler (existant — admin/test, pas de paiement réel) ─────────────
 
@@ -72,7 +83,7 @@ export class AbonnementService {
     const expiration = new Date(now);
     expiration.setDate(expiration.getDate() + 30);
 
-    return this.prisma.centreHebergement.update({
+    const updated = await this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
         planAbonnement: PlanAbonnement.PILOTAGE,
@@ -81,6 +92,27 @@ export class AbonnementService {
         trialStartedAt: now,
       },
     });
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, prenom: true, nom: true },
+      });
+      const dateExp = expiration.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      await this.emailService.sendNotifAdmin(
+        `[Admin] Nouveau trial — ${centre.nom}`,
+        `<p><strong>${centre.nom}</strong> a activé un essai gratuit (30 jours Pilotage).</p>
+         <table style="width:100%;border-collapse:collapse;margin:16px 0">
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user?.prenom ?? ''} ${user?.nom ?? ''} — ${user?.email ?? 'N/A'}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Expiration</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateExp}</td></tr>
+         </table>`,
+      );
+    } catch (err) {
+      console.error('[activerTrial] Erreur envoi notif admin:', err);
+    }
+
+    return updated;
   }
 
   // ── Statut ────────────────────────────────────────────────────────────────
@@ -232,12 +264,41 @@ export class AbonnementService {
       },
     });
 
+    try {
+      const frequenceLabel = frequence === 'ANNUEL' ? 'Annuel' : 'Mensuel';
+      const montantLabel = (montantTotal / 100).toFixed(2);
+      const ibanMasque = this.maskIban(ibanClean);
+      await this.emailService.sendConfirmationAbonnement(
+        user!.email, user!.prenom ?? '', centre.nom, plan, frequenceLabel, montantLabel, ibanMasque,
+      );
+    } catch (err) {
+      console.error('[souscrire] Erreur envoi email confirmation:', err);
+    }
+
+    try {
+      const frequenceLabel = frequence === 'ANNUEL' ? 'Annuel' : 'Mensuel';
+      const montantLabel = (montantTotal / 100).toFixed(2);
+      await this.emailService.sendNotifAdmin(
+        `[Admin] Nouvelle souscription — ${centre.nom}`,
+        `<p><strong>${centre.nom}</strong> a souscrit un abonnement.</p>
+         <table style="width:100%;border-collapse:collapse;margin:16px 0">
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user!.prenom} ${user!.nom} — ${user!.email}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Plan</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${plan} ${frequenceLabel}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montantLabel} € HT</td></tr>
+         </table>`,
+      );
+    } catch (err) {
+      console.error('[souscrire] Erreur envoi notif admin:', err);
+    }
+
     return { success: true, plan, frequence, montant: montantTotal };
   }
 
   // ── Webhook Mollie ────────────────────────────────────────────────────────
 
   async handleWebhook(paymentId: string) {
+    console.log('[mollie-webhook] Reçu paymentId:', paymentId);
     if (!paymentId) return { received: true };
 
     let payment: any;
@@ -249,6 +310,7 @@ export class AbonnementService {
     }
 
     const customerId = payment.customerId;
+    console.log('[mollie-webhook] Payment status:', payment.status, '| sequenceType:', payment.sequenceType, '| customerId:', customerId);
     if (!customerId) return { received: true };
 
     const centre = await this.prisma.centreHebergement.findFirst({
@@ -261,6 +323,12 @@ export class AbonnementService {
 
     // ── Paiement récurrent réussi → prolonger l'abonnement ──
     if (payment.status === 'paid' && payment.sequenceType === 'recurring') {
+      const factureExistante = await this.prisma.factureLiavo.findFirst({ where: { molliePaymentId: paymentId } });
+      if (factureExistante) {
+        console.log('[mollie-webhook] Paiement déjà traité (facture', factureExistante.numero, '), skip');
+        return { received: true, alreadyProcessed: true };
+      }
+
       const frequence = centre.abonnement;
       const now = new Date();
       const oldExp = centre.abonnementActifJusquAu;
@@ -279,6 +347,7 @@ export class AbonnementService {
           abonnementActifJusquAu: expiration,
         },
       });
+      console.log('[mollie-webhook] Abonnement prolongé centre', centre.id, 'jusqu\'au', expiration.toISOString());
 
       try {
         const prixPlanFacture = frequence === 'ANNUEL'
@@ -292,6 +361,7 @@ export class AbonnementService {
         await this.factureLiavoService.emettre(
           centre.id, prixPlanFacture + prixSuppFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
         );
+        console.log('[mollie-webhook] Facture LIAVO émise pour centre', centre.id);
       } catch (err) {
         console.error('[mollie-webhook] Erreur émission facture LIAVO:', err);
       }
@@ -327,7 +397,7 @@ export class AbonnementService {
     }
 
     // L'abonnement reste actif jusqu'à la fin de la période en cours
-    return this.prisma.centreHebergement.update({
+    const updated = await this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
         mollieSubscriptionId: null,
@@ -335,5 +405,50 @@ export class AbonnementService {
         // Le cron ou une vérif au login basculera en INACTIF à l'expiration
       },
     });
+
+    // Fetch user UNE SEULE FOIS pour les 2 emails
+    let user: { email: string; prenom: string | null; nom: string | null } | null = null;
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, prenom: true, nom: true },
+      });
+    } catch (err) {
+      console.error('[annuler] Erreur fetch user:', err);
+    }
+
+    if (user?.email) {
+      try {
+        const dateExp = centre.abonnementActifJusquAu
+          ? centre.abonnementActifJusquAu.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+          : 'la fin de la période en cours';
+        await this.emailService.sendConfirmationAnnulation(
+          user.email, user.prenom ?? '', centre.nom, dateExp,
+        );
+      } catch (err) {
+        console.error('[annuler] Erreur envoi email annulation:', err);
+      }
+
+      try {
+        await this.emailService.sendNotifAdmin(
+          `[Admin] Annulation — ${centre.nom}`,
+          `<p><strong>${centre.nom}</strong> a annulé son abonnement.</p>
+           <table style="width:100%;border-collapse:collapse;margin:16px 0">
+             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+             <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user.prenom ?? ''} ${user.nom ?? ''} — ${user.email}</td></tr>
+             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Plan actuel</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.planAbonnement}</td></tr>
+           </table>`,
+        );
+      } catch (err) {
+        console.error('[annuler] Erreur envoi notif admin:', err);
+      }
+    }
+
+    return updated;
+  }
+
+  async getFactures(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    return this.factureLiavoService.lister(centre.id);
   }
 }

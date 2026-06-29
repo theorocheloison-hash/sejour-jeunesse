@@ -522,4 +522,58 @@ export class EmailService {
     );
     await this.send(adminEmail, `[LIAVO] Relance essai — ${centreNom} — J-${joursRestants}`, html);
   }
+
+  // ── l) Confirmation abonnement activé ────────────────────────────────
+
+  async sendConfirmationAbonnement(
+    to: string,
+    prenom: string,
+    centreNom: string,
+    plan: string,
+    frequenceLabel: string,
+    montantLabel: string,
+    ibanMasque: string,
+  ) {
+    const html = emailLayout(
+      'Votre abonnement est activé',
+      `<p>Bonjour ${prenom},</p>
+       <p>Votre abonnement LIAVO <strong>${plan}</strong> (${frequenceLabel}) a bien été activé pour <strong>${centreNom}</strong>.</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Montant</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montantLabel} € HT</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">IBAN enregistré</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${ibanMasque}</td></tr>
+       </table>
+       <p>Le prélèvement SEPA sera effectué sous quelques jours.</p>`,
+      'Gérer mon abonnement',
+      `${FRONTEND_URL}/dashboard/hebergeur/abonnement`,
+    );
+    await this.send(to, 'Votre abonnement LIAVO a été activé', html);
+  }
+
+  // ── m) Confirmation annulation abonnement ────────────────────────────
+
+  async sendConfirmationAnnulation(
+    to: string,
+    prenom: string,
+    centreNom: string,
+    dateExpiration: string,
+  ) {
+    const html = emailLayout(
+      'Annulation de votre abonnement',
+      `<p>Bonjour ${prenom},</p>
+       <p>Votre abonnement LIAVO pour <strong>${centreNom}</strong> a bien été annulé.</p>
+       <p>Votre accès reste actif jusqu'au <strong>${dateExpiration}</strong>.</p>
+       <p>Vous pouvez réactiver votre abonnement à tout moment depuis votre espace.</p>`,
+      'Gérer mon abonnement',
+      `${FRONTEND_URL}/dashboard/hebergeur/abonnement`,
+    );
+    await this.send(to, 'Annulation de votre abonnement LIAVO', html);
+  }
+
+  // ── n) Notification admin générique ──────────────────────────────────
+
+  async sendNotifAdmin(subject: string, bodyHtml: string) {
+    const adminEmail = process.env.ADMIN_ALERT_EMAIL ?? 'contact@liavo.fr';
+    const html = emailLayout(subject, bodyHtml);
+    await this.send(adminEmail, subject, html);
+  }
 }

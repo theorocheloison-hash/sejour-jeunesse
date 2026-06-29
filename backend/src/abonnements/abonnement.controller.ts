@@ -50,4 +50,10 @@ export class AbonnementController {
   annuler(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
     return this.abonnementService.annuler(user.id, centreId);
   }
+
+  @Get('factures')
+  @Roles(Role.HEBERGEUR)
+  getFactures(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.abonnementService.getFactures(user.id, centreId);
+  }
 }
