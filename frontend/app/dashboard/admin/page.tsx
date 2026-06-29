@@ -22,6 +22,8 @@ import {
   getAdminAbonnements,
   getAdminFacturesLiavo,
   getAdminMetriquesAbonnements,
+  getAdminActivite,
+  type AdminActivite,
   type AdminStats,
   type Hebergeur,
   type Utilisateur,
@@ -36,9 +38,10 @@ import {
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-type Tab = 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements' | 'factures-liavo';
+type Tab = 'activite' | 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements' | 'factures-liavo';
 
 const TABS: { value: Tab; label: string }[] = [
+  { value: 'activite',        label: 'Activité' },
   { value: 'stats',           label: 'Vue générale' },
   { value: 'hebergeurs',      label: 'Hébergeurs' },
   { value: 'utilisateurs',    label: 'Utilisateurs' },
@@ -89,6 +92,174 @@ function KpiCard({ label, value, accent }: { label: string; value: number | stri
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
       <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>{value}</p>
+    </div>
+  );
+}
+
+// ─── Activité Tab ────────────────────────────────────────────────────────────
+
+const EVENT_CONFIG: Record<string, { emoji: string; label: string }> = {
+  NOUVEAU_COMPTE: { emoji: '👤', label: 'Nouveau compte' },
+  NOUVEAU_CENTRE: { emoji: '🏠', label: 'Nouveau centre' },
+  NOUVEAU_SEJOUR: { emoji: '📋', label: 'Nouveau séjour' },
+  NOUVELLE_DEMANDE: { emoji: '📨', label: 'Nouvelle demande' },
+  NOUVEAU_DEVIS: { emoji: '📄', label: 'Nouveau devis' },
+};
+
+const SIGNAL_COLORS: Record<string, { bg: string; color: string; label: string }> = {
+  vert: { bg: '#DEF7EC', color: '#03543F', label: 'Actif' },
+  jaune: { bg: '#FDF6B2', color: '#723B13', label: 'Ralenti' },
+  rouge: { bg: '#FDE8E8', color: '#9B1C1C', label: 'Inactif' },
+  gris: { bg: '#F3F4F6', color: '#6B7280', label: 'Aucune activité' },
+};
+
+function ActiviteTab() {
+  const [data, setData] = useState<AdminActivite | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAdminActivite()
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <LoadingSpinner />;
+  if (!data) return <EmptyState text="Impossible de charger l'activité" />;
+
+  return (
+    <div className="space-y-8">
+      {/* ── KPIs mois en cours ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Ce mois-ci</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <KpiCard label="Séjours créés" value={data.kpis.sejoursCreesMois} />
+          <KpiCard label="Devis créés" value={data.kpis.devisCreesMois} />
+          <KpiCard label="Centres actifs" value={data.kpis.centresActifs} />
+          <KpiCard label="Avec ≥1 séjour" value={data.kpis.centresAvecSejour} />
+          <KpiCard label="Taux activation" value={`${data.kpis.tauxActivation}%`} accent={data.kpis.tauxActivation >= 50 ? 'text-green-600' : 'text-amber-600'} />
+        </div>
+      </div>
+
+      {/* ── Santé clients ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Santé clients</h3>
+        {data.santeClients.length === 0 ? (
+          <EmptyState text="Aucun centre actif" />
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Signal</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiration</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dernière activité</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Séjours</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Devis</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {data.santeClients.map((c) => {
+                    const sig = SIGNAL_COLORS[c.signal] ?? SIGNAL_COLORS.gris;
+                    return (
+                      <tr key={c.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3">
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', borderRadius: 20,
+                            padding: '2px 10px', fontSize: 11, fontWeight: 600,
+                            backgroundColor: sig.bg, color: sig.color,
+                          }}>
+                            {sig.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">{c.nom}</td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                          <span className="text-xs font-medium">{c.plan}</span>
+                          {c.isTrial && <span className="ml-1 text-xs text-amber-600">(trial)</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                          {c.expiration ? (
+                            <span className={c.joursRestants !== null && c.joursRestants <= 14 ? 'text-red-600 font-medium' : 'text-gray-500'}>
+                              {formatDate(c.expiration)}
+                              {c.joursRestants !== null && <span className="ml-1 text-xs">({c.joursRestants}j)</span>}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          {c.derniereActivite ? (
+                            <>
+                              {formatDate(c.derniereActivite)}
+                              {c.joursDepuisActivite !== null && (
+                                <span className="ml-1 text-xs text-gray-400">
+                                  (il y a {c.joursDepuisActivite}j)
+                                </span>
+                              )}
+                            </>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium text-center">{c.nbSejours}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium text-center">{c.nbDevis}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Feed d'activité (7 derniers jours) ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Activité récente (7 jours)</h3>
+        {data.feed.length === 0 ? (
+          <EmptyState text="Aucune activité cette semaine" />
+        ) : (
+          <div className="space-y-2">
+            {data.feed.map((event, i) => {
+              const config = EVENT_CONFIG[event.type] ?? { emoji: '•', label: event.type };
+              const d = event.data;
+              let detail = '';
+              switch (event.type) {
+                case 'NOUVEAU_COMPTE':
+                  detail = `${d.prenom} ${d.nom} (${d.role}) — ${d.email}`;
+                  break;
+                case 'NOUVEAU_CENTRE':
+                  detail = `${d.nom}${d.ville ? ` — ${d.ville}` : ''}${d.proprietaire ? ` · ${d.proprietaire}` : ''}`;
+                  break;
+                case 'NOUVEAU_SEJOUR':
+                  detail = `${d.titre}${d.centre ? ` → ${d.centre}` : ''}${d.places ? ` · ${d.places} places` : ''}${d.clientNom ? ` · Client: ${d.clientNom}` : ''}${d.clientEmail ? ` (${d.clientEmail})` : ''}${d.clientOrganisation ? ` — ${d.clientOrganisation}` : ''}`;
+                  break;
+                case 'NOUVELLE_DEMANDE':
+                  detail = `${d.titre} — ${d.nbEleves} élèves${d.ville ? ` · ${d.ville}` : ''}${d.centre ? ` → ${d.centre}` : ' (appel ouvert)'}${d.dateDebut ? ` · ${formatDate(d.dateDebut)}` : ''}${d.dateFin ? `–${formatDate(d.dateFin)}` : ''} · ${d.nbDevisRecus} devis reçu${d.nbDevisRecus > 1 ? 's' : ''} · ${d.enseignant} (${d.enseignantEmail})`;
+                  break;
+                case 'NOUVEAU_DEVIS':
+                  detail = `${d.numero ?? 'Sans numéro'} — ${d.montant?.toFixed(2) ?? '?'} € · ${d.statut}${d.centre ? ` · ${d.centre}` : ''}${d.sejour ? ` · ${d.sejour}` : ''}`;
+                  break;
+              }
+              return (
+                <div key={`${event.type}-${i}`} className="flex items-start gap-3 bg-white rounded-xl border border-gray-100 px-4 py-3">
+                  <span className="text-base shrink-0 mt-0.5">{config.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold text-gray-700">{config.label}</span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(event.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                        {' · '}
+                        {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 break-words">{detail}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1225,7 +1396,7 @@ function EmptyState({ text }: { text: string }) {
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
-  const [tab, setTab] = useState<Tab>('stats');
+  const [tab, setTab] = useState<Tab>('activite');
   const [stats, setStats] = useState<AdminStats | null>(null);
 
   useEffect(() => {
@@ -1291,6 +1462,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Tab content */}
+        {tab === 'activite' && <ActiviteTab />}
         {tab === 'stats' && <StatsTab stats={stats} />}
         {tab === 'hebergeurs' && <HebergeursTab />}
         {tab === 'utilisateurs' && <UtilisateursTab />}

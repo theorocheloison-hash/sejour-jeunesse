@@ -340,3 +340,43 @@ export async function getAdminMetriquesAbonnements(): Promise<MetriquesAbonnemen
   const { data } = await api.get<MetriquesAbonnements>('/admin/metriques-abonnements');
   return data;
 }
+
+export interface FeedEvent {
+  type: 'NOUVEAU_COMPTE' | 'NOUVEAU_CENTRE' | 'NOUVEAU_SEJOUR' | 'NOUVELLE_DEMANDE' | 'NOUVEAU_DEVIS';
+  date: string;
+  data: Record<string, any>;
+}
+
+export interface SanteClient {
+  id: string;
+  nom: string;
+  plan: string;
+  isTrial: boolean;
+  abonnementStatut: string;
+  joursRestants: number | null;
+  expiration: string | null;
+  derniereActivite: string | null;
+  joursDepuisActivite: number | null;
+  signal: 'vert' | 'jaune' | 'rouge' | 'gris';
+  nbSejours: number;
+  nbDevis: number;
+}
+
+export interface KpisActivite {
+  sejoursCreesMois: number;
+  devisCreesMois: number;
+  centresActifs: number;
+  centresAvecSejour: number;
+  tauxActivation: number;
+}
+
+export interface AdminActivite {
+  feed: FeedEvent[];
+  santeClients: SanteClient[];
+  kpis: KpisActivite;
+}
+
+export async function getAdminActivite(): Promise<AdminActivite> {
+  const { data } = await api.get<AdminActivite>('/admin/activite');
+  return data;
+}
