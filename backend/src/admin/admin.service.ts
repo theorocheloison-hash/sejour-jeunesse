@@ -1258,4 +1258,203 @@ export class AdminService {
 
     return { success: true };
   }
+
+  // ─── Activité (feed + santé clients + KPIs) ────────────────────────────────
+
+  async getActivite() {
+    const now = new Date();
+    const since7d = new Date(now);
+    since7d.setDate(since7d.getDate() - 7);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // ── Section 1 : Feed d'activité (7 derniers jours) ──
+
+    const [newUsers, newCentres, newSejours, newDemandes, newDevis] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { createdAt: { gte: since7d } },
+        select: { id: true, email: true, prenom: true, nom: true, role: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.centreHebergement.findMany({
+        where: { createdAt: { gte: since7d } },
+        select: {
+          id: true, nom: true, ville: true, createdAt: true,
+          user: { select: { email: true, prenom: true, nom: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.sejour.findMany({
+        where: { createdAt: { gte: since7d } },
+        select: {
+          id: true, titre: true, dateDebut: true, dateFin: true, placesTotales: true,
+          modeGestion: true, natureSejour: true, statut: true, createdAt: true,
+          clientNom: true, clientEmail: true, clientOrganisation: true, clientTelephone: true,
+          hebergementSelectionne: { select: { id: true, nom: true } },
+          createur: { select: { email: true, prenom: true, nom: true, role: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.demandeDevis.findMany({
+        where: { createdAt: { gte: since7d } },
+        select: {
+          id: true, titre: true, nombreEleves: true, createdAt: true,
+          dateDebut: true, dateFin: true, villeHebergement: true, statut: true,
+          centreDestinataire: { select: { id: true, nom: true } },
+          enseignant: { select: { email: true, prenom: true, nom: true } },
+          _count: { select: { devis: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.devis.findMany({
+        where: { createdAt: { gte: since7d } },
+        select: {
+          id: true, montantTotal: true, statut: true, createdAt: true, numeroDevis: true,
+          centre: { select: { id: true, nom: true } },
+          sejourDirect: { select: { id: true, titre: true } },
+          demande: { select: { id: true, titre: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    type FeedEvent = { type: string; date: Date; data: Record<string, any> };
+    const feed: FeedEvent[] = [
+      ...newUsers.map(u => ({
+        type: 'NOUVEAU_COMPTE' as const,
+        date: u.createdAt,
+        data: { email: u.email, prenom: u.prenom, nom: u.nom, role: u.role },
+      })),
+      ...newCentres.map(c => ({
+        type: 'NOUVEAU_CENTRE' as const,
+        date: c.createdAt,
+        data: { nom: c.nom, ville: c.ville, proprietaire: c.user ? `${c.user.prenom} ${c.user.nom}` : null },
+      })),
+      ...newSejours.map(s => ({
+        type: 'NOUVEAU_SEJOUR' as const,
+        date: s.createdAt,
+        data: {
+          titre: s.titre, dateDebut: s.dateDebut, dateFin: s.dateFin,
+          places: s.placesTotales, mode: s.modeGestion, nature: s.natureSejour, statut: s.statut,
+          centre: s.hebergementSelectionne?.nom ?? null,
+          createur: s.createur ? `${s.createur.prenom} ${s.createur.nom} (${s.createur.role})` : null,
+          clientNom: s.clientNom ?? null,
+          clientEmail: s.clientEmail ?? null,
+          clientOrganisation: s.clientOrganisation ?? null,
+        },
+      })),
+      ...newDemandes.map(d => ({
+        type: 'NOUVELLE_DEMANDE' as const,
+        date: d.createdAt,
+        data: {
+          titre: d.titre, nbEleves: d.nombreEleves,
+          dateDebut: d.dateDebut, dateFin: d.dateFin,
+          ville: d.villeHebergement, statut: d.statut,
+          nbDevisRecus: (d as any)._count?.devis ?? 0,
+          centre: d.centreDestinataire?.nom ?? null,
+          enseignant: `${d.enseignant.prenom} ${d.enseignant.nom}`,
+          enseignantEmail: d.enseignant.email,
+        },
+      })),
+      ...newDevis.map(d => ({
+        type: 'NOUVEAU_DEVIS' as const,
+        date: d.createdAt,
+        data: {
+          numero: d.numeroDevis, montant: Number(d.montantTotal), statut: d.statut,
+          centre: d.centre?.nom ?? null,
+          sejour: d.sejourDirect?.titre ?? d.demande?.titre ?? null,
+        },
+      })),
+    ];
+    feed.sort((a, b) => b.date.getTime() - a.date.getTime());
+    const feedLimited = feed.slice(0, 100);
+
+    // ── Section 2 : Santé clients (centres actifs avec propriétaire) ──
+
+    const centresActifs = await this.prisma.centreHebergement.findMany({
+      where: { statut: 'ACTIVE', userId: { not: null } },
+      include: {
+        sejoursSelectionne: {
+          select: { id: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        devis: {
+          select: { id: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: { sejoursSelectionne: true, devis: true },
+        },
+      },
+      orderBy: { nom: 'asc' },
+    });
+
+    const santeClients = centresActifs.map(c => {
+      const lastSejourDate = c.sejoursSelectionne[0]?.createdAt ?? null;
+      const lastDevisDate = c.devis[0]?.createdAt ?? null;
+      const dates = [lastSejourDate, lastDevisDate].filter(Boolean) as Date[];
+      const derniereActivite = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
+
+      const joursDepuisActivite = derniereActivite
+        ? Math.floor((now.getTime() - derniereActivite.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      let signal: 'vert' | 'jaune' | 'rouge' | 'gris' = 'gris';
+      if (joursDepuisActivite !== null) {
+        if (joursDepuisActivite <= 3) signal = 'vert';
+        else if (joursDepuisActivite <= 7) signal = 'jaune';
+        else signal = 'rouge';
+      }
+
+      const isTrial = !!c.trialStartedAt && !c.mollieMandatId;
+      const joursRestants = c.abonnementActifJusquAu
+        ? Math.ceil((new Date(c.abonnementActifJusquAu).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      return {
+        id: c.id,
+        nom: c.nom,
+        plan: c.planAbonnement,
+        isTrial,
+        abonnementStatut: c.abonnementStatut,
+        joursRestants,
+        expiration: c.abonnementActifJusquAu,
+        derniereActivite,
+        joursDepuisActivite,
+        signal,
+        nbSejours: c._count.sejoursSelectionne,
+        nbDevis: c._count.devis,
+      };
+    });
+
+    // ── Section 3 : KPIs mois en cours ──
+
+    const [sejoursCreesMois, devisCreesMois, centresAvecSejour, totalCentresAvecUser] = await Promise.all([
+      this.prisma.sejour.count({ where: { createdAt: { gte: startOfMonth } } }),
+      this.prisma.devis.count({ where: { createdAt: { gte: startOfMonth } } }),
+      this.prisma.centreHebergement.count({
+        where: { statut: 'ACTIVE', userId: { not: null }, sejoursSelectionne: { some: {} } },
+      }),
+      this.prisma.centreHebergement.count({
+        where: { statut: 'ACTIVE', userId: { not: null } },
+      }),
+    ]);
+
+    const tauxActivation = totalCentresAvecUser > 0
+      ? Math.round((centresAvecSejour / totalCentresAvecUser) * 100)
+      : 0;
+
+    return {
+      feed: feedLimited,
+      santeClients,
+      kpis: {
+        sejoursCreesMois,
+        devisCreesMois,
+        centresActifs: totalCentresAvecUser,
+        centresAvecSejour,
+        tauxActivation,
+      },
+    };
+  }
 }

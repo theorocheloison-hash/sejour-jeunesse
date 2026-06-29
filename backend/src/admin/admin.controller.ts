@@ -80,6 +80,11 @@ export class AdminController {
     return this.adminService.getMetriquesAbonnements();
   }
 
+  @Get('activite')
+  getActivite() {
+    return this.adminService.getActivite();
+  }
+
   @Post('cron/alertes-expiration')
   async cronAlertes() {
     const alertes = await this.cronAlertesService.envoyerAlertes();
