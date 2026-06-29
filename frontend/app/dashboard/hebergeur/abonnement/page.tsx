@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement } from '@/src/lib/abonnement';
-import type { AbonnementStatut } from '@/src/lib/abonnement';
+import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement, getFacturesLiavo } from '@/src/lib/abonnement';
+import type { AbonnementStatut, FactureLiavo } from '@/src/lib/abonnement';
 import PricingTable from '@/app/components/PricingTable';
 
 const PLAN_LABELS: Record<string, string> = {
@@ -32,12 +32,16 @@ export default function AbonnementPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [cgvAcceptee, setCgvAcceptee] = useState(false);
+  const [factures, setFactures] = useState<FactureLiavo[]>([]);
 
   useEffect(() => {
-    getAbonnementStatut()
-      .then(setAbo)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      getAbonnementStatut().catch(() => null),
+      getFacturesLiavo().catch(() => []),
+    ]).then(([statut, facts]) => {
+      if (statut) setAbo(statut);
+      setFactures(facts);
+    }).finally(() => setLoading(false));
   }, []);
 
   function handleUpgrade(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) {
@@ -297,6 +301,52 @@ export default function AbonnementPage() {
           currentStatut={abo?.statut ?? null}
           onUpgrade={handleUpgrade}
         />
+
+        {factures.length > 0 && (
+          <div style={{ marginTop: 40 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1B4060', marginBottom: 16 }}>
+              Mes factures
+            </h2>
+            <div style={{
+              border: '1px solid var(--color-border, #D3D1C7)', borderRadius: 12,
+              overflow: 'hidden', background: 'white',
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr style={{ background: '#f5f7fa', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 16px', fontWeight: 600, color: '#374151' }}>N°</th>
+                    <th style={{ padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Date</th>
+                    <th style={{ padding: '10px 16px', fontWeight: 600, color: '#374151' }}>Description</th>
+                    <th style={{ padding: '10px 16px', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Montant HT</th>
+                    <th style={{ padding: '10px 16px', fontWeight: 600, color: '#374151', textAlign: 'center' }}>PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {factures.map((f) => (
+                    <tr key={f.id} style={{ borderTop: '1px solid #eee' }}>
+                      <td style={{ padding: '10px 16px', color: '#374151', fontWeight: 500 }}>{f.numero}</td>
+                      <td style={{ padding: '10px 16px', color: '#4a4a4a' }}>{formatDateFr(f.dateEmission)}</td>
+                      <td style={{ padding: '10px 16px', color: '#4a4a4a' }}>{f.description}</td>
+                      <td style={{ padding: '10px 16px', color: '#374151', fontWeight: 500, textAlign: 'right' }}>
+                        {(f.montantHT / 100).toFixed(2)} €
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                        {f.pdfUrl ? (
+                          <a href={f.pdfUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ color: '#1B4060', textDecoration: 'underline', fontSize: 13 }}>
+                            Télécharger
+                          </a>
+                        ) : (
+                          <span style={{ color: '#999', fontSize: 13 }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -37,3 +37,21 @@ export async function activerTrial(): Promise<void> {
 export async function annulerAbonnement(): Promise<void> {
   await api.post('/abonnements/annuler');
 }
+
+export interface FactureLiavo {
+  id: string;
+  numero: string;
+  dateEmission: string;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  description: string;
+  planAbonnement: string;
+  typeAbonnement: string;
+  pdfUrl: string | null;
+}
+
+export async function getFacturesLiavo(): Promise<FactureLiavo[]> {
+  const { data } = await api.get<FactureLiavo[]>('/abonnements/factures');
+  return data;
+}
