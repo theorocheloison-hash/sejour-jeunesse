@@ -146,20 +146,20 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 
 | # | Finding | Fix | Quand |
 |---|---------|-----|-------|
-| 6a | **D7** logs sensibles | Nettoyer console.log email/accompagnateur | Au fil de l'eau |
-| 6b | **D8** injection HTML emails | Échapper le message enseignant | Au fil de l'eau |
+| 6a | **D7** logs sensibles | Nettoyer console.log email/accompagnateur (tokenAcces/email → this.logger sans données sensibles) | ✅ 30/06 |
+| 6b | **D8** injection HTML emails | escapeHtml() sur params utilisateur des templates email (19 méthodes + emailLayout title) | ✅ 30/06 |
 | 6c | **A7** journal-public cross-famille | Décision produit : filtrer par enfant ou consentement | Politique RGPD |
 | 6d | **A9** injection formule CSV | Sanitize à l'export | Quand feature arrive |
 | 6e | **A10** omit global Prisma | omit motDePasse/tokens dans PrismaService | Défense en profondeur |
 | 6f | **D4** SSRF PDF logoUrl | Allowlist domaine OVH | Défense en profondeur |
-| 6g | **D6** filtre d'exception global | AllExceptionsFilter masquer stack traces | Avant montée en charge |
+| 6g | **D6** filtre d'exception global | AllExceptionsFilter (HttpException inchangées, 500 générique pour le reste) | ✅ 30/06 |
 | 6h | **E5** /api/contact rate limit | Rate limit + CAPTCHA + échapper body | Avant marketing public |
-| 6i | **E7** xlsx CVE | `npm audit fix` | Lancer npm audit |
-| 6j | **C2** ordre-mission-pdf IDOR | Ownership sur accompagnateur.id | Au fil de l'eau |
-| 6k | **C4** /public/centres expose PENDING | Filtrer `statut: 'VALIDE'` | Au fil de l'eau |
+| 6i | **E7** xlsx CVE → npm audit | npm audit fix + migration @sendinblue → @getbrevo/brevo (5 vulns éliminées, 0 critical restant) | ✅ 30/06 |
+| 6j | **C2** ordre-mission-pdf IDOR | Ownership check dans getOrdreMissionHtml (ORGANISATEUR/SIGNATAIRE liés au séjour) | ✅ 30/06 |
+| 6k | **C4** /public/centres expose PENDING | searchPublic + getPublic filtrent `statut: 'ACTIVE'` | ✅ 30/06 |
 | 6l | **C5** /public/demande body:any | DTO typé + CAPTCHA | Avant marketing public |
-| 6m | CORS_ORIGIN fallback dans services | Remplacer par `process.env.FRONTEND_URL` uniquement | Au fil de l'eau |
-| 6n | lierCompte token expiration | `assertTokenNotExpired` dans `lierCompte()` | Au fil de l'eau |
+| 6m | CORS_ORIGIN fallback dans services | FRONTEND_URL uniquement dans accompagnateur.service.ts + email.service.ts | ✅ 30/06 |
+| 6n | lierCompte token expiration | assertTokenNotExpired dans lierCompte() | ✅ 30/06 |
 | 6o | 3 iframes src=URL OVH privée | Passer le src par `useSecureUrl` | Avant données sensibles en prod |
 | ~~6p~~ | ~~Phase 3 backend setAuthCookies~~ | ~~centres/register + collaborateurs/register~~ | ✅ 23/06 (commit 391291f) |
 | ~~6q~~ | ~~Bug inscription-hebergement sj_user~~ | ~~sj_user → sj_user_v2~~ | ✅ 23/06 (commit 28cb4da) |
@@ -176,7 +176,7 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 | H4 | DATABASE_URL `?sslmode=require` | ⏳ |
 | H5 | BREVO_API_KEY pas dans frontend Scalingo | ⏳ |
 | H6 | SPF/DKIM/DMARC sur liavo.fr | ⏳ |
-| H7 | DPA Scalingo/OVH/Brevo | ⏳ |
+| H7 | DPA Scalingo/OVH/Brevo | 🟡 DPA Scalingo + ToS Brevo récupérés (docs/juridique/), OVH à faire |
 | H8 | Politique de confidentialité + registre RGPD | ⏳ |
 | H9 | Rétention logs Scalingo | ⏳ |
 | H10 | Rotation JWT_SECRET | ✅ (29/05/2026) |
@@ -198,8 +198,10 @@ Migration SQL : `token_version INTEGER NOT NULL DEFAULT 0`, `refresh_token UUID`
 23/06  LOT 4a Phase 3 backend ✅ (setAuthCookies centres/collaborateurs/register)
 23/06  LOT 4a Phase 2 frontend ✅ (proxy rewrite, suppression js-cookie, migration complète)
 22/06  LOT 5 ✅ (purge git IBAN + IBAN dynamique + .gitignore)
+30/06  LOT 6 partiel ✅ (6m CORS + 6n token + 6i npm audit + migration Brevo)
+30/06  LOT 6 partiel ✅ (6g filtre exception + 6k centres ACTIVE + 6a logs + 6j IDOR + 6b escapeHtml)
        ────────────────────────────────────────────────────────
-RESTE  LOT 6 (maintenance continue) ..................... au fil de l'eau
+RESTE  LOT 6 : 6c/6d/6e/6f/6h/6l/6o ..................... au fil de l'eau
        H1-H9 checklist hors-code ....................... au fil de l'eau
 ```
 

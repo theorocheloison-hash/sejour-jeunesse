@@ -1,121 +1,158 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 25/06/2026 — Chantier monétisation complet (backend + frontend + PlanGuard). SEPA Mollie via API Mandates.
+> Dernière mise à jour : 30/06/2026 — Session complète : validation webhook Mollie E2E, passage live, nettoyage Sauvageon, endpoint facturation admin, migration Brevo, LOT 6 sécurité.
 
 ---
 
-## SESSION 25/06/2026 — Monétisation complète
+## SESSION 30/06/2026 — Mollie live + facturation admin + sécurité
 
 ### Résumé
 
-Chantier complet en une journée : backend Mollie SEPA, frontend checkout par formulaire IBAN (pas de redirect), PricingTable 4 plans, page abonnement, facturation LIAVO→hébergeur (PDF Factur-X réutilisé + email Brevo + stockage OVH), PlanGuard blocage souple, admin abonnements + factures LIAVO + métriques conversion, cron alertes expiration.
+Validation webhook Mollie end-to-end (test → paid via changePaymentState), passage clé API live, nettoyage données test Sauvageon, 2 bugfix (affichage plan + préfixe facture PDF), endpoint admin facturation manuelle (clients publics/mairies), migration @sendinblue/client → @getbrevo/brevo (5 vulns éliminées), LOT 6 sécurité (6m CORS + 6n token + 6g filtre exception + 6k centres ACTIVE + 6a logs sensibles + 6j IDOR + 6b escapeHtml emails).
 
 ### Lots livrés
 
 | Lot | Description |
 |---|---|
-| Migration Prisma | Enum PILOTAGE + 4 champs Mollie sur CentreHebergement |
-| Service Mollie | Checkout SEPA + webhook + subscription récurrente (@mollie/api-client v4.5.0) |
-| Trial 30j | activerTrial + getStatut (isTrial, trialExpire, trialUsed) |
-| Fix edge cases | Annulation upgrade mid-cycle, prolongation récurrente max(exp,now), trialUsed |
-| Lib abonnement | Type AbonnementStatut aligné backend + fonctions souscrire/trial/annuler |
-| Bannière trial | Fix hardcode planAbonnement === 'COMPLET' → appel getAbonnementStatut() |
-| PricingTable v3 | 4 plans (Découverte/Essentiel/Complet/Pilotage), prix v3 corrects, responsive |
-| Page abonnement | Formulaire IBAN inline (pas de redirect Mollie), bandeaux statut, annulation |
-| FactureLiavo | Table + service + PDF (réutilise FacturePDF + mentionTVA) + email + webhook |
-| Admin abonnements | Onglet tableau + métriques (MRR, trials actifs/expirés, conversion) |
-| Admin factures | Onglet factures LIAVO + SecureFileLink PDF |
-| Cron alertes | Endpoint POST /admin/cron/alertes-expiration (J-21/14/7/3/1 + expirés + renouvellement annuel) |
-| PlanGuard | @RequirePlan decorator + PlanGuard (HEBERGEUR only, GET passent, mutations bloquées) |
-| Modal upgrade | PlanInsufficientModal + intercepteur axios 403 PLAN_INSUFFICIENT |
-| Fix SEPA | Remplacement sequenceType:'first' (nécessitait CB) par API Mandates (IBAN direct) |
+| Webhook Mollie E2E | Validation complète : paymentId reçu → status paid → sequenceType recurring → idempotence check → prolongation abonnement → facture FL-2026-001 émise → email envoyé |
+| Passage live Mollie | Clé API live créée et déployée sur Scalingo (MOLLIE_API_KEY) |
+| Nettoyage Sauvageon | SQL prod : suppression facture test FL-2026-001, purge IDs Mollie (customer/mandat/subscription), reset plan PILOTAGE 2099, reset compteur séquence FACTURE_LIAVO |
+| Fix affichage plan | Cas 4bis frontend : plan actif sans mandat Mollie (PILOTAGE permanent) affiche correctement "Plan actif" au lieu de "Découverte" |
+| Fix préfixe facture | Déplacement "Séjour —" de FacturePDF.tsx vers facture-pdf.mapper.ts — factures LIAVO n'ont plus le préfixe parasite |
+| Endpoint facturation admin | POST /admin/facturer-centre — active le plan + émet facture LIAVO (PDF + email) sans Mollie. Pour clients publics (mairies/Trésor Public). molliePaymentId élargi à string \| null dans emettre() |
+| Migration Brevo | @sendinblue/client → @getbrevo/brevo v3.0.4 — élimine request + form-data + qs + tough-cookie + uuid (5 vulns dont 2 critical) |
+| LOT 6 sécurité 6m | CORS_ORIGIN fallback supprimé dans accompagnateur.service.ts + email.service.ts → FRONTEND_URL uniquement |
+| LOT 6 sécurité 6n | assertTokenNotExpired ajouté dans lierCompte() (accompagnateur.service.ts) |
+| LOT 6 sécurité 6g | AllExceptionsFilter global (common/filters/) — HttpException inchangées, 500 générique + stack loguée serveur pour le reste |
+| LOT 6 sécurité 6k | searchPublic + getPublic filtrent statut ACTIVE — /public/centres n'expose plus les centres PENDING |
+| LOT 6 sécurité 6a | Logs sensibles supprimés (tokenAcces/lien/email) dans accompagnateur.service + email.service → this.logger sans données sensibles |
+| LOT 6 sécurité 6j | Ownership check dans getOrdreMissionHtml — empêche l'accès cross-séjour par itération d'UUID |
+| LOT 6 sécurité 6b | escapeHtml() sur params utilisateur des templates email (19 méthodes + emailLayout title) — neutralise l'injection HTML/XSS |
+| npm audit fix | Dépendances backend patchées (39 → 10 vulns, dont 0 critical) |
 
-### Décisions prises
-
-- **PSP** : Mollie (NL, ACPR). SEPA Core via API Mandates (pas de redirect, pas de CB).
-- **Flow SEPA** : formulaire IBAN côté LIAVO → création mandat + subscription Mollie API → prélèvement auto.
-- **Activation optimiste** : grace period 14j à la souscription, le webhook met l'expiration réelle au 1er prélèvement.
-- **Pricing v3** : Essentiel 29€/49€/69€ mensuel, 290€/490€/690€ annuel. Multi-centre +39€/mois (Complet+).
-- **TVA** : franchise de base art. 293 B CGI. mentionTVA prop ajouté à FacturePDF (backward-compatible).
-- **Facturation LIAVO** : séquence FL-YYYY-NNN, SequenceService avec UUID sentinelle 00000000-..., PDF Factur-X réutilisé, stockage OVH factures-liavo/, email Brevo avec PJ.
-- **PlanGuard** : blocage souple (lecture seule après expiration). GET/HEAD passent toujours. HEBERGEUR uniquement. Erreur 403 PLAN_INSUFFICIENT avec planRequired/planActuel.
-- **Sauvageon** : PILOTAGE gratuit permanent (abonnement_actif_jusqua = 2099-12-31, pas de mandat Mollie).
-
-### Contrôleurs annotés PlanGuard
-
-| Contrôleur | Plan requis |
-|---|---|
-| devis | ESSENTIEL |
-| facture | ESSENTIEL |
-| sejours | ESSENTIEL |
-| clients | COMPLET |
-| activites-client | COMPLET |
-| collaboration | COMPLET |
-| rentabilite | PILOTAGE |
-
-### Fichiers créés/modifiés principaux
+### Fichiers modifiés
 
 Backend :
-- `abonnement.service.ts` — réécrit : souscrire() via Mandates API, webhook simplifié (plus de bloc "first")
-- `abonnement.controller.ts` — POST /souscrire remplace POST /checkout
-- `dto/souscrire-abonnement.dto.ts` — plan, frequence, iban, titulaire
-- `facture-liavo/facture-liavo.service.ts` — genererNumero, emettre, lister, listerToutes
-- `facture-liavo/facture-liavo.module.ts` — imports SequenceModule
-- `cron-alertes.service.ts` — envoyerAlertes, envoyerAlertesExpires, envoyerAlertesRenouvellement
-- `auth/guards/plan.guard.ts` — PlanGuard
-- `auth/decorators/plan.decorator.ts` — @RequirePlan
-- `facture/pdf/FacturePDF.tsx` — prop mentionTVA (backward-compatible)
-- `admin/admin.controller.ts` — GET /abonnements, GET /factures-liavo, GET /metriques-abonnements, POST /cron/alertes-expiration
-- `admin/admin.service.ts` — getAbonnements, getFacturesLiavo, getMetriquesAbonnements
+- `common/filters/all-exceptions.filter.ts` — **NOUVEAU** filtre d'exception global (6g)
+- `utils/escape-html.ts` — **NOUVEAU** helper escapeHtml (6b)
+- `main.ts` — enregistrement AllExceptionsFilter avant les pipes (6g)
+- `email/email.service.ts` — migration @getbrevo/brevo + fix CORS_ORIGIN + logs sensibles → this.logger + escapeHtml sur params utilisateur
+- `accompagnateurs/accompagnateur.controller.ts` — @CurrentUser passé à getOrdreMissionPdf (6j)
+- `accompagnateurs/accompagnateur.service.ts` — fix CORS_ORIGIN + assertTokenNotExpired dans lierCompte + Logger + ownership check getOrdreMissionHtml
+- `centres/centre.service.ts` — searchPublic + getPublic filtrent statut ACTIVE (6k)
+- `admin/admin.module.ts` — import FactureLiavoModule
+- `admin/admin.service.ts` — injection FactureLiavoService + méthode facturerCentre()
+- `admin/admin.controller.ts` — route POST /admin/facturer-centre
+- `facture-liavo/facture-liavo.service.ts` — molliePaymentId: string | null
+- `facture/pdf/FacturePDF.tsx` — suppression préfixe "Séjour —" hardcodé
+- `facture/pdf/facture-pdf.mapper.ts` — ajout préfixe "Séjour —" dans le mapper
+- `package.json` + `package-lock.json` — migration @sendinblue → @getbrevo + npm audit fix
 
 Frontend :
-- `src/lib/abonnement.ts` — type PILOTAGE + souscrireAbonnement + activerTrial + annulerAbonnement
-- `src/lib/admin.ts` — CentreAbonnement + FactureLiavo + getAdminAbonnements + getAdminFacturesLiavo
-- `app/components/PricingTable.tsx` — 4 plans, prix v3, responsive, onUpgrade accepte PILOTAGE
-- `app/dashboard/hebergeur/abonnement/page.tsx` — formulaire IBAN, bandeaux statut, annulation
-- `app/dashboard/hebergeur/page.tsx` — bannière trial via getAbonnementStatut()
-- `app/dashboard/admin/page.tsx` — onglets Abonnements + Factures LIAVO + métriques
-- `src/components/PlanInsufficientModal.tsx` — modale globale
-- `src/lib/api.ts` — intercepteur 403 PLAN_INSUFFICIENT
-- `app/dashboard/hebergeur/layout.tsx` — PlanInsufficientModal monté
+- `app/dashboard/hebergeur/abonnement/page.tsx` — cas 4bis plan actif sans mandat
 
-### Migrations SQL appliquées en prod
+### Constatations importantes
 
-```sql
--- Table factures_liavo (appliquée 25/06/2026)
-CREATE TABLE "factures_liavo" (...);
-CREATE UNIQUE INDEX "factures_liavo_numero_key" ...;
-CREATE INDEX "factures_liavo_centre_id_idx" ...;
-CREATE INDEX "factures_liavo_date_emission_idx" ...;
-ALTER TABLE "factures_liavo" ADD CONSTRAINT ... FOREIGN KEY ...;
-
--- Champ alerte expiration (appliquée 25/06/2026)
-ALTER TABLE "centres_hebergement" ADD COLUMN "dernier_email_alerte_at" TIMESTAMP(3);
-
--- Sauvageon PILOTAGE permanent (appliquée 25/06/2026)
-UPDATE centres_hebergement SET plan_abonnement = 'PILOTAGE', abonnement_actif_jusqua = '2099-12-31' WHERE id = '3a710674-d580-4ffd-9d9a-f739bae82154';
-
--- Fix migration Prisma marquée failed (appliquée 25/06/2026)
-UPDATE _prisma_migrations SET finished_at = NOW(), rolled_back_at = NULL, logs = NULL WHERE migration_name LIKE '%add_facture_liavo%';
-```
-
-### Env vars Scalingo
-
-MOLLIE_API_KEY (test), MOLLIE_WEBHOOK_SECRET (inutilisé — Mollie ne signe pas les webhooks), BACKEND_URL=https://api.liavo.fr
+- **SEPA DD test mode ne passe jamais à paid automatiquement** — il faut utiliser l'URL changePaymentState de Mollie pour forcer le statut. Documenté pour les futurs tests.
+- **sequenceType des paiements subscription = 'recurring'** même pour le premier paiement (mandat créé via API Mandates). Pas besoin du fix défensif 'first'.
+- **Clé test Mollie conservée** dans le dashboard Mollie (pas dans Scalingo). Réutilisable pour tester de nouvelles features.
 
 ---
 
-## ÉTAT PROD AU 25/06/2026
+## SESSION 29/06/2026 — Emails monétisation + Dashboard admin Activité
+
+### Résumé
+
+6 livrables en une session : idempotence + logs webhook Mollie, emails confirmation/annulation hébergeur (IBAN masqué), notifs admin (souscription/trial/annulation), espace factures hébergeur, endpoint GET /admin/activite (feed 7j + santé clients + KPIs mois), onglet frontend admin "Activité" en première position.
+
+### Lots livrés
+
+| Lot | Description |
+|---|---|
+| Webhook idempotence | Check `factureLiavo.findFirst({ molliePaymentId })` avant prolongation — skip si déjà traité |
+| Webhook logs | 5 points de log `[mollie-webhook]` : réception, status/sequenceType, prolongation, facture émise, doublon skip |
+| Email confirmation hébergeur | `sendConfirmationAbonnement` — plan, fréquence, montant, IBAN masqué (XX•••1234), bouton "Gérer mon abonnement" |
+| Email annulation hébergeur | `sendConfirmationAnnulation` — date expiration, bouton "Gérer mon abonnement" |
+| Notifs admin | `sendNotifAdmin` générique — souscription (centre/hébergeur/plan/montant), trial (centre/hébergeur/expiration), annulation (centre/hébergeur/plan) → contact@liavo.fr |
+| GET /abonnements/factures | Endpoint hébergeur (pas de PlanGuard) → `factureLiavoService.lister(centre.id)` |
+| Frontend factures | Section "Mes factures" sur page abonnement (numéro, date, description, montant HT, lien PDF) |
+| GET /admin/activite | Feed 7j (comptes, centres, séjours avec client DIRECT, demandes avec dates/ville/nb devis reçus, devis), santé clients (signal vert/jaune/rouge/gris, dernière activité, jours restants), KPIs mois (séjours/devis créés, taux activation) |
+| Frontend admin Activité | Onglet "Activité" en 1ère position, tab par défaut, 3 sections (KPIs, santé clients, feed chronologique) |
+
+### Fichiers modifiés
+
+Backend :
+- `abonnement.service.ts` — injection EmailService, maskIban(), emails dans souscrire/activerTrial/annuler, getFactures(), idempotence + logs webhook
+- `abonnement.controller.ts` — route GET /factures
+- `email.service.ts` — sendConfirmationAbonnement, sendConfirmationAnnulation, sendNotifAdmin
+- `admin.service.ts` — méthode getActivite()
+- `admin.controller.ts` — route GET /activite
+
+Frontend :
+- `src/lib/abonnement.ts` — interface FactureLiavo + getFacturesLiavo()
+- `app/dashboard/hebergeur/abonnement/page.tsx` — section "Mes factures", useEffect Promise.all
+- `src/lib/admin.ts` — interfaces FeedEvent/SanteClient/KpisActivite/AdminActivite + getAdminActivite()
+- `app/dashboard/admin/page.tsx` — type Tab + TABS + ActiviteTab composant + tab par défaut 'activite'
+
+### Test Mollie E2E — En attente validation webhook
+
+**État au 29/06 :**
+- Souscription test Sauvageon (26/06) : customer `cst_2vyTqoR78L` + mandat `mdt_KUGcvC83gV` + subscription `sub_8nVaSBGQ4X`
+- Paiement `tr_jFPJFCLwADz8RnH5hsATJ` créé le 27/06, statut "En cours", échéance **30 juin 2026**
+- Webhook testé manuellement (curl) : route accessible, retourne `{ received: true }` quand statut ≠ paid
+- Logs + idempotence déployés : quand le paiement passera à `paid`, on verra la chaîne complète dans les logs
+- **IBAN test** : `NL55INGB0000000000` est un IBAN officiel de test Mollie — le paiement passera à paid
+
+**Action 30/06 matin :**
+1. Lancer `scalingo --app liavo-backend --region osc-fr1 logs --follow`
+2. Chercher `[mollie-webhook]` dans les logs
+3. Vérifier : prolongation abonnement + facture LIAVO émise
+4. Si OK : nettoyage Sauvageon → PILOTAGE 2099 + purge IDs Mollie test
+5. Puis : passer MOLLIE_API_KEY de test à live
+
+---
+
+## TODO avant premier vrai paiement (Choucas ~17/07)
+
+- [x] Checkbox CGV obligatoire
+- [x] Horodater l'acceptation en base
+- [x] MAJ CGV tarifs réels
+- [x] PricingTable annuel
+- [x] Bug catalogue KBIS
+- [x] **Idempotence webhook** (29/06)
+- [x] **Logs webhook** (29/06)
+- [x] **Email confirmation hébergeur** (29/06)
+- [x] **Notification admin** souscription/trial/annulation (29/06)
+- [x] **Espace factures hébergeur** (29/06)
+- [x] **Valider webhook Mollie** — 30/06, E2E validé via changePaymentState
+- [x] **Nettoyage Sauvageon** — PILOTAGE 2099 + purge IDs Mollie test + reset séquence
+- [x] Passer `MOLLIE_API_KEY` de test à live
+
+---
+
+## NOTE 26/06/2026 — Premier utilisateur organique via Les Choucas
+
+**Jean Charles DENIS** (`djeancharles2@gmail.com`, tél 0617984562) — compte ORGANISATEUR créé 25/06/2026 16:46.
+- Séjour **"Classe Printemps"** — Sixt-Fer-à-Cheval, 14-18 juin 2027, 40 élèves
+- Mode COLLABORATIF, centre sélectionné = **Les Choucas** (507d5133)
+- Signal fort d'adoption : Les Choucas mettent leurs vrais clients sur la plateforme
+
+---
+
+## ÉTAT PROD AU 29/06/2026
 
 ### Monétisation — Mollie SEPA (MRR actuel : 0€)
 
-**Backend + frontend complets. À TESTER end-to-end.**
+**Backend + frontend complets. Clé API live déployée. Webhook validé E2E. Prêt pour le premier paiement réel.**
+
+**Endpoint admin POST /admin/facturer-centre** pour clients publics (mairies/Trésor Public) — facture sans Mollie.
 
 Flow SEPA :
 1. Hébergeur remplit IBAN + titulaire sur /dashboard/hebergeur/abonnement
 2. Backend crée customer Mollie + mandat SEPA + subscription
 3. Activation optimiste (grace period 14j)
-4. Mollie valide le mandat (1-3 jours) puis prélève
-5. Webhook : prolonge l'abonnement + émet facture LIAVO (PDF + email)
+4. Email confirmation hébergeur (IBAN masqué) + notif admin
+5. Mollie valide le mandat puis prélève
+6. Webhook : check idempotence → prolonge abonnement → émet facture LIAVO (PDF + email)
 
 Pricing v3 :
 - Essentiel : 29€/mois ou 290€/an
@@ -125,27 +162,34 @@ Pricing v3 :
 - TVA : franchise de base art. 293 B CGI
 - Trial : 30j Pilotage, blocage souple à expiration
 
+### Admin — Dashboard Activité (NEW 29/06)
+
+Onglet "Activité" en première position, ouvert par défaut :
+- **KPIs mois** : séjours créés, devis créés, centres actifs, taux activation
+- **Santé clients** : signal vert/jaune/rouge/gris par centre, dernière activité, jours restants abonnement
+- **Feed 7j** : comptes, centres, séjours (avec client DIRECT), demandes (avec dates/ville/nb devis reçus/enseignant), devis
+
 ### Sécurité
 
-Tous findings fermés (LOT 0-5). PlanGuard déployé. LOT 6 maintenance reste.
+Tous findings fermés (LOT 0-5). LOT 6 : 6m + 6n + 6g + 6k + 6a + 6j + 6b + migration Brevo terminés. Reste LOT 6 maintenance (6h/6l/6o + 6e/6f défense en profondeur + 6c/6d décision produit). npm audit : 10 vulns restantes (0 critical, toutes transitives NestJS/Prisma CLI/Anthropic SDK).
 
 ### Email logging
 
-9/9 flux couverts. Timeline "Notes & suivi" complète.
+9/9 flux couverts + 3 nouveaux (confirmation abo, annulation abo, notif admin).
 
 ### Clients
 
-- **Sauvageon** : PILOTAGE gratuit permanent (2099-12-31). Pas de mandat Mollie.
-- **Les Choucas** : trial Complet actif. **Deadline 17/07 — premier paiement.**
+- **Sauvageon** : PILOTAGE gratuit permanent (2099-12-31). Données Mollie test nettoyées. Pas de mandat Mollie.
+- **Les Choucas** : trial Complet actif. **Deadline 17/07 — premier paiement.** Paiement via mairie/Trésor Public, pas via Mollie. Endpoint admin facturation prêt.
 - **Alticlub** : trial Complet actif jusqu'au 10/09/2026.
 - **Pôle Montagne** (Florimont + YAKA) : trial Complet actif jusqu'au 01/12/2026. Nants pending.
-- **LMDJ** : en veille stratégique, CA 30/06.
+- **LMDJ** : CA le 30/06, en veille stratégique.
 
 ### Bugs connus
 
 - Props non utilisées : `budgetLoading`/`onBudgetReload` dans TabDevisFacturation
 - Multi-centre : ajout post-souscription ne met pas à jour la subscription Mollie (gestion manuelle)
-- MOLLIE_WEBHOOK_SECRET en env var mais non vérifié (Mollie ne signe pas — variable inutile)
+- npm audit 10 vulns restantes (transitives NestJS/Prisma/Anthropic, 0 critical, pas d'action possible sans upgrade majeur)
 
 ---
 
@@ -153,7 +197,7 @@ Tous findings fermés (LOT 0-5). PlanGuard déployé. LOT 6 maintenance reste.
 
 | Date | Événement |
 |---|---|
-| **26/06** | **TEST END-TO-END Mollie SEPA** (formulaire IBAN → mandat → subscription → webhook) |
+| **30/06** | **Validation webhook Mollie** — paiement test échéance ce jour |
 | **30/06** | CA LMDJ — pitch partenariat |
 | **17/07** | **Fin trial Les Choucas — deadline paiement opérationnel** |
 | **10/09** | Fin trial Alticlub |
@@ -165,19 +209,25 @@ Tous findings fermés (LOT 0-5). PlanGuard déployé. LOT 6 maintenance reste.
 
 ## PROCHAINS CHANTIERS (par priorité)
 
-### 1. Test Mollie end-to-end (PRIORITÉ ABSOLUE)
-- [ ] Tester le formulaire IBAN avec un compte Sauvageon ou test
-- [ ] Vérifier que le mandat est créé dans Mollie dashboard
-- [ ] Vérifier que la subscription est créée
-- [ ] Vérifier que le webhook reçoit le paiement (logs Scalingo)
-- [ ] Vérifier que la facture LIAVO est émise (PDF + email)
-- [ ] Passer MOLLIE_API_KEY de test à live
+### 1. Sécurité — verrouillage avant démarchage commercial
+- [x] 6m : CORS_ORIGIN fallback → FRONTEND_URL
+- [x] 6n : lierCompte token expiration
+- [x] Migration @sendinblue → @getbrevo/brevo
+- [x] npm audit fix
+- [x] 6g : AllExceptionsFilter (masquer stack traces)
+- [x] 6a : Nettoyer console.log sensibles
+- [x] 6b : Échapper HTML params utilisateur emails
+- [x] 6j : Ordre-mission-pdf IDOR ownership
+- [x] 6k : /public/centres expose PENDING
+- [ ] 6h : /api/contact rate limit + CAPTCHA
+- [ ] 6l : /public/demande DTO typé
+- [ ] 6o : 3 iframes → useSecureUrl
+- [ ] 6c/6d/6e/6f : décision produit + défense en profondeur
+- [ ] H1-H9 checklist hors-code (H7 DPA : Scalingo + Brevo récupérés, OVH à faire)
 
-### 2. Sécurité — LOT 6 maintenance
-- [ ] 6m : CORS_ORIGIN fallback → FRONTEND_URL
-- [ ] 6o : 3 iframes src=URL OVH privée → useSecureUrl
-- [ ] 6n : lierCompte token expiration
-- [ ] H1-H9 : checklist hors-code
+### 2. Premier paiement réel
+- [ ] Facturer Les Choucas via POST /admin/facturer-centre (plan COMPLET annuel)
+- [ ] Monitorer premier client Mollie SEPA (quand un client non-public souscrit)
 
 ### 3. Features produit
 - [ ] Module pilotage hébergeur (CA, taux occupation, marges)
