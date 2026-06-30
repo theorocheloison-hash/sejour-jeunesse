@@ -195,6 +195,26 @@ export default function AbonnementPage() {
               </>
             );
           }
+          // 4bis. Plan actif sans mandat (plan offert / admin)
+          if (abo.actif && !abo.mandatActif && !abo.isTrial && abo.plan !== 'DECOUVERTE') {
+            return (
+              <div style={{
+                backgroundColor: '#E6F4EE', border: '1px solid #1E5C42',
+                borderRadius: 12, padding: '16px 20px', marginBottom: 32,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <span style={{
+                  fontSize: 12, fontWeight: 600, color: '#1E5C42',
+                  backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: 20,
+                }}>
+                  Plan actif
+                </span>
+                <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
+                  Plan {PLAN_LABELS[abo.plan] ?? abo.plan}
+                </span>
+              </div>
+            );
+          }
           // 5. Découverte / défaut
           return (
             <div style={{

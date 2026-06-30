@@ -46,7 +46,7 @@ export function mapFactureToPdfProps(
     destinataireAdresse: formatAdressePdf(facture.destinataireAdresse),
     destinataireSiret: facture.destinataireSiret,
     destinataireEmail: facture.destinataireEmail,
-    titreSejour: titreSejour || 'Non renseigné',
+    titreSejour: `Séjour — ${titreSejour || 'Non renseigné'}`,
     lignes: facture.lignes.map((l) => ({
       description: l.description,
       quantite: l.quantite,

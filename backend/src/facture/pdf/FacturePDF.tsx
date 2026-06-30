@@ -243,7 +243,7 @@ export default function FacturePDF(props: FacturePDFProps) {
         {/* Objet */}
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
-          <Text style={s.objetText}>Séjour — {titreSejour}</Text>
+          <Text style={s.objetText}>{titreSejour}</Text>
           {typeFacture === 'AVOIR' && (
             <Text style={s.objetText}>
               Annule et remplace la facture {factureAnnuleeNumero}
