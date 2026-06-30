@@ -41,6 +41,8 @@ const nextConfig: NextConfig = {
       { source: '/devis-libre/signer/:token', destination: '/devis/signer/:token', permanent: true },
       // URL courante → page légale
       { source: '/politique-confidentialite', destination: '/legal/confidentialite', permanent: true },
+      // Rentabilité → Pilotage (migration)
+      { source: '/dashboard/hebergeur/rentabilite', destination: '/dashboard/hebergeur/pilotage/rentabilite', permanent: false },
     ];
   },
 };

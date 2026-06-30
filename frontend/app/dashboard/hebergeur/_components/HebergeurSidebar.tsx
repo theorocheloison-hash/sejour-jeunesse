@@ -67,6 +67,7 @@ const ROUTE_PERMISSION: Record<string, keyof Omit<CentrePermissions, 'isOwner'>>
   '/dashboard/hebergeur/demandes': 'sejours',
   '/dashboard/hebergeur/devis': 'devis',
   '/dashboard/hebergeur/rentabilite': 'facturation',
+  '/dashboard/hebergeur/pilotage': 'facturation',
   '/dashboard/hebergeur/clients': 'crm',
   '/dashboard/hebergeur/catalogue': 'parametres',
   '/dashboard/hebergeur/profil': 'parametres',
@@ -101,7 +102,7 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
   {
     label: 'Pilotage',
     items: [
-      { href: '/dashboard/hebergeur/rentabilite', label: 'Rentabilité', icon: ICONS.chartBarSquare, requiredPlan: 'PILOTAGE' },
+      { href: '/dashboard/hebergeur/pilotage', label: 'Pilotage', icon: ICONS.chartBarSquare, requiredPlan: 'PILOTAGE' },
     ],
   },
   {
@@ -272,7 +273,11 @@ export default function HebergeurSidebar({
             )}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
-                const active = pathname === item.href;
+                // Sous-routes (ex. /pilotage/ca) highlightent leur parent ; le tableau
+                // de bord racine reste en match exact pour ne pas s'allumer partout.
+                const active = item.href === '/dashboard/hebergeur'
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + '/');
                 const baseStyle: React.CSSProperties = {
                   display: 'flex',
                   alignItems: 'center',
