@@ -6,12 +6,20 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import CentreSelector from '@/src/components/hebergeur/CentreSelector';
 import type { CentrePermissions } from '@/src/hooks/usePermissions';
 
+const PLAN_RANK: Record<string, number> = {
+  DECOUVERTE: 0,
+  ESSENTIEL: 1,
+  COMPLET: 2,
+  PILOTAGE: 3,
+};
+
 interface HebergeurSidebarProps {
   centre: {
     nom: string | null;
     ville: string | null;
     imageUrl?: string | null;
   } | null;
+  planAbonnement?: string | null;
   demandesCount: number;
   rappelsCount: number;
   actionsFactCount: number;
@@ -26,6 +34,7 @@ interface NavItem {
   label: string;
   icon: string;
   badge?: { count: number; color: 'red' | 'orange' };
+  requiredPlan?: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE';
 }
 
 interface NavGroup {
@@ -69,38 +78,49 @@ const ROUTE_PERMISSION: Record<string, keyof Omit<CentrePermissions, 'isOwner'>>
 
 const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
   {
-    label: 'Vue d\'ensemble',
+    label: '',
     items: [
       { href: '/dashboard/hebergeur', label: 'Tableau de bord', icon: ICONS.squares2x2 },
     ],
   },
   {
-    label: 'Commercial',
+    label: 'Activité',
     items: [
-      { href: '/dashboard/hebergeur/demandes', label: 'Demandes',           icon: ICONS.envelope },
-      { href: '/dashboard/hebergeur/devis',    label: 'Devis & Facturation', icon: ICONS.documentText },
-      { href: '/dashboard/hebergeur/rentabilite', label: 'Rentabilité', icon: ICONS.chartBarSquare },
-      { href: '/dashboard/hebergeur/clients',  label: 'CRM clients',         icon: ICONS.users },
+      { href: '/dashboard/hebergeur/sejours',   label: 'Séjours',  icon: ICONS.clipboardDocList },
+      { href: '/dashboard/hebergeur/planning',   label: 'Planning', icon: ICONS.calendarDays },
+      { href: '/dashboard/hebergeur/demandes',   label: 'Demandes', icon: ICONS.envelope },
     ],
   },
   {
-    label: 'Mon centre',
+    label: 'Gestion',
     items: [
-      { href: '/dashboard/hebergeur/planning',         label: 'Planning',           icon: ICONS.calendarDays },
-      { href: '/dashboard/hebergeur/sejours',          label: 'Séjours',            icon: ICONS.clipboardDocList },
-      { href: '/dashboard/hebergeur/catalogue',        label: 'Catalogue & tarifs', icon: ICONS.bars3BottomLeft },
-      { href: '/dashboard/hebergeur/disponibilites',   label: 'Disponibilités',     icon: ICONS.calendarDays },
-      { href: '/dashboard/hebergeur/documents',        label: 'Documents',          icon: ICONS.folderOpen },
-      { href: '/dashboard/hebergeur/profil',           label: 'Profil',             icon: ICONS.buildingStorefront },
+      { href: '/dashboard/hebergeur/devis',    label: 'Devis & Facturation', icon: ICONS.documentText },
+      { href: '/dashboard/hebergeur/clients',  label: 'CRM clients',         icon: ICONS.users, requiredPlan: 'COMPLET' },
+    ],
+  },
+  {
+    label: 'Pilotage',
+    items: [
+      { href: '/dashboard/hebergeur/rentabilite', label: 'Rentabilité', icon: ICONS.chartBarSquare, requiredPlan: 'PILOTAGE' },
+    ],
+  },
+  {
+    label: 'Paramètres',
+    items: [
+      { href: '/dashboard/hebergeur/catalogue',        label: 'Catalogue & tarifs',   icon: ICONS.bars3BottomLeft },
+      { href: '/dashboard/hebergeur/disponibilites',   label: 'Disponibilités',       icon: ICONS.calendarDays },
+      { href: '/dashboard/hebergeur/profil',           label: 'Profil',               icon: ICONS.buildingStorefront },
+      { href: '/dashboard/hebergeur/documents',        label: 'Documents',            icon: ICONS.folderOpen },
       { href: '/dashboard/hebergeur/parametres/inscription', label: 'Fiche d\'inscription', icon: ICONS.clipboardCheck },
-      { href: '/dashboard/hebergeur/equipe',           label: 'Mon équipe',         icon: ICONS.users },
-      { href: '/dashboard/hebergeur/abonnement',       label: 'Abonnement',         icon: ICONS.creditCard },
+      { href: '/dashboard/hebergeur/equipe',           label: 'Mon équipe',           icon: ICONS.users, requiredPlan: 'COMPLET' },
+      { href: '/dashboard/hebergeur/abonnement',       label: 'Abonnement',           icon: ICONS.creditCard },
     ],
   },
 ];
 
 export default function HebergeurSidebar({
   centre,
+  planAbonnement,
   demandesCount,
   rappelsCount,
   actionsFactCount,
@@ -236,18 +256,20 @@ export default function HebergeurSidebar({
         })()}
         {groups.map((group, gIdx) => (
           <div key={group.label} style={{ marginTop: gIdx === 0 ? 0 : 16 }}>
-            <p
-              style={{
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'rgba(255,255,255,0.35)',
-                padding: '0 8px',
-                marginBottom: 4,
-              }}
-            >
-              {group.label}
-            </p>
+            {group.label && (
+              <p
+                style={{
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'rgba(255,255,255,0.35)',
+                  padding: '0 8px',
+                  marginBottom: 4,
+                }}
+              >
+                {group.label}
+              </p>
+            )}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const active = pathname === item.href;
@@ -282,7 +304,7 @@ export default function HebergeurSidebar({
                         <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                       </svg>
                       <span className="truncate">{item.label}</span>
-                      {item.badge && (
+                      {item.badge && item.badge.count > 0 && (
                         <span
                           style={{
                             marginLeft: 'auto',
@@ -297,6 +319,19 @@ export default function HebergeurSidebar({
                         >
                           {item.badge.count}
                         </span>
+                      )}
+                      {item.requiredPlan && (PLAN_RANK[planAbonnement ?? 'DECOUVERTE'] ?? 0) < (PLAN_RANK[item.requiredPlan] ?? 0) && !item.badge?.count && (
+                        <svg
+                          width={12}
+                          height={12}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.8}
+                          style={{ marginLeft: 'auto', opacity: 0.4, flexShrink: 0 }}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
                       )}
                     </Link>
                   </li>

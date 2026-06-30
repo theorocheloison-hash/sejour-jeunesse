@@ -63,8 +63,14 @@ export default function HebergeurSejoursPage() {
         (s.createur?.nom ?? '').toLowerCase().includes(q)
       );
     }
-    // Tri : séjours à venir d'abord (le plus proche en tête), puis passés (le plus récent en tête).
+    // Tri : non-lus en tête, puis séjours à venir (le plus proche en tête), puis passés (le plus récent en tête).
     list = [...list].sort((a, b) => {
+      const aNonLu = nonLuMap.get(a.id) ?? 0;
+      const bNonLu = nonLuMap.get(b.id) ?? 0;
+      // Non-lus d'abord
+      if (aNonLu > 0 && bNonLu === 0) return -1;
+      if (aNonLu === 0 && bNonLu > 0) return 1;
+      // Au sein des non-lus ou des lus : futur d'abord, puis passé
       const now = new Date().toISOString().slice(0, 10);
       const aFuture = (a.dateDebut ?? '') >= now;
       const bFuture = (b.dateDebut ?? '') >= now;
@@ -74,7 +80,7 @@ export default function HebergeurSejoursPage() {
       return (b.dateDebut ?? '').localeCompare(a.dateDebut ?? '');
     });
     return list;
-  }, [sejours, filtreStatut, filtreNature, searchQuery]);
+  }, [sejours, filtreStatut, filtreNature, searchQuery, nonLuMap]);
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">

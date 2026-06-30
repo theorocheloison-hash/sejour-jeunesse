@@ -25,6 +25,7 @@ export default function HebergeurLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-gray-50">
       <HebergeurSidebar
         centre={centre}
+        planAbonnement={centre?.planAbonnement ?? null}
         demandesCount={demandesCount}
         rappelsCount={rappelsCount}
         actionsFactCount={actionsFactCount}

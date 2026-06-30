@@ -43,7 +43,7 @@ export interface Centre {
   capaciteGroupeMax?: number | null;
   periodeOuverture?: string | null;
   abonnementStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU';
-  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET';
+  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE';
   abonnementActifJusquAu?: string | null;
 }
 
@@ -288,7 +288,7 @@ export interface CentreResume {
   imageUrl: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   abonnementStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU';
-  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET';
+  planAbonnement?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE';
 }
 
 export async function getMesCentres(): Promise<CentreResume[]> {
