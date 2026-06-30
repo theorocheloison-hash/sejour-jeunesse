@@ -114,7 +114,7 @@ export default function ConfidentialitePage() {
               "Équipe LIAVO : accès restreint aux données nécessaires à la gestion du service",
               "Centre d'hébergement sélectionné : accès aux données de séjour (hors données médicales élèves sauf accord explicite)",
               'Rectorat/DSDEN : accès aux dossiers de séjour soumis par les établissements',
-              'Sous-traitants techniques : Scalingo (hébergement backend et frontend, France), OVH Object Storage (stockage fichiers, France), Brevo (emails transactionnels, France) — tous engagés contractuellement au RGPD',
+              'Sous-traitants techniques : Scalingo (hébergement backend et frontend, France), OVH Object Storage (stockage fichiers, France), Brevo (emails transactionnels, France), Mollie (paiements SEPA, Pays-Bas, UE) — tous engagés contractuellement au RGPD',
             ].map(item => <li key={item} className={liCls}>{item}</li>)}
           </ul>
           <p className={pCls}>
@@ -131,6 +131,7 @@ export default function ConfidentialitePage() {
             <li className={liCls}>Backend et base de données : Scalingo SAS, datacenter Paris, France</li>
             <li className={liCls}>Stockage fichiers : OVH Object Storage, datacenter Gravelines, France</li>
             <li className={liCls}>Emails transactionnels : Brevo (Sendinblue SAS), France</li>
+            <li className={liCls}>Paiements SEPA : Mollie B.V., Pays-Bas (Union Européenne)</li>
           </ul>
           <p className={pCls}>
             Aucun transfert de données personnelles n&apos;est effectué hors de l&apos;Union Européenne.
@@ -143,7 +144,7 @@ export default function ConfidentialitePage() {
           <ul className="list-disc list-inside space-y-1 mb-4 ml-2">
             {[
               'Chiffrement des communications (HTTPS/TLS)',
-              'Chiffrement des données financières sensibles (IBAN) en base de données',
+              'Données financières (IBAN) transmises via canal chiffré (HTTPS/TLS) et accessibles uniquement aux utilisateurs autorisés (RBAC)',
               'Authentification par JWT avec expiration',
               'Accès aux données segmenté par rôle (RBAC)',
               'Stockage des fichiers sur OVH Object Storage (France) avec accès présigné temporaire',
