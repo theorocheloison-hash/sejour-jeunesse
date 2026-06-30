@@ -9,6 +9,43 @@ const STATUTS_CONFIRMES: StatutSejour[] = ['CONVENTION', 'SOUMIS_RECTORAT', 'SIG
 /** Statuts de devis considérés comme "CA confirmé". */
 const STATUTS_CA: StatutDevis[] = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
 
+/** Formate une date en dd/MM/yyyy. */
+function fmtDate(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+/** Formate un nombre avec 2 décimales. */
+function fmtNum(n: number): string {
+  return n.toFixed(2);
+}
+
+/** Ajoute N jours à une date. */
+function addDays(d: Date | string, n: number): Date {
+  const result = new Date(d);
+  result.setDate(result.getDate() + n);
+  return result;
+}
+
+/** Échappe une valeur CSV (guillemets doubles si contient ; ou "). */
+function csvEscape(s: string): string {
+  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/** Labels lisibles pour les modes de paiement. */
+const MODE_PAIEMENT_LABELS: Record<string, string> = {
+  CARTE: 'Carte',
+  VIREMENT: 'Virement',
+  CHEQUE: 'Chèque',
+  ESPECES: 'Espèces',
+  CHEQUES_VACANCES: 'Chèques vacances',
+};
+
 /** Nombre de jours dans un mois donné. */
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
@@ -288,5 +325,143 @@ export class PilotageService {
       },
       comparaisonN1,
     };
+  }
+
+  // ─── Export factures CSV ────────────────────────────────────────────
+
+  async exportFacturesCSV(
+    userId: string,
+    centreId: string | null,
+    dateDebutStr: string,
+    dateFinStr: string,
+  ): Promise<string> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+    const dateDebut = new Date(dateDebutStr);
+    const dateFin = new Date(dateFinStr);
+    dateFin.setHours(23, 59, 59, 999);
+
+    const factures = await this.prisma.facture.findMany({
+      where: {
+        devis: { centreId: centre.id },
+        dateEmission: { gte: dateDebut, lte: dateFin },
+        typeFacture: { not: 'AVOIR' },
+      },
+      select: {
+        numero: true,
+        dateEmission: true,
+        typeFacture: true,
+        destinataireNom: true,
+        montantHT: true,
+        montantTVA: true,
+        montantFacture: true,
+        montantVerseTotal: true,
+        devis: {
+          select: {
+            versements: {
+              select: { modePaiement: true, datePaiement: true },
+              orderBy: { datePaiement: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { dateEmission: 'desc' },
+    });
+
+    const BOM = '\uFEFF';
+    const header = 'Date;N°;Client;Montant HT;Montant TVA;Montant TTC;Date échéance;Date Paiement;Mode de paiement;Payé';
+    const rows = factures.map(f => {
+      const dateEmission = fmtDate(f.dateEmission);
+      const echeance = fmtDate(addDays(f.dateEmission, 30));
+      const paye = f.montantVerseTotal >= f.montantFacture;
+      const dernierVersement = f.devis.versements[0];
+      const datePaiement = paye && dernierVersement ? fmtDate(dernierVersement.datePaiement) : '';
+      const modePaiement = dernierVersement?.modePaiement
+        ? MODE_PAIEMENT_LABELS[dernierVersement.modePaiement] ?? dernierVersement.modePaiement
+        : '';
+
+      return [
+        dateEmission,
+        f.numero,
+        csvEscape(f.destinataireNom),
+        fmtNum(f.montantHT),
+        fmtNum(f.montantTVA),
+        fmtNum(f.montantFacture),
+        echeance,
+        datePaiement,
+        modePaiement,
+        paye ? 'Oui' : 'Non',
+      ].join(';');
+    });
+
+    return BOM + header + '\n' + rows.join('\n');
+  }
+
+  // ─── Export versements CSV ──────────────────────────────────────────
+
+  async exportVersementsCSV(
+    userId: string,
+    centreId: string | null,
+    dateDebutStr: string,
+    dateFinStr: string,
+  ): Promise<string> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+    const dateDebut = new Date(dateDebutStr);
+    const dateFin = new Date(dateFinStr);
+    dateFin.setHours(23, 59, 59, 999);
+
+    const versements = await this.prisma.versementPaiement.findMany({
+      where: {
+        devis: { centreId: centre.id },
+        datePaiement: { gte: dateDebut, lte: dateFin },
+      },
+      select: {
+        montant: true,
+        datePaiement: true,
+        modePaiement: true,
+        reference: true,
+        facture: { select: { numero: true } },
+        devis: {
+          select: {
+            sejourDirect: { select: { titre: true, clientOrganisation: true, clientNom: true } },
+            demande: {
+              select: {
+                sejour: { select: { titre: true } },
+                enseignant: { select: { prenom: true, nom: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { datePaiement: 'desc' },
+    });
+
+    const BOM = '\uFEFF';
+    const header = 'Date;Montant;Mode de paiement;Référence;N° Facture;Client;Séjour';
+    const rows = versements.map(v => {
+      const client = v.devis.sejourDirect?.clientOrganisation
+        ?? v.devis.sejourDirect?.clientNom
+        ?? (v.devis.demande?.enseignant
+          ? `${v.devis.demande.enseignant.prenom} ${v.devis.demande.enseignant.nom}`
+          : '—');
+      const sejour = v.devis.sejourDirect?.titre
+        ?? v.devis.demande?.sejour?.titre
+        ?? '—';
+      const modePaiement = v.modePaiement
+        ? MODE_PAIEMENT_LABELS[v.modePaiement] ?? v.modePaiement
+        : '';
+
+      return [
+        fmtDate(v.datePaiement),
+        fmtNum(v.montant),
+        modePaiement,
+        csvEscape(v.reference ?? ''),
+        v.facture?.numero ?? '',
+        csvEscape(client),
+        csvEscape(sejour),
+      ].join(';');
+    });
+
+    return BOM + header + '\n' + rows.join('\n');
   }
 }
