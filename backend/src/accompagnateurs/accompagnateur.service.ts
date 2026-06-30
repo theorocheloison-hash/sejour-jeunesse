@@ -13,7 +13,7 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
 
-const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
 @Injectable()
 export class AccompagnateurService {
@@ -361,6 +361,7 @@ Le présent ordre de mission est établi conformément au Décret n°2006-781 du
       where: { tokenAcces },
     });
     if (!accompagnateur) throw new NotFoundException('Ordre de mission introuvable');
+    assertTokenNotExpired(accompagnateur.tokenExpiresAt, 'Accompagnateur');
     if (!accompagnateur.accesCollaboratif) {
       throw new ForbiddenException('Cet accompagnateur n\'a pas accès à l\'espace collaboratif');
     }
