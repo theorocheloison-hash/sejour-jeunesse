@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as SibApiV3Sdk from '@sendinblue/client';
+import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.com';
 const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Liavo';
-const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
 // ─── Couleurs LIAVO ─────────────────────────────────────────────────────────
 const PRIMARY = '#1B4060';
@@ -44,12 +44,12 @@ function emailLayout(title: string, body: string, buttonText?: string, buttonUrl
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private api: SibApiV3Sdk.TransactionalEmailsApi;
+  private api: TransactionalEmailsApi;
 
   constructor() {
-    this.api = new SibApiV3Sdk.TransactionalEmailsApi();
+    this.api = new TransactionalEmailsApi();
     if (BREVO_API_KEY) {
-      this.api.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+      this.api.setApiKey(TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
     }
   }
 
