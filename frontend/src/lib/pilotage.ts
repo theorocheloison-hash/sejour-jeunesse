@@ -34,6 +34,7 @@ export interface CAData {
   parMois: MoisCA[];
   parType: { sejours: number; evenements: number };
   parSource: { direct: number; reseau: number };
+  parProduit: { nom: string; type: string | null; total: number }[];
   comparaisonN1: { confirme: number; evolution: string } | null;
 }
 

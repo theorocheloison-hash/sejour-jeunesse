@@ -250,7 +250,7 @@ export default function PilotageCAPage() {
         </div>
 
         {/* Ventilation */}
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-3 gap-3 mt-3">
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
             <p className="text-xs text-gray-400 mb-2">Par type</p>
             <div className="space-y-1.5">
@@ -276,6 +276,24 @@ export default function PilotageCAPage() {
                 <span className="font-medium">{fmtEur(ca.parSource.reseau)}</span>
               </div>
             </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-1 mb-2">
+              <p className="text-xs text-gray-400">Par produit</p>
+              <InfoTip text="Ventilation du CA confirmé par produit du catalogue. Les lignes non rattachées à un produit sont regroupées dans Autre." />
+            </div>
+            {ca.parProduit.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Aucune donnée produit disponible</p>
+            ) : (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {ca.parProduit.map((p, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-gray-600 truncate mr-2">{p.nom}</span>
+                    <span className="font-medium shrink-0">{fmtEur(p.total)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>

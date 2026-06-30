@@ -287,6 +287,55 @@ export class PilotageService {
       else caDirect += montant;
     }
 
+    // 4b. Ventilation par produit catalogue
+    const lignesConfirmees = await this.prisma.ligneDevis.findMany({
+      where: {
+        devis: {
+          centreId: centre.id,
+          statut: { in: STATUTS_CA },
+          isComplementaire: false,
+        },
+      },
+      select: {
+        totalTTC: true,
+        description: true,
+        produitCatalogueId: true,
+        produitCatalogue: { select: { nom: true, type: true } },
+        devis: {
+          select: {
+            sejourDirect: { select: { dateDebut: true } },
+            demande: { select: { sejour: { select: { dateDebut: true } } } },
+          },
+        },
+      },
+    });
+
+    // Filtrer par date de séjour dans l'année (même logique que les devis)
+    const lignesAnnee = lignesConfirmees.filter(l => {
+      const dd = l.devis.sejourDirect?.dateDebut ?? l.devis.demande?.sejour?.dateDebut ?? null;
+      if (!dd) return false;
+      const d = new Date(dd);
+      return d >= yearStart && d <= yearEnd;
+    });
+
+    // Agréger par produit catalogue (null = "Autre")
+    const produitMap = new Map<string, { nom: string; type: string | null; total: number }>();
+    for (const l of lignesAnnee) {
+      const key = l.produitCatalogueId ?? '__autre__';
+      const nom = l.produitCatalogue?.nom ?? 'Autre';
+      const type = l.produitCatalogue?.type ?? null;
+      const existing = produitMap.get(key);
+      if (existing) {
+        existing.total += l.totalTTC;
+      } else {
+        produitMap.set(key, { nom, type, total: l.totalTTC });
+      }
+    }
+
+    const parProduit = Array.from(produitMap.values())
+      .map(p => ({ nom: p.nom, type: p.type, total: Math.round(p.total * 100) / 100 }))
+      .sort((a, b) => b.total - a.total);
+
     // 5. Comparaison N-1
     let comparaisonN1: { confirme: number; evolution: string } | null = null;
     const prevYearStart = new Date(annee - 1, 0, 1);
@@ -323,6 +372,7 @@ export class PilotageService {
         direct: Math.round(caDirect * 100) / 100,
         reseau: Math.round(caReseau * 100) / 100,
       },
+      parProduit,
       comparaisonN1,
     };
   }
