@@ -22,13 +22,14 @@ type LigneForm = {
   quantite: string;
   prixUnitaire: string;
   tva: string;
+  produitCatalogueId?: string;
 };
 
 let keyCounter = 0;
 function newKey() { return `l-${++keyCounter}`; }
 
-function makeLigneForm(opts?: { description?: string; quantite?: string; prixUnitaire?: string; tva?: string }): LigneForm {
-  return { key: newKey(), description: opts?.description ?? '', quantite: opts?.quantite ?? '', prixUnitaire: opts?.prixUnitaire ?? '', tva: opts?.tva ?? '0' };
+function makeLigneForm(opts?: { description?: string; quantite?: string; prixUnitaire?: string; tva?: string; produitCatalogueId?: string }): LigneForm {
+  return { key: newKey(), description: opts?.description ?? '', quantite: opts?.quantite ?? '', prixUnitaire: opts?.prixUnitaire ?? '', tva: opts?.tva ?? '0', produitCatalogueId: opts?.produitCatalogueId };
 }
 
 // ─── Page (Suspense wrapper) ────────────────────────────────────────────────
@@ -215,7 +216,7 @@ function NouveauDevisContent() {
   const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
     setLignes((prev) => prev.map((l) =>
       l.key === key
-        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva) }
+        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva), produitCatalogueId: produit.id }
         : l
     ));
   }, []);
@@ -233,7 +234,7 @@ function NouveauDevisContent() {
         const puHT = round2(puTTC / (1 + tvaL / 100));
         const totalTTC = round2(puTTC * qte);
         const totalHT = round2(puHT * qte);
-        return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC };
+        return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC, produitCatalogueId: l.produitCatalogueId };
       });
 
     // Mode DIRECT : appeler createDirectDevis
@@ -626,6 +627,7 @@ function NouveauDevisContent() {
                                     quantite: String(info?.demande.nombreEleves ?? 1),
                                     prixUnitaire: String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))),
                                     tva: String(p.tva),
+                                    produitCatalogueId: p.id,
                                   })]);
                                   setShowCatalogueDropdown(false);
                                   setCatalogueSearch('');
@@ -657,6 +659,7 @@ function NouveauDevisContent() {
                                         quantite: String(info?.demande.nombreEleves ?? 1),
                                         prixUnitaire: String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))),
                                         tva: String(p.tva),
+                                        produitCatalogueId: p.id,
                                       })]);
                                       setShowCatalogueDropdown(false);
                                       setCatalogueSearch('');

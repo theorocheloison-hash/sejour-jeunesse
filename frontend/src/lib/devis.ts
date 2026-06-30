@@ -116,6 +116,7 @@ export interface LigneDevis {
   tva: number;
   totalHT: number;
   totalTTC: number;
+  produitCatalogueId?: string | null;
 }
 
 export interface Devis {

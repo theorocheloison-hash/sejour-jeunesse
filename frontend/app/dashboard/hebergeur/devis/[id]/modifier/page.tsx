@@ -20,13 +20,14 @@ type LigneForm = {
   quantite: string;
   prixUnitaire: string;
   tva: string;
+  produitCatalogueId?: string;
 };
 
 let keyCounter = 0;
 function newKey() { return `l-${++keyCounter}`; }
 
-function makeLigneForm(desc = '', qte = '', prix = '', tva = '0'): LigneForm {
-  return { key: newKey(), description: desc, quantite: qte, prixUnitaire: prix, tva };
+function makeLigneForm(desc = '', qte = '', prix = '', tva = '0', produitCatalogueId?: string): LigneForm {
+  return { key: newKey(), description: desc, quantite: qte, prixUnitaire: prix, tva, produitCatalogueId };
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ export default function ModifierDevisPage() {
             const puTTC = l.quantite > 0
               ? round2(l.totalTTC / l.quantite)
               : round2(l.prixUnitaire * (1 + l.tva / 100));
-            return makeLigneForm(l.description, String(l.quantite), String(puTTC), String(l.tva));
+            return makeLigneForm(l.description, String(l.quantite), String(puTTC), String(l.tva), l.produitCatalogueId ?? undefined);
           }));
         } else {
           setLignes([makeLigneForm()]);
@@ -167,7 +168,7 @@ export default function ModifierDevisPage() {
   const selectProduitForLigne = useCallback((key: string, produit: ProduitCatalogue) => {
     setLignes((prev) => prev.map((l) =>
       l.key === key
-        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva) }
+        ? { ...l, description: produit.nom, prixUnitaire: String(produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100))), tva: String(produit.tva), produitCatalogueId: produit.id }
         : l
     ));
   }, []);
@@ -186,7 +187,7 @@ export default function ModifierDevisPage() {
         const puHT = round2(puTTC / (1 + tvaL / 100));
         const totalTTC = round2(puTTC * qte);
         const totalHT = round2(puHT * qte);
-        return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC };
+        return { description: l.description, quantite: qte, prixUnitaire: puHT, tva: tvaL, totalHT, totalTTC, produitCatalogueId: l.produitCatalogueId };
       });
 
     const nbElevesParEleve = nombreEleves > 0 ? nombreEleves : (devisOriginal.demande?.nombreEleves ?? 1);
@@ -546,7 +547,7 @@ export default function ModifierDevisPage() {
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
                                     const nbElevesInitial = devisOriginal?.demande?.nombreEleves ?? 1;
-                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nbElevesInitial), String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))), String(p.tva))]);
+                                    setLignes(prev => [...prev, makeLigneForm(p.nom, String(nbElevesInitial), String(p.prixUnitaireTTC ?? round2(p.prixUnitaireHT * (1 + p.tva / 100))), String(p.tva), p.id)]);
                                     setCatalogueSearch('');
                                     setShowCatalogueSearch(false);
                                   }}

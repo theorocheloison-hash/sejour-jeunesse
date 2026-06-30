@@ -30,6 +30,10 @@ export class LigneDevisDto {
 
   @IsNumber()
   totalTTC!: number;
+
+  @IsOptional()
+  @IsUUID()
+  produitCatalogueId?: string;
 }
 
 export class CreateDevisDto {

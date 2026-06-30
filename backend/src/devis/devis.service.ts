@@ -132,6 +132,7 @@ export class DevisService {
           tva: l.tva ?? 0,
           totalHT: l.totalHT,
           totalTTC: l.totalTTC,
+          produitCatalogueId: l.produitCatalogueId ?? null,
         })),
       });
     }
@@ -453,6 +454,7 @@ export class DevisService {
           tva: l.tva ?? 0,
           totalHT: l.totalHT,
           totalTTC: l.totalTTC,
+          produitCatalogueId: l.produitCatalogueId ?? null,
         })),
       });
     }
@@ -1359,6 +1361,7 @@ export class DevisService {
           tva: l.tva ?? 0,
           totalHT: l.totalHT,
           totalTTC: l.totalTTC,
+          produitCatalogueId: l.produitCatalogueId ?? null,
         })),
       });
     }
@@ -1435,6 +1438,7 @@ export class DevisService {
         tva: l.tva ?? 0,
         totalHT: l.totalHT,
         totalTTC: l.totalTTC,
+        produitCatalogueId: l.produitCatalogueId ?? null,
       })),
     });
 

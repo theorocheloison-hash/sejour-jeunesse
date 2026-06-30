@@ -720,6 +720,7 @@ model ProduitCatalogue {
   createdAt       DateTime @default(now()) @map("created_at")
 
   centre      CentreHebergement  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  lignesDevis LigneDevis[]
 
   @@map("produits_catalogue")
 }
@@ -1144,6 +1145,9 @@ model LigneDevis {
   tva          Float  @default(0)
   totalHT      Float  @map("total_ht")
   totalTTC     Float  @map("total_ttc")
+  produitCatalogueId String? @map("produit_catalogue_id") @db.Uuid
+
+  produitCatalogue ProduitCatalogue? @relation(fields: [produitCatalogueId], references: [id], onDelete: SetNull)
 
   devis Devis @relation(fields: [devisId], references: [id], onDelete: Cascade)
 

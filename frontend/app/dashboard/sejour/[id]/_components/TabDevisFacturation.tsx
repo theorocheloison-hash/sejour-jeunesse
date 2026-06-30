@@ -250,7 +250,7 @@ export default function TabDevisFacturation({
     destinataireSiret: '',
     destinataireEmail: '',
     description: '',
-    lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
+    lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0, produitCatalogueId: undefined as string | undefined }],
   });
   const [catalogue, setCatalogue] = useState<ProduitCatalogue[]>([]);
   const [compLoading, setCompLoading] = useState(false);
@@ -573,7 +573,7 @@ export default function TabDevisFacturation({
   };
 
   const addCompLigne = () =>
-    setCompForm(f => ({ ...f, lignes: [...f.lignes, { description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }] }));
+    setCompForm(f => ({ ...f, lignes: [...f.lignes, { description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0, produitCatalogueId: undefined as string | undefined }] }));
   const removeCompLigne = (index: number) =>
     setCompForm(f => ({ ...f, lignes: f.lignes.filter((_, i) => i !== index) }));
   const updateCompLigne = (index: number, field: 'description' | 'quantite' | 'prixUnitaire' | 'tva', value: string) =>
@@ -597,6 +597,7 @@ export default function TabDevisFacturation({
             description: produit.nom,
             prixUnitaire: produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100)),
             tva: produit.tva ?? 0,
+            produitCatalogueId: produit.id,
           }
         : l),
     }));
@@ -621,7 +622,7 @@ export default function TabDevisFacturation({
       destinataireNom: '', destinataireAdresse: '', destinataireCodePostal: '',
       destinataireVille: '', destinataireSiret: '', destinataireEmail: '',
       description: '',
-      lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0 }],
+      lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0, produitCatalogueId: undefined as string | undefined }],
     });
     setCompSelectedOrg(null);
     setCompError(null);
