@@ -667,9 +667,10 @@ export class CentreService {
     const EN_API =
       'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
 
-    // ── Requête Prisma (sans filtre de statut) ────────────────────────
+    // ── Requête Prisma (centres ACTIVE uniquement) ────────────────────
     const prismaPromise = this.prisma.centreHebergement.findMany({
       where: {
+        statut: 'ACTIVE',
         OR: [
           { nom: { contains: search, mode: 'insensitive' } },
           { ville: { contains: search, mode: 'insensitive' } },
@@ -771,11 +772,12 @@ export class CentreService {
         activitesCentre: true, equipements: true, accessiblePmr: true,
         agrementEducationNationale: true, periodeOuverture: true, departement: true,
         source: true, apidaeId: true, organisationId: true, userId: true,
+        statut: true,
       },
     });
-    if (!centre) return null;
-    // userId non exposé → on dérive isClaimed (source de vérité de la revendication).
-    const { userId, ...rest } = centre;
+    if (!centre || centre.statut !== 'ACTIVE') return null;
+    // userId et statut non exposés → on dérive isClaimed
+    const { userId, statut, ...rest } = centre;
     return { ...rest, isClaimed: !!userId };
   }
 

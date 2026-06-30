@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { json } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -67,6 +68,8 @@ async function bootstrap() {
     }
     next();
   });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 

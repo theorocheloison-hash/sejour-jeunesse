@@ -62,11 +62,11 @@ export class EmailService {
     attachment?: Array<{ content: string; name: string }>,
   ) {
     if (!BREVO_API_KEY) {
-      console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
+      this.logger.warn(`[send] BREVO_API_KEY non configurée — subject="${subject}"`);
       return;
     }
     const senderName = fromName?.trim() || SENDER_NAME;
-    console.log(`[EMAIL] Envoi via Brevo — from: ${senderName} <${SENDER_EMAIL}> — to: ${to} — subject: ${subject}`);
+    this.logger.log(`[send] ${subject} → ${to}`);
     try {
       await this.api.sendTransacEmail({
         sender: { name: senderName, email: SENDER_EMAIL },
@@ -76,10 +76,10 @@ export class EmailService {
         htmlContent: html,
         ...(attachment ? { attachment } : {}),
       });
-      console.log(`[EMAIL OK] ${subject} → ${to}`);
+      this.logger.log(`[send OK] ${subject} → ${to}`);
     } catch (err: any) {
       const body = err?.response?.body ?? err?.body ?? err?.message ?? err;
-      console.error(`[EMAIL FAIL] ${subject} → ${to}`, JSON.stringify(body, null, 2));
+      this.logger.error(`[send FAIL] ${subject} → ${to}`, JSON.stringify(body));
       throw err;
     }
   }
@@ -443,10 +443,10 @@ export class EmailService {
     </body></html>`;
     const subject = `Dossier voyage scolaire à soumettre au rectorat — ${titreSejour}`;
     if (!BREVO_API_KEY) {
-      console.error(`[EMAIL SKIP] BREVO_API_KEY non configurée — ${subject} → ${to}`);
+      this.logger.warn(`[sendDossierRectorat] BREVO_API_KEY non configurée — subject="${subject}"`);
       return;
     }
-    console.log(`[EMAIL] Envoi dossier rectorat — to: ${to}${cc ? ` cc: ${cc}` : ''}`);
+    this.logger.log(`[sendDossierRectorat] ${subject} → ${to}${cc ? ` cc: ${cc}` : ''}`);
     try {
       await this.api.sendTransacEmail({
         sender: { name: SENDER_NAME, email: SENDER_EMAIL },
@@ -455,10 +455,10 @@ export class EmailService {
         subject,
         htmlContent: html,
       });
-      console.log(`[EMAIL OK] ${subject} → ${to}`);
+      this.logger.log(`[sendDossierRectorat OK] ${subject} → ${to}`);
     } catch (err: any) {
       const body = err?.response?.body ?? err?.body ?? err?.message ?? err;
-      console.error(`[EMAIL FAIL] ${subject} → ${to}`, JSON.stringify(body, null, 2));
+      this.logger.error(`[sendDossierRectorat FAIL] ${subject} → ${to}`, JSON.stringify(body));
       throw err;
     }
   }

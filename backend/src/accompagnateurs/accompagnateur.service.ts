@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -17,6 +18,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
 @Injectable()
 export class AccompagnateurService {
+  private readonly logger = new Logger(AccompagnateurService.name);
+
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
@@ -44,7 +47,7 @@ export class AccompagnateurService {
     });
 
     const lien = `${FRONTEND_URL}/ordre-mission/${accompagnateur.tokenAcces}`;
-    console.log(`[ACCOMPAGNATEUR] Envoi email ordre de mission à ${dto.email} — lien: ${lien}`);
+    this.logger.log(`[create] Envoi email ordre de mission — sejourId=${dto.sejourId}`);
     try {
       if (dto.accesCollaboratif) {
         const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -75,9 +78,9 @@ export class AccompagnateurService {
           lien,
         );
       }
-      console.log(`[ACCOMPAGNATEUR] Email envoyé avec succès à ${dto.email}`);
+      this.logger.log(`[create] Email ordre de mission envoyé — sejourId=${dto.sejourId}`);
     } catch (err: any) {
-      console.error(`[ACCOMPAGNATEUR] ERREUR envoi email à ${dto.email}:`, err?.message ?? err);
+      this.logger.error(`[create] Erreur envoi email ordre de mission — sejourId=${dto.sejourId}`, err?.message);
     }
 
     return accompagnateur;
