@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
+import SearchableSelect from '@/src/components/SearchableSelect';
 import {
   getTableauRentabilite,
   getMesFacturesPrestataires,
@@ -774,21 +775,17 @@ export default function HebergeurRentabilitePage() {
 
                       return (
                         <div key={i} className="flex items-center gap-2">
-                          <select
+                          <SearchableSelect
+                            items={sejoursDisponibles}
+                            valueFn={(s) => s.sejourId}
+                            labelFn={(s) => s.titre}
+                            subLabelFn={(s) => `${fmtDate(s.dateDebut)} – ${fmtDate(s.dateFin)}`}
                             value={v.sejourId}
-                            onChange={(e) =>
-                              updateVentilation(i, 'sejourId', e.target.value)
-                            }
-                            className={`${inputCls} flex-1`}
-                          >
-                            <option value="">— Choisir un séjour —</option>
-                            {sejoursDisponibles.map((s) => (
-                              <option key={s.sejourId} value={s.sejourId}>
-                                {s.titre} ({fmtDate(s.dateDebut)} –{' '}
-                                {fmtDate(s.dateFin)})
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(val) => updateVentilation(i, 'sejourId', val)}
+                            placeholder="Rechercher un séjour…"
+                            excludeValues={ventilations.filter((_, j) => j !== i).map((r) => r.sejourId).filter(Boolean)}
+                            className="flex-1 min-w-0"
+                          />
                           <input
                             type="number"
                             min={0}
