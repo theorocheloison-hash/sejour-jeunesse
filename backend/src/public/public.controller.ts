@@ -4,6 +4,7 @@ import { PublicService } from './public.service.js';
 import { CentreService } from '../centres/centre.service.js';
 import { OrganisationsService } from '../organisations/organisations.service.js';
 import { SearchOrganisationsDto } from '../organisations/dto/search-organisations.dto.js';
+import { CreateDemandePubliqueDto } from './dto/create-demande-publique.dto.js';
 
 @Controller('public')
 export class PublicController {
@@ -15,8 +16,8 @@ export class PublicController {
 
   @Post('demande')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  soumettreDemandePublique(@Body() body: any) {
-    return this.publicService.soumettreDemandePublique(body);
+  soumettreDemandePublique(@Body() dto: CreateDemandePubliqueDto) {
+    return this.publicService.soumettreDemandePublique(dto);
   }
 
   @Get('centres')
