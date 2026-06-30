@@ -85,6 +85,11 @@ export class AdminController {
     return this.adminService.getActivite();
   }
 
+  @Post('facturer-centre')
+  facturerCentre(@Body() body: { centreId: string; plan: string; frequence: string }) {
+    return this.adminService.facturerCentre(body.centreId, body.plan, body.frequence);
+  }
+
   @Post('cron/alertes-expiration')
   async cronAlertes() {
     const alertes = await this.cronAlertesService.envoyerAlertes();

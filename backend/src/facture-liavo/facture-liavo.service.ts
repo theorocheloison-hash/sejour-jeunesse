@@ -32,7 +32,7 @@ export class FactureLiavoService {
     montantCentimes: number,
     plan: string,
     type: string,
-    molliePaymentId: string,
+    molliePaymentId: string | null,
   ) {
     const numero = await this.genererNumero();
 

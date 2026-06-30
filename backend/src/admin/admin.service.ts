@@ -2,17 +2,22 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { trialExpiration } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
+const PRIX_MENSUEL: Record<string, number> = { ESSENTIEL: 2900, COMPLET: 4900, PILOTAGE: 6900 };
+const PRIX_ANNUEL: Record<string, number> = { ESSENTIEL: 29000, COMPLET: 49000, PILOTAGE: 69000 };
+
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private factureLiavo: FactureLiavoService,
   ) {}
 
   // ─── Stats ───────────────────────────────────────────────────────────────────
@@ -1456,5 +1461,49 @@ export class AdminService {
         tauxActivation,
       },
     };
+  }
+
+  // ─── Facturation manuelle (virement administratif, hors Mollie) ────────────
+
+  async facturerCentre(centreId: string, plan: string, frequence: string) {
+    if (!['ESSENTIEL', 'COMPLET', 'PILOTAGE'].includes(plan)) {
+      throw new BadRequestException('Plan invalide');
+    }
+    if (!['MENSUEL', 'ANNUEL'].includes(frequence)) {
+      throw new BadRequestException('Fréquence invalide');
+    }
+
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      include: { user: { select: { email: true, prenom: true, nom: true } } },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+
+    const montant = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
+
+    // Calculer l'expiration
+    const now = new Date();
+    const expiration = new Date(now);
+    if (frequence === 'ANNUEL') {
+      expiration.setFullYear(expiration.getFullYear() + 1);
+    } else {
+      expiration.setMonth(expiration.getMonth() + 1);
+    }
+
+    // Activer le plan
+    await this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: {
+        planAbonnement: plan as any,
+        abonnement: frequence as any,
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: expiration,
+      },
+    });
+
+    // Émettre la facture LIAVO (PDF + email)
+    const facture = await this.factureLiavo.emettre(centreId, montant, plan, frequence, null);
+
+    return facture;
   }
 }
