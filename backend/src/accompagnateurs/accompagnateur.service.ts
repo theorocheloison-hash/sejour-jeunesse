@@ -220,7 +220,7 @@ export class AccompagnateurService {
     });
   }
 
-  async getOrdreMissionHtml(id: string) {
+  async getOrdreMissionHtml(id: string, user: { id: string; role: string }) {
     const accompagnateur = await this.prisma.accompagnateurMission.findUnique({
       where: { id },
       include: {
@@ -240,6 +240,16 @@ export class AccompagnateurService {
       },
     });
     if (!accompagnateur) throw new NotFoundException('Accompagnateur introuvable');
+
+    // Ownership check — même pattern que getBySejour()
+    if (user.role === 'ORGANISATEUR') {
+      if (accompagnateur.sejour.createur?.id !== user.id) {
+        throw new ForbiddenException('Accès refusé');
+      }
+    } else if (user.role === 'SIGNATAIRE') {
+      const linked = await isSignataireLinkedToSejour(this.prisma, user.id, accompagnateur.sejourId);
+      if (!linked) throw new ForbiddenException('Accès refusé');
+    }
 
     const s = accompagnateur.sejour;
     const c = s.createur;

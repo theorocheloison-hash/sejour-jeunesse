@@ -67,7 +67,7 @@ export class AccompagnateurController {
   @Get(':id/ordre-mission-pdf')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
-  getOrdreMissionPdf(@Param('id') id: string) {
-    return this.service.getOrdreMissionHtml(id);
+  getOrdreMissionPdf(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getOrdreMissionHtml(id, user);
   }
 }

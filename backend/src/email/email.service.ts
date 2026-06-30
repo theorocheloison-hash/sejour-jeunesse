@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
+import { escapeHtml } from '../utils/escape-html.js';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.com';
@@ -29,7 +30,7 @@ function emailLayout(title: string, body: string, buttonText?: string, buttonUrl
       <span style="color:#fff;font-size:18px;font-weight:700;letter-spacing:0.5px">Liavo</span>
     </td></tr>
     <tr><td style="padding:32px">
-      <h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">${title}</h2>
+      <h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">${escapeHtml(title)}</h2>
       <div style="color:#4a4a4a;font-size:14px;line-height:1.6">${body}</div>
       ${btn}
     </td></tr>
@@ -95,7 +96,7 @@ export class EmailService {
     const html = emailLayout(
       'Autorisation parentale requise',
       `<p>Bonjour,</p>
-       <p>Votre enfant <strong>${eleveNom}</strong> est inscrit au séjour scolaire <strong>« ${sejourTitre} »</strong>.</p>
+       <p>Votre enfant <strong>${escapeHtml(eleveNom)}</strong> est inscrit au séjour scolaire <strong>« ${escapeHtml(sejourTitre)} »</strong>.</p>
        <p>Nous avons besoin de votre autorisation parentale pour que votre enfant puisse participer à ce séjour. Veuillez cliquer sur le bouton ci-dessous pour consulter les détails et signer l'autorisation en ligne.</p>`,
       'Signer l\'autorisation',
       lienAutorisation,
@@ -115,10 +116,10 @@ export class EmailService {
   ) {
     const html = emailLayout(
       'Nouveau devis reçu',
-      `<p>Bonjour ${enseignantNom},</p>
-       <p>Vous avez reçu un nouveau devis pour votre séjour <strong>« ${sejourTitre} »</strong> :</p>
+      `<p>Bonjour ${escapeHtml(enseignantNom)},</p>
+       <p>Vous avez reçu un nouveau devis pour votre séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> :</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centreNom}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(centreNom)}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant total</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montant} €</td></tr>
        </table>
        <p>Cliquez ci-dessous pour consulter le détail du devis.${magicUrl ? ' Aucun mot de passe requis.' : ''}</p>`,
@@ -133,8 +134,8 @@ export class EmailService {
   async sendSejourApprouve(to: string, enseignantNom: string, sejourTitre: string) {
     const html = emailLayout(
       'Séjour approuvé !',
-      `<p>Bonjour ${enseignantNom},</p>
-       <p>Bonne nouvelle ! Votre séjour <strong>« ${sejourTitre} »</strong> a été <strong style="color:#16a34a">approuvé</strong> par le directeur.</p>
+      `<p>Bonjour ${escapeHtml(enseignantNom)},</p>
+       <p>Bonne nouvelle ! Votre séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> a été <strong style="color:#16a34a">approuvé</strong> par le directeur.</p>
        <p>Vous pouvez maintenant gérer les autorisations parentales et poursuivre l'organisation.</p>`,
       'Accéder au séjour',
       `${FRONTEND_URL}/dashboard/teacher`,
@@ -160,12 +161,12 @@ export class EmailService {
 
     const html = emailLayout(
       'Nouvelle demande de devis',
-      `<p>Bonjour ${centreNom},</p>
+      `<p>Bonjour ${escapeHtml(centreNom)},</p>
        <p>${contexteLabel} :</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejourTitre}</td></tr>
-         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Destination</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${destination}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Dates / Période</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${periodeLabel}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(sejourTitre)}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Destination</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(destination)}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Dates / Période</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(periodeLabel)}</td></tr>
        </table>
        <p>Connectez-vous pour consulter la demande et envoyer votre devis.</p>`,
       'Voir la demande',
@@ -179,8 +180,8 @@ export class EmailService {
   async sendDevisSelectionne(to: string, centreNom: string, sejourTitre: string) {
     const html = emailLayout(
       'Votre devis a été sélectionné !',
-      `<p>Bonjour ${centreNom},</p>
-       <p>Félicitations ! Votre devis pour le séjour <strong>« ${sejourTitre} »</strong> a été <strong style="color:#16a34a">sélectionné</strong>.</p>
+      `<p>Bonjour ${escapeHtml(centreNom)},</p>
+       <p>Félicitations ! Votre devis pour le séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> a été <strong style="color:#16a34a">sélectionné</strong>.</p>
        <p>Le séjour passe maintenant en phase de convention. Connectez-vous à l'espace collaboratif pour échanger avec l'enseignant et organiser le séjour.</p>`,
       'Accéder à l\'espace collaboratif',
       `${FRONTEND_URL}/dashboard/hebergeur`,
@@ -199,8 +200,8 @@ export class EmailService {
   ) {
     const html = emailLayout(
       'Ordre de mission — Séjour scolaire',
-      `<p>Bonjour ${accompagnateurPrenom} ${accompagnateurNom},</p>
-       <p>Vous êtes désigné(e) comme <strong>accompagnateur(trice)</strong> pour le séjour scolaire <strong>« ${sejourTitre} »</strong>.</p>
+      `<p>Bonjour ${escapeHtml(accompagnateurPrenom)} ${escapeHtml(accompagnateurNom)},</p>
+       <p>Vous êtes désigné(e) comme <strong>accompagnateur(trice)</strong> pour le séjour scolaire <strong>« ${escapeHtml(sejourTitre)} »</strong>.</p>
        <p>Veuillez consulter et signer votre ordre de mission en cliquant sur le bouton ci-dessous :</p>`,
       'Signer mon ordre de mission',
       lienOrdreMission,
@@ -222,12 +223,12 @@ export class EmailService {
     const html = emailLayout(
       'Paiement du séjour disponible',
       `<p>Bonjour,</p>
-       <p>Le prix du séjour <strong>« ${sejourTitre} »</strong> organisé par <strong>${etablissement}</strong> vient d'être défini :</p>
+       <p>Le prix du séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> organisé par <strong>${escapeHtml(etablissement)}</strong> vient d'être défini :</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Prix par élève</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${prixFormate} €</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Paiement</td><td style="padding:8px 12px;font-size:13px;font-weight:600">En 1 à 10 fois sans frais</td></tr>
        </table>
-       <p>Pour régler la participation de <strong>${elevePrenom} ${eleveNom}</strong>, cliquez sur le bouton ci-dessous.</p>
+       <p>Pour régler la participation de <strong>${escapeHtml(elevePrenom)} ${escapeHtml(eleveNom)}</strong>, cliquez sur le bouton ci-dessous.</p>
        <p style="color:#888;font-size:12px;margin-top:16px">Ce lien vous permettra également de retrouver l'ensemble des informations du séjour.</p>`,
       'Accéder au paiement',
       lienAutorisation,
@@ -295,9 +296,9 @@ export class EmailService {
       'contact@liavo.fr',
       `Nouveau compte ${roleLabel} — ${user.prenom} ${user.nom}`,
       `Un nouveau compte vient d'être créé sur LIAVO.<br><br>` +
-        `Prénom&nbsp;: ${user.prenom}<br>` +
-        `Nom&nbsp;: ${user.nom}<br>` +
-        `Email&nbsp;: ${user.email}<br>` +
+        `Prénom&nbsp;: ${escapeHtml(user.prenom)}<br>` +
+        `Nom&nbsp;: ${escapeHtml(user.nom)}<br>` +
+        `Email&nbsp;: ${escapeHtml(user.email)}<br>` +
         `Rôle&nbsp;: ${roleLabel}<br>` +
         `Date&nbsp;: ${date}` +
         (extra ? `<br>${extra}` : ''),
@@ -308,8 +309,8 @@ export class EmailService {
   async sendMagicLink(to: string, prenom: string, titreSejourOuAction: string, magicUrl: string) {
     const html = emailLayout(
       'Votre demande a été envoyée',
-      `<p>Bonjour ${prenom},</p>
-       <p>Votre demande <strong>« ${titreSejourOuAction} »</strong> a bien été transmise aux hébergeurs.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Votre demande <strong>« ${escapeHtml(titreSejourOuAction)} »</strong> a bien été transmise aux hébergeurs.</p>
        <p>Cliquez ci-dessous pour suivre les réponses et gérer votre séjour. Ce lien crée automatiquement votre espace sécurisé.</p>
        <p style="color:#888;font-size:12px;margin-top:16px">Lien valable 7 jours. Si vous n'avez pas soumis cette demande, ignorez cet email.</p>`,
       'Accéder à mon espace LIAVO →',
@@ -324,7 +325,7 @@ export class EmailService {
     const lien = `${FRONTEND_URL}/verify-email/${token}`;
     const html = emailLayout(
       'Vérifiez votre adresse email',
-      `<p>Bonjour ${prenom},</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
        <p>Bienvenue sur <strong>Liavo</strong> ! Pour activer votre compte, veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.</p>
        <p style="color:#888;font-size:12px;margin-top:16px">Ce lien est valable 48 heures.</p>`,
       'Vérifier mon email',
@@ -338,8 +339,8 @@ export class EmailService {
   async sendHebergeurAccountPending(to: string, prenom: string, nomCentre: string) {
     const html = emailLayout(
       'Compte en attente de validation',
-      `<p>Bonjour ${prenom},</p>
-       <p>Votre inscription en tant qu'hébergeur pour le centre <strong>« ${nomCentre} »</strong> a bien été enregistrée.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Votre inscription en tant qu'hébergeur pour le centre <strong>« ${escapeHtml(nomCentre)} »</strong> a bien été enregistrée.</p>
        <p>Votre compte est actuellement <strong style="color:#d97706">en attente de validation</strong> par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
        <p>En attendant, vous pouvez vérifier votre email pour accélérer le processus.</p>`,
     );
@@ -351,8 +352,8 @@ export class EmailService {
   async sendHebergeurAccountValidated(to: string, prenom: string, nomCentre: string) {
     const html = emailLayout(
       'Compte validé !',
-      `<p>Bonjour ${prenom},</p>
-       <p>Bonne nouvelle ! Votre compte hébergeur pour le centre <strong>« ${nomCentre} »</strong> a été <strong style="color:#16a34a">validé</strong> par notre équipe.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Bonne nouvelle ! Votre compte hébergeur pour le centre <strong>« ${escapeHtml(nomCentre)} »</strong> a été <strong style="color:#16a34a">validé</strong> par notre équipe.</p>
        <p>Vous pouvez dès maintenant vous connecter et répondre aux demandes de devis des enseignants.</p>`,
       'Accéder à mon espace',
       `${FRONTEND_URL}/dashboard/hebergeur`,
@@ -364,12 +365,12 @@ export class EmailService {
 
   async sendHebergeurAccountRefused(to: string, prenom: string, nomCentre: string, motif?: string) {
     const motifHtml = motif
-      ? `<p><strong>Motif :</strong> ${motif}</p>`
+      ? `<p><strong>Motif :</strong> ${escapeHtml(motif)}</p>`
       : '';
     const html = emailLayout(
       'Inscription non retenue',
-      `<p>Bonjour ${prenom},</p>
-       <p>Nous avons examiné votre demande d'inscription en tant qu'hébergeur pour le centre <strong>« ${nomCentre} »</strong>.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Nous avons examiné votre demande d'inscription en tant qu'hébergeur pour le centre <strong>« ${escapeHtml(nomCentre)} »</strong>.</p>
        <p>Malheureusement, votre inscription <strong style="color:#dc2626">n'a pas été retenue</strong>.</p>
        ${motifHtml}
        <p>Si vous pensez qu'il s'agit d'une erreur, n'hésitez pas à nous contacter.</p>`,
@@ -407,7 +408,7 @@ export class EmailService {
        <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:12px">
          <tr style="background:#f5f7fa"><td style="padding:6px 10px;color:#666">Date d'acceptation</td><td style="padding:6px 10px;font-weight:600">${dateFormatee}</td></tr>
          <tr><td style="padding:6px 10px;color:#666">Version du mandat</td><td style="padding:6px 10px;font-weight:600">${version}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:6px 10px;color:#666">Centre</td><td style="padding:6px 10px;font-weight:600">${nomCentre}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:6px 10px;color:#666">Centre</td><td style="padding:6px 10px;font-weight:600">${escapeHtml(nomCentre)}</td></tr>
        </table>
        <p>Texte intégral du mandat : <a href="https://liavo.fr/legal/mandat-facturation" style="color:#1B4060">liavo.fr/legal/mandat-facturation</a></p>
        <p style="margin-top:16px;padding:12px;background:#fef9ec;border:1px solid #f0c040;border-radius:6px;font-size:12px;color:#856404">
@@ -434,7 +435,7 @@ export class EmailService {
         <div style="padding:24px 32px;background:#fff;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px">
           <h2 style="margin:0 0 16px;color:#1a1a1a;font-size:20px">Dossier voyage scolaire prêt</h2>
           <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Bonjour,</p>
-          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Le dossier de voyage scolaire "<strong>${titreSejour}</strong>" (enseignant organisateur : ${nomEnseignant}) a été validé par la direction et est prêt à être examiné.</p>
+          <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Le dossier de voyage scolaire "<strong>${escapeHtml(titreSejour)}</strong>" (enseignant organisateur : ${escapeHtml(nomEnseignant)}) a été validé par la direction et est prêt à être examiné.</p>
           <p style="color:#4a4a4a;font-size:14px;line-height:1.6">Vous trouverez ci-dessous le dossier complet conforme à la circulaire du 16 juillet 2024.</p>
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
           ${htmlDossier}
@@ -476,8 +477,8 @@ export class EmailService {
       `<p>Bonjour,</p>
        <p>Un dossier de séjour scolaire a été soumis pour validation :</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejourTitre}</td></tr>
-         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Enseignant</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${enseignantNom}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(sejourTitre)}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Enseignant</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(enseignantNom)}</td></tr>
        </table>
        <p>Connectez-vous à la plateforme pour examiner le dossier complet.</p>`,
       'Examiner le dossier',
@@ -488,8 +489,8 @@ export class EmailService {
     // Confirmation à l'enseignant
     const confirmHtml = emailLayout(
       'Dossier transmis au rectorat',
-      `<p>Bonjour ${enseignantNom},</p>
-       <p>Votre dossier pour le séjour <strong>« ${sejourTitre} »</strong> a bien été transmis au rectorat.</p>
+      `<p>Bonjour ${escapeHtml(enseignantNom)},</p>
+       <p>Votre dossier pour le séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> a bien été transmis au rectorat.</p>
        <p>Vous recevrez une notification lorsque le rectorat aura examiné votre dossier.</p>`,
     );
     await this.send(to, `Dossier transmis — ${sejourTitre}`, confirmHtml);
@@ -509,10 +510,10 @@ export class EmailService {
     const html = emailLayout(
       `Relance essai J+25 — ${centreNom}`,
       `<p>Bonjour,</p>
-       <p>L'essai gratuit du centre <strong>${centreNom}</strong> expire dans <strong>${joursRestants} jour${joursRestants > 1 ? 's' : ''}</strong> (le ${dateFormatee}).</p>
+       <p>L'essai gratuit du centre <strong>${escapeHtml(centreNom)}</strong> expire dans <strong>${joursRestants} jour${joursRestants > 1 ? 's' : ''}</strong> (le ${dateFormatee}).</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centreNom}</td></tr>
-         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Contact</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${hebergeurPrenom} — <a href="mailto:${hebergeurEmail}" style="color:#1B4060">${hebergeurEmail}</a></td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(centreNom)}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Contact</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(hebergeurPrenom)} — <a href="mailto:${hebergeurEmail}" style="color:#1B4060">${escapeHtml(hebergeurEmail)}</a></td></tr>
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Expiration</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateFormatee}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Jours restants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${joursRestants} jour${joursRestants > 1 ? 's' : ''}</td></tr>
        </table>
@@ -536,8 +537,8 @@ export class EmailService {
   ) {
     const html = emailLayout(
       'Votre abonnement est activé',
-      `<p>Bonjour ${prenom},</p>
-       <p>Votre abonnement LIAVO <strong>${plan}</strong> (${frequenceLabel}) a bien été activé pour <strong>${centreNom}</strong>.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Votre abonnement LIAVO <strong>${plan}</strong> (${frequenceLabel}) a bien été activé pour <strong>${escapeHtml(centreNom)}</strong>.</p>
        <table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Montant</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${montantLabel} € HT</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">IBAN enregistré</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${ibanMasque}</td></tr>
@@ -559,8 +560,8 @@ export class EmailService {
   ) {
     const html = emailLayout(
       'Annulation de votre abonnement',
-      `<p>Bonjour ${prenom},</p>
-       <p>Votre abonnement LIAVO pour <strong>${centreNom}</strong> a bien été annulé.</p>
+      `<p>Bonjour ${escapeHtml(prenom)},</p>
+       <p>Votre abonnement LIAVO pour <strong>${escapeHtml(centreNom)}</strong> a bien été annulé.</p>
        <p>Votre accès reste actif jusqu'au <strong>${dateExpiration}</strong>.</p>
        <p>Vous pouvez réactiver votre abonnement à tout moment depuis votre espace.</p>`,
       'Gérer mon abonnement',
