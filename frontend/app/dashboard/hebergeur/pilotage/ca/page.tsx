@@ -31,14 +31,16 @@ function InfoTip({ text }: { text: string }) {
   const [show, setShow] = useState(false);
   return (
     <span
-      className="relative inline-flex ml-1 cursor-help"
+      className="relative inline-flex ml-1.5 cursor-help"
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
-      <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="text-gray-300 hover:text-gray-500 transition-colors">
-        <circle cx={12} cy={12} r={10} />
-        <path d="M12 16v-4M12 8h.01" />
-      </svg>
+      <span
+        className="flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        style={{ width: 16, height: 16, fontSize: 10, fontWeight: 700, border: '1.5px solid currentColor' }}
+      >
+        ?
+      </span>
       {show && (
         <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg shadow-lg z-50 text-center leading-relaxed">
           {text}
@@ -183,10 +185,10 @@ export default function PilotageCAPage() {
                   tooltip="Montant TTC des devis signés dont le séjour est terminé ou en cours (mois actuel et passés)."
                 />
                 <KpiCard
-                  label="Pipeline"
+                  label="Prévisionnel"
                   value={fmtEur(caPipeline)}
-                  tooltip="Montant TTC des devis signés dont le séjour n'a pas encore eu lieu (mois futurs de l'année)."
-                  color="#2563EB"
+                  tooltip="Montant TTC des devis signés dont le séjour n'a pas encore eu lieu. Correspond aux mois futurs de l'année sélectionnée."
+                  color="#F59E0B"
                   sub={`${ca.parMois.filter(m => m.mois > moisActuel && m.confirme > 0).length} mois à venir`}
                 />
                 <KpiCard
@@ -232,7 +234,7 @@ export default function PilotageCAPage() {
                   />
                   <Bar dataKey="confirme" name="Confirmé" radius={[3, 3, 0, 0]} maxBarSize={28}>
                     {caChartData.map((_, index) => (
-                      <Cell key={index} fill="#2563EB" fillOpacity={index + 1 > moisActuel ? 0.3 : 1} />
+                      <Cell key={index} fill={index + 1 > moisActuel ? '#F59E0B' : '#2563EB'} />
                     ))}
                   </Bar>
                   <Bar dataKey="encaisse" name="Encaissé" fill="#16A34A" radius={[3, 3, 0, 0]} maxBarSize={28} />
@@ -242,7 +244,7 @@ export default function PilotageCAPage() {
           })()}
           <div className="flex items-center gap-4 mt-2 justify-center">
             <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-3 h-2 rounded-sm bg-[#2563EB]" /> Réalisé</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-3 h-2 rounded-sm bg-[#2563EB] opacity-30" /> Pipeline</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-3 h-2 rounded-sm bg-[#F59E0B]" /> Prévisionnel</span>
             <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-3 h-2 rounded-sm bg-[#16A34A]" /> Encaissé</span>
           </div>
         </div>

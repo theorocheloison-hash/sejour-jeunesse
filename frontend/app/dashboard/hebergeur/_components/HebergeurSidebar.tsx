@@ -177,12 +177,13 @@ export default function HebergeurSidebar({
         className="shrink-0 flex items-center gap-2"
         style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}
       >
-        <div
-          className="flex items-center justify-center"
-          style={{ width: 28, height: 28, borderRadius: 6, background: '#C87D2E', color: '#fff', fontSize: 12, fontWeight: 500 }}
-        >
-          L
-        </div>
+        <img
+          src="/web-app-manifest-192x192.png"
+          alt="Liavo"
+          width={28}
+          height={28}
+          style={{ borderRadius: 6 }}
+        />
         <span style={{ color: '#fff', fontSize: 15, fontWeight: 500 }}>Liavo</span>
       </Link>
 
