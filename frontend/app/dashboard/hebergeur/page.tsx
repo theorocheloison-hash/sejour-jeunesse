@@ -7,6 +7,7 @@ import { getMonProfil, getMesCentres, uploadCentreImage } from '@/src/lib/centre
 import type { Centre } from '@/src/lib/centre';
 import { getMesDevis, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
 import type { Devis } from '@/src/lib/devis';
+import { computeAlertes } from '@/src/lib/devisAlertes';
 import { getMesSejoursConvention } from '@/src/lib/collaboration';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
@@ -236,8 +237,9 @@ export default function HebergeurDashboard() {
     }
   }
 
-  // Badge "Devis & Facturation" (Actions prioritaires) : actions hébergeur à traiter.
-  const actionsFacturationUrgentes = kpiAFacturerCount + kpiImpayesCount;
+  // Badge "Devis & Facturation" (Actions prioritaires) : aligné sur le bandeau alertes 30j
+  // de la page devis et le badge sidebar (source de vérité unique : computeAlertes).
+  const actionsFacturationUrgentes = computeAlertes(devis).total;
 
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg)]">
@@ -411,7 +413,7 @@ export default function HebergeurDashboard() {
           </Link>
 
           {/* KPI 4 — Impayés */}
-          <Link href="/dashboard/hebergeur/devis?tab=impayes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href="/dashboard/hebergeur/devis?tab=suivi-soldes" className="group relative block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
               Factures émises dont le paiement n&apos;a pas été intégralement enregistré
             </div>

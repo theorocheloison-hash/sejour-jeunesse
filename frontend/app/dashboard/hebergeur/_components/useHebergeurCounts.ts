@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getDemandesOuvertes } from '@/src/lib/demande';
 import { getRappelsToday } from '@/src/lib/clients';
-import { getMesDevis, getFactureAcompte } from '@/src/lib/devis';
+import { getMesDevis } from '@/src/lib/devis';
+import { computeAlertes } from '@/src/lib/devisAlertes';
 import { getMesCentres } from '@/src/lib/centre';
 import { getMesNonLus } from '@/src/lib/collaboration';
 import type { CentreResume } from '@/src/lib/centre';
@@ -29,19 +30,9 @@ export function useHebergeurCounts() {
       setCentre(profil);
       setDemandesCount(demandes.length);
       setRappelsCount(rappels.length);
-      // Lot 1 : facturation lue depuis les Factures liées (le devis ne mute plus).
-      // Acompte émis mais pas encore validé/versé → action en attente.
-      const acomptesAttente = devis.filter((d: any) => {
-        const fa = getFactureAcompte(d);
-        return fa && !fa.acompteVerse;
-      }).length;
-      // Devis signé/sélectionné SANS facture acompte → acompte à émettre.
-      const devisSignesAFacturer = devis.filter((d: any) =>
-        (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') &&
-        d.signatureDirecteur &&
-        !getFactureAcompte(d)
-      ).length;
-      setActionsFactCount(devisSignesAFacturer + acomptesAttente);
+      // Badge sidebar = même source de vérité que le bandeau alertes de la page devis
+      // et la tuile "Devis & Facturation" du dashboard (alertes 30j typées).
+      setActionsFactCount(computeAlertes(devis).total);
       setSejoursNonLusCount(nonLus.total);
     } catch { /* ignore */ }
     finally { setLoaded(true); }
