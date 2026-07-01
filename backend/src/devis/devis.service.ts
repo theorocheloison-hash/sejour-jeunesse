@@ -1546,7 +1546,8 @@ export class DevisService {
       || sejour.typeSejour?.includes('SEMINAIRE')
       || sejour.typeSejour?.includes('TEAM_BUILDING')
       || sejour.typeSejour?.includes('REUNION_FAMILLE');
-    if (isEvenement && centre.iban) {
+    const isSauvageon = centre.email === 'resa@lesauvageon.com';
+    if (isEvenement && isSauvageon && centre.iban) {
       try {
         const { generateContratSauvageonPdf } = await import('./contrat-sauvageon.pdf.js');
 
@@ -1590,6 +1591,10 @@ export class DevisService {
           'contrats',
           'application/pdf',
         );
+        await this.prisma.devis.update({
+          where: { id: devisId },
+          data: { contratUrl },
+        });
       } catch (err) {
         console.error('Erreur génération contrat PDF:', err);
         // non-bloquant : l'email part sans contrat si erreur
@@ -2012,6 +2017,7 @@ export class DevisService {
       nomSignataireDirecteur: devis.nomSignataireDirecteur,
       dateSignatureDirecteur: devis.dateSignatureDirecteur,
       signatureDocumentUrl: devis.signatureDocumentUrl,
+      contratUrl: devis.contratUrl,
     };
   }
 
