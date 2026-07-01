@@ -9,7 +9,7 @@ export class CreateDisponibiliteDto {
   dateFin: string;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Type(() => Number)
   capaciteDisponible: number;
 
