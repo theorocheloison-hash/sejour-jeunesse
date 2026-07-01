@@ -355,7 +355,7 @@ export default function HebergeurDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
           {/* Devis en attente */}
-          <Link href="/dashboard/hebergeur/devis?tab=attente" className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href="/dashboard/hebergeur/devis?tab=attente" title="Devis envoyés en attente de réponse ou de validation direction" className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-gray-500">Devis en attente</p>
               <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -367,7 +367,7 @@ export default function HebergeurDashboard() {
           </Link>
 
           {/* À facturer */}
-          <Link href="/dashboard/hebergeur/devis?tab=a-facturer" className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href="/dashboard/hebergeur/devis?tab=a-facturer" title="Séjours signés dont l'acompte ou le solde n'a pas encore été facturé" className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-gray-500">À facturer</p>
               <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -379,7 +379,7 @@ export default function HebergeurDashboard() {
           </Link>
 
           {/* Impayés */}
-          <Link href={`/dashboard/hebergeur/devis?tab=${kpis.impayesTab}`} className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
+          <Link href={`/dashboard/hebergeur/devis?tab=${kpis.impayesTab}`} title="Factures émises dont le paiement n'a pas été intégralement enregistré" className="block bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-gray-500">Impayés</p>
               <svg className={`w-4 h-4 ${kpis.impayesCount > 0 ? 'text-red-600' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
