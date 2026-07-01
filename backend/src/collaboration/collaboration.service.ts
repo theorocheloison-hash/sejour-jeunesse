@@ -493,6 +493,7 @@ export class CollaborationService {
         dateDebut: true,
         dateFin: true,
         placesTotales: true,
+        nombreAccompagnateurs: true,
         statut: true,
         modeGestion: true,
         natureSejour: true,
