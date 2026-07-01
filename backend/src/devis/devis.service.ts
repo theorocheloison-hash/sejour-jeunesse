@@ -210,7 +210,7 @@ export class DevisService {
         lignes: true,
         // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé).
         // dateDebut/dateFin/modeGestion alignés sur getDevisById() pour cohérence du type frontend.
-        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true } },
+        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true, clientNom: true, clientEmail: true, clientOrganisation: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
           include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
