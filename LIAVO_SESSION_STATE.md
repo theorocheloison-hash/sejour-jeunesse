@@ -1,5 +1,76 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 01/07/2026 — Journée dense : SearchableSelect + upgrades Pilotage Pôle Montagne/Choucas + convention configurable par centre (livrée) + fix envoi facture par email (S3 authentifié).
+> Dernière mise à jour : 01/07/2026 (soir) — Refonte dashboard hébergeur + jauge occupation planning.
+
+---
+
+## SESSION 01/07/2026 (soir) — Refonte dashboard hébergeur + jauge occupation
+
+### Refonte dashboard hébergeur (5 commits, 2 fichiers principaux)
+
+**Problème** : le dashboard empilait 7 sections sans hiérarchie (KPIs financiers, tuiles actions prioritaires, rappels, séjours par période, configuration, profil centre, rentabilité). Trois bugs identifiés : KPI Impayés comptait les devis complémentaires + pointait vers le mauvais onglet, KPI "À facturer" utilisait dateDebut au lieu de dateFin, planning n'affichait que les séjours collaboratifs (DIRECT absents).
+
+**Livré** : dashboard refondu en 3 zones.
+1. **KPI CA confirmé** — carte Link → /pilotage (teaser pour plan PILOTAGE, paywall pour les autres). Sélecteur période DDA/DDM/T1-T4.
+2. **3 cartes alertes** — Devis en attente, À facturer, Impayés. `title` HTML natif au hover. Lien intelligent Impayés : suivi-soldes si au moins un solde impayé, sinon suivi-acomptes.
+3. **Planning compact 3 semaines** (S-1/S/S+1) — grille 7×3 identique visuellement à la vue mois du planning. Source `getMesSejoursPlanning` (DIRECT+COLLAB). Cellules cliquables → /planning?date=X&view=semaine. CTA "Voir le planning complet" en bouton bordé. Légende couleurs.
+
+**Sections supprimées** : Actions prioritaires, Rappels du jour, Séjours par période, Configuration, Mon établissement, Rentabilité.
+
+**Fixes bugs** :
+- KPI Impayés : filtre `isComplementaire` ajouté (était absent contrairement aux KPIs 1-3)
+- KPI À facturer : `resolveSejourDateFin` au lieu de `resolveSejourDateDebut` — aligné avec l'onglet a-facturer de la page devis
+- Planning : source `getMesSejoursPlanning` (DIRECT+COLLAB) au lieu de `getMesSejoursConvention` (COLLAB only)
+- Tooltips : remplacés par `title` HTML natif (l'ancien `absolute bottom-full` était clippé au viewport)
+- Double chargement API : suppression de getMonProfil, getRappelsToday, getTableauRentabilite du dashboard (8→5 appels)
+
+### Sidebar hébergeur (3 modifications)
+
+1. **"Inviter"** ajouté dans le groupe Activité (icône `userPlus`). La page `/inviter-enseignant` n'était accessible que depuis la section Configuration du dashboard, qui est supprimée.
+2. **"Disponibilités"** retiré du groupe Paramètres. Page orpheline en doublon avec le planning (clic indispo). La page reste sur le disque mais n'est plus navigable.
+3. **Paramètres collapsible** : label cliquable avec chevron ▾/▸, fermé par défaut, auto-expand si l'utilisateur est sur une page Paramètres. Fix scroll `h-screen` au lieu de `min-h-screen` pour scroll indépendant de la sidebar.
+
+### Jauge occupation planning vue mois
+
+**Backend** : `nombreAccompagnateurs: true` ajouté au select de `getMesSejoursPlanning` (1 ligne).
+
+**Frontend** : en vue mois, chaque cellule affiche `X/capacité` (ex: "50/120") quand au moins un séjour chevauche le jour. Rouge gras si surbooking (`occ > capaciteCentre`). Gris discret sinon. Masqué si aucun séjour ou capacité non renseignée.
+
+**Cascade évitée** : `occupationForDay` opère sur `sejours` (non filtré), pas sur `sejoursForDay` (filtré par combobox). L'occupation est un indicateur de sécurité global, indépendant du filtre de recherche.
+
+### Leçons retenues
+1. **Marché PMS** : les dashboards hôteliers (Cloudbeds, Amenitiz, OPERA Cloud) convergent vers "aujourd'hui d'abord" + calendrier comme centre + KPIs drill-down. LIAVO n'est pas un PMS (unité = séjour, pas chambre) mais les principes s'appliquent. Venue360 est le concurrent le plus direct (hébergement de groupes, France+international).
+2. **KPIs dashboard vs page devis** : les compteurs doivent utiliser exactement la même logique que les onglets de destination. Sinon perte de confiance ("5 impayés ici, 4 là-bas").
+3. **`sejoursForDay` vs `sejours`** : toute fonction de calcul global (occupation, CA, alertes) doit opérer sur les données non filtrées. Les fonctions d'affichage (barres planning) peuvent utiliser les données filtrées.
+
+---
+
+## SESSION 01/07/2026 (après-midi) — Refonte hub /dashboard/hebergeur/devis + fix contact séjour direct
+
+### Fix backend : contact séjour direct absent (commit `5ceb11e`)
+Sur la page `/dashboard/hebergeur/devis`, les devis liés à un séjour direct (mariages Sauvageon, événements) affichaient "Contact non renseigné" alors que `sejours.client_nom` / `client_email` / `client_organisation` étaient bien remplis en base. Cause : `devis.service.ts::getMesDevis()` ne sélectionnait pas ces champs dans son `include.sejourDirect.select`. Le frontend (`DevisCard.tsx::resolveContact`) lisait bien `sd?.clientNom` mais recevait `undefined`.
+
+**Fix (1 ligne)** : ajout de `clientNom, clientEmail, clientOrganisation` au select `sejourDirect` de `getMesDevis`. `getDevisForSejour` (lignes ~269) n'était pas touché, pas de cascade nécessaire.
+
+### Refonte hub /dashboard/hebergeur/devis (commit `e793672`, 5 fichiers)
+Ancienne page = 7 filtres statut non hiérarchisés, aucune notion d'urgence. Refonte en **hub d'alerte 5 onglets** :
+- `En attente de réponse` — EN_ATTENTE / EN_ATTENTE_VALIDATION
+- `À facturer` — sous-groupes "Soldes à créer" + "Acomptes à créer"
+- `Suivi acomptes` — FA émises non validées
+- `Suivi soldes` — FS émises non intégralement payées
+- `Historique` — soldés + non retenus
+
+**Bandeau alertes non-dismissible** en haut de page avec 5 chips (rouge/orange) selon seuil 30j : soldes à relancer, acomptes à relancer, acomptes à valider, devis à relancer, à facturer. Clic sur chip = navigation vers l'onglet cible. Compteur global "N actions en attente".
+
+**Nouveau composant** `DevisCard.tsx` extrait : bordure/pastille colorées selon sévérité alerte, contact séjour direct (nom + email + tel cliquables), signature structurée (`nomSignataireDirecteur` + `dateSignatureDirecteur` prioritaires sur fallback string composite), badge dérivé des factures (Acompte facturé / Soldé) prime sur statut devis.
+
+**Nouveau helper** `src/lib/devisAlertes.ts` : catégories `CategorieAlerte`, fonctions `estAlerte`/`computeAlertes`/`resolveSejourDateDebut`/`resolveSejourDateFin`. Fallbacks en cascade sur les dates jusqu'à `createdAt` (jamais null), `joursDepasses` no-crash sur NaN.
+
+**Tri** : par défaut "alertes en tête puis ancienneté croissante". Tri custom Date/Montant/Client possible.
+
+### Leçons retenues
+1. **Frontend local sans `.env.local` = teste contre l'API prod.** `api.ts::baseURL = '/api'` + `next.config.ts` rewrites `/api/:path*` → `${NEXT_PUBLIC_API_URL || 'https://api.liavo.fr'}/:path*`. Sans `frontend/.env.local` définissant `NEXT_PUBLIC_API_URL=http://localhost:3001`, un `npm run dev` frontend tape vers la prod. Symptôme : "je viens de fixer un bug backend, je relance le frontend, le fix ne prend pas". À créer une fois pour toutes.
+2. **Vérifier que les données sont en base AVANT de tester un fix backend d'affichage.** Si `sejours.client_nom` avait été NULL pour tous les imports Sauvageon, le fix `getMesDevis` aurait été techniquement correct mais visuellement invisible. Un `SELECT ... WHERE nature_sejour = 'EVENEMENT' AND client_nom IS NOT NULL LIMIT 5` en 30 secondes évite un tour en rond.
+3. **Push atomique = un commit à la fois.** Cette session a poussé 3 commits en un seul push (fix backend + refonte 5 fichiers + docs). Ça a fonctionné cette fois. Ne pas prendre l'habitude : la prochaine fois, si un des 3 casse la prod, le revert n'est plus chirurgical.
 
 ---
 
@@ -136,24 +207,20 @@ produitCatalogueId FK nullable sur LigneDevis. Les 3 builders de devis (nouveau,
 - [ ] Pitch Alticlub conversion trial → payant
 - [ ] Démarcher centres IDDJ (54 importés)
 
-### 2. Refonte UX page /dashboard/hebergeur/devis (chantier ouvert)
-- [ ] Hub principal de gestion commerciale de l'hébergeur
-- [ ] Signaux d'alerte identifiés au 01/07 sur screenshot Sauvageon : bandeau « 5 actions en attente » lourd, 7 filtres statut non hiérarchisés, cards peu denses (~120px), 4 boutons par ligne dont 2 similaires (Ouvrir dossier vs Voir), contact client peu visible (on voit le titre séjour, pas le nom du contact)
-- [ ] Session dédiée à ouvrir en nouvelle conversation avec prompt sparring partner
-
-### 3. Cron alertes expiration
+### 2. Cron alertes expiration
 - [ ] NestJS @Cron ou Scalingo scheduler — filet de sécurité
 
-### 4. Module Pilotage itérations
+### 3. Module Pilotage itérations
 - [ ] Conversion funnel (demandes → devis → signés)
 - [ ] Export PDF rapport mensuel
 - [ ] Planning équipe (modèle de données à créer)
 
-### 5. Dette technique
+### 4. Dette technique
 - [ ] Fusionner 3 DevisBuilder dupliqués (42KB + 37KB + 113KB)
 - [ ] Découper sejour/[id]/page.tsx
 - [ ] DMARC p=none → p=quarantine
 - [ ] Chiffrement IBAN en base
+- [ ] Créer `frontend/.env.local` avec `NEXT_PUBLIC_API_URL=http://localhost:3001` (une bonne fois pour toutes)
 
 ---
 

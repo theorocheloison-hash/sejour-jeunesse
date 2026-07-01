@@ -112,7 +112,6 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
     label: 'Paramètres',
     items: [
       { href: '/dashboard/hebergeur/catalogue',        label: 'Catalogue & tarifs',   icon: ICONS.bars3BottomLeft },
-      { href: '/dashboard/hebergeur/disponibilites',   label: 'Disponibilités',       icon: ICONS.calendarDays },
       { href: '/dashboard/hebergeur/profil',           label: 'Profil',               icon: ICONS.buildingStorefront },
       { href: '/dashboard/hebergeur/documents',        label: 'Documents',            icon: ICONS.folderOpen },
       { href: '/dashboard/hebergeur/parametres/inscription', label: 'Fiche d\'inscription', icon: ICONS.clipboardCheck },
