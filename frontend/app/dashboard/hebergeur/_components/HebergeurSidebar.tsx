@@ -57,6 +57,7 @@ const ICONS = {
   chartBarSquare:    'M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z',
   clipboardCheck:    'M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75',
   arrowRightOnRect:  'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75',
+  userPlus:          'M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z',
 };
 
 // Mapping route → module de permission (pour filtrer la navigation)
@@ -90,6 +91,7 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
       { href: '/dashboard/hebergeur/sejours',   label: 'Séjours',  icon: ICONS.clipboardDocList },
       { href: '/dashboard/hebergeur/planning',   label: 'Planning', icon: ICONS.calendarDays },
       { href: '/dashboard/hebergeur/demandes',   label: 'Demandes', icon: ICONS.envelope },
+      { href: '/dashboard/hebergeur/inviter-enseignant', label: 'Inviter', icon: ICONS.userPlus },
     ],
   },
   {
