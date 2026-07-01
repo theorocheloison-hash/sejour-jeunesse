@@ -23,6 +23,7 @@ export interface Centre {
   imageUrl: string | null;
   brochureUrl?: string | null;
   logoUrl?: string | null;
+  conventionPdfUrl?: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   siret?: string | null;
   siteWeb?: string | null;
@@ -259,6 +260,21 @@ export async function uploadBrochure(file: File): Promise<{ brochureUrl: string 
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return data;
+}
+
+export async function uploadConventionPdf(file: File): Promise<{ conventionPdfUrl: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<{ conventionPdfUrl: string }>(
+    '/centres/convention-pdf',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
+export async function supprimerConventionPdf(): Promise<void> {
+  await api.post('/centres/convention-pdf/supprimer');
 }
 
 export async function uploadLogo(centreId: string, file: File): Promise<{ logoUrl: string }> {

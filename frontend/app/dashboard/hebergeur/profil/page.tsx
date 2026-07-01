@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, updateMonProfil, uploadCentreImage, uploadBrochure, uploadLogo, deleteLogo } from '@/src/lib/centre';
+import { getMonProfil, updateMonProfil, uploadCentreImage, uploadBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
 
 const inputCls =
@@ -94,6 +94,9 @@ export default function HebergeurProfilPage() {
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
   const [brochureUploading, setBrochureUploading] = useState(false);
   const [brochureError, setBrochureError] = useState<string | null>(null);
+  const [conventionPdfUrl, setConventionPdfUrl] = useState<string | null>(null);
+  const [conventionUploading, setConventionUploading] = useState(false);
+  const [conventionError, setConventionError] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -105,6 +108,7 @@ export default function HebergeurProfilPage() {
         setCentre(c);
         setImageUrl(c.imageUrl ?? null);
         setBrochureUrl(c.brochureUrl ?? null);
+        setConventionPdfUrl(c.conventionPdfUrl ?? null);
         setLogoUrl(c.logoUrl ?? null);
         setForm({
           nom: c.nom ?? '',
@@ -242,6 +246,43 @@ export default function HebergeurProfilPage() {
     } finally {
       setBrochureUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleConventionUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setConventionError('Seuls les fichiers PDF sont acceptés.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setConventionError('Fichier trop lourd. Maximum 10 Mo.');
+      return;
+    }
+    setConventionUploading(true);
+    setConventionError(null);
+    try {
+      const result = await uploadConventionPdf(file);
+      setConventionPdfUrl(result.conventionPdfUrl);
+    } catch {
+      setConventionError("Erreur lors de l'upload. Réessayez.");
+    } finally {
+      setConventionUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleConventionDelete = async () => {
+    setConventionUploading(true);
+    setConventionError(null);
+    try {
+      await supprimerConventionPdf();
+      setConventionPdfUrl(null);
+    } catch {
+      setConventionError('Erreur lors de la suppression. Réessayez.');
+    } finally {
+      setConventionUploading(false);
     }
   };
 
@@ -477,6 +518,63 @@ export default function HebergeurProfilPage() {
                   className="hidden"
                   disabled={brochureUploading}
                   onChange={handleBrochureUpload}
+                />
+              </label>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Convention / Conditions générales</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Uploadez votre document PDF de conditions générales de séjour. Ce document sera
+                automatiquement annexé à la page de couverture générée par LIAVO lors de l&apos;envoi
+                d&apos;une convention. Format PDF uniquement, maximum 10 Mo.
+              </p>
+              {conventionError && (
+                <p className="text-sm text-red-600 mb-3">{conventionError}</p>
+              )}
+              {conventionPdfUrl && (
+                <div className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 mb-3">
+                  <svg className="h-5 w-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                  </svg>
+                  <a
+                    href={conventionPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[var(--color-primary)] hover:underline flex-1 truncate"
+                  >
+                    Convention en ligne — voir le PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleConventionDelete}
+                    disabled={conventionUploading}
+                    className="text-sm text-red-600 hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              )}
+              <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${conventionUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {conventionUploading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    Traitement en cours...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    {conventionPdfUrl ? 'Remplacer le document' : 'Importer le document PDF'}
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={conventionUploading}
+                  onChange={handleConventionUpload}
                 />
               </label>
             </div>

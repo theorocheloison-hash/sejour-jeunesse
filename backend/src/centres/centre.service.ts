@@ -1216,6 +1216,47 @@ export class CentreService {
     return { brochureUrl };
   }
 
+  async uploadConventionPdf(userId: string, file: Express.Multer.File, centreId?: string | null) {
+    if (!file) throw new BadRequestException('Fichier manquant');
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Seuls les fichiers PDF sont acceptés');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Fichier trop lourd (max 10 Mo)');
+    }
+
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Supprimer l'ancien PDF de convention s'il existe.
+    if (centre.conventionPdfUrl) {
+      await this.storage.delete(centre.conventionPdfUrl);
+    }
+
+    const conventionPdfUrl = await this.storage.upload(file, `centres/${centre.id}/conventions-centre`);
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { conventionPdfUrl },
+    });
+
+    return { conventionPdfUrl };
+  }
+
+  async supprimerConventionPdf(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    if (centre.conventionPdfUrl) {
+      await this.storage.delete(centre.conventionPdfUrl);
+    }
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { conventionPdfUrl: null },
+    });
+
+    return { success: true };
+  }
+
   /**
    * Logo de l'hébergeur affiché en en-tête des devis et factures PDF.
    * JPG/PNG STRICTEMENT (react-pdf crash silencieusement sur le webp). Max 2 Mo.

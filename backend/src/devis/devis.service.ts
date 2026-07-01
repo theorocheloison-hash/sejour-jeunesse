@@ -1772,9 +1772,8 @@ export class DevisService {
         : null;
     }
 
-    const { generateConventionScolaireSauvageonPdf } = await import('./convention-scolaire-sauvageon.pdf.js');
-
-    const pdfBuffer = await generateConventionScolaireSauvageonPdf({
+    // Données communes aux deux flux (couverture générique + legacy Sauvageon).
+    const baseData = {
       centreNom: centre.nom,
       centreAdresse: centre.adresse ?? '',
       centreCodePostal: centre.codePostal ?? '',
@@ -1782,7 +1781,6 @@ export class DevisService {
       centreTelephone: centre.telephone ?? '',
       centreEmail: centre.email ?? '',
       centreSiret: centre.siret ?? '',
-      centreRepresentant: 'Maëva Roche-Loison',
       etablissementNom,
       etablissementAdresse,
       contactNom,
@@ -1806,7 +1804,46 @@ export class DevisService {
       pourcentageAcompte,
       montantAcompte: round2(montantAcompte),
       dateDocument: fmtDate(new Date()),
-    });
+    };
+
+    // ── BRANCHING : convention configurable (couverture LIAVO + PDF centre) vs legacy Sauvageon ──
+    let pdfBuffer: Buffer;
+
+    if (centre.conventionPdfUrl) {
+      // Représentant = utilisateur connecté (pas de nom hardcodé pour la couverture générique).
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { prenom: true, nom: true },
+      });
+      const representant = [user?.prenom, user?.nom].filter(Boolean).join(' ') || 'Le responsable';
+
+      const { generateConventionCouverturePdf } = await import('./convention-couverture.pdf.js');
+      const couvertureBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant });
+
+      // Récupérer le PDF de conditions du centre (URL OVH) via fetch natif Node 20.
+      const centreConventionResponse = await fetch(centre.conventionPdfUrl);
+      if (!centreConventionResponse.ok) {
+        throw new Error('Impossible de récupérer le PDF de convention du centre');
+      }
+      const centreConventionBytes = new Uint8Array(await centreConventionResponse.arrayBuffer());
+
+      // Fusion : couverture LIAVO (page 1) + convention du centre (pages 2+).
+      const { PDFDocument } = await import('pdf-lib');
+      const mergedPdf = await PDFDocument.create();
+      const couvertureDoc = await PDFDocument.load(couvertureBuffer);
+      const centreDoc = await PDFDocument.load(centreConventionBytes);
+
+      const couverturePages = await mergedPdf.copyPages(couvertureDoc, couvertureDoc.getPageIndices());
+      couverturePages.forEach(p => mergedPdf.addPage(p));
+      const centrePages = await mergedPdf.copyPages(centreDoc, centreDoc.getPageIndices());
+      centrePages.forEach(p => mergedPdf.addPage(p));
+
+      pdfBuffer = Buffer.from(await mergedPdf.save());
+    } else {
+      // Legacy Sauvageon : représentant = directrice.
+      const { generateConventionScolaireSauvageonPdf } = await import('./convention-scolaire-sauvageon.pdf.js');
+      pdfBuffer = await generateConventionScolaireSauvageonPdf({ ...baseData, centreRepresentant: 'Maëva Roche-Loison' });
+    }
 
     return {
       buffer: pdfBuffer,

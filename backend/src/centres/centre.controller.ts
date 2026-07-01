@@ -266,6 +266,30 @@ export class CentreController {
     return this.centreService.uploadBrochure(user.id, file, centreId);
   }
 
+  @Post('convention-pdf')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  uploadConventionPdf(
+    @CurrentUser() user: JwtUser,
+    @UploadedFile() file: Express.Multer.File,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.uploadConventionPdf(user.id, file, centreId);
+  }
+
+  @Post('convention-pdf/supprimer')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  supprimerConventionPdf(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.supprimerConventionPdf(user.id, centreId);
+  }
+
   @Post(':centreId/logo')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
