@@ -1,8 +1,8 @@
 # DETTE TECHNIQUE — Actions de refactoring prioritaires
 
 > **Rédigé le 15/06/2026** — constat issu de l'audit sécurité et de la lecture du code.
-> **Dernière MAJ : 25/06/2026** — Action 2 DONE (LOT 1 sécu). Extractions TabNotes/SejourHeader/TabParticipants faites. TabDevisFacturation 109KB.
-> **Statut** : aucune des 3 actions refacto n'est complète, mais du progrès incrémental.
+> **Dernière MAJ : 30/06/2026** — Action 2 DONE (LOT 1 sécu). Extractions TabNotes/SejourHeader/TabParticipants faites. TabDevisFacturation 113KB. produitCatalogueId ajouté dans les 3 builders (nouveau fix à la source).
+> **Statut** : aucune des 3 actions refacto n'est complète, mais du progrès incrémental. La dette DevisBuilder est agravée par l'ajout de produitCatalogueId (3 fichiers touchés au lieu d'1 si c'était un composant unique).
 > **Trigger** : lancer quand (1) un 2ᵉ dev arrive, (2) la vélocité chute visiblement, ou (3) le produit se stabilise post-clients.
 
 ---

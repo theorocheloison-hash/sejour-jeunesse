@@ -1,9 +1,8 @@
 # LIAVO — Module Pilotage : Spec technique
 
 > **Date** : 30/06/2026
-> **Statut** : validé par Théo — prêt à coder
-> **Estimation** : ~3-4j (backend 2j + frontend 1-2j)
-> **Décisions** : pas de colonne banque V1, comparaison N-1 masquée si pas de données, export comptable plan COMPLET, date échéance = J+30 après émission
+> **Statut** : LIVRÉ ET DÉPLOYÉ — session 30/06/2026
+> **Décisions livrées** : 4 KPIs CA (réalisé/prévisionnel/encaissé/reste dû), comparaison N-1 masquée si pas de données, export comptable plan COMPLET (StreamableFile), date échéance = J+30, PlanGuard strict sur analytics, ventilation CA par produit catalogue (produitCatalogueId sur LigneDevis), UI : tooltips ?, label Prévisionnel, couleur ambre #F59E0B, vrai logo sidebar, backfill Sauvageon 206/218 lignes rattachées
 
 ---
 

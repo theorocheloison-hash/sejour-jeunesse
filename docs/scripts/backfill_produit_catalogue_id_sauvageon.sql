@@ -1,72 +1,122 @@
 -- ============================================================================
--- Backfill produit_catalogue_id sur lignes_devis — centre "Le Sauvageon"
+-- Backfill produit_catalogue_id sur lignes_devis — Centre Le Sauvageon
 -- ============================================================================
--- ⚠️  EXÉCUTION MANUELLE UNIQUEMENT via : scalingo --app liavo-backend --region osc-fr1 pgsql-console
--- ⚠️  Le matching par LIKE est APPROXIMATIF. Vérifier chaque UPDATE avant de le lancer.
--- ⚠️  Lancer dans une TRANSACTION et contrôler le nombre de lignes touchées avant COMMIT.
---
--- Contexte : avant l'ajout de la colonne produit_catalogue_id, les lignes de devis
--- copiaient le nom du produit catalogue en texte libre. Ce script tente de retrouver
--- l'origine catalogue par correspondance de nom (description LIKE %nom_produit%).
+-- ⚠️  EXÉCUTION : scalingo --app liavo-backend --region osc-fr1 pgsql-console
+-- ⚠️  Copier-coller le script EN ENTIER dans la console.
+-- ⚠️  Le COMMIT est commenté — vérifier les résultats avant de décommenter.
+-- ============================================================================
+-- STRATÉGIE :
+-- 1. Matching prioritaire par longueur (le nom de produit le plus long gagne)
+-- 2. Normalisation des accents avec translate() (è→e, é→e, ê→e, etc.)
+--    pour que "Pension complète" matche "PENSION COMPLETE 5 jours Jr"
 -- ============================================================================
 
--- ── Étape 0 : résoudre l'id du centre Sauvageon ──────────────────────────────
--- Exécuter d'abord et noter l'id :
-SELECT id, nom FROM centres_hebergement WHERE nom ILIKE '%sauvageon%';
-
--- ── Étape 1 : lister les produits catalogue du Sauvageon ─────────────────────
--- Remplacer '<SAUVAGEON_CENTRE_ID>' par l'id obtenu à l'étape 0.
-SELECT id, nom, type, prix_unitaire_ht
-FROM produits_catalogue
-WHERE centre_id = '<SAUVAGEON_CENTRE_ID>'
-ORDER BY nom;
-
--- ── Étape 2 : aperçu AVANT modification (à exécuter pour CHAQUE produit) ──────
--- Pour chaque produit, vérifier quelles lignes seraient touchées AVANT l'UPDATE.
--- Remplacer <PRODUIT_ID> et <PRODUIT_NOM> par les valeurs de l'étape 1.
-SELECT ld.id, ld.description, d.numero_devis
-FROM lignes_devis ld
-JOIN devis d ON d.id = ld.devis_id
-WHERE d.centre_id = '<SAUVAGEON_CENTRE_ID>'
-  AND ld.produit_catalogue_id IS NULL
-  AND LOWER(ld.description) LIKE LOWER('%<PRODUIT_NOM>%');
-
--- ── Étape 3 : UPDATE par produit ─────────────────────────────────────────────
--- Lancer dans une transaction. Adapter une ligne par produit catalogue.
--- VERIFIER le nombre de lignes touchées (doit correspondre à l'aperçu étape 2).
+-- Helper : normalise accents + minuscules
+-- Usage : norm(text) retourne du texte sans accents en minuscules
+-- On ne crée PAS de fonction SQL (pas de droit CREATE FUNCTION sur Scalingo).
+-- On inline la normalisation dans chaque requête.
+-- Pattern : translate(LOWER(x), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn')
 
 BEGIN;
 
--- VERIFIER : produit « <PRODUIT_NOM_1> »
+-- ── Étape 1 : aperçu des produits + nombre de lignes qui matchent ────────────
+SELECT
+  pc.id,
+  pc.nom,
+  pc.type,
+  LENGTH(pc.nom) AS len,
+  (SELECT COUNT(*)
+   FROM lignes_devis ld
+   JOIN devis d ON d.id = ld.devis_id
+   WHERE d.centre_id = pc.centre_id
+     AND ld.produit_catalogue_id IS NULL
+     AND translate(LOWER(ld.description), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn')
+         LIKE '%' || translate(LOWER(pc.nom), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn') || '%'
+  ) AS lignes_matchees
+FROM produits_catalogue pc
+JOIN centres_hebergement ch ON ch.id = pc.centre_id
+WHERE ch.nom ILIKE '%sauvageon%'
+ORDER BY LENGTH(pc.nom) DESC;
+
+-- ── Étape 2 : preview du matching (le plus long gagne) ──────────────────────
+-- Cette requête montre EXACTEMENT ce que l'UPDATE fera.
+WITH matches AS (
+  SELECT
+    ld.id AS ligne_id,
+    ld.description,
+    pc.id AS produit_id,
+    pc.nom AS produit_nom,
+    LENGTH(pc.nom) AS match_longueur,
+    ROW_NUMBER() OVER (
+      PARTITION BY ld.id
+      ORDER BY LENGTH(pc.nom) DESC
+    ) AS rang
+  FROM lignes_devis ld
+  JOIN devis d ON d.id = ld.devis_id
+  JOIN centres_hebergement ch ON ch.id = d.centre_id
+  JOIN produits_catalogue pc ON pc.centre_id = ch.id
+  WHERE ch.nom ILIKE '%sauvageon%'
+    AND ld.produit_catalogue_id IS NULL
+    AND translate(LOWER(ld.description), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn')
+        LIKE '%' || translate(LOWER(pc.nom), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn') || '%'
+)
+SELECT ligne_id, description, produit_nom, match_longueur
+FROM matches
+WHERE rang = 1
+ORDER BY produit_nom, description;
+
+-- ── Étape 3 : UPDATE avec matching prioritaire + accents normalisés ─────────
+WITH best_match AS (
+  SELECT
+    ld.id AS ligne_id,
+    pc.id AS produit_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY ld.id
+      ORDER BY LENGTH(pc.nom) DESC
+    ) AS rang
+  FROM lignes_devis ld
+  JOIN devis d ON d.id = ld.devis_id
+  JOIN centres_hebergement ch ON ch.id = d.centre_id
+  JOIN produits_catalogue pc ON pc.centre_id = ch.id
+  WHERE ch.nom ILIKE '%sauvageon%'
+    AND ld.produit_catalogue_id IS NULL
+    AND translate(LOWER(ld.description), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn')
+        LIKE '%' || translate(LOWER(pc.nom), 'àâäéèêëïîôùûüçñ', 'aaaeeeeiioouucn') || '%'
+)
 UPDATE lignes_devis ld
-SET produit_catalogue_id = '<PRODUIT_ID_1>'
-FROM devis d
-WHERE ld.devis_id = d.id
-  AND d.centre_id = '<SAUVAGEON_CENTRE_ID>'
-  AND ld.produit_catalogue_id IS NULL
-  AND LOWER(ld.description) LIKE LOWER('%<PRODUIT_NOM_1>%');
+SET produit_catalogue_id = bm.produit_id
+FROM best_match bm
+WHERE ld.id = bm.ligne_id
+  AND bm.rang = 1;
 
--- VERIFIER : produit « <PRODUIT_NOM_2> »
-UPDATE lignes_devis ld
-SET produit_catalogue_id = '<PRODUIT_ID_2>'
-FROM devis d
-WHERE ld.devis_id = d.id
-  AND d.centre_id = '<SAUVAGEON_CENTRE_ID>'
-  AND ld.produit_catalogue_id IS NULL
-  AND LOWER(ld.description) LIKE LOWER('%<PRODUIT_NOM_2>%');
-
--- … dupliquer le bloc UPDATE ci-dessus pour chaque produit listé à l'étape 1 …
-
--- ── Contrôle final avant COMMIT ──────────────────────────────────────────────
--- Vérifier le total de lignes rattachées vs restées NULL :
+-- ── Étape 4 : contrôle global ───────────────────────────────────────────────
 SELECT
   COUNT(*) FILTER (WHERE ld.produit_catalogue_id IS NOT NULL) AS rattachees,
-  COUNT(*) FILTER (WHERE ld.produit_catalogue_id IS NULL)     AS sans_produit
+  COUNT(*) FILTER (WHERE ld.produit_catalogue_id IS NULL) AS sans_produit,
+  COUNT(*) AS total
 FROM lignes_devis ld
 JOIN devis d ON d.id = ld.devis_id
-WHERE d.centre_id = '<SAUVAGEON_CENTRE_ID>';
+JOIN centres_hebergement ch ON ch.id = d.centre_id
+WHERE ch.nom ILIKE '%sauvageon%';
 
--- Si le résultat est cohérent :
+-- ── Étape 5 : lignes NON rattachées (diagnostic) ───────────────────────────
+SELECT ld.description, d.numero_devis
+FROM lignes_devis ld
+JOIN devis d ON d.id = ld.devis_id
+JOIN centres_hebergement ch ON ch.id = d.centre_id
+WHERE ch.nom ILIKE '%sauvageon%'
+  AND ld.produit_catalogue_id IS NULL
+ORDER BY ld.description
+LIMIT 30;
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- VÉRIFIER :
+-- 1. Étape 1 — les compteurs "lignes_matchees" font sens ?
+-- 2. Étape 2 — chaque ligne est rattachée au BON produit ?
+-- 3. Étape 4 — le ratio rattachées/sans_produit est cohérent ?
+-- 4. Étape 5 — rien d'important dans les orphelines ?
+--
+-- Si OK, décommenter COMMIT et relancer :
 -- COMMIT;
 -- Sinon :
--- ROLLBACK;
+ROLLBACK;
