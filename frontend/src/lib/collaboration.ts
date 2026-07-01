@@ -684,6 +684,7 @@ export interface DevisPublic {
   nomSignataireDirecteur: string | null;
   dateSignatureDirecteur: string | null;
   signatureDocumentUrl: string | null;
+  contratUrl: string | null;
   lignes: { description: string; quantite: number; prixUnitaire: number; tva: number; totalHT: number; totalTTC: number }[];
   centre: {
     nom: string; ville: string; adresse: string; codePostal: string | null;

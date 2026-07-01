@@ -319,6 +319,23 @@ export default function SignerDevisPage() {
           </div>
         )}
 
+        {devis.contratUrl && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">Contrat</h2>
+            <a
+              href={devis.contratUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Télécharger le contrat (PDF)
+            </a>
+          </div>
+        )}
+
         {centre?.brochureUrl && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Documents</h2>
@@ -381,8 +398,9 @@ export default function SignerDevisPage() {
                   <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}
                     className="mt-0.5 h-4 w-4 rounded border-gray-300" />
                   <span className="text-xs text-gray-600">
-                    J&apos;ai lu et j&apos;accepte les conditions du devis et les conditions d&apos;annulation.
-                    En signant, je m&apos;engage à respecter les conditions de réservation et de paiement.
+                    {devis.contratUrl
+                      ? "J'ai lu et j'accepte le contrat, les conditions du devis et les conditions d'annulation. En signant, je m'engage à respecter les conditions de réservation et de paiement."
+                      : "J'ai lu et j'accepte les conditions du devis et les conditions d'annulation. En signant, je m'engage à respecter les conditions de réservation et de paiement."}
                   </span>
                 </label>
                 <button onClick={handleSign}

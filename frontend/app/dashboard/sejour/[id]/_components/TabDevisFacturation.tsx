@@ -1348,6 +1348,24 @@ export default function TabDevisFacturation({
                 </div>
               )}
 
+              {/* Contrat événement — PDF persisté sur le devis (nature EVENEMENT) */}
+              {devis.contratUrl && (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Contrat événement</h3>
+                  <a
+                    href={devis.contratUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Contrat événement (PDF)
+                  </a>
+                </div>
+              )}
+
               {/* Aperçu PDF du devis (signé ou non) — au-dessus de la section Facturation */}
               {(() => {
                 const dd = devis!;
@@ -1782,6 +1800,24 @@ export default function TabDevisFacturation({
                         ✅ Convention générée et envoyée par email
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Contrat événement — PDF persisté sur le devis (nature EVENEMENT) */}
+                {user.role === 'HEBERGEUR' && d.contratUrl && (
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Contrat événement</h3>
+                    <a
+                      href={d.contratUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Contrat événement (PDF)
+                    </a>
                   </div>
                 )}
 

@@ -154,6 +154,7 @@ export interface Devis {
   nomSignataireDirecteur?: string | null;
   signatureDocumentUrl?: string | null;
   conventionUrl?: string | null;
+  contratUrl?: string | null;
   estFacture?: boolean;
   dateFacture?: string | null;
   acompteVerse?: boolean;
