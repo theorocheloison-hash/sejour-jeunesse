@@ -887,12 +887,14 @@ export class FactureService {
       throw new ForbiddenException('Le PDF de la facture n\'est pas encore disponible. Réessayez dans quelques secondes.');
     }
 
-    // Récupérer le PDF depuis OVH (URL publique)
-    const pdfResponse = await fetch(facture.pdfUrl);
-    if (!pdfResponse.ok) {
+    // Récupérer le PDF depuis OVH via S3 (folder `factures/` privé).
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await this.storage.fetchAsBuffer(facture.pdfUrl);
+    } catch (e) {
+      console.error('envoyerFactureParEmail: fetch PDF échoué', e);
       throw new ForbiddenException('Impossible de récupérer le PDF de la facture');
     }
-    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
 
     const centreNom = facture.devis.centre?.nom ?? 'L\'hébergeur';
     const centreEmail = facture.devis.centre?.email;

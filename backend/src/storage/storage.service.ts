@@ -125,6 +125,34 @@ export class StorageService {
     return s3GetSignedUrl(this.client as never, command, { expiresIn: ttl });
   }
 
+  /**
+   * Récupère le contenu d'un fichier de notre bucket S3 sous forme de Buffer.
+   * Utilise les credentials S3 en interne — fonctionne pour les folders privés
+   * (factures, devis, signatures, contrats, conventions, brochures, uploads).
+   * Si l'URL n'appartient pas à notre bucket, lève une erreur.
+   */
+  async fetchAsBuffer(url: string): Promise<Buffer> {
+    const key = this.getKeyFromUrl(url);
+    if (!key) {
+      throw new InternalServerErrorException(`URL non reconnue : ${url}`);
+    }
+    try {
+      const response = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      if (!response.Body) {
+        throw new InternalServerErrorException(`Fichier introuvable sur OVH : ${key}`);
+      }
+      const bytes = await response.Body.transformToByteArray();
+      return Buffer.from(bytes);
+    } catch (e) {
+      console.error('S3 fetchAsBuffer error:', e instanceof Error ? e.stack : JSON.stringify(e, null, 2));
+      throw new InternalServerErrorException(
+        `Impossible de récupérer le fichier : ${(e as any)?.message ?? 'unknown'}`,
+      );
+    }
+  }
+
   /** Extrait la clé S3 depuis une URL publique OVH. Retourne null si pas notre bucket. */
   private getKeyFromUrl(url: string): string | null {
     const publicBase = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`;
