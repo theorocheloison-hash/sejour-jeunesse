@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getMesDevis, getFactureAcompte, getFactureSolde } from '@/src/lib/devis';
@@ -92,6 +93,7 @@ const HACHURES_BG = `repeating-linear-gradient(45deg, transparent, transparent 4
 
 export default function HebergeurDashboard() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
 
   const [devis, setDevis] = useState<Devis[]>([]);
   const [sejours, setSejours] = useState<SejourPlanning[]>([]);
@@ -394,8 +396,14 @@ export default function HebergeurDashboard() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Planning</h2>
-            <Link href="/dashboard/hebergeur/planning" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
-              Voir le planning complet →
+            <Link
+              href="/dashboard/hebergeur/planning"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white transition-colors"
+            >
+              Voir le planning complet
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
             </Link>
           </div>
 
@@ -421,7 +429,8 @@ export default function HebergeurDashboard() {
                     return (
                       <div
                         key={di}
-                        className={`h-24 border-r border-gray-100 last:border-0 p-1 overflow-hidden ${isToday ? 'bg-blue-50' : jourFerie ? 'bg-red-50' : vacances ? 'bg-purple-50/40' : ''}`}
+                        className={`h-24 border-r border-gray-100 last:border-0 p-1 overflow-hidden cursor-pointer ${isToday ? 'bg-blue-50 hover:bg-blue-100/70' : jourFerie ? 'bg-red-50 hover:bg-red-100/50' : vacances ? 'bg-purple-50/40 hover:bg-purple-100/40' : 'hover:bg-gray-50'}`}
+                        onClick={() => router.push(`/dashboard/hebergeur/planning?date=${ds}&view=semaine`)}
                       >
                         <p className={`text-xs font-medium ${isToday ? 'text-[var(--color-primary)] font-bold' : 'text-gray-600'}`}>
                           {day.getDate()}
@@ -434,6 +443,7 @@ export default function HebergeurDashboard() {
                         )}
                         {disposJour.length > 0 && (
                           <div
+                            onClick={(e) => e.stopPropagation()}
                             className="text-xs rounded px-1 truncate mb-0.5"
                             style={{
                               backgroundColor: PLANNING_COULEURS.INDISPONIBLE.bg,
@@ -452,6 +462,7 @@ export default function HebergeurDashboard() {
                             <Link
                               key={s.id}
                               href={`/dashboard/sejour/${s.id}`}
+                              onClick={(e) => e.stopPropagation()}
                               className="block text-xs px-1 rounded truncate mb-0.5"
                               style={{
                                 backgroundColor: c?.bg ?? '#6B7280',

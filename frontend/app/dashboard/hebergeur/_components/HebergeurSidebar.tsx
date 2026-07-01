@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -168,9 +169,27 @@ export default function HebergeurSidebar({
     : (user?.email?.[0] ?? 'H').toUpperCase();
   const fullName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : (user?.email ?? '');
 
+  // Paramètres collapsé par défaut, auto-expand si on est sur une page Paramètres
+  const parametresRoutes = [
+    '/dashboard/hebergeur/catalogue',
+    '/dashboard/hebergeur/disponibilites',
+    '/dashboard/hebergeur/profil',
+    '/dashboard/hebergeur/documents',
+    '/dashboard/hebergeur/parametres',
+    '/dashboard/hebergeur/equipe',
+    '/dashboard/hebergeur/abonnement',
+  ];
+  const isOnParametresPage = parametresRoutes.some((r) => pathname.startsWith(r));
+  const [parametresOpen, setParametresOpen] = useState(isOnParametresPage);
+
+  // Auto-ouvrir Paramètres si navigation vers une page Paramètres
+  useEffect(() => {
+    if (isOnParametresPage) setParametresOpen(true);
+  }, [isOnParametresPage]);
+
   return (
     <aside
-      className="flex flex-col min-h-screen w-[220px] min-w-[220px] sticky top-0 overflow-y-auto print:hidden"
+      className="flex flex-col h-screen w-[220px] min-w-[220px] sticky top-0 overflow-y-auto print:hidden"
       style={{ background: '#1B4060' }}
     >
       {/* ── Logo ─────────────────────────────────────────────── */}
@@ -258,22 +277,65 @@ export default function HebergeurSidebar({
             </Link>
           );
         })()}
-        {groups.map((group, gIdx) => (
+        {groups.map((group, gIdx) => {
+          const isParametres = group.label === 'Paramètres';
+          const showItems = isParametres ? parametresOpen : true;
+          return (
           <div key={group.label} style={{ marginTop: gIdx === 0 ? 0 : 16 }}>
             {group.label && (
-              <p
-                style={{
-                  fontSize: 10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'rgba(255,255,255,0.35)',
-                  padding: '0 8px',
-                  marginBottom: 4,
-                }}
-              >
-                {group.label}
-              </p>
+              isParametres ? (
+                <button
+                  type="button"
+                  onClick={() => setParametresOpen((o) => !o)}
+                  className="hover:!text-white/70"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'rgba(255,255,255,0.35)',
+                    padding: '0 8px',
+                    marginBottom: 4,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {group.label}
+                  <svg
+                    width={12}
+                    height={12}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    style={{
+                      transition: 'transform 150ms',
+                      transform: parametresOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+              ) : (
+                <p
+                  style={{
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'rgba(255,255,255,0.35)',
+                    padding: '0 8px',
+                    marginBottom: 4,
+                  }}
+                >
+                  {group.label}
+                </p>
+              )
             )}
+            {showItems && (
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 // Sous-routes (ex. /pilotage/ca) highlightent leur parent ; le tableau
@@ -346,8 +408,10 @@ export default function HebergeurSidebar({
                 );
               })}
             </ul>
+            )}
           </div>
-        ))}
+          );
+        })}
 
         {/* ── Ajouter un centre (propriétaires uniquement) ──── */}
         {(!permissions || permissions.isOwner) && (
