@@ -104,6 +104,7 @@ export interface SejourPlanning {
   dateDebut: string | null;
   dateFin: string | null;
   placesTotales: number;
+  nombreAccompagnateurs?: number | null;
   statut: string;
   modeGestion: string;
   natureSejour: string;

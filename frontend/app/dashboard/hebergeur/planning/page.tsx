@@ -5,7 +5,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejoursPlanning } from '@/src/lib/collaboration';
 import type { SejourPlanning } from '@/src/lib/collaboration';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
-import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
+import { getDisponibilites, createDisponibilite, deleteDisponibilite, getMesCentres } from '@/src/lib/centre';
 import CreateSejourModal, { normalise } from '@/app/dashboard/_shared/CreateSejourModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getJourFerie, getVacancesZones, isCalendrierPerime } from '@/src/data/calendrier-france';
@@ -85,6 +85,7 @@ function PlanningContent() {
 
   const [sejours, setSejours] = useState<SejourPlanning[]>([]);
   const [dispos, setDispos] = useState<any[]>([]);
+  const [capaciteCentre, setCapaciteCentre] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'jour' | '5jours' | 'semaine' | 'mois'>(() => {
     const v = searchParams.get('view');
@@ -130,12 +131,14 @@ function PlanningContent() {
 
   const loadData = useCallback(async () => {
     try {
-      const [s, d] = await Promise.all([
+      const [s, d, centres] = await Promise.all([
         getMesSejoursPlanning(),
         getDisponibilites(),
+        getMesCentres().catch(() => []),
       ]);
       setSejours(s);
       setDispos(d);
+      if (centres.length > 0) setCapaciteCentre(centres[0].capacite);
     } catch {} finally {
       setLoading(false);
     }
@@ -229,6 +232,20 @@ function PlanningContent() {
       const end = s.dateFin.split('T')[0];
       return dayStr >= start && dayStr <= end;
     });
+  };
+
+  /** Occupation totale (participants + accompagnateurs) pour un jour donné.
+   *  Utilise `sejours` (non filtré) — l'occupation est un indicateur global de sécurité,
+   *  indépendant du filtre combobox. */
+  const occupationForDay = (dayStr: string): number => {
+    return sejours.filter(s => {
+      if (!s.dateDebut || !s.dateFin) return false;
+      const start = s.dateDebut.split('T')[0];
+      const end = s.dateFin.split('T')[0];
+      return dayStr >= start && dayStr <= end;
+    }).reduce((total, s) => {
+      return total + s.placesTotales + (s.nombreAccompagnateurs ?? 0);
+    }, 0);
   };
 
   // Position px d'une activité
@@ -635,6 +652,16 @@ function PlanningContent() {
                         {vacances && (
                           <span className="block text-[9px] text-purple-500 font-medium truncate leading-tight mb-0.5">Vac. {vacances.zones}</span>
                         )}
+                        {capaciteCentre > 0 && (() => {
+                          const occ = occupationForDay(ds);
+                          if (occ === 0) return null;
+                          const isOver = occ > capaciteCentre;
+                          return (
+                            <span className={`block text-[10px] tabular-nums leading-tight mb-0.5 ${isOver ? 'text-red-600 font-bold' : 'text-gray-400'}`}>
+                              {occ}/{capaciteCentre}
+                            </span>
+                          );
+                        })()}
                         {disposJour.length > 0 && (
                           <div
                             className="text-xs rounded px-1 truncate mb-0.5"
