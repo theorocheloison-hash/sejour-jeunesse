@@ -19,5 +19,17 @@ export function mockBody(url) {
   }
   if (url.includes('/hebergements')) return '{"results":[],"total":0}';
   if (url.includes('/users/me')) return '{}';
+  // GET /collaboration/{id} (sans sous-ressource) → SejourCollabInfo minimal
+  if (/\/collaboration\/[^/?]+(\?.*)?$/.test(url) && !url.includes('mes-non-lus')) {
+    return JSON.stringify({
+      id: 'mock-sejour', titre: 'Séjour de test', lieu: 'Morillon',
+      dateDebut: '2026-07-06T00:00:00.000Z', dateFin: '2026-07-10T00:00:00.000Z',
+      placesTotales: 40, nombreAccompagnateurs: 4, statut: 'CONVENTION',
+      inscriptionsCloturees: false, thematiquesPedagogiques: ['Nature'],
+      modeGestion: 'COLLABORATIF', natureSejour: 'SEJOUR',
+      createur: { id: 'orga-1', prenom: 'Jean', nom: 'Dupont', email: 'jean@test.local' },
+      hebergementSelectionne: { id: 'c1', nom: 'Chalet Test', ville: 'Morillon', userId: 'mock-user' },
+    });
+  }
   return '[]';
 }

@@ -322,7 +322,8 @@ export default function CollaborationPage() {
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-6">
+          {/* overflow-x-auto : sur mobile les onglets débordent et doivent rester atteignables */}
+          <div className="flex gap-6 overflow-x-auto">
             {TABS.filter((t) =>
               estAccompagnateur
                 ? ACCOMPAGNATEUR_TABS.includes(t.key)
@@ -346,7 +347,7 @@ export default function CollaborationPage() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+                  className={`shrink-0 whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.key
                       ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
