@@ -1472,6 +1472,100 @@ export class DevisService {
   }
 
   /**
+   * Construit le PDF du contrat événement (Sauvageon) SANS effet de bord :
+   * aucun upload OVH, aucune sauvegarde `contratUrl`, aucun email. Partagé par
+   * l'aperçu (GET preview) et l'envoi (envoyerDevisDirect). Effectue les guards :
+   * centre Sauvageon, IBAN présent, ownership, nature ÉVÉNEMENT.
+   * (Méthode publique car appelée aussi par le contrôleur pour l'aperçu.)
+   */
+  async buildContratEvenementPdf(
+    devisId: string,
+    userId: string,
+    centreId?: string | null,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    if (centre.email !== 'resa@lesauvageon.com') {
+      throw new ForbiddenException('Le contrat événement n\'est pas disponible pour ce centre');
+    }
+    if (!centre.iban) {
+      throw new ForbiddenException('IBAN du centre requis pour le contrat');
+    }
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        lignes: true,
+        sejourDirect: {
+          select: {
+            id: true, titre: true, dateDebut: true, dateFin: true,
+            clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true,
+            clientOrganisation: true, modeGestion: true, placesTotales: true,
+            nombreAccompagnateurs: true,
+            natureSejour: true, typeSejour: true,
+          },
+        },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException();
+    if (!devis.sejourDirectId || !devis.sejourDirect) {
+      throw new ForbiddenException('Ce devis n\'est pas un devis direct');
+    }
+    const sejour = devis.sejourDirect;
+
+    const isEvenement = sejour.natureSejour === 'EVENEMENT'
+      || sejour.typeSejour?.includes('MARIAGE')
+      || sejour.typeSejour?.includes('ANNIVERSAIRE')
+      || sejour.typeSejour?.includes('SEMINAIRE')
+      || sejour.typeSejour?.includes('TEAM_BUILDING')
+      || sejour.typeSejour?.includes('REUNION_FAMILLE');
+    if (!isEvenement) {
+      throw new ForbiddenException('Ce devis ne correspond pas à un événement');
+    }
+
+    const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
+
+    const { generateContratSauvageonPdf } = await import('./contrat-sauvageon.pdf.js');
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const montantTTC = devis.montantTTC ?? 0;
+    const montantAcompte = devis.montantAcompte ?? (montantTTC * ((devis.pourcentageAcompte ?? 30) / 100));
+    const resteAPayer = montantTTC - montantAcompte;
+
+    const pdfBuffer = await generateContratSauvageonPdf({
+      nomClient: sejour.clientNom ?? '',
+      prenomClient: sejour.clientPrenom,
+      adresseClient: null,
+      telClient: sejour.clientTelephone,
+      emailClient: sejour.clientEmail ?? '',
+      typeEvenement: sejour.typeSejour?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) ?? sejour.titre,
+      dateDebut: fmt(sejour.dateDebut),
+      dateFin: fmt(sejour.dateFin),
+      lignes: (devis.lignes ?? []).map(l => ({
+        description: l.description,
+        quantite: l.quantite,
+        prixUnitaire: round2(Number(l.prixUnitaire)),
+        tva: l.tva,
+        totalTTC: round2(Number(l.totalTTC)),
+      })),
+      montantHT: round2(devis.montantHT ?? 0),
+      montantTVA: round2(devis.montantTVA ?? 0),
+      montantTTC: round2(montantTTC),
+      pourcentageAcompte: devis.pourcentageAcompte ?? 30,
+      montantAcompte: round2(montantAcompte),
+      resteAPayer: round2(resteAPayer),
+      dateSignature: fmt(new Date()),
+      numeroDevis: devis.numeroDevis,
+      iban: centre.iban,
+      bic: null,     // TODO: ajouter bic au modèle CentreHebergement quand multi-centre
+      banque: null,  // TODO: idem
+    });
+
+    return { buffer: pdfBuffer, fileName: `contrat-${devis.numeroDevis ?? devis.id}.pdf` };
+  }
+
+  /**
    * Envoie un devis DIRECT par email au client avec lien de signature.
    */
   async envoyerDevisDirect(
@@ -1549,55 +1643,11 @@ export class DevisService {
     const isSauvageon = centre.email === 'resa@lesauvageon.com';
     if (isEvenement && isSauvageon && centre.iban) {
       try {
-        const { generateContratSauvageonPdf } = await import('./contrat-sauvageon.pdf.js');
-
-        const round2 = (n: number) => Math.round(n * 100) / 100;
-        const montantTTC = devis.montantTTC ?? 0;
-        const montantAcompte = devis.montantAcompte ?? (montantTTC * ((devis.pourcentageAcompte ?? 30) / 100));
-        const resteAPayer = montantTTC - montantAcompte;
-
-        const pdfBuffer = await generateContratSauvageonPdf({
-          nomClient: sejour.clientNom ?? '',
-          prenomClient: sejour.clientPrenom,
-          adresseClient: null,
-          telClient: sejour.clientTelephone,
-          emailClient: clientEmail,
-          typeEvenement: sejour.typeSejour?.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) ?? sejour.titre,
-          dateDebut: fmt(sejour.dateDebut),
-          dateFin: fmt(sejour.dateFin),
-          lignes: (devis.lignes ?? []).map(l => ({
-            description: l.description,
-            quantite: l.quantite,
-            prixUnitaire: round2(Number(l.prixUnitaire)),
-            tva: l.tva,
-            totalTTC: round2(Number(l.totalTTC)),
-          })),
-          montantHT: round2(devis.montantHT ?? 0),
-          montantTVA: round2(devis.montantTVA ?? 0),
-          montantTTC: round2(montantTTC),
-          pourcentageAcompte: devis.pourcentageAcompte ?? 30,
-          montantAcompte: round2(montantAcompte),
-          resteAPayer: round2(resteAPayer),
-          dateSignature: fmt(new Date()),
-          numeroDevis: devis.numeroDevis,
-          iban: centre.iban,
-          bic: null,     // TODO: ajouter bic au modèle CentreHebergement quand multi-centre
-          banque: null,  // TODO: idem
-        });
-
-        contratUrl = await this.storage.uploadBuffer(
-          pdfBuffer,
-          `contrat-${devis.numeroDevis ?? devis.id}.pdf`,
-          'contrats',
-          'application/pdf',
-        );
-        await this.prisma.devis.update({
-          where: { id: devisId },
-          data: { contratUrl },
-        });
+        const { buffer, fileName } = await this.buildContratEvenementPdf(devisId, userId, centreId);
+        contratUrl = await this.storage.uploadBuffer(buffer, fileName, 'contrats', 'application/pdf');
+        await this.prisma.devis.update({ where: { id: devisId }, data: { contratUrl } });
       } catch (err) {
         console.error('Erreur génération contrat PDF:', err);
-        // non-bloquant : l'email part sans contrat si erreur
       }
     }
 
@@ -1612,7 +1662,6 @@ export class DevisService {
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
        </table>
-       ${contratUrl ? `<p style="margin:16px 0">📄 <a href="${contratUrl}" style="color:#1B4060;font-weight:600;text-decoration:underline">Télécharger le contrat PDF</a></p>` : ''}
        ${messageBlock}
        <p>Consultez le devis complet et signez-le en ligne :</p>
        <p style="margin:24px 0">

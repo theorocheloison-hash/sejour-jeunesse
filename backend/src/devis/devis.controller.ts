@@ -273,6 +273,28 @@ export class DevisController {
     res.end(buffer);
   }
 
+  /**
+   * GET /devis/:id/contrat/preview — Aperçu PDF du contrat événement (hébergeur).
+   * Aucun effet de bord : pas d'upload, pas de save, pas d'email.
+   */
+  @Get(':id/contrat/preview')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  async previewContrat(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Res() res: Response,
+  ) {
+    const { buffer } = await this.devisService.buildContratEvenementPdf(id, user.id, centreId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="contrat-preview.pdf"',
+      'Content-Length': buffer.length.toString(),
+    });
+    res.end(buffer);
+  }
+
   @Get(':id/versements')
   @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
   getVersements(@Param('id') id: string) {
