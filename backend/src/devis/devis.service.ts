@@ -2071,6 +2071,20 @@ export class DevisService {
   }
 
   /**
+   * Récupère le PDF du contrat événement via le token de signature.
+   * Endpoint public (pas de JWT) — le token sert d'authentification implicite.
+   */
+  async getContratPdfByToken(token: string): Promise<Buffer> {
+    const devis = await this.prisma.devis.findUnique({
+      where: { tokenSignature: token },
+      select: { contratUrl: true },
+    });
+    if (!devis) throw new NotFoundException('Lien invalide');
+    if (!devis.contratUrl) throw new NotFoundException('Contrat non disponible');
+    return this.storage.fetchAsBuffer(devis.contratUrl);
+  }
+
+  /**
    * Signature directe par le client (option 1 de la page publique).
    */
   async signerDevisDirect(

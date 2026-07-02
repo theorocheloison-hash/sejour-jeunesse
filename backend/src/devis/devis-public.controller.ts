@@ -5,11 +5,12 @@ import {
   Param,
   Body,
   Req,
+  Res,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { DevisService } from './devis.service.js';
 
 @Controller('devis/public')
@@ -20,6 +21,21 @@ export class DevisPublicController {
   @Get(':token')
   getDevisPublic(@Param('token') token: string) {
     return this.devisService.getDevisPublicByToken(token);
+  }
+
+  /** GET /devis/public/:token/contrat — PDF du contrat événement (public, pas de JWT) */
+  @Get(':token/contrat')
+  async getContrat(
+    @Param('token') token: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.devisService.getContratPdfByToken(token);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="contrat.pdf"',
+      'Content-Length': buffer.length.toString(),
+    });
+    res.end(buffer);
   }
 
   /** POST /devis/public/:token/signer — Signature directe par le client */
