@@ -26,9 +26,9 @@ import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 import CatalogueSuggestionInput from '@/src/components/CatalogueSuggestionInput';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
+import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
-const round2 = (n: number) => Math.round(n * 100) / 100;
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import SecureFileLink from '@/src/components/SecureFileLink';
@@ -470,7 +470,7 @@ export default function TabDevisFacturation({
     setAvoirLignes(lignesMapped);
     setAvoirFactureSource(fa);
     const total = lignesMapped.reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
-    setAvoirMontant(Math.round(total * 100) / 100);
+    setAvoirMontant(round2(total));
     setAvoirMotif('');
     setAvoirError(null);
     setShowModalAvoir(true);
@@ -480,7 +480,7 @@ export default function TabDevisFacturation({
     setAvoirLignes(prev => {
       const next = prev.map((l, i) => i === index ? { ...l, selected: !l.selected } : l);
       const total = next.filter(l => l.selected).reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
-      setAvoirMontant(Math.round(total * 100) / 100);
+      setAvoirMontant(round2(total));
       return next;
     });
   };
@@ -609,7 +609,7 @@ export default function TabDevisFacturation({
         ? {
             ...l,
             description: produit.nom,
-            prixUnitaire: produit.prixUnitaireTTC ?? round2(produit.prixUnitaireHT * (1 + produit.tva / 100)),
+            prixUnitaire: resolvePrixCatalogueTTC(produit),
             tva: produit.tva ?? 0,
             produitCatalogueId: produit.id,
           }
@@ -735,7 +735,7 @@ export default function TabDevisFacturation({
                         {c.numeroDevis ? <span className="text-gray-400 font-normal"> · {c.numeroDevis}</span> : ''}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {Number(c.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € TTC
+                        {formatMontant(Number(c.montantTTC ?? 0))} € TTC
                         {c.description ? ` · ${c.description}` : ''}
                       </p>
                     </div>
@@ -851,9 +851,7 @@ export default function TabDevisFacturation({
             <span className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0" />
             <span className="font-medium text-red-700">Avoir {avoir.numero}</span>
             <span className="text-red-600">
-              −{Math.abs(avoir.montantFacture).toLocaleString('fr-FR', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              })} €
+              −{formatMontant(Math.abs(avoir.montantFacture))} €
             </span>
             {avoir.motifAvoir && (
               <span className="text-red-400">· {avoir.motifAvoir}</span>
@@ -865,25 +863,25 @@ export default function TabDevisFacturation({
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Total TTC</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {ad.montantTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              {formatMontant(ad.montantTTC)} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Acompte ({ad.pourcentageAcompte}%)</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {ad.montantAcompte.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              {formatMontant(ad.montantAcompte)} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Déjà versé</p>
             <p className="text-sm font-semibold text-green-700 mt-0.5">
-              {totalVerse.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              {formatMontant(totalVerse)} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Reste dû</p>
             <p className="text-sm font-semibold text-amber-700 mt-0.5">
-              {resteDu.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              {formatMontant(resteDu)} €
             </p>
           </div>
         </div>
@@ -909,7 +907,7 @@ export default function TabDevisFacturation({
               <div key={v.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs">
                 <div className="flex items-center gap-3">
                   <span className="text-gray-500">{new Date(v.datePaiement).toLocaleDateString('fr-FR')}</span>
-                  <span className="font-medium text-gray-900">{v.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                  <span className="font-medium text-gray-900">{formatMontant(v.montant)} €</span>
                   {v.modePaiement && (
                     <span className="text-gray-400">
                       {({
@@ -943,7 +941,7 @@ export default function TabDevisFacturation({
               <p className="text-xs font-semibold text-gray-700">Nouveau versement</p>
               {factureCibleVersement && (
                 <p className="text-[11px] text-gray-500">
-                  Montant attendu : <span className="font-semibold text-gray-700">{Math.max(0, factureCibleVersement.montantFacture - (factureCibleVersement.montantVerseTotal ?? 0)).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                  Montant attendu : <span className="font-semibold text-gray-700">{formatMontant(Math.max(0, factureCibleVersement.montantFacture - (factureCibleVersement.montantVerseTotal ?? 0)))} €</span>
                 </p>
               )}
             </div>
@@ -1141,8 +1139,8 @@ export default function TabDevisFacturation({
                         <tr key={i} className="border-b border-gray-50">
                           <td className="py-2">{l.description}</td>
                           <td className="py-2 text-right">{l.quantite}</td>
-                          <td className="py-2 text-right">{(l.prixUnitaire + l.prixUnitaire * (l.tva / 100)).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
-                          <td className="py-2 text-right font-medium">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                          <td className="py-2 text-right">{formatMontant(l.prixUnitaire + l.prixUnitaire * (l.tva / 100))} €</td>
+                          <td className="py-2 text-right font-medium">{formatMontant(l.totalTTC)} €</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1151,19 +1149,19 @@ export default function TabDevisFacturation({
 
                 <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
                   {devis.montantHT != null && (
-                    <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{Number(devis.montantHT).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{formatMontant(Number(devis.montantHT))} €</span></div>
                   )}
                   {devis.montantTVA != null && (
-                    <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{Number(devis.montantTVA).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{formatMontant(Number(devis.montantTVA))} €</span></div>
                   )}
                   <div className="flex justify-between font-bold">
                     <span>Total TTC</span>
-                    <span className="text-[var(--color-primary)]">{Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                    <span className="text-[var(--color-primary)]">{formatMontant(Number(devis.montantTTC ?? 0))} €</span>
                   </div>
                   {devis.montantAcompte != null && Number(devis.montantAcompte) > 0 && (
                     <div className="flex justify-between text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
                       <span>Acompte ({devis.pourcentageAcompte ?? 30}%)</span>
-                      <span className="font-semibold">{Number(devis.montantAcompte).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                      <span className="font-semibold">{formatMontant(Number(devis.montantAcompte))} €</span>
                     </div>
                   )}
                 </div>
@@ -2092,9 +2090,9 @@ export default function TabDevisFacturation({
                         className="rounded"
                       />
                       <span className="flex-1 text-gray-700">{l.description}</span>
-                      <span className="text-gray-500">{l.quantite} × {l.prixUnitaire.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                      <span className="text-gray-500">{l.quantite} × {formatMontant(l.prixUnitaire)} €</span>
                       <span className="font-semibold text-red-600 min-w-[70px] text-right">
-                        {l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                        {formatMontant(l.totalTTC)} €
                       </span>
                     </label>
                   ))}
@@ -2106,7 +2104,7 @@ export default function TabDevisFacturation({
             <div className="flex items-center justify-between rounded-lg bg-red-50 border border-red-200 px-4 py-3">
               <span className="text-sm font-medium text-red-700">Montant de l'avoir</span>
               <span className="text-lg font-bold text-red-700">
-                −{avoirMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                −{formatMontant(avoirMontant)} €
               </span>
             </div>
 
@@ -2219,7 +2217,7 @@ export default function TabDevisFacturation({
                       <td className="py-1">
                         <input type="number" min={0} step="0.1" value={compForm.lignes[i].tva} onChange={e => updateCompLigne(i, 'tva', e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1 text-right" />
                       </td>
-                      <td className="py-1 text-right font-medium">{l.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                      <td className="py-1 text-right font-medium">{formatMontant(l.totalTTC)} €</td>
                       <td className="py-1 text-center">
                         {compForm.lignes.length > 1 && (
                           <button onClick={() => removeCompLigne(i)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
@@ -2241,7 +2239,7 @@ export default function TabDevisFacturation({
 
               <div className="mt-3 flex justify-end">
                 <div className="text-sm font-bold">
-                  Total TTC : <span className="text-[var(--color-primary)]">{compTotalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                  Total TTC : <span className="text-[var(--color-primary)]">{formatMontant(compTotalTTC)} €</span>
                 </div>
               </div>
             </div>
