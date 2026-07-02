@@ -3,7 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface FacturePDFProps {
-  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR';
+  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR' | 'DEVIS';
   logoUrl?: string | null;
   numero: string;
   dateEmission: string; // ISO
@@ -166,7 +166,8 @@ export default function FacturePDF(props: FacturePDFProps) {
   } = props;
 
   const titre =
-    typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE"
+    typeFacture === 'DEVIS' ? 'DEVIS'
+    : typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE"
     : typeFacture === 'SOLDE' ? 'FACTURE DE SOLDE'
     : "FACTURE D'AVOIR";
 
@@ -348,7 +349,7 @@ export default function FacturePDF(props: FacturePDFProps) {
         )}
 
         {/* Règlements reçus (présents uniquement après versement / régénération) */}
-        {versements && versements.length > 0 && (
+        {typeFacture !== 'DEVIS' && versements && versements.length > 0 && (
           <View style={s.versBlock}>
             <Text style={s.versTitle}>Règlements reçus</Text>
             {versements.map((v, i) => (
@@ -363,7 +364,7 @@ export default function FacturePDF(props: FacturePDFProps) {
         )}
 
         {/* Conditions d'annulation */}
-        {conditionsAnnulation && (
+        {typeFacture !== 'DEVIS' && conditionsAnnulation && (
           <View style={s.condBlock}>
             <Text style={s.condTitle}>Conditions d'annulation</Text>
             <Text style={s.condText}>{conditionsAnnulation}</Text>
@@ -376,6 +377,11 @@ export default function FacturePDF(props: FacturePDFProps) {
             <Text style={s.mentionsText}>
               Document d'avoir émis conformément à la réglementation française.
               Motif : {props.motifAvoir ?? '—'}
+            </Text>
+          ) : typeFacture === 'DEVIS' ? (
+            <Text style={s.mentionsText}>
+              Ce devis est valable 30 jours à compter de sa date d'émission.
+              TVA non applicable, art. 293 B du CGI.
             </Text>
           ) : (
             <Text style={s.mentionsText}>

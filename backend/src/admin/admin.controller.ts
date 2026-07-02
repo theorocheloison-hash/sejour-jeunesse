@@ -86,8 +86,29 @@ export class AdminController {
   }
 
   @Post('facturer-centre')
-  facturerCentre(@Body() body: { centreId: string; plan: string; frequence: string }) {
-    return this.adminService.facturerCentre(body.centreId, body.plan, body.frequence);
+  facturerCentre(@Body() body: {
+    centreId: string;
+    plan: string;
+    frequence: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    return this.adminService.facturerCentre(body);
+  }
+
+  @Post('devis-liavo')
+  genererDevisLiavo(@Body() body: {
+    centreId: string;
+    plan: string;
+    frequence: string;
+    destinataireNom: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    return this.adminService.genererDevisLiavo(body);
   }
 
   @Post('cron/alertes-expiration')

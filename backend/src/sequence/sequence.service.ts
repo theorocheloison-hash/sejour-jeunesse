@@ -14,7 +14,7 @@ export class SequenceService {
    * Incrémente atomiquement le compteur (emetteurId, annee courante, typeDoc) et
    * retourne la valeur consommée. Retry simple sur collision P2002 (create concurrent).
    */
-  async generer(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE' | 'AVOIR' | 'FACTURE_LIAVO'): Promise<number> {
+  async generer(emetteurId: string, typeDoc: 'DEVIS' | 'FACTURE' | 'AVOIR' | 'FACTURE_LIAVO' | 'DEVIS_LIAVO'): Promise<number> {
     const annee = new Date().getFullYear();
 
     const consommer = () =>

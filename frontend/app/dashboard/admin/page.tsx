@@ -23,6 +23,8 @@ import {
   getAdminFacturesLiavo,
   getAdminMetriquesAbonnements,
   getAdminActivite,
+  genererDevisLiavo,
+  facturerCentre,
   type AdminActivite,
   type AdminStats,
   type Hebergeur,
@@ -1178,16 +1180,201 @@ function CentresPendingTab() {
 
 // ─── Shared components ───────────────────────────────────────────────────────
 
+const PRIX_DEVIS_LIAVO: Record<string, Record<string, number>> = {
+  MENSUEL: { ESSENTIEL: 29, COMPLET: 49, PILOTAGE: 69 },
+  ANNUEL: { ESSENTIEL: 290, COMPLET: 490, PILOTAGE: 690 },
+};
+
+function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
+  const [centres, setCentres] = useState<Centre[]>([]);
+  const [centreId, setCentreId] = useState('');
+  const [plan, setPlan] = useState('COMPLET');
+  const [frequence, setFrequence] = useState('MENSUEL');
+  const [destNom, setDestNom] = useState('');
+  const [destAdresse, setDestAdresse] = useState('');
+  const [destSiret, setDestSiret] = useState('');
+  const [destEmail, setDestEmail] = useState('');
+
+  const [devisLoading, setDevisLoading] = useState(false);
+  const [devisError, setDevisError] = useState<string | null>(null);
+  const [devisResult, setDevisResult] = useState<{ numero: string; pdfUrl: string } | null>(null);
+
+  const [factureLoading, setFactureLoading] = useState(false);
+  const [factureError, setFactureError] = useState<string | null>(null);
+  const [factureMessage, setFactureMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCentres()
+      .then((data) => setCentres(data.filter((c) => c.user).sort((a, b) => a.nom.localeCompare(b.nom))))
+      .catch(() => {});
+  }, []);
+
+  // Pré-remplir les champs destinataire à la sélection d'un centre (modifiables ensuite)
+  function handleCentreChange(id: string) {
+    setCentreId(id);
+    const c = centres.find((x) => x.id === id);
+    if (c) {
+      setDestNom(c.nom);
+      setDestAdresse([c.adresse, c.codePostal, c.ville].filter(Boolean).join(', '));
+      setDestSiret(c.siret ?? '');
+      setDestEmail(c.user?.email ?? '');
+    }
+  }
+
+  const montant = PRIX_DEVIS_LIAVO[frequence]?.[plan] ?? 0;
+
+  async function handleDevis() {
+    setDevisLoading(true);
+    setDevisError(null);
+    setDevisResult(null);
+    try {
+      const result = await genererDevisLiavo({
+        centreId,
+        plan,
+        frequence,
+        destinataireNom: destNom,
+        destinataireAdresse: destAdresse || undefined,
+        destinataireSiret: destSiret || undefined,
+        destinataireEmail: destEmail || undefined,
+      });
+      setDevisResult(result);
+    } catch (e: any) {
+      setDevisError(e?.response?.data?.message ?? 'Erreur lors de la génération du devis');
+    } finally {
+      setDevisLoading(false);
+    }
+  }
+
+  async function handleFacture() {
+    setFactureLoading(true);
+    setFactureError(null);
+    setFactureMessage(null);
+    try {
+      await facturerCentre({
+        centreId,
+        plan,
+        frequence,
+        destinataireNom: destNom || undefined,
+        destinataireAdresse: destAdresse || undefined,
+        destinataireSiret: destSiret || undefined,
+        destinataireEmail: destEmail || undefined,
+      });
+      setFactureMessage('Facture émise et envoyée par email.');
+      onFactureEmise();
+    } catch (e: any) {
+      setFactureError(e?.response?.data?.message ?? "Erreur lors de l'émission de la facture");
+    } finally {
+      setFactureLoading(false);
+    }
+  }
+
+  const inputCls = 'border border-gray-300 rounded-lg text-sm px-3 py-2 w-full';
+  const labelCls = 'text-xs font-medium text-gray-500 uppercase';
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+      <h3 className="text-base font-semibold text-gray-900">Générer un devis / une facture LIAVO</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <label className={labelCls}>Centre</label>
+          <select className={inputCls} value={centreId} onChange={(e) => handleCentreChange(e.target.value)}>
+            <option value="">— Sélectionner —</option>
+            {centres.map((c) => (
+              <option key={c.id} value={c.id}>{c.nom}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className={labelCls}>Plan</label>
+          <select className={inputCls} value={plan} onChange={(e) => setPlan(e.target.value)}>
+            <option value="ESSENTIEL">ESSENTIEL</option>
+            <option value="COMPLET">COMPLET</option>
+            <option value="PILOTAGE">PILOTAGE</option>
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className={labelCls}>Fréquence</label>
+          <div className="flex items-center gap-2">
+            <select className={inputCls} value={frequence} onChange={(e) => setFrequence(e.target.value)}>
+              <option value="MENSUEL">MENSUEL</option>
+              <option value="ANNUEL">ANNUEL</option>
+            </select>
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{montant} € HT</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className={labelCls}>Destinataire</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Nom</label>
+            <input className={inputCls} value={destNom} onChange={(e) => setDestNom(e.target.value)} placeholder="Ex : Ville de Neuilly-Plaisance" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Adresse</label>
+            <input className={inputCls} value={destAdresse} onChange={(e) => setDestAdresse(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">SIRET</label>
+            <input className={inputCls} value={destSiret} onChange={(e) => setDestSiret(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Email</label>
+            <input className={inputCls} value={destEmail} onChange={(e) => setDestEmail(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <button
+          onClick={handleDevis}
+          disabled={devisLoading || !centreId || !destNom}
+          className="bg-[#1B4060] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
+        >
+          {devisLoading ? 'Génération…' : 'Générer le devis (PDF)'}
+        </button>
+        <button
+          onClick={handleFacture}
+          disabled={factureLoading || !centreId}
+          className="bg-[#C87D2E] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
+        >
+          {factureLoading ? 'Émission…' : 'Émettre la facture'}
+        </button>
+      </div>
+
+      {devisError && <p className="text-sm text-red-600">{devisError}</p>}
+      {devisResult && (
+        <p className="text-sm text-gray-700">
+          Devis généré :{' '}
+          <SecureFileLink url={devisResult.pdfUrl} className="text-[var(--color-primary)] hover:underline font-medium">
+            Télécharger {devisResult.numero} (PDF)
+          </SecureFileLink>
+        </p>
+      )}
+      {factureError && <p className="text-sm text-red-600">{factureError}</p>}
+      {factureMessage && <p className="text-sm text-green-700">{factureMessage}</p>}
+    </div>
+  );
+}
+
 function FacturesLiavoTab() {
   const [factures, setFactures] = useState<FactureLiavo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const chargerFactures = useCallback(() => {
     getAdminFacturesLiavo()
       .then(setFactures)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    chargerFactures();
+  }, [chargerFactures]);
 
   const PLAN_BADGE: Record<string, { bg: string; color: string }> = {
     DECOUVERTE: { bg: '#F0EFEB', color: '#888780' },
@@ -1200,6 +1387,7 @@ function FacturesLiavoTab() {
 
   return (
     <div className="space-y-4">
+      <DevisLiavoForm onFactureEmise={chargerFactures} />
       {loading ? <LoadingSpinner /> : factures.length === 0 ? (
         <EmptyState text="Aucune facture LIAVO" />
       ) : (

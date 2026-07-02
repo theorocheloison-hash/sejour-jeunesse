@@ -380,3 +380,29 @@ export async function getAdminActivite(): Promise<AdminActivite> {
   const { data } = await api.get<AdminActivite>('/admin/activite');
   return data;
 }
+
+export async function genererDevisLiavo(body: {
+  centreId: string;
+  plan: string;
+  frequence: string;
+  destinataireNom: string;
+  destinataireAdresse?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+}): Promise<{ numero: string; pdfUrl: string }> {
+  const { data } = await api.post<{ numero: string; pdfUrl: string }>('/admin/devis-liavo', body);
+  return data;
+}
+
+export async function facturerCentre(body: {
+  centreId: string;
+  plan: string;
+  frequence: string;
+  destinataireNom?: string;
+  destinataireAdresse?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+}): Promise<any> {
+  const { data } = await api.post('/admin/facturer-centre', body);
+  return data;
+}

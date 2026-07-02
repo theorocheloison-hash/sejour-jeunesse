@@ -1465,7 +1465,23 @@ export class AdminService {
 
   // ─── Facturation manuelle (virement administratif, hors Mollie) ────────────
 
-  async facturerCentre(centreId: string, plan: string, frequence: string) {
+  async facturerCentre(body: {
+    centreId: string;
+    plan: string;
+    frequence: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    const { centreId, plan, frequence } = body;
+    const destinataire = body.destinataireNom ? {
+      nom: body.destinataireNom,
+      adresse: body.destinataireAdresse ?? null,
+      siret: body.destinataireSiret ?? null,
+      email: body.destinataireEmail ?? null,
+    } : null;
+
     if (!['ESSENTIEL', 'COMPLET', 'PILOTAGE'].includes(plan)) {
       throw new BadRequestException('Plan invalide');
     }
@@ -1502,8 +1518,37 @@ export class AdminService {
     });
 
     // Émettre la facture LIAVO (PDF + email)
-    const facture = await this.factureLiavo.emettre(centreId, montant, plan, frequence, null);
+    const facture = await this.factureLiavo.emettre(centreId, montant, plan, frequence, null, destinataire);
 
     return facture;
+  }
+
+  async genererDevisLiavo(body: {
+    centreId: string;
+    plan: string;
+    frequence: string;
+    destinataireNom: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    if (!['ESSENTIEL', 'COMPLET', 'PILOTAGE'].includes(body.plan)) {
+      throw new BadRequestException('Plan invalide');
+    }
+    if (!['MENSUEL', 'ANNUEL'].includes(body.frequence)) {
+      throw new BadRequestException('Fréquence invalide');
+    }
+
+    return this.factureLiavo.genererDevisLiavo(
+      body.centreId,
+      body.plan,
+      body.frequence,
+      {
+        nom: body.destinataireNom,
+        adresse: body.destinataireAdresse ?? null,
+        siret: body.destinataireSiret ?? null,
+        email: body.destinataireEmail ?? null,
+      },
+    );
   }
 }
