@@ -1,5 +1,84 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 01/07/2026 (soir) — Refonte dashboard hébergeur + jauge occupation planning.
+> Dernière mise à jour : 02/07/2026 — Facturation admin LIAVO + fix contrat événement.
+
+---
+
+## SESSION 02/07/2026 — Facturation admin LIAVO + contrat événement phase 2
+
+### Premier client payant — Les Choucas (Nora Da Cruz)
+
+Nora demande un devis LIAVO pour le plan Pilotage annuel (690€ HT). Entité de facturation : Ville de Neuilly-Plaisance (SIRET 219 300 498 00017, 6 rue du Général de Gaulle, 93360 Neuilly-Plaisance). Collectivité → paiement par mandat administratif via Trésor Public, pas Mollie. Flux : devis LIAVO → BDC mairie → facture LIAVO via Chorus Pro.
+
+**Devis DL-2026-001 envoyé à Nora le 02/07/2026.**
+
+### Facturation admin LIAVO — LIVRÉE
+
+**Problème** : l'endpoint `POST /admin/facturer-centre` existait mais : (1) pas de devis LIAVO (seulement facture), (2) destinataire hardcodé sur le centre (pas sur l'entité de facturation), (3) SIRET émetteur incomplet (SIREN seul), (4) pas d'IBAN émetteur sur le PDF, (5) pas de bouton dans l'admin UI.
+
+**Livré** (3 commits : backend PDF + backend admin + frontend admin) :
+
+- **FacturePDF.tsx** : `typeFacture: 'DEVIS'` ajouté au union type. Titre "DEVIS", mentions validité 30j, versements/conditions masqués pour devis.
+- **sequence.service.ts** : `'DEVIS_LIAVO'` ajouté au union type `typeDoc`.
+- **facture-liavo.service.ts** : constantes `LIAVO_SIRET` / `LIAVO_IBAN` (env vars Scalingo), param `destinataire` optionnel sur `emettre()` (Mollie non impacté — 6e param optionnel), nouvelle méthode `genererDevisLiavo()` (numéro `DL-YYYY-NNN`, PDF folder `devis-liavo`).
+- **admin.controller.ts** : `POST /admin/devis-liavo` + `facturer-centre` étendu avec champs destinataire.
+- **admin.service.ts** : `genererDevisLiavo()` + `facturerCentre()` accepte objet body avec destinataire.
+- **Frontend admin** : formulaire dans onglet "Factures LIAVO" — sélection centre, plan, fréquence, champs destinataire (pré-remplis depuis le centre, modifiables), boutons "Générer le devis" / "Émettre la facture". PDF via `SecureFileLink` (folder OVH privé).
+- **Variables Scalingo** : `LIAVO_SIRET=102 994 910 00010`, `LIAVO_IBAN=FR76 1810 6000 2796 7985 1267 389`.
+
+### Contrat événement — phase 2 — LIVRÉ
+
+**Bug signalé** : client événement Sauvageon (Jean-Baptiste Perrin, DEV-2026-0037) ne peut pas ouvrir le lien contrat dans l'email (URL OVH privée → 403).
+
+**Livré** (4 commits backend + frontend) :
+
+- **devis.service.ts** : extraction `buildContratEvenementPdf()`, `getContratPdfByToken()`. Lien contrat supprimé du HTML email.
+- **devis.controller.ts** : `GET /devis/:id/contrat/preview`.
+- **devis-public.controller.ts** : `GET /devis/public/:token/contrat` (endpoint public, token = auth implicite).
+- **contrat-sauvageon.pdf.tsx** : fix formatage montants (fmtMontant custom au lieu de toLocaleString), 22h→21h, BIC AGRIFRPP881 + banque Crédit Agricole des Savoie + titulaire SAS LE SAUVAGEON.
+- **TabDevisFacturation.tsx** : bouton "Prévisualiser le contrat" (événements), `<a href>` contratUrl remplacés par `SecureFileLink`.
+- **Page signature** : `contratUrl` via endpoint public `/api/devis/public/${token}/contrat`, state `contratOuvert`, checkbox disabled.
+
+### Fix bouton "Annuler ce devis" — LIVRÉ
+
+Bouton masqué quand facture active sans avoir. Condition ajoutée : `(!factureAcompte || avoirSurAcompte) && (!factureSolde || avoirSurSolde)`.
+
+### Leçons retenues
+1. **Folders OVH privés** : ne jamais mettre de lien direct dans un email. Utiliser SecureFileLink (authé) ou endpoint public par token.
+2. **toLocaleString + react-pdf** : les narrow no-break spaces (U+202F) se rendent comme "/". Utiliser un formatter custom.
+3. **Extraction avant expansion** : extraire une méthode pure (buildX) avant d'ajouter des features (preview).
+
+---
+
+## SESSION 01/07/2026 (nuit) — Contrat événement DIRECT
+
+### Problème
+Le contrat événement PDF (contrat-sauvageon.pdf.tsx) était généré dans `envoyerDevisDirect()` mais `contratUrl` n'était jamais persisté sur le devis. Le client ne voyait le contrat que dans l'email initial — pas sur la page de signature. Côté hébergeur, aucun moyen de le retrouver. De plus, le contrat Sauvageon hardcodé était généré pour TOUS les centres (bug : un client des Choucas recevrait un contrat au nom du Sauvageon).
+
+### Livré (3 commits : SQL + backend + frontend)
+
+**SQL** : `ALTER TABLE devis ADD COLUMN contrat_url VARCHAR(500);` — appliqué manuellement via pgsql-console avant le déploiement backend. Fichier `docs/migrations/2026-07-01-contrat-url.sql` créé pour traçabilité.
+
+**Backend** (schema.prisma + devis.service.ts) :
+- `contratUrl` ajouté au model Devis (après `conventionUrl`)
+- Guard Sauvageon : `const isSauvageon = centre.email === 'resa@lesauvageon.com'` — seul le Sauvageon génère le contrat événement. Condition `if (isEvenement && isSauvageon && centre.iban)`.
+- Persistance : `prisma.devis.update({ data: { contratUrl } })` après upload OVH, dans le try.
+- Exposition publique : `contratUrl` ajouté au return de `getDevisPublicByToken()`.
+
+**Frontend** :
+- Types : `contratUrl` ajouté à `Devis` (devis.ts) et `DevisPublic` (collaboration.ts).
+- Page signature `/devis/signer/[token]` : bloc "Contrat" avec lien PDF (conditionné `contratUrl`), checkbox mise à jour ("J'ai lu et j'accepte **le contrat**, les conditions du devis et les conditions d'annulation").
+- Dashboard hébergeur `TabDevisFacturation.tsx` : bouton "Contrat événement (PDF)" ajouté dans les 2 zones de rendu (DIRECT + COLLAB), conditionné `contratUrl`, en sibling du bloc convention (pas à l'intérieur — le bloc convention est gardé par `natureSejour === 'SEJOUR'`, le contrat par `contratUrl`).
+
+### Flux actuel contrat événement (post-fix)
+1. Hébergeur envoie devis sur événement Sauvageon → contrat PDF généré, uploadé OVH, `contratUrl` persisté sur le devis, lien dans l'email client
+2. Client ouvre page signature → voit le contrat en téléchargement + checkbox mentionne le contrat
+3. Hébergeur ouvre le séjour → voit le bouton "Contrat événement (PDF)" dans l'onglet Devis & Facturation
+4. Autres centres (Choucas, Alticlub, Pôle Montagne) : guard → pas de contrat généré, `contratUrl` reste null, aucun bouton affiché
+
+### Leçons retenues
+1. **Ordre de déploiement SQL → backend → frontend** : si le backend avec le nouveau schema Prisma déploie AVANT le SQL, Prisma fait un `SELECT contrat_url` → 500 sur toute page chargeant un devis. Le frontend peut déployer dans n'importe quel ordre (le `{contratUrl && ...}` protège).
+2. **Guard par email du centre** (`resa@lesauvageon.com`) : temporaire. Si le Sauvageon change d'email, le guard casse. À remplacer par un flag ou un champ dédié quand on généralisera le contrat événement.
+3. **Devis existants** : les événements déjà envoyés ont `contrat_url = NULL`. Le PDF existe sur OVH mais le lien est perdu. Ré-envoyer le devis régénère et persiste.
 
 ---
 

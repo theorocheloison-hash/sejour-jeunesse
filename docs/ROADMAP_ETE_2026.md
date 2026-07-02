@@ -1,6 +1,7 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
+> **Dernière mise à jour : 01/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement.
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
@@ -48,92 +49,35 @@
 
 ## 1. Priorités P0 — Bloquant adoption (faire IMMÉDIATEMENT)
 
-### 1.1 Notif hébergeur messages collaboratifs — 1h
+### 1.1 ~~Notif hébergeur messages collaboratifs~~ — ✅ LIVRÉ
 
-**Problème** : quand un organisateur poste un message, l'hébergeur ne reçoit rien. Les Choucas et tout futur client en collab sont dans le noir.
+### 1.2 ~~LOT 1 sécurité — IDOR ownership helper~~ — ✅ LIVRÉ
 
-**Fix** : créer `notifierHebergeur()` dans `collaboration.service.ts` (symétrique de `notifierOrganisateur`). L'appeler dans `createMessage()` et `createJournalPost()` quand l'auteur est l'ORGANISATEUR.
+### 1.3 ~~LOT 3 sécurité — Storage privé + URL signées~~ — ✅ LIVRÉ
 
-**Fichier** : `backend/src/collaboration/collaboration.service.ts`
-
-### 1.2 LOT 1 sécurité — IDOR ownership helper — 1.5j
-
-**Problème** : un SIGNATAIRE auto-inscrit peut accéder aux dossiers médicaux, devis et détails de séjours d'autres établissements. 6 findings CRITIQUE.
-
-**Fix** : créer `auth/ownership.helper.ts` avec 4 helpers (`isSignataireLinkedToSejour`, `assertSignataireCanAccessSejour`, `assertSignataireCanAccessDemande`, `assertHebergeurCanAccessDemande`). Appliquer sur ~30 call sites (verifyAccess, signerDevis, updateStatut, getSejourDetail, dossier-pédagogique, demande.findOne, comparatif, getBySejour, factures lecture).
-
-**Fichiers** : nouveau `backend/src/auth/ownership.helper.ts` + modifications dans `collaboration.service.ts`, `devis.service.ts`, `sejour.service.ts`, `facture.service.ts`, `demande.service.ts`, `accompagnateur.service.ts`
-
-**Référence complète** : `docs/audits/PLAN_REMEDIATION.md` LOT 1 + `docs/audits/REMEDIATION_IDOR_ANALYSE.md`
-
-### 1.3 LOT 3 sécurité — Storage privé + URL signées — 2j
-
-**GATE DUR : aucune donnée médicale de mineur ne doit transiter tant que ce n'est pas déployé.**
-
-**Fix** :
-- Backend : bucket OVH privé + `getSignedUrl()` dans StorageService (TTL 15min) + endpoint authentifié `/files/:key` avec ownership check
-- Frontend : composant `<SecureFile />`, remplacement des ~14 call sites d'upload
-- Token autorisations parentales : ajouter `tokenExpiresAt` (dateFin + 30j)
-
-**Dépendance** : backend avant frontend. Ne pas déployer pendant une semaine de démo.
-
-**Total P0 : ~4j. Chemin critique : 1.2 → 1.3 (séquentiel). 1.1 en parallèle dès le premier jour.**
+**Total P0 : TERMINÉ.**
 
 ---
 
 ## 2. Priorités P1 — Forte valeur (semaines 2-4, avant ou juste après CA LMDJ)
 
-### 2.1 LOT 2 sécurité — Auth hardening JWT refresh — 2j
+### 2.1 ~~LOT 2 sécurité — Auth hardening JWT refresh~~ — ✅ LIVRÉ
 
-- Réduire JWT TTL à 1h + refresh token rotatif + `tokenVersion` en base
-- Migration SQL : `ALTER TABLE utilisateurs ADD COLUMN token_version INTEGER DEFAULT 0`
-- Exiger ancien MDP dans set-password si `motDePasseDefini: true`
-- Magic link TTL réduit à 30min
-- Uniformiser bcrypt rounds=12
-- **Impact frontend** : axios interceptor pour refresh token automatique
+### 2.2 ~~Migration enum PILOTAGE~~ — ✅ LIVRÉ
 
-### 2.2 Migration enum PILOTAGE — 15min
-
-```sql
-ALTER TYPE "PlanAbonnement" ADD VALUE 'PILOTAGE';
-```
-
-Pré-requis pour le gating et le PSP.
-
-### 2.3 Trancher et implémenter le PSP — 3-7j
-
-**Décision à prendre** : Mollie (EU, meilleur DX) vs PayPlug (FR, souveraineté).
-
-**Implémentation** :
-1. Backend : PlanGuard middleware + application sur endpoints (1j)
-2. Backend : intégration PSP checkout + webhooks (1-1.5j Mollie / 3-4j PayPlug)
-3. Frontend : PricingTable v2 (4 plans, prix 29/49/69€) + checkout redirect (1j)
-4. Frontend : sidebar gating par plan + pages upgrade CTA (1j)
-5. Test E2E + passage mode live (1j)
-
-**Référence** : `docs/commercial/MONETISATION_PLAN.md`
+### 2.3 ~~PSP Mollie SEPA~~ — ✅ LIVRÉ (mode live, webhook validé, première échéance Choucas ~17/07)
 
 ### 2.4 TIER1 Ch.4 — Labels universels — 1j
 
-Remplacer dans `sejour/[id]/page.tsx` (body principal, pas les composants extraits qui sont déjà propres) :
-- "Établissement scolaire" → "Structure organisatrice"
-- "Enseignant responsable" → "Responsable du séjour"
-- "Nombre d'élèves" → "Nombre de participants"
-- "élèves" → "participants" (contexte groupes, inscriptions)
-- Masquer "Lien avec les programmes scolaires" en mode EVENEMENT
+**À FAIRE.** Remplacer dans `sejour/[id]/page.tsx` les termes scolaires en contexte EVENEMENT.
 
-### 2.5 Export CSV factures — 0.5j
+### 2.5 ~~Export CSV factures~~ — ✅ LIVRÉ (Comptabilité dans module Pilotage, BOM UTF-8)
 
-Bouton "Exporter" dans le dashboard facturation. CSV : numéro, date, client, HT, TVA, TTC, statut. Import direct dans Pennylane/Henrri/comptable.
+### 2.6 LOT 4a — Cookie httpOnly — EN PAUSE
 
-### 2.6 LOT 4 sécurité — Cookie httpOnly + Helmet — 2j
+Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `credentials: 'include'` cross-origin. Solution recommandée : Next.js rewrites. Helmet livré.
 
-- Cookie httpOnly+Secure+SameSite=Lax côté serveur
-- Helmet (CSP, HSTS, nosniff, Referrer-Policy)
-- CORS cleanup (retirer origines obsolètes)
-- **Dépend de** : LOT 2 (refresh token en place)
-
-**Total P1 : ~10-14j.**
+**Total P1 restant : 2.4 labels (~1j) + 2.6 httpOnly (~1j quand Next.js rewrites en place).**
 
 ---
 
@@ -141,7 +85,7 @@ Bouton "Exporter" dans le dashboard facturation. CSV : numéro, date, client, HT
 
 | # | Chantier | Effort | Trigger |
 |---|---|---|---|
-| 3.1 | LOT 5 — Purge IBAN git (`git filter-repo`) | 0.5j | Avant recrutement 2e dev ou ouverture repo |
+| 3.1 | ~~LOT 5 — Purge IBAN git~~ | ✅ | LIVRÉ |
 | 3.2 | Refonte page Devis envoyés (tableau filtrable/triable) | 2-3j | Quand 100+ devis en base |
 | 3.3 | Flux iCal lecture seule (`GET /centres/:id/calendar.ics`) | 0.5j | 1er hébergeur qui demande |
 | 3.4 | SC7 — Notif centres APIDAE non inscrits | 2-3h | Après validation commerciale LMDJ |
@@ -187,7 +131,7 @@ Ces chantiers ne sont codés QUE si le CA LMDJ du 30/06 donne un accord de princ
 
 Documentés pour mémoire. Ne pas commencer avant PMF.
 
-- Module Pilotage enrichi (CA, taux occupation, planning équipes) — plan 69€
+- ~~Module Pilotage enrichi~~ — ✅ LIVRÉ (CA, remplissage, comparaison N-1, ventilation produit)
 - Chorus Pro NestJS service (habilitation AIFE, ChorusProService)
 - Webhooks événementiels (1-2j)
 - Flow "Transmettre au gestionnaire" facture (token public, 2-3j)
@@ -195,7 +139,8 @@ Documentés pour mémoire. Ne pas commencer avant PMF.
 - SC-PDF-DEVIS-EXTERNE (typeDevis UPLOAD_EXTERNE)
 - SC-IMPORT-PARTICIPANTS (CSV Pronote)
 - Intégration PMS (Mews, Amenitiz) — V2+
-- Convention configurable par centre (quand 2e centre actif)
+- ~~Convention configurable par centre~~ — ✅ LIVRÉ (couverture LIAVO + PDF centre mergé via pdf-lib)
+- ~~Contrat événement~~ — ✅ LIVRÉ (guard Sauvageon, contratUrl persisté, exposé client+hébergeur)
 - App mobile PWA
 - Marketplace activités
 - Appel d'offres transport
@@ -254,10 +199,10 @@ Août
 
 | Sujet | Décision | Date |
 |---|---|---|
-| Grille tarifaire | 29/49/69€ HT/mois, tarif unique, pas de remise annuelle | 18/06/2026 |
-| PSP | À trancher : Mollie (EU) vs PayPlug (FR). Stripe écarté. | En attente |
+| Grille tarifaire | 0/39/59/79€ HT/mois (Découverte/Essentiel/Complet/Pilotage), remise 17% annuel | 30/06/2026 |
+| PSP | Mollie SEPA (EU). Mode live activé. Stripe écarté. | 30/06/2026 |
 | CRM pipeline | Dérivé automatique côté frontend, plus de pipeline manuel | 18/06/2026 |
-| Sécurité gate dur | LOT 3 (storage privé) avant tout upload de donnée médicale mineur | 15/06/2026 |
+| Sécurité gate dur | LOTs 0-5 TOUS livrés. LOT 6 maintenance au fil de l'eau. | 30/06/2026 |
 | Chantiers LMDJ | Conditionnés à l'accord CA 30/06, pas avant | 18/06/2026 |
 | Positionnement | LIAVO = infrastructure technique modernisant la centrale, pas remplacement | 10/06/2026 |
 | Commission réseau | 10% des abonnements LIAVO dès 2027 | 11/06/2026 |
