@@ -92,6 +92,17 @@ function PlanningContent() {
     if (v === 'jour' || v === '5jours' || v === 'semaine' || v === 'mois') return v;
     return 'semaine';
   });
+  // Défaut mobile : vue mois quand l'URL n'impose pas de vue (?view= prime toujours).
+  // Appliqué en effet de montage (pas dans l'initializer) pour ne pas diverger du SSR.
+  const urlHasView = useRef((() => {
+    const v = searchParams.get('view');
+    return v === 'jour' || v === '5jours' || v === 'semaine' || v === 'mois';
+  })());
+  useEffect(() => {
+    if (!urlHasView.current && window.matchMedia('(max-width: 767px)').matches) {
+      setView('mois');
+    }
+  }, []);
   const [currentDate, setCurrentDate] = useState<Date>(() => {
     const d = searchParams.get('date');
     if (d && !isNaN(Date.parse(d))) return new Date(d + 'T12:00:00');
@@ -316,21 +327,21 @@ function PlanningContent() {
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       {/* Nav */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
+      <nav className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/hebergeur" className="text-sm text-[var(--color-primary)] hover:underline">&larr; Tableau de bord</Link>
           <h1 className="text-base font-semibold text-gray-900">Planning</h1>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap md:justify-end">
           {/* Combobox recherche */}
-          <div className="relative" ref={comboRef}>
+          <div className="relative w-full md:w-auto" ref={comboRef}>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
               onFocus={() => setShowDropdown(true)}
               placeholder="Rechercher un séjour ou un client..."
-              className="w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="w-full md:w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
             />
             {filterSejourId && (
               <button
@@ -455,6 +466,11 @@ function PlanningContent() {
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 capitalize">{titreVue}</h2>
             </div>
+
+            {/* Sur mobile, les vues multi-colonnes scrollent horizontalement au lieu
+                d'écraser les colonnes. md:overflow-x-visible préserve le sticky desktop. */}
+            <div className="overflow-x-auto md:overflow-x-visible">
+            <div className={viewDays.length > 1 ? 'min-w-[640px] md:min-w-0' : ''}>
 
             {/* Bandeau all-day séjours */}
             <div className="flex border-b border-gray-200">
@@ -604,6 +620,9 @@ function PlanningContent() {
                   </div>
                 );
               })}
+            </div>
+
+            </div>
             </div>
           </div>
         ) : (
