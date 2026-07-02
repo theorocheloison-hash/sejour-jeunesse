@@ -19,8 +19,9 @@ export function mockBody(url) {
   }
   if (url.includes('/hebergements')) return '{"results":[],"total":0}';
   if (url.includes('/users/me')) return '{}';
-  // GET /collaboration/{id} (sans sous-ressource) → SejourCollabInfo minimal
-  if (/\/collaboration\/[^/?]+(\?.*)?$/.test(url) && !url.includes('mes-non-lus')) {
+  // GET /collaboration/mock-sejour → SejourCollabInfo minimal (id de test uniquement,
+  // pour ne pas intercepter les endpoints de liste comme mes-sejours-planning)
+  if (/\/collaboration\/mock-sejour(\?.*)?$/.test(url)) {
     return JSON.stringify({
       id: 'mock-sejour', titre: 'Séjour de test', lieu: 'Morillon',
       dateDebut: '2026-07-06T00:00:00.000Z', dateFin: '2026-07-10T00:00:00.000Z',
