@@ -56,7 +56,8 @@ function StepIndicator({ current, labels }: { current: number; labels: string[] 
               }`}>
                 {done ? '✓' : s}
               </div>
-              <span className={`mt-1.5 text-xs font-medium whitespace-nowrap ${active ? 'text-[var(--color-primary)]' : done ? 'text-gray-500' : 'text-gray-400'}`}>
+              {/* < sm : seul le libellé de l'étape active est affiché (les 5 libellés nowrap débordent à 375px) */}
+              <span className={`mt-1.5 text-xs font-medium whitespace-nowrap ${active ? 'text-[var(--color-primary)]' : done ? 'text-gray-500 hidden sm:block' : 'text-gray-400 hidden sm:block'}`}>
                 {label}
               </span>
             </div>

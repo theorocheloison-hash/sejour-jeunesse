@@ -178,7 +178,7 @@ export default function PilotageCAPage() {
 
           return (
             <>
-              <div className="flex gap-3 mb-1">
+              <div className="grid grid-cols-2 md:flex gap-3 mb-1">
                 <KpiCard
                   label="CA réalisé"
                   value={fmtEur(caRealise)}
@@ -250,7 +250,7 @@ export default function PilotageCAPage() {
         </div>
 
         {/* Ventilation */}
-        <div className="grid grid-cols-3 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
           <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
             <p className="text-xs text-gray-400 mb-2">Par type</p>
             <div className="space-y-1.5">
@@ -306,7 +306,7 @@ export default function PilotageCAPage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Taux de remplissage {annee}</h2>
 
         {/* KPI */}
-        <div className="flex gap-3 mb-1">
+        <div className="grid grid-cols-2 md:flex gap-3 mb-1">
           <KpiCard
             label="Taux annuel"
             value={`${remplissage.tauxAnnuel}%`}

@@ -15,6 +15,7 @@
 import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
+import { mockBody } from './mock.mjs';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 const WIDTHS = (process.env.WIDTHS ?? '375,768,1440').split(',').map(Number);
@@ -45,7 +46,7 @@ if (process.env.MOCK_ROLE) {
   await page.setRequestInterception(true);
   page.on('request', (req) => {
     if (req.url().includes('/api/')) {
-      req.respond({ status: 200, contentType: 'application/json', body: '[]' });
+      req.respond({ status: 200, contentType: 'application/json', body: mockBody(req.url()) });
     } else {
       req.continue();
     }
