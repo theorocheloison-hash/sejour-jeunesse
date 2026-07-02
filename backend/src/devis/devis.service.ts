@@ -1558,8 +1558,8 @@ export class DevisService {
       dateSignature: fmt(new Date()),
       numeroDevis: devis.numeroDevis,
       iban: centre.iban,
-      bic: null,     // TODO: ajouter bic au modèle CentreHebergement quand multi-centre
-      banque: null,  // TODO: idem
+      bic: 'AGRIFRPP881',
+      banque: 'Crédit Agricole des Savoie',
     });
 
     return { buffer: pdfBuffer, fileName: `contrat-${devis.numeroDevis ?? devis.id}.pdf` };

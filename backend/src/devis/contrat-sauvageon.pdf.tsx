@@ -94,7 +94,12 @@ export interface ContratData {
   banque?: string | null;
 }
 
-const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+const fmt = (n: number) => {
+  const num = Number(n) || 0;
+  const parts = num.toFixed(2).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${intPart},${parts[1]}`;
+};
 
 export async function generateContratSauvageonPdf(data: ContratData): Promise<Buffer> {
   const doc = (
@@ -199,6 +204,10 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
             <Text style={styles.ibanLabel}>Banque</Text>
             <Text style={styles.ibanValue}>{data.banque ?? '—'}</Text>
           </View>
+          <View style={styles.ibanRow}>
+            <Text style={styles.ibanLabel}>Titulaire</Text>
+            <Text style={styles.ibanValue}>SAS LE SAUVAGEON</Text>
+          </View>
           <Text style={[styles.label, { marginTop: 4 }]}>
             Référence virement : {data.numeroDevis} — {data.nomClient}
           </Text>
@@ -255,7 +264,7 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         {/* SOIRÉE */}
         <Text style={styles.sectionTitle}>SOIRÉE ET BRUIT</Text>
         <Text style={styles.paragraph}>
-          La soirée doit se dérouler dans la salle de jeux, le salon ou la salle de réception du chalet. Aucune musique ne doit être diffusée sur la terrasse après 22h00, afin de respecter le voisinage.
+          La soirée doit se dérouler dans la salle de jeux, le salon ou la salle de réception du chalet. Aucune musique ne doit être diffusée sur la terrasse après 21h00, afin de respecter le voisinage.
         </Text>
 
         {/* DÉTÉRIORATION */}
