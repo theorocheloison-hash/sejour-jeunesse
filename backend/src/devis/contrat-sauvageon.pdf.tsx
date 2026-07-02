@@ -216,25 +216,16 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         {/* RÉSERVATION */}
         <Text style={styles.sectionTitle}>RÉSERVATION</Text>
         <Text style={styles.paragraph}>
-          La réservation est validée sous deux conditions :
-        </Text>
-        <Text style={styles.bullet}>
-          • Réception du présent contrat signé électroniquement avec la mention &quot;bon pour accord&quot;
-        </Text>
-        <Text style={styles.bullet}>
-          • Réception de l&apos;acompte de {data.pourcentageAcompte}% ({fmt(data.montantAcompte)} €) par virement dans un délai d&apos;un mois après la date d&apos;envoi du présent contrat
-        </Text>
-        <Text style={styles.paragraph}>
-          Si ces deux conditions ne sont pas remplies dans les délais, la SAS Le Sauvageon se réserve le droit d&apos;accepter une autre réservation sur les dates concernées.
+          La réservation est validée sous deux conditions : réception du présent contrat signé électroniquement avec la mention &laquo; bon pour accord &raquo;, et réception de l&apos;acompte de 30% ({fmt(data.montantAcompte)} €) par virement dans un délai d&apos;un mois. Sans réception de l&apos;acompte dans ce délai, les dates ne sont pas bloquées et la SAS Le Sauvageon se réserve le droit d&apos;accepter une autre réservation sur les dates concernées.
         </Text>
 
         {/* CONDITIONS RÈGLEMENT */}
         <Text style={styles.sectionTitle}>CONDITIONS DE RÈGLEMENT</Text>
-        <Text style={styles.bullet}>
-          • L&apos;acompte de {data.pourcentageAcompte}% ({fmt(data.montantAcompte)} €) est à régler par virement bancaire dès signature du présent contrat.
+        <Text style={styles.paragraph}>
+          L&apos;acompte de 30% ({fmt(data.montantAcompte)} €) est à régler par virement bancaire dès signature du présent contrat.
         </Text>
-        <Text style={styles.bullet}>
-          • Le solde ({fmt(data.resteAPayer)} €) est à régler par chèque, espèces ou virement le jour du départ.
+        <Text style={styles.paragraph}>
+          Le solde ({fmt(data.resteAPayer)} €) est à régler par virement ou espèces au plus tard une semaine avant l&apos;événement.
         </Text>
         <Text style={styles.paragraph}>
           La facture tient compte du nombre effectif de présents au séjour. Tout séjour commencé est dû dans son intégralité, quelle que soit la raison d&apos;une interruption prématurée.
@@ -258,7 +249,7 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         {/* MÉNAGE */}
         <Text style={styles.sectionTitle}>MÉNAGE</Text>
         <Text style={styles.paragraph}>
-          Le ménage des communs (cuisine, salle à manger, toilettes) est à la charge des locataires avant la remise des clés. Les locataires s&apos;engagent à rendre ces espaces dans l&apos;état où ils les ont trouvés. Le ménage des chambres sera effectué par le bailleur après le séjour.
+          Le bailleur effectue un ménage complet de l&apos;ensemble du chalet (chambres, sanitaires, communs) avant l&apos;arrivée des locataires le vendredi. Au départ le dimanche, les locataires doivent libérer les chambres avant 11h00 (le bailleur prend en charge le ménage des chambres et sanitaires dès 11h00) et rendre les communs (cuisine, salle à manger, salon, salle de jeux) propres et en état avant la remise des clés à 16h00.
         </Text>
 
         {/* SOIRÉE */}
@@ -270,12 +261,7 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         {/* DÉTÉRIORATION */}
         <Text style={styles.sectionTitle}>DÉTÉRIORATION ET CAUTIONS</Text>
         <Text style={styles.paragraph}>
-          Un état des lieux est dressé à l&apos;arrivée et au départ. Les dégâts constatés sont facturés au prix de remplacement ou de réparation. Deux chèques de caution seront demandés à l&apos;arrivée :
-        </Text>
-        <Text style={styles.bullet}>• 1 500 € pour les frais de ménage éventuels</Text>
-        <Text style={styles.bullet}>• 2 000 € pour les appareils et équipements</Text>
-        <Text style={styles.paragraph}>
-          Ces chèques sont restitués à la fin du séjour, une fois l&apos;état des lieux validé entre les deux parties.
+          Un état des lieux est dressé à l&apos;arrivée et au départ. Les dégâts constatés sont facturés au prix de remplacement ou de réparation. Une empreinte bancaire de 3 500 € sera demandée à l&apos;arrivée, couvrant les éventuels frais de ménage supplémentaires et la détérioration d&apos;appareils ou équipements. Elle est restituée une fois l&apos;état des lieux de départ validé entre les deux parties.
         </Text>
 
         {/* SÉCURITÉ */}
