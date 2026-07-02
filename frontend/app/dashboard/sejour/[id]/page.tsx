@@ -22,9 +22,6 @@ import {
 } from '@/src/lib/accompagnateur';
 import { THEMATIQUES, NIVEAUX, type Niveau } from '@/src/data/thematiques-pedagogiques';
 import api from '@/src/lib/api';
-import HebergeurSidebar from '@/app/dashboard/hebergeur/_components/HebergeurSidebar';
-import { useHebergeurCounts } from '@/app/dashboard/hebergeur/_components/useHebergeurCounts';
-import { usePermissions } from '@/src/hooks/usePermissions';
 import TabDevisFacturation from './_components/TabDevisFacturation';
 import TabMessages from './_components/TabMessages';
 import TabPlanning from './_components/TabPlanning';
@@ -36,27 +33,6 @@ import TabJournal from './_components/TabJournal';
 import TabParticipantsCollab from './_components/TabParticipantsCollab';
 import TabNotes from './_components/TabNotes';
 import SejourHeader from './_components/SejourHeader';
-
-function HebergeurSidebarWithCounts({ sejour, logout }: { sejour: SejourCollabInfo | null; logout: () => void }) {
-  const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
-  const { perms, loading: permissionsLoading } = usePermissions();
-  return (
-    <HebergeurSidebar
-      centre={centre ?? {
-        nom: sejour?.hebergementSelectionne?.nom ?? null,
-        ville: sejour?.hebergementSelectionne?.ville ?? null,
-        imageUrl: null,
-      }}
-      demandesCount={demandesCount}
-      rappelsCount={rappelsCount}
-      actionsFactCount={actionsFactCount}
-      sejoursNonLusCount={sejoursNonLusCount}
-      permissions={perms}
-      permissionsLoading={permissionsLoading}
-      onLogout={logout}
-    />
-  );
-}
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -81,7 +57,7 @@ const TABS: { key: Tab; label: string }[] = [
 export default function CollaborationPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const isDirect = sejour?.modeGestion === 'DIRECT';
@@ -226,14 +202,9 @@ export default function CollaborationPage() {
 
   const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur/sejours';
   const isDirector = user.role === 'SIGNATAIRE';
-  const isHebergeur = user.role === 'HEBERGEUR';
 
   return (
-    <div className={isHebergeur ? 'flex min-h-screen bg-gray-50' : 'min-h-screen bg-gray-50'}>
-      {isHebergeur && (
-        <HebergeurSidebarWithCounts sejour={sejour} logout={logout} />
-      )}
-      <div className={isHebergeur ? 'flex-1 min-w-0 flex flex-col' : ''}>
+    <div>
 
       {/* ── Barre de contexte sticky (header séjour) ─── */}
       {sejour && user && (
@@ -499,7 +470,6 @@ export default function CollaborationPage() {
         )}
 
       </main>
-      </div>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejours, updateSejourStatus } from '@/src/lib/sejour';
 import type { Sejour, StatutSejour } from '@/src/lib/sejour';
 import { estHorsScolaire } from '@/src/lib/sejour';
-import { Logo } from '@/app/components/Logo';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -261,7 +260,7 @@ function SejourCard({
 // ─── Page principale ─────────────────────────────────────────────────────────
 
 function OrganisateurDashboardContent() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   const [sejours, setSejours] = useState<Sejour[]>([]);
@@ -329,6 +328,9 @@ function OrganisateurDashboardContent() {
     URL.revokeObjectURL(url);
   };
 
+  const searchParams = useSearchParams();
+  const showOnboarding = searchParams.get('onboarding') === 'true';
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -337,51 +339,8 @@ function OrganisateurDashboardContent() {
     );
   }
 
-  const initials = `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase();
-  const searchParams = useSearchParams();
-  const showOnboarding = searchParams.get('onboarding') === 'true';
-
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* ── Barre de navigation ────────────────────────────────────────────── */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-
-            {/* Logo */}
-            <Link href="/dashboard/organisateur" className="flex items-center gap-3">
-              <Logo size="sm" showTagline={false} />
-            </Link>
-
-            {/* User + profil + logout */}
-            <div className="flex items-center gap-4">
-              <Link
-                href="/dashboard/organisateur/profil"
-                className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
-                  <span className="text-xs font-semibold text-[var(--color-primary)]">{initials}</span>
-                </div>
-                <div className="hidden sm:block leading-tight">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {user.organisation?.nom ?? 'Organisateur'}
-                  </p>
-                </div>
-              </Link>
-              <button
-                onClick={logout}
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Se déconnecter
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div>
 
       {showOnboarding && (
         <div className="bg-[var(--color-primary)] text-white px-4 py-3">

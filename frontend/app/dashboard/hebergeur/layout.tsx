@@ -2,16 +2,12 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useEffect } from 'react';
-import HebergeurSidebar from './_components/HebergeurSidebar';
-import { useHebergeurCounts } from './_components/useHebergeurCounts';
-import { usePermissions } from '@/src/hooks/usePermissions';
-import PlanInsufficientModal from '@/src/components/PlanInsufficientModal';
 
+// Le chrome (sidebar) est fourni par le layout parent (dashboard/layout.tsx → HebergeurShell).
+// On conserve ici uniquement l'auth guard : c'est le seul redirect /login des pages hébergeur.
 export default function HebergeurLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
-  const { centre, demandesCount, rappelsCount, actionsFactCount, sejoursNonLusCount } = useHebergeurCounts();
-  const { perms, loading: permissionsLoading } = usePermissions();
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'HEBERGEUR')) {
@@ -21,23 +17,5 @@ export default function HebergeurLayout({ children }: { children: React.ReactNod
 
   if (isLoading || !user) return null;
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <HebergeurSidebar
-        centre={centre}
-        planAbonnement={centre?.planAbonnement ?? null}
-        demandesCount={demandesCount}
-        rappelsCount={rappelsCount}
-        actionsFactCount={actionsFactCount}
-        sejoursNonLusCount={sejoursNonLusCount}
-        permissions={perms}
-        permissionsLoading={permissionsLoading}
-        onLogout={logout}
-      />
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {children}
-      </div>
-      <PlanInsufficientModal />
-    </div>
-  );
+  return <>{children}</>;
 }

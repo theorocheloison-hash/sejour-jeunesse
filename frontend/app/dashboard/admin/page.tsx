@@ -1583,7 +1583,7 @@ function EmptyState({ text }: { text: string }) {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const [tab, setTab] = useState<Tab>('activite');
   const [stats, setStats] = useState<AdminStats | null>(null);
 
@@ -1600,22 +1600,7 @@ export default function AdminDashboardPage() {
   if (isLoading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between">
-            <Link href="/dashboard/admin" className="flex items-center gap-3">
-              <span className="text-sm font-bold text-[var(--color-primary)]">Liavo</span>
-              <span className="text-xs text-gray-400">Administration</span>
-            </Link>
-            <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition">
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </nav>
-
+    <div>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard administrateur</h1>
         <p className="text-sm text-gray-500 mb-6">Gestion de la plateforme Liavo</p>
