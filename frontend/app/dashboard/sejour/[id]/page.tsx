@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
@@ -91,7 +90,6 @@ export default function CollaborationPage() {
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  // Invitation organisateur
   // ── Tracking visite onglet (notifications hébergeur) ────────
   useEffect(() => {
     const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
@@ -394,7 +392,6 @@ export default function CollaborationPage() {
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-
         {/* ── Devis & facturation (DIRECT + COLLABORATIF) ─── */}
         {tab === 'devis' && sejour && (
           <TabDevisFacturation
@@ -406,7 +403,6 @@ export default function CollaborationPage() {
             onError={setMutationError}
           />
         )}
-
 
         {/* ── Messages ─── */}
         {tab === 'messages' && (
