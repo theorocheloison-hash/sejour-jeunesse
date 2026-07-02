@@ -990,9 +990,9 @@ export class DevisService {
     if (devis.centreId !== centre.id) {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
-    if (devis.statut !== 'SELECTIONNE') {
+    if (devis.statut !== 'SELECTIONNE' && devis.statut !== 'EN_ATTENTE') {
       throw new ForbiddenException(
-        'Le devis doit être au statut Sélectionné pour enregistrer la signature direction',
+        'Le devis doit être au statut En attente ou Sélectionné pour enregistrer la signature',
       );
     }
 
@@ -1005,14 +1005,20 @@ export class DevisService {
     const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
     const sejourTitre = devis.sejourDirect?.titre ?? devis.demande?.sejour?.titre ?? '';
 
+    const isClientSignature = devis.statut === 'EN_ATTENTE';
+    const targetStatut = isClientSignature ? StatutDevis.SELECTIONNE : StatutDevis.SIGNE_DIRECTION;
+    const targetSejourStatut = isClientSignature ? StatutSejour.CONVENTION : StatutSejour.SIGNE_DIRECTION;
+
     const updated = await this.prisma.devis.update({
       where: { id: devisId },
       data: {
-        statut: StatutDevis.SIGNE_DIRECTION,
+        statut: targetStatut,
         ...(signatureDocumentUrl ? { signatureDocumentUrl } : {}),
         signatureDirecteur: nomSignataireClean
           ? `Signé par ${nomSignataireClean} — enregistré le ${new Date().toLocaleDateString('fr-FR')}`
-          : `Signature direction enregistrée le ${new Date().toLocaleDateString('fr-FR')}`,
+          : isClientSignature
+            ? `Signature enregistrée le ${new Date().toLocaleDateString('fr-FR')}`
+            : `Signature direction enregistrée le ${new Date().toLocaleDateString('fr-FR')}`,
         ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
         dateSignatureDirecteur: new Date(),
       },
@@ -1021,7 +1027,10 @@ export class DevisService {
     if (sejourId) {
       await this.prisma.sejour.update({
         where: { id: sejourId },
-        data: { statut: StatutSejour.SIGNE_DIRECTION },
+        data: {
+          statut: targetSejourStatut,
+          ...(isClientSignature ? { hebergementSelectionneId: devis.centreId } : {}),
+        },
       });
     }
 
