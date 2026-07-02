@@ -478,7 +478,7 @@ export default function SignataireDashboard() {
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
 
       {/* Modals */}
       {rectoratSuccess && (

@@ -1600,7 +1600,7 @@ export default function AdminDashboardPage() {
   if (isLoading || !user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard administrateur</h1>
         <p className="text-sm text-gray-500 mb-6">Gestion de la plateforme Liavo</p>

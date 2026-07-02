@@ -328,6 +328,9 @@ function OrganisateurDashboardContent() {
     URL.revokeObjectURL(url);
   };
 
+  const searchParams = useSearchParams();
+  const showOnboarding = searchParams.get('onboarding') === 'true';
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -336,11 +339,8 @@ function OrganisateurDashboardContent() {
     );
   }
 
-  const searchParams = useSearchParams();
-  const showOnboarding = searchParams.get('onboarding') === 'true';
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
 
       {showOnboarding && (
         <div className="bg-[var(--color-primary)] text-white px-4 py-3">
