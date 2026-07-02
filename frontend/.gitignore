@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# screenshots responsive (scripts/shots.mjs)
+/screenshots
+
 # next.js
 /.next/
 /out/
