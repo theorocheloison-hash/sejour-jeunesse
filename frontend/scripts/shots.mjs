@@ -72,7 +72,12 @@ for (const p of paths) {
     await page.setViewport({ width, height: 900, deviceScaleFactor: 1 });
     await page.goto(`${BASE_URL}${p}`, { waitUntil: 'networkidle2' });
     await new Promise((r) => setTimeout(r, 1200));
-    const file = path.join(OUT_DIR, `${slug(p)}-${width}.png`);
+    // CLICK='selector css' : clique avant le screenshot (ex. ouvrir le drawer mobile)
+    if (process.env.CLICK) {
+      await page.click(process.env.CLICK).catch((e) => console.log(`  (clic raté : ${e.message})`));
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const file = path.join(OUT_DIR, `${slug(p)}${process.env.SUFFIX ?? ''}-${width}.png`);
     await page.screenshot({ path: file, fullPage: FULLPAGE });
     console.log(`✓ ${file}`);
   }

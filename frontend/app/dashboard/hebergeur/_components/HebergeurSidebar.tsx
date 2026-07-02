@@ -28,6 +28,10 @@ interface HebergeurSidebarProps {
   permissions: CentrePermissions | null;
   permissionsLoading: boolean;
   onLogout: () => void;
+  /** Drawer mobile (< md) : ouvert/fermé. Sans effet en ≥ md (sidebar toujours visible). */
+  open: boolean;
+  /** Ferme le drawer mobile (backdrop, clic sur un lien de navigation). */
+  onClose: () => void;
 }
 
 interface NavItem {
@@ -131,6 +135,8 @@ export default function HebergeurSidebar({
   permissions,
   permissionsLoading,
   onLogout,
+  open,
+  onClose,
 }: HebergeurSidebarProps) {
   const pathname = usePathname();
   const { user, isMultiCentre } = useAuth();
@@ -188,12 +194,15 @@ export default function HebergeurSidebar({
 
   return (
     <aside
-      className="flex flex-col h-screen w-[220px] min-w-[220px] sticky top-0 overflow-y-auto print:hidden"
+      className={`flex flex-col h-screen w-[220px] min-w-[220px] top-0 overflow-y-auto print:hidden
+        fixed left-0 z-50 transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'}
+        md:sticky md:z-auto md:translate-x-0 md:transition-none`}
       style={{ background: '#1B4060' }}
     >
       {/* ── Logo ─────────────────────────────────────────────── */}
       <Link
         href="/dashboard/hebergeur"
+        onClick={onClose}
         className="shrink-0 flex items-center gap-2"
         style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none' }}
       >
@@ -246,6 +255,7 @@ export default function HebergeurSidebar({
           return (
             <Link
               href={href}
+              onClick={onClose}
               className="hover:!bg-white/15 hover:!text-white"
               style={{
                 display: 'flex',
@@ -358,6 +368,7 @@ export default function HebergeurSidebar({
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      onClick={onClose}
                       style={baseStyle}
                       className="hover:!bg-white/10 hover:!text-white/90"
                     >
@@ -417,6 +428,7 @@ export default function HebergeurSidebar({
         <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <Link
             href="/dashboard/hebergeur/centres/nouveau"
+            onClick={onClose}
             className="hover:!bg-white/10 hover:!text-white/80"
             style={{
               display: 'flex',
