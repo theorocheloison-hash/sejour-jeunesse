@@ -1071,7 +1071,7 @@ export default function TabDevisFacturation({
 
           {/* Annuler le devis — DIRECT ou COLLABORATIF, devis sélectionné/signé.
               Si une facture est émise, le backend exige d'abord un avoir (boutons ci-dessus). */}
-          {activeDevisStatut && ['SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (
+          {activeDevisStatut && ['SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (!factureAcompte || avoirSurAcompte) && (!factureSolde || avoirSurSolde) && (
             <button
               onClick={() => setShowModalAnnuler(true)}
               disabled={annulerLoading}
