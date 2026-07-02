@@ -99,6 +99,7 @@ function PlanningContent() {
   });
   const [filterSejourId, setFilterSejourId] = useState<string | null>(null);
   const [showDispoModal, setShowDispoModal] = useState(false);
+  const [showDispoRangeForm, setShowDispoRangeForm] = useState(false);
   const [dispoForm, setDispoForm] = useState({ dateDebut: '', dateFin: '', commentaire: '' });
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -198,6 +199,7 @@ function PlanningContent() {
       });
       await loadData();
       setShowDispoModal(false);
+      setShowDispoRangeForm(false);
     } finally {
       setSaving(false);
     }
@@ -733,7 +735,7 @@ function PlanningContent() {
 
       {/* Modale choix action planning */}
       {showDispoModal && !showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowDispoModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowDispoRangeForm(false); setShowDispoModal(false); }}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-gray-900 mb-1">
               {dispoForm.dateDebut ? new Date(dispoForm.dateDebut + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
@@ -764,19 +766,92 @@ function PlanningContent() {
               </button>
 
               <button
-                onClick={handleAddDispoQuick}
-                disabled={saving}
-                className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-red-400 hover:bg-red-50/50 transition-colors disabled:opacity-50"
+                onClick={() => setShowDispoRangeForm(true)}
+                className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-red-400 hover:bg-red-50/50 transition-colors"
               >
                 <span className="text-2xl">🚫</span>
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Marquer indisponible</p>
-                  <p className="text-xs text-gray-400">Maintenance, fermeture, réservé…</p>
+                  <p className="text-xs text-gray-400">Maintenance, fermeture, réservé… (une ou plusieurs dates)</p>
                 </div>
               </button>
+
+              {showDispoRangeForm && (() => {
+                // Calculer les séjours qui chevauchent la période sélectionnée
+                const debut = dispoForm.dateDebut;
+                const fin = dispoForm.dateFin;
+                const sejoursEnConflit: string[] = [];
+                if (debut && fin && fin >= debut) {
+                  const d = new Date(debut + 'T12:00:00');
+                  const dFin = new Date(fin + 'T12:00:00');
+                  while (d <= dFin) {
+                    const ds = dateStr(d);
+                    for (const s of sejoursForDay(ds)) {
+                      if (!sejoursEnConflit.includes(s.titre)) sejoursEnConflit.push(s.titre);
+                    }
+                    d.setDate(d.getDate() + 1);
+                  }
+                }
+                const hasConflit = sejoursEnConflit.length > 0;
+
+                // Nombre de jours sélectionnés
+                const nbJours = debut && fin && fin >= debut
+                  ? Math.round((new Date(fin + 'T12:00:00').getTime() - new Date(debut + 'T12:00:00').getTime()) / 86400000) + 1
+                  : 0;
+
+                return (
+                  <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-gray-700">Période d&apos;indisponibilité</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Du</label>
+                        <input
+                          type="date"
+                          value={dispoForm.dateDebut}
+                          onChange={(e) => setDispoForm(f => ({ ...f, dateDebut: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Au</label>
+                        <input
+                          type="date"
+                          value={dispoForm.dateFin}
+                          onChange={(e) => setDispoForm(f => ({ ...f, dateFin: e.target.value }))}
+                          min={dispoForm.dateDebut}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                        />
+                      </div>
+                    </div>
+                    {nbJours > 0 && (
+                      <p className="text-xs text-gray-500">{nbJours} jour{nbJours > 1 ? 's' : ''} sélectionné{nbJours > 1 ? 's' : ''}</p>
+                    )}
+                    {hasConflit && (
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                        ⚠️ Des séjours sont posés sur cette période : {sejoursEnConflit.join(', ')}. Impossible de marquer ces dates comme indisponibles.
+                      </div>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setShowDispoRangeForm(false)}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Retour
+                      </button>
+                      <button
+                        onClick={handleAddDispoQuick}
+                        disabled={saving || hasConflit || !dispoForm.dateDebut || !dispoForm.dateFin || dispoForm.dateFin < dispoForm.dateDebut}
+                        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {saving ? 'Enregistrement…' : 'Confirmer'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            <button onClick={() => setShowDispoModal(false)} className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setShowDispoRangeForm(false); setShowDispoModal(false); }} className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600">
               Annuler
             </button>
           </div>
@@ -789,10 +864,11 @@ function PlanningContent() {
           natureSejour={createType}
           initialDates={{ dateDebut: dispoForm.dateDebut, dateFin: dispoForm.dateFin }}
           initialClient={null}
-          onClose={() => { setShowCreateModal(false); setShowDispoModal(false); }}
+          onClose={() => { setShowCreateModal(false); setShowDispoModal(false); setShowDispoRangeForm(false); }}
           onCreated={(sejour) => {
             setShowCreateModal(false);
             setShowDispoModal(false);
+            setShowDispoRangeForm(false);
             loadData();
             router.push(`/dashboard/sejour/${sejour.id}`);
           }}
