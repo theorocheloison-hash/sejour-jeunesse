@@ -484,6 +484,14 @@ export async function genererConvention(devisId: string): Promise<{ conventionUr
   return res.data;
 }
 
+/** Aperçu PDF du contrat événement (sans effet de bord) — ouvre le PDF dans un nouvel onglet. */
+export async function previewContratEvenement(devisId: string): Promise<void> {
+  const response = await api.get(`/devis/${devisId}/contrat/preview`, { responseType: 'blob' });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
 /** Retourne le devis principal actif d'un séjour (DIRECT ou COLLAB). Endpoint unifié. */
 export async function getDevisForSejour(sejourId: string): Promise<Devis | null> {
   const { data } = await api.get<Devis | null>(`/devis/sejour/${sejourId}`);

@@ -32,6 +32,7 @@ export default function SignerDevisPage() {
   const [nomSignataire, setNomSignataire] = useState('');
   const [fonctionSignataire, setFonctionSignataire] = useState('');
   const [accepted, setAccepted] = useState(false);
+  const [contratOuvert, setContratOuvert] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
 
@@ -326,6 +327,7 @@ export default function SignerDevisPage() {
               href={devis.contratUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => setContratOuvert(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -333,6 +335,14 @@ export default function SignerDevisPage() {
               </svg>
               Télécharger le contrat (PDF)
             </a>
+            {!contratOuvert && (
+              <p className="mt-2 text-xs text-amber-600 font-medium">
+                Veuillez ouvrir et lire le contrat avant de signer.
+              </p>
+            )}
+            {contratOuvert && (
+              <p className="mt-2 text-xs text-green-600 font-medium">✓ Contrat consulté</p>
+            )}
           </div>
         )}
 
@@ -396,7 +406,8 @@ export default function SignerDevisPage() {
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300" />
+                    disabled={!!devis.contratUrl && !contratOuvert}
+                    className={`mt-0.5 h-4 w-4 rounded border-gray-300${!!devis.contratUrl && !contratOuvert ? ' opacity-50 cursor-not-allowed' : ''}`} />
                   <span className="text-xs text-gray-600">
                     {devis.contratUrl
                       ? "J'ai lu et j'accepte le contrat, les conditions du devis et les conditions d'annulation. En signant, je m'engage à respecter les conditions de réservation et de paiement."
