@@ -158,7 +158,8 @@ export default function HebergeurRentabilitePage() {
     // Charge TOUS les séjours sans filtre de date pour la liste de sélection
     try {
       const t = await getTableauRentabilite();
-      setSejoursDisponibles(t.sejours);
+      const today = new Date().toISOString().split('T')[0];
+      setSejoursDisponibles(t.sejours.filter(s => s.dateFin && s.dateFin.split('T')[0] <= today));
     } catch {
       /* ignore */
     }
@@ -794,7 +795,7 @@ export default function HebergeurRentabilitePage() {
                             onChange={(e) =>
                               updateVentilation(i, 'montantTTC', e.target.value)
                             }
-                            className={`${inputCls} w-28`}
+                            className="w-28 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
                             placeholder="Montant"
                           />
                           {peutToutAllouer && (
