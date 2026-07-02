@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getMyReseauStats,
@@ -637,7 +636,7 @@ function exportCSV(stats: ReseauStats) {
 
 export default function ReseauDashboardPage() {
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const [stats, setStats] = useState<ReseauStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -732,21 +731,6 @@ export default function ReseauDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 items-center justify-between">
-            <Link href="/dashboard/reseau" className="flex items-center gap-3">
-              <span className="text-sm font-bold text-[var(--color-primary)]">Liavo</span>
-              <span className="text-xs text-gray-400">Espace réseau</span>
-            </Link>
-            <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition">
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title + Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-1">
