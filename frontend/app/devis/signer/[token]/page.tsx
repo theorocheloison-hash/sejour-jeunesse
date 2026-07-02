@@ -324,7 +324,7 @@ export default function SignerDevisPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Contrat</h2>
             <a
-              href={devis.contratUrl}
+              href={`/api/devis/public/${token}/contrat`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setContratOuvert(true)}
