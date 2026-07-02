@@ -1,5 +1,69 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 02/07/2026 — Facturation admin LIAVO + fix contrat événement.
+> Dernière mise à jour : 03/07/2026 — Nuit refactoring Fable 5 (3 runs + fix).
+
+---
+
+## SESSION 02-03/07/2026 nuit — Refactoring Fable 5 (dette technique 4.1-4.3)
+
+### Contexte
+
+ClaudeCode configuré avec Fable 5 pour 3 runs de refactoring autonomes sur le repo. Objectif : solder les 3 chantiers de dette technique (ROADMAP 4.1, 4.2, 4.3) en une nuit, sans toucher à la logique métier ni au backend.
+
+### Run 1 — Modules devis partagés (branche feat/fable5-test-nuit, LIVRÉ)
+
+6 commits. Extraction logique dupliquée entre 3 fichiers frontend de devis (nouveau 41KB + modifier 37KB + TabDevisFacturation 121KB) → 3 modules partagés :
+- `frontend/src/lib/devis-calculs.ts` (round2, resolvePrixCatalogueTTC, mapLignesForApi, formatMontant)
+- `frontend/src/hooks/useDevisLignes.ts` (hook state lignes + handlers + calculs)
+- `frontend/src/components/DevisEditor.tsx` (JSX partagé grille/slider/totaux)
+
+Bilan : 6 fichiers touchés, 949 insertions, 982 suppressions, delta net -33 lignes.
+
+### Run 2 — Découpage page séjour (branche feat/fable5-test-nuit, LIVRÉ)
+
+10 commits. `sejour/[id]/page.tsx` passé de 194KB (3681 lignes) à 505 lignes puis 20KB après Run 3 (-86%). 9 composants extraits dans `_components/` : TabMessages, TabPlanning (avec DnD @dnd-kit), TabGroupes, TabDocuments, TabBudget, TabProjetPedagogique, TabJournal, TabParticipantsCollab, InviteOrganisateurCard.
+
+### Run 3 — DashboardShell unification (branche feat/dashboard-shell-unification, LIVRÉ)
+
+11 commits. Centralisation du chrome (sidebar hébergeur OU topbar) dans `dashboard/layout.tsx`.
+
+**Fichiers créés** :
+- `dashboard/_components/HebergeurShell.tsx` — extrait de hebergeur/layout.tsx (sidebar + useHebergeurCounts + usePermissions + PlanInsufficientModal)
+- `dashboard/_components/TopBarShell.tsx` — fusion des 4 navbars inline (organisateur/signataire/admin/réseau) + badge rôle du DashboardShell. ROLE_PROFILE_PATH pour lien profil organisateur
+- `docs/INVENTAIRE_DASHBOARD_SHELLS.md` — inventaire exhaustif avant unification
+
+**Fichiers modifiés** :
+- `dashboard/layout.tsx` — routeur HEBERGEUR → HebergeurShell / reste → TopBarShell + Footer mutualisé
+- `hebergeur/layout.tsx` — auth guard conservé (seul redirect /login des pages hébergeur), chrome supprimé
+- `sejour/[id]/page.tsx` — HebergeurSidebar/isHebergeur/usePermissions supprimés (le layout fournit le shell)
+- `organisateur/page.tsx`, `signataire/page.tsx`, `admin/page.tsx`, `reseau/page.tsx` — navbars inline supprimées
+
+**Fichier supprimé** : `_components/DashboardShell.tsx`
+
+**Écarts délibérés par rapport au plan** :
+1. hebergeur/layout.tsx n’est pas un passthrough pur : auth guard conservé (seul redirect /login de toutes les pages hébergeur)
+2. Lien profil organisateur conservé via ROLE_PROFILE_PATH dans TopBarShell
+
+**Suivi** : double bandeau sous-pages organisateur/admin (TopBarShell + nav locale breadcrumb). Chantier de suivi 4.5.
+
+### Fix post-Run 3 (commit 4958489)
+
+1. **Bug hooks React** : `organisateur/page.tsx` — `useSearchParams()` appelé après early return conditionnel (violation règles hooks). Remonté avant le early return.
+2. **min-h-screen dupliqué** : TopBarShell fournit `min-h-screen bg-gray-50`, les 4 pages racines (organisateur, signataire, admin, réseau) le dupliquaient → 4rem de scroll en trop. Retiré des 4 pages.
+
+### Tests visuels validés
+- Admin : TopBarShell + onglets fonctionnels ✅
+- Parent (page courte) : footer collé en bas, zéro scroll ✅
+- Hébergeur Sauvageon : sidebar intacte, dashboard + page séjour OK ✅
+
+### Branches
+- `feat/fable5-test-nuit` : Runs 1+2 (16 commits) — à merger via PR
+- `feat/dashboard-shell-unification` : Run 3 + fix (12 commits) — à merger via PR
+
+### Leçons retenues
+1. **Fable 5 pour le refactoring structurel pur** : 3 runs autonomes en une nuit, zéro intervention humaine pendant l’exécution, build vert à chaque étape. Idéal pour de l’extraction/déplacement de code sans logique métier.
+2. **Écarts conservateurs = bon jugement** : les 2 déviations du Run 3 (auth guard hebergeur, lien profil organisateur) étaient les bons choix. Le prompt autorisait ces écarts avec justification.
+3. **Fix post-run nécessaire** : même avec build vert, l’audit humain a révélé un bug hooks préexistant (pas introduit par le run) et un micro-bug CSS (scroll 4rem en trop). L’agent ne les voit pas parce qu’ils ne cassent pas tsc/build.
+4. **Pages parent/autorite = scaffolding mort** : découvert pendant les tests visuels. Aucune fonctionnalité, aucun guard de rôle. Le modèle LIAVO actuel ne prévoit pas de dashboard connecté pour ces rôles.
 
 ---
 
@@ -295,8 +359,11 @@ produitCatalogueId FK nullable sur LigneDevis. Les 3 builders de devis (nouveau,
 - [ ] Planning équipe (modèle de données à créer)
 
 ### 4. Dette technique
-- [ ] Fusionner 3 DevisBuilder dupliqués (42KB + 37KB + 113KB)
-- [ ] Découper sejour/[id]/page.tsx
+- [x] ~~Modules devis partagés~~ (Run 1 Fable 5 — 3 modules extraits, logique commune mutualisée)
+- [x] ~~Découper sejour/[id]/page.tsx~~ (Run 2 Fable 5 — 194KB → 20KB, 9 composants)
+- [x] ~~DashboardShell unification~~ (Run 3 Fable 5 — HebergeurShell + TopBarShell)
+- [ ] Merge complet 3 DevisBuilder → 1 paramétrique (prochaine modif devis)
+- [ ] Double bandeau sous-pages organisateur/admin (chantier 4.5)
 - [ ] DMARC p=none → p=quarantine
 - [ ] Chiffrement IBAN en base
 - [ ] Créer `frontend/.env.local` avec `NEXT_PUBLIC_API_URL=http://localhost:3001` (une bonne fois pour toutes)

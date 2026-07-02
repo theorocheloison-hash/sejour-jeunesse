@@ -1,7 +1,7 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 01/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement.
+> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5).
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
@@ -99,12 +99,13 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 
 ## 4. Priorités P3 — Dette technique (selon trigger)
 
-| # | Chantier | Effort | Trigger |
-|---|---|---|---|
-| 4.1 | Fusionner 3 DevisBuilder → 1 paramétrique | 1-2j | Prochaine modif devis |
-| 4.2 | DashboardShell unification (3 layouts → 1) | 4-6j | 2e dev ou post-validation LMDJ |
-| 4.3 | Découper page.tsx séjour (restant) | 0.5j/onglet | Quand on touche l'onglet |
-| 4.4 | LOT 6 maintenance continue (logs, HTML injection emails, omit Prisma) | Au fil de l'eau | Quand on touche les fichiers |
+| # | Chantier | Effort | Trigger | Statut |
+|---|---|---|---|---|
+| 4.1 | ~~Modules devis partagés~~ | 1 nuit | — | ✅ LIVRÉ (3 modules extraits : devis-calculs.ts, useDevisLignes.ts, DevisEditor.tsx — 949 ins / 982 del, delta -33 lignes). Les 3 fichiers DevisBuilder restent séparés mais partagent la logique commune. Merge complet → quand prochaine modif devis. |
+| 4.2 | ~~DashboardShell unification~~ | 1 nuit | — | ✅ LIVRÉ (HebergeurShell + TopBarShell, dashboard/layout.tsx routeur de shell, 11 commits + 1 fix). Suivi : double bandeau sous-pages organisateur/admin à nettoyer. |
+| 4.3 | ~~Découper page.tsx séjour~~ | 1 nuit | — | ✅ LIVRÉ (194KB → 20KB, -86%, 9 composants extraits : TabMessages, TabPlanning, TabGroupes, TabDocuments, TabBudget, TabProjetPedagogique, TabJournal, TabParticipantsCollab, InviteOrganisateurCard). |
+| 4.4 | LOT 6 maintenance continue (logs, HTML injection emails, omit Prisma) | Au fil de l'eau | Quand on touche les fichiers | |
+| 4.5 | Double bandeau sous-pages organisateur/admin | 0.5-1j | Quand on touche ces sous-pages | Suivi Run 3 DashboardShell |
 
 ---
 
