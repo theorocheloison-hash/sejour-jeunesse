@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getAllSejours, getSejourDetail, soumettreAuRectorat, getDossierPedagogique, estHorsScolaire } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
@@ -16,7 +15,6 @@ import {
   getChorusXml,
 } from '@/src/lib/devis';
 import type { SejourDirecteur, StatutSejour, SejourDetail } from '@/src/lib/sejour';
-import { Logo } from '@/app/components/Logo';
 import type { Devis, LigneDevis, Facture } from '@/src/lib/devis';
 
 // Facture d'acompte renvoyée par /devis/factures-acompte (devis + centre + séjour imbriqués).
@@ -297,7 +295,7 @@ function SejourCard({
 // ─── Page principale ─────────────────────────────────────────────────────────
 
 export default function SignataireDashboard() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   const [sejours, setSejours]     = useState<SejourDirecteur[]>([]);
@@ -466,8 +464,6 @@ export default function SignataireDashboard() {
     );
   }
 
-  const initials = `${user.firstName[0] ?? ''}${user.lastName[0] ?? ''}`.toUpperCase();
-
   const sejoursFiltres = filtre === 'ALL'
     ? sejours
     : filtre === ('ASIGNER' as any)
@@ -491,31 +487,6 @@ export default function SignataireDashboard() {
         </div>
       )}
       {chorusXml && <ChorusModal xml={chorusXml} onClose={() => setChorusXml(null)} />}
-
-      {/* ── Navigation ──────────────────────────────────────────────────────── */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <Link href="/dashboard/signataire" className="flex items-center gap-3">
-              <Logo size="sm" showTagline={false} />
-            </Link>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-light)]">
-                  <span className="text-xs font-semibold text-[var(--color-primary)]">{initials}</span>
-                </div>
-                <div className="hidden sm:block leading-tight">
-                  <p className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</p>
-                  <p className="text-xs text-gray-500">
-                    {user.organisation?.nom ?? 'Signataire'}
-                  </p>
-                </div>
-              </div>
-              <button onClick={logout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Se déconnecter</button>
-            </div>
-          </div>
-        </div>
-      </nav>
 
       {/* ── Contenu ─────────────────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
