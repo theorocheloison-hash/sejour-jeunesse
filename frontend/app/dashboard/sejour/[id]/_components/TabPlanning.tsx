@@ -901,7 +901,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
 
     {/* Panneau latéral activités catalogue — visible seulement pour HEBERGEUR */}
     {isHebergeur && (
-      <div className="w-64 shrink-0">
+      <div className="hidden md:block w-64 shrink-0">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sticky top-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">
             Activités proposées
