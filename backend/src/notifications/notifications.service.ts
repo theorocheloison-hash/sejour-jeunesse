@@ -3,6 +3,16 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 
+// Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const DELAI_RELANCE_DEVIS_JOURS = 20;
 const INTERVALLE_RELANCE_JOURS = 7;
 const DELAI_RELANCE_HEBERGEUR_JOURS = 30;
@@ -57,12 +67,12 @@ export class NotificationsService {
       try {
         await this.email.sendGenericNotification(
           userEmail,
-          `Rappel demain — ${rappel.type} : ${rappel.client.nom}`,
+          `Rappel demain — ${escapeHtml(rappel.type)} : ${escapeHtml(rappel.client.nom)}`,
           `<p>Bonjour,</p>
-           <p>Vous avez un rappel prévu <strong>demain ${dateFormatee}</strong> pour le client <strong>${rappel.client.nom}</strong> :</p>
+           <p>Vous avez un rappel prévu <strong>demain ${dateFormatee}</strong> pour le client <strong>${escapeHtml(rappel.client.nom)}</strong> :</p>
            <table style="width:100%;border-collapse:collapse;margin:16px 0">
-             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Type</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${rappel.type}</td></tr>
-             <tr><td style="padding:8px 12px;font-size:13px;color:#666">Description</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${rappel.description}</td></tr>
+             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Type</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(rappel.type)}</td></tr>
+             <tr><td style="padding:8px 12px;font-size:13px;color:#666">Description</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(rappel.description)}</td></tr>
            </table>
            <p>Connectez-vous à LIAVO pour marquer ce rappel comme traité.</p>`,
         );
@@ -129,9 +139,9 @@ export class NotificationsService {
       try {
         await this.email.sendGenericNotification(
           enseignantEmail,
-          `Rappel — Devis en attente de réponse pour « ${sejourTitre} »`,
-          `<p>Bonjour ${enseignantPrenom},</p>
-           <p>Le devis de <strong>${centreNom}</strong> pour votre séjour <strong>« ${sejourTitre} »</strong> est en attente de votre réponse depuis <strong>${joursEcoules} jours</strong>.</p>
+          `Rappel — Devis en attente de réponse pour « ${escapeHtml(sejourTitre)} »`,
+          `<p>Bonjour ${escapeHtml(enseignantPrenom)},</p>
+           <p>Le devis de <strong>${escapeHtml(centreNom)}</strong> pour votre séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> est en attente de votre réponse depuis <strong>${joursEcoules} jours</strong>.</p>
            <p>Connectez-vous à LIAVO pour consulter le devis et prendre une décision.</p>`,
         );
 
@@ -193,9 +203,9 @@ export class NotificationsService {
       try {
         await this.email.sendGenericNotification(
           centreEmail,
-          `Rappel — Votre devis pour « ${sejourTitre} » n'a pas encore reçu de réponse`,
-          `<p>Bonjour ${centrePrenom},</p>
-           <p>Votre devis pour le séjour <strong>« ${sejourTitre} »</strong> envoyé à ${enseignantNom} est en attente de réponse depuis <strong>${joursEcoules} jours</strong>.</p>
+          `Rappel — Votre devis pour « ${escapeHtml(sejourTitre)} » n'a pas encore reçu de réponse`,
+          `<p>Bonjour ${escapeHtml(centrePrenom)},</p>
+           <p>Votre devis pour le séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> envoyé à ${escapeHtml(enseignantNom)} est en attente de réponse depuis <strong>${joursEcoules} jours</strong>.</p>
            <p>L'enseignant n'a pas encore donné suite. Vous pouvez le relancer directement ou consulter l'état de votre devis depuis votre tableau de bord.</p>
            <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
         );
