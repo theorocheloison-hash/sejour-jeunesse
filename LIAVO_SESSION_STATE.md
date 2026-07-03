@@ -1,5 +1,49 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 03/07/2026 — Nuit refactoring Fable 5 (3 runs + fix).
+> Dernière mise à jour : 03/07/2026 — Responsive mobile livré et déployé (Fable 5 overnight + fixes manuels).
+
+---
+
+## SESSION 03/07/2026 — Responsive mobile (Fable 5 overnight + fixes manuels)
+
+### Contexte
+
+LIAVO n'était pas utilisable sur mobile — la sidebar hébergeur (220px fixe) écrasait le contenu sur petit écran. Chantier lancé en run overnight Fable 5 sur branche `responsive-mobile`, puis 2 fixes manuels, puis merge fast-forward dans main et déploiement prod.
+
+### Run overnight Fable 5 (6 commits, 16 fichiers, +690/−13)
+
+- **Phase 1** : HebergeurSidebar convertie en drawer overlay mobile (< md). Fixed + translate-x, backdrop cliquable, fermeture auto au clic lien, top-bar mobile hamburger+logo dans HebergeurShell. Desktop (>= md) strictement inchangé (sticky 220px). Débloque les 33 pages hébergeur d'un coup.
+- **Phase 2** : Dashboard hébergeur — déjà responsive, rien touché.
+- **Phase 3** : Planning hébergeur — vue mois par défaut sur mobile (matchMedia, `?view=` prime toujours), toolbar empilée, vues jour/semaine en scroll horizontal (min-w-[640px]).
+- **Phase 4** : Sweep ~60 pages. 3 casses corrigées : onglets séjour collaboratif clippés (overflow-x-auto ajouté), KPI pilotage écrasés (grid-cols-2), libellés étapes appel-offres débordants.
+- Auth locale impossible (mot de passe Sauvageon obsolète dans les docs, register hébergeur = compteValide=false). Vérification via auth simulée (puppeteer + localStorage mocké + interception API, zéro requête prod).
+
+### Fix manuel 1 — TabPlanning séjour (commit 834cc93)
+
+Le panneau catalogue/parking (`w-64 shrink-0`) écrasait la grille planning sur mobile. Fix : `hidden md:block` — panneau masqué < md, grille pleine largeur. Desktop inchangé. @dnd-kit refs subsistent (display:none, pas unmount).
+
+### Fix manuel 2 — Landing nav mobile (commit ad6cd41, appliqué via MCP filesystem)
+
+Le bouton « Se connecter » (`.btn-ghost`) était masqué par une media query CSS (max-width:880px). Fix : suppression du display:none sur `.btn-ghost`, compactage des CTA nav (gap 6px, padding réduit, flèche masquée). Les deux boutons tiennent sur mobile. Bug pré-existant (landing.css du 07/05), pas une régression Fable 5.
+
+### Merge et déploiement
+
+- SHA main avant merge (rollback) : `896ff42` — tag local `pre-responsive-2026-07-03`
+- SHA après merge : `ad6cd41` (fast-forward propre, aucun conflit)
+- Gates : `tsc --noEmit` ✅ + `npm run build` ✅
+- Déployé en prod via push origin main
+
+### Vérification
+
+- Vérifié sur vrai téléphone (Pixel, tunnel Cloudflare HTTPS → next dev local) avec compte Sauvageon (données réelles) : drawer, dashboard, planning hébergeur global, planning séjour, liste séjours. Tout OK.
+- Pages admin/réseau/organisateur/signataire : touchées par le sweep mais non vérifiées avec données réelles. Risque faible (quasi-vide, pas de client payant sur ces rôles).
+- Risque résiduel : `overflow-hidden` du shell peut clipper des éléments larges data-driven non testés en empty-state.
+
+### Leçons retenues
+
+1. **Fable 5 overnight pour du responsive** : résultat à 80-90%, les 2 fixes manuels étaient des oublis ciblés (panneau latéral, CSS custom landing). Le chrome (drawer) était impeccable du premier coup.
+2. **Auth locale impossible en HTTP simple** quand les cookies sont Secure+httpOnly — besoin d'un tunnel HTTPS (Cloudflare) pour tester sur mobile. Le login retourne les tokens dans le body JSON ET pose des cookies httpOnly ; le frontend s'appuie sur les cookies, pas le body.
+3. **landing.css est du CSS custom hors Tailwind**, non scopé par les breakpoints Tailwind. Les runs Fable 5 qui ciblent les pages Tailwind ne le voient pas.
+4. **RESPONSIVE_TODO.md et scripts puppeteer** (shots.mjs, check-overflow.mjs, mock.mjs, debug-login.mjs) créés par Fable 5 — utiles pour la vérification, réutilisables pour de futurs chantiers responsive.
 
 ---
 
@@ -334,6 +378,9 @@ Reste LOT 6 maintenance (au fil de l'eau, non bloquant) : 6c/6d/6e/6f/6h/6o.
 ### Traçabilité catalogue — LIVRÉE
 produitCatalogueId FK nullable sur LigneDevis. Les 3 builders de devis (nouveau, modifier, TabDevisFacturation) sauvent l'ID du produit catalogue. Ventilation CA par produit dans Pilotage. Script backfill Sauvageon prêt (docs/scripts/).
 
+### Responsive mobile — LIVRÉ
+Dashboard hébergeur, planning, pages publiques, ~60 pages sweep. Drawer overlay mobile < 768px, desktop inchangé. Vérifié sur vrai téléphone avec données réelles (hébergeur Sauvageon).
+
 ### Clients
 - **Sauvageon** : PILOTAGE gratuit permanent (2099-12-31)
 - **Les Choucas** : trial Complet actif. **Deadline ~17/07 — premier paiement.**
@@ -362,6 +409,7 @@ produitCatalogueId FK nullable sur LigneDevis. Les 3 builders de devis (nouveau,
 - [x] ~~Modules devis partagés~~ (Run 1 Fable 5 — 3 modules extraits, logique commune mutualisée)
 - [x] ~~Découper sejour/[id]/page.tsx~~ (Run 2 Fable 5 — 194KB → 20KB, 9 composants)
 - [x] ~~DashboardShell unification~~ (Run 3 Fable 5 — HebergeurShell + TopBarShell)
+- [x] ~~Responsive mobile~~ (Fable 5 overnight + 2 fixes manuels, 8 commits, déployé 03/07)
 - [ ] Merge complet 3 DevisBuilder → 1 paramétrique (prochaine modif devis)
 - [ ] Double bandeau sous-pages organisateur/admin (chantier 4.5)
 - [ ] DMARC p=none → p=quarantine

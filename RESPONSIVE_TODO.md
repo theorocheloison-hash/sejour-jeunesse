@@ -1,5 +1,7 @@
 # Refactor responsive mobile — suivi
 
+> **Statut : LIVRÉ et déployé en prod le 03/07/2026.** Branche responsive-mobile mergée dans main (fast-forward). Ce fichier est conservé comme référence pour les scripts de test et le détail page par page.
+
 Branche : `responsive-mobile` (locale, jamais poussée). Breakpoint de bascule : `md` (768px).
 
 ## Phase 0 — Setup & auth (résultats)

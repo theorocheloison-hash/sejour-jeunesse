@@ -1,7 +1,7 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5).
+> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5). Responsive mobile livré.
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
@@ -94,6 +94,7 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 | 3.7 | Intégration APIDAE LMDJ (1 ligne dans syncApidae) | 15min | Quand credentials Amandine reçus |
 | 3.8 | SSO APIDAE OAuth2 | 0.5j | Quand credentials APIDAE Connect reçus |
 | 3.9 | Onboarding première connexion (flag premiereConnexion) | 1-2j | Avant ouverture grand public |
+| 3.10 | ~~Responsive mobile~~ | 1 nuit + fixes | — | ✅ LIVRÉ (Fable 5 overnight, drawer mobile, planning responsive, sweep ~60 pages, déployé 03/07) |
 
 ---
 
@@ -142,7 +143,7 @@ Documentés pour mémoire. Ne pas commencer avant PMF.
 - Intégration PMS (Mews, Amenitiz) — V2+
 - ~~Convention configurable par centre~~ — ✅ LIVRÉ (couverture LIAVO + PDF centre mergé via pdf-lib)
 - ~~Contrat événement~~ — ✅ LIVRÉ (guard Sauvageon, contratUrl persisté, exposé client+hébergeur)
-- App mobile PWA
+- ~~App mobile PWA~~ — Responsive mobile livré 03/07. PWA (manifest + service worker) reste en backlog.
 - Marketplace activités
 - Appel d'offres transport
 - Forge française (Gitea OVH) — quand 2e dev ou appel d'offres public
