@@ -9,6 +9,16 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 
+// Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class CollaborationService {
   private readonly planningJobs = new Map<string, {
@@ -171,9 +181,9 @@ export class CollaborationService {
     this.notifierOrganisateur(
       sejour,
       userId,
-      `Nouveau message sur votre séjour — ${sejour.titre}`,
-      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
-       <p>Un nouveau message a été posté sur l'espace collaboratif de votre séjour <strong>${sejour.titre}</strong>.</p>
+      `Nouveau message sur votre séjour — ${escapeHtml(sejour.titre)}`,
+      `<p>Bonjour ${escapeHtml(sejour.createur?.prenom ?? '')},</p>
+       <p>Un nouveau message a été posté sur l'espace collaboratif de votre séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le message
@@ -185,9 +195,9 @@ export class CollaborationService {
     this.notifierHebergeur(
       sejour,
       userId,
-      `Nouveau message sur le séjour — ${sejour.titre}`,
+      `Nouveau message sur le séjour — ${escapeHtml(sejour.titre)}`,
       `<p>Bonjour,</p>
-       <p>Un nouveau message a été posté sur l'espace collaboratif du séjour <strong>${sejour.titre}</strong>.</p>
+       <p>Un nouveau message a été posté sur l'espace collaboratif du séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le message
@@ -277,9 +287,9 @@ export class CollaborationService {
     this.notifierOrganisateur(
       sejour,
       userId,
-      `Nouveau document sur votre séjour — ${sejour.titre}`,
-      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
-       <p>Un nouveau document <strong>${dto.nom}</strong> a été ajouté sur l'espace collaboratif de votre séjour <strong>${sejour.titre}</strong>.</p>
+      `Nouveau document sur votre séjour — ${escapeHtml(sejour.titre)}`,
+      `<p>Bonjour ${escapeHtml(sejour.createur?.prenom ?? '')},</p>
+       <p>Un nouveau document <strong>${escapeHtml(dto.nom)}</strong> a été ajouté sur l'espace collaboratif de votre séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le document
@@ -291,9 +301,9 @@ export class CollaborationService {
     this.notifierHebergeur(
       sejour,
       userId,
-      `Nouveau document sur le séjour — ${sejour.titre}`,
+      `Nouveau document sur le séjour — ${escapeHtml(sejour.titre)}`,
       `<p>Bonjour,</p>
-       <p>Un nouveau document <strong>${dto.nom}</strong> a été ajouté sur l'espace collaboratif du séjour <strong>${sejour.titre}</strong>.</p>
+       <p>Un nouveau document <strong>${escapeHtml(dto.nom)}</strong> a été ajouté sur l'espace collaboratif du séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le document
@@ -1129,9 +1139,9 @@ export class CollaborationService {
     this.notifierOrganisateur(
       sejour,
       userId,
-      `Nouvelle publication sur votre séjour — ${sejour.titre}`,
-      `<p>Bonjour ${sejour.createur?.prenom ?? ''},</p>
-       <p>Une nouvelle publication a été ajoutée dans le journal de votre séjour <strong>${sejour.titre}</strong>.</p>
+      `Nouvelle publication sur votre séjour — ${escapeHtml(sejour.titre)}`,
+      `<p>Bonjour ${escapeHtml(sejour.createur?.prenom ?? '')},</p>
+       <p>Une nouvelle publication a été ajoutée dans le journal de votre séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir la publication
@@ -1143,9 +1153,9 @@ export class CollaborationService {
     this.notifierHebergeur(
       sejour,
       userId,
-      `Nouvelle publication sur le séjour — ${sejour.titre}`,
+      `Nouvelle publication sur le séjour — ${escapeHtml(sejour.titre)}`,
       `<p>Bonjour,</p>
-       <p>Une nouvelle publication a été ajoutée dans le journal du séjour <strong>${sejour.titre}</strong>.</p>
+       <p>Une nouvelle publication a été ajoutée dans le journal du séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir la publication
@@ -1168,9 +1178,9 @@ export class CollaborationService {
 
     await this.email.sendGenericNotification(
       sejour.createur.email,
-      `Le planning de votre séjour a été mis à jour — ${sejour.titre}`,
-      `<p>Bonjour ${sejour.createur.prenom ?? ''},</p>
-       <p>L'hébergeur a mis à jour le planning de votre séjour <strong>${sejour.titre}</strong>.</p>
+      `Le planning de votre séjour a été mis à jour — ${escapeHtml(sejour.titre)}`,
+      `<p>Bonjour ${escapeHtml(sejour.createur.prenom ?? '')},</p>
+       <p>L'hébergeur a mis à jour le planning de votre séjour <strong>${escapeHtml(sejour.titre)}</strong>.</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
            Voir le planning
@@ -1496,15 +1506,15 @@ export class CollaborationService {
     if (sejour.createur?.email) {
       const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
       const changes: string[] = [];
-      if (dto.titre) changes.push(`Titre : <strong>${dto.titre}</strong>`);
+      if (dto.titre) changes.push(`Titre : <strong>${escapeHtml(dto.titre)}</strong>`);
       if (dto.dateDebut) changes.push(`Date de début : <strong>${new Date(dto.dateDebut).toLocaleDateString('fr-FR')}</strong>`);
       if (dto.dateFin) changes.push(`Date de fin : <strong>${new Date(dto.dateFin).toLocaleDateString('fr-FR')}</strong>`);
 
       this.email.sendGenericNotification(
         sejour.createur.email,
-        `Informations de votre séjour mises à jour — ${updated.titre}`,
-        `<p>Bonjour ${sejour.createur.prenom ?? ''},</p>
-         <p>L'hébergeur a mis à jour les informations de votre séjour <strong>${updated.titre}</strong> :</p>
+        `Informations de votre séjour mises à jour — ${escapeHtml(updated.titre)}`,
+        `<p>Bonjour ${escapeHtml(sejour.createur.prenom ?? '')},</p>
+         <p>L'hébergeur a mis à jour les informations de votre séjour <strong>${escapeHtml(updated.titre)}</strong> :</p>
          <ul>${changes.map(c => `<li>${c}</li>`).join('')}</ul>
          <p style="margin:24px 0">
            <a href="${frontendUrl}/dashboard/sejour/${sejourId}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
