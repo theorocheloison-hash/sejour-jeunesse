@@ -191,7 +191,9 @@
 
 @media (max-width: 880px) {
   .liavo-landing .nav-links { display: none; }
-  .liavo-landing .nav-cta .btn-ghost { display: none; }
+  .liavo-landing .nav-cta { gap: 6px; }
+  .liavo-landing .nav-cta .btn { padding: 8px 12px; font-size: 13px; }
+  .liavo-landing .nav-cta .btn-primary .arrow { display: none; }
 }
 
 /* ── Hero ── */
