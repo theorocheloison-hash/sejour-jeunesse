@@ -1,7 +1,7 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5). Responsive mobile livré.
+> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5). Responsive mobile livré. Diagnostic dette technique Fable 5 (audit complet backend+frontend+transverse).
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
@@ -107,6 +107,15 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 | 4.3 | ~~Découper page.tsx séjour~~ | 1 nuit | — | ✅ LIVRÉ (194KB → 20KB, -86%, 9 composants extraits : TabMessages, TabPlanning, TabGroupes, TabDocuments, TabBudget, TabProjetPedagogique, TabJournal, TabParticipantsCollab, InviteOrganisateurCard). |
 | 4.4 | LOT 6 maintenance continue (logs, HTML injection emails, omit Prisma) | Au fil de l'eau | Quand on touche les fichiers | |
 | 4.5 | Double bandeau sous-pages organisateur/admin | 0.5-1j | Quand on touche ces sous-pages | Suivi Run 3 DashboardShell |
+| 4.6 | escapeHtml notifications.service.ts + collaboration.service.ts | 30min | **Immédiat** | 🔧 EN COURS (prompt CC lancé 03/07) |
+| 4.7 | Migration Float→Decimal montants devis/factures | 1-2j | Post-pitch, avec vérif données prod | Diagnostic Fable 5. Schema Prisma : montantHT/TVA/TTC/Acompte en Float alors que montantTotal/montantParEleve en Decimal(10,2) dans le même modèle Devis. Deux chemins d'arrondi (round2 appliqué dans facture mais pas devis). Risque conformité Factur-X. **NE PAS faire en Fable 5 overnight** — données prod en jeu, logique métier. |
+| 4.8 | CI minimale GitHub Actions (tsc + build) | 0.5j | Post-pitch | Diagnostic Fable 5. Actuellement zéro CI, gate = discipline manuelle. Candidat Fable 5 overnight. |
+| 4.9 | Tests unitaires code financier (devis-calculs.ts, SequenceService, formule acompte) | 1-2j | Post-pitch | Diagnostic Fable 5. 2 specs pour 163 fichiers backend (~0.6%). Candidat Fable 5 overnight (écriture tests = greenfield). |
+| 4.10 | Supprimer jspdf (dépendance morte, 0 import) | 5min | Quick win | Diagnostic Fable 5 |
+| 4.11 | npm audit fix ciblé (axios/next/dompurify/pdfjs-dist) + décision xlsx | 1h | Post-pitch | Diagnostic Fable 5. 15 vulns (1 critique, 8 hautes). xlsx@0.18.5 = prototype pollution, pas de fix npm, CDN SheetJS ou remplacement. |
+| 4.12 | Extraction helpers partagés frontend (StatutBadge ×4, KpiCard ×3, formatDate ×35 redéfinitions) | 1 nuit | Prochaine modif frontend transverse | Diagnostic Fable 5. Candidat Fable 5 overnight. |
+| 4.13 | Extraction DEPT_TO_REGION + statuts devis constants backend | 0.5j | Prochaine modif backend devis | Diagnostic Fable 5. Table copiée dans 4 services, Set statuts réécrit ~10 fois, magic 30 dupliqué. |
+| 4.14 | IBAN endpoint public getDevisPublicByToken | — | **Décision : ne pas fixer** | Diagnostic Fable 5. centre.iban exposé via GET /devis/public/:token (sans JWT). Décision 03/07 : le token UUID v4 EST l'auth, l'IBAN est nécessaire pour le PDF devis côté client, le retirer casserait DevisPDFButton sur la page de signature. Risque réel = faible (token indevinable). Le vrai fix IBAN = chiffrement en base (backlog existant). |
 
 ---
 
@@ -208,6 +217,10 @@ Août
 | Chantiers LMDJ | Conditionnés à l'accord CA 30/06, pas avant | 18/06/2026 |
 | Positionnement | LIAVO = infrastructure technique modernisant la centrale, pas remplacement | 10/06/2026 |
 | Commission réseau | 10% des abonnements LIAVO dès 2027 | 11/06/2026 |
+| IBAN endpoint public | Token UUID v4 = auth suffisante, IBAN nécessaire pour PDF client. Ne pas retirer. Vrai fix = chiffrement en base. | 03/07/2026 |
+| Float→Decimal devis | Chantier post-pitch, vérification données prod obligatoire, interdit en Fable 5 overnight | 03/07/2026 |
+| TODO abonnement (devis.service:52, sejour.service:981) | Choix commercial conscient : ne pas réactiver tant que flux paiement pas stable (post-17/07 Choucas) | 03/07/2026 |
+| Diagnostic dette technique | Source : audit Fable 5 03/07/2026, validé par lecture code MCP. Items intégrés en 4.6–4.14. | 03/07/2026 |
 
 ---
 
