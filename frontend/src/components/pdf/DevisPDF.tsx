@@ -77,6 +77,8 @@ function titreDocument(type: DevisPDFProps['typeDocument']): string {
   }
 }
 
+const puTTC = (puHT: number, tva: number) => Math.round(puHT * (1 + tva / 100) * 100) / 100;
+
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const PRIMARY = '#1B4060';
@@ -111,12 +113,13 @@ const s = StyleSheet.create({
   tableHeaderCell: { fontSize: 8, fontWeight: 'bold', color: '#FFFFFF', textTransform: 'uppercase' },
   tableRow: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: BORDER },
   tableRowAlt: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: BORDER, backgroundColor: GREY_ROW },
-  cellDesc: { width: '38%' },
-  cellQte: { width: '10%', textAlign: 'right' },
-  cellPU: { width: '14%', textAlign: 'right' },
-  cellTVA: { width: '10%', textAlign: 'right' },
-  cellTotal: { width: '14%', textAlign: 'right' },
-  cellTotalTTC: { width: '14%', textAlign: 'right' },
+  cellDesc: { width: '28%' },
+  cellQte: { width: '8%', textAlign: 'right' },
+  cellPUTTC: { width: '12%', textAlign: 'right' },
+  cellTVA: { width: '8%', textAlign: 'right' },
+  cellPU: { width: '12%', textAlign: 'right' },
+  cellTotal: { width: '16%', textAlign: 'right' },
+  cellTotalTTC: { width: '16%', textAlign: 'right' },
   cellText: { fontSize: 9, color: GREY_TEXT },
   // Totaux
   totauxBlock: { marginTop: 12, alignItems: 'flex-end' },
@@ -227,8 +230,9 @@ export default function DevisPDF(props: DevisPDFProps) {
         <View style={s.tableHeader}>
           <Text style={[s.tableHeaderCell, s.cellDesc]}>Désignation</Text>
           <Text style={[s.tableHeaderCell, s.cellQte]}>Qté</Text>
-          <Text style={[s.tableHeaderCell, s.cellPU]}>PU HT</Text>
+          <Text style={[s.tableHeaderCell, s.cellPUTTC]}>PU TTC</Text>
           <Text style={[s.tableHeaderCell, s.cellTVA]}>TVA %</Text>
+          <Text style={[s.tableHeaderCell, s.cellPU]}>PU HT</Text>
           <Text style={[s.tableHeaderCell, s.cellTotal]}>Total HT</Text>
           <Text style={[s.tableHeaderCell, s.cellTotalTTC]}>Total TTC</Text>
         </View>
@@ -236,8 +240,9 @@ export default function DevisPDF(props: DevisPDFProps) {
           <View key={i} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
             <Text style={[s.cellText, s.cellDesc]}>{l.description}</Text>
             <Text style={[s.cellText, s.cellQte]}>{l.quantite}</Text>
-            <Text style={[s.cellText, s.cellPU]}>{fmtMontant(l.prixUnitaire)} €</Text>
+            <Text style={[s.cellText, s.cellPUTTC]}>{fmtMontant(puTTC(l.prixUnitaire, l.tva))} €</Text>
             <Text style={[s.cellText, s.cellTVA]}>{l.tva} %</Text>
+            <Text style={[s.cellText, s.cellPU]}>{fmtMontant(l.prixUnitaire)} €</Text>
             <Text style={[s.cellText, s.cellTotal]}>{fmtMontant(l.totalHT)} €</Text>
             <Text style={[s.cellText, s.cellTotalTTC]}>{fmtMontant(l.totalTTC)} €</Text>
           </View>

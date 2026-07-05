@@ -18,6 +18,7 @@ const fmt = (d: string | null) => !d ? 'Dates à définir' : new Date(d + (d.inc
   day: '2-digit', month: 'long', year: 'numeric',
 });
 const fmtMoney = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+const puTTC = (puHT: number, tva: number) => Math.round(puHT * (1 + tva / 100) * 100) / 100;
 
 type ActiveTab = 'signer' | 'direction' | 'upload';
 
@@ -273,7 +274,10 @@ export default function SignerDevisPage() {
                 <tr className="bg-[#1B4060] text-white">
                   <th className="text-left px-3 py-2 rounded-tl-lg">Description</th>
                   <th className="text-right px-3 py-2">Qté</th>
-                  <th className="text-right px-3 py-2">PU HT</th>
+                  <th className="text-right px-3 py-2">PU TTC</th>
+                  <th className="text-right px-3 py-2 hidden sm:table-cell">TVA %</th>
+                  <th className="text-right px-3 py-2 hidden sm:table-cell">PU HT</th>
+                  <th className="text-right px-3 py-2 hidden sm:table-cell">Total HT</th>
                   <th className="text-right px-3 py-2 rounded-tr-lg">Total TTC</th>
                 </tr>
               </thead>
@@ -282,8 +286,11 @@ export default function SignerDevisPage() {
                   <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-3 py-2">{l.description}</td>
                     <td className="px-3 py-2 text-right">{l.quantite}</td>
-                    <td className="px-3 py-2 text-right">{fmtMoney(l.prixUnitaire)} €</td>
-                    <td className="px-3 py-2 text-right font-medium">{fmtMoney(l.totalTTC)} €</td>
+                    <td className="px-3 py-2 text-right">{fmtMoney(puTTC(Number(l.prixUnitaire), Number(l.tva)))} €</td>
+                    <td className="px-3 py-2 text-right hidden sm:table-cell">{Number(l.tva)} %</td>
+                    <td className="px-3 py-2 text-right hidden sm:table-cell">{fmtMoney(Number(l.prixUnitaire))} €</td>
+                    <td className="px-3 py-2 text-right hidden sm:table-cell">{fmtMoney(Number(l.totalHT))} €</td>
+                    <td className="px-3 py-2 text-right font-medium">{fmtMoney(Number(l.totalTTC))} €</td>
                   </tr>
                 ))}
               </tbody>
