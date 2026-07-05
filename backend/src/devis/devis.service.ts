@@ -2169,6 +2169,9 @@ export class DevisService {
            <p>Un acompte de <strong>${Number(devis.montantAcompte ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</strong>
            est à régler selon les conditions convenues.</p>`,
           devis.centre?.nom,
+          devis.centre?.email
+            ? { name: devis.centre.nom, email: devis.centre.email }
+            : undefined,
         );
       } catch { /* non bloquant */ }
     }
@@ -2234,7 +2237,7 @@ export class DevisService {
             clientOrganisation: true, clientOrganisationId: true,
           },
         },
-        centre: { select: { nom: true } },
+        centre: { select: { nom: true, email: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
@@ -2290,6 +2293,9 @@ export class DevisService {
        </p>
        <p style="font-size:12px;color:#9ca3af;">Si vous n'êtes pas concerné par cette demande, vous pouvez ignorer cet email.</p>`,
       devis.centre?.nom,
+      devis.centre?.email
+        ? { name: devis.centre.nom, email: devis.centre.email }
+        : undefined,
     );
 
     // Log CRM non bloquant

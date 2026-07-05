@@ -597,7 +597,7 @@ export class ClientsService {
 
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: centreId },
-      select: { brochureUrl: true, nom: true },
+      select: { brochureUrl: true, nom: true, email: true },
     });
 
     const brochureUrl = centre?.brochureUrl ?? null;
@@ -613,6 +613,9 @@ export class ClientsService {
        <p><a href="${brochureUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none">📄 Télécharger la brochure</a></p>
        <p>N'hésitez pas à nous contacter pour toute question.</p>`,
       centre?.nom ?? undefined,
+      centre?.email
+        ? { name: centre.nom, email: centre.email }
+        : undefined,
     );
 
     await this.prisma.activiteClient.create({
