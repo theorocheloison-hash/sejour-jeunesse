@@ -1,7 +1,7 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 05/07/2026** — Colonne PU TTC uniformisée (devis PDF, page signer, facture PDF — feature Alticlub). Fix build local turbopack (pin pako@1.0.11). Items dette 4.15-4.17 ajoutés. Grille tarifaire Yves reportée (backlog §6).
+> **Dernière mise à jour : 07/07/2026** — Refonte planning ↔ groupes en many-to-many livrée (activités multi-groupes, refonte génération IA). Fix crash boot Scalingo P3015 (déplacement `manual/` hors du scan Prisma). Refactor PDF extraction dynamic imports commité (Budget, PreparationTam, ProjetPedagogique). Audit cascades = 0 fix nécessaire. Item dette 4.18 ajouté (journal public regrouperParCreneau).
 > *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
@@ -68,6 +68,10 @@
 
 ### 2.3 ~~PSP Mollie SEPA~~ — ✅ LIVRÉ (mode live, webhook validé, première échéance Choucas ~17/07)
 
+### 2.7 ~~Refonte planning ↔ groupes many-to-many~~ — ✅ LIVRÉ (07/07)
+
+Table de jointure `PlanningActiviteGroupe`, refonte `genererPlanningIA` (1 activité par cluster au lieu de N), UI multi-select dans TabPlanning, PDF adapté. Anne (Choucas) et Yves (Pôle Montagne) peuvent maintenant construire leurs plannings 6 mois avant les inscriptions, avec activités rattachées à plusieurs groupes (ex: "Escalade Groupe 1 + Groupe 3"). Voir SESSION_STATE 07/07 + `docs/audit-planning-cascade.md`.
+
 ### 2.4 TIER1 Ch.4 — Labels universels — 1j
 
 **À FAIRE.** Remplacer dans `sejour/[id]/page.tsx` les termes scolaires en contexte EVENEMENT.
@@ -120,6 +124,7 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 | 4.15 | Erreurs `Failed to find Server Action` à chaque deploy | 0.5j | Quand un client se plaint OU avant ouverture grand public | Logs Scalingo 03-05/07 : clients avec onglet ouvert pendant un redeploy → Server Action introuvable. Bénin (refresh règle) mais UX dégradée. Fix : détection buildId + reload forcé (middleware ou header). |
 | 4.16 | Upgrade @react-pdf/renderer (dépendance fantôme pako) | 0.5j | Post-pitch | 05/07 : @react-pdf/pdfkit 4.1.0 lib/pdfkit.browser.js importe pako/lib/zlib/* sans déclarer pako. Fix actuel = pin pako@1.0.11 exact en dépendance directe (commit 8a60079). Vérifier si release react-pdf récente déclare pako correctement → retirer le pin. NE PAS passer pako en ^2/^3 (exports field bloque les subpaths). |
 | 4.17 | Qté 0 affiche "0" dans PDF devis (lignes option Alticlub) | 15min | Si Alticlub s'en plaint | Workaround option = ligne qty 0 avec PU TTC visible (livré 05/07). Résidu cosmétique : "0" et "0,00 €" dans qty/totaux. Fix : afficher "—" quand qty=0 dans DevisPDF/FacturePDF/page signer. 3 lignes × 3 fichiers. |
+| 4.18 | Refonte `regrouperParCreneau` dans journal public | 30min-1h | Si un client se plaint des badges groupes absents dans le journal public | 07/07 : la fonction parse les suffixes de titre ("Escalade — G1") pour afficher les badges groupes. Marchait avec l'ancien schéma (activités dupliquées par groupe, suffixe automatique). Ne marche plus avec la refonte m2m (1 activité par cluster, titre sans suffixe, groupes dans une table de jointure). Impact : dégradation cosmétique du journal public pour les nouveaux plannings. Fix : ajouter `groupes` au select backend `journal-public.controller.ts:39` + refondre `regrouperParCreneau` (page.tsx L89-133) pour lire les groupes structurés. Voir `docs/audit-planning-cascade.md` §C.2. |
 
 ---
 
@@ -229,6 +234,9 @@ Août
 | Lignes option devis (Alticlub) | PAS de champ typeLigne (chantier ~10 fichiers écarté). Solution : ligne qty 0 + colonne PU TTC ajoutée et uniformisée sur DevisPDF, page publique signer, FacturePDF (7 colonnes : Désignation/Qté/PU TTC/TVA%/PU HT/Total HT/Total TTC). PU TTC dérivé du HT stocké, jamais persisté. | 05/07/2026 |
 | Build local turbopack (pako) | Root cause : dépendance fantôme pako dans @react-pdf/pdfkit browser build. Fix : pin pako@1.0.11 exact (dépendance directe). 4 boutons PDF restructurés (extraction composant + dynamic import) au passage — amélioration structurelle, pas le fix. Build Scalingo n'a jamais été cassé. | 05/07/2026 |
 | Grille tarifaire Yves | Reporté. Découplé du besoin Alticlub. Requalifier si signal d'autres adhérents LMDJ. | 05/07/2026 |
+| Planning ↔ groupes m2m | Refonte complète via table de jointure `PlanningActiviteGroupe` (Option A), rejet des Options B (activités dupliquées) et C (array Postgres). `genererPlanningIA` refondu : 1 activité par cluster au lieu de N. Titre simplifié (plus de suffixe " — G1"). Audit exhaustif post-refonte : 0 cascade à fixer. Backfill à 0 confirmé (feature jamais utilisée en prod jusqu'ici). | 07/07/2026 |
+| Migration SQL manuelle Prisma | Ne JAMAIS créer de sous-dossier dans `prisma/migrations/` pour autre chose que des migrations Prisma standards (nommage `YYYYMMDDHHMMSS_nom` + fichier `migration.sql`). `prisma migrate deploy` scanne tous les sous-dossiers et plante avec P3015 sinon. Pour les migrations SQL manuelles à référencer dans le repo : `prisma/manual-migrations/` (norme LIAVO) ou `docs/migrations/`. | 07/07/2026 |
+| Ordre déploiement SQL + code | Toujours exécuter la migration SQL prod AVANT le push du code correspondant. Sinon fenêtre de risque : le nouveau backend démarre sur une base sans la structure attendue, crash au boot ou au premier `SELECT`. Confirmé 07/07 avec la refonte m2m (crash P3015 pendant ~10 min). | 07/07/2026 |
 
 ---
 

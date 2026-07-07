@@ -1,5 +1,104 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 03/07/2026 — Responsive mobile livré et déployé (Fable 5 overnight + fixes manuels).
+> Dernière mise à jour : 07/07/2026 — Refonte planning ↔ groupes en many-to-many livrée et déployée. Refactor PDF extraction dynamic imports commité.
+
+---
+
+## SESSION 07/07/2026 — Refonte planning-groupes many-to-many + fix Prisma migrations + refactor PDF
+
+### Contexte
+
+Chantier initial : permettre à Anne (Choucas) et Yves (Pôle Montagne) de construire leurs plannings 6 mois avant les inscriptions élèves pour validation prestataires. Diagnostic exhaustif du code → la génération auto marchait déjà pour les 3 cas (DIRECT pur, DIRECT→COLLAB basculé, COLLAB natif via appel d'offre). Seul trou identifié : impossible de rattacher plusieurs groupes à une même activité manuelle.
+
+Décision produit : refonte many-to-many complète (Option A) et non un patch ni un array Postgres — fix à la source, sémantique pure, pas de dette technique.
+
+### Livré (5 commits + migration SQL prod)
+
+**Commit 9803ba9 — Backend refonte m2m**
+- `schema.prisma` : nouveau model `PlanningActiviteGroupe` (table de jointure, unique composite, onDelete Cascade des deux côtés). Suppression de `PlanningActivite.groupeId` + relation `groupe`. Ajout `groupes PlanningActiviteGroupe[]` sur PlanningActivite et `planningActivites PlanningActiviteGroupe[]` sur GroupeSejour.
+- `backend/prisma/manual-migrations/planning-groupes-m2m.sql` : migration SQL transactionnelle (CREATE TABLE + backfill des `groupeId` existants + DROP COLUMN + index). Déplacée depuis `migrations/manual/` par le commit 34b302a.
+- `create-planning.dto.ts` : ajout `@IsArray() @IsOptional() @IsUUID('4', { each: true }) groupeIds?: string[]`.
+- `collaboration.service.ts` :
+  - `getPlanning` inclut les groupes via nested include + mapping pour aplatir en `groupes: [{id, nom, couleur}]`.
+  - `createPlanning` accepte `groupeIds`, crée les relations via nested Prisma.
+  - `deletePlanning` : cascade automatique via onDelete Cascade.
+  - `genererPlanningIA` REFONDU : au lieu de créer N × PlanningActivite (une par groupe du cluster), crée 1 seule activité par (cluster × activité) attachée à tous les groupes du cluster. Titre simplifié (plus de suffixe " — G1"). Impact : environ 4× moins d'entrées en base pour un même planning.
+
+**Commit 8728934 — Frontend UI multi-groupes**
+- `collaboration.ts` : type `PlanningActivite.groupeNom` supprimé, remplacé par `groupes: Array<{id, nom, couleur}>`. Signature `createPlanning` accepte `groupeIds?: string[]`.
+- `TabPlanning.tsx` : ajout d'un multi-select "Groupes concernés" dans la modale (pastilles rondes colorées, toggle sélection, mutuellement exclusif avec `estCollective`). Les 4 chemins de drag (catalogue, parking, calendrier existant, resize) préservent les groupeIds. Rendu `DraggableActivity` affiche les groupes via `labelGroupes` (ex: "G1, G3" ou "Tous les groupes").
+- `PlanningPDF.tsx` : type `groupes` remplace `groupeNom`. Rendu bloc reconstruit le label depuis `groupes[]`.
+
+**Commit 34b302a — Fix Prisma migrations manual/**
+Root cause : Prisma scanne tout le dossier `prisma/migrations/` et attend un `migration.sql` dans chaque sous-dossier. Le dossier `manual/` créé pour la migration SQL manuelle a été détecté comme la 115ᵉ migration mais son fichier s'appelait `planning-groupes-m2m.sql` (pas `migration.sql`) → erreur P3015 au boot Scalingo → `migrate deploy` planté → app HS pendant ~10 min.
+
+Fix : `git mv backend/prisma/migrations/manual backend/prisma/manual-migrations` — sortie du scan Prisma. Le dossier reste dans le repo pour traçabilité mais n'est plus interprété comme migration.
+
+**Commit d683820 — Refactor PDF extraction (rétroactif chantier 05/07)**
+Extraction en 2 fichiers (Button + PDF component) avec dynamic import de `@react-pdf/renderer` sur BudgetPDFButton, PreparationTamPDFButton, ProjetPedagogiquePDFButton (calqué sur DevisPDFButton et PlanningPDFButton). 6 fichiers, 717 insertions, 699 suppressions.
+
+**Commit fe7db8a — Docs**
+`docs/audit-planning-cascade.md` (audit CC Phase 1) + `docs/ROADMAP_ETE_2026.md` (mise à jour).
+
+### Migration prod
+
+SQL exécuté avant le push via `scalingo --app liavo-backend --region osc-fr1 pgsql-console` en un seul bloc BEGIN/COMMIT :
+```sql
+CREATE TABLE planning_activite_groupes (...);
+CREATE INDEX idx_pag_groupe ...;
+INSERT INTO planning_activite_groupes ... FROM planning_activites WHERE groupe_id IS NOT NULL;
+ALTER TABLE planning_activites DROP COLUMN groupe_id;
+```
+Vérification post-migration : `COUNT(*) FROM planning_activite_groupes = 0` (aucune activité IA n'avait de groupeId en prod), colonne `groupe_id` bien supprimée. Backend redémarré, `Backend running on port 23364`, toutes les routes mappées.
+
+### Audit exhaustif Phase 1 (post-refonte)
+
+CC a scanné tout le repo pour trouver les cascades. Résultat : **0 occurrence à fixer**. Les 8 endroits qui incluent `planningActivites` via Prisma le font en bare include, et le frontend n'accède qu'aux champs scalaires (titre, heureDebut, heureFin, responsable, couleur). Aucun code ne lit l'ancien `groupeId` ou `groupeNom`.
+
+Deux points de dette identifiés dans l'audit (docs/audit-planning-cascade.md section C) :
+- **C.1** : titres "Escalade — G1" en base — **non-problème confirmé** (COUNT prod = 0 activité avec ce suffixe sur 25 activités totales).
+- **C.2** : `regrouperParCreneau` dans journal public parse les suffixes de titre. Marche pour anciens plannings (aucun en prod), pas pour nouveaux (pas de suffixe). Dégradation cosmétique du journal public. Reporté en dette technique.
+
+### Leçons retenues
+
+1. **Distinction 3 cas de création de séjour** : DIRECT pur (hébergeur seul, createurId=null), DIRECT→COLLAB (invitation acceptée, mute modeGestion + crée demande pont avec `nombreEleves: placesTotales`), COLLAB natif (appel d'offre, `demande.nombreEleves` renseigné). `proposerGroupes` fait `demande?.nombreEleves ?? sejour.placesTotales` — couvre les 3 cas.
+2. **`prisma migrate deploy` scanne TOUS les sous-dossiers** de `prisma/migrations/`. Ne jamais créer de sous-dossier dans `migrations/` pour autre chose que des migrations Prisma standards (nommage `YYYYMMDDHHMMSS_nom` + fichier `migration.sql`). Pour les migrations SQL manuelles à référencer dans le repo : `prisma/manual-migrations/` ou `docs/migrations/`, jamais dans `prisma/migrations/`.
+3. **Backfill à 0 = feature jamais utilisée en prod jusqu'ici**. La table `planning_activite_groupes` est vide après migration parce qu'aucune activité IA n'avait été générée en prod avec l'ancien schéma. Ni Anne, ni Yves, ni personne n'avait vraiment testé la génération planning en production — même si l'UI existait depuis un moment.
+4. **Fix à la source vs patch** : Théo a rejeté catégoriquement Option B (activités dupliquées) et Option C (array Postgres) au profit d'une refonte many-to-many propre malgré le coût (2h vs 30min). Trade-off assumé : pas de dette. L'audit a confirmé qu'il n'y avait pas de cascade cachée.
+5. **Backend et frontend Scalingo redéploient indépendamment**. Fenêtre de risque entre push et fin des 2 rebuilds : ~5-10 min pendant lesquelles les deux versions peuvent coexister. Ici : le push a précédé le SQL, donc le nouveau backend a démarré sur une base sans la table de jointure → crash P3015. À l'avenir : ordre strict SQL prod → push code, jamais l'inverse.
+
+### Status test empirique m2m
+**Non validé en prod** au moment de la clôture de session. Backend UP (Nest démarré 11:48), frontend UP (Ready 11:50), audit code clean. Test manuel utilisateur reporté à Théo (créer une activité manuelle avec 2 groupes sur un séjour test, vérifier badges affichés).
+
+---
+
+## SESSION 05/07/2026 — Colonne PU TTC devis/facture + fix build local turbopack
+
+### Feature Alticlub — livrée
+
+Alticlub voulait des lignes "option" affichant HT/TTC sans impact sur le total. Workaround qty=0 conservé (pas de nouveau champ, pas de migration) mais colonne PU TTC ajoutée aux 3 rendus (DevisPDF, page publique signer, FacturePDF).
+
+**Fichiers modifiés** (commit 9b412bb + 8504438) :
+- `frontend/src/components/pdf/DevisPDF.tsx` — 7 colonnes : Désignation | Qté | PU TTC | TVA % | PU HT | Total HT | Total TTC (largeurs 28/8/12/8/12/16/16 = 100%)
+- `frontend/app/devis/signer/[token]/page.tsx` — mêmes 7 colonnes avec responsive `hidden sm:table-cell` sur TVA%, PU HT, Total HT
+- `backend/src/facture/pdf/FacturePDF.tsx` — mêmes 7 colonnes (uniformisation devis/facture pour cohérence comptable)
+
+Helper `puTTC = (puHT, tva) => Math.round(puHT * (1 + tva/100) * 100) / 100` répété à l'identique dans les 3 fichiers. PU TTC dérivé du HT stocké, jamais persisté.
+
+### Fix build local turbopack — livré (commit 8a60079)
+
+Root cause : `@react-pdf/pdfkit 4.1.0` (lib/pdfkit.browser.js) importe `pako/lib/zlib/*.js` **sans déclarer pako comme dépendance**. Ça marchait par hoisting du pako@1.0.11 nested sous `browserify-zlib`. Turbopack strict sur la résolution → bloqué. Un premier `npm install pako` (v3) avait aggravé (exports field v3 bloque les subpaths).
+
+Fix : `npm install pako@1.0.11 --save-exact` (dépendance directe explicite) + suppression de l'override `browserify-zlib.pako` inutile. Aucun fichier source .ts/.tsx touché. `tsc --noEmit` + `npm run build` verts après fix.
+
+### Grille tarifaire dégressive Yves — reporté
+
+Yves (Pôle Montagne) demande une grille tarifaire dégressive multi-centre (Les Gets, Florimont, Bellevaux) avec paliers d'effectif. Diagnostic : besoin différent de la feature Alticlub (document pricing en amont du devis, pas ligne dans un devis existant). Options évaluées : PJ PDF externe / section grille structurée sur devis (JSON) / paliers sur ProduitCatalogue (auto-calcul) / textarea `notesTarifaires`. Théo a acté "on voit plus tard pour Yves". Ajouté au backlog §6 de la roadmap. Requalifier SI d'autres adhérents LMDJ expriment le besoin.
+
+### Leçons retenues
+
+1. **Dépendance fantôme** : quand un package importe un sous-module via un path direct (`pako/lib/zlib/*.js`) sans le déclarer dans ses deps, le résolveur strict (turbopack) casse. Le résolveur permissif (webpack legacy) hoiste. Solution : épingler la dépendance directement dans le package.json de l'app avec la version exacte.
+2. **Workaround acceptable si le fix source est disproportionné**. Alticlub a lu son besoin comme "afficher PU TTC" — pas "typer les lignes d'option en base". Théo a tranché le workaround qty=0 + colonne PU TTC pour ne pas migrer un champ nouveau uniquement pour un client.
+3. **Grille tarifaire ≠ ligne d'option** : deux besoins visuellement proches mais sémantiquement distincts. Ne pas mutualiser sans avoir 3 clients qui demandent la même chose.
 
 ---
 
