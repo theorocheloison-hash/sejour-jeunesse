@@ -1,5 +1,32 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 07/07/2026 — Refonte planning ↔ groupes en many-to-many livrée et déployée. Refactor PDF extraction dynamic imports commité.
+> Dernière mise à jour : 07/07/2026 (soir) — Chantier onboarding backend (26 commits) mergé et déployé en prod. Recette régression Sauvageon 4/4. Voir roadmap section 10.
+
+---
+
+## SESSION 07/07/2026 (soir) — Onboarding backend : register immédiat, trial auto, gates anti-phishing, cron
+
+### Livré et déployé (branche `feat/onboarding-register-trial`, 26 commits, mergée main)
+
+- **Register hébergeur** : `compteValide=true` dès l'inscription (les deux modes). `compteValide` devient un kill switch admin vérifié à chaque requête (JWT strategy + refresh). Email `sendHebergeurAccountPending` réécrit. Bloc trial COMPLET + `setTimeout` J+25 supprimé (jamais fonctionnel — dyno restart).
+- **Trial 30j Pilotage automatique à la première connexion** : hook privé dans `login()`, gardes `trialStartedAt null` + `mollieMandatId null` + **`abonnementStatut INACTIF`** (protège Sauvageon/Choucas/Alticlub/Pôle Montagne, vérifié en prod). Notif admin par centre.
+- **Centres PENDING opérables** (`centre.helper.ts`) : seul SUSPENDED bloque (404 partout, propriétaire compris). Tiers sondant un PENDING → 404. `getCentresForUser` + `getCentreIdsForUser` alignés `not: SUSPENDED` (le fix `getCentreIdsForUser` a évité un planning vide pour les nouveaux — appelants : getMesSejoursConvention/Planning, getMesNonLus).
+- **Gates anti-phishing** `assertEnvoiExterneAutorise` (centre.helper.ts) : tout envoi hébergeur→tiers bloqué tant que PENDING, exception destinataire = email du compte (parcours test). 10 sites gatés : envoyerDevisDirect, convention, notifierEnseignant, brochure, invitation-collab, inviter collaborateur, 3 émissions facture (post-persistance, email seul bloqué), envoyerFactureParEmail, inviterOrganisateur, devis create/update COLLAB. Exclusion documentée : 5 chemins collaboration.service (destinataire fixe, état inatteignable en PENDING). Code erreur : `CENTRE_EN_VALIDATION|message` (parsing frontend à faire).
+- **Cron branché** : `@nestjs/schedule@6.1.3`, `cronQuotidien()` 8h Europe/Paris, garde `ENABLE_CRON==='true'` (posée sur Scalingo 07/07 + restart). 3 étapes : alertes J-21/14/7/3/1 (recentrées essais uniquement : filtres trial ajoutés), essais expirés, renouvellement annuel J-30 (mandat Mollie requis — zéro cible actuelle). Vérif J1 : 10.8 roadmap.
+- **Justificatif ex-nihilo** : membership créé `EN_ATTENTE_DOCUMENT` (garde anti-collision dédup : org déjà détenue par un autre → NON_APPLICABLE). Tunnel claim existant réutilisé tel quel (admin/claims, uploadKbis élargi PDF/JPG/PNG, validerClaim). `getMonClaimStatut` renvoie `organisationId`.
+- **`Devis.dateEnvoi`** : migration `20260707_add_date_envoi_devis` (ALTER + backfill created_at). Posé post-succès email dans envoyerDevisDirect (déviation CC approuvée : pas de faux "envoyé") et dans le create COLLAB (envoi immédiat via sendDevisRecu).
+- **`GET /centres/onboarding-status`** : dérivation 5 étapes (profil, catalogue, conformité justificatif+iban, séjour, devis avec dateEnvoi), `$transaction`, + `centreValide`. Ligne 111 du controller, avant tout paramétré — pas d'avalement de route (vérifié findstr).
+
+### Post-déploiement fait
+- `ENABLE_CRON=true` + restart (timeout CLI au restart — état à confirmer via logs cron 08/07 matin, roadmap 10.8).
+- SQL memberships→VALIDE : les 5 clients prod à VALIDE (vérifié par SELECT).
+- Recette régression Sauvageon : login sans écrasement de plan ✓, planning/séjours/devis visibles ✓, catalogue public ✓. Envoi devis réel non testé (réserve consignée).
+
+### En attente
+- **Test flow nouveau compte** : 08/07 (SIRET Roche-Loison ou local). Compte à neutraliser ensuite (roadmap 10.6).
+- **Stash `extraction PlanningPDF en cours`** à dépiler + build frontend (roadmap 10.3).
+- **Prompt 4 frontend** (checklist gamifiée sobre + welcome modal + fixes 4a) : en cours de rédaction.
+- Rapports CC : `docs/cc-reports/RAPPORT_PROMPT_2TER.md`, `RAPPORT_PROMPT_3.md`.
+- Discordance relevée : ligne roadmap "Grille tarifaire 0/39/59/79€" (30/06) contredit la page publique 29/49/69 confirmée par Théo le 07/07 — à corriger dans la table des décisions.
 
 ---
 

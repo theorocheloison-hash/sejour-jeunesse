@@ -240,4 +240,27 @@ Août
 
 ---
 
+## 10. Chantiers issus du run onboarding backend (07/07 — déployé en prod)
+
+**Livré 07/07** : branche `feat/onboarding-register-trial` (26 commits) mergée et déployée. Compte hébergeur utilisable dès l'inscription (compteValide=true au register, kill switch conservé), trial 30j Pilotage auto à la première connexion (garde `abonnementStatut INACTIF` protège les clients existants), centres PENDING opérables (SUSPENDED seul bloquant), gates anti-phishing `assertEnvoiExterneAutorise` (10 sites, exception destinataire=soi-même), cron alertes branché (`@Cron` 8h Paris, garde `ENABLE_CRON`), justificatif ex-nihilo dans le tunnel claim (membership `EN_ATTENTE_DOCUMENT`), `Devis.dateEnvoi` (migration + backfill), endpoint `GET /centres/onboarding-status`. Recette régression Sauvageon validée 4/4. SQL memberships→VALIDE exécuté (5 clients).
+
+| # | Chantier | Détail | Priorité / Deadline |
+|---|---|---|---|
+| 10.1 | **Gestion admin des abonnements (virement/BdC)** | Vue admin centres (plan/statut/dates/mode), action atomique "activer abonnement" = facture + extension période, champ `modePaiement` (MOLLIE\|VIREMENT), fixes facture `emettre()` (mention "acquittée par prélèvement SEPA" hardcodée → dynamique, échéance now → +30j), relance J-30 cron. | **DEADLINE DURE 26/09** : au-delà, le cron enverra "votre essai expire" à Choucas (client payant BdC, `abonnement_actif_jusqua` 17/10, `trial_started_at` en base, pas de mandat Mollie) |
+| 10.2 | Onboarding phase 2 — frontend | 4a : messages register, CTA trial obsolète, parsing `CENTRE_EN_VALIDATION`, badge centre PENDING. 4b : checklist activation + welcome modal (consomme `onboarding-status`, repli localStorage). 4c : parcours test guidé (devis à sa propre adresse). 4bis backend : preview facture non-émise (`apercu()`) + `POST /abonnements/demander-extension` (+14j sur demande → notif admin). | Avant démarchage IDDJ |
+| 10.3 | Extraction PlanningPDF | Stash `extraction PlanningPDF en cours` à dépiler → `npm run build` frontend → commit dédié si vert. Code actuellement dupliqué (composant inline + fichier extrait commité). | Hygiène, avec 10.2 |
+| 10.4 | .gitignore | Ajouter `build-error*.txt` (frontend). | Avec 10.2 |
+| 10.5 | Email renouvellement annuel | Montant ignore les suppléments multi-centre (+39€/centre) — faux pour Pôle Montagne (YAKA+Florimont). | Avec 10.1 |
+| 10.6 | Compte test recette | Compte hébergeur test à créer (test flow nouveau compte, prévu 08/07) puis à neutraliser : `SUSPENDED` + `compteValide=false`, étiquette TEST. | 08/07 |
+| 10.7 | CLI Scalingo | 1.44.1 obsolète (timeouts constatés sur `restart`), mettre à jour vers 1.47.0. | Hygiène |
+| 10.8 | Vérif cron J1 | Après 8h le 08/07 : `scalingo logs | findstr cronQuotidien` — 3 lignes attendues. Si rien : le restart post-`env-set ENABLE_CRON` n'a pas pris, relancer `restart`. | 08/07 matin |
+
+| Sujet | Décision | Date |
+|---|---|---|
+| Priorité 1 roadmap invalidée | "Premier paiement Choucas ~17/07 = validation Mollie bout-en-bout" : Choucas paie par BdC mairie (Pilotage annuel 690€), ne passera JAMAIS par Mollie. Extension manuelle posée (17/10). Premier vrai test Mollie = Alticlub (fin trial 10/09) ou Pôle Montagne (01/12). | 07/07/2026 |
+| Frontière de sécurité onboarding | L'accès au centre n'est plus la frontière (PENDING opérable) : ce sont les gates d'envoi + le filtre ACTIVE du catalogue public. `compteValide` = kill switch par requête, `SUSPENDED` = kill switch centre. | 07/07/2026 |
+| Checklist onboarding | 5 étapes dérivées des données (jamais de flags manuels) : profil, catalogue, conformité (justificatif+IBAN), 1er séjour, 1er devis envoyé. Pas de suppression : repli visuel localStorage. Activation = premier devis envoyé. | 07/07/2026 |
+
+---
+
 **Ce document est la source unique de priorisation pour l'été 2026. Les autres docs restent comme archives de décision.**
