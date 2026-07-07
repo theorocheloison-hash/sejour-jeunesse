@@ -101,12 +101,13 @@ export class InvitationCollaborationService {
   async create(dto: CreateInvitationCollaborationDto, user: JwtUser, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, user.id, centreId);
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). Gate posé AVANT la création de l'invitation pour
-    // ne pas laisser un token orphelin. Email du user rechargé depuis la base.
-    if (centre.statut !== 'ACTIVE') {
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding). Gate posé
+    // AVANT la création de l'invitation pour ne pas laisser un token orphelin.
+    // Email du user rechargé depuis la base.
+    {
       const me = await this.prisma.user.findUnique({ where: { id: user.id }, select: { email: true } });
-      assertEnvoiExterneAutorise(centre, dto.emailEnseignant, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, dto.emailEnseignant, me?.email ?? '');
     }
 
     const invitation = await this.prisma.invitationCollaboration.create({

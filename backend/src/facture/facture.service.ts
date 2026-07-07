@@ -413,12 +413,11 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
-        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
-        // par le catch — la facture, déjà persistée, reste émise).
-        if (centre.statut !== 'ACTIVE') {
-          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
-        }
+        // Validation non acquise (centre PENDING ou revendication en attente) :
+        // notification externe bloquée (throw avalé par le catch — la facture,
+        // déjà persistée, reste émise).
+        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        await assertEnvoiExterneAutorise(this.prisma, centre, destinataire.emailNotif, me?.email ?? '');
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
@@ -538,12 +537,11 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
-        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
-        // par le catch — la facture, déjà persistée, reste émise).
-        if (centre.statut !== 'ACTIVE') {
-          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
-        }
+        // Validation non acquise (centre PENDING ou revendication en attente) :
+        // notification externe bloquée (throw avalé par le catch — la facture,
+        // déjà persistée, reste émise).
+        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        await assertEnvoiExterneAutorise(this.prisma, centre, destinataire.emailNotif, me?.email ?? '');
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
@@ -720,12 +718,11 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
-        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
-        // par le catch — la facture, déjà persistée, reste émise).
-        if (centre.statut !== 'ACTIVE') {
-          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
-        }
+        // Validation non acquise (centre PENDING ou revendication en attente) :
+        // notification externe bloquée (throw avalé par le catch — la facture,
+        // déjà persistée, reste émise).
+        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        await assertEnvoiExterneAutorise(this.prisma, centre, destinataire.emailNotif, me?.email ?? '');
         const montantFormate = montantTTC.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
@@ -902,12 +899,13 @@ export class FactureService {
       throw new ForbiddenException('Cette facture ne vous appartient pas');
     }
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). dto.email est une adresse libre venant du body :
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding).
+    // dto.email est une adresse libre venant du body :
     // gate indispensable. Email du user rechargé depuis la base (pas du body).
-    if (centre.statut !== 'ACTIVE') {
+    {
       const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      assertEnvoiExterneAutorise(centre, dto.email, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, dto.email, me?.email ?? '');
     }
 
     if (!facture.pdfUrl) {

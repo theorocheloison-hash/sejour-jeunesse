@@ -597,7 +597,7 @@ export class ClientsService {
 
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: centreId },
-      select: { brochureUrl: true, nom: true, email: true, statut: true },
+      select: { brochureUrl: true, nom: true, email: true, statut: true, organisationId: true, userId: true },
     });
 
     const brochureUrl = centre?.brochureUrl ?? null;
@@ -605,11 +605,12 @@ export class ClientsService {
       throw new BadRequestException('Brochure non configurée — contactez l\'administrateur');
     }
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
-    if (centre && centre.statut !== 'ACTIVE') {
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding).
+    // Email du user rechargé depuis la base (pas du body).
+    if (centre) {
       const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      assertEnvoiExterneAutorise(centre, emailDestinataire, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, emailDestinataire, me?.email ?? '');
     }
 
     await this.email.sendGenericNotification(

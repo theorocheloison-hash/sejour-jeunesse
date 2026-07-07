@@ -84,16 +84,16 @@ export class DevisService {
       );
     }
 
-    // Centre non validé (PENDING) : la notification email à l'enseignant fait
-    // partie intégrante de ce flux (avec génération d'un magic link) → on bloque
-    // AVANT de créer le devis pour ne laisser aucun état partiel. Exception :
-    // enseignant = sa propre adresse (test onboarding).
-    if (centre.statut !== 'ACTIVE' && demande.enseignantId) {
+    // Validation non acquise (centre PENDING ou revendication en attente) : la
+    // notification email à l'enseignant fait partie intégrante de ce flux (avec
+    // génération d'un magic link) → on bloque AVANT de créer le devis pour ne
+    // laisser aucun état partiel. Exception : enseignant = sa propre adresse.
+    if (demande.enseignantId) {
       const [me, enseignantCible] = await Promise.all([
         this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } }),
         this.prisma.user.findUnique({ where: { id: demande.enseignantId }, select: { email: true } }),
       ]);
-      assertEnvoiExterneAutorise(centre, enseignantCible?.email ?? null, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, enseignantCible?.email ?? null, me?.email ?? '');
     }
 
     // Numéro de devis séquentiel atomique par émetteur (non overridable)
@@ -507,16 +507,15 @@ export class DevisService {
         },
       });
       if (demande?.enseignant && demande?.sejour) {
-        // Centre non validé (PENDING) : notification externe bloquée — la
-        // modification du devis (opération interne) reste permise, seul l'email
-        // vers le tiers est skippé (pas de 403 après persistance).
-        if (centre.statut !== 'ACTIVE') {
-          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-          try {
-            assertEnvoiExterneAutorise(centre, demande.enseignant.email, me?.email ?? '');
-          } catch {
-            return this.prisma.devis.findUnique({ where: { id }, include: { lignes: true } });
-          }
+        // Validation non acquise (centre PENDING ou revendication en attente) :
+        // notification externe bloquée — la modification du devis (opération
+        // interne) reste permise, seul l'email vers le tiers est skippé
+        // (pas de 403 après persistance).
+        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        try {
+          await assertEnvoiExterneAutorise(this.prisma, centre, demande.enseignant.email, me?.email ?? '');
+        } catch {
+          return this.prisma.devis.findUnique({ where: { id }, include: { lignes: true } });
         }
         await this.email.sendGenericNotification(
           demande.enseignant.email,
@@ -1251,11 +1250,12 @@ export class DevisService {
     const sejour = devis.demande?.sejour;
     if (!enseignant || !sejour) throw new NotFoundException('Enseignant introuvable');
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
-    if (centre.statut !== 'ACTIVE') {
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding).
+    // Email du user rechargé depuis la base (pas du body).
+    {
       const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      assertEnvoiExterneAutorise(centre, enseignant.email, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, enseignant.email, me?.email ?? '');
     }
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -1658,11 +1658,12 @@ export class DevisService {
       throw new ForbiddenException('L\'email du client est requis pour envoyer le devis');
     }
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
-    if (centre.statut !== 'ACTIVE') {
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding).
+    // Email du user rechargé depuis la base (pas du body).
+    {
       const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      assertEnvoiExterneAutorise(centre, clientEmail, me?.email ?? '');
+      await assertEnvoiExterneAutorise(this.prisma, centre, clientEmail, me?.email ?? '');
     }
 
     if (devis.statut !== 'EN_ATTENTE') {
@@ -1785,6 +1786,8 @@ export class DevisService {
     centreId: string;
     centreNom: string;
     centreStatut: string;
+    centreOrganisationId: string | null;
+    centreUserId: string | null;
     centreEmail: string | null;
     dateDebutFmt: string;
     dateFinFmt: string;
@@ -1965,6 +1968,8 @@ export class DevisService {
       centreId: centre.id,
       centreNom: centre.nom,
       centreStatut: centre.statut,
+      centreOrganisationId: centre.organisationId,
+      centreUserId: centre.userId,
       centreEmail: centre.email ?? null,
       dateDebutFmt: fmtDate(sejour.dateDebut),
       dateFinFmt: fmtDate(sejour.dateFin),
@@ -1997,16 +2002,21 @@ export class DevisService {
     const sujetConvention = `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`;
 
     if (built.contactEmail) {
-      // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-      // adresse (test onboarding). La génération/l'upload restent autorisés.
-      if (built.centreStatut !== 'ACTIVE') {
-        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-        assertEnvoiExterneAutorise(
-          { statut: built.centreStatut, nom: built.centreNom },
-          built.contactEmail,
-          me?.email ?? '',
-        );
-      }
+      // Validation non acquise (centre PENDING ou revendication en attente) :
+      // envoi externe interdit, sauf vers sa propre adresse (test onboarding).
+      // La génération/l'upload restent autorisés.
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      await assertEnvoiExterneAutorise(
+        this.prisma,
+        {
+          statut: built.centreStatut,
+          nom: built.centreNom,
+          organisationId: built.centreOrganisationId,
+          userId: built.centreUserId,
+        },
+        built.contactEmail,
+        me?.email ?? '',
+      );
       await this.email.sendGenericNotification(
         built.contactEmail,
         sujetConvention,

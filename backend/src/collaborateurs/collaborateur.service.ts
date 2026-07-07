@@ -42,13 +42,12 @@ export class CollaborateurService {
     });
     const inviteurNom = inviteur ? `${inviteur.prenom} ${inviteur.nom}` : 'un administrateur';
 
-    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
-    // adresse (test onboarding). Gate posé AVANT la boucle d'upsert pour ne pas
-    // créer d'invitations partielles. Email de l'inviteur lu en base (pas du body).
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding). Gate posé
+    // AVANT la boucle d'upsert pour ne pas créer d'invitations partielles.
+    // Email de l'inviteur lu en base (pas du body).
     for (const centre of centres) {
-      if (centre.statut !== 'ACTIVE') {
-        assertEnvoiExterneAutorise(centre, dto.email, inviteur?.email ?? '');
-      }
+      await assertEnvoiExterneAutorise(this.prisma, centre, dto.email, inviteur?.email ?? '');
     }
 
     const permissions = dto.permissions as unknown as Prisma.InputJsonValue;
