@@ -98,6 +98,8 @@ export async function getCentresForUser(prisma: PrismaService, userId: string) {
 /**
  * Retourne les IDs de tous les centres accessibles par un user :
  * centres dont il est propriétaire + centres où il est collaborateur accepté.
+ * PENDING inclus (centre opérable par son propriétaire) — seul SUSPENDED est
+ * exclu, aligné sur getCentresForUser.
  * Si centreId est fourni, vérifie l'accès à ce centre spécifique via getCentreForUser
  * (qui lève NotFoundException/ForbiddenException si non autorisé) et retourne [centreId].
  */
@@ -111,11 +113,11 @@ export async function getCentreIdsForUser(
     return [centre.id];
   }
   const owned = await prisma.centreHebergement.findMany({
-    where: { userId, statut: 'ACTIVE' },
+    where: { userId, statut: { not: 'SUSPENDED' } },
     select: { id: true },
   });
   const collabs = await prisma.collaborateurCentre.findMany({
-    where: { userId, acceptedAt: { not: null }, centre: { statut: 'ACTIVE' } },
+    where: { userId, acceptedAt: { not: null }, centre: { statut: { not: 'SUSPENDED' } } },
     select: { centreId: true },
   });
   const ids = new Set([
