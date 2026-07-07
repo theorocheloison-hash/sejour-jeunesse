@@ -43,6 +43,13 @@ export class CronAlertesService {
     } catch (err) {
       this.logger.error('[cronQuotidien] échec envoyerAlertesExpires', err as Error);
     }
+
+    try {
+      const { renouvellementsNotifies } = await this.envoyerAlertesRenouvellement();
+      this.logger.log(`[cronQuotidien] renouvellements annuels : ${renouvellementsNotifies} notifié(s)`);
+    } catch (err) {
+      this.logger.error('[cronQuotidien] échec envoyerAlertesRenouvellement', err as Error);
+    }
   }
 
   /** Alerte admin J-21/14/7/3/1 avant expiration d'un abonnement actif. */
