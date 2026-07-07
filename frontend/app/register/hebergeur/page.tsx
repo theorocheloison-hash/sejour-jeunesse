@@ -381,17 +381,25 @@ function RegisterHebergeurContent() {
               Un email de confirmation a été envoyé à <strong>{form.email || claimCentreNom}</strong>.
               Cliquez sur le lien pour vérifier votre adresse.
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
-              <p className="font-semibold mb-0.5">2. Validation par notre équipe</p>
-              Après vérification, votre compte sera examiné par notre équipe.
-              Vous recevrez un email dès que votre accès sera activé.
+            <div className="bg-[var(--color-success-light)] border border-green-200 rounded-lg px-4 py-3 text-sm text-[var(--color-success)]">
+              <p className="font-semibold mb-0.5">2. Connectez-vous dès maintenant</p>
+              Après le clic sur le lien, votre accès est immédiat avec{' '}
+              <strong>30 jours d&apos;essai Pilotage offerts</strong> — toutes les
+              fonctionnalités sont ouvertes.
+              <p className="mt-1.5 text-xs opacity-75">
+                La visibilité au catalogue public et l&apos;envoi de documents à des tiers
+                seront débloqués après validation de votre centre par l&apos;équipe LIAVO.
+              </p>
             </div>
           </div>
-          <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] hover:underline">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
+          <Link
+            href="/login"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-hover)]"
+          >
             Retour à la connexion
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
           </Link>
         </div>
       </main>
