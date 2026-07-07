@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 
@@ -16,6 +17,33 @@ export class CronAlertesService {
     private prisma: PrismaService,
     private emailService: EmailService,
   ) {}
+
+  /**
+   * Point d'entrée cron quotidien (8h Europe/Paris, in-process via @nestjs/schedule —
+   * mono-dyno Scalingo, pas de process clock séparé).
+   * GARDE : ne s'exécute que si ENABLE_CRON === 'true'. Cette variable doit être
+   * posée à 'true' sur Scalingo UNIQUEMENT — jamais en local ni en CI, pour éviter
+   * les envois d'emails d'alerte depuis un environnement de développement.
+   * Chaque étape a son propre try/catch : un échec n'empêche pas la suivante.
+   */
+  @Cron('0 8 * * *', { timeZone: 'Europe/Paris' })
+  async cronQuotidien() {
+    if (process.env.ENABLE_CRON !== 'true') return;
+
+    try {
+      const { alertesEnvoyees } = await this.envoyerAlertes();
+      this.logger.log(`[cronQuotidien] alertes expiration : ${alertesEnvoyees} envoyée(s)`);
+    } catch (err) {
+      this.logger.error('[cronQuotidien] échec envoyerAlertes', err as Error);
+    }
+
+    try {
+      const { expiresNotifies } = await this.envoyerAlertesExpires();
+      this.logger.log(`[cronQuotidien] essais expirés : ${expiresNotifies} notifié(s)`);
+    } catch (err) {
+      this.logger.error('[cronQuotidien] échec envoyerAlertesExpires', err as Error);
+    }
+  }
 
   /** Alerte admin J-21/14/7/3/1 avant expiration d'un abonnement actif. */
   async envoyerAlertes() {
