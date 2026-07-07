@@ -5,7 +5,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
-import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 
 const INCLUDE_FULL = {
   contacts: true,
@@ -597,12 +597,19 @@ export class ClientsService {
 
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: centreId },
-      select: { brochureUrl: true, nom: true, email: true },
+      select: { brochureUrl: true, nom: true, email: true, statut: true },
     });
 
     const brochureUrl = centre?.brochureUrl ?? null;
     if (!brochureUrl) {
       throw new BadRequestException('Brochure non configurée — contactez l\'administrateur');
+    }
+
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
+    if (centre && centre.statut !== 'ACTIVE') {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      assertEnvoiExterneAutorise(centre, emailDestinataire, me?.email ?? '');
     }
 
     await this.email.sendGenericNotification(
