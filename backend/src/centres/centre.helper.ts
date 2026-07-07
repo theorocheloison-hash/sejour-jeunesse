@@ -40,6 +40,34 @@ export async function getCentreForUser(
   throw new NotFoundException('Centre introuvable');
 }
 
+/**
+ * Bloque tout envoi d'email vers un tiers tant que le centre n'est pas validé
+ * par l'admin (statut !== 'ACTIVE'). Anti-phishing : un compte hébergeur est
+ * utilisable immédiatement après inscription, sans contrôle humain — pendant
+ * cette fenêtre PENDING, la plateforme ne doit pas servir à envoyer des emails
+ * LIAVO (devis, conventions, invitations…) à des adresses arbitraires.
+ * Exception : destinataire = l'adresse du compte qui déclenche l'envoi
+ * (parcours de test onboarding, l'hébergeur s'envoie tout à lui-même).
+ * À appeler AVANT tout emailService.* dans les flux déclenchés par HEBERGEUR.
+ * userEmail doit venir de la base (JWT/userId), JAMAIS du body de la requête.
+ */
+export function assertEnvoiExterneAutorise(
+  centre: { statut: string; nom: string },
+  destinataireEmail: string | null | undefined,
+  userEmail: string,
+): void {
+  if (centre.statut === 'ACTIVE') return;
+  if (
+    destinataireEmail &&
+    destinataireEmail.trim().toLowerCase() === userEmail.trim().toLowerCase()
+  ) {
+    return;
+  }
+  throw new ForbiddenException(
+    `CENTRE_EN_VALIDATION|Votre centre est en cours de validation par l'équipe LIAVO. En attendant, vous pouvez tester tous les envois vers votre propre adresse email (${userEmail}).`,
+  );
+}
+
 export async function getCentresForUser(prisma: PrismaService, userId: string) {
   const owned = await prisma.centreHebergement.findMany({
     where: { userId, statut: 'ACTIVE' },
