@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
@@ -39,6 +40,8 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Crons in-process (mono-dyno Scalingo) — voir CronAlertesService.cronQuotidien.
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
       name: 'default',
       ttl: 60000,
