@@ -1196,13 +1196,12 @@ model PlanningActivite {
   description String?  @db.Text
   responsable String?  @db.VarChar(255)
   couleur     String?  @db.VarChar(50)
-  groupeId    String?  @map("groupe_id") @db.Uuid
   estManuelle   Boolean  @default(true) @map("est_manuelle")
   estCollective Boolean  @default(false) @map("est_collective")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  sejour Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
-  groupe GroupeSejour? @relation("ActivitesGroupe", fields: [groupeId], references: [id], onDelete: SetNull)
+  sejour  Sejour                    @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  groupes PlanningActiviteGroupe[]
 
   @@map("planning_activites")
 }
@@ -1218,12 +1217,29 @@ model GroupeSejour {
   taille    Int
   createdAt DateTime @default(now()) @map("created_at")
 
-  sejour    Sejour             @relation(fields: [sejourId], references: [id], onDelete: Cascade)
-  activites PlanningActivite[] @relation("ActivitesGroupe")
-  eleves    EleveGroupe[]
+  sejour            Sejour                    @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  planningActivites PlanningActiviteGroupe[]
+  eleves            EleveGroupe[]
 
   @@index([sejourId])
   @@map("groupes_sejour")
+}
+
+// ============================================================
+// MODEL : PlanningActiviteGroupe (jointure many-to-many)
+// ============================================================
+model PlanningActiviteGroupe {
+  id                 String   @id @default(uuid()) @db.Uuid
+  planningActiviteId String   @map("planning_activite_id") @db.Uuid
+  groupeId           String   @map("groupe_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  planningActivite PlanningActivite @relation(fields: [planningActiviteId], references: [id], onDelete: Cascade)
+  groupe           GroupeSejour     @relation(fields: [groupeId], references: [id], onDelete: Cascade)
+
+  @@unique([planningActiviteId, groupeId])
+  @@index([groupeId])
+  @@map("planning_activite_groupes")
 }
 
 // ============================================================

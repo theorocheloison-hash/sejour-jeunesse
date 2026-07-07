@@ -213,15 +213,20 @@ export class CollaborationService {
 
   async getPlanning(sejourId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
-    return this.prisma.planningActivite.findMany({
+    const items = await this.prisma.planningActivite.findMany({
       where: { sejourId },
       orderBy: [{ date: 'asc' }, { heureDebut: 'asc' }],
+      include: { groupes: { include: { groupe: { select: { id: true, nom: true, couleur: true } } } } },
     });
+    return items.map(({ groupes, ...rest }) => ({
+      ...rest,
+      groupes: groupes.map(g => g.groupe),
+    }));
   }
 
   async createPlanning(sejourId: string, userId: string, dto: CreatePlanningDto, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
-    return this.prisma.planningActivite.create({
+    const item = await this.prisma.planningActivite.create({
       data: {
         sejourId,
         date: new Date(dto.date),
@@ -233,8 +238,13 @@ export class CollaborationService {
         couleur: dto.couleur,
         estManuelle: dto.estManuelle ?? true,
         estCollective: dto.estCollective ?? false,
+        ...(dto.groupeIds?.length ? {
+          groupes: { create: dto.groupeIds.map(gid => ({ groupeId: gid })) },
+        } : {}),
       },
+      include: { groupes: { include: { groupe: { select: { id: true, nom: true, couleur: true } } } } },
     });
+    return { ...item, groupes: item.groupes.map(g => g.groupe) };
   }
 
   async deletePlanning(sejourId: string, userId: string, planningId: string, role?: string) {
@@ -987,7 +997,7 @@ export class CollaborationService {
 
     // ── Rotation round-robin : clusters × activités ────────────────────────
     type EntreePlanning = {
-      groupeId: string;
+      groupeIds: string[];
       couleur: string;
       titre: string;
       date: string;
@@ -996,9 +1006,6 @@ export class CollaborationService {
     };
     const entrees: EntreePlanning[] = [];
     const slotsUtilises = new Set<number>();
-
-    const abrégerGroupe = (nom: string): string =>
-      nom.replace(/^Groupe\s+/i, 'G');
 
     for (let tour = 0; tour < nbActivites; tour++) {
       // Durée max requise pour ce tour
@@ -1032,16 +1039,14 @@ export class CollaborationService {
         const duree = Math.min(activite.dureeMinutes ?? 120, slot.fenetre.dureeMin);
         const heureDebut = slot.fenetre.heureDebut;
         const heureFin = toHHMM(toMin(heureDebut) + duree);
-        for (const groupe of clusters[ci]) {
-          entrees.push({
-            groupeId: groupe.id,
-            couleur: groupe.couleur,
-            titre: `${activite.nom} — ${abrégerGroupe(groupe.nom)}`,
-            date: slot.jour,
-            heureDebut,
-            heureFin,
-          });
-        }
+        entrees.push({
+          groupeIds: clusters[ci].map(g => g.id),
+          couleur: clusters[ci][0].couleur,
+          titre: activite.nom,
+          date: slot.jour,
+          heureDebut,
+          heureFin,
+        });
       }
     }
 
@@ -1062,13 +1067,18 @@ export class CollaborationService {
                 heureFin: e.heureFin,
                 titre: e.titre,
                 couleur: e.couleur,
-                groupeId: e.groupeId,
                 estManuelle: false,
+                groupes: { create: e.groupeIds.map(gid => ({ groupeId: gid })) },
               },
+              include: { groupes: { include: { groupe: { select: { id: true, nom: true, couleur: true } } } } },
             })
           )
         );
-        this.planningJobs.set(jobId, { status: 'done', result: created });
+        const mapped = created.map(({ groupes, ...rest }) => ({
+          ...rest,
+          groupes: groupes.map(g => g.groupe),
+        }));
+        this.planningJobs.set(jobId, { status: 'done', result: mapped });
       } catch (err) {
         this.planningJobs.set(jobId, { status: 'error', error: String(err) });
       }

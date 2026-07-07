@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, Matches, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, Matches, IsDateString, IsArray, IsUUID } from 'class-validator';
 
 export class CreatePlanningDto {
   @IsDateString()
@@ -33,4 +33,9 @@ export class CreatePlanningDto {
 
   @IsOptional()
   estCollective?: boolean;
+
+  @IsArray()
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  groupeIds?: string[];
 }
