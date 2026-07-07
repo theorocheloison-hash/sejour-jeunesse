@@ -229,6 +229,10 @@ export class AuthService {
           role: Role.HEBERGEUR,
           telephone: dto.telephone ?? null,
           emailVerifie: false,
+          // Compte utilisable immédiatement : la validation admin ne bloque plus
+          // le login mais le passage du centre PENDING→ACTIVE (catalogue + envois
+          // externes). compteValide sert désormais de kill switch admin.
+          compteValide: true,
           tokenVerification: token,
           tokenVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
@@ -247,7 +251,8 @@ export class AuthService {
     }
 
     // Notification admin (fire-and-forget) — couvre les deux modes (claim + normal).
-    // L'hébergeur reste compteValide=false : validation admin requise pour se connecter.
+    // Le compte est utilisable immédiatement ; la validation admin porte sur le
+    // passage du centre PENDING→ACTIVE, pas sur le login.
     this.email.notifyAdminNewAccount(
       { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
       `Centre&nbsp;: ${dto.nomCentre}`
@@ -547,9 +552,10 @@ export class AuthService {
       throw new UnauthorizedException('EMAIL_NON_VERIFIE');
     }
 
-    // Gate 3 : hébergeur validé par l'équipe (compteValide est false par défaut
-    // pour TOUS les rôles — ce check est donc conditionné au rôle HEBERGEUR, sinon
-    // il bloquerait les organisateurs/signataires qui se connectent via emailVerifie).
+    // Gate 3 : kill switch admin pour les hébergeurs. compteValide est posé à true
+    // dès le register (compte utilisable immédiatement) ; l'admin peut le repasser
+    // à false pour suspendre un compte. Check conditionné au rôle HEBERGEUR, sinon
+    // il bloquerait les autres rôles dont compteValide est false par défaut.
     if (user.role === 'HEBERGEUR' && !user.compteValide) {
       throw new UnauthorizedException('COMPTE_EN_ATTENTE_VALIDATION');
     }
