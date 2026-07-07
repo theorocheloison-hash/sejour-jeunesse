@@ -199,7 +199,12 @@ export function extractApiError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     if (!err.response) return 'Impossible de contacter le serveur';
     const msg = err.response.data?.message as string | string[] | undefined;
-    return Array.isArray(msg) ? msg[0] : (msg ?? 'Identifiants invalides');
+    const resolved = Array.isArray(msg) ? msg[0] : (msg ?? 'Identifiants invalides');
+    // Codes backend "CODE|message lisible" (ex. CENTRE_EN_VALIDATION) :
+    // on n'affiche que la partie lisible.
+    const coded = /^CENTRE_EN_VALIDATION\|(.+)$/.exec(resolved);
+    if (coded) return coded[1];
+    return resolved;
   }
   return 'Impossible de contacter le serveur';
 }
