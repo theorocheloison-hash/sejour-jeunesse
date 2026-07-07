@@ -901,6 +901,15 @@ export class FactureService {
     if (facture.devis.centreId !== centre.id) {
       throw new ForbiddenException('Cette facture ne vous appartient pas');
     }
+
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). dto.email est une adresse libre venant du body :
+    // gate indispensable. Email du user rechargé depuis la base (pas du body).
+    if (centre.statut !== 'ACTIVE') {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      assertEnvoiExterneAutorise(centre, dto.email, me?.email ?? '');
+    }
+
     if (!facture.pdfUrl) {
       throw new ForbiddenException('Le PDF de la facture n\'est pas encore disponible. Réessayez dans quelques secondes.');
     }
