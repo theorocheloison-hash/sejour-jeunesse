@@ -467,17 +467,19 @@ export class ClaimService {
   }
 
   /**
-   * Upload du Kbis (PDF uniquement, max 10MB).
-   * Met à jour le Membership avec l'URL du document et passe en EN_ATTENTE_VALIDATION.
-   * Notifie l'admin par email.
+   * Upload du justificatif (PDF, JPG ou PNG, max 10MB — mêmes formats que
+   * claimFromCatalogue). Met à jour le Membership avec l'URL du document et
+   * passe en EN_ATTENTE_VALIDATION. Notifie l'admin par email.
+   * (Nom conservé pour les appelants frontend.)
    */
   async uploadKbis(
     userId: string,
     organisationId: string,
     file: Express.Multer.File,
   ) {
-    if (file.mimetype !== 'application/pdf') {
-      throw new BadRequestException('Le Kbis doit être un fichier PDF');
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Le justificatif doit être un PDF, JPG ou PNG.');
     }
     if (file.size > 10 * 1024 * 1024) {
       throw new BadRequestException('Le fichier ne peut pas dépasser 10 Mo');
@@ -564,6 +566,7 @@ export class ClaimService {
     return {
       claimStatut: membership.claimStatut,
       organisationNom: membership.organisation.nom,
+      organisationId: membership.organisationId,
       membershipId: membership.id,
     };
   }
