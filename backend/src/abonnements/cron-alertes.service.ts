@@ -52,7 +52,11 @@ export class CronAlertesService {
     }
   }
 
-  /** Alerte admin J-21/14/7/3/1 avant expiration d'un abonnement actif. */
+  /**
+   * Alerte J-21/14/7/3/1 avant expiration d'un ESSAI actif (trial démarré,
+   * pas de mandat Mollie — même ciblage qu'envoyerAlertesExpires : le message
+   * envoyé est sendTrialExpirationAlert, il ne concerne pas les abonnements payés).
+   */
   async envoyerAlertes() {
     const now = new Date();
     const dans21j = new Date(now); dans21j.setDate(dans21j.getDate() + 21);
@@ -62,6 +66,8 @@ export class CronAlertesService {
       where: {
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: { gte: now, lte: dans21j },
+        trialStartedAt: { not: null },
+        mollieMandatId: null,
         OR: [
           { dernierEmailAlerteAt: null },
           { dernierEmailAlerteAt: { lt: il_y_a_6j } },
