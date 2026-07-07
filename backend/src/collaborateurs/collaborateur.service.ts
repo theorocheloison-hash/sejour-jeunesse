@@ -5,7 +5,7 @@ import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
-import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { getUserCentrePermissions } from '../centres/permission.helper.js';
 import { InviteCollaborateurDto } from './dto/invite-collaborateur.dto.js';
 import { RegisterCollaborateurDto } from './dto/register-collaborateur.dto.js';
@@ -38,9 +38,18 @@ export class CollaborateurService {
 
     const inviteur = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { prenom: true, nom: true },
+      select: { prenom: true, nom: true, email: true },
     });
     const inviteurNom = inviteur ? `${inviteur.prenom} ${inviteur.nom}` : 'un administrateur';
+
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). Gate posé AVANT la boucle d'upsert pour ne pas
+    // créer d'invitations partielles. Email de l'inviteur lu en base (pas du body).
+    for (const centre of centres) {
+      if (centre.statut !== 'ACTIVE') {
+        assertEnvoiExterneAutorise(centre, dto.email, inviteur?.email ?? '');
+      }
+    }
 
     const permissions = dto.permissions as unknown as Prisma.InputJsonValue;
 
