@@ -107,6 +107,14 @@ export class CentreController {
     return this.centreService.getMesPermissions(user.id, centreId);
   }
 
+  /** GET /centres/onboarding-status — État d'onboarding du centre actif (dérivé, rien de stocké). */
+  @Get('onboarding-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HEBERGEUR)
+  getOnboardingStatus(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.centreService.getOnboardingStatus(user.id, centreId);
+  }
+
   /** GET /centres/dashboard-global — KPIs consolidés multi-centre. MUST be before any :param route. */
   @Get('dashboard-global')
   @UseGuards(JwtAuthGuard, RolesGuard)

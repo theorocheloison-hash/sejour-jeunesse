@@ -59,6 +59,71 @@ export class CentreService {
     return perms;
   }
 
+  /**
+   * État d'onboarding du centre actif, dérivé (aucun état stocké) :
+   * profil, catalogue, conformité (justificatif + IBAN), premier séjour,
+   * premier devis envoyé. Le repli de la carte onboarding est purement frontend.
+   */
+  async getOnboardingStatus(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const [[produitsActifs, sejoursCount, devisEnvoyes], membership] = await Promise.all([
+      this.prisma.$transaction([
+        this.prisma.produitCatalogue.count({
+          where: { centreId: centre.id, actif: true },
+        }),
+        this.prisma.sejour.count({
+          where: { hebergementSelectionneId: centre.id, deletedAt: null },
+        }),
+        this.prisma.devis.count({
+          where: { centreId: centre.id, dateEnvoi: { not: null } },
+        }),
+      ]),
+      centre.organisationId
+        ? this.prisma.membership.findFirst({
+            where: { userId, organisationId: centre.organisationId },
+            select: { claimStatut: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    let justificatif: 'ABSENT' | 'EN_ATTENTE_VALIDATION' | 'VALIDE' = 'ABSENT';
+    if (membership?.claimStatut === 'VALIDE') {
+      justificatif = 'VALIDE';
+    } else if (membership?.claimStatut === 'EN_ATTENTE_VALIDATION') {
+      justificatif = 'EN_ATTENTE_VALIDATION';
+    }
+    // Multi-centre : le justificatif peut être porté par le centre lui-même
+    // (claimDocumentUrl) plutôt que par le membership → au minimum en attente.
+    if (justificatif === 'ABSENT' && centre.claimDocumentUrl) {
+      justificatif = 'EN_ATTENTE_VALIDATION';
+    }
+
+    const iban = centre.iban != null;
+    const etapes = {
+      profil: { ok: centre.imageUrl != null && !!centre.description?.trim() },
+      catalogue: { ok: produitsActifs > 0 },
+      conformite: {
+        justificatif,
+        iban,
+        ok: justificatif !== 'ABSENT' && iban,
+      },
+      sejour: { ok: sejoursCount > 0 },
+      devis: { ok: devisEnvoyes > 0 },
+    };
+
+    return {
+      etapes,
+      centreValide: centre.statut === 'ACTIVE',
+      complete:
+        etapes.profil.ok &&
+        etapes.catalogue.ok &&
+        etapes.conformite.ok &&
+        etapes.sejour.ok &&
+        etapes.devis.ok,
+    };
+  }
+
   /** Retourne la config des champs d'inscription du centre, ou le défaut. */
   async getConfigInscription(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
