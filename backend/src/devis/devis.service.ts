@@ -84,6 +84,18 @@ export class DevisService {
       );
     }
 
+    // Centre non validé (PENDING) : la notification email à l'enseignant fait
+    // partie intégrante de ce flux (avec génération d'un magic link) → on bloque
+    // AVANT de créer le devis pour ne laisser aucun état partiel. Exception :
+    // enseignant = sa propre adresse (test onboarding).
+    if (centre.statut !== 'ACTIVE' && demande.enseignantId) {
+      const [me, enseignantCible] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } }),
+        this.prisma.user.findUnique({ where: { id: demande.enseignantId }, select: { email: true } }),
+      ]);
+      assertEnvoiExterneAutorise(centre, enseignantCible?.email ?? null, me?.email ?? '');
+    }
+
     // Numéro de devis séquentiel atomique par émetteur (non overridable)
     const emetteurId = centre.organisationId ?? centre.id;
     const numeroDevis = await this.formaterNumeroDevis(emetteurId);
@@ -492,6 +504,17 @@ export class DevisService {
         },
       });
       if (demande?.enseignant && demande?.sejour) {
+        // Centre non validé (PENDING) : notification externe bloquée — la
+        // modification du devis (opération interne) reste permise, seul l'email
+        // vers le tiers est skippé (pas de 403 après persistance).
+        if (centre.statut !== 'ACTIVE') {
+          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+          try {
+            assertEnvoiExterneAutorise(centre, demande.enseignant.email, me?.email ?? '');
+          } catch {
+            return this.prisma.devis.findUnique({ where: { id }, include: { lignes: true } });
+          }
+        }
         await this.email.sendGenericNotification(
           demande.enseignant.email,
           'Devis modifié par l\'hébergeur',
