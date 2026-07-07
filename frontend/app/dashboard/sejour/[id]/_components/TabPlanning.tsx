@@ -274,6 +274,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
     responsable: string;
     couleur: string;
     estCollective?: boolean;
+    groupeIds?: string[];
     editId?: string;
   } | null>(null);
 
@@ -316,6 +317,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
         couleur: planModal.couleur || undefined,
         estCollective: planModal.estCollective ?? false,
         estManuelle: true,
+        ...(!planModal.estCollective && planModal.groupeIds?.length ? { groupeIds: planModal.groupeIds } : {}),
       });
       setPlanning(prev => [...prev, newItem]);
       setPlanModal(null);
@@ -491,6 +493,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
           responsable: act.responsable,
           couleur: act.couleur ?? undefined,
           estManuelle: act.estManuelle ?? true,
+          ...(act.groupes?.length ? { groupeIds: act.groupes.map(g => g.id) } : {}),
         });
         setParking(prev => prev.filter(p => p.id !== act.id));
         setPlanning(prev => [...prev, newItem]);
@@ -531,6 +534,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
         description: activite.description ?? '',
         responsable: '',
         couleur: '',
+        groupeIds: [],
       });
       return;
     }
@@ -580,6 +584,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
         responsable: act.responsable,
         couleur: act.couleur ?? undefined,
         estManuelle: act.estManuelle ?? true,
+        ...(act.groupes?.length ? { groupeIds: act.groupes.map(g => g.id) } : {}),
       });
       setPlanning(prev => prev.map(p => p.id === actId ? newItem : p));
     } catch {
@@ -850,6 +855,12 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                               slotHeight={SLOT_HEIGHT}
                               widthPct={widthPct}
                               leftPct={leftPct}
+                              labelGroupes={
+                                act.estCollective ? undefined
+                                : act.groupes?.length
+                                  ? act.groupes.map(g => g.nom.replace(/^Groupe\s+/i, 'G')).join(', ')
+                                  : undefined
+                              }
                               onEdit={() => setPlanModal({
                                 open: true,
                                 date: act.date.split('T')[0],
@@ -859,6 +870,8 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                                 description: act.description ?? '',
                                 responsable: act.responsable ?? '',
                                 couleur: act.couleur ?? '',
+                                estCollective: act.estCollective ?? false,
+                                groupeIds: act.groupes?.map(g => g.id) ?? [],
                                 editId: act.id,
                               })}
                               onResize={async (newDurationSlots) => {
@@ -878,6 +891,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                                     description: act.description,
                                     responsable: act.responsable,
                                     couleur: act.couleur ?? undefined,
+                                    ...(act.groupes?.length ? { groupeIds: act.groupes.map(g => g.id) } : {}),
                                   });
                                   setPlanning(prev => prev.map(p => p.id === act.id ? newItem : p));
                                 } catch {
@@ -1046,18 +1060,50 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
               const isActiviteIA = actExistante && actExistante.estManuelle === false;
               if (isActiviteIA) return null;
               return (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="estCollective"
-                    checked={planModal?.estCollective ?? false}
-                    onChange={e => setPlanModal(m => m ? { ...m, estCollective: e.target.checked } : m)}
-                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
-                  />
-                  <label htmlFor="estCollective" className="text-xs font-medium text-gray-700">
-                    Activité collective — tous les groupes en même temps
-                  </label>
-                </div>
+                <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="estCollective"
+                      checked={planModal?.estCollective ?? false}
+                      onChange={e => setPlanModal(m => m ? { ...m, estCollective: e.target.checked, groupeIds: e.target.checked ? [] : m.groupeIds } : m)}
+                      className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)]"
+                    />
+                    <label htmlFor="estCollective" className="text-xs font-medium text-gray-700">
+                      Activité collective — tous les groupes en même temps
+                    </label>
+                  </div>
+                  {groupes.length > 0 && !(planModal?.estCollective) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Groupes concernés <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {groupes.map(g => {
+                          const selected = planModal?.groupeIds?.includes(g.id) ?? false;
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => setPlanModal(m => m ? {
+                                ...m,
+                                groupeIds: selected
+                                  ? (m.groupeIds ?? []).filter(x => x !== g.id)
+                                  : [...(m.groupeIds ?? []), g.id],
+                              } : m)}
+                              className="rounded-full border-2 px-3 py-1 text-xs font-medium transition-all"
+                              style={{
+                                backgroundColor: selected ? g.couleur : 'transparent',
+                                borderColor: g.couleur,
+                                color: selected ? '#fff' : g.couleur,
+                              }}
+                            >
+                              {g.nom}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               );
             })()}
           </div>
