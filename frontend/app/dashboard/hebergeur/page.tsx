@@ -13,6 +13,7 @@ import type { Disponibilite } from '@/src/lib/centre';
 import { getAbonnementStatut } from '@/src/lib/abonnement';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
 import { getJourFerie, getVacancesZones } from '@/src/data/calendrier-france';
+import OnboardingChecklist from './_components/OnboardingChecklist';
 
 // ─── CA confirmé : helpers réutilisables ─────────────────────────────────────
 type PeriodeCA = 'DDA' | 'DDM' | 'T1' | 'T2' | 'T3' | 'T4';
@@ -289,6 +290,9 @@ export default function HebergeurDashboard() {
       ))}
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6 w-full">
+
+        {/* ── Checklist d'activation (onboarding) ── */}
+        <OnboardingChecklist />
 
         {/* ── Bannières essai / abonnement ── */}
         {essaiActif && (
