@@ -7,7 +7,7 @@ import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
-import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
@@ -1329,6 +1329,14 @@ export class SejourService {
       throw new BadRequestException(
         'Les dates doivent être définies avant de passer en mode collaboratif',
       );
+    }
+
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). Gate posé AVANT l'upsert de l'invitation pour
+    // ne pas laisser un token orphelin. Email du user rechargé depuis la base.
+    if (centre.statut !== 'ACTIVE') {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      assertEnvoiExterneAutorise(centre, emailOrganisateur, me?.email ?? '');
     }
 
     // Anti-spam : si une invitation est déjà en attente pour ce séjour, on la
