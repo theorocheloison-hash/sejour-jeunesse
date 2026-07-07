@@ -109,6 +109,10 @@ describe('SequenceService', () => {
       await expect(service.generer('emetteur-1', 'FACTURE')).rejects.toThrow('connexion perdue');
       expect($transaction).toHaveBeenCalledTimes(1);
     });
+
+    it.todo(
+      "changement d'année civile → la séquence repart à 1 (annee est dans la clé composite)",
+    );
   });
 
   describe('apercu', () => {

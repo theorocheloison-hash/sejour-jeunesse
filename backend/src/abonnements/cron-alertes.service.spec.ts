@@ -192,5 +192,15 @@ describe('CronAlertesService', () => {
         expect.objectContaining({ where: { id: 'centre-ok' } }),
       );
     });
+
+    it.todo(
+      "centre payant par virement (trialStartedAt résiduel, pas de mandat Mollie) → PAS d'alerte essai — invariant du chantier 10.1, à faire passer avant le 26/09",
+    );
+  });
+
+  describe('envoyerAlertesRenouvellement', () => {
+    it.todo(
+      'le montant de renouvellement inclut le supplément multi-centre +39€/centre (bug 10.5, actuellement ignoré)',
+    );
   });
 });
