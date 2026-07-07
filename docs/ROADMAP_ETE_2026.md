@@ -254,6 +254,10 @@ Août
 | 10.6 | Compte test recette | Compte hébergeur test à créer (test flow nouveau compte, prévu 08/07) puis à neutraliser : `SUSPENDED` + `compteValide=false`, étiquette TEST. | 08/07 |
 | 10.7 | CLI Scalingo | 1.44.1 obsolète (timeouts constatés sur `restart`), mettre à jour vers 1.47.0. | Hygiène |
 | 10.8 | Vérif cron J1 | Après 8h le 08/07 : `scalingo logs | findstr cronQuotidien` — 3 lignes attendues. Si rien : le restart post-`env-set ENABLE_CRON` n'a pas pris, relancer `restart`. | 08/07 matin |
+| 10.9 | **HOTFIX faille claim** | Gate fondé sur le claimStatut du propriétaire (pas le statut centre) — branche fix/gate-claim-validation. Faille prouvée (Brevo 21:31 : devis émis vers tiers par claimant non validé). Re-test ZZTEST à confirmer. | 07/07 nuit — déployé |
+| 10.10 | Boîte admin contact@liavo.fr | Notifs délivrées en temps réel par Brevo mais relève avec heures de retard (probable Gmail POP3 sur OVH). Fix : redirection MX ou IMAP. Radar de secours : /dashboard/admin/claims chaque matin. | Avant démarchage |
+| 10.11 | Prompt 6 — parcours test + découverte | Modale de choix séjour test/réel (pré-rempli client=soi), encart proactif pré-envoi, FeatureHint ×4 (convention, facturation, inviter, Pilotage), "Aller plus loin". Prérequis : lecture formulaire séjour + page séjour. | Avec 10.2 |
+| 10.12 | Nettoyage ZZTEST | Procédure détaillée en session state (UI puis SQL). APRÈS re-test hotfix. | 08/07 |
 
 | Sujet | Décision | Date |
 |---|---|---|

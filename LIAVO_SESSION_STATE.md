@@ -1,5 +1,41 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 07/07/2026 (soir) — Chantier onboarding backend (26 commits) mergé et déployé en prod. Recette régression Sauvageon 4/4. Voir roadmap section 10.
+> Dernière mise à jour : 07/07/2026 (nuit) — Frontend onboarding déployé. Test ZZTEST : FAILLE claim découverte et hotfixée le soir même. Voir section ci-dessous + roadmap §10.
+
+---
+
+## SESSION 07/07/2026 (nuit) — Frontend déployé, test claim ZZTEST, FAILLE + HOTFIX
+
+### Déployé en prod
+- `feat/onboarding-frontend` mergée (fast-forward defcf3f, 599 insertions) : OnboardingChecklist (302 l.), WelcomeModal (97 l.), badge "En validation" (sidebar + CentreSelector), écran succès register corrigé, parsing `CENTRE_EN_VALIDATION` dans extractApiError (strictement additif, vérifié), export mort activerTrial supprimé (aucun appelant — les trials historiques étaient 100% SQL).
+- `fix/gate-claim-validation` (hotfix, 2 commits) : merge en cours au moment de l'écriture — **re-test ZZTEST à confirmer** (envoi tiers doit être bloqué).
+
+### Test ZZTEST (centre jetable cloné en SQL, claim réel par trochenrc@gmail.com)
+Validé en réel : recherche claim ✓, claim avec justificatif ✓, connexion immédiate ✓, welcome modal ✓, checklist 0/5→1/5 avec dérivation temps réel ✓, bandeau claim "Validation en cours" ✓ (le consommateur de getMonClaimStatut existe), badge sidebar ✓, **trial 30j auto au 1er login ✓**, notif admin trial délivrée (Brevo 21:20) ✓, séjour+devis créés ✓, envoi devis à soi-même ✓ (DEV-2026-0001), célébration confetti + disparition au F5 validées plus tôt sur Sauvageon ✓.
+
+### ⚠️ FAILLE découverte (et pourquoi le contre-test est non négociable)
+Envoi du devis DEV-2026-0002 vers test@test.com : **PARTI** (preuve Brevo 21:31, soft bounce). Cause : les gates bloquaient `statut !== ACTIVE`, or les 135 centres catalogue sont ACTIVE — le chemin CLAIM donnait accès complet + envois externes AVANT validation admin (la revendication vit sur le Membership, pas sur le centre). Combiné à la cécité email admin (voir plus bas) : fenêtre de phishing réelle sur le funnel de démarchage.
+**Hotfix (fix/gate-claim-validation)** : assertEnvoiExterneAutorise devient async, 3ᵉ fenêtre — centre ACTIVE → lecture Membership du propriétaire (userId × organisationId) ; EN_ATTENTE_DOCUMENT/EN_ATTENTE_VALIDATION/**REFUSE** → 403 message "revendication". VALIDE/NON_APPLICABLE/absent/legacy sans org → autorisé. Self-exception évaluée en premier (parcours test préservé). 11 appelants en await inconditionnel. Relu ligne à ligne, GO donné.
+
+### Diagnostic cécité email admin
+La notif trial était **délivrée en temps réel** (Brevo "Delivered" 21:20 vers contact@liavo.fr). Le décalage "plusieurs heures" habituel = relève de boîte (très probablement Gmail POP3 sur boîte OVH, intervalle long). Fix durable : redirection MX / IMAP — roadmap 10.10. Radar de secours en attendant : /dashboard/admin/claims à consulter chaque matin.
+
+### Décisions produit prises ce soir
+- Parcours test : **modale de choix** au clic "Créer votre premier séjour" (tant que étape 5 non faite) — "Séjour test (recommandé)" pré-rempli client=soi-même + titre "TEST — …" vs "Vrai séjour client" vierge. Jamais de contrainte (un 1er séjour peut être réel). Pas de flag en base : le titre TEST + nettoyage guidé = le marquage.
+- Encart proactif au-dessus du bouton Envoyer tant que non validé (condition = celle du hotfix : claim non validé OU centre PENDING).
+- Découverte des features avancées (Pilotage, facturation, convention, invitation orga, inscriptions) : **PAS d'extension de la checklist** (activation = 5 étapes, point final). Pattern retenu : composant réutilisable `FeatureHint` (bandeau dismissible, clé localStorage par hint×centre) aux 4 moments — devis signé→convention+pipeline facturation (la Section B du doc UX est déjà le mécanisme), séjour DIRECT→inviter (CTA 🔒 existants à enrichir), 1er COLLAB→fiche d'inscription, 1er versement→Pilotage. + section "Aller plus loin" (3 liens passifs) dans la checklist. Tour guidé multi-onglets : écarté.
+
+### Artefacts de test à nettoyer (demain, APRÈS re-test hotfix)
+Centre ZZTEST id `20d2cd18-8b17-4486-9b75-f160c583bd42` (email corrigé en trochenrc@gmail.com — l'email Métralière cloné était un artefact du INSERT). User trochenrc@gmail.com + membership + éventuelle organisation de claim. Séjours "t"/"test" + devis DEV-2026-0001/0002 + client CRM auto-créé.
+Procédure : (1) via l'UI — annuler les 2 devis, supprimer les séjours (softDelete), supprimer la fiche client ; (2) SQL — DELETE user + membership + centre ZZTEST (dérouler avec les erreurs FK réelles, ne pas deviner les cascades). Les numéros DEV-2026-0001/0002 sont consommés sur la séquence ZZTEST : sans conséquence, le centre disparaît avec.
+
+### Points ouverts / à vérifier
+- **Re-test hotfix** : envoi ZZTEST→test@test.com doit échouer (message revendication) + zéro ligne Brevo. Résultat à consigner.
+- **Cron J1** : 08/07 après 8h — `scalingo logs | findstr cronQuotidien` (3 lignes attendues).
+- **Cas non testé** : claim SANS fichier joint — vérifier que l'étape 3 affiche ABSENT+action et pas un faux "en cours d'examen" (à couvrir au test du 4ter).
+- **Non testé** : rendu PDF devis quand logoUrl null (fallback ? vide ?) — 1 ligne de vérif au 4ter.
+- **Audit refuserClaim** : que devient centre.userId après refus ? (les envois sont déjà bloqués par REFUSE, mais l'accès au centre reste — à auditer).
+- **Incohérence cosmétique** : pied de checklist "centre en cours de validation" conditionné à centreValide (statut) — ne s'affiche pas pour un claim ACTIVE non validé alors que les envois sont gatés. À dériver du claim aussi (4ter).
+- Ligne roadmap "Grille tarifaire 0/39/59/79€" (30/06) périmée vs page publique 29/49/69 confirmée par Théo — à corriger.
 
 ---
 
