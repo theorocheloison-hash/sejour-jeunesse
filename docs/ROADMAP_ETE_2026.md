@@ -1,7 +1,8 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 03/07/2026** — Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette technique 4.1-4.3 livrée (nuit refactoring Fable 5). Responsive mobile livré. Diagnostic dette technique Fable 5 (audit complet backend+frontend+transverse).
+> **Dernière mise à jour : 05/07/2026** — Colonne PU TTC uniformisée (devis PDF, page signer, facture PDF — feature Alticlub). Fix build local turbopack (pin pako@1.0.11). Items dette 4.15-4.17 ajoutés. Grille tarifaire Yves reportée (backlog §6).
+> *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
@@ -116,6 +117,9 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 | 4.12 | Extraction helpers partagés frontend (StatutBadge ×4, KpiCard ×3, formatDate ×35 redéfinitions) | 1 nuit | Prochaine modif frontend transverse | Diagnostic Fable 5. Candidat Fable 5 overnight. |
 | 4.13 | Extraction DEPT_TO_REGION + statuts devis constants backend | 0.5j | Prochaine modif backend devis | Diagnostic Fable 5. Table copiée dans 4 services, Set statuts réécrit ~10 fois, magic 30 dupliqué. |
 | 4.14 | IBAN endpoint public getDevisPublicByToken | — | **Décision : ne pas fixer** | Diagnostic Fable 5. centre.iban exposé via GET /devis/public/:token (sans JWT). Décision 03/07 : le token UUID v4 EST l'auth, l'IBAN est nécessaire pour le PDF devis côté client, le retirer casserait DevisPDFButton sur la page de signature. Risque réel = faible (token indevinable). Le vrai fix IBAN = chiffrement en base (backlog existant). |
+| 4.15 | Erreurs `Failed to find Server Action` à chaque deploy | 0.5j | Quand un client se plaint OU avant ouverture grand public | Logs Scalingo 03-05/07 : clients avec onglet ouvert pendant un redeploy → Server Action introuvable. Bénin (refresh règle) mais UX dégradée. Fix : détection buildId + reload forcé (middleware ou header). |
+| 4.16 | Upgrade @react-pdf/renderer (dépendance fantôme pako) | 0.5j | Post-pitch | 05/07 : @react-pdf/pdfkit 4.1.0 lib/pdfkit.browser.js importe pako/lib/zlib/* sans déclarer pako. Fix actuel = pin pako@1.0.11 exact en dépendance directe (commit 8a60079). Vérifier si release react-pdf récente déclare pako correctement → retirer le pin. NE PAS passer pako en ^2/^3 (exports field bloque les subpaths). |
+| 4.17 | Qté 0 affiche "0" dans PDF devis (lignes option Alticlub) | 15min | Si Alticlub s'en plaint | Workaround option = ligne qty 0 avec PU TTC visible (livré 05/07). Résidu cosmétique : "0" et "0,00 €" dans qty/totaux. Fix : afficher "—" quand qty=0 dans DevisPDF/FacturePDF/page signer. 3 lignes × 3 fichiers. |
 
 ---
 
@@ -155,6 +159,7 @@ Documentés pour mémoire. Ne pas commencer avant PMF.
 - ~~App mobile PWA~~ — Responsive mobile livré 03/07. PWA (manifest + service worker) reste en backlog.
 - Marketplace activités
 - Appel d'offres transport
+- **Grille tarifaire dégressive (besoin Yves/Pôle Montagne, 05/07)** — tarif/élève évoluant selon effectif + gratuités encadrants par palier (cf. fichier Cotation Ste Thérèse : 78 él. = 469€/él. + 6 gratuités → 65 él. = 482€ + 5). Options évaluées : PJ PDF (zéro dev), section grille sur devis (champ structuré + rendu PDF), paliers sur ProduitCatalogue (auto-calcul). Décision 05/07 : reporté, requalifier SI d'autres adhérents LMDJ expriment le besoin. Distinct du besoin "lignes option" Alticlub (résolu autrement).
 - Forge française (Gitea OVH) — quand 2e dev ou appel d'offres public
 
 ---
@@ -221,6 +226,9 @@ Août
 | Float→Decimal devis | Chantier post-pitch, vérification données prod obligatoire, interdit en Fable 5 overnight | 03/07/2026 |
 | TODO abonnement (devis.service:52, sejour.service:981) | Choix commercial conscient : ne pas réactiver tant que flux paiement pas stable (post-17/07 Choucas) | 03/07/2026 |
 | Diagnostic dette technique | Source : audit Fable 5 03/07/2026, validé par lecture code MCP. Items intégrés en 4.6–4.14. | 03/07/2026 |
+| Lignes option devis (Alticlub) | PAS de champ typeLigne (chantier ~10 fichiers écarté). Solution : ligne qty 0 + colonne PU TTC ajoutée et uniformisée sur DevisPDF, page publique signer, FacturePDF (7 colonnes : Désignation/Qté/PU TTC/TVA%/PU HT/Total HT/Total TTC). PU TTC dérivé du HT stocké, jamais persisté. | 05/07/2026 |
+| Build local turbopack (pako) | Root cause : dépendance fantôme pako dans @react-pdf/pdfkit browser build. Fix : pin pako@1.0.11 exact (dépendance directe). 4 boutons PDF restructurés (extraction composant + dynamic import) au passage — amélioration structurelle, pas le fix. Build Scalingo n'a jamais été cassé. | 05/07/2026 |
+| Grille tarifaire Yves | Reporté. Découplé du besoin Alticlub. Requalifier si signal d'autres adhérents LMDJ. | 05/07/2026 |
 
 ---
 
