@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
-import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertSignataireCanAccessDemande, assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 
@@ -413,6 +413,12 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
+        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
+        // par le catch — la facture, déjà persistée, reste émise).
+        if (centre.statut !== 'ACTIVE') {
+          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
+        }
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
@@ -532,6 +538,12 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
+        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
+        // par le catch — la facture, déjà persistée, reste émise).
+        if (centre.statut !== 'ACTIVE') {
+          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
+        }
         const montantFormate = montantFacture.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
@@ -708,6 +720,12 @@ export class FactureService {
     // Notification enseignant (COLLAB uniquement — DIRECT = envoi manuel séparé)
     if (devis.demandeId && destinataire.emailNotif) {
       try {
+        // Centre non validé (PENDING) : notification externe bloquée (throw avalé
+        // par le catch — la facture, déjà persistée, reste émise).
+        if (centre.statut !== 'ACTIVE') {
+          const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+          assertEnvoiExterneAutorise(centre, destinataire.emailNotif, me?.email ?? '');
+        }
         const montantFormate = montantTTC.toFixed(2).replace('.', ',');
         await this.email.sendGenericNotification(
           destinataire.emailNotif,
