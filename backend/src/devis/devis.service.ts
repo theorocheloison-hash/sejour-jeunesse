@@ -14,7 +14,7 @@ import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
-import { getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import {
@@ -1225,6 +1225,13 @@ export class DevisService {
     const sejour = devis.demande?.sejour;
     if (!enseignant || !sejour) throw new NotFoundException('Enseignant introuvable');
 
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
+    if (centre.statut !== 'ACTIVE') {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      assertEnvoiExterneAutorise(centre, enseignant.email, me?.email ?? '');
+    }
+
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
     await this.email.sendGenericNotification(
@@ -1625,6 +1632,13 @@ export class DevisService {
       throw new ForbiddenException('L\'email du client est requis pour envoyer le devis');
     }
 
+    // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+    // adresse (test onboarding). Email du user rechargé depuis la base (pas du body).
+    if (centre.statut !== 'ACTIVE') {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      assertEnvoiExterneAutorise(centre, clientEmail, me?.email ?? '');
+    }
+
     if (devis.statut !== 'EN_ATTENTE') {
       await this.prisma.devis.update({
         where: { id: devisId },
@@ -1737,6 +1751,7 @@ export class DevisService {
     sejourId: string;
     centreId: string;
     centreNom: string;
+    centreStatut: string;
     centreEmail: string | null;
     dateDebutFmt: string;
     dateFinFmt: string;
@@ -1916,6 +1931,7 @@ export class DevisService {
       sejourId: sejour.id,
       centreId: centre.id,
       centreNom: centre.nom,
+      centreStatut: centre.statut,
       centreEmail: centre.email ?? null,
       dateDebutFmt: fmtDate(sejour.dateDebut),
       dateFinFmt: fmtDate(sejour.dateFin),
@@ -1948,6 +1964,16 @@ export class DevisService {
     const sujetConvention = `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`;
 
     if (built.contactEmail) {
+      // Centre non validé (PENDING) : envoi externe interdit, sauf vers sa propre
+      // adresse (test onboarding). La génération/l'upload restent autorisés.
+      if (built.centreStatut !== 'ACTIVE') {
+        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        assertEnvoiExterneAutorise(
+          { statut: built.centreStatut, nom: built.centreNom },
+          built.contactEmail,
+          me?.email ?? '',
+        );
+      }
       await this.email.sendGenericNotification(
         built.contactEmail,
         sujetConvention,
