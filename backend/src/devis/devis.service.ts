@@ -130,6 +130,9 @@ export class DevisService {
         montantAcompte: dto.montantAcompte,
         numeroDevis,
         typeDevis: dto.typeDevis ?? 'PLATEFORME',
+        // Chemin COLLAB : la création vaut envoi (notif sendDevisRecu à
+        // l'enseignant juste après, avec magic link).
+        dateEnvoi: new Date(),
       },
     });
 
@@ -1719,6 +1722,13 @@ export class DevisService {
       centre.nom,
       centre.email ? { name: centre.nom, email: centre.email } : undefined,
     );
+
+    // Trace du dernier envoi — posé APRÈS le succès de l'email (un échec d'envoi
+    // ne doit pas marquer le devis comme envoyé).
+    await this.prisma.devis.update({
+      where: { id: devisId },
+      data: { dateEnvoi: new Date() },
+    });
 
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({

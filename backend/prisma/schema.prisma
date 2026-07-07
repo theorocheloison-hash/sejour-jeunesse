@@ -919,6 +919,9 @@ model Devis {
   relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
   montantVerseTotal Float @default(0) @map("montant_verse_total")
 
+  // Date du dernier envoi du devis au client (null = jamais envoyé).
+  dateEnvoi DateTime? @map("date_envoi")
+
   // ── Devis complémentaire : payeur additionnel (AS, Mairie…) avec destinataire propre ──
   isComplementaire      Boolean  @default(false) @map("is_complementaire")
   destinataireNom       String?  @map("destinataire_nom") @db.VarChar(255)
