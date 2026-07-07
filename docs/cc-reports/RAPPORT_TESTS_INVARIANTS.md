@@ -72,6 +72,14 @@ Deux points d'outillage/limites à connaître :
 1. **Config Jest complétée (commit dédié `e8612ae`)** : les imports ESM `./x.js` des sources n'étaient résolus par Jest que lorsqu'ils étaient type-only (élidés à la transpilation). Le premier import de **valeur** traversé (`PLAN_KEY` de `plan.decorator.js`) a échoué → ajout du `moduleNameMapper` standard `"^(\\.{1,2}/.*)\\.js$": "$1"` dans le bloc `jest` de `backend/package.json`. La baseline passait avant par chance, pas par construction.
 2. **Gardes en clause WHERE** (trial, cron) : quand un invariant est implémenté comme filtre Prisma, le test unitaire vérifie la clause envoyée et les courts-circuits, pas le filtrage SQL réel — ce serait le rôle d'un test e2e sur base éphémère si on veut le rejouer de bout en bout.
 
+## Invariants non couverts (todo)
+
+Trois invariants connus mais non couverts par la suite, capturés en `it.todo` (affichés *pending* par Jest, n'échouent pas) pour qu'ils restent visibles à chaque run :
+
+1. **Centre payant par virement → pas d'alerte essai** (`cron-alertes.service.spec.ts`, describe `envoyerAlertes`) — un centre passé en payant hors Mollie (virement) garde un `trialStartedAt` résiduel et n'a pas de `mollieMandatId` : le ciblage actuel le prend pour un essai actif et lui enverrait des alertes d'expiration. Invariant du chantier 10.1, à faire passer avant le 26/09.
+2. **Renouvellement : supplément multi-centre +39 €/centre** (`cron-alertes.service.spec.ts`, nouveau describe `envoyerAlertesRenouvellement`) — le montant annoncé dans l'email vient de `PRIX_ANNUEL_MAP[plan]` seul ; le supplément multi-centre est actuellement ignoré (bug 10.5). Le test ne peut pas passer tant que le calcul n'est pas corrigé côté prod.
+3. **Rollover d'année civile → séquence repart à 1** (`sequence.service.spec.ts`, describe `generer`) — `annee` fait partie de la clé composite, donc le 1er janvier chaque scope repart à 1. Non couvert ici car `generer()` lit `new Date().getFullYear()` en dur : le tester proprement demande des fake timers autour du service (faisable, non fait cette nuit).
+
 ## Commits de la branche
 
 ```
