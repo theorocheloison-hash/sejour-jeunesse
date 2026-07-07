@@ -139,7 +139,9 @@ export default function HebergeurSidebar({
   onClose,
 }: HebergeurSidebarProps) {
   const pathname = usePathname();
-  const { user, isMultiCentre } = useAuth();
+  const { user, isMultiCentre, centres, centreActif } = useAuth();
+  // Statut du centre courant — déjà chargé par AuthContext (mes-centres), aucun appel ajouté.
+  const centreActifPending = centres.find((c) => c.id === centreActif)?.statut === 'PENDING';
 
   const groups: NavGroup[] = NAV_GROUPS_BASE.map((g) => ({
     ...g,
@@ -240,6 +242,23 @@ export default function HebergeurSidebar({
             >
               {centre.ville}
             </p>
+          )}
+          {centreActifPending && (
+            <span
+              style={{
+                display: 'inline-block',
+                marginTop: 4,
+                padding: '2px 8px',
+                borderRadius: 9999,
+                fontSize: 10,
+                fontWeight: 600,
+                color: '#C87D2E',
+                background: 'rgba(200,125,46,0.18)',
+                border: '1px solid rgba(200,125,46,0.45)',
+              }}
+            >
+              En validation
+            </span>
           )}
         </div>
       )}

@@ -70,6 +70,25 @@ export default function CentreSelector() {
         </svg>
       </button>
 
+      {/* Statut déjà présent dans mes-centres (AuthContext) — aucun appel ajouté. */}
+      {!isGlobalView && current?.statut === 'PENDING' && (
+        <span
+          style={{
+            display: 'inline-block',
+            marginTop: 6,
+            padding: '2px 8px',
+            borderRadius: 9999,
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#C87D2E',
+            background: 'rgba(200,125,46,0.18)',
+            border: '1px solid rgba(200,125,46,0.45)',
+          }}
+        >
+          En validation
+        </span>
+      )}
+
       {open && (
         <div
           className="absolute left-3 right-3 z-30 overflow-hidden"
