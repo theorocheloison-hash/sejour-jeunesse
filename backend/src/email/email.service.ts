@@ -334,17 +334,19 @@ export class EmailService {
     await this.send(to, 'Vérifiez votre email — Liavo', html);
   }
 
-  // ── g) Compte hébergeur en attente ─────────────────────────────────
+  // ── g) Compte hébergeur créé (utilisable immédiatement) ─────────────
 
   async sendHebergeurAccountPending(to: string, prenom: string, nomCentre: string) {
     const html = emailLayout(
-      'Compte en attente de validation',
+      'Votre compte est prêt',
       `<p>Bonjour ${escapeHtml(prenom)},</p>
        <p>Votre inscription en tant qu'hébergeur pour le centre <strong>« ${escapeHtml(nomCentre)} »</strong> a bien été enregistrée.</p>
-       <p>Votre compte est actuellement <strong style="color:#d97706">en attente de validation</strong> par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
-       <p>En attendant, vous pouvez vérifier votre email pour accélérer le processus.</p>`,
+       <p>Votre compte est <strong style="color:#16a34a">utilisable immédiatement</strong> : après avoir vérifié votre email, vous pouvez vous connecter et découvrir votre espace.</p>
+       <p>Votre centre est en cours de validation par l'équipe LIAVO. Cette validation débloquera sa <strong>visibilité au catalogue public</strong> ainsi que <strong>l'envoi de documents à des tiers</strong>. Vous recevrez un email dès que ce sera fait.</p>`,
+      'Accéder à mon espace',
+      `${FRONTEND_URL}/login`,
     );
-    await this.send(to, 'Inscription hébergeur en attente — Liavo', html);
+    await this.send(to, 'Bienvenue sur Liavo — Votre compte hébergeur est prêt', html);
   }
 
   // ── h) Compte hébergeur validé ──────────────────────────────────────
