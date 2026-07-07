@@ -353,12 +353,28 @@ export class AuthService {
         where: { id: centre.id },
         data: { organisationId: organisation.id },
       });
+      // Tunnel de validation justificatif : l'inscription ex-nihilo entre en
+      // EN_ATTENTE_DOCUMENT (visible dans /dashboard/admin/claims, uploadKbis
+      // puis validerClaim fonctionnent tels quels). Exception : si la dédup
+      // nom+ville a retrouvé une organisation déjà détenue par un AUTRE
+      // hébergeur (membership VALIDE), on reste NON_APPLICABLE (inerte) pour
+      // ne pas ouvrir un claim concurrent sur sa structure.
+      const claimValideAutre = await this.prisma.membership.findFirst({
+        where: {
+          organisationId: organisation.id,
+          claimStatut: 'VALIDE',
+          userId: { not: user.id },
+        },
+        select: { id: true },
+      });
       await findOrCreateMembership(this.prisma, {
         userId:         user.id,
         organisationId: organisation.id,
         role:           'PROPRIETAIRE',
         isPrimary:      true,
-        claimStatut:    'NON_APPLICABLE',
+        ...(claimValideAutre
+          ? { claimStatut: 'NON_APPLICABLE' as const }
+          : { claimStatut: 'EN_ATTENTE_DOCUMENT' as const, claimSubmittedAt: new Date() }),
       });
     } catch (err) {
       console.error('[registerHebergeur] Echec rattachement Organisation/Membership', err);

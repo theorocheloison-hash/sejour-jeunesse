@@ -90,7 +90,9 @@ export async function findOrCreateOrganisation(
  * Idempotent : ne crée pas de doublon si la Membership existe déjà.
  *
  * @param claimStatut - NON_APPLICABLE pour les créations normales,
- *   EN_ATTENTE_DOCUMENT uniquement pour les claims HEBERGEUR sur orga existante avec centre
+ *   EN_ATTENTE_DOCUMENT pour les claims HEBERGEUR (catalogue ou ex-nihilo)
+ * @param claimSubmittedAt - date d'entrée dans le tunnel de validation
+ *   (à poser avec un claimStatut EN_ATTENTE_*)
  */
 export async function findOrCreateMembership(
   prisma: PrismaService,
@@ -100,6 +102,7 @@ export async function findOrCreateMembership(
     role?: RoleMembership;
     isPrimary?: boolean;
     claimStatut?: ClaimStatut;
+    claimSubmittedAt?: Date;
   },
 ): Promise<{ membership: { id: string; [key: string]: any }; created: boolean }> {
   const existing = await prisma.membership.findUnique({
@@ -119,6 +122,7 @@ export async function findOrCreateMembership(
       role: params.role ?? 'PROPRIETAIRE',
       isPrimary: params.isPrimary ?? true,
       claimStatut: params.claimStatut ?? 'NON_APPLICABLE',
+      claimSubmittedAt: params.claimSubmittedAt ?? null,
     },
   });
 
