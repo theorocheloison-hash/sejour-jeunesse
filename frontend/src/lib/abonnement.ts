@@ -30,10 +30,6 @@ export async function souscrireAbonnement(plan: string, frequence: string, iban:
   return data;
 }
 
-export async function activerTrial(): Promise<void> {
-  await api.post('/abonnements/trial');
-}
-
 export async function annulerAbonnement(): Promise<void> {
   await api.post('/abonnements/annuler');
 }
