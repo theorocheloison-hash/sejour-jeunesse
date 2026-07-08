@@ -72,6 +72,12 @@ export class CronAlertesService {
           { dernierEmailAlerteAt: null },
           { dernierEmailAlerteAt: { lt: il_y_a_6j } },
         ],
+        // Clients payés par virement/BdC (ex. Choucas) : trialStartedAt résiduel
+        // sans mandat Mollie — à exclure des alertes d'essai. Null-safe : un
+        // `not: 'VIREMENT'` seul exclurait les NULL (vrais essais).
+        AND: [
+          { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
+        ],
       },
       include: { user: { select: { email: true, prenom: true, nom: true } } },
     });
@@ -112,6 +118,10 @@ export class CronAlertesService {
         OR: [
           { dernierEmailAlerteAt: null },
           { dernierEmailAlerteAt: { lt: il_y_a_6j } },
+        ],
+        // Même exclusion null-safe des clients virement que envoyerAlertes.
+        AND: [
+          { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
         ],
       },
       include: { user: { select: { email: true, prenom: true, nom: true } } },

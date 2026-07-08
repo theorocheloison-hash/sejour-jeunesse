@@ -198,6 +198,77 @@ describe('CronAlertesService', () => {
     );
   });
 
+  // ── 10.1a : exclusion des clients payés par virement/BdC ─────────────
+
+  describe('exclusion des clients virement (10.1a)', () => {
+    /**
+     * Le filtre vit dans le WHERE Prisma : pour le tester, le mock findMany
+     * rejoue la sémantique SQL du groupe AND/OR modePaiement produit par le
+     * service — {modePaiement: null} matche NULL ; {modePaiement: {not:
+     * 'VIREMENT'}} exclut les NULL (comme `mode_paiement <> 'VIREMENT'`).
+     */
+    const matchModePaiement = (where: any, centre: any): boolean =>
+      (where.AND ?? []).every((groupe: any) =>
+        (groupe.OR ?? []).some((cond: any) => {
+          if (cond.modePaiement === null) return centre.modePaiement == null;
+          if (cond.modePaiement?.not) {
+            return centre.modePaiement != null && centre.modePaiement !== cond.modePaiement.not;
+          }
+          return false;
+        }),
+      );
+
+    const setCentres = (liste: Record<string, unknown>[]) => {
+      prisma.centreHebergement.findMany.mockImplementation(async ({ where }: any) =>
+        liste.filter((c) => matchModePaiement(where, c)),
+      );
+    };
+
+    it('le cas Choucas : ACTIF, trial posé, pas de mandat, VIREMENT, J-21 → NON alerté', async () => {
+      setCentres([centreEssai({ modePaiement: 'VIREMENT' })]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(0);
+      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
+    });
+
+    it('un vrai essai (modePaiement null), J-21 → alerté (anti-régression Alticlub/Pôle Montagne)', async () => {
+      setCentres([centreEssai({ modePaiement: null })]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(1);
+    });
+
+    it('le WHERE porte le groupe AND null-safe (jamais un not:VIREMENT seul)', async () => {
+      await service.envoyerAlertes();
+      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      expect(arg.where.AND).toEqual([
+        { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
+      ]);
+      // Le not seul n'existe nulle part au premier niveau (il exclurait les NULL).
+      expect(arg.where.modePaiement).toBeUndefined();
+    });
+
+    it('envoyerAlertesExpires porte la même exclusion : VIREMENT expiré → non notifié', async () => {
+      setCentres([
+        centreEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(-3) }),
+      ]);
+
+      const { expiresNotifies } = await service.envoyerAlertesExpires();
+
+      expect(expiresNotifies).toBe(0);
+      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
+      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      expect(arg.where.AND).toEqual([
+        { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
+      ]);
+    });
+  });
+
   describe('envoyerAlertesRenouvellement', () => {
     it.todo(
       'le montant de renouvellement inclut le supplément multi-centre +39€/centre (bug 10.5, actuellement ignoré)',
