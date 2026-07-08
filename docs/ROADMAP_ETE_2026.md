@@ -1,7 +1,8 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 07/07/2026** — Refonte planning ↔ groupes en many-to-many livrée (activités multi-groupes, refonte génération IA). Fix crash boot Scalingo P3015 (déplacement `manual/` hors du scan Prisma). Refactor PDF extraction dynamic imports commité (Budget, PreparationTam, ProjetPedagogique). Audit cascades = 0 fix nécessaire. Item dette 4.18 ajouté (journal public regrouperParCreneau).
+> **Dernière mise à jour : 08/07/2026** — Onboarding phase 2 (prompt 6 / §10.11) déployé : modale test/réel, encart pré-envoi anti-phishing, « Aller plus loin ». Recette prod 3/3. Smoke-test avec compte ex-nihilo frais → 3 bugs attrapés et corrigés : permissions PENDING (sidebar cassée pour tout nouvel hébergeur — la grosse prise), lien devis en cul-de-sac, double bandeau. FeatureHint ×4 différé. Voir §10 + SESSION_STATE 08/07.
+> *(07/07 : Refonte planning ↔ groupes m2m livrée. Fix crash boot Scalingo P3015. Refactor PDF extraction dynamic imports. Item dette 4.18 ajouté.)*
 > *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
@@ -244,6 +245,8 @@ Août
 
 **Livré 07/07** : branche `feat/onboarding-register-trial` (26 commits) mergée et déployée. Compte hébergeur utilisable dès l'inscription (compteValide=true au register, kill switch conservé), trial 30j Pilotage auto à la première connexion (garde `abonnementStatut INACTIF` protège les clients existants), centres PENDING opérables (SUSPENDED seul bloquant), gates anti-phishing `assertEnvoiExterneAutorise` (10 sites, exception destinataire=soi-même), cron alertes branché (`@Cron` 8h Paris, garde `ENABLE_CRON`), justificatif ex-nihilo dans le tunnel claim (membership `EN_ATTENTE_DOCUMENT`), `Devis.dateEnvoi` (migration + backfill), endpoint `GET /centres/onboarding-status`. Recette régression Sauvageon validée 4/4. SQL memberships→VALIDE exécuté (5 clients).
 
+**Livré 08/07** : phase 2 onboarding (§10.11) déployée — branche `feat/onboarding-phase2` (6a `envoisBloques` backend + 6b-1 modale test/réel + 6b-2 encart pré-envoi & message `extractApiError` + 6b-4 « Aller plus loin »). Recette prod 3/3 sur compte ex-nihilo frais. **3 bugs attrapés au smoke-test et corrigés (branches dédiées mergées)** : (1) **permissions PENDING** — `getUserCentrePermissions` gaté sur ACTIVE → proprio d'un PENDING en 403 partout, sidebar cassée pour tout nouvel ex-nihilo ; fix = aligné SUSPENDED-only + spec 6 cas (`fix/permissions-centre-pending`) ; (2) **lien devis** — étape 5 checklist → page suivi sans bouton créer ; fix = `onboarding-status` renvoie `sejour.id`, étape 5 → `/devis/nouveau?sejourDirectId` (`fix/onboarding-devis-link`) ; (3) **double bandeau** claim + PENDING redondants pour ex-nihilo ; fix = masque le claim si un centre PENDING affiche le sien (`fix/onboarding-double-banner`). Le parcours claim (centre catalogue ACTIVE + `userId` posé immédiatement) n'était touché par aucun des trois. **FeatureHint ×4 différé** (code mort sans placement + 4 ancrages diffus 119 KB).
+
 | # | Chantier | Détail | Priorité / Deadline |
 |---|---|---|---|
 | 10.1 | **Gestion admin des abonnements (virement/BdC)** | Vue admin centres (plan/statut/dates/mode), action atomique "activer abonnement" = facture + extension période, champ `modePaiement` (MOLLIE\|VIREMENT), fixes facture `emettre()` (mention "acquittée par prélèvement SEPA" hardcodée → dynamique, échéance now → +30j), relance J-30 cron. | **DEADLINE DURE 26/09** : au-delà, le cron enverra "votre essai expire" à Choucas (client payant BdC, `abonnement_actif_jusqua` 17/10, `trial_started_at` en base, pas de mandat Mollie) |
@@ -256,7 +259,7 @@ Août
 | 10.8 | Vérif cron J1 | Après 8h le 08/07 : `scalingo logs | findstr cronQuotidien` — 3 lignes attendues. Si rien : le restart post-`env-set ENABLE_CRON` n'a pas pris, relancer `restart`. | 08/07 matin |
 | 10.9 | **HOTFIX faille claim** | Gate fondé sur le claimStatut du propriétaire (pas le statut centre) — branche fix/gate-claim-validation. Faille prouvée (Brevo 21:31 : devis émis vers tiers par claimant non validé). Re-test ZZTEST à confirmer. | 07/07 nuit — déployé |
 | 10.10 | Boîte admin contact@liavo.fr | Notifs délivrées en temps réel par Brevo mais relève avec heures de retard (probable Gmail POP3 sur OVH). Fix : redirection MX ou IMAP. Radar de secours : /dashboard/admin/claims chaque matin. | Avant démarchage |
-| 10.11 | Prompt 6 — parcours test + découverte | Modale de choix séjour test/réel (pré-rempli client=soi), encart proactif pré-envoi, FeatureHint ×4 (convention, facturation, inviter, Pilotage), "Aller plus loin". Prérequis : lecture formulaire séjour + page séjour. | Avec 10.2 |
+| 10.11 | ~~Prompt 6 — parcours test + découverte~~ ✅ **LIVRÉ 08/07 (partiel)** | Modale de choix séjour test/réel (client=soi), encart proactif pré-envoi (`envoisBloques`), message revendication via `extractApiError`, « Aller plus loin » (3 liens). **FeatureHint ×4 DIFFÉRÉ** (code mort sans placement + ancrages diffus 119 KB — à poser en amortissant). Recette prod 3/3. | ✅ sauf FeatureHint |
 | 10.12 | Nettoyage ZZTEST | Procédure détaillée en session state (UI puis SQL). APRÈS re-test hotfix. | 08/07 |
 
 | Sujet | Décision | Date |
@@ -265,6 +268,8 @@ Août
 | Frontière de sécurité onboarding | L'accès au centre n'est plus la frontière (PENDING opérable) : ce sont les gates d'envoi + le filtre ACTIVE du catalogue public. `compteValide` = kill switch par requête, `SUSPENDED` = kill switch centre. | 07/07/2026 |
 | Checklist onboarding | 5 étapes dérivées des données (jamais de flags manuels) : profil, catalogue, conformité (justificatif+IBAN), 1er séjour, 1er devis envoyé. Pas de suppression : repli visuel localStorage. Activation = premier devis envoyé. | 07/07/2026 |
 | Cron + deadline 10.1 | Cron laissé ALLUMÉ (option 1, statu quo). 10.1 (gestion admin abonnements) doit être livré **avant le 26/09** — jour du 1er email d'expiration envoyé à Choucas. Théo s'engage à tenir la date. Risque d'emails aux comptes de test neutralisé par le nettoyage ZZTEST (10.12). Reste à fixer : **date de démarrage de 10.1** (sans quoi la deadline glisse). | 08/07/2026 |
+| « Démarchage IDDJ » périmé | Le label « avant démarchage IDDJ » (§10.2/10.10) ne reflète plus la réalité : IDDJ est **attentiste/prospectif** (Robin Baladi, CA à consulter), pas un partenaire actif. Réseau actif = **LMDJ** (Théo admin depuis AG 01/06). Cadrage réel des chantiers restants : « rendre le produit solide avant d'ouvrir à de vrais partenaires », pas « pour IDDJ ». | 08/07/2026 |
+| permission.helper aligné PENDING | `getUserCentrePermissions` ne gate plus sur `ACTIVE` mais sur `SUSPENDED` (proprio/collab d'un PENDING obtient ses permissions), aligné sur `getCentreForUser`. Bug trouvé au smoke-test 08/07 : sidebar cassée + 403 en masse pour tout nouvel hébergeur ex-nihilo. Envois externes toujours gatés séparément. | 08/07/2026 |
 
 ---
 

@@ -1,5 +1,35 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 07/07/2026 (nuit) — Frontend onboarding déployé. Test ZZTEST : FAILLE claim découverte et hotfixée le soir même. Voir section ci-dessous + roadmap §10.
+> Dernière mise à jour : 08/07/2026 — Onboarding phase 2 (prompt 6 / roadmap 10.11) déployé : modale test/réel, encart pré-envoi anti-phishing, « Aller plus loin ». Recette prod 3/3. + 3 bugs attrapés au smoke-test et corrigés (permissions PENDING, lien devis, double bandeau). FeatureHint ×4 différé. Voir section ci-dessous + roadmap §10.
+
+---
+
+## SESSION 08/07/2026 — Onboarding phase 2 (prompt 6 / roadmap 10.11) + 3 fixes du smoke-test
+
+### Déployé en prod (branche `feat/onboarding-phase2` mergée main + 3 branches de fix)
+
+**Phase 2 onboarding (prompt 6 / roadmap 10.11)** — 4 volets livrés, FeatureHint ×4 différé :
+- **6a backend** — champ `envoisBloques` exposé par `GET /centres/onboarding-status` (miroir exact de `assertEnvoiExterneAutorise` moins l'exception self ; réutilise centre + membership déjà chargés, zéro requête ajoutée). Source unique de vérité pour l'encart + le pied de checklist.
+- **6b-1 frontend** — modale de choix test/réel intégrée à `CreateSejourModal` (option C : prop `proposeTest`, écran CHOIX/FORMULAIRE, `choisirTest` pré-remplit client=soi via `useAuth`, titre « TEST — »). Câblée sur le planning (`proposeTest = !onboardingComplete && isOwned`).
+- **6b-2 frontend** — encart ambre pré-envoi dans `TabDevisFacturation` (conditionné `envoisBloques`, fetch onboarding-status au montage) + fix du message : le catch local du handler d'envoi (`catch {}` générique) passe désormais par `extractApiError` (parse `CENTRE_EN_VALIDATION|`).
+- **6b-4 frontend** — section « Aller plus loin » dans la checklist (3 liens passifs : inviter-enseignant / equipe / pilotage ; séparateur conditionnel pour ne pas doubler celui de la note de validation).
+- **6b-3 (FeatureHint ×4) — DIFFÉRÉ** (backlog) : composant seul = code mort, 4 ancrages diffus dans des fichiers 119 KB → mauvais ratio effort/valeur. À poser en amortissant quand on retouche ces fichiers.
+
+**3 bugs attrapés au smoke-test (compte hébergeur ex-nihilo frais) et corrigés — branches dédiées mergées :**
+1. **Permissions PENDING (la grosse prise)** — `getUserCentrePermissions` (`permission.helper.ts`) refusait les centres non-ACTIVE **avant** le check propriétaire (`statut !== 'ACTIVE' → null`) → proprio d'un PENDING = 403 sur `/mes-permissions` **et** toutes les routes `@RequirePermission` → sidebar amputée pour **tout nouvel hébergeur ex-nihilo**. Fix = alignement sur le modèle SUSPENDED-only (`statut === 'SUSPENDED' → null`), cohérent avec `getCentreForUser`. + spec `permission.helper.spec.ts` (6 cas). Branche `fix/permissions-centre-pending`. Le claim d'un centre catalogue (ACTIVE + `userId` posé immédiatement par `claimFromCatalogue`) n'était PAS touché → parcours principal sain.
+2. **Lien devis en cul-de-sac** — l'étape 5 de la checklist pointait vers `/dashboard/hebergeur/devis` (page de suivi, sans bouton créer). Fix = `onboarding-status` renvoie `sejour.id` (le count devient un findFirst orderBy createdAt desc), l'étape 5 pointe vers `/devis/nouveau?sejourDirectId=<id>` (fallback `/planning`). Branche `fix/onboarding-devis-link`.
+3. **Double bandeau de validation** — pour un ex-nihilo, le bandeau claim `EN_ATTENTE_DOCUMENT` ET le bandeau centre PENDING s'affichaient (même sens, même CTA `/documents`). Fix = masquer le bandeau claim quand un centre PENDING affiche déjà le sien (`&& centresPending.length === 0`). Branche `fix/onboarding-double-banner`.
+
+### Recette prod — 3/3 validée en vrai
+Sur compte ex-nihilo gaté : welcome modal ✓, checklist ✓, « Aller plus loin » ✓, modale test/réel + pré-remplissage client=soi ✓, **sidebar complète** (preuve du fix permissions en prod) ✓, **encart pré-envoi** ✓, envoi tiers = message revendication ✓, envoi à soi = passe ✓. Le bout sécurité (l'encart) enfin recetté par un œil humain — il avait été esquivé à chaque tour, et chaque esquive a révélé un des 3 bugs ci-dessus.
+
+### Correction de cadrage — IDDJ vs LMDJ
+Le label « avant démarchage IDDJ » (roadmap §10.2/10.10) est **périmé** : IDDJ est **attentiste/prospectif** (Robin Baladi, CA à consulter), pas un partenaire actif. Réseau actif = **LMDJ** (Théo admin depuis AG 01/06). Le vrai cadrage des chantiers restants n'est pas « pour IDDJ » mais « rendre le produit solide avant d'ouvrir à de vrais partenaires ».
+
+### Points ouverts / suite
+- **Compte de test ex-nihilo conservé** comme fixture pour les cas non testés du tunnel justificatif (claim sans fichier, `logoUrl` null, incohérence pied checklist). À neutraliser une seule fois à la fin, comme ZZTEST.
+- **Prochain backend : « 4bis »** (sous-item 10.2) — preview facture non-émise (`apercu()`) + `POST /abonnements/demander-extension` (+14j → notif admin).
+- **10.1 (gestion admin abonnements) — DEADLINE DURE 26/09**, date de démarrage toujours à fixer.
+- **Nits cohérence** : mojibake « Défaut » dans un commentaire de `CreateSejourModal` (cosmétique) ; `inviterOrganisateurDirect` (`InviteOrganisateurCard`) a aussi un catch générique sur action gatée → à router par `extractApiError` un jour ; unifier la liste des états claim bloquants (dupliquée gate + flag `envoisBloques`).
 
 ---
 
