@@ -136,11 +136,15 @@ export class FactureLiavoService {
 
     const montantEuros = montantCentimes / 100;
     const now = new Date();
+    // Mollie (molliePaymentId) = déjà payé → échéance = émission ;
+    // facture manuelle (virement/BdC) = à régler → +30 jours.
+    const echeance = new Date(now);
+    if (!molliePaymentId) echeance.setDate(echeance.getDate() + 30);
     const pdfBuffer = await generateFacturePdf({
       typeFacture: 'SOLDE',
       numero,
       dateEmission: now.toISOString(),
-      dateEcheance: now.toISOString(),
+      dateEcheance: echeance.toISOString(),
       emetteurNom: 'LIAVO SASU',
       emetteurAdresse: '472 Route du Mas Devant, 74440 Morillon',
       emetteurSiret: LIAVO_SIRET,
@@ -167,7 +171,9 @@ export class FactureLiavoService {
       montantFacture: montantEuros,
       pourcentageAcompte: null,
       montantAcompteDejaFacture: null,
-      conditionsAnnulation: 'Facture acquittée par prélèvement SEPA.',
+      conditionsAnnulation: molliePaymentId
+        ? 'Facture acquittée par prélèvement SEPA.'
+        : 'À régler par virement bancaire sous 30 jours à réception.',
       tauxTva: 0,
       mentionTVA: 'TVA non applicable, art. 293 B du CGI',
       logoUrl: null,
