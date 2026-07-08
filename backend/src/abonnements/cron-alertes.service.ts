@@ -50,6 +50,13 @@ export class CronAlertesService {
     } catch (err) {
       this.logger.error('[cronQuotidien] échec envoyerAlertesRenouvellement', err as Error);
     }
+
+    try {
+      const { relancesVirementNotifiees } = await this.envoyerRelanceVirement();
+      this.logger.log(`[cronQuotidien] relances virement admin : ${relancesVirementNotifiees} notifiée(s)`);
+    } catch (err) {
+      this.logger.error('[cronQuotidien] échec envoyerRelanceVirement', err as Error);
+    }
   }
 
   /**
@@ -188,5 +195,54 @@ export class CronAlertesService {
       }
     }
     return { renouvellementsNotifies: count };
+  }
+
+  /**
+   * Rappel ADMIN J-30 : renouvellement à préparer pour les clients virement/BdC
+   * (10.1b-4). La facture est manuelle (facturerCentre) — l'admin doit la
+   * ré-émettre avant l'expiration. Ciblage exclusif modePaiement VIREMENT :
+   * ces centres sont exclus des alertes d'essai (10.1a) et n'ont jamais de
+   * mandat Mollie (donc jamais dans envoyerAlertesRenouvellement) — aucun
+   * conflit sur le tampon partagé dernierEmailAlerteAt.
+   */
+  async envoyerRelanceVirement() {
+    const now = new Date();
+    const dans30j = new Date(now); dans30j.setDate(dans30j.getDate() + 30);
+    const il_y_a_25j = new Date(now); il_y_a_25j.setDate(il_y_a_25j.getDate() - 25);
+
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: {
+        modePaiement: 'VIREMENT',
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: { gte: now, lte: dans30j },
+        OR: [
+          { dernierEmailAlerteAt: null },
+          { dernierEmailAlerteAt: { lt: il_y_a_25j } },
+        ],
+      },
+    });
+
+    const adminEmail = process.env.ADMIN_ALERT_EMAIL ?? 'contact@liavo.fr';
+    let count = 0;
+    for (const centre of centres) {
+      const exp = centre.abonnementActifJusquAu;
+      if (!exp) continue;
+      const dateFmt = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      try {
+        await this.emailService.sendGenericNotification(
+          adminEmail,
+          'Renouvellement virement à préparer',
+          `Le centre ${centre.nom} (abonnement ${centre.planAbonnement}) expire le ${dateFmt}. Pense à ré-émettre la facture virement/BdC.`,
+        );
+        await this.prisma.centreHebergement.update({
+          where: { id: centre.id },
+          data: { dernierEmailAlerteAt: now },
+        });
+        count++;
+      } catch (err) {
+        this.logger.error(`[relance-virement] Erreur centre ${centre.id}`, err as Error);
+      }
+    }
+    return { relancesVirementNotifiees: count };
   }
 }

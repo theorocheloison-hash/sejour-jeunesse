@@ -274,4 +274,67 @@ describe('CronAlertesService', () => {
       'le montant de renouvellement inclut le supplément multi-centre +39€/centre (bug 10.5, actuellement ignoré)',
     );
   });
+
+  // ── 10.1b-4 : relance admin J-30 pour les renouvellements virement ───
+
+  describe('envoyerRelanceVirement', () => {
+    it('centre VIREMENT/ACTIF/J-30 → 1 relance admin + tampon dernierEmailAlerteAt posé', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(30) }),
+      ]);
+
+      const { relancesVirementNotifiees } = await service.envoyerRelanceVirement();
+
+      expect(relancesVirementNotifiees).toBe(1);
+      expect(emailService.sendGenericNotification).toHaveBeenCalledTimes(1);
+      const [to, sujet, corps] = emailService.sendGenericNotification.mock.calls[0];
+      expect(to).toBe('contact@liavo.fr');
+      expect(sujet).toBe('Renouvellement virement à préparer');
+      expect(corps).toContain('Centre Essai');
+      expect(corps).toContain('PILOTAGE');
+      expect(corps).toContain('ré-émettre la facture virement/BdC');
+      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({
+        where: { id: 'centre-1' },
+        data: { dernierEmailAlerteAt: expect.any(Date) },
+      });
+    });
+
+    it('ciblage exclusif VIREMENT : les centres Mollie ou en essai ne matchent pas le WHERE', async () => {
+      await service.envoyerRelanceVirement();
+
+      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      // Égalité stricte : un centre Mollie ou un vrai essai a modePaiement null → exclu.
+      expect(arg.where.modePaiement).toBe('VIREMENT');
+      expect(arg.where.abonnementStatut).toBe('ACTIF');
+      // Fenêtre J..J+30 + même debounce 25j que la relance renouvellement.
+      expect(arg.where.abonnementActifJusquAu).toMatchObject({
+        gte: expect.any(Date),
+        lte: expect.any(Date),
+      });
+      expect(arg.where.OR).toEqual([
+        { dernierEmailAlerteAt: null },
+        { dernierEmailAlerteAt: { lt: expect.any(Date) } },
+      ]);
+    });
+
+    it('aucun centre ciblé (debounce ou fenêtre) → aucun email, aucun tampon', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([]);
+
+      const { relancesVirementNotifiees } = await service.envoyerRelanceVirement();
+
+      expect(relancesVirementNotifiees).toBe(0);
+      expect(emailService.sendGenericNotification).not.toHaveBeenCalled();
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
+    });
+
+    it("cronQuotidien exécute la relance virement en 4e étape, même si une étape précédente échoue", async () => {
+      process.env.ENABLE_CRON = 'true';
+      jest.spyOn(service, 'envoyerAlertes').mockRejectedValue(new Error('boom'));
+      const relance = jest.spyOn(service, 'envoyerRelanceVirement');
+
+      await service.cronQuotidien();
+
+      expect(relance).toHaveBeenCalledTimes(1);
+    });
+  });
 });
