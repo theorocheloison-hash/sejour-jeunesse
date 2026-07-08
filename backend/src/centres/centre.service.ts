@@ -67,13 +67,15 @@ export class CentreService {
   async getOnboardingStatus(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
-    const [[produitsActifs, sejoursCount, devisEnvoyes], membership] = await Promise.all([
+    const [[produitsActifs, sejourRecent, devisEnvoyes], membership] = await Promise.all([
       this.prisma.$transaction([
         this.prisma.produitCatalogue.count({
           where: { centreId: centre.id, actif: true },
         }),
-        this.prisma.sejour.count({
+        this.prisma.sejour.findFirst({
           where: { hebergementSelectionneId: centre.id, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
         }),
         this.prisma.devis.count({
           where: { centreId: centre.id, dateEnvoi: { not: null } },
@@ -108,7 +110,7 @@ export class CentreService {
         iban,
         ok: justificatif !== 'ABSENT' && iban,
       },
-      sejour: { ok: sejoursCount > 0 },
+      sejour: { ok: !!sejourRecent, id: sejourRecent?.id ?? null },
       devis: { ok: devisEnvoyes > 0 },
     };
 
