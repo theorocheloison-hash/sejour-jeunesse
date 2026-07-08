@@ -264,6 +264,7 @@ Août
 | Priorité 1 roadmap invalidée | "Premier paiement Choucas ~17/07 = validation Mollie bout-en-bout" : Choucas paie par BdC mairie (Pilotage annuel 690€), ne passera JAMAIS par Mollie. Extension manuelle posée (17/10). Premier vrai test Mollie = Alticlub (fin trial 10/09) ou Pôle Montagne (01/12). | 07/07/2026 |
 | Frontière de sécurité onboarding | L'accès au centre n'est plus la frontière (PENDING opérable) : ce sont les gates d'envoi + le filtre ACTIVE du catalogue public. `compteValide` = kill switch par requête, `SUSPENDED` = kill switch centre. | 07/07/2026 |
 | Checklist onboarding | 5 étapes dérivées des données (jamais de flags manuels) : profil, catalogue, conformité (justificatif+IBAN), 1er séjour, 1er devis envoyé. Pas de suppression : repli visuel localStorage. Activation = premier devis envoyé. | 07/07/2026 |
+| Cron + deadline 10.1 | Cron laissé ALLUMÉ (option 1, statu quo). 10.1 (gestion admin abonnements) doit être livré **avant le 26/09** — jour du 1er email d'expiration envoyé à Choucas. Théo s'engage à tenir la date. Risque d'emails aux comptes de test neutralisé par le nettoyage ZZTEST (10.12). Reste à fixer : **date de démarrage de 10.1** (sans quoi la deadline glisse). | 08/07/2026 |
 
 ---
 
