@@ -15,7 +15,7 @@ interface OnboardingStatus {
     profil: { ok: boolean };
     catalogue: { ok: boolean };
     conformite: { justificatif: Justificatif; iban: boolean; ok: boolean };
-    sejour: { ok: boolean };
+    sejour: { ok: boolean; id: string | null };
     devis: { ok: boolean };
   };
   centreValide: boolean;
@@ -127,6 +127,12 @@ export default function OnboardingChecklist() {
   const { profil, catalogue, conformite, sejour, devis } = status.etapes;
   const faites = [profil.ok, catalogue.ok, conformite.ok, sejour.ok, devis.ok].filter(Boolean).length;
   const pct = (faites / 5) * 100;
+
+  // Étape 5 : mène directement à la création du devis sur le séjour le plus
+  // récent ; sans séjour, retour au planning (l'étape 4 le crée).
+  const devisHref = status.etapes.sejour.id
+    ? `/dashboard/hebergeur/devis/nouveau?sejourDirectId=${status.etapes.sejour.id}`
+    : '/dashboard/hebergeur/planning';
 
   const keyframes = (
     <style>{`
@@ -288,7 +294,7 @@ export default function OnboardingChecklist() {
         </li>
 
         {ligne(sejour.ok, 'Créez votre premier séjour', null, '/dashboard/hebergeur/planning', 'Ouvrir le planning')}
-        {ligne(devis.ok, 'Envoyez votre premier devis', 'étape finale', '/dashboard/hebergeur/devis', 'Créer un devis', true)}
+        {ligne(devis.ok, 'Envoyez votre premier devis', 'étape finale', devisHref, 'Créer un devis', true)}
       </ul>
 
       {/* Découverte passive des features avancées. Séparateur porté par ce bloc
