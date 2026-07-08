@@ -32,7 +32,9 @@ export async function getUserCentrePermissions(
 ): Promise<CentrePermissions | null> {
   // 1. Propriétaire → full access
   const centre = await prisma.centreHebergement.findUnique({ where: { id: centreId } });
-  if (!centre || centre.statut !== 'ACTIVE') return null;
+  // SUSPENDED = kill switch ; PENDING opérable (aligné sur getCentreForUser) —
+  // les envois externes restent gatés séparément par assertEnvoiExterneAutorise.
+  if (!centre || centre.statut === 'SUSPENDED') return null;
   if (centre.userId === userId) return OWNER_PERMISSIONS;
 
   // 2. Collaborateur → permissions from CollaborateurCentre
