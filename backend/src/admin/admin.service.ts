@@ -331,6 +331,7 @@ export class AdminService {
         mollieCustomerId: true,
         mollieSubscriptionId: true,
         mollieMandatId: true,
+        modePaiement: true,
         userId: true,
         user: { select: { email: true, prenom: true, nom: true } },
       },
@@ -1497,16 +1498,20 @@ export class AdminService {
 
     const montant = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
 
-    // Calculer l'expiration
+    // Calculer l'expiration : renouvellement = prolonger depuis la date de fin
+    // actuelle si elle est encore dans le futur ; sinon repartir d'aujourd'hui.
     const now = new Date();
-    const expiration = new Date(now);
+    const finActuelle = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : null;
+    const base = finActuelle && finActuelle > now ? finActuelle : now;
+    const expiration = new Date(base);
     if (frequence === 'ANNUEL') {
       expiration.setFullYear(expiration.getFullYear() + 1);
     } else {
       expiration.setMonth(expiration.getMonth() + 1);
     }
 
-    // Activer le plan
+    // Activer le plan. Chemin manuel hors Mollie → toujours VIREMENT :
+    // exclut le centre des alertes d'essai du cron (10.1a).
     await this.prisma.centreHebergement.update({
       where: { id: centreId },
       data: {
@@ -1514,6 +1519,7 @@ export class AdminService {
         abonnement: frequence as any,
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: expiration,
+        modePaiement: 'VIREMENT',
       },
     });
 
