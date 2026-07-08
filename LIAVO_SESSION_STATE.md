@@ -1,5 +1,25 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 08/07/2026 (suite) — Chantier 10.1 abonnements virement livré de bout en bout (protection Choucas, deadline 26/09 NEUTRALISÉE) + edge cases onboarding soldés (2/3 déjà corrects, 1 fix) + compte de test neutralisé. Session phase 2 (matin) plus bas. Voir section ci-dessous + roadmap §10.
+> Dernière mise à jour : 08/07/2026 (soir) — Run dette §4 : 4.11 (13 vulns→3, next 16.2.10, xlsx accepté) + 4.15 (bandeau nouvelle version non-destructif) livrés ; 4.6/4.10 constatés déjà faits ; 4.7 = audit prêt, **requêtes prod à exécuter par Théo** (`docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections ci-dessous + roadmap §4/§10.
+
+---
+
+## SESSION 08/07/2026 (soir) — Run dette technique §4 (décisions Théo + exécution)
+
+### Constats d'abord : 2 items déjà faits, 1 partiel
+
+- **4.6 escapeHtml** — DÉJÀ FAIT sur le code vivant (`utils/escape-html.ts` consommé par notifications, collaboration, devis, email.service). Statut « EN COURS 03/07 » périmé → acté ✅. Reliquat : branche locale `fix/escape-html-emails` à supprimer.
+- **4.10 jspdf** — DÉJÀ ABSENT des deux package.json → acté ✅.
+- **4.9 tests financiers** — PARTIEL : SequenceService couvert par la suite invariants de la nuit (13 tests). Reste devis-calculs.ts (frontend sans harness Jest) + formule acompte.
+
+### 3 décisions prises par Théo, exécutées dans la foulée
+
+1. **4.11 npm audit — xlsx : risque ACCEPTÉ** (parsing limité aux fichiers de l'hébergeur authentifié). Exécution : `npm audit fix` (axios & co patchés dans le lock), **next 16.1.6 → 16.2.10** (advisories hautes middleware/cache), et `@types/react-pdf` **supprimé** — dépendance morte (0 import ; types du viewer react-pdf, pas de @react-pdf/renderer) qui portait à elle seule la chaîne pdfjs-dist vulnérable. **13 vulns → 3** ; résiduel : xlsx (acceptée) + 2 postcss vendored DANS next (le « fix » npm = downgrade next@9, non actionnable). tsc+build verts. **Recette post-deploy : garder un œil sur le bump Next.**
+2. **4.15 Server Actions au deploy — version NON-destructive** (recadrage Théo : pas de reload auto, IDDJ n'est pas le trigger). `global-error.tsx` détecte l'erreur Server Action périmée (best-effort sur le message) → « Une nouvelle version de LIAVO a été déployée » + bouton Recharger. Autres erreurs : rendu générique inchangé.
+3. **4.7 Float→Decimal — audit seul, sans migrer.** `docs/AUDIT_FLOAT_DECIMAL.md` : 5 requêtes de contrôle prod lecture seule (Q1 dérive >2 décimales par colonne, Q2 HT+TVA vs TTC, Q3 lignes vs total, Q4 factures vs devis, Q5 versements vs versé — noms de tables/FK vérifiés contre le schéma) + grille de lecture + rappel du vrai coût (Prisma.Decimal ≠ number côté code, ordre SQL→push le jour J). **PROCHAINE ACTION THÉO : exécuter Q1-Q5 en pgsql-console et coller les résultats** — la décision de migration se prend sur le rapport d'écarts.
+
+### Leçon retenue
+
+Avant d'engager un item de dette listé « à faire », **vérifier le code vivant** : sur 6 items traités ce soir, 2 étaient déjà faits et 1 à moitié — les statuts de la roadmap dérivent si personne ne les confronte au repo.
 
 ---
 
