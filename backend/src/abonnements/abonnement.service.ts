@@ -115,6 +115,58 @@ export class AbonnementService {
     return updated;
   }
 
+  /**
+   * Self-service : prolonge l'essai de 14 jours (10.1b-5). Une seule extension
+   * par essai — le guard est dérivé des dates existantes (essai frais = 30j,
+   * déjà étendu = 44j → seuil 40j), pas de champ dédié.
+   */
+  async demanderExtension(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Réservé aux essais (pas de mandat Mollie, pas un client payé/virement)
+    if (!centre.trialStartedAt || centre.mollieMandatId) {
+      throw new BadRequestException("L'extension est réservée aux comptes en période d'essai.");
+    }
+
+    // Anti-abus : une seule extension. Essai frais = 30j, déjà étendu = 44j → seuil 40j.
+    const trialStart = new Date(centre.trialStartedAt);
+    const seuil = new Date(trialStart); seuil.setDate(seuil.getDate() + 40);
+    if (centre.abonnementActifJusquAu && new Date(centre.abonnementActifJusquAu) > seuil) {
+      throw new BadRequestException('Une extension a déjà été accordée pour cet essai.');
+    }
+
+    // Prolonger de 14j depuis max(aujourd'hui, fin actuelle)
+    const now = new Date();
+    const finActuelle = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : now;
+    const base = finActuelle > now ? finActuelle : now;
+    const nouvelleFin = new Date(base); nouvelleFin.setDate(nouvelleFin.getDate() + 14);
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { abonnementActifJusquAu: nouvelleFin, abonnementStatut: StatutAbonnement.ACTIF },
+    });
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, prenom: true, nom: true },
+      });
+      const dateExp = nouvelleFin.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      await this.emailService.sendNotifAdmin(
+        `[Admin] Extension d'essai — ${centre.nom}`,
+        `<p><strong>${centre.nom}</strong> a demandé une extension d'essai (+14 jours).</p>
+         <table style="width:100%;border-collapse:collapse;margin:16px 0">
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
+           <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user?.prenom ?? ''} ${user?.nom ?? ''} — ${user?.email ?? 'N/A'}</td></tr>
+           <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Nouvelle expiration</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateExp}</td></tr>
+         </table>`,
+      );
+    } catch (err) {
+      console.error('[demanderExtension] Erreur envoi notif admin:', err);
+    }
+
+    return { success: true, actifJusquAu: nouvelleFin };
+  }
+
   // ── Statut ────────────────────────────────────────────────────────────────
 
   async getStatut(userId: string, centreId?: string | null) {

@@ -33,6 +33,12 @@ export class AbonnementController {
     return this.abonnementService.activerTrial(user.id, centreId);
   }
 
+  @Post('demander-extension')
+  @Roles(Role.HEBERGEUR)
+  demanderExtension(@CurrentUser() user: JwtUser, @CentreId() centreId: string | null) {
+    return this.abonnementService.demanderExtension(user.id, centreId);
+  }
+
   @Post('souscrire')
   @Roles(Role.HEBERGEUR)
   souscrire(
