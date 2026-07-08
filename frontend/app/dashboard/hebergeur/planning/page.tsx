@@ -7,6 +7,7 @@ import type { SejourPlanning } from '@/src/lib/collaboration';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite, getMesCentres } from '@/src/lib/centre';
 import CreateSejourModal, { normalise } from '@/app/dashboard/_shared/CreateSejourModal';
+import api from '@/src/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getJourFerie, getVacancesZones, isCalendrierPerime } from '@/src/data/calendrier-france';
 
@@ -79,7 +80,11 @@ export default function HebergeurPlanningPage() {
 }
 
 function PlanningContent() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, centres, centreActif } = useAuth();
+
+  // Onboarding : true par défaut (ne rien proposer tant qu'on ne sait pas —
+  // jamais de faux positif). Le vrai état arrive via /centres/onboarding-status.
+  const [onboardingComplete, setOnboardingComplete] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -160,7 +165,18 @@ function PlanningContent() {
     if (user?.role === 'HEBERGEUR') loadData();
   }, [user, loadData]);
 
+  useEffect(() => {
+    if (user?.role !== 'HEBERGEUR') return;
+    api.get('/centres/onboarding-status')
+      .then(({ data }) => setOnboardingComplete(!!data.complete))
+      .catch(() => setOnboardingComplete(true));
+  }, [user]);
+
   if (isLoading || !user) return null;
+
+  // Choix séjour test/réel : uniquement pendant l'onboarding, sur un centre possédé.
+  const centreCourant = centres.find(c => c.id === centreActif);
+  const proposeTest = !onboardingComplete && !!centreCourant?.isOwned;
 
   // Couleurs par séjour — dérivées du statut (séjour + devis)
   const couleurBySejour = Object.fromEntries(
@@ -883,6 +899,7 @@ function PlanningContent() {
           natureSejour={createType}
           initialDates={{ dateDebut: dispoForm.dateDebut, dateFin: dispoForm.dateFin }}
           initialClient={null}
+          proposeTest={proposeTest}
           onClose={() => { setShowCreateModal(false); setShowDispoModal(false); setShowDispoRangeForm(false); }}
           onCreated={(sejour) => {
             setShowCreateModal(false);

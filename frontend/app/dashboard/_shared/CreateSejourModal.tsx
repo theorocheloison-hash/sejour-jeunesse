@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { createSejourDirect } from '@/src/lib/collaboration';
 import type { SejourPlanning } from '@/src/lib/collaboration';
 import { getMesClients } from '@/src/lib/clients';
@@ -55,6 +56,8 @@ export interface CreateSejourModalProps {
   } | null;
   onClose: () => void;
   onCreated: (sejour: SejourPlanning) => void;
+  /** Onboarding : propose d'abord le choix séjour test / vrai séjour client. Défaut false. */
+  proposeTest?: boolean;
 }
 
 export default function CreateSejourModal({
@@ -63,7 +66,14 @@ export default function CreateSejourModal({
   initialClient,
   onClose,
   onCreated,
+  proposeTest,
 }: CreateSejourModalProps) {
+  const { user } = useAuth();
+
+  // Onboarding : écran de choix test/réel avant le formulaire. Sans proposeTest,
+  // on démarre directement au formulaire — comportement historique inchangé.
+  const [etape, setEtape] = useState<'CHOIX' | 'FORMULAIRE'>(proposeTest ? 'CHOIX' : 'FORMULAIRE');
+
   // Checkbox « Dates à définir » : quand cochée, on masque les champs date et on
   // envoie dateDebut/dateFin = undefined au backend (séjour exploratoire sans dates).
   const [datesADefinir, setDatesADefinir] = useState(false);
@@ -221,6 +231,22 @@ export default function CreateSejourModal({
     setShowContactSuggest(false);
   };
 
+  // Séjour test : pré-remplit l'hébergeur comme client (il pourra tout s'envoyer
+  // à sa propre adresse — seule destination autorisée tant que le centre est gaté).
+  const choisirTest = () => {
+    setForm(f => ({
+      ...f,
+      titre: f.titre || (natureSejour === 'SEJOUR' ? 'TEST — Mon séjour test' : 'TEST — Mon événement test'),
+      clientPrenom: user?.firstName ?? '',
+      clientNom: user?.lastName ?? '',
+      clientEmail: user?.email ?? '',
+    }));
+    setClientType('PARTICULIER');
+    setEtape('FORMULAIRE');
+  };
+
+  const choisirReel = () => setEtape('FORMULAIRE');
+
   const sousTypes = natureSejour === 'SEJOUR' ? SOUS_TYPES_SEJOUR : SOUS_TYPES_EVENEMENT;
   const labelParticipants = natureSejour === 'SEJOUR' ? 'Nombre de participants' : 'Nombre de personnes';
   const labelContact = natureSejour === 'SEJOUR' ? 'Structure organisatrice' : 'Client';
@@ -274,6 +300,41 @@ export default function CreateSejourModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+        {etape === 'CHOIX' ? (
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 mb-5">Comment voulez-vous commencer ?</h2>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={choisirTest}
+                className="w-full text-left rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] p-4 hover:opacity-90 transition-opacity"
+              >
+                <p className="text-sm font-semibold text-gray-900">🧪 Séjour test (recommandé)</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Testez tout le parcours en sécurité : vous êtes pré-rempli comme client, vous pourrez vous envoyer le devis à vous-même.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={choisirReel}
+                className="w-full text-left rounded-xl border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
+              >
+                <p className="text-sm font-semibold text-gray-900">Vrai séjour client</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Vous avez déjà un client ? Créez directement son séjour.
+                </p>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 w-full text-center text-xs text-gray-500 hover:underline"
+            >
+              Annuler
+            </button>
+          </div>
+        ) : (
+        <>
         <h2 className="text-base font-semibold text-gray-900 mb-1">
           {natureSejour === 'SEJOUR' ? '📋 Nouveau séjour' : '🎉 Nouvel événement'}
         </h2>
@@ -521,6 +582,8 @@ export default function CreateSejourModal({
             Annuler
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
