@@ -6,7 +6,12 @@ interface PricingTableProps {
   showCurrentPlan?: boolean;
   currentStatut?: 'INACTIF' | 'ACTIF' | 'SUSPENDU' | null;
   onUpgrade?: (plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', annual: boolean) => void;
+  /** Plan réellement souscrit (jamais pendant l'essai). Active la logique de rang
+      plan actuel / nous contacter / activer — uniquement avec onUpgrade (dashboard). */
+  currentPlan?: 'DECOUVERTE' | 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE' | null;
 }
+
+const PLAN_RANK = { DECOUVERTE: 0, ESSENTIEL: 1, COMPLET: 2, PILOTAGE: 3 } as const;
 
 function CheckIcon({ color, bg }: { color: string; bg: string }) {
   return (
@@ -54,10 +59,19 @@ function FeatureRow({ label, disabled, checkColor, checkBg }: {
   );
 }
 
-export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade }: PricingTableProps) {
+export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade, currentPlan }: PricingTableProps) {
   const [isAnnual, setIsAnnual] = useState(false);
 
   const isCurrentDecouverte = !showCurrentPlan || !currentStatut || currentStatut === 'INACTIF';
+
+  // Rang actif uniquement en contexte dashboard avec un plan réellement souscrit —
+  // sinon (landing, essai en cours) le comportement historique est inchangé.
+  const currentRank = onUpgrade && currentPlan != null ? PLAN_RANK[currentPlan] : null;
+
+  function contacterMailto() {
+    const subject = encodeURIComponent('Demande de changement de plan LIAVO');
+    window.location.href = `mailto:contact@liavo.fr?subject=${subject}`;
+  }
 
   function handleUpgradePlan(plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE') {
     if (onUpgrade) {
@@ -99,6 +113,47 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
     cursor: 'pointer', border: '1.5px solid transparent',
     textAlign: 'center', textDecoration: 'none',
     display: 'block', boxSizing: 'border-box',
+  };
+
+  // CTA d'un plan payant : plan actuel (désactivé) / inférieur (nous contacter,
+  // jamais le formulaire IBAN) / supérieur ou rang inactif (comportement historique).
+  const renderPaidCta = (plan: 'ESSENTIEL' | 'COMPLET' | 'PILOTAGE', accent: string) => {
+    if (currentRank !== null) {
+      const rank = PLAN_RANK[plan];
+      if (rank === currentRank) {
+        return (
+          <button
+            disabled
+            style={{
+              ...ctaBase, background: 'transparent',
+              borderColor: 'var(--color-border, #D3D1C7)',
+              color: 'var(--color-text-muted, #888780)',
+              opacity: 0.5, cursor: 'default',
+            }}
+          >
+            Votre plan actuel
+          </button>
+        );
+      }
+      if (rank < currentRank) {
+        return (
+          <button
+            onClick={contacterMailto}
+            style={{ ...ctaBase, background: 'transparent', borderColor: accent, color: accent, cursor: 'pointer' }}
+          >
+            Nous contacter
+          </button>
+        );
+      }
+    }
+    return (
+      <button
+        onClick={() => handleUpgradePlan(plan)}
+        style={{ ...ctaBase, background: accent, color: 'white', border: 'none', cursor: 'pointer' }}
+      >
+        {onUpgrade ? 'Activer ce plan' : 'Commencer'}
+      </button>
+    );
   };
 
   return (
@@ -168,19 +223,34 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
             <FeatureRow label="Devis et facturation" disabled />
           </ul>
           {onUpgrade ? (
+            currentRank !== null && currentRank > PLAN_RANK.DECOUVERTE ? (
+              <button
+                onClick={contacterMailto}
+                style={{
+                  ...ctaBase, background: 'transparent',
+                  borderColor: 'var(--color-border, #D3D1C7)',
+                  color: 'var(--color-text-muted, #888780)',
+                  cursor: 'pointer',
+                }}
+              >
+                Nous contacter
+              </button>
+            ) : (
+            /* currentRank === 0 (Découverte souscrite) ou rang inactif → historique */
             <button
-              disabled={isCurrentDecouverte}
+              disabled={currentRank !== null || isCurrentDecouverte}
               style={{
                 ...ctaBase,
                 background: 'transparent',
                 borderColor: 'var(--color-border, #D3D1C7)',
                 color: 'var(--color-text-muted, #888780)',
-                opacity: isCurrentDecouverte ? 0.5 : 1,
-                cursor: isCurrentDecouverte ? 'default' : 'pointer',
+                opacity: currentRank !== null || isCurrentDecouverte ? 0.5 : 1,
+                cursor: currentRank !== null || isCurrentDecouverte ? 'default' : 'pointer',
               }}
             >
-              {isCurrentDecouverte ? 'Votre plan actuel' : 'Rétrograder'}
+              {currentRank !== null || isCurrentDecouverte ? 'Votre plan actuel' : 'Rétrograder'}
             </button>
+            )
           ) : (
             <a href="/register?type=hebergeur" style={{ ...ctaBase, background: 'transparent', borderColor: 'var(--color-border, #D3D1C7)', color: 'var(--color-text-muted, #888780)' }}>
               Créer un compte
@@ -213,15 +283,10 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
             <FeatureRow label="Tout Découverte" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="Réponse aux demandes de séjour" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="Constructeur de devis + catalogue" checkColor="#1B4060" checkBg="#E6EEF4" />
-            <FeatureRow label="Signature électronique directeur" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="Signature électronique en ligne" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="Génération facture + export Chorus Pro" checkColor="#1B4060" checkBg="#E6EEF4" />
           </ul>
-          <button
-            onClick={() => handleUpgradePlan('ESSENTIEL')}
-            style={{ ...ctaBase, background: '#1B4060', color: 'white', border: 'none', cursor: 'pointer' }}
-          >
-            {onUpgrade ? 'Activer ce plan' : 'Commencer'}
-          </button>
+          {renderPaidCta('ESSENTIEL', '#1B4060')}
         </div>
 
         {/* ── Complet ── */}
@@ -255,17 +320,12 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
           </div>
           <ul style={featureList}>
             <FeatureRow label="Tout Essentiel" checkColor="#1B4060" checkBg="#E6EEF4" />
-            <FeatureRow label="Espace collaboratif hébergeur + enseignant" checkColor="#1B4060" checkBg="#E6EEF4" />
+            <FeatureRow label="Espace collaboratif partagé" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="Planning, messagerie, documents partagés" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="CRM hébergeur (clients, contacts, rappels)" checkColor="#1B4060" checkBg="#E6EEF4" />
             <FeatureRow label="Convention scolaire" checkColor="#1B4060" checkBg="#E6EEF4" />
           </ul>
-          <button
-            onClick={() => handleUpgradePlan('COMPLET')}
-            style={{ ...ctaBase, background: '#1B4060', color: 'white', border: 'none', cursor: 'pointer' }}
-          >
-            {onUpgrade ? 'Activer ce plan' : 'Commencer'}
-          </button>
+          {renderPaidCta('COMPLET', '#1B4060')}
         </div>
 
         {/* ── Pilotage ── */}
@@ -304,12 +364,7 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
             <FeatureRow label="Export données avancé" checkColor="#C87D2E" checkBg="#FEF3E2" />
             <FeatureRow label="Support prioritaire" checkColor="#C87D2E" checkBg="#FEF3E2" />
           </ul>
-          <button
-            onClick={() => handleUpgradePlan('PILOTAGE')}
-            style={{ ...ctaBase, background: '#C87D2E', color: 'white', border: 'none', cursor: 'pointer' }}
-          >
-            {onUpgrade ? 'Activer ce plan' : 'Commencer'}
-          </button>
+          {renderPaidCta('PILOTAGE', '#C87D2E')}
         </div>
 
       </div>

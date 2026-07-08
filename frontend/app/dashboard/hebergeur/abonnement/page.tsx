@@ -372,6 +372,8 @@ export default function AbonnementPage() {
           showCurrentPlan
           currentStatut={abo?.statut ?? null}
           onUpgrade={handleUpgrade}
+          /* Plan réellement souscrit uniquement — jamais pendant l'essai (conversion) */
+          currentPlan={abo && !abo.isTrial && abo.actif ? abo.plan : null}
         />
 
         {factures.length > 0 && (
