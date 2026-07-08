@@ -19,6 +19,7 @@ interface OnboardingStatus {
     devis: { ok: boolean };
   };
   centreValide: boolean;
+  envoisBloques: boolean;
   complete: boolean;
 }
 
@@ -299,7 +300,7 @@ export default function OnboardingChecklist() {
 
       {/* Découverte passive des features avancées. Séparateur porté par ce bloc
           uniquement quand la note de validation (qui a le sien) ne suit pas. */}
-      <div className={`mt-4 ${status.centreValide ? 'border-t border-gray-100 pt-3' : ''}`}>
+      <div className={`mt-4 ${!status.envoisBloques ? 'border-t border-gray-100 pt-3' : ''}`}>
         <p className="mb-2 text-xs font-semibold text-gray-500">Aller plus loin</p>
         <div className="flex flex-col gap-1.5">
           <Link href="/dashboard/hebergeur/inviter-enseignant" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
@@ -314,7 +315,7 @@ export default function OnboardingChecklist() {
         </div>
       </div>
 
-      {!status.centreValide && (
+      {status.envoisBloques && (
         <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
           Centre en cours de validation par l&apos;équipe LIAVO — testez tout en vous envoyant
           vos documents à vous-même.
