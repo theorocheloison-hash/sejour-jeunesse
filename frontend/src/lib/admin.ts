@@ -299,6 +299,7 @@ export interface CentreAbonnement {
   mollieCustomerId: string | null;
   mollieSubscriptionId: string | null;
   mollieMandatId: string | null;
+  modePaiement: string | null;
   userId: string | null;
   user: { email: string; prenom: string; nom: string } | null;
 }

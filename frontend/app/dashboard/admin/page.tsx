@@ -1500,6 +1500,7 @@ function AbonnementsTab() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fréquence</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paiement</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actif jusqu&apos;au</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trial</th>
@@ -1510,6 +1511,13 @@ function AbonnementsTab() {
                 {abonnements.map((a) => {
                   const badge = PLAN_BADGE[a.planAbonnement] ?? PLAN_BADGE.DECOUVERTE;
                   const expiré = !!a.abonnementActifJusquAu && new Date(a.abonnementActifJusquAu) < new Date();
+                  // Mandat Mollie = source de vérité prioritaire ; sinon le flag admin VIREMENT.
+                  const modePaiementLabel = a.mollieMandatId ? 'Mollie' : (a.modePaiement === 'VIREMENT' ? 'Virement' : '—');
+                  const modePaiementClass = modePaiementLabel === 'Mollie'
+                    ? 'bg-blue-50 text-blue-700'
+                    : modePaiementLabel === 'Virement'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-gray-100 text-gray-500';
                   return (
                     <tr key={a.id} className="hover:bg-gray-50 transition">
                       <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">{a.nom}</td>
@@ -1533,6 +1541,11 @@ function AbonnementsTab() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{frequenceLabel(a.abonnement)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${modePaiementClass}`}>
+                          {modePaiementLabel}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statutBadgeClass(a.abonnementStatut)}`}>
                           {a.abonnementStatut}
