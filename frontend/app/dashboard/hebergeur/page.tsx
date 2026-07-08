@@ -254,7 +254,10 @@ export default function HebergeurDashboard() {
     <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg)]">
 
       {/* ── Bannières système (full-width) ── */}
-      {claimStatut === 'EN_ATTENTE_DOCUMENT' && (
+      {/* Masqué si un centre PENDING affiche déjà son propre bandeau de validation
+          (cas ex-nihilo) — évite le double bandeau. Le bandeau claim reste affiché
+          pour la revendication d'un centre catalogue (centre ACTIVE → centresPending vide). */}
+      {claimStatut === 'EN_ATTENTE_DOCUMENT' && centresPending.length === 0 && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <p className="text-sm text-amber-800">
             <strong>Revendication en cours{claimOrgNom ? ` — ${claimOrgNom}` : ''}</strong> — Votre Kbis est attendu pour valider
