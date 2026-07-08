@@ -33,6 +33,7 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import api from '@/src/lib/api';
+import { extractApiError } from '@/src/contexts/AuthContext';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 
@@ -310,6 +311,16 @@ export default function TabDevisFacturation({
       .catch(() => {})
       .finally(() => setDevisLoading(false));
   }, [sejourId]);
+
+  // Gate anti-phishing : tant que le centre est en validation (envoisBloques),
+  // le backend n'autorise l'envoi de devis que vers l'adresse du compte.
+  // Défaut false = rien affiché si l'appel échoue (le backend reste l'autorité).
+  const [envoisBloques, setEnvoisBloques] = useState(false);
+  useEffect(() => {
+    api.get('/centres/onboarding-status')
+      .then(({ data }) => setEnvoisBloques(!!data.envoisBloques))
+      .catch(() => setEnvoisBloques(false));
+  }, []);
 
   useEffect(() => {
     if (isDirect) loadComplementaires();
@@ -1230,6 +1241,14 @@ export default function TabDevisFacturation({
                         </p>
                       )}
 
+                      {envoisBloques && (
+                        <p className="mt-3 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                          🕐 Votre centre est en cours de validation par l&apos;équipe LIAVO. En
+                          attendant, vous ne pouvez envoyer un devis qu&apos;à votre propre adresse
+                          email — testez le parcours en vous l&apos;envoyant à vous-même.
+                        </p>
+                      )}
+
                       {envoiError && (
                         <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
                           {envoiError}
@@ -1253,8 +1272,10 @@ export default function TabDevisFacturation({
                               setShowEnvoiModal(false);
                               setEnvoyerSuccess(true);
                               await reloadDevis();
-                            } catch {
-                              setEnvoiError("Erreur lors de l'envoi du devis. Réessayez.");
+                            } catch (err) {
+                              // extractApiError parse CENTRE_EN_VALIDATION|… et n'affiche
+                              // que la partie lisible du message backend.
+                              setEnvoiError(extractApiError(err));
                             } finally {
                               setEnvoyerLoading(false);
                             }
