@@ -115,6 +115,17 @@ export class CentreService {
     return {
       etapes,
       centreValide: centre.statut === 'ACTIVE',
+      // envoisBloques : miroir EXACT de assertEnvoiExterneAutorise (centre.helper.ts),
+      // moins l'exception "destinataire = soi". Source unique de vérité pour l'encart
+      // pré-envoi + le pied de checklist. Endpoint owner-only (checklist affichée si isOwned),
+      // donc le membership déjà chargé = celui du propriétaire visé par le gate.
+      envoisBloques:
+        centre.statut !== 'ACTIVE' ||
+        (!!centre.organisationId &&
+          !!membership &&
+          ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION', 'REFUSE'].includes(
+            membership.claimStatut,
+          )),
       complete:
         etapes.profil.ok &&
         etapes.catalogue.ok &&
