@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement, getFacturesLiavo } from '@/src/lib/abonnement';
+import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement, getFacturesLiavo, demanderExtension } from '@/src/lib/abonnement';
 import type { AbonnementStatut, FactureLiavo } from '@/src/lib/abonnement';
 import PricingTable from '@/app/components/PricingTable';
 
@@ -33,6 +33,9 @@ export default function AbonnementPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [cgvAcceptee, setCgvAcceptee] = useState(false);
   const [factures, setFactures] = useState<FactureLiavo[]>([]);
+  const [extensionLoading, setExtensionLoading] = useState(false);
+  const [extensionMessage, setExtensionMessage] = useState<string | null>(null);
+  const [extensionError, setExtensionError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -74,6 +77,23 @@ export default function AbonnementPage() {
       setFormError(err?.response?.data?.message || 'Erreur lors de l\'activation. Vérifiez votre IBAN et réessayez.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDemanderExtension() {
+    setExtensionLoading(true);
+    setExtensionError(null);
+    setExtensionMessage(null);
+    try {
+      await demanderExtension();
+      const updated = await getAbonnementStatut();
+      setAbo(updated);
+      setExtensionMessage('+14 jours ajoutés à votre essai.');
+    } catch (err: any) {
+      // Remonte notamment « Une extension a déjà été accordée pour cet essai. »
+      setExtensionError(err?.response?.data?.message || "Erreur lors de la demande d'extension. Réessayez.");
+    } finally {
+      setExtensionLoading(false);
     }
   }
 
@@ -139,6 +159,23 @@ export default function AbonnementPage() {
                 <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
                   Plan Pilotage &middot; <strong>{abo.joursRestants} jours restants</strong>
                 </span>
+                <button
+                  onClick={handleDemanderExtension}
+                  disabled={extensionLoading}
+                  style={{
+                    background: 'none', border: 'none', padding: 0, fontSize: 13,
+                    color: '#C87D2E', textDecoration: 'underline',
+                    cursor: extensionLoading ? 'wait' : 'pointer',
+                  }}
+                >
+                  {extensionLoading ? 'Demande en cours…' : 'Demander 14 jours de plus'}
+                </button>
+                {extensionMessage && (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1E5C42' }}>{extensionMessage}</span>
+                )}
+                {extensionError && (
+                  <span style={{ fontSize: 13, color: '#9C2B2B' }}>{extensionError}</span>
+                )}
               </div>
             );
           }
@@ -153,6 +190,21 @@ export default function AbonnementPage() {
                 <span style={{ fontSize: 14, color: 'var(--color-text)' }}>
                   Votre essai gratuit a expiré. Activez un abonnement pour retrouver l&apos;accès complet.
                 </span>
+                <button
+                  onClick={handleDemanderExtension}
+                  disabled={extensionLoading}
+                  style={{
+                    backgroundColor: '#C87D2E', color: '#FFFFFF', border: 'none',
+                    borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600,
+                    cursor: extensionLoading ? 'wait' : 'pointer',
+                    opacity: extensionLoading ? 0.6 : 1,
+                  }}
+                >
+                  {extensionLoading ? 'Demande en cours…' : 'Demander 14 jours de plus'}
+                </button>
+                {extensionError && (
+                  <span style={{ fontSize: 13, color: '#9C2B2B' }}>{extensionError}</span>
+                )}
               </div>
             );
           }

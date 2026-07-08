@@ -34,6 +34,11 @@ export async function annulerAbonnement(): Promise<void> {
   await api.post('/abonnements/annuler');
 }
 
+export async function demanderExtension(): Promise<{ success: boolean; actifJusquAu: string }> {
+  const { data } = await api.post('/abonnements/demander-extension');
+  return data;
+}
+
 export interface FactureLiavo {
   id: string;
   numero: string;
