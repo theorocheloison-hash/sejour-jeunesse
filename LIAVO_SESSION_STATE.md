@@ -1,5 +1,41 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 08/07/2026 — Onboarding phase 2 (prompt 6 / roadmap 10.11) déployé : modale test/réel, encart pré-envoi anti-phishing, « Aller plus loin ». Recette prod 3/3. + 3 bugs attrapés au smoke-test et corrigés (permissions PENDING, lien devis, double bandeau). FeatureHint ×4 différé. Voir section ci-dessous + roadmap §10.
+> Dernière mise à jour : 08/07/2026 (suite) — Chantier 10.1 abonnements virement livré de bout en bout (protection Choucas, deadline 26/09 NEUTRALISÉE) + edge cases onboarding soldés (2/3 déjà corrects, 1 fix) + compte de test neutralisé. Session phase 2 (matin) plus bas. Voir section ci-dessous + roadmap §10.
+
+---
+
+## SESSION 08/07/2026 (suite) — Chantier 10.1 abonnements virement + edge cases + nettoyage
+
+### 10.1 — protection Choucas — LIVRÉ + DÉPLOYÉ (deadline 26/09 neutralisée)
+
+Contexte : Choucas (PILOTAGE ANNUEL payé par bon de commande mairie → mode virement, pas de mandat Mollie) cochait exactement le profil ciblé par le cron d'alertes d'essai (`abonnement_statut ACTIF` + `trial_started_at` non null + `mollie_mandat_id` null) → aurait reçu un faux « ton essai expire » le 26/09 (J-21). Fix en 2 moitiés : le CODE (exclure les virements) + les DONNÉES (marquer Choucas).
+
+- **10.1a** — enum `ModePaiement {MOLLIE, VIREMENT}` + champ `modePaiement` nullable sur `CentreHebergement` (migration additive `20260708_add_mode_paiement`, appliquée par migrate deploy au boot). Cron : exclusion **null-safe** des VIREMENT dans les 2 méthodes trial (`OR modePaiement null OR not VIREMENT` — piège du `not:'VIREMENT'` seul qui exclurait les NULL, donc tous les vrais essais, évité). **Choucas marqué `mode_paiement='VIREMENT'` en prod** (seul centre VIREMENT en base).
+- **10.1b-1** — `factureLiavo.emettre()` : échéance dynamique (`molliePaymentId ? now : now+30j`) + mention (SEPA acquittée vs virement 30j). `genererDevisLiavo` déjà correct, intact.
+- **10.1b-2+3 backend** — `facturerCentre` prolonge depuis la fin de période actuelle si future (renouvellement, sinon repart d'aujourd'hui) + pose `modePaiement VIREMENT` (chemin manuel = toujours virement) ; `getAbonnements` expose `modePaiement`.
+- **10.1b-3 frontend** — colonne « Paiement » dans l'admin abonnements (badge dérivé `mollieMandatId ? Mollie : modePaiement===VIREMENT ? Virement : —`).
+- **10.1b-4** — `envoyerRelanceVirement()` : relance **ADMIN** J-30 pour les centres VIREMENT (4ᵉ étape du cron, debounce 25j, email `ADMIN_ALERT_EMAIL ?? contact@liavo.fr`). Non-interférence vérifiée (VIREMENT exclusif : exclu des alertes essai + jamais mandat Mollie). Choucas → relance admin ~17/09.
+- **10.1b-5** — self-service : `POST /abonnements/demander-extension` (+14j depuis max(now, fin actuelle), garde essai-only, anti-abus par seuil `trialStart+40j` SANS migration, repassage ACTIF, notif admin) + bouton « Demander 14 jours de plus » dans les 2 bandeaux essai (en cours + expiré).
+
+**Tout 10.1 poussé et déployé.** Vérifs on-code faites à chaque volet (facturerCentre, getAbonnements, cron, endpoint+méthode, bouton frontend).
+
+### Edge cases justificatif — 2/3 DÉJÀ CORRECTS, 1 fix
+
+Lus sur le code vivant (les vieilles notes du 07/07 étaient précautionneuses, pas factuelles) :
+- **(a) claim sans fichier** — DÉJÀ CORRECT. `getOnboardingStatus` dérive `justificatif='ABSENT'` pour `EN_ATTENTE_DOCUMENT` (ex-nihilo avant upload) et `NON_APPLICABLE` (centre ajouté) → le front affiche « Déposer un justificatif », pas un faux « en cours d'examen ». Aucun fix.
+- **(b) logoUrl null PDF devis** — DÉJÀ CORRECT. Ternaire de fallback dans `DevisPDF.tsx` (`logoUrl ? logo+info : info`). Aucun fix.
+- **(c) pied de checklist** — **FIXÉ**. `OnboardingChecklist` dérive désormais le pied « en cours de validation » ET le séparateur « Aller plus loin » d'`envoisBloques` (au lieu de `centreValide`) → le pied s'affiche aussi pour une revendication de centre catalogue (centre ACTIVE + claim pending), là où avant il ne sortait que pour un centre PENDING. Checklist + encart pré-envoi (6b-2) + gate backend racontent maintenant la même histoire depuis la même source de vérité. Fichier unique, invariant « un seul séparateur » préservé, zéro régression ex-nihilo.
+
+### Nettoyage compte de test — FAIT
+
+`trochenrc@gmail.com` (user `fecd14d0-07ae-4f1d-a87d-81b752111758`, centre `7882bda3-8086-4c09-b592-61e173a3e51f` « test », org `0e0a0350-7f16-46cd-8515-2489fb137fd2`) **neutralisé en prod** (transaction BEGIN/COMMIT, 2× UPDATE 1) : `statut SUSPENDED` + `abonnement_statut INACTIF` + `compte_valide false`. Contrôle post-op : `f / SUSPENDED / INACTIF`. Réversible, pas de DELETE en cascade. → login bloqué, invisible au catalogue, **jamais ciblé par le cron**. (Résout le « compte de test à neutraliser » du bloc phase 2.)
+
+### Workflow — retour direct sur main
+
+Des branches par mini-correctif avaient été introduites en début de session (détour). Théo a recadré : **retour au mode direct sur main**. Le vrai garde-fou reste **CC ne pousse jamais → Claude vérifie on-code → Théo pushe**, pas les branches.
+
+### État final prod
+
+10.1 complet · (c) déployé · compte de test neutralisé · **deadline 26/09 MORTE**.
 
 ---
 
