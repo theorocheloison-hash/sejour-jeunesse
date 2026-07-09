@@ -7,6 +7,7 @@ import {
   Min,
   IsArray,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RegisterHebergeurDto {
   // ── Infos personnelles ──
@@ -60,6 +61,7 @@ export class RegisterHebergeurDto {
   description?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/[\s.\-]/g, '') : value))
   @IsString()
   siret?: string;
 
