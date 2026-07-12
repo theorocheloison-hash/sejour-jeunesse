@@ -62,6 +62,18 @@ Signaux mesurés :
 
 ---
 
+### Note 12/07/2026 — Résidus du chantier export ZIP factures
+
+Trois items ouverts, aucun bloquant, tous créés ou révélés par le chantier du 12/07 (cf. SESSION_STATE 12/07) :
+
+1. **Pré-vol avalé silencieusement** — `frontend/app/dashboard/hebergeur/pilotage/comptabilite/page.tsx` : `getFacturesPdfPreview().catch(() => setPreview(null))`. Si l'endpoint tombe (500), la carte affiche une ligne vide et le bouton reste actif : l'utilisateur clique, attend, se prend l'erreur. Même famille que les échecs silencieux qu'on chasse. **Fix** : un état `previewErreur` affiché (~5 lignes). À faire au prochain passage sur ce fichier, pas avant.
+
+2. **Concurrence `zipFromUrls` = 5** — `backend/src/storage/storage.service.ts`. 62 PDF Sauvageon → ~10 s (mesuré en prod ; l'estimation était 3-6 s, l'écart vient de la latence OVH). Le routeur Scalingo coupe à 30 s : marge confortable aujourd'hui, **à passer à 10 dès qu'un client dépasse ~150 factures sur une période**. Paramètre déjà exposé, changement d'une ligne.
+
+3. **PDF de facture régénéré à chaque versement** (révélé, pas créé, par ce chantier) — `refreshFacturePdf()` dans `facture.service.ts` réécrit le PDF sur OVH à chaque ajout/suppression de versement. Le PDF téléchargé reflète donc **l'état courant**, pas l'état à l'émission. Une facture est censée être un snapshot immuable ; les montants ne bougent pas, mais l'encart versements si. **Question ouverte, pas une urgence** : à arbitrer dans le chantier conformité facturation (avec numérotation / verrouillage / avoir).
+
+---
+
 ### Note 01/07/2026 — Dashboard refactorisé
 
 `frontend/app/dashboard/hebergeur/page.tsx` est passé de ~900 lignes (45KB) à ~290 lignes. Les KPIs utilisent `useMemo`, les données chargées en un seul `Promise.all` de 5 appels (contre 8 + fire-and-forget). La logique CA/alertes est alignée avec `devisAlertes.ts` (source de vérité unique). Le planning compact réutilise `PLANNING_COULEURS` + `derivePlanningStatut` du module planning.

@@ -1,7 +1,8 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 08/07/2026 (soir)** — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Soir (tard) : fix page abonnement — libellés neutres (amorce §2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`). Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §2/§4/§10 + SESSION_STATE 08/07.
+> **Dernière mise à jour : 12/07/2026** — **Export ZIP des factures PDF LIVRÉ** (§2.8 ci-dessous) : ZIP + index CSV, avoirs inclus dans le ZIP ET dans l'export CSV comptable, **bug multi-centre des exports réparé** (les `<a href download>` court-circuitaient axios → le header `X-Centre-Id` ne partait jamais → tout hébergeur multi-centre exportait son 1er centre, silencieusement). 3 commits poussés (`6023edc`, `f0f96f8`, `b0a1ed3`), recette prod validée (62 PDF Sauvageon, ~10 s). **Statut corrigé** : `28e364a` (fix SIRET) était noté « non poussé » ici — il est **en prod depuis le 09/07** ; en revanche le SIRET **n'est pas réglé** (cf. 4e cause du bloc 🔴). Voir SESSION_STATE 12/07.
+> *(08/07/2026, soir)* — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Soir (tard) : fix page abonnement — libellés neutres (amorce §2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`). Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §2/§4/§10 + SESSION_STATE 08/07.
 > *(07/07 : Refonte planning ↔ groupes m2m livrée. Fix crash boot Scalingo P3015. Refactor PDF extraction dynamic imports. Item dette 4.18 ajouté.)*
 > *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
 > **Auteur** : Théo + Claude (sparring partner)
@@ -18,10 +19,21 @@
 1. **CTA KBIS mal branché** : les bannières dashboard + la checklist onboarding pointent « Déposer un justificatif » vers `/dashboard/hebergeur/documents` (documents génériques via `POST /centres/documents`), au lieu d'un upload appelant `POST /organisations/:id/upload-kbis` (le seul endpoint qui fait avancer le claim `EN_ATTENTE_DOCUMENT` → `EN_ATTENTE_VALIDATION`). Le seul écran qui appelle `upload-kbis` est `/centre/[id]/claim`, réservé au catalogue. Backend complet (`uploadKbis` → `validerClaim` → centre ACTIVE) ; **trou 100 % frontend**.
 2. **Routage cas 2 incohérent** : une invitation admin avec centre pré-rempli (cas 2) est routée par le front vers `/auth/register/hebergeur` (→ PENDING) au lieu de `/centres/register` (qui crée le centre ACTIVE direct). Le code ACTIVE du cas 2 dans `centre.service.register` est donc **du code mort côté UI**.
 3. **`motDePasseDefini` manquant** : `centre.service.register()` crée le user SANS `motDePasseDefini: true` → **reconnexion par mot de passe cassée** pour les comptes créés via `/centres/register` (bug latent du cas 1 invitation existant).
+4. **SIRET : longueur non validée** (ajouté le 12/07, vérifié on-code). Le fix `28e364a` (`@Transform`, en prod) **strippe** espaces/points/tirets mais **ne contrôle pas la longueur** → un SIRET saisi à 13 ou 15 chiffres sans espaces passe la validation, `centre.create` throw sur `VarChar(14)` → **user orphelin + mail menteur, exactement le bug de Louise**. Réparation à la source : `@Length(14, 14)` sur le DTO → erreur 400 propre côté formulaire au lieu d'un compte cassé. **⚠️ Ne pas croire le SIRET « réglé » : seul le cas fréquent (espaces) l'est.**
 
 **Public concerné** : tout hébergeur en self-signup direct (≠ catalogue, ≠ pilote). Non détecté avant car les hébergeurs existants venaient d'imports LMDJ/APIDAE ou d'invitations.
 
 **À faire** : chantier dédié « flux inscription hébergeur », cadré à froid, counter-tests obligatoires (flux critique = reconnexion de vrais clients en jeu). **NE PAS patcher à chaud.**
+
+---
+
+## 🟠 CONTRE-TEST EN ATTENTE — multi-centre sur les exports (à passer au 2e centre de Louise)
+
+**Contexte** : le 12/07, les 3 exports de Pilotage → Comptabilité (CSV factures, CSV versements, ZIP PDF) sont passés de `<a href download>` à axios, ce qui rétablit l'envoi du header `X-Centre-Id`. **Avant ce fix, tout hébergeur multi-centre exportait TOUJOURS son premier centre, silencieusement** (Pôle Montagne = 3 centres).
+
+**Ce qui est prouvé** : `localStorage['liavo-centre-actif']` est bien renseigné (même en mono-centre) et l'interceptor axios pose le header → le maillon cassé est refait. **Ce qui ne l'est pas** : le changement effectif de contenu quand on bascule de centre — impossible à tester sur Sauvageon (mono-centre : le fallback « premier centre possédé » donne le bon résultat par accident, le test serait aveugle).
+
+**→ Dès que le 2e centre de Louise (Chambéret / Corrèze) existe** : basculer de centre via le `CentreSelector`, relancer les 3 exports, **vérifier que le contenu change**. Si non, le fix n'a pas pris. Ne pas laisser une cliente le découvrir à notre place.
 
 ---
 
@@ -93,6 +105,14 @@ Table de jointure `PlanningActiviteGroupe`, refonte `genererPlanningIA` (1 activ
 **PARTIEL.** Amorce 08/07 : 2 libellés scolaires neutralisés dans `PricingTable.tsx` (« Signature électronique directeur » → « en ligne », « Espace collaboratif hébergeur + enseignant » → « partagé »). **Reste** : les termes scolaires dans le body de `sejour/[id]/page.tsx` en contexte EVENEMENT.
 
 ### 2.5 ~~Export CSV factures~~ — ✅ LIVRÉ (Comptabilité dans module Pilotage, BOM UTF-8)
+
+### 2.8 ~~Export ZIP des factures PDF~~ — ✅ LIVRÉ (12/07)
+
+`GET /pilotage/export/factures-pdf[/preview]` (`@RequirePlan('COMPLET', strict)`). ZIP des PDF Factur-X déjà stockés sur OVH + `_factures.csv` en index + `_PDF_MANQUANTS.txt` si des PDF manquent (deux causes distinguées : jamais généré / introuvable au fetch). `StorageService.zipFromUrls()` **générique** (`{nom, url}`) — l'extension aux **factures prestataires** (`FacturePrestataire.fichierUrl`, le comptable veut les achats autant que les ventes) coûtera ~30 lignes. **Zéro dépendance ajoutée** (`pizzip` déjà présent), compression STORE, fetch par lots de 5, plafond dur 300 factures.
+
+**Effets de bord assumés** : les **avoirs** sont désormais inclus dans l'export CSV factures (un avoir est une pièce comptable — son exclusion rendait le CSV faux) + **colonne `Type`** ajoutée. Les 3 exports passent par axios (fix multi-centre, cf. bloc 🟠 ci-dessus).
+
+**Recette prod** : Sauvageon 62 factures / 62 PDF, ZIP ~10 s. **Non recetté en prod** : les avoirs (0 en base) → couverts par tests unitaires uniquement, à revérifier au premier avoir émis.
 
 ### 2.6 LOT 4a — Cookie httpOnly — EN PAUSE
 

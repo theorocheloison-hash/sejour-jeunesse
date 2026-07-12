@@ -1,5 +1,48 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 09/07/2026 — Session Louise / PULSE SPORTS : bug SIRET (espaces → overflow VarChar(14)), fix `@Transform` (commit `28e364a`, **non poussé**), rattrapage SQL complet (compte + centre Valloire ACTIVE, trial Pilotage 30j), trou inscription ex-nihilo documenté (roadmap 🔴). Avant : 08/07/2026 (soir, tard) — Fix page abonnement : libellés neutres (amorce 2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`), vérifié on-MCP, poussé. Avant : run dette §4 (4.11 13 vulns→3 next 16.2.10 xlsx accepté ; 4.15 bandeau non-destructif ; 4.6/4.10 déjà faits ; 4.7 audit prêt, **requêtes prod à exécuter par Théo** `docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections + roadmap §2/§4/§10.
+> Dernière mise à jour : 12/07/2026 — Session export ZIP factures : téléchargement en masse des PDF de factures (ZIP + index CSV), avoirs inclus dans le ZIP ET dans l'export CSV comptable (colonne Type), **bug multi-centre des exports réparé** (3 commits poussés : `6023edc`, `f0f96f8`, `b0a1ed3` ; recette prod validée). **Correction d'un statut faux** : `28e364a` (fix SIRET) était noté « non poussé » dans ce doc ET dans la roadmap — il est en prod depuis le 09/07 (2e dérive de statut en 4 jours). Avant : 09/07/2026 — Session Louise / PULSE SPORTS : bug SIRET (espaces → overflow VarChar(14)), fix `@Transform` (commit `28e364a`, **poussé — en prod depuis le 09/07**), rattrapage SQL complet (compte + centre Valloire ACTIVE, trial Pilotage 30j), trou inscription ex-nihilo documenté (roadmap 🔴). Avant : 08/07/2026 (soir, tard) — Fix page abonnement : libellés neutres (amorce 2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`), vérifié on-MCP, poussé. Avant : run dette §4 (4.11 13 vulns→3 next 16.2.10 xlsx accepté ; 4.15 bandeau non-destructif ; 4.6/4.10 déjà faits ; 4.7 audit prêt, **requêtes prod à exécuter par Théo** `docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections + roadmap §2/§4/§10.
+
+---
+
+## SESSION 12/07/2026 — Export ZIP des factures PDF + réparation du bug multi-centre des exports
+
+### Déclencheur
+Besoin Sauvageon : récupérer toutes les factures d'une période en PDF pour le comptable. Les 2 exports existants de l'onglet Pilotage → Comptabilité sont des CSV, pas des PDF.
+
+### Ce qui existait déjà (lu on-code avant toute proposition)
+- `Facture.pdfUrl` : PDF **Factur-X** (PDF/A-3 + XML CII) déjà généré à l'émission et stocké sur OVH (dossier privé `factures/`).
+- `StorageService.fetchAsBuffer(url)` : lecture d'un objet privé avec les credentials S3 internes. Brique exacte pour un ZIP.
+- **`pizzip` déjà en dépendance directe** du backend (via docxtemplater) → ZIP faisable **sans ajouter une seule dépendance**.
+- SQL prod de contrôle (Sauvageon) : **62 factures (45 ACOMPTE + 17 SOLDE), 0 `pdf_url` NULL, 0 AVOIR en base.**
+
+### Livré (3 commits, poussés, déployés)
+**`6023edc` + `f0f96f8` — backend**
+- `StorageService.zipFromUrls(entries, extras, concurrence=5)` : **générique** (`{nom, url}`, zéro couplage Prisma → l'extension aux `FacturePrestataire.fichierUrl` coûtera ~30 lignes). Fetch par lots de 5 ; une entrée en échec n'interrompt pas le zip (retournée dans `manquants`). Compression **STORE** (les PDF sont déjà compressés ; `pizzip.generate` est synchrone → DEFLATE bloquerait l'event loop pour 0 gain). `extras` accepte un tableau **ou une fonction `(manquants) => extras[]`** évaluée APRÈS les fetchs — c'est ce qui permet au manifeste de lister les échecs de fetch.
+- `PilotageService` : requête factorisée dans `getFacturesPeriode` (source unique CSV + ZIP), **avoirs inclus** (filtre `not: 'AVOIR'` supprimé), **colonne `Type`** en 3e position du CSV, `Payé = '—'` sur les avoirs (montants négatifs → la comparaison n'a pas de sens). `getFacturesPdfPreview` (total / avecPdf / sansPdf). `exportFacturesZip` : plafond dur **300 factures** (400), nommage `AVOIR_YYYY-MM-DD_numero_slug.pdf`, `_factures.csv` (index) + `_PDF_MANQUANTS.txt` embarqués.
+- 2 routes `GET /pilotage/export/factures-pdf[/preview]`, `@RequirePlan('COMPLET', {strict:true})`. **Aucun guard touché.**
+- 7 tests unitaires (nommage, préfixe AVOIR, plafond, manquants, fetch en échec) — **obligatoires : 0 avoir en base, ce code ne sera jamais recetté en prod.**
+
+**`b0a1ed3` — frontend**
+- `src/lib/download.ts` : `downloadViaApi(url, fallback)` — axios `responseType: 'blob'`, filename lu depuis `content-disposition`, ObjectURL révoqué, **erreur Blob reparsée en JSON** (le message backend remonte tel quel).
+- `src/lib/pilotage.ts` : `exportFacturesURL` / `exportVersementsURL` **supprimés** (cause racine, cf. ci-dessous).
+- Page comptabilité : les 2 `<a>` deviennent des `<button>` (spinner + erreur), 3e carte « Télécharger les factures (PDF) » avec pré-vol (`useEffect` + flag `ignore` anti-race sur les raccourcis de période), bouton désactivé si `avecPdf === 0`, label « Préparation de l'archive… ».
+
+### 🔑 Le vrai fix : bug multi-centre des exports (tournait en prod, jamais vu)
+`exportFacturesURL()` fabriquait un `<a href="/api/pilotage/export/...">`. **Un `<a href>` court-circuite l'instance axios** → le header `X-Centre-Id` (posé par l'interceptor) ne partait JAMAIS → `@CentreId()` (qui ne lit QUE ce header) recevait `null` → `getCentreForUser(userId, undefined)` retombait sur **le premier centre possédé**.
+- Sauvageon (mono-centre) : juste **par accident**. Pôle Montagne (3 centres) et bientôt Louise (2) : **le mauvais centre, silencieusement**.
+- Fix à la source = supprimer les helpers d'URL, tout passer par axios. **Zéro ligne touchée dans les guards.**
+- ⚠️ **Piste écartée** : un fallback `?centreId=` dans le contrôleur aurait été un patch **et un trou** — `PlanGuard` résout le centre via le header `x-centre-id` UNIQUEMENT → un multi-centre aurait pu exporter un centre en Découverte pendant que le guard validait sur son centre en Pilotage.
+
+### Recette prod (12/07, validée)
+62 factures / 62 PDF, ZIP en **~10 s**, index CSV présent, pas de `_PDF_MANQUANTS.txt`. « Trimestre en cours » → 2 factures (le filtre de dates mord, le pré-vol se recharge sans reload). `localStorage['liavo-centre-actif']` = UUID Sauvageon → **l'interceptor pose bien `X-Centre-Id` → fix multi-centre prouvé** (le contre-test réel reste à passer sur un compte à 2 centres : cf. roadmap, condition du 2e centre de Louise).
+
+### Résidus (non bloquants, documentés en dette)
+- Pré-vol en échec **avalé silencieusement** (`.catch(() => setPreview(null))`) → carte vide + bouton actif. À corriger au prochain passage sur ce fichier.
+- Concurrence `zipFromUrls` = 5 → ~10 s pour 62 PDF. À passer à 10 si un client dépasse ~150 factures.
+- Avoirs : **jamais exécutés en prod** (0 en base). Revérifier l'export au premier avoir émis.
+- `refreshFacturePdf` régénère le PDF à chaque versement → le PDF téléchargé reflète l'état courant, **pas l'état à l'émission**. Douteux vis-à-vis de l'immuabilité d'une facture. Hors scope, à arbitrer un jour.
+
+### Leçon (2e occurrence en 4 jours)
+La roadmap ET ce doc annonçaient `28e364a` « NON POUSSÉ » : `git log origin/main..main` était **vide**, le commit était en prod depuis le 09/07. **Un statut de doc n'est vrai que confronté au repo.** Coût aujourd'hui : 5 min. Le jour où ça portera sur une migration, ce sera plus cher.
 
 ---
 
@@ -12,8 +55,10 @@ Mail admin « nouveau compte hébergeur — Louise Giard » (`lgiard@pulse-sport
 - Le mail admin + l'event feed partent APRÈS `user.create` mais AVANT `centre.create` → recevoir le mail ne prouve que l'existence du User, pas du centre.
 - **Cause racine — SIRET** : `register-hebergeur.dto.ts` a `adresse/ville/codePostal/capacite` en `@IsOptional()` (mode claim). Un SIRET saisi AVEC espaces (« 813 741 220 00020 » = 17 car.) passe la validation → user committé + mail envoyé, puis `centre.create` throw (colonne `siret` = VarChar(14), « value too long ») → **user orphelin + mail menteur**.
 
-### Fix SIRET — commit `28e364a` (NON POUSSÉ, Théo pushe)
+### Fix SIRET — commit `28e364a` (**POUSSÉ — en prod depuis le 09/07** ; statut corrigé le 12/07)
 `@Transform` sur le champ `siret` du DTO (strip `[\s.\-]`). `main.ts` a `transform:true` global → `dto.siret` propre partout (mail, centre.create, substring siren). + test spec `register-hebergeur.dto.spec.ts` (4 cas). tsc + build + tests verts (140 passed).
+
+⚠️ **Réserve toujours valable (vérifiée on-code le 12/07)** : le `@Transform` **nettoie** mais **ne valide PAS la longueur**. Un SIRET saisi à 13 ou 15 chiffres sans espaces passe la validation → `centre.create` throw à nouveau sur `VarChar(14)` → **user orphelin + mail menteur, exactement le bug de Louise**. Le fix traite le cas fréquent (espaces), pas la classe de bug. Vraie réparation à la source : `@Length(14, 14)` → erreur 400 propre côté formulaire. **→ 4e cause du bloc 🔴 « flux inscription hébergeur ». Le SIRET n'est PAS réglé.**
 
 ### Trou de fond découvert → documenté roadmap (bloc 🔴 URGENT)
 Inscription hébergeur ex-nihilo (centre hors catalogue) → centre PENDING **jamais activable**, ni self-service ni admin. 3 causes : **(A)** CTA « déposer justificatif » pointe `/dashboard/hebergeur/documents` (docs génériques) au lieu de `POST /organisations/:id/upload-kbis` ; **(B)** routage front cas 2 invitation → `/auth/register/hebergeur` (PENDING) au lieu de `/centres/register` (ACTIVE direct — code mort côté UI) ; **(C)** `centre.service.register()` sans `motDePasseDefini:true` → reconnexion par mdp cassée. **Chantier « flux inscription hébergeur » à cadrer À FROID. NE PAS patcher à chaud.**
