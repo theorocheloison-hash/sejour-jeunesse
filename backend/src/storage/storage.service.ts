@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
 import { getSignedUrl as s3GetSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
+import PizZip from 'pizzip';
 
 @Injectable()
 export class StorageService {
@@ -155,7 +156,8 @@ export class StorageService {
 
   /**
    * Assemble un ZIP en mémoire à partir de fichiers du bucket (par URL) et de
-   * fichiers générés en mémoire (`extras`, ajoutés à la racine).
+   * fichiers générés en mémoire (`extras`, ajoutés à la racine — tableau, ou
+   * fonction des `manquants` évaluée après les fetchs).
    * Fetch par lots de `concurrence` ; une entrée dont le fetch échoue
    * n'interrompt PAS le zip : son `nom` est retourné dans `manquants`.
    * Générique ({nom, url}) : réutilisable pour tout modèle portant une URL de
@@ -163,10 +165,11 @@ export class StorageService {
    */
   async zipFromUrls(
     entries: Array<{ nom: string; url: string }>,
-    extras: Array<{ nom: string; contenu: string | Buffer }> = [],
+    extras:
+      | Array<{ nom: string; contenu: string | Buffer }>
+      | ((manquants: string[]) => Array<{ nom: string; contenu: string | Buffer }>) = [],
     concurrence = 5,
   ): Promise<{ buffer: Buffer; manquants: string[] }> {
-    const { default: PizZip } = await import('pizzip');
     const zip = new PizZip();
     const manquants: string[] = [];
 
@@ -188,7 +191,10 @@ export class StorageService {
       });
     }
 
-    for (const extra of extras) {
+    // extras en fonction : évalués APRÈS les fetchs, pour qu'un manifeste
+    // puisse lister les entrées irrécupérables à l'intérieur même du zip.
+    const resolus = typeof extras === 'function' ? extras(manquants) : extras;
+    for (const extra of resolus) {
       zip.file(extra.nom, extra.contenu);
     }
 

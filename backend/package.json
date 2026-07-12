@@ -105,16 +105,7 @@
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "transform": {
-      "^.+\\.(t|j)s$": [
-        "ts-jest",
-        {
-          "tsconfig": {
-            "module": "commonjs",
-            "moduleResolution": "node10",
-            "resolvePackageJsonExports": false
-          }
-        }
-      ]
+      "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

@@ -545,19 +545,35 @@ export class PilotageService {
     const avecPdf = factures.filter(f => f.pdfUrl);
     const sansPdf = factures.filter(f => !f.pdfUrl);
     const entries = avecPdf.map(f => ({ nom: this.nomPdfZip(f), url: f.pdfUrl! }));
+    const csv = this.facturesToCsv(factures);
 
-    const extras: Array<{ nom: string; contenu: string | Buffer }> = [
-      { nom: '_factures.csv', contenu: this.facturesToCsv(factures) },
-    ];
-    if (sansPdf.length > 0) {
-      extras.push({
-        nom: '_PDF_MANQUANTS.txt',
-        contenu: [
-          'Factures émises sans PDF archivé (absentes de ce zip) :',
-          ...sansPdf.map(f => `- ${f.numero} (émise le ${fmtDate(f.dateEmission)})`),
-        ].join('\n'),
-      });
-    }
+    // Évalué par zipFromUrls APRÈS les fetchs : le manifeste couvre les deux
+    // causes d'absence — PDF jamais généré (pdfUrl null) ET objet OVH
+    // irrécupérable au moment de l'export (`manquants`, noms de fichier zip).
+    const extras = (manquants: string[]): Array<{ nom: string; contenu: string | Buffer }> => {
+      const fichiers: Array<{ nom: string; contenu: string | Buffer }> = [
+        { nom: '_factures.csv', contenu: csv },
+      ];
+      if (sansPdf.length + manquants.length > 0) {
+        const lignes = ['Factures absentes de cette archive :'];
+        if (sansPdf.length > 0) {
+          lignes.push(
+            '',
+            '— PDF jamais généré (facture émise sans PDF archivé) :',
+            ...sansPdf.map(f => `- ${f.numero} (émise le ${fmtDate(f.dateEmission)})`),
+          );
+        }
+        if (manquants.length > 0) {
+          lignes.push(
+            '',
+            "— PDF introuvable au moment de l'export (fichier archivé inaccessible) :",
+            ...manquants.map(nom => `- ${nom}`),
+          );
+        }
+        fichiers.push({ nom: '_PDF_MANQUANTS.txt', contenu: lignes.join('\n') });
+      }
+      return fichiers;
+    };
 
     const { buffer, manquants } = await this.storage.zipFromUrls(entries, extras);
     if (manquants.length > 0) {

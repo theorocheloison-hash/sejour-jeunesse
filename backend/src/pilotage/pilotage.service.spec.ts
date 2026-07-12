@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import PizZip from 'pizzip';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { PilotageService } from './pilotage.service.js';
@@ -26,6 +27,14 @@ function facture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+type ZipExtra = { nom: string; contenu: string | Buffer };
+type ZipExtras = ZipExtra[] | ((manquants: string[]) => ZipExtra[]);
+
+/** Résout le paramètre extras (tableau ou fonction des manquants) comme le fait zipFromUrls. */
+function resoudreExtras(extras: ZipExtras, manquants: string[] = []): ZipExtra[] {
+  return typeof extras === 'function' ? extras(manquants) : extras;
+}
+
 function mockDeps(factures: unknown[]) {
   const prisma = {
     centreHebergement: {
@@ -36,10 +45,10 @@ function mockDeps(factures: unknown[]) {
   };
   const storage = {
     zipFromUrls: jest.fn(
-      async (
-        _entries: Array<{ nom: string; url: string }>,
-        _extras: Array<{ nom: string; contenu: string | Buffer }>,
-      ) => ({ buffer: Buffer.from('zip'), manquants: [] as string[] }),
+      async (_entries: Array<{ nom: string; url: string }>, _extras: ZipExtras) => ({
+        buffer: Buffer.from('zip'),
+        manquants: [] as string[],
+      }),
     ),
   };
   const service = new PilotageService(
@@ -87,11 +96,41 @@ describe('PilotageService — export ZIP des PDF de factures', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].nom).toContain('FS-2026-001');
 
-    const manquantsTxt = extras.find(e => e.nom === '_PDF_MANQUANTS.txt');
+    const fichiers = resoudreExtras(extras);
+    const manquantsTxt = fichiers.find(e => e.nom === '_PDF_MANQUANTS.txt');
     expect(manquantsTxt).toBeDefined();
     expect(manquantsTxt!.contenu).toContain('FA-2026-009');
     // le CSV comptable est toujours embarqué
-    expect(extras.some(e => e.nom === '_factures.csv')).toBe(true);
+    expect(fichiers.some(e => e.nom === '_factures.csv')).toBe(true);
+  });
+
+  it('un fetch en échec (pdfUrl renseignée mais objet inaccessible) apparaît dans _PDF_MANQUANTS.txt', async () => {
+    const { service, storage } = mockDeps([
+      facture(),
+      facture({
+        id: 'f-2',
+        numero: 'FA-2026-012',
+        typeFacture: 'ACOMPTE',
+        destinataireNom: 'Dupont',
+        pdfUrl: 'https://s3.gra.io.cloud.ovh.net/liavo/factures/f-2.pdf',
+      }),
+    ]);
+    // Simule le contrat de zipFromUrls : le fetch de la 2e entrée échoue,
+    // les extras sont évalués APRÈS les fetchs avec les manquants.
+    let fichiers: ZipExtra[] = [];
+    storage.zipFromUrls.mockImplementation(async (entries, extras) => {
+      const manquants = [entries[1].nom];
+      fichiers = resoudreExtras(extras, manquants);
+      return { buffer: Buffer.from('zip'), manquants };
+    });
+
+    await service.exportFacturesZip('user-1', null, '2026-01-01', '2026-12-31');
+
+    const manquantsTxt = fichiers.find(e => e.nom === '_PDF_MANQUANTS.txt');
+    expect(manquantsTxt).toBeDefined();
+    // les manquants sont des noms de fichier zip, listés tels quels
+    expect(manquantsTxt!.contenu).toContain('2026-03-15_FA-2026-012_Dupont.pdf');
+    expect(manquantsTxt!.contenu).toContain("PDF introuvable au moment de l'export");
   });
 
   it('plafond dur : plus de 300 factures → BadRequestException, aucun zip généré', async () => {
@@ -147,15 +186,19 @@ describe('StorageService.zipFromUrls', () => {
         { nom: 'b.pdf', url: 'https://fail/b' },
         { nom: 'c.pdf', url: 'https://ok/c' },
       ],
-      [{ nom: '_index.csv', contenu: 'en-tete' }],
+      // forme fonction : évaluée après les fetchs, reçoit les manquants
+      mq => [
+        { nom: '_index.csv', contenu: 'en-tete' },
+        { nom: '_manquants.txt', contenu: mq.join('\n') },
+      ],
     );
 
     expect(manquants).toEqual(['b.pdf']);
 
-    const { default: PizZip } = await import('pizzip');
     const zip = new PizZip(buffer);
-    expect(Object.keys(zip.files).sort()).toEqual(['_index.csv', 'a.pdf', 'c.pdf']);
+    expect(Object.keys(zip.files).sort()).toEqual(['_index.csv', '_manquants.txt', 'a.pdf', 'c.pdf']);
     expect(zip.file('a.pdf')!.asText()).toBe('contenu:https://ok/a');
     expect(zip.file('_index.csv')!.asText()).toBe('en-tete');
+    expect(zip.file('_manquants.txt')!.asText()).toBe('b.pdf');
   });
 });
