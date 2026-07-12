@@ -1,4 +1,5 @@
 import api from '@/src/lib/api';
+import { downloadViaApi } from '@/src/lib/download';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -50,10 +51,43 @@ export async function getCA(annee: number): Promise<CAData> {
   return data;
 }
 
-export function exportFacturesURL(dateDebut: string, dateFin: string): string {
-  return `/api/pilotage/export/factures?dateDebut=${dateDebut}&dateFin=${dateFin}`;
+export interface FacturesPdfPreview {
+  total: number;
+  avecPdf: number;
+  // dateEmission : string ISO (sérialisation JSON), pas un objet Date
+  sansPdf: Array<{ id: string; numero: string; dateEmission: string }>;
 }
 
-export function exportVersementsURL(dateDebut: string, dateFin: string): string {
-  return `/api/pilotage/export/versements?dateDebut=${dateDebut}&dateFin=${dateFin}`;
+// Téléchargements via axios (downloadViaApi) : header X-Centre-Id posé par
+// l'interceptor + erreurs backend remontées — un <a href> court-circuitait les deux.
+
+export function exportFacturesCSV(dateDebut: string, dateFin: string): Promise<void> {
+  return downloadViaApi(
+    `/pilotage/export/factures?dateDebut=${dateDebut}&dateFin=${dateFin}`,
+    `factures_LIAVO_${dateDebut}_${dateFin}.csv`,
+  );
+}
+
+export function exportVersementsCSV(dateDebut: string, dateFin: string): Promise<void> {
+  return downloadViaApi(
+    `/pilotage/export/versements?dateDebut=${dateDebut}&dateFin=${dateFin}`,
+    `versements_LIAVO_${dateDebut}_${dateFin}.csv`,
+  );
+}
+
+export function exportFacturesZip(dateDebut: string, dateFin: string): Promise<void> {
+  return downloadViaApi(
+    `/pilotage/export/factures-pdf?dateDebut=${dateDebut}&dateFin=${dateFin}`,
+    `factures_LIAVO_${dateDebut}_${dateFin}.zip`,
+  );
+}
+
+export async function getFacturesPdfPreview(
+  dateDebut: string,
+  dateFin: string,
+): Promise<FacturesPdfPreview> {
+  const { data } = await api.get<FacturesPdfPreview>(
+    `/pilotage/export/factures-pdf/preview?dateDebut=${dateDebut}&dateFin=${dateFin}`,
+  );
+  return data;
 }
