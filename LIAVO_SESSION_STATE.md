@@ -1,5 +1,46 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 08/07/2026 (soir) — Run dette §4 : 4.11 (13 vulns→3, next 16.2.10, xlsx accepté) + 4.15 (bandeau nouvelle version non-destructif) livrés ; 4.6/4.10 constatés déjà faits ; 4.7 = audit prêt, **requêtes prod à exécuter par Théo** (`docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections ci-dessous + roadmap §4/§10.
+> Dernière mise à jour : 09/07/2026 — Session Louise / PULSE SPORTS : bug SIRET (espaces → overflow VarChar(14)), fix `@Transform` (commit `28e364a`, **non poussé**), rattrapage SQL complet (compte + centre Valloire ACTIVE, trial Pilotage 30j), trou inscription ex-nihilo documenté (roadmap 🔴). Avant : 08/07/2026 (soir, tard) — Fix page abonnement : libellés neutres (amorce 2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`), vérifié on-MCP, poussé. Avant : run dette §4 (4.11 13 vulns→3 next 16.2.10 xlsx accepté ; 4.15 bandeau non-destructif ; 4.6/4.10 déjà faits ; 4.7 audit prêt, **requêtes prod à exécuter par Théo** `docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections + roadmap §2/§4/§10.
+
+---
+
+## SESSION 09/07/2026 — Louise Giard / PULSE SPORTS : bug SIRET, rattrapage SQL, trou inscription ex-nihilo
+
+### Déclencheur
+Mail admin « nouveau compte hébergeur — Louise Giard » (`lgiard@pulse-sports-agency.com`, centre « PULSE SPORTS CAMPUS VALLOIRE », VALLOIRE) mais **aucun centre visible** côté admin — seulement des comptes hébergeur orphelins.
+
+### Diagnostic (lu on-code)
+- Le mail admin + l'event feed partent APRÈS `user.create` mais AVANT `centre.create` → recevoir le mail ne prouve que l'existence du User, pas du centre.
+- **Cause racine — SIRET** : `register-hebergeur.dto.ts` a `adresse/ville/codePostal/capacite` en `@IsOptional()` (mode claim). Un SIRET saisi AVEC espaces (« 813 741 220 00020 » = 17 car.) passe la validation → user committé + mail envoyé, puis `centre.create` throw (colonne `siret` = VarChar(14), « value too long ») → **user orphelin + mail menteur**.
+
+### Fix SIRET — commit `28e364a` (NON POUSSÉ, Théo pushe)
+`@Transform` sur le champ `siret` du DTO (strip `[\s.\-]`). `main.ts` a `transform:true` global → `dto.siret` propre partout (mail, centre.create, substring siren). + test spec `register-hebergeur.dto.spec.ts` (4 cas). tsc + build + tests verts (140 passed).
+
+### Trou de fond découvert → documenté roadmap (bloc 🔴 URGENT)
+Inscription hébergeur ex-nihilo (centre hors catalogue) → centre PENDING **jamais activable**, ni self-service ni admin. 3 causes : **(A)** CTA « déposer justificatif » pointe `/dashboard/hebergeur/documents` (docs génériques) au lieu de `POST /organisations/:id/upload-kbis` ; **(B)** routage front cas 2 invitation → `/auth/register/hebergeur` (PENDING) au lieu de `/centres/register` (ACTIVE direct — code mort côté UI) ; **(C)** `centre.service.register()` sans `motDePasseDefini:true` → reconnexion par mdp cassée. **Chantier « flux inscription hébergeur » à cadrer À FROID. NE PAS patcher à chaud.**
+
+### Rattrapage Louise — SQL prod (COMMIT confirmé)
+Le compte `lgiard@` (id `52fa36f1-…`, créé 08:25, orphelin, email vérifié + validé + mdp défini) **n'avait jamais été supprimé** (DELETE du matin non committé — piège récurrent). Complété en une transaction : `UPDATE` user (pose `reset_password_token` + expires 7j) + INSERT organisation + INSERT centre Valloire (statut **ACTIVE**, plan PILOTAGE, abonnement ACTIF, trial 30j) + INSERT membership (PROPRIETAIRE, isPrimary, claim **VALIDE**), tout rattaché au user existant. Doublon `communication@` (orphelin pur) supprimé. **COMMIT confirmé** (piège du `COMMIT` sans `;` → résolu par un `;` seul). Lien reset : `https://liavo.fr/reset-password/b9257f8a-e62f-49d2-8067-cdff77eb9b52` (7j, **testé OK**). Fiche visible au catalogue (statut ACTIVE) mais vide (centre créé minimal) — Louise complètera photo/desc/thématiques/activités via `/dashboard/hebergeur/profil` (formulaire vérifié on-code : expose TOUS les champs, tags inclus).
+
+### Commercial — Louise Giard / PULSE SPORTS AGENCY (historique client)
+- **Contact** : Louise Giard · `lgiard@pulse-sports-agency.com` · 06 88 40 09 99.
+- **Structure** : PULSE SPORTS AGENCY (SIREN `813741220`). **Centre 1** : PULSE SPORTS CAMPUS VALLOIRE, 162 Route du Praz, 73450 VALLOIRE (Savoie), SIRET `81374122000020`, capacité ~120 (**PROVISOIRE, à confirmer**), accessible PMR. **Centre 2 à venir** : Chambéret (Corrèze) → à créer par Théo en SQL (**NE PAS** l'envoyer sur le parcours d'ajout cassé).
+- **Acquisition** : self-signup (2 tentatives ratées à cause du bug SIRET), rattrapée manuellement. Activée 09/07, trial **PILOTAGE 30 j**.
+- **1er contact** : appel 09/07 15h-17h. Mail envoyé (lien reset + qualif + mention lancement/retours).
+- **Qualif en cours** (posée par mail, à compléter après l'appel) : (1) canal de découverte de LIAVO ? (2) objectif — **catalogue seul** vs **outil de gestion global** (devis/facture/planning/collaboratif/pilotage) ?
+- **Statut** : nouveau client en trial, plateforme en lancement, retours attendus. Premier hébergeur passé par le parcours self-signup ex-nihilo (d'où la découverte du trou).
+
+---
+
+## SESSION 08/07/2026 (soir, tard) — Fix page abonnement (PricingTable)
+
+Remonté par Théo sur screenshot `/dashboard/hebergeur/abonnement`. Frontend pur, 1 commit (`PricingTable.tsx` + `abonnement/page.tsx`), vérifié on-MCP, poussé.
+
+- **Libellés neutres (amorce 2.4)** : « Signature électronique directeur » → « en ligne » ; « Espace collaboratif hébergeur + enseignant » → « partagé ».
+- **Bouton dérivé du plan courant** : `PricingTable` ne recevait que `currentStatut` (ACTIF/INACTIF), jamais le plan → Essentiel/Complet affichaient « Activer ce plan » alors que le compte est sur Pilotage. Fix source : prop `currentPlan` + rang (helper `renderPaidCta`, supprime 3 boutons dupliqués). Carte = plan courant → « Votre plan actuel » désactivé ; carte < courant → « Nous contacter » (mailto, **jamais** le formulaire IBAN) ; carte > courant ou rang inactif → historique.
+- Page passe `currentPlan={abo && !abo.isTrial && abo.actif ? abo.plan : null}` — **jamais pendant l'essai** (ne pas décourager la conversion).
+- **Décisions** : 1→B (libellés neutres), 2→A (affichage seul ; pas de flux downgrade auto — un vrai downgrade = chantier backend séparé si un client le demande).
+- **Cascades vérifiées on-MCP** : landing publique intacte (aucune prop → rang inactif → CTA historiques), essai (« Activer ce plan » partout), cible Sauvageon (Pilotage « plan actuel », 3 autres « Nous contacter »). tsc+build verts (build OK avec Next 16.2.10).
+- **Résidu cosmétique non bloquant** : bouton « Rétrograder » mort (sans onClick) sur la carte Découverte pendant l'essai — pré-existant, hors scope. Micro-fix 2 lignes un jour (le passer « Votre plan actuel » désactivé aussi en essai).
 
 ---
 

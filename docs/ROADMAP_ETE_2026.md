@@ -1,12 +1,27 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 08/07/2026 (soir)** — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §4/§10 + SESSION_STATE 08/07.
+> **Dernière mise à jour : 08/07/2026 (soir)** — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Soir (tard) : fix page abonnement — libellés neutres (amorce §2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`). Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §2/§4/§10 + SESSION_STATE 08/07.
 > *(07/07 : Refonte planning ↔ groupes m2m livrée. Fix crash boot Scalingo P3015. Refactor PDF extraction dynamic imports. Item dette 4.18 ajouté.)*
 > *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
+
+---
+
+## 🔴 URGENT — Trou parcours inscription hébergeur ex-nihilo (identifié 09/07/2026)
+
+**Symptôme** : un hébergeur qui s'inscrit seul avec un centre HORS catalogue (ex-nihilo) se retrouve avec un centre PENDING qui ne peut JAMAIS être activé — ni en self-service, ni par l'admin via l'UI. Cul-de-sac des deux côtés. Détecté via Louise Giard (PULSE SPORTS), rattrapée manuellement en SQL (compte + organisation + centre créés à la main, statut ACTIVE forcé, claim VALIDE, lien de reset généré).
+
+**3 causes cumulées à corriger** :
+1. **CTA KBIS mal branché** : les bannières dashboard + la checklist onboarding pointent « Déposer un justificatif » vers `/dashboard/hebergeur/documents` (documents génériques via `POST /centres/documents`), au lieu d'un upload appelant `POST /organisations/:id/upload-kbis` (le seul endpoint qui fait avancer le claim `EN_ATTENTE_DOCUMENT` → `EN_ATTENTE_VALIDATION`). Le seul écran qui appelle `upload-kbis` est `/centre/[id]/claim`, réservé au catalogue. Backend complet (`uploadKbis` → `validerClaim` → centre ACTIVE) ; **trou 100 % frontend**.
+2. **Routage cas 2 incohérent** : une invitation admin avec centre pré-rempli (cas 2) est routée par le front vers `/auth/register/hebergeur` (→ PENDING) au lieu de `/centres/register` (qui crée le centre ACTIVE direct). Le code ACTIVE du cas 2 dans `centre.service.register` est donc **du code mort côté UI**.
+3. **`motDePasseDefini` manquant** : `centre.service.register()` crée le user SANS `motDePasseDefini: true` → **reconnexion par mot de passe cassée** pour les comptes créés via `/centres/register` (bug latent du cas 1 invitation existant).
+
+**Public concerné** : tout hébergeur en self-signup direct (≠ catalogue, ≠ pilote). Non détecté avant car les hébergeurs existants venaient d'imports LMDJ/APIDAE ou d'invitations.
+
+**À faire** : chantier dédié « flux inscription hébergeur », cadré à froid, counter-tests obligatoires (flux critique = reconnexion de vrais clients en jeu). **NE PAS patcher à chaud.**
 
 ---
 
@@ -73,9 +88,9 @@
 
 Table de jointure `PlanningActiviteGroupe`, refonte `genererPlanningIA` (1 activité par cluster au lieu de N), UI multi-select dans TabPlanning, PDF adapté. Anne (Choucas) et Yves (Pôle Montagne) peuvent maintenant construire leurs plannings 6 mois avant les inscriptions, avec activités rattachées à plusieurs groupes (ex: "Escalade Groupe 1 + Groupe 3"). Voir SESSION_STATE 07/07 + `docs/audit-planning-cascade.md`.
 
-### 2.4 TIER1 Ch.4 — Labels universels — 1j
+### 2.4 TIER1 Ch.4 — Labels universels — ~1j (amorcé)
 
-**À FAIRE.** Remplacer dans `sejour/[id]/page.tsx` les termes scolaires en contexte EVENEMENT.
+**PARTIEL.** Amorce 08/07 : 2 libellés scolaires neutralisés dans `PricingTable.tsx` (« Signature électronique directeur » → « en ligne », « Espace collaboratif hébergeur + enseignant » → « partagé »). **Reste** : les termes scolaires dans le body de `sejour/[id]/page.tsx` en contexte EVENEMENT.
 
 ### 2.5 ~~Export CSV factures~~ — ✅ LIVRÉ (Comptabilité dans module Pilotage, BOM UTF-8)
 
