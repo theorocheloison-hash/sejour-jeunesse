@@ -28,7 +28,7 @@ Besoin Sauvageon : récupérer toutes les factures d'une période en PDF pour le
 
 ### 🔑 Le vrai fix : bug multi-centre des exports (tournait en prod, jamais vu)
 `exportFacturesURL()` fabriquait un `<a href="/api/pilotage/export/...">`. **Un `<a href>` court-circuite l'instance axios** → le header `X-Centre-Id` (posé par l'interceptor) ne partait JAMAIS → `@CentreId()` (qui ne lit QUE ce header) recevait `null` → `getCentreForUser(userId, undefined)` retombait sur **le premier centre possédé**.
-- Sauvageon (mono-centre) : juste **par accident**. Pôle Montagne (3 centres) et bientôt Louise (2) : **le mauvais centre, silencieusement**.
+- Sauvageon (mono-centre) : juste **par accident**. Pôle Montagne (2 centres actifs) et bientôt Louise (2) : **le mauvais centre, silencieusement**.
 - Fix à la source = supprimer les helpers d'URL, tout passer par axios. **Zéro ligne touchée dans les guards.**
 - ⚠️ **Piste écartée** : un fallback `?centreId=` dans le contrôleur aurait été un patch **et un trou** — `PlanGuard` résout le centre via le header `x-centre-id` UNIQUEMENT → un multi-centre aurait pu exporter un centre en Découverte pendant que le guard validait sur son centre en Pilotage.
 

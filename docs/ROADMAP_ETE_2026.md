@@ -29,7 +29,7 @@
 
 ## 🟠 CONTRE-TEST EN ATTENTE — multi-centre sur les exports (à passer au 2e centre de Louise)
 
-**Contexte** : le 12/07, les 3 exports de Pilotage → Comptabilité (CSV factures, CSV versements, ZIP PDF) sont passés de `<a href download>` à axios, ce qui rétablit l'envoi du header `X-Centre-Id`. **Avant ce fix, tout hébergeur multi-centre exportait TOUJOURS son premier centre, silencieusement** (Pôle Montagne = 3 centres).
+**Contexte** : le 12/07, les 3 exports de Pilotage → Comptabilité (CSV factures, CSV versements, ZIP PDF) sont passés de `<a href download>` à axios, ce qui rétablit l'envoi du header `X-Centre-Id`. **Avant ce fix, tout hébergeur multi-centre exportait TOUJOURS son premier centre, silencieusement** (Pôle Montagne = 2 centres actifs).
 
 **Ce qui est prouvé** : `localStorage['liavo-centre-actif']` est bien renseigné (même en mono-centre) et l'interceptor axios pose le header → le maillon cassé est refait. **Ce qui ne l'est pas** : le changement effectif de contenu quand on bascule de centre — impossible à tester sur Sauvageon (mono-centre : le fallback « premier centre possédé » donne le bon résultat par accident, le test serait aveugle).
 
