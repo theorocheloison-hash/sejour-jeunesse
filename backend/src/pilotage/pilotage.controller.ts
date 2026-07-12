@@ -56,6 +56,36 @@ export class PilotageController {
     });
   }
 
+  /** GET /pilotage/export/factures-pdf/preview?dateDebut=2026-01-01&dateFin=2026-12-31 */
+  @Get('export/factures-pdf/preview')
+  @RequirePlan('COMPLET', { strict: true })
+  getFacturesPdfPreview(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Query('dateDebut') dateDebut: string,
+    @Query('dateFin') dateFin: string,
+  ) {
+    return this.service.getFacturesPdfPreview(user.id, centreId, dateDebut, dateFin);
+  }
+
+  /** GET /pilotage/export/factures-pdf?dateDebut=2026-01-01&dateFin=2026-12-31 */
+  @Get('export/factures-pdf')
+  @RequirePlan('COMPLET', { strict: true })
+  async exportFacturesPdf(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Query('dateDebut') dateDebut: string,
+    @Query('dateFin') dateFin: string,
+  ) {
+    const { buffer, filename } = await this.service.exportFacturesZip(
+      user.id, centreId, dateDebut, dateFin,
+    );
+    return new StreamableFile(buffer, {
+      type: 'application/zip',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   /** GET /pilotage/export/versements?dateDebut=2026-01-01&dateFin=2026-12-31 */
   @Get('export/versements')
   @RequirePlan('COMPLET', { strict: true })

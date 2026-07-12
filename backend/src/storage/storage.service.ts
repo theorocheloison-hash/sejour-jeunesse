@@ -153,6 +153,51 @@ export class StorageService {
     }
   }
 
+  /**
+   * Assemble un ZIP en mémoire à partir de fichiers du bucket (par URL) et de
+   * fichiers générés en mémoire (`extras`, ajoutés à la racine).
+   * Fetch par lots de `concurrence` ; une entrée dont le fetch échoue
+   * n'interrompt PAS le zip : son `nom` est retourné dans `manquants`.
+   * Générique ({nom, url}) : réutilisable pour tout modèle portant une URL de
+   * fichier (factures, factures prestataires…).
+   */
+  async zipFromUrls(
+    entries: Array<{ nom: string; url: string }>,
+    extras: Array<{ nom: string; contenu: string | Buffer }> = [],
+    concurrence = 5,
+  ): Promise<{ buffer: Buffer; manquants: string[] }> {
+    const { default: PizZip } = await import('pizzip');
+    const zip = new PizZip();
+    const manquants: string[] = [];
+
+    for (let i = 0; i < entries.length; i += concurrence) {
+      const chunk = entries.slice(i, i + concurrence);
+      const buffers = await Promise.all(
+        chunk.map(async (entry) => {
+          try {
+            return await this.fetchAsBuffer(entry.url);
+          } catch {
+            return null; // déjà loggé par fetchAsBuffer
+          }
+        }),
+      );
+      chunk.forEach((entry, j) => {
+        const buf = buffers[j];
+        if (buf) zip.file(entry.nom, buf);
+        else manquants.push(entry.nom);
+      });
+    }
+
+    for (const extra of extras) {
+      zip.file(extra.nom, extra.contenu);
+    }
+
+    // STORE impératif : les PDF sont déjà compressés (DEFLATE = CPU pour 0 gain)
+    // et pizzip.generate est synchrone — il bloquerait l'event loop.
+    const buffer = zip.generate({ type: 'nodebuffer', compression: 'STORE' });
+    return { buffer, manquants };
+  }
+
   /** Extrait la clé S3 depuis une URL publique OVH. Retourne null si pas notre bucket. */
   private getKeyFromUrl(url: string): string | null {
     const publicBase = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`;

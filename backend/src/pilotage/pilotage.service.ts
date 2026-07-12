@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { StatutSejour, StatutDevis } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 
 /** Statuts de séjour considérés comme "confirmés" pour le remplissage. */
@@ -46,6 +47,33 @@ const MODE_PAIEMENT_LABELS: Record<string, string> = {
   CHEQUES_VACANCES: 'Chèques vacances',
 };
 
+/** Labels lisibles pour les types de facture. */
+const TYPE_FACTURE_LABELS: Record<string, string> = {
+  ACOMPTE: 'Acompte',
+  SOLDE: 'Solde',
+  AVOIR: 'Avoir',
+};
+
+/** Plafond dur de l'export ZIP (zip assemblé en mémoire). */
+const MAX_FACTURES_ZIP = 300;
+
+/** Formate une date en YYYY-MM-DD (noms de fichiers triables). */
+function fmtDateIso(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Slug ASCII pour nom de fichier : accents décomposés, [^a-zA-Z0-9-] → '-', 40 car. max. */
+function slug(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .slice(0, 40);
+}
+
 /** Nombre de jours dans un mois donné. */
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
@@ -68,7 +96,10 @@ function resolveSejourDate(devis: any): { dateDebut: Date | null; titre: string 
 
 @Injectable()
 export class PilotageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   // ─── Taux de remplissage ────────────────────────────────────────────
 
@@ -377,26 +408,24 @@ export class PilotageService {
     };
   }
 
-  // ─── Export factures CSV ────────────────────────────────────────────
+  // ─── Export factures (CSV + ZIP des PDF) ───────────────────────────
 
-  async exportFacturesCSV(
-    userId: string,
-    centreId: string | null,
-    dateDebutStr: string,
-    dateFinStr: string,
-  ): Promise<string> {
-    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+  /**
+   * Source unique de sélection des factures d'un centre sur une période.
+   * Avoirs INCLUS — partagée par l'export CSV, le preview et l'export ZIP.
+   */
+  private getFacturesPeriode(centreId: string, dateDebutStr: string, dateFinStr: string) {
     const dateDebut = new Date(dateDebutStr);
     const dateFin = new Date(dateFinStr);
     dateFin.setHours(23, 59, 59, 999);
 
-    const factures = await this.prisma.facture.findMany({
+    return this.prisma.facture.findMany({
       where: {
-        devis: { centreId: centre.id },
+        devis: { centreId },
         dateEmission: { gte: dateDebut, lte: dateFin },
-        typeFacture: { not: 'AVOIR' },
       },
       select: {
+        id: true,
         numero: true,
         dateEmission: true,
         typeFacture: true,
@@ -405,6 +434,7 @@ export class PilotageService {
         montantTVA: true,
         montantFacture: true,
         montantVerseTotal: true,
+        pdfUrl: true,
         devis: {
           select: {
             versements: {
@@ -417,13 +447,21 @@ export class PilotageService {
       },
       orderBy: { dateEmission: 'desc' },
     });
+  }
 
+  /** Formatage CSV comptable (BOM UTF-8, séparateur ';'). */
+  private facturesToCsv(
+    factures: Awaited<ReturnType<PilotageService['getFacturesPeriode']>>,
+  ): string {
     const BOM = '\uFEFF';
-    const header = 'Date;N°;Client;Montant HT;Montant TVA;Montant TTC;Date échéance;Date Paiement;Mode de paiement;Payé';
+    const header = 'Date;N°;Type;Client;Montant HT;Montant TVA;Montant TTC;Date échéance;Date Paiement;Mode de paiement;Payé';
     const rows = factures.map(f => {
+      const isAvoir = f.typeFacture === 'AVOIR';
       const dateEmission = fmtDate(f.dateEmission);
       const echeance = fmtDate(addDays(f.dateEmission, 30));
-      const paye = f.montantVerseTotal >= f.montantFacture;
+      // Sur un avoir (montants négatifs), montantVerseTotal >= montantFacture
+      // n'a pas de sens : la colonne Payé vaut '—'.
+      const paye = !isAvoir && f.montantVerseTotal >= f.montantFacture;
       const dernierVersement = f.devis.versements[0];
       const datePaiement = paye && dernierVersement ? fmtDate(dernierVersement.datePaiement) : '';
       const modePaiement = dernierVersement?.modePaiement
@@ -433,6 +471,7 @@ export class PilotageService {
       return [
         dateEmission,
         f.numero,
+        TYPE_FACTURE_LABELS[f.typeFacture] ?? f.typeFacture,
         csvEscape(f.destinataireNom),
         fmtNum(f.montantHT),
         fmtNum(f.montantTVA),
@@ -440,11 +479,95 @@ export class PilotageService {
         echeance,
         datePaiement,
         modePaiement,
-        paye ? 'Oui' : 'Non',
+        isAvoir ? '—' : paye ? 'Oui' : 'Non',
       ].join(';');
     });
 
     return BOM + header + '\n' + rows.join('\n');
+  }
+
+  async exportFacturesCSV(
+    userId: string,
+    centreId: string | null,
+    dateDebutStr: string,
+    dateFinStr: string,
+  ): Promise<string> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+    const factures = await this.getFacturesPeriode(centre.id, dateDebutStr, dateFinStr);
+    return this.facturesToCsv(factures);
+  }
+
+  /** Aperçu avant export ZIP : combien de factures ont un PDF archivé. */
+  async getFacturesPdfPreview(
+    userId: string,
+    centreId: string | null,
+    dateDebutStr: string,
+    dateFinStr: string,
+  ): Promise<{
+    total: number;
+    avecPdf: number;
+    sansPdf: Array<{ id: string; numero: string; dateEmission: Date }>;
+  }> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+    const factures = await this.getFacturesPeriode(centre.id, dateDebutStr, dateFinStr);
+    const sansPdf = factures
+      .filter(f => !f.pdfUrl)
+      .map(f => ({ id: f.id, numero: f.numero, dateEmission: f.dateEmission }));
+    return { total: factures.length, avecPdf: factures.length - sansPdf.length, sansPdf };
+  }
+
+  /** Nom d'un PDF dans le zip : triable par date, numéro unique, client lisible. */
+  private nomPdfZip(f: {
+    typeFacture: string;
+    dateEmission: Date;
+    numero: string;
+    destinataireNom: string;
+  }): string {
+    const prefix = f.typeFacture === 'AVOIR' ? 'AVOIR_' : '';
+    return `${prefix}${fmtDateIso(f.dateEmission)}_${f.numero}_${slug(f.destinataireNom)}.pdf`;
+  }
+
+  async exportFacturesZip(
+    userId: string,
+    centreId: string | null,
+    dateDebutStr: string,
+    dateFinStr: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const centre = await getCentreForUser(this.prisma, userId, centreId ?? undefined);
+    const factures = await this.getFacturesPeriode(centre.id, dateDebutStr, dateFinStr);
+
+    if (factures.length > MAX_FACTURES_ZIP) {
+      throw new BadRequestException(
+        `Trop de factures sur cette période (${factures.length}). Réduisez l'intervalle.`,
+      );
+    }
+
+    const avecPdf = factures.filter(f => f.pdfUrl);
+    const sansPdf = factures.filter(f => !f.pdfUrl);
+    const entries = avecPdf.map(f => ({ nom: this.nomPdfZip(f), url: f.pdfUrl! }));
+
+    const extras: Array<{ nom: string; contenu: string | Buffer }> = [
+      { nom: '_factures.csv', contenu: this.facturesToCsv(factures) },
+    ];
+    if (sansPdf.length > 0) {
+      extras.push({
+        nom: '_PDF_MANQUANTS.txt',
+        contenu: [
+          'Factures émises sans PDF archivé (absentes de ce zip) :',
+          ...sansPdf.map(f => `- ${f.numero} (émise le ${fmtDate(f.dateEmission)})`),
+        ].join('\n'),
+      });
+    }
+
+    const { buffer, manquants } = await this.storage.zipFromUrls(entries, extras);
+    if (manquants.length > 0) {
+      // pdfUrl renseignée mais objet OVH irrécupérable — détail déjà loggé par fetchAsBuffer.
+      console.error(
+        `exportFacturesZip: ${manquants.length} PDF irrécupérable(s) : ${manquants.join(', ')}`,
+      );
+    }
+
+    return { buffer, filename: `factures_LIAVO_${dateDebutStr}_${dateFinStr}.zip` };
   }
 
   // ─── Export versements CSV ──────────────────────────────────────────
