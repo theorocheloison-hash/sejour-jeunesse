@@ -116,6 +116,10 @@ export class CentreService {
 
     return {
       etapes,
+      // Organisation du CENTRE ACTIF — cible du dépôt de justificatif (upload-kbis).
+      // mon-claim-statut est scopé au user (findFirst) : en multi-organisation il
+      // désignerait une organisation arbitraire. Celle-ci lève l'ambiguïté.
+      organisationId: centre.organisationId,
       centreValide: centre.statut === 'ACTIVE',
       // envoisBloques : miroir EXACT de assertEnvoiExterneAutorise (centre.helper.ts),
       // moins l'exception "destinataire = soi". Source unique de vérité pour l'encart
