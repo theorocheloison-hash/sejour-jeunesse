@@ -1,4 +1,5 @@
 import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { RegisterHebergeurDto } from './register-hebergeur.dto';
 
 /**
@@ -44,5 +45,34 @@ describe('RegisterHebergeurDto — normalisation SIRET', () => {
   it('laisse undefined quand le SIRET est absent', () => {
     const dto = toDto(undefined);
     expect(dto.siret).toBeUndefined();
+  });
+});
+
+describe('RegisterHebergeurDto — validation de longueur SIRET (@Length)', () => {
+  async function erreursSiret(siret?: string) {
+    const errors = await validate(toDto(siret));
+    return errors.find((e) => e.property === 'siret');
+  }
+
+  it('rejette un SIRET à 13 chiffres', async () => {
+    const err = await erreursSiret('8137412200002');
+    expect(err?.constraints?.isLength).toBe('Le SIRET doit contenir exactement 14 chiffres.');
+  });
+
+  it('rejette un SIRET à 15 chiffres', async () => {
+    const err = await erreursSiret('813741220000201');
+    expect(err?.constraints?.isLength).toBe('Le SIRET doit contenir exactement 14 chiffres.');
+  });
+
+  it('accepte un SIRET à 14 chiffres', async () => {
+    expect(await erreursSiret('81374122000020')).toBeUndefined();
+  });
+
+  it('accepte un SIRET à 14 chiffres saisi avec des espaces (strip avant @Length)', async () => {
+    expect(await erreursSiret('813 741 220 00020')).toBeUndefined();
+  });
+
+  it("n'échoue pas quand le SIRET est absent (@IsOptional)", async () => {
+    expect(await erreursSiret(undefined)).toBeUndefined();
   });
 });

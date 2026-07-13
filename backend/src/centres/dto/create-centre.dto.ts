@@ -1,5 +1,5 @@
-import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, Length, Min, MinLength } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateCentreDto {
   @IsString()
@@ -28,7 +28,9 @@ export class CreateCentreDto {
   telephone?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/[\s.\-]/g, '') : value))
   @IsString()
+  @Length(14, 14, { message: 'Le SIRET doit contenir exactement 14 chiffres.' })
   siret?: string;
 
   @IsOptional()

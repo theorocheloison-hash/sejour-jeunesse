@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsString,
+  Length,
   MinLength,
   IsOptional,
   IsInt,
@@ -63,6 +64,7 @@ export class RegisterHebergeurDto {
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.replace(/[\s.\-]/g, '') : value))
   @IsString()
+  @Length(14, 14, { message: 'Le SIRET doit contenir exactement 14 chiffres.' })
   siret?: string;
 
   @IsOptional()

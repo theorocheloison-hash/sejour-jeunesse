@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class UpdateCentreDto {
@@ -52,7 +52,9 @@ export class UpdateCentreDto {
   siteWeb?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/[\s.\-]/g, '') : value))
   @IsString()
+  @Length(14, 14, { message: 'Le SIRET doit contenir exactement 14 chiffres.' })
   siret?: string;
 
   @IsOptional()
