@@ -114,7 +114,14 @@ export class AuthService {
       });
     }
 
-    await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
+    // Compte commité : un échec d'email ne doit jamais faire échouer la réponse
+    // (le prospect retenterait → ConflictException, email brûlé). Porte de
+    // sortie : « renvoyer l'email » (resendVerification).
+    this.email.sendVerificationEmail(dto.email, dto.prenom, token).catch((err) =>
+      console.error(
+        `[registerOrganisateur] échec envoi email vérification à ${dto.email} — compte CRÉÉ, l'utilisateur doit utiliser « renvoyer l'email » :`,
+        err,
+      ));
 
     this.email.notifyAdminNewAccount(
       { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
@@ -188,7 +195,14 @@ export class AuthService {
       },
     });
 
-    await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
+    // Compte commité : un échec d'email ne doit jamais faire échouer la réponse
+    // (le prospect retenterait → ConflictException, email brûlé). Porte de
+    // sortie : « renvoyer l'email » (resendVerification).
+    this.email.sendVerificationEmail(dto.email, dto.prenom, token).catch((err) =>
+      console.error(
+        `[registerSignataire] échec envoi email vérification à ${dto.email} — compte CRÉÉ, l'utilisateur doit utiliser « renvoyer l'email » :`,
+        err,
+      ));
 
     this.email.notifyAdminNewAccount(
       { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
@@ -286,8 +300,19 @@ export class AuthService {
         },
       });
 
-      await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
-      await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
+      // Compte commité : un échec d'email ne doit jamais faire échouer la réponse
+      // (le prospect retenterait → ConflictException, email brûlé). Porte de
+      // sortie : « renvoyer l'email » (resendVerification).
+      this.email.sendVerificationEmail(dto.email, dto.prenom, token).catch((err) =>
+        console.error(
+          `[registerHebergeur] échec envoi email vérification à ${dto.email} — compte CRÉÉ, l'utilisateur doit utiliser « renvoyer l'email » :`,
+          err,
+        ));
+      this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre).catch((err) =>
+        console.error(
+          `[registerHebergeur] échec envoi email compte-en-attente à ${dto.email} — compte CRÉÉ :`,
+          err,
+        ));
 
       return {
         message: claimResult
@@ -445,8 +470,19 @@ export class AuthService {
         + (dto.siret ? `<br>SIRET&nbsp;: ${dto.siret}` : ''),
     ).catch(() => {});
 
-    await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
-    await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
+    // Compte commité : un échec d'email ne doit jamais faire échouer la réponse
+    // (le prospect retenterait → ConflictException, email brûlé). Porte de
+    // sortie : « renvoyer l'email » (resendVerification).
+    this.email.sendVerificationEmail(dto.email, dto.prenom, token).catch((err) =>
+      console.error(
+        `[registerHebergeur] échec envoi email vérification à ${dto.email} — compte CRÉÉ, l'utilisateur doit utiliser « renvoyer l'email » :`,
+        err,
+      ));
+    this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre).catch((err) =>
+      console.error(
+        `[registerHebergeur] échec envoi email compte-en-attente à ${dto.email} — compte CRÉÉ :`,
+        err,
+      ));
 
     return {
       message: 'Inscription réussie. Votre compte est en attente de validation.',
