@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { useAuth, extractApiError } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { Logo } from '@/app/components/Logo';
+import { validerFichierJustificatif } from '@/src/lib/justificatif';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KBIS_MAX_BYTES = 10 * 1024 * 1024;
 
 type Etape = 'auth' | 'loading' | 'claim' | 'kbis' | 'done' | 'error';
 
@@ -117,12 +117,10 @@ function ClaimCentreContent() {
       setKbisFile(null);
       return;
     }
-    if (file.type !== 'application/pdf') {
-      setError('Le fichier doit être un PDF.');
-      return;
-    }
-    if (file.size > KBIS_MAX_BYTES) {
-      setError('Le fichier dépasse 10 Mo.');
+    // Aligné sur le backend (uploadKbis) : PDF, JPG ou PNG, 10 Mo max.
+    const invalide = validerFichierJustificatif(file);
+    if (invalide) {
+      setError(invalide);
       return;
     }
     setError(null);
@@ -239,11 +237,11 @@ function ClaimCentreContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Justificatif Kbis (PDF, 10 Mo max)
+                  Justificatif Kbis (PDF, JPG ou PNG, 10 Mo max)
                 </label>
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,image/jpeg,image/png"
                   onChange={handleKbisChange}
                   className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--color-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:opacity-90"
                 />
