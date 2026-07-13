@@ -1,7 +1,8 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 12/07/2026** — **Export ZIP des factures PDF LIVRÉ** (§2.8 ci-dessous) : ZIP + index CSV, avoirs inclus dans le ZIP ET dans l'export CSV comptable, **bug multi-centre des exports réparé** (les `<a href download>` court-circuitaient axios → le header `X-Centre-Id` ne partait jamais → tout hébergeur multi-centre exportait son 1er centre, silencieusement). 3 commits poussés (`6023edc`, `f0f96f8`, `b0a1ed3`), recette prod validée (62 PDF Sauvageon, ~10 s). **Statut corrigé** : `28e364a` (fix SIRET) était noté « non poussé » ici — il est **en prod depuis le 09/07** ; en revanche le SIRET **n'est pas réglé** (cf. 4e cause du bloc 🔴). Voir SESSION_STATE 12/07.
+> **Dernière mise à jour : 13/07/2026** — **Bloc 🔴 ex-nihilo RÉSOLU** (10 commits, recette prod de bout en bout : inscription → justificatif → validation admin → devis ENVOYÉ). L'analyse initiale du bloc était partiellement fausse — corrigée ci-dessous. **Nouveau bloc 🔴** : déploiement frontend silencieusement cassé 12→13/07 (HOSTNAME × Next standalone, résolu `88e49ec`, leçon à retenir). Voir SESSION_STATE 13/07.
+> *(12/07/2026)* — **Export ZIP des factures PDF LIVRÉ** (§2.8 ci-dessous) : ZIP + index CSV, avoirs inclus dans le ZIP ET dans l'export CSV comptable, **bug multi-centre des exports réparé** (les `<a href download>` court-circuitaient axios → le header `X-Centre-Id` ne partait jamais → tout hébergeur multi-centre exportait son 1er centre, silencieusement). 3 commits poussés (`6023edc`, `f0f96f8`, `b0a1ed3`), recette prod validée (62 PDF Sauvageon, ~10 s). **Statut corrigé** : `28e364a` (fix SIRET) était noté « non poussé » ici — il est **en prod depuis le 09/07** ; en revanche le SIRET **n'est pas réglé** (cf. 4e cause du bloc 🔴). Voir SESSION_STATE 12/07.
 > *(08/07/2026, soir)* — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Soir (tard) : fix page abonnement — libellés neutres (amorce §2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`). Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §2/§4/§10 + SESSION_STATE 08/07.
 > *(07/07 : Refonte planning ↔ groupes m2m livrée. Fix crash boot Scalingo P3015. Refactor PDF extraction dynamic imports. Item dette 4.18 ajouté.)*
 > *(03/07 : Sécurité verrouillée, Mollie live, Pilotage livré, conventions configurables, contrat événement. Dette 4.1-4.3 livrée. Responsive mobile livré. Diagnostic dette Fable 5.)*
@@ -11,19 +12,94 @@
 
 ---
 
-## 🔴 URGENT — Trou parcours inscription hébergeur ex-nihilo (identifié 09/07/2026)
+## ✅ RÉSOLU 13/07/2026 — Parcours inscription hébergeur ex-nihilo (identifié 09/07, ex-🔴 URGENT)
 
-**Symptôme** : un hébergeur qui s'inscrit seul avec un centre HORS catalogue (ex-nihilo) se retrouve avec un centre PENDING qui ne peut JAMAIS être activé — ni en self-service, ni par l'admin via l'UI. Cul-de-sac des deux côtés. Détecté via Louise Giard (PULSE SPORTS), rattrapée manuellement en SQL (compte + organisation + centre créés à la main, statut ACTIVE forcé, claim VALIDE, lien de reset généré).
+**Symptôme initial** : un hébergeur qui s'inscrivait seul avec un centre HORS catalogue pouvait finir avec un compte détruit à l'inscription (cas Louise Giard / PULSE SPORTS, rattrapée en SQL), une checklist « Déposer un justificatif » en boucle infinie, et des envois externes bloqués sans issue apparente.
 
-**3 causes cumulées à corriger** :
-1. **CTA KBIS mal branché** : les bannières dashboard + la checklist onboarding pointent « Déposer un justificatif » vers `/dashboard/hebergeur/documents` (documents génériques via `POST /centres/documents`), au lieu d'un upload appelant `POST /organisations/:id/upload-kbis` (le seul endpoint qui fait avancer le claim `EN_ATTENTE_DOCUMENT` → `EN_ATTENTE_VALIDATION`). Le seul écran qui appelle `upload-kbis` est `/centre/[id]/claim`, réservé au catalogue. Backend complet (`uploadKbis` → `validerClaim` → centre ACTIVE) ; **trou 100 % frontend**.
-2. **Routage cas 2 incohérent** : une invitation admin avec centre pré-rempli (cas 2) est routée par le front vers `/auth/register/hebergeur` (→ PENDING) au lieu de `/centres/register` (qui crée le centre ACTIVE direct). Le code ACTIVE du cas 2 dans `centre.service.register` est donc **du code mort côté UI**.
-3. **`motDePasseDefini` manquant** : `centre.service.register()` crée le user SANS `motDePasseDefini: true` → **reconnexion par mot de passe cassée** pour les comptes créés via `/centres/register` (bug latent du cas 1 invitation existant).
-4. **SIRET : longueur non validée** (ajouté le 12/07, vérifié on-code). Le fix `28e364a` (`@Transform`, en prod) **strippe** espaces/points/tirets mais **ne contrôle pas la longueur** → un SIRET saisi à 13 ou 15 chiffres sans espaces passe la validation, `centre.create` throw sur `VarChar(14)` → **user orphelin + mail menteur, exactement le bug de Louise**. Réparation à la source : `@Length(14, 14)` sur le DTO → erreur 400 propre côté formulaire au lieu d'un compte cassé. **⚠️ Ne pas croire le SIRET « réglé » : seul le cas fréquent (espaces) l'est.**
+**⚠️ L'analyse initiale de ce bloc racontait une histoire que la session du 13/07 a DÉMENTIE — corrections :**
+- ❌ *« ni en self-service, ni par l'admin via l'UI »* : **FAUX**. L'admin POUVAIT déjà valider : le dashboard admin consomme `/centres/admin/claims` → `centreService.validateClaim`, qui **accepte `EN_ATTENTE_DOCUMENT`**. Il n'y a jamais eu de cul-de-sac admin — il y a en revanche trois implémentations divergentes du même workflow (cf. 🟡 DETTE 13/07 §2).
+- ❌ *Le SIRET comme cause* : c'était un **SYMPTÔME**. La cause racine était l'**absence d'atomicité** dans `registerHebergeur` : `centre.create` hors transaction → toute erreur en aval laissait un user orphelin et un **email brûlé à vie** (ConflictException à chaque retry). Le SIRET était juste le champ qui a fait tomber Louise.
+- ❌ *« 1 CTA cassé »* : il y en avait **TROIS** (OnboardingChecklist + 2 bannières dashboard), tous vers `/documents` — dont l'upload alimente la table `Document`, jamais lue par `getOnboardingStatus`.
+- ✅ **5e cause découverte, jamais identifiée** : les emails post-inscription étaient **`await`és après le commit**. Un échec Brevo (timeout, rate-limit) → 500 → compte créé quand même → email brûlé. **Même symptôme que le bug d'atomicité, par une autre porte.** Corrigé (fire-and-forget avec log exploitable).
 
-**Public concerné** : tout hébergeur en self-signup direct (≠ catalogue, ≠ pilote). Non détecté avant car les hébergeurs existants venaient d'imports LMDJ/APIDAE ou d'invitations.
+**Les 5 causes réelles, toutes corrigées le 13/07** :
+1. **Atomicité** (`60eb12f`) : transaction interactive user + centre + organisation + membership + consentement RGPD, mapping d'erreurs (P2002 → 409, P2000 → 400 FR actionnable), tous les emails après commit, rollback prouvé sur vraie base.
+2. **SIRET `@Length(14,14)`** + strip sur les 3 DTO register/create/update (`b1bbcd4`) — filet de sécurité, PAS la réparation (c'est l'atomicité qui répare).
+3. **`motDePasseDefini`** dans `centre.service.register()` (`5e59e28`) — bug dormant corrigé AVANT la correction du routage cas 2 qui l'aurait réveillé.
+4. **Écran justificatif** (`ba54a8c`, `c90fd53`, `39aae43`, `6f765fa`, `74adee8`, `81e4315`) : `/dashboard/hebergeur/justificatif` appelle les VRAIS endpoints ((A) `upload-kbis` champ `file` / (B) `upload-justificatif` champ `document`), refetch post-upload (la boucle infinie ne peut plus se reproduire), les 3 CTA rebranchés, boucle résiduelle « centre couvert par un claim en attente » fermée, `/centre/[id]/claim` élargi PDF/JPG/PNG.
+5. **Emails non bloquants** (`2a07b7b`) : `sendVerificationEmail` / `sendHebergeurAccountPending` en fire-and-forget, porte de sortie `resendVerification` vérifiée de bout en bout (bouton login inclus).
 
-**À faire** : chantier dédié « flux inscription hébergeur », cadré à froid, counter-tests obligatoires (flux critique = reconnexion de vrais clients en jeu). **NE PAS patcher à chaud.**
+**Recette prod 13/07, validée de bout en bout** : inscription ex-nihilo (`ZZZ RECETTE 13-07`) → dépôt justificatif (checklist bascule « en cours d'examen » SANS reload) → validation admin → **devis DEV-2026-0001 créé et ENVOYÉ à un destinataire externe**. Le gate `assertEnvoiExterneAutorise` est levé en réel — pas seulement son miroir `envoisBloques`.
+
+**Reste ouvert (hors périmètre du chantier)** : le **routage cas 2** (invitation admin pré-remplie routée vers `/auth/register/hebergeur` → PENDING, au lieu de `/centres/register` → ACTIVE ; le code ACTIVE du cas 2 reste mort côté UI). `motDePasseDefini` a été corrigé en amont précisément pour que ce chantier ne réveille pas le bug de reconnexion. Voir aussi 🟡 DETTE 13/07 §2 (workflow admin) et 🟠 TRIAL 30J.
+
+---
+
+## 🔴 DÉPLOIEMENT FRONTEND SILENCIEUSEMENT CASSÉ 12→13/07 (résolu `88e49ec` — LEÇON À RETENIR)
+
+**Découvert par accident** pendant le chantier ex-nihilo — hors sujet initial, mais bloquait TOUT : plus aucun déploiement frontend ne passait depuis le **12/07 15h42**. Trois deploys consécutifs en `timeout-error` (`ae4c498`, `dc845a2`, `2a07b7b`). **La prod servait du code périmé, SANS ALERTE** : le site répondait 200 (ancien container), les builds réussissaient, seul le boot échouait.
+
+**Cause prouvée** : Next 16 standalone génère `const hostname = process.env.HOSTNAME || '0.0.0.0'` et Scalingo injecte `HOSTNAME=<nom-du-container>`. Next binde donc **uniquement l'IP du container**. Le trafic routé passe (il vise cette IP), mais la sonde de boot Scalingo (loopback) ne voit rien → timeout 60 s → SIGTERM. **Preuve en one-off dans le runtime Scalingo** : `LOOPBACK_REFUSED` / `HOSTNAME_OPEN` ; contre-épreuve `HOSTNAME=0.0.0.0` → `LOOPBACK_OPEN`. (Les 3 commits déclencheurs étaient doc-only : le code n'a jamais été en cause.)
+
+**Fix** (`88e49ec`) : Procfile → `web: HOSTNAME=0.0.0.0 node .next/standalone/server.js`, et les deux `cp -r` sortent du boot (budget 60 s) vers un hook npm `postbuild` (`scripts/prepare-standalone.mjs`, cross-platform). Déploiement suivant : **success**, vérifié.
+
+**⚠️ LEÇON À RETENIR** : un déploiement peut échouer en silence pendant 24 h sans qu'aucun client ne s'en aperçoive — l'ancien container continue de servir — pendant que le backend, lui, continue de se déployer. **Backend et frontend divergent alors sans alerte** (seul signal faible : les erreurs « Failed to find Server Action » des clients au bundle périmé). **VÉRIFIER `scalingo deployments` APRÈS CHAQUE PUSH.**
+
+---
+
+## 🟡 DETTE IDENTIFIÉE LE 13/07 — à traiter à froid (aucun client impacté)
+
+Trois constats issus du chantier inscription ex-nihilo. Aucun ne bloque personne aujourd'hui ; les trois sont des bombes à retardement.
+
+### 1. `createCentre` avale encore l'échec organisation — même bug, autre porte
+
+`centre.service.ts:295-297` : le `try/catch` autour de `findOrCreateOrganisation` fait `console.error` **puis continue**. C'est exactement le pattern qu'on vient de supprimer de `registerHebergeur` (chantier atomicité du 13/07).
+
+Conséquence : un hébergeur existant qui ajoute un centre peut se retrouver avec un **centre orphelin sans organisation ni membership**. Il n'est pas détruit (le compte existe déjà), mais son centre est dans un état bâtard. Le cas est déjà couvert côté UX par l'endpoint (B) `upload-justificatif`, qui n'exige aucune organisation — mais la donnée reste sale.
+
+**Fix** : même traitement que `registerHebergeur` — transaction interactive `centre.create` + `findOrCreateOrganisation` + `centre.update(organisationId)` + `findOrCreateMembership`. Les helpers acceptent déjà `Prisma.TransactionClient` (fait le 13/07).
+
+### 2. Trois implémentations divergentes du workflow admin de validation
+
+| Source | Méthodes | Exposé par | Règle |
+|---|---|---|---|
+| `claim.service.ts` | `getClaimsEnAttente`, `validerClaim`, `refuserClaim` | `/admin/claims/*` | **strict** : `validerClaim` refuse `EN_ATTENTE_DOCUMENT` |
+| `centre.service.ts` | `getClaimsPending`, `validateClaim`, `getCentresPending`, `validateCentrePending` | `/centres/admin/*` | **permissif** : accepte `EN_ATTENTE_DOCUMENT` |
+| `admin.service.ts` | `getCentresPending` (3ᵉ version), `activerCentre` | `/admin/centres/*` | filtre sur `organisation.memberships.some(VALIDE)` |
+
+**Le dashboard admin consomme les routes `/centres/admin/*`** (la version permissive). Les deux autres coexistent avec des règles différentes sur la même question métier.
+
+Différences réelles entre `centreService.validateClaim` et `claimService.validerClaim` : la première ne touche ni `compteValide`, ni `emailVerifie`, ni `isPrimary`, **n'envoie aucun email à l'hébergeur**, et active *tous* les centres PENDING du user (toutes orgs) là où l'autre se limite à l'organisation du membership.
+
+⚠️ Les deux `getCentresPending` (centre.service vs admin.service) **ne renvoient pas la même liste** — c'est pour ça que certains centres apparaissent dans un onglet et pas dans l'autre.
+
+**Décision prise (non exécutée)** : `claim.service` devient la source unique. Ordre impératif : (1) assouplir `claimService.validerClaim` pour accepter `EN_ATTENTE_DOCUMENT` sur action admin explicite — **sinon on supprime la seule capacité de débloquer un hébergeur ex-nihilo** ; (2) rebrancher `/centres/admin/*` en préservant URLs **et** shapes de réponse (le dashboard admin ne doit pas bouger) ; (3) supprimer les méthodes de `centre.service`. Ne jamais inverser cet ordre.
+
+### 3. Node 20 en fin de vie — le build va casser
+
+Le buildpack Scalingo avertit à chaque déploiement :
+
+> *Node.js 20.20.2 is now End-of-Life (EOL). […] In a future buildpack release, this warning will become a build error.*
+
+`frontend/package.json` → `"engines": { "node": "20.x" }`. Le jour où le buildpack durcit, **plus aucun déploiement ne passe**. À planifier avant que ça n'arrive en pleine urgence — vérifier la compat Next 16 / NestJS 11 / Prisma avant de bumper.
+
+---
+
+## 🟠 TRIAL 30J DÉMARRE PENDANT L'ATTENTE DE VALIDATION (identifié 13/07/2026, recette prod)
+
+**Symptôme** : le trial 30j Pilotage s'active au **premier login**, alors que le centre est encore `PENDING` et le claim en `EN_ATTENTE_DOCUMENT`. L'hébergeur voit son essai gratuit s'écouler **sans pouvoir rien faire** — `envoisBloques` reste `true` tant que le centre n'est pas `ACTIVE` : ni devis, ni email externe.
+
+**Constaté en recette prod (13/07)** : compte `recette-exnihilo-13-07` — inscription 14h51, **trial démarré 14h54** (email « Nouveau trial », expiration 12/08), justificatif déposé 14h55, claim validé ~15h30. Entre 14h54 et 15h30, le compte à rebours tourne dans le vide. Sur un vrai prospect validé le lundi après une inscription du vendredi soir, c'est **10 % de l'essai perdu** sans avoir touché au produit. Jamais validé → 100 % perdu, sans que le prospect comprenne pourquoi.
+
+**Cause on-code** : `AuthService.activerTrialPremiereConnexion()` (`auth.service.ts`) filtre sur `trialStartedAt: null`, `mollieMandatId: null`, `abonnementStatut: INACTIF`. **Aucune condition sur `centre.statut`.** Un centre `PENDING` déclenche donc son trial au premier login.
+
+**Non détecté avant** : tous les hébergeurs existants (Sauvageon, Choucas, Pôle Montagne, Louise/PULSE) ont été activés à la main, hors du parcours nominal. Le premier ex-nihilo réel sera le premier à le subir.
+
+**Deux options, à trancher à froid** :
+- **A. Démarrer le trial à l'activation du centre** (`claim.service.validerClaim` / `admin.service.activerCentre`) plutôt qu'au login. Le plus juste métier. ⚠️ Vérifier d'abord qu'aucun autre chemin ne dépend du déclenchement au login (magic link, refresh token, invitation).
+- **B. Ajouter `statut: 'ACTIVE'` au `where` de `activerTrialPremiereConnexion`.** Une ligne. Le trial démarre au premier login **après** activation. Moins élégant (le trial peut ne jamais démarrer si l'hébergeur ne se reconnecte pas), mais quasi sans risque de régression.
+
+**Priorité** : à traiter avant le premier vrai self-signup hébergeur. Pas de client impacté aujourd'hui.
 
 ---
 
