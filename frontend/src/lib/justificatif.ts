@@ -20,6 +20,22 @@ export interface CentrePending {
   id: string;
   nom: string;
   claimDocumentUrl: string | null;
+  organisationId: string | null;
+}
+
+/**
+ * Un centre PENDING est déjà couvert quand l'organisation à laquelle il
+ * appartient a un claim EN_ATTENTE_VALIDATION : validerClaim active tous les
+ * centres PENDING de l'organisation d'un coup — le justificatif de société
+ * couvre ses centres. Lui redemander un document = boucle de redépôt.
+ * Un hébergeur déjà validé (claimStatut null) n'est jamais concerné.
+ */
+export function centreCouvertParClaim(centre: CentrePending, claim: MonClaimStatut | null): boolean {
+  return (
+    claim?.claimStatut === 'EN_ATTENTE_VALIDATION' &&
+    centre.organisationId != null &&
+    centre.organisationId === claim.organisationId
+  );
 }
 
 /** État du claim en cours du user (jamais 'VALIDE' : le backend ne liste que les 2 statuts en attente). */

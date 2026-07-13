@@ -13,6 +13,7 @@ import type { Disponibilite } from '@/src/lib/centre';
 import { getAbonnementStatut } from '@/src/lib/abonnement';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
 import { getJourFerie, getVacancesZones } from '@/src/data/calendrier-france';
+import { centreCouvertParClaim, type CentrePending, type MonClaimStatut } from '@/src/lib/justificatif';
 import OnboardingChecklist from './_components/OnboardingChecklist';
 
 // ─── CA confirmé : helpers réutilisables ─────────────────────────────────────
@@ -106,7 +107,8 @@ export default function HebergeurDashboard() {
   const [abonnementActif, setAbonnementActif] = useState(true);
   const [claimStatut, setClaimStatut] = useState<string | null>(null);
   const [claimOrgNom, setClaimOrgNom] = useState<string | null>(null);
-  const [centresPending, setCentresPending] = useState<{ id: string; nom: string; claimDocumentUrl: string | null }[]>([]);
+  const [claimInfo, setClaimInfo] = useState<MonClaimStatut | null>(null);
+  const [centresPending, setCentresPending] = useState<CentrePending[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -135,6 +137,7 @@ export default function HebergeurDashboard() {
       .catch(() => null);
     setClaimStatut(claimData?.claimStatut ?? null);
     setClaimOrgNom(claimData?.organisationNom ?? null);
+    setClaimInfo(claimData);
 
     const pend = await api
       .get('/centres/mes-centres-pending')
@@ -280,7 +283,10 @@ export default function HebergeurDashboard() {
         <div key={c.id} className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <p className="text-sm text-amber-800">
             <strong>Demande pour {c.nom} en attente de validation</strong> — notre équipe examine votre demande.
-            {!c.claimDocumentUrl && (
+            {/* Pas de CTA si le centre est couvert par le claim EN_ATTENTE_VALIDATION
+                de son organisation : le justificatif de société est déjà déposé,
+                redemander = boucle de redépôt (+ double email admin). */}
+            {!c.claimDocumentUrl && !centreCouvertParClaim(c, claimInfo) && (
               <>
                 {' '}
                 <Link href="/dashboard/hebergeur/justificatif" className="underline font-medium">

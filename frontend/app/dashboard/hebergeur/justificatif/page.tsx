@@ -6,6 +6,7 @@ import { useAuth, extractApiError } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { JustificatifHint } from '@/app/components/JustificatifHint';
 import {
+  centreCouvertParClaim,
   getMonClaimStatut,
   getMesCentresPending,
   uploadKbisOrganisation,
@@ -61,7 +62,12 @@ export default function JustificatifPage() {
       return;
     }
 
-    const sansDocument = pending.filter((c) => !c.claimDocumentUrl);
+    // Exclut les centres couverts par un claim EN_ATTENTE_VALIDATION de leur
+    // organisation : leur redemander un justificatif recréerait la boucle de
+    // redépôt. Liste vide → on tombe naturellement sur le cas "examen".
+    const sansDocument = pending.filter(
+      (c) => !c.claimDocumentUrl && !centreCouvertParClaim(c, claim),
+    );
 
     // a) Premier claim (ex-nihilo) : cible l'organisation du CENTRE ACTIF
     //    (onboarding-status) ; mon-claim-statut seulement en fallback.
@@ -152,6 +158,9 @@ export default function JustificatifPage() {
   };
 
   if (isLoading || !user) return null;
+  // Non-hébergeur : le layout hébergeur redirige vers /login — ne pas laisser
+  // le skeleton s'afficher en attendant la redirection.
+  if (user.role !== 'HEBERGEUR') return null;
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
