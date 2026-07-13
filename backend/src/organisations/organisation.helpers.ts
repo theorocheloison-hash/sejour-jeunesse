@@ -1,5 +1,12 @@
 import { PrismaService } from '../prisma/prisma.service.js';
-import { SourceOrganisation, TypeStructure, RoleMembership, ClaimStatut, Organisation } from '@prisma/client';
+import { Prisma, SourceOrganisation, TypeStructure, RoleMembership, ClaimStatut, Organisation } from '@prisma/client';
+
+/**
+ * Les helpers find-or-create acceptent aussi un Prisma.TransactionClient :
+ * ils n'utilisent que les délégués .organisation.* et .membership.*, et doivent
+ * pouvoir participer à une transaction interactive (ex. registerHebergeur).
+ */
+export type PrismaLike = PrismaService | Prisma.TransactionClient;
 
 /**
  * Trouve une Organisation existante ou en crée une nouvelle.
@@ -11,7 +18,7 @@ import { SourceOrganisation, TypeStructure, RoleMembership, ClaimStatut, Organis
  * @returns L'Organisation trouvée ou créée
  */
 export async function findOrCreateOrganisation(
-  prisma: PrismaService,
+  prisma: PrismaLike,
   params: {
     siren?: string | null;
     siret?: string | null;
@@ -95,7 +102,7 @@ export async function findOrCreateOrganisation(
  *   (à poser avec un claimStatut EN_ATTENTE_*)
  */
 export async function findOrCreateMembership(
-  prisma: PrismaService,
+  prisma: PrismaLike,
   params: {
     userId: string;
     organisationId: string;

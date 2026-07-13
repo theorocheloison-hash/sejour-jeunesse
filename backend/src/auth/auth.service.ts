@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PlanAbonnement, Role, StatutAbonnement } from '@prisma/client';
+import { CentreHebergement, PlanAbonnement, Prisma, Role, StatutAbonnement, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -217,52 +217,51 @@ export class AuthService {
     const hashed = await bcrypt.hash(dto.password, 12);
     const token = randomUUID();
 
-    // Créer User + CentreHebergement en transaction
-    const [user] = await this.prisma.$transaction([
-      this.prisma.user.create({
-        data: {
-          prenom: dto.prenom,
-          nom: dto.nom,
-          email: dto.email,
-          motDePasse: hashed,
-          motDePasseDefini: true,
-          role: Role.HEBERGEUR,
-          telephone: dto.telephone ?? null,
-          emailVerifie: false,
-          // Compte utilisable immédiatement : la validation admin ne bloque plus
-          // le login mais le passage du centre PENDING→ACTIVE (catalogue + envois
-          // externes). compteValide sert désormais de kill switch admin.
-          compteValide: true,
-          tokenVerification: token,
-          tokenVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      }),
-    ]);
-
-    // Multi-user : si cet email a été invité comme collaborateur (avant d'avoir un compte),
-    // on renseigne le userId. L'utilisateur devra encore accepter via le lien d'invitation.
-    try {
-      await this.prisma.collaborateurCentre.updateMany({
-        where: { inviteEmail: user.email, userId: null },
-        data: { userId: user.id },
-      });
-    } catch (err) {
-      console.error('[registerHebergeur] liaison collaborateur échec', err);
-    }
-
-    // Notification admin (fire-and-forget) — couvre les deux modes (claim + normal).
-    // Le compte est utilisable immédiatement ; la validation admin porte sur le
-    // passage du centre PENDING→ACTIVE, pas sur le login.
-    this.email.notifyAdminNewAccount(
-      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
-      `Centre&nbsp;: ${dto.nomCentre}`
-        + (dto.ville ? `<br>Ville&nbsp;: ${dto.ville}` : '')
-        + (dto.siret ? `<br>SIRET&nbsp;: ${dto.siret}` : ''),
-    ).catch(() => {});
+    const userData = {
+      prenom: dto.prenom,
+      nom: dto.nom,
+      email: dto.email,
+      motDePasse: hashed,
+      motDePasseDefini: true,
+      role: Role.HEBERGEUR,
+      telephone: dto.telephone ?? null,
+      emailVerifie: false,
+      // Compte utilisable immédiatement : la validation admin ne bloque plus
+      // le login mais le passage du centre PENDING→ACTIVE (catalogue + envois
+      // externes). compteValide sert désormais de kill switch admin.
+      compteValide: true,
+      tokenVerification: token,
+      tokenVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
 
     // ── Mode revendication catalogue : créer UNIQUEMENT le user. Le centre,
-    //    l'organisation et le membership de claim sont gérés par claimFromCatalogue. ──
+    //    l'organisation et le membership de claim sont gérés par claimFromCatalogue.
+    //    PAS de transaction sur ce chemin : claimFromCatalogue fait un fetch()
+    //    vers l'API Éducation Nationale — un appel réseau dans une transaction
+    //    bloquerait une connexion du pool jusqu'au timeout. ──
     if (dto.claimCatalogueId) {
+      const user = await this.prisma.user.create({ data: userData });
+
+      // Multi-user : si cet email a été invité comme collaborateur (avant d'avoir un compte),
+      // on renseigne le userId. L'utilisateur devra encore accepter via le lien d'invitation.
+      try {
+        await this.prisma.collaborateurCentre.updateMany({
+          where: { inviteEmail: user.email, userId: null },
+          data: { userId: user.id },
+        });
+      } catch (err) {
+        console.error('[registerHebergeur] liaison collaborateur échec', err);
+      }
+
+      // Notification admin (fire-and-forget). Le compte est utilisable immédiatement ;
+      // la validation admin porte sur le passage du centre PENDING→ACTIVE, pas sur le login.
+      this.email.notifyAdminNewAccount(
+        { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+        `Centre&nbsp;: ${dto.nomCentre}`
+          + (dto.ville ? `<br>Ville&nbsp;: ${dto.ville}` : '')
+          + (dto.siret ? `<br>SIRET&nbsp;: ${dto.siret}` : ''),
+      ).catch(() => {});
+
       // Le user est créé ; on tente le claim inline. Si le claim échoue, on
       // n'avale PAS l'erreur silencieusement : le user reste créé (il pourra
       // retenter plus tard), mais la réponse signale clairement l'échec.
@@ -306,24 +305,122 @@ export class AuthService {
     }
     const { adresse, ville, codePostal, capacite } = dto;
 
-    const centre = await this.prisma.centreHebergement.create({
-      data: {
-        nom: dto.nomCentre,
-        adresse,
-        ville,
-        codePostal,
-        capacite,
-        description: dto.description ?? null,
-        email: dto.emailContact ?? null,
-        siret: dto.siret ?? null,
-        departement: normaliserDepartement(dto.departement),
-        agrementEducationNationale: dto.agrementEducationNationale ?? null,
-        typeSejours: dto.typeSejours ?? [],
-        reseau: dto.reseau ?? null,
-        userId: user.id,
-        statut: 'PENDING',
-      },
-    });
+    // User + centre + organisation + membership + consentement RGPD : tout ou rien.
+    // Sans transaction, un échec après user.create laissait un compte sans centre
+    // et l'email pris à vie (ConflictException à chaque nouvelle tentative).
+    let txResult: { user: User; centre: CentreHebergement };
+    try {
+      txResult = await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({ data: userData });
+
+        const centre = await tx.centreHebergement.create({
+          data: {
+            nom: dto.nomCentre,
+            adresse,
+            ville,
+            codePostal,
+            capacite,
+            description: dto.description ?? null,
+            email: dto.emailContact ?? null,
+            siret: dto.siret ?? null,
+            departement: normaliserDepartement(dto.departement),
+            agrementEducationNationale: dto.agrementEducationNationale ?? null,
+            typeSejours: dto.typeSejours ?? [],
+            reseau: dto.reseau ?? null,
+            userId: user.id,
+            statut: 'PENDING',
+          },
+        });
+
+        const { organisation } = await findOrCreateOrganisation(tx, {
+          nom:              dto.nomCentre,
+          adresse,
+          codePostal,
+          ville,
+          emailContact:     dto.emailContact ?? null,
+          telephoneContact: dto.telephone ?? null,
+          siret:            dto.siret ?? null,
+          siren:            dto.siret ? dto.siret.substring(0, 9) : null,
+          typeStructure:    null,
+          source:           'MANUAL',
+        });
+        await tx.centreHebergement.update({
+          where: { id: centre.id },
+          data: { organisationId: organisation.id },
+        });
+
+        // Tunnel de validation justificatif : l'inscription ex-nihilo entre en
+        // EN_ATTENTE_DOCUMENT (visible dans /dashboard/admin/claims, uploadKbis
+        // puis validerClaim fonctionnent tels quels). Exception : si la dédup
+        // nom+ville a retrouvé une organisation déjà détenue par un AUTRE
+        // hébergeur (membership VALIDE), on reste NON_APPLICABLE (inerte) pour
+        // ne pas ouvrir un claim concurrent sur sa structure.
+        const claimValideAutre = await tx.membership.findFirst({
+          where: {
+            organisationId: organisation.id,
+            claimStatut: 'VALIDE',
+            userId: { not: user.id },
+          },
+          select: { id: true },
+        });
+        await findOrCreateMembership(tx, {
+          userId:         user.id,
+          organisationId: organisation.id,
+          role:           'PROPRIETAIRE',
+          isPrimary:      true,
+          ...(claimValideAutre
+            ? { claimStatut: 'NON_APPLICABLE' as const }
+            : { claimStatut: 'EN_ATTENTE_DOCUMENT' as const, claimSubmittedAt: new Date() }),
+        });
+
+        await tx.consentementRgpd.create({
+          data: {
+            userId: user.id,
+            role: Role.HEBERGEUR,
+            versionDpa: process.env.DPA_VERSION ?? '1.0',
+            ipAddress: ipAddress ?? null,
+            userAgent: userAgent ?? null,
+          },
+        });
+
+        return { user, centre };
+      }, { timeout: 10000 });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        // P2002 : course sur l'email entre le findUnique d'entrée et le commit.
+        if (err.code === 'P2002') {
+          throw new ConflictException('Cet email est déjà utilisé');
+        }
+        // P2000 : valeur trop longue pour la colonne (VarChar dépassé).
+        if (err.code === 'P2000') {
+          const colonne = (err.meta as { column_name?: string } | undefined)?.column_name;
+          throw new BadRequestException(
+            colonne
+              ? `La valeur du champ « ${colonne} » est trop longue. Corrigez-la puis réessayez.`
+              : 'Une des informations saisies est trop longue. Corrigez-la puis réessayez.',
+          );
+        }
+      }
+      console.error(
+        `[registerHebergeur] Échec de l'inscription de ${dto.email} — rollback complet, aucune donnée créée :`,
+        err instanceof Error ? err.message : err,
+      );
+      throw err;
+    }
+    const { user, centre } = txResult;
+
+    // ── Effets de bord non critiques et emails : après commit uniquement ──
+
+    // Multi-user : si cet email a été invité comme collaborateur (avant d'avoir un compte),
+    // on renseigne le userId. L'utilisateur devra encore accepter via le lien d'invitation.
+    try {
+      await this.prisma.collaborateurCentre.updateMany({
+        where: { inviteEmail: user.email, userId: null },
+        data: { userId: user.id },
+      });
+    } catch (err) {
+      console.error('[registerHebergeur] liaison collaborateur échec', err);
+    }
 
     // Lier l'invitation centre externe si un token est fourni
     if (dto.invitationToken) {
@@ -335,69 +432,21 @@ export class AuthService {
       } catch { /* non bloquant */ }
     }
 
-    // Rattacher l'hébergeur à une Organisation + Membership (non bloquant)
-    try {
-      const { organisation } = await findOrCreateOrganisation(this.prisma, {
-        nom:              dto.nomCentre,
-        adresse,
-        codePostal,
-        ville,
-        emailContact:     dto.emailContact ?? null,
-        telephoneContact: dto.telephone ?? null,
-        siret:            dto.siret ?? null,
-        siren:            dto.siret ? dto.siret.substring(0, 9) : null,
-        typeStructure:    null,
-        source:           'MANUAL',
-      });
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: { organisationId: organisation.id },
-      });
-      // Tunnel de validation justificatif : l'inscription ex-nihilo entre en
-      // EN_ATTENTE_DOCUMENT (visible dans /dashboard/admin/claims, uploadKbis
-      // puis validerClaim fonctionnent tels quels). Exception : si la dédup
-      // nom+ville a retrouvé une organisation déjà détenue par un AUTRE
-      // hébergeur (membership VALIDE), on reste NON_APPLICABLE (inerte) pour
-      // ne pas ouvrir un claim concurrent sur sa structure.
-      const claimValideAutre = await this.prisma.membership.findFirst({
-        where: {
-          organisationId: organisation.id,
-          claimStatut: 'VALIDE',
-          userId: { not: user.id },
-        },
-        select: { id: true },
-      });
-      await findOrCreateMembership(this.prisma, {
-        userId:         user.id,
-        organisationId: organisation.id,
-        role:           'PROPRIETAIRE',
-        isPrimary:      true,
-        ...(claimValideAutre
-          ? { claimStatut: 'NON_APPLICABLE' as const }
-          : { claimStatut: 'EN_ATTENTE_DOCUMENT' as const, claimSubmittedAt: new Date() }),
-      });
-    } catch (err) {
-      console.error('[registerHebergeur] Echec rattachement Organisation/Membership', err);
-    }
-
     // Le trial 30j Pilotage s'active à la première connexion (voir login()),
     // plus à l'inscription : le centre reste abonnementStatut INACTIF ici.
     // Les relances d'expiration sont gérées par CronAlertesService.
 
-    await this.prisma.consentementRgpd.create({
-      data: {
-        userId: user.id,
-        role: Role.HEBERGEUR,
-        versionDpa: process.env.DPA_VERSION ?? '1.0',
-        ipAddress: ipAddress ?? null,
-        userAgent: userAgent ?? null,
-      },
-    });
+    // Notification admin (fire-and-forget). Le compte est utilisable immédiatement ;
+    // la validation admin porte sur le passage du centre PENDING→ACTIVE, pas sur le login.
+    this.email.notifyAdminNewAccount(
+      { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
+      `Centre&nbsp;: ${dto.nomCentre}`
+        + (dto.ville ? `<br>Ville&nbsp;: ${dto.ville}` : '')
+        + (dto.siret ? `<br>SIRET&nbsp;: ${dto.siret}` : ''),
+    ).catch(() => {});
 
     await this.email.sendVerificationEmail(dto.email, dto.prenom, token);
     await this.email.sendHebergeurAccountPending(dto.email, dto.prenom, dto.nomCentre);
-
-    // Notification admin envoyée plus haut via notifyAdminNewAccount (couvre claim + normal).
 
     return {
       message: 'Inscription réussie. Votre compte est en attente de validation.',
