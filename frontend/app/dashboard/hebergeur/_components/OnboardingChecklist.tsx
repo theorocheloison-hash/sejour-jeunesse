@@ -272,7 +272,7 @@ export default function OnboardingChecklist() {
             {!conformite.ok || conformite.justificatif === 'EN_ATTENTE_VALIDATION' ? (
               <div className="mt-1 space-y-1">
                 {conformite.justificatif === 'ABSENT' && (
-                  <Link href="/dashboard/hebergeur/documents" className="block text-xs font-semibold text-[var(--color-primary)] hover:underline">
+                  <Link href="/dashboard/hebergeur/justificatif" className="block text-xs font-semibold text-[var(--color-primary)] hover:underline">
                     Déposer un justificatif →
                   </Link>
                 )}

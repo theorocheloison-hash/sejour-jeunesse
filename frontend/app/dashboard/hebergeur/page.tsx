@@ -261,8 +261,8 @@ export default function HebergeurDashboard() {
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <p className="text-sm text-amber-800">
             <strong>Revendication en cours{claimOrgNom ? ` — ${claimOrgNom}` : ''}</strong> — Votre Kbis est attendu pour valider
-            la propriété de votre centre. <a href="/dashboard/hebergeur/documents"
-            className="underline font-medium">Déposer le document →</a>
+            la propriété de votre centre. <Link href="/dashboard/hebergeur/justificatif"
+            className="underline font-medium">Déposer le document →</Link>
           </p>
         </div>
       )}
@@ -283,7 +283,7 @@ export default function HebergeurDashboard() {
             {!c.claimDocumentUrl && (
               <>
                 {' '}
-                <Link href="/dashboard/hebergeur/documents" className="underline font-medium">
+                <Link href="/dashboard/hebergeur/justificatif" className="underline font-medium">
                   Déposer un justificatif →
                 </Link>
               </>
