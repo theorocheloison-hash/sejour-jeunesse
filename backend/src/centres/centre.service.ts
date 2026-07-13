@@ -250,7 +250,10 @@ export class CentreService {
   async getMesCentresPending(userId: string) {
     return this.prisma.centreHebergement.findMany({
       where: { userId, statut: 'PENDING' },
-      select: { id: true, nom: true, claimDocumentUrl: true },
+      // organisationId : permet au frontend d'identifier les centres déjà couverts
+      // par un claim EN_ATTENTE_VALIDATION de leur organisation (validerClaim
+      // active tous les centres PENDING de l'organisation d'un coup).
+      select: { id: true, nom: true, claimDocumentUrl: true, organisationId: true },
       orderBy: { nom: 'asc' },
     });
   }
