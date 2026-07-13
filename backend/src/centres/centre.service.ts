@@ -955,6 +955,9 @@ export class CentreService {
         nom: dto.nomContact ?? '',
         email: invitation.email,
         motDePasse: hashed,
+        // Sans ce flag (défaut false), login() compare contre DUMMY_HASH :
+        // reconnexion par mot de passe impossible pour ces comptes.
+        motDePasseDefini: true,
         role: Role.HEBERGEUR,
       },
     });
