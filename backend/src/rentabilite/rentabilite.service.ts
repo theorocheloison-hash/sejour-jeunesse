@@ -15,6 +15,11 @@ export class RentabiliteService {
     private readonly storageService: StorageService,
   ) {}
 
+  /** Arrondi comptable à 2 décimales. */
+  private round2(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
   /**
    * Valide le montant total et, le cas échéant, la cohérence + l'ownership
    * des ventilations. Partagé entre création et mise à jour.
@@ -336,5 +341,294 @@ export class RentabiliteService {
       sejours: result,
       totaux: { ...totaux, tauxMarge: tauxTotal },
     };
+  }
+
+  /**
+   * TVA sur marge (art. 266-1-e CGI) : les prestations REVENDUES achetées à des
+   * tiers (lignes de devis flaguées revenduTiers) sont imposées sur la marge
+   * (vente TTC − achat TTC), pas sur le CA. La pension produite en propre est
+   * hors calcul. Distinct de la marge ÉCONOMIQUE de getTableau().
+   *
+   * LIAVO restitue le tableau ; l'expert-comptable du centre déclare. Aucune
+   * règle fiscale n'est appliquée ici : pas de plancher à zéro, pas de report,
+   * pas de compensation inter-mois — une marge négative est conservée signée.
+   *
+   * Rattachement mensuel = sejour.dateDebut, y compris pour un séjour à cheval
+   * sur deux mois. Exactement 4 requêtes, toute l'agrégation est en mémoire.
+   */
+  async getTvaSurMarge(
+    userId: string,
+    centreId: string | null | undefined,
+    annee: number,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    if (!centre.regimeMargeActif) {
+      throw new BadRequestException('Régime de la marge non activé');
+    }
+
+    // EN_ATTENTE, EN_ATTENTE_VALIDATION et NON_RETENU sont exclus de la base.
+    const STATUTS_MARGE = [
+      'SELECTIONNE',
+      'SIGNE_DIRECTION',
+      'FACTURE_ACOMPTE',
+      'FACTURE_SOLDE',
+    ] as const;
+
+    // Q1 — séjours du centre dans l'année (dateDebut), avec leurs achats.
+    // La traversée ventilation → facture est obligatoire : typeCharge est
+    // porté par FacturePrestataire, pas par la ventilation.
+    const sejours = await this.prisma.sejour.findMany({
+      where: {
+        hebergementSelectionneId: centre.id,
+        deletedAt: null,
+        dateDebut: {
+          gte: new Date(Date.UTC(annee, 0, 1)),
+          lte: new Date(Date.UTC(annee, 11, 31)),
+        },
+      },
+      select: {
+        id: true,
+        titre: true,
+        dateDebut: true,
+        natureSejour: true,
+        ventilationsPrestataires: {
+          select: {
+            montantTTC: true,
+            facture: { select: { id: true, typeCharge: true } },
+          },
+        },
+      },
+    });
+    const sejourIds = sejours.map((s) => s.id);
+
+    // Q2 — devis rattachés à ces séjours (modes DIRECT et COLLAB), avec leurs
+    // seules lignes revendues à des tiers. Tous les devis en STATUTS_MARGE
+    // comptent, complémentaires inclus : pas de tri PRIORITE_STATUT ici, il ne
+    // retiendrait qu'un devis et ferait tomber des lignes hors base.
+    const devisList = await this.prisma.devis.findMany({
+      where: {
+        centreId: centre.id,
+        statut: { in: [...STATUTS_MARGE] },
+        OR: [
+          { sejourDirectId: { in: sejourIds } },
+          { demande: { sejourId: { in: sejourIds } } },
+        ],
+      },
+      select: {
+        id: true,
+        isComplementaire: true,
+        sejourDirectId: true,
+        demande: { select: { sejourId: true } },
+        lignes: {
+          where: { revenduTiers: true },
+          select: { totalTTC: true, categorieMarge: true },
+        },
+      },
+    });
+
+    // Q3 — toutes les factures prestataires du centre avec TOUTES leurs
+    // ventilations (y compris hors périmètre annuel) : détection de la
+    // sous-ventilation, que validateMontantEtVentilations() laisse passer.
+    const facturesPrestataires = await this.prisma.facturePrestataire.findMany({
+      where: { centreId: centre.id },
+      select: {
+        id: true,
+        nomPrestataire: true,
+        montantTotalTTC: true,
+        ventilations: { select: { montantTTC: true } },
+      },
+    });
+
+    // Q4 — séjours sans dateDebut portant des charges : ils ne tomberaient
+    // dans aucun mois et disparaîtraient sans signal.
+    const sejoursSansDate = await this.prisma.sejour.findMany({
+      where: {
+        hebergementSelectionneId: centre.id,
+        deletedAt: null,
+        dateDebut: null,
+        ventilationsPrestataires: { some: {} },
+      },
+      select: { id: true, titre: true },
+    });
+
+    // ── Agrégation en mémoire ──
+    const anomalies: Array<{
+      type: string;
+      sejourId?: string;
+      titre?: string;
+      factureId?: string;
+      montant?: number;
+      message: string;
+    }> = [];
+
+    // parPoste : clé normalisée (trim + lowercase) commune aux catégories de
+    // vente (ligneDevis.categorieMarge) et d'achat (facture.typeCharge) ;
+    // label = première valeur d'origine rencontrée pour la clé.
+    const parPosteMap = new Map<
+      string,
+      { cle: string; label: string; venteTTC: number; achatTTC: number }
+    >();
+    const addPoste = (
+      valeur: string | null | undefined,
+      vente: number,
+      achat: number,
+    ) => {
+      const brut = (valeur ?? '').trim();
+      const cle = brut === '' ? 'non_categorise' : brut.toLowerCase();
+      const entry = parPosteMap.get(cle);
+      if (entry) {
+        entry.venteTTC += vente;
+        entry.achatTTC += achat;
+      } else {
+        parPosteMap.set(cle, {
+          cle,
+          label: brut === '' ? 'Non catégorisé' : brut,
+          venteTTC: vente,
+          achatTTC: achat,
+        });
+      }
+    };
+
+    // Ventes par séjour + comptage des devis principaux (double comptage).
+    const venteParSejour = new Map<string, number>();
+    const devisPrincipauxParSejour = new Map<string, number>();
+    for (const devis of devisList) {
+      // Résolution du séjour : DIRECT (sejourDirectId) ou COLLAB (demande.sejourId).
+      const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId;
+      if (!sejourId) continue;
+      if (!devis.isComplementaire) {
+        devisPrincipauxParSejour.set(
+          sejourId,
+          (devisPrincipauxParSejour.get(sejourId) ?? 0) + 1,
+        );
+      }
+      for (const ligne of devis.lignes) {
+        venteParSejour.set(
+          sejourId,
+          (venteParSejour.get(sejourId) ?? 0) + ligne.totalTTC,
+        );
+        addPoste(ligne.categorieMarge, ligne.totalTTC, 0);
+      }
+    }
+
+    // Cumuls mensuels bruts (arrondis une seule fois, au niveau du mois).
+    const ventesMois = new Array<number>(12).fill(0);
+    const achatsMois = new Array<number>(12).fill(0);
+    const nbSejoursMois = new Array<number>(12).fill(0);
+    for (const sejour of sejours) {
+      if (!sejour.dateDebut) continue; // impossible (filtre Q1), garde TS
+      const mois = sejour.dateDebut.getUTCMonth();
+      const vente = venteParSejour.get(sejour.id) ?? 0;
+      let achat = 0;
+      for (const ventilation of sejour.ventilationsPrestataires) {
+        achat += ventilation.montantTTC;
+        addPoste(ventilation.facture.typeCharge, 0, ventilation.montantTTC);
+      }
+      ventesMois[mois] += vente;
+      achatsMois[mois] += achat;
+      if (vente !== 0 || achat !== 0) nbSejoursMois[mois]++;
+
+      if (achat > 0 && vente === 0) {
+        anomalies.push({
+          type: 'ACHAT_SANS_VENTE',
+          sejourId: sejour.id,
+          titre: sejour.titre,
+          montant: this.round2(achat),
+          message: `Séjour « ${sejour.titre} » : achats ventilés sans aucune ligne de vente flaguée revendue (flag oublié ?)`,
+        });
+      }
+      if (vente > 0 && achat === 0) {
+        anomalies.push({
+          type: 'VENTE_SANS_ACHAT',
+          sejourId: sejour.id,
+          titre: sejour.titre,
+          montant: this.round2(vente),
+          message: `Séjour « ${sejour.titre} » : ventes revendues sans aucun achat ventilé (facture prestataire pas encore saisie ?)`,
+        });
+      }
+      const nbPrincipaux = devisPrincipauxParSejour.get(sejour.id) ?? 0;
+      if (nbPrincipaux >= 2) {
+        anomalies.push({
+          type: 'PLUSIEURS_DEVIS_PRINCIPAUX',
+          sejourId: sejour.id,
+          titre: sejour.titre,
+          message: `Séjour « ${sejour.titre} » : ${nbPrincipaux} devis principaux en statut facturable — double comptage possible de la vente`,
+        });
+      }
+    }
+
+    // Anomalie FACTURE_SOUS_VENTILEE (le validateur ne rejette que la
+    // sur-ventilation : le reliquat non ventilé passerait silencieusement).
+    for (const facture of facturesPrestataires) {
+      const totalVentile = facture.ventilations.reduce(
+        (sum, v) => sum + v.montantTTC,
+        0,
+      );
+      if (totalVentile < facture.montantTotalTTC - 0.01) {
+        anomalies.push({
+          type: 'FACTURE_SOUS_VENTILEE',
+          factureId: facture.id,
+          montant: this.round2(facture.montantTotalTTC - totalVentile),
+          message: `Facture « ${facture.nomPrestataire} » : ${this.round2(facture.montantTotalTTC - totalVentile)} € non ventilés — charge orpheline, marge faussée`,
+        });
+      }
+    }
+
+    for (const sejour of sejoursSansDate) {
+      anomalies.push({
+        type: 'SEJOUR_SANS_DATE',
+        sejourId: sejour.id,
+        titre: sejour.titre,
+        message: `Séjour « ${sejour.titre} » : charges ventilées mais aucune date de début — ces montants ne tombent dans aucun mois`,
+      });
+    }
+
+    // ── Calcul mensuel — ordre des arrondis impératif (cohérence comptable) :
+    // margeTTC = round2(vente − achat), baseHT = round2(marge / (1 + taux/100)),
+    // tva = round2(marge − baseHT) : DÉRIVÉE, jamais recalculée séparément,
+    // pour garantir baseHT + tva === margeTTC au centime près.
+    const taux = centre.tauxTvaMarge;
+    const parMois = ventesMois.map((_, i) => {
+      const venteTTC = this.round2(ventesMois[i]);
+      const achatTTC = this.round2(achatsMois[i]);
+      const margeTTC = this.round2(venteTTC - achatTTC);
+      const baseHT = this.round2(margeTTC / (1 + taux / 100));
+      const tva = this.round2(margeTTC - baseHT);
+      return {
+        mois: i + 1,
+        venteTTC,
+        achatTTC,
+        margeTTC,
+        baseHT,
+        tva,
+        nbSejours: nbSejoursMois[i],
+      };
+    });
+
+    // Totaux = somme des 12 valeurs mensuelles DÉJÀ arrondies (round2 final
+    // uniquement pour purger le bruit flottant de l'addition) : la colonne
+    // s'additionne dans l'export destiné à l'expert-comptable.
+    const totaux = {
+      venteTTC: this.round2(parMois.reduce((s, m) => s + m.venteTTC, 0)),
+      achatTTC: this.round2(parMois.reduce((s, m) => s + m.achatTTC, 0)),
+      margeTTC: this.round2(parMois.reduce((s, m) => s + m.margeTTC, 0)),
+      baseHT: this.round2(parMois.reduce((s, m) => s + m.baseHT, 0)),
+      tva: this.round2(parMois.reduce((s, m) => s + m.tva, 0)),
+    };
+
+    const parPoste = [...parPosteMap.values()]
+      .map((poste) => {
+        const venteTTC = this.round2(poste.venteTTC);
+        const achatTTC = this.round2(poste.achatTTC);
+        const margeTTC = this.round2(venteTTC - achatTTC);
+        const tauxMarge =
+          venteTTC === 0
+            ? null
+            : Math.round((margeTTC / venteTTC) * 1000) / 10;
+        return { cle: poste.cle, label: poste.label, venteTTC, achatTTC, margeTTC, tauxMarge };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+
+    return { annee, tauxTvaMarge: taux, parMois, parPoste, totaux, anomalies };
   }
 }

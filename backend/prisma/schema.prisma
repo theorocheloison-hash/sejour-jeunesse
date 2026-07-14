@@ -621,6 +621,9 @@ model CentreHebergement {
   mandatFacturationVersion   String?   @map("mandat_facturation_version") @db.VarChar(20)
   mandatFacturationIpAddress String?   @map("mandat_facturation_ip") @db.VarChar(45)
   mandatFacturationUserAgent String?   @map("mandat_facturation_ua") @db.VarChar(500)
+  // ── TVA sur marge (art. 266-1-e CGI) : revente de prestations achetées à des tiers ──
+  regimeMargeActif    Boolean           @default(false) @map("regime_marge_actif")
+  tauxTvaMarge        Float             @default(20) @map("taux_tva_marge")
   organisationId      String?           @map("organisation_id") @db.Uuid
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
@@ -726,6 +729,9 @@ model ProduitCatalogue {
   simultaneitePossible  Boolean  @default(true) @map("simultaneite_possible")
   dureeMinutes          Int?     @map("duree_minutes")
   nbMoniteursMax        Int?     @map("nb_moniteurs_max")
+  // TVA sur marge : valeurs par défaut recopiées sur les lignes de devis créées depuis ce produit
+  revenduTiersDefaut Boolean @default(false) @map("revendu_tiers_defaut")
+  categorieMarge     String? @map("categorie_marge") @db.VarChar(50)
   createdAt       DateTime @default(now()) @map("created_at")
 
   centre      CentreHebergement  @relation(fields: [centreId], references: [id], onDelete: Cascade)
@@ -1159,6 +1165,10 @@ model LigneDevis {
   totalHT      Float  @map("total_ht")
   totalTTC     Float  @map("total_ttc")
   produitCatalogueId String? @map("produit_catalogue_id") @db.Uuid
+  // TVA sur marge : prestation revendue achetée à un tiers. categorieMarge en VarChar(50),
+  // même longueur que FacturePrestataire.typeCharge (clé de rapprochement vente↔achat).
+  revenduTiers   Boolean @default(false) @map("revendu_tiers")
+  categorieMarge String? @map("categorie_marge") @db.VarChar(50)
 
   produitCatalogue ProduitCatalogue? @relation(fields: [produitCatalogueId], references: [id], onDelete: SetNull)
 

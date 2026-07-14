@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -115,5 +116,23 @@ export class RentabiliteController {
       annee,
       sejourId,
     );
+  }
+
+  /** GET /rentabilite/tva-marge — TVA sur marge (art. 266-1-e CGI), tableau annuel pour l'EC */
+  @Get('tva-marge')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('facturation')
+  getTvaSurMarge(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Query('annee') annee?: string,
+  ) {
+    const anneeNum = Number(annee);
+    if (!annee || !Number.isInteger(anneeNum) || anneeNum < 2000 || anneeNum > 2100) {
+      throw new BadRequestException(
+        'Paramètre annee invalide (entier attendu entre 2000 et 2100)',
+      );
+    }
+    return this.rentabiliteService.getTvaSurMarge(user.id, centreId, anneeNum);
   }
 }
