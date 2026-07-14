@@ -268,30 +268,41 @@ export class CentreService {
       centre = await this.prisma.$transaction(async (tx) => {
         const centresExistants = await tx.centreHebergement.count({ where: { userId } });
 
-        // Résolution de l'organisation — même règle que claimFromCatalogue : un
-        // hébergeur déjà validé (membership VALIDE) rattache son nouveau centre à
-        // SA structure, avant toute dédup textuelle. Sinon (SIRET optionnel non
-        // saisi), la dédup nom+ville ne matche pas le nom du chalet et créerait
-        // une organisation neuve au membership inerte.
-        const membershipValide = await tx.membership.findFirst({
-          where: { userId, claimStatut: 'VALIDE' },
-          select: { organisationId: true },
-        });
+        // Résolution de l'organisation — la structure juridique (la DONNÉE) prime
+        // sur le chemin emprunté :
+        // (1) SIRET saisi → dédup par SIREN (un établissement secondaire porte le
+        //     même SIREN que sa société ; une seconde société = SIREN différent =
+        //     autre organisation — le SIRET saisi n'est jamais ignoré) ;
+        // (2) sinon, membership VALIDE le plus ancien (déterministe) : cas nominal
+        //     du multi-centre, la dédup nom+ville ne matcherait pas le nom du
+        //     chalet contre celui de l'organisation et créerait une org orpheline ;
+        // (3) sinon, dédup textuelle / création.
+        const orgParams = {
+          nom: dto.nom,
+          adresse: dto.adresse,
+          ville: dto.ville,
+          codePostal: dto.codePostal,
+          siret: dto.siret ?? null,
+          siren: dto.siret ? dto.siret.substring(0, 9) : null,
+          typeStructure: null,
+          source: 'MANUAL' as const,
+        };
         let organisationId: string;
-        if (membershipValide) {
-          organisationId = membershipValide.organisationId;
-        } else {
-          const { organisation } = await findOrCreateOrganisation(tx, {
-            nom: dto.nom,
-            adresse: dto.adresse,
-            ville: dto.ville,
-            codePostal: dto.codePostal,
-            siret: dto.siret ?? null,
-            siren: dto.siret ? dto.siret.substring(0, 9) : null,
-            typeStructure: null,
-            source: 'MANUAL',
-          });
+        if (dto.siret) {
+          const { organisation } = await findOrCreateOrganisation(tx, orgParams);
           organisationId = organisation.id;
+        } else {
+          const membershipValide = await tx.membership.findFirst({
+            where: { userId, claimStatut: 'VALIDE' },
+            orderBy: { claimValidatedAt: 'asc' },
+            select: { organisationId: true },
+          });
+          if (membershipValide) {
+            organisationId = membershipValide.organisationId;
+          } else {
+            const { organisation } = await findOrCreateOrganisation(tx, orgParams);
+            organisationId = organisation.id;
+          }
         }
 
         const created = await tx.centreHebergement.create({
@@ -311,24 +322,27 @@ export class CentreService {
           },
         });
 
-        // Invariant : tout centre PENDING doit sortir dans au moins une liste
-        // admin. Org du user (membership VALIDE, retourné tel quel par le helper
-        // idempotent) ou org détenue par un AUTRE hébergeur (pas de claim
-        // concurrent) → NON_APPLICABLE, le centre sort dans /admin/centres/pending.
-        // Org neuve ou sans propriétaire → tunnel justificatif EN_ATTENTE_DOCUMENT,
-        // le claim sort dans /admin/claims.
-        let claimFields: { claimStatut: 'NON_APPLICABLE' | 'EN_ATTENTE_DOCUMENT'; claimSubmittedAt?: Date };
-        if (membershipValide) {
-          claimFields = { claimStatut: 'NON_APPLICABLE' };
-        } else {
-          const claimValideAutre = await tx.membership.findFirst({
-            where: { organisationId, claimStatut: 'VALIDE', userId: { not: userId } },
-            select: { id: true },
-          });
-          claimFields = claimValideAutre
+        // claimStatut dérivé de la RELATION entre l'utilisateur et l'organisation
+        // effectivement résolue — jamais du chemin emprunté. Un hébergeur validé
+        // ailleurs qui rattache un centre à une SECONDE société doit justifier
+        // CETTE structure (EN_ATTENTE_DOCUMENT).
+        // Invariant : tout centre PENDING sort dans au moins une liste admin —
+        // org déjà possédée par le user ou par un tiers (pas de claim concurrent)
+        // → NON_APPLICABLE, le centre sort dans /admin/centres/pending (filtre
+        // memberships.some(VALIDE)) ; org neuve ou non revendiquée → tunnel
+        // justificatif, le claim sort dans /admin/claims.
+        const membershipValideSurCetteOrg = await tx.membership.findFirst({
+          where: { userId, organisationId, claimStatut: 'VALIDE' },
+          select: { id: true },
+        });
+        const claimValideAutre = await tx.membership.findFirst({
+          where: { organisationId, claimStatut: 'VALIDE', userId: { not: userId } },
+          select: { id: true },
+        });
+        const claimFields: { claimStatut: 'NON_APPLICABLE' | 'EN_ATTENTE_DOCUMENT'; claimSubmittedAt?: Date } =
+          membershipValideSurCetteOrg || claimValideAutre
             ? { claimStatut: 'NON_APPLICABLE' }
             : { claimStatut: 'EN_ATTENTE_DOCUMENT', claimSubmittedAt: new Date() };
-        }
         await findOrCreateMembership(tx, {
           userId,
           organisationId,
