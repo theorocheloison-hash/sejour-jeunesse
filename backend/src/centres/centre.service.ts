@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
-import { Role } from '@prisma/client';
+import { CentreHebergement, Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -259,52 +259,111 @@ export class CentreService {
   }
 
   async createCentre(userId: string, dto: CreateCentreDto) {
-    const centresExistants = await this.prisma.centreHebergement.count({ where: { userId } });
-
-    const centre = await this.prisma.centreHebergement.create({
-      data: {
-        nom: dto.nom,
-        adresse: dto.adresse,
-        ville: dto.ville,
-        codePostal: dto.codePostal,
-        capacite: dto.capacite,
-        telephone: dto.telephone ?? null,
-        siret: dto.siret ?? null,
-        email: dto.email ?? null,
-        description: dto.description ?? null,
-        userId,
-        statut: 'PENDING',
-      },
-    });
-
+    // Centre + organisation + membership : tout ou rien, même pattern que
+    // registerHebergeur. Sans transaction, un échec du rattachement laissait un
+    // centre orphelin sans organisation ni membership — invisible de toutes les
+    // listes admin (/admin/claims et /admin/centres/pending), donc jamais activable.
+    let centre: CentreHebergement;
     try {
-      const { organisation } = await findOrCreateOrganisation(this.prisma, {
-        nom: dto.nom,
-        adresse: dto.adresse,
-        ville: dto.ville,
-        codePostal: dto.codePostal,
-        siret: dto.siret ?? null,
-        siren: dto.siret ? dto.siret.substring(0, 9) : null,
-        typeStructure: null,
-        source: 'MANUAL',
-      });
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: { organisationId: organisation.id },
-      });
-      await findOrCreateMembership(this.prisma, {
-        userId,
-        organisationId: organisation.id,
-        role: 'PROPRIETAIRE',
-        isPrimary: centresExistants === 0,
-        claimStatut: 'NON_APPLICABLE',
-      });
+      centre = await this.prisma.$transaction(async (tx) => {
+        const centresExistants = await tx.centreHebergement.count({ where: { userId } });
+
+        // Résolution de l'organisation — même règle que claimFromCatalogue : un
+        // hébergeur déjà validé (membership VALIDE) rattache son nouveau centre à
+        // SA structure, avant toute dédup textuelle. Sinon (SIRET optionnel non
+        // saisi), la dédup nom+ville ne matche pas le nom du chalet et créerait
+        // une organisation neuve au membership inerte.
+        const membershipValide = await tx.membership.findFirst({
+          where: { userId, claimStatut: 'VALIDE' },
+          select: { organisationId: true },
+        });
+        let organisationId: string;
+        if (membershipValide) {
+          organisationId = membershipValide.organisationId;
+        } else {
+          const { organisation } = await findOrCreateOrganisation(tx, {
+            nom: dto.nom,
+            adresse: dto.adresse,
+            ville: dto.ville,
+            codePostal: dto.codePostal,
+            siret: dto.siret ?? null,
+            siren: dto.siret ? dto.siret.substring(0, 9) : null,
+            typeStructure: null,
+            source: 'MANUAL',
+          });
+          organisationId = organisation.id;
+        }
+
+        const created = await tx.centreHebergement.create({
+          data: {
+            nom: dto.nom,
+            adresse: dto.adresse,
+            ville: dto.ville,
+            codePostal: dto.codePostal,
+            capacite: dto.capacite,
+            telephone: dto.telephone ?? null,
+            siret: dto.siret ?? null,
+            email: dto.email ?? null,
+            description: dto.description ?? null,
+            userId,
+            statut: 'PENDING',
+            organisationId,
+          },
+        });
+
+        // Invariant : tout centre PENDING doit sortir dans au moins une liste
+        // admin. Org du user (membership VALIDE, retourné tel quel par le helper
+        // idempotent) ou org détenue par un AUTRE hébergeur (pas de claim
+        // concurrent) → NON_APPLICABLE, le centre sort dans /admin/centres/pending.
+        // Org neuve ou sans propriétaire → tunnel justificatif EN_ATTENTE_DOCUMENT,
+        // le claim sort dans /admin/claims.
+        let claimFields: { claimStatut: 'NON_APPLICABLE' | 'EN_ATTENTE_DOCUMENT'; claimSubmittedAt?: Date };
+        if (membershipValide) {
+          claimFields = { claimStatut: 'NON_APPLICABLE' };
+        } else {
+          const claimValideAutre = await tx.membership.findFirst({
+            where: { organisationId, claimStatut: 'VALIDE', userId: { not: userId } },
+            select: { id: true },
+          });
+          claimFields = claimValideAutre
+            ? { claimStatut: 'NON_APPLICABLE' }
+            : { claimStatut: 'EN_ATTENTE_DOCUMENT', claimSubmittedAt: new Date() };
+        }
+        await findOrCreateMembership(tx, {
+          userId,
+          organisationId,
+          role: 'PROPRIETAIRE',
+          isPrimary: centresExistants === 0,
+          ...claimFields,
+        });
+
+        return created;
+      }, { timeout: 10000 });
     } catch (err) {
-      console.error('[createCentre] Echec rattachement Organisation/Membership', err);
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        // P2002 : contrainte unique violée pendant la transaction.
+        if (err.code === 'P2002') {
+          throw new ConflictException('Un centre ou une organisation identique existe déjà.');
+        }
+        // P2000 : valeur trop longue pour la colonne (VarChar dépassé).
+        if (err.code === 'P2000') {
+          const colonne = (err.meta as { column_name?: string } | undefined)?.column_name;
+          throw new BadRequestException(
+            colonne
+              ? `La valeur du champ « ${colonne} » est trop longue. Corrigez-la puis réessayez.`
+              : 'Une des informations saisies est trop longue. Corrigez-la puis réessayez.',
+          );
+        }
+      }
+      console.error(
+        `[createCentre] Échec de la création du centre « ${dto.nom} » — rollback complet, aucune donnée créée :`,
+        err instanceof Error ? err.message : err,
+      );
+      throw err;
     }
 
     this.email.sendGenericNotification(
-      'contact@liavo.fr',
+      process.env.ADMIN_EMAIL ?? 'contact@liavo.fr',
       'Nouveau centre à valider',
       `Un hébergeur a créé un nouveau centre.<br><br>Centre&nbsp;: ${dto.nom}<br>Ville&nbsp;: ${dto.ville}<br>SIRET&nbsp;: ${dto.siret ?? 'Non renseigné'}<br>Capacité&nbsp;: ${dto.capacite} places<br>Hébergeur&nbsp;: user ID ${userId}<br><br>Connectez-vous au dashboard admin pour valider ou refuser.`,
       'LIAVO Admin',
