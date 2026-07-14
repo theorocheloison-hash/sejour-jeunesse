@@ -163,44 +163,11 @@ export class CentreController {
     return this.centreService.createCentre(user.id, dto);
   }
 
-  /** GET /centres/admin/claims — Liste des claims en attente (admin). */
-  @Get('admin/claims')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  getClaimsPending() {
-    return this.centreService.getClaimsPending();
-  }
-
-  /** PATCH /centres/admin/claims/:membershipId — Valider ou refuser un claim (admin). */
-  @Patch('admin/claims/:membershipId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  validateClaim(
-    @Param('membershipId') membershipId: string,
-    @CurrentUser() admin: JwtUser,
-    @Body() body: { action: 'VALIDE' | 'REFUSE'; raison?: string },
-  ) {
-    return this.centreService.validateClaim(membershipId, admin.id, body.action, body.raison);
-  }
-
-  /** GET /centres/admin/pending — Liste des centres en attente de validation (admin). */
-  @Get('admin/pending')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  getCentresPending() {
-    return this.centreService.getCentresPending();
-  }
-
-  /** PATCH /centres/admin/pending/:centreId — Activer ou suspendre un centre PENDING (admin). */
-  @Patch('admin/pending/:centreId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  validateCentrePending(
-    @Param('centreId') centreId: string,
-    @Body() body: { action: 'ACTIVE' | 'SUSPENDED' },
-  ) {
-    return this.centreService.validateCentrePending(centreId, body.action);
-  }
+  // Les anciennes routes admin /centres/admin/* (workflow permissif : validation
+  // de claim sans justificatif, activation de tous les centres du user toutes
+  // organisations confondues) ont été supprimées. La validation admin passe
+  // exclusivement par /admin/claims/* et /admin/centres/* (claim.service +
+  // admin.service), consommées par /dashboard/admin/claims.
 
   @Get('check-invitation/:token')
   async checkInvitation(@Param('token') token: string) {

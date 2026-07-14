@@ -422,87 +422,10 @@ export class CentreService {
     return { success: true, claimDocumentUrl: url };
   }
 
-  async getClaimsPending() {
-    return this.prisma.membership.findMany({
-      where: { claimStatut: { in: ['EN_ATTENTE_VALIDATION', 'EN_ATTENTE_DOCUMENT'] } },
-      include: {
-        user: { select: { id: true, prenom: true, nom: true, email: true } },
-        organisation: { select: { id: true, nom: true, siret: true, ville: true } },
-      },
-      orderBy: { claimSubmittedAt: 'asc' },
-    });
-  }
-
-  async validateClaim(membershipId: string, adminId: string, action: 'VALIDE' | 'REFUSE', raison?: string) {
-    const membership = await this.prisma.membership.findUnique({
-      where: { id: membershipId },
-      include: { organisation: { include: { centresHebergement: true } } },
-    });
-    if (!membership) throw new NotFoundException('Claim introuvable');
-    if (!['EN_ATTENTE_VALIDATION', 'EN_ATTENTE_DOCUMENT'].includes(membership.claimStatut)) {
-      throw new ForbiddenException('Ce claim a déjà été traité');
-    }
-
-    if (action === 'VALIDE') {
-      await this.prisma.membership.update({
-        where: { id: membershipId },
-        data: {
-          claimStatut: 'VALIDE',
-          claimValidatedById: adminId,
-          claimValidatedAt: new Date(),
-        },
-      });
-
-      const centresOrphelins = membership.organisation.centresHebergement.filter(c => !c.userId);
-      for (const centre of centresOrphelins) {
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
-          data: { userId: membership.userId, statut: 'ACTIVE' },
-        });
-      }
-
-      await this.prisma.centreHebergement.updateMany({
-        where: { userId: membership.userId, statut: 'PENDING' },
-        data: { statut: 'ACTIVE' },
-      });
-
-      return { message: 'Claim validé. Les centres ont été rattachés.' };
-    }
-
-    await this.prisma.membership.update({
-      where: { id: membershipId },
-      data: {
-        claimStatut: 'REFUSE',
-        claimValidatedById: adminId,
-        claimValidatedAt: new Date(),
-        claimRefuseRaison: raison ?? null,
-      },
-    });
-    return { message: 'Claim refusé.' };
-  }
-
-  async getCentresPending() {
-    return this.prisma.centreHebergement.findMany({
-      where: { statut: 'PENDING' },
-      include: {
-        user: { select: { id: true, prenom: true, nom: true, email: true, telephone: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async validateCentrePending(centreId: string, action: 'ACTIVE' | 'SUSPENDED') {
-    const centre = await this.prisma.centreHebergement.findUnique({ where: { id: centreId } });
-    if (!centre) throw new NotFoundException('Centre introuvable');
-    if (centre.statut !== 'PENDING') throw new ForbiddenException('Ce centre n\'est pas en attente');
-
-    await this.prisma.centreHebergement.update({
-      where: { id: centreId },
-      data: { statut: action },
-    });
-
-    return { message: action === 'ACTIVE' ? 'Centre validé et activé.' : 'Centre suspendu.' };
-  }
+  // Le workflow admin de validation (claims + centres PENDING) vit dans
+  // claim.service et admin.service — les implémentations permissives qui
+  // vivaient ici ont été supprimées (validation sans justificatif, activation
+  // de tous les centres du user toutes organisations confondues).
 
   async getDashboardGlobal(userId: string, periodeDebut?: string, periodeFin?: string) {
     // Seuls les centres ACTIVE apparaissent dans « Mes centres » et les KPI consolidés.
