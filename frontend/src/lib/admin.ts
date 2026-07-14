@@ -230,62 +230,17 @@ export async function getReseauCentreDetail(centreId: string): Promise<any> {
 }
 
 // ─── Multi-centre — Claims + centres PENDING ──────────────────────────────
+// La validation des dossiers passe par la page /dashboard/admin/claims
+// (routes strictes /admin/claims et /admin/centres/*). Le dashboard principal
+// n'affiche qu'un compteur.
 
-export interface CentreClaim {
-  id: string;
-  claimStatut: 'EN_ATTENTE_VALIDATION' | 'EN_ATTENTE_DOCUMENT' | 'VALIDE' | 'REFUSE' | 'NON_APPLICABLE';
-  claimDocumentUrl: string | null;
-  claimSiretExtrait: string | null;
-  claimSubmittedAt: string | null;
-  user: { id: string; prenom: string; nom: string; email: string };
-  organisation: { id: string; nom: string; siret: string | null; ville: string | null };
-}
-
-export interface CentrePendingItem {
-  id: string;
-  nom: string;
-  adresse: string;
-  ville: string;
-  codePostal: string;
-  capacite: number;
-  siret: string | null;
-  description: string | null;
-  createdAt: string;
-  statut: string;
-  user: { id: string; prenom: string; nom: string; email: string } | null;
-}
-
-export async function getCentreClaimsPending(): Promise<CentreClaim[]> {
-  const { data } = await api.get<CentreClaim[]>('/centres/admin/claims');
-  return data;
-}
-
-export async function validateCentreClaim(
-  membershipId: string,
-  action: 'VALIDE' | 'REFUSE',
-  raison?: string,
-): Promise<{ message: string }> {
-  const { data } = await api.patch<{ message: string }>(
-    `/centres/admin/claims/${membershipId}`,
-    { action, raison },
-  );
-  return data;
-}
-
-export async function getCentresPending(): Promise<CentrePendingItem[]> {
-  const { data } = await api.get<CentrePendingItem[]>('/centres/admin/pending');
-  return data;
-}
-
-export async function validateCentrePending(
-  centreId: string,
-  action: 'ACTIVE' | 'SUSPENDED',
-): Promise<{ message: string }> {
-  const { data } = await api.patch<{ message: string }>(
-    `/centres/admin/pending/${centreId}`,
-    { action },
-  );
-  return data;
+/** Compteur du lien « dossiers à valider » : claims en attente + centres PENDING. */
+export async function getDossiersAValiderCount(): Promise<number> {
+  const [claims, centres] = await Promise.all([
+    api.get<unknown[]>('/admin/claims'),
+    api.get<unknown[]>('/admin/centres/pending'),
+  ]);
+  return (claims.data?.length ?? 0) + (centres.data?.length ?? 0);
 }
 
 export interface CentreAbonnement {

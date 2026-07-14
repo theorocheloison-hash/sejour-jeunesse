@@ -15,10 +15,7 @@ import {
   getCentres,
   getReseauStats,
   updateCentreReseau,
-  getCentreClaimsPending,
-  validateCentreClaim,
-  getCentresPending,
-  validateCentrePending,
+  getDossiersAValiderCount,
   getAdminAbonnements,
   getAdminFacturesLiavo,
   getAdminMetriquesAbonnements,
@@ -31,8 +28,6 @@ import {
   type Utilisateur,
   type Centre,
   type ReseauStats,
-  type CentreClaim,
-  type CentrePendingItem,
   type CentreAbonnement,
   type FactureLiavo,
   type MetriquesAbonnements,
@@ -40,7 +35,7 @@ import {
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-type Tab = 'activite' | 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'claims-centres' | 'centres-pending' | 'abonnements' | 'factures-liavo';
+type Tab = 'activite' | 'stats' | 'hebergeurs' | 'utilisateurs' | 'centres' | 'reseaux' | 'abonnements' | 'factures-liavo';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'activite',        label: 'Activité' },
@@ -50,8 +45,6 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'centres',         label: 'Centres' },
   { value: 'abonnements',     label: 'Abonnements' },
   { value: 'factures-liavo',  label: 'Factures LIAVO' },
-  { value: 'claims-centres',  label: 'Claims centres' },
-  { value: 'centres-pending', label: 'Centres en attente' },
   { value: 'reseaux',         label: 'Réseaux partenaires' },
 ];
 
@@ -893,291 +886,6 @@ function ReseauxTab() {
   );
 }
 
-// ─── Claims centres Tab (multi-centre) ───────────────────────────────────────
-
-function ClaimsCentresTab() {
-  const [claims, setClaims] = useState<CentreClaim[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionId, setActionId] = useState<string | null>(null);
-  const [refusFor, setRefusFor] = useState<string | null>(null);
-  const [refusRaison, setRefusRaison] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getCentreClaimsPending();
-      setClaims(data);
-    } catch {
-      setError('Impossible de charger les claims');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleValider = async (id: string) => {
-    setActionId(id);
-    try {
-      await validateCentreClaim(id, 'VALIDE');
-      await load();
-    } catch {
-      setError('Erreur lors de la validation');
-    } finally {
-      setActionId(null);
-    }
-  };
-
-  const handleRefuserSubmit = async () => {
-    if (!refusFor || !refusRaison.trim()) return;
-    setActionId(refusFor);
-    try {
-      await validateCentreClaim(refusFor, 'REFUSE', refusRaison.trim());
-      await load();
-    } catch {
-      setError('Erreur lors du refus');
-    } finally {
-      setActionId(null);
-      setRefusFor(null);
-      setRefusRaison('');
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      {error && (
-        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
-        </div>
-      )}
-
-      {loading ? <LoadingSpinner /> : claims.length === 0 ? (
-        <EmptyState text="Aucun claim en attente 🎉" />
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hébergeur</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Organisation</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Soumis</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {claims.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition align-top">
-                    <td className="px-4 py-3 text-sm">
-                      <p className="text-gray-900 font-medium">{c.user.prenom} {c.user.nom}</p>
-                      <a href={`mailto:${c.user.email}`} className="text-xs text-[var(--color-primary)] hover:underline">{c.user.email}</a>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <p className="text-gray-900">{c.organisation.nom}</p>
-                      <p className="text-xs text-gray-500">
-                        {c.organisation.ville ?? '—'}
-                        {c.organisation.siret && <span className="ml-2">SIRET&nbsp;: {c.organisation.siret}</span>}
-                      </p>
-                      {c.claimSiretExtrait && c.claimSiretExtrait !== c.organisation.siret && (
-                        <p className="text-xs text-amber-600 mt-0.5">
-                          SIRET déclaré par l&apos;hébergeur&nbsp;: {c.claimSiretExtrait}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {c.claimDocumentUrl ? (
-                        <SecureFileLink
-                          url={c.claimDocumentUrl}
-                          className="text-xs text-[var(--color-primary)] hover:underline"
-                        >
-                          Voir le document ↗
-                        </SecureFileLink>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                      {c.claimSubmittedAt ? formatDate(c.claimSubmittedAt) : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        c.claimStatut === 'EN_ATTENTE_VALIDATION'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {c.claimStatut === 'EN_ATTENTE_VALIDATION' ? 'À vérifier' : 'Document manquant'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => handleValider(c.id)}
-                        disabled={actionId === c.id || c.claimStatut === 'EN_ATTENTE_DOCUMENT'}
-                        className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-success)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={c.claimStatut === 'EN_ATTENTE_DOCUMENT' ? 'Demander d\'abord un document à l\'hébergeur' : ''}
-                      >
-                        {actionId === c.id ? <Spinner /> : null}
-                        Valider
-                      </button>
-                      <button
-                        onClick={() => { setRefusFor(c.id); setRefusRaison(''); }}
-                        disabled={actionId === c.id}
-                        className="ml-2 inline-flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition disabled:opacity-50"
-                      >
-                        Refuser
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Refus modal */}
-      {refusFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Refuser le claim</h3>
-            <p className="text-xs text-gray-500 mb-3">La raison sera transmise à l&apos;hébergeur.</p>
-            <textarea
-              value={refusRaison}
-              onChange={(e) => setRefusRaison(e.target.value)}
-              placeholder="Document non lisible, SIRET ne correspond pas, etc."
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#003189] mb-4"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setRefusFor(null)} className="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition">Annuler</button>
-              <button
-                onClick={handleRefuserSubmit}
-                disabled={!refusRaison.trim() || actionId !== null}
-                className="px-4 py-2 rounded-lg bg-red-500 text-sm font-semibold text-white hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Confirmer le refus
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Centres en attente Tab ──────────────────────────────────────────────────
-
-function CentresPendingTab() {
-  const [centres, setCentres] = useState<CentrePendingItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionId, setActionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getCentresPending();
-      setCentres(data);
-    } catch {
-      setError('Impossible de charger les centres en attente');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleAction = async (centreId: string, action: 'ACTIVE' | 'SUSPENDED') => {
-    setActionId(centreId);
-    try {
-      await validateCentrePending(centreId, action);
-      await load();
-    } catch {
-      setError(action === 'ACTIVE' ? 'Erreur lors de l\'activation' : 'Erreur lors de la suspension');
-    } finally {
-      setActionId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      {error && (
-        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
-        </div>
-      )}
-
-      {loading ? <LoadingSpinner /> : centres.length === 0 ? (
-        <EmptyState text="Aucun centre en attente 🎉" />
-      ) : (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Centre</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hébergeur</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SIRET</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capacité</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Créé</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {centres.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition align-top">
-                    <td className="px-4 py-3 text-sm">
-                      <p className="text-gray-900 font-medium">{c.nom}</p>
-                      <p className="text-xs text-gray-500">{c.adresse}, {c.codePostal} {c.ville}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {c.user ? (
-                        <>
-                          <p className="text-gray-900">{c.user.prenom} {c.user.nom}</p>
-                          <a href={`mailto:${c.user.email}`} className="text-xs text-[var(--color-primary)] hover:underline">{c.user.email}</a>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{c.siret ?? '—'}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{c.capacite} places</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatDate(c.createdAt)}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => handleAction(c.id, 'ACTIVE')}
-                        disabled={actionId === c.id}
-                        className="inline-flex items-center gap-1 rounded-lg bg-[var(--color-success)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
-                      >
-                        {actionId === c.id ? <Spinner /> : null}
-                        Activer
-                      </button>
-                      <button
-                        onClick={() => handleAction(c.id, 'SUSPENDED')}
-                        disabled={actionId === c.id}
-                        className="ml-2 inline-flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 transition disabled:opacity-50"
-                      >
-                        Suspendre
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Shared components ───────────────────────────────────────────────────────
 
 const PRIX_DEVIS_LIAVO: Record<string, Record<string, number>> = {
@@ -1599,6 +1307,7 @@ export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth();
   const [tab, setTab] = useState<Tab>('activite');
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [dossiersAValider, setDossiersAValider] = useState(0);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'ADMIN')) router.push('/login');
@@ -1607,6 +1316,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (user?.role === 'ADMIN') {
       getAdminStats().then(setStats).catch(() => {});
+      getDossiersAValiderCount().then(setDossiersAValider).catch(() => {});
     }
   }, [user]);
 
@@ -1616,7 +1326,23 @@ export default function AdminDashboardPage() {
     <div>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard administrateur</h1>
-        <p className="text-sm text-gray-500 mb-6">Gestion de la plateforme Liavo</p>
+        <p className="text-sm text-gray-500 mb-4">Gestion de la plateforme Liavo</p>
+
+        {/* Validation des dossiers hébergeurs : un seul écran (la page claims),
+            un seul workflow — les onglets permissifs ont été supprimés. */}
+        <Link
+          href="/dashboard/admin/claims"
+          className="inline-flex items-center gap-2 rounded-2xl bg-white border border-gray-200 shadow-sm px-4 py-3 mb-6 text-sm font-medium text-gray-900 hover:bg-gray-50 transition"
+        >
+          {dossiersAValider > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
+              {dossiersAValider}
+            </span>
+          )}
+          {dossiersAValider > 0
+            ? `${dossiersAValider} dossier${dossiersAValider > 1 ? 's' : ''} à valider →`
+            : 'Dossiers à valider →'}
+        </Link>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
@@ -1655,8 +1381,6 @@ export default function AdminDashboardPage() {
         {tab === 'centres' && <CentresTab />}
         {tab === 'abonnements' && <AbonnementsTab />}
         {tab === 'factures-liavo' && <FacturesLiavoTab />}
-        {tab === 'claims-centres' && <ClaimsCentresTab />}
-        {tab === 'centres-pending' && <CentresPendingTab />}
         {tab === 'reseaux' && <ReseauxTab />}
       </main>
     </div>

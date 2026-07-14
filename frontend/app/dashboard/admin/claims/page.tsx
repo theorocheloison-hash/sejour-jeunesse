@@ -125,10 +125,11 @@ export default function AdminClaimsPage() {
   };
 
   const handleRefuserCentre = async (id: string) => {
-    if (!confirm('Refuser ce centre ? Il sera suspendu.')) return;
+    const motif = prompt('Motif du refus (sera transmis à l\'hébergeur) :');
+    if (motif === null) return;
     setActionId(id);
     try {
-      await api.patch(`/centres/admin/pending/${id}`, { action: 'SUSPENDED' });
+      await api.patch(`/admin/centres/${id}/refuser`, { motif: motif || 'Document non conforme' });
       await loadClaims();
     } catch {
       setError('Erreur lors du refus du centre');
