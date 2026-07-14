@@ -1,7 +1,9 @@
 # LIAVO — Roadmap Été 2026
 
 > **Rédigé le 18/06/2026** — Issue d'un audit exhaustif code × docs.
-> **Dernière mise à jour : 13/07/2026** — **Bloc 🔴 ex-nihilo RÉSOLU** (10 commits, recette prod de bout en bout : inscription → justificatif → validation admin → devis ENVOYÉ). L'analyse initiale du bloc était partiellement fausse — corrigée ci-dessous. **Nouveau bloc 🔴** : déploiement frontend silencieusement cassé 12→13/07 (HOSTNAME × Next standalone, résolu `88e49ec`, leçon à retenir). Voir SESSION_STATE 13/07.
+> **Dernière mise à jour : 14/07/2026 (soir)** — **TVA sur marge : Lot 1 backend LIVRÉ et déployé (`cf8795d`), chantier GELÉ jusqu'à l'hiver.** Endpoint `GET /rentabilite/tva-marge` en prod, `regime_marge_actif = true` sur Sauvageon. ⚠️ **Découverte : ZÉRO facture prestataire en base — le module Rentabilité du 04/06 n'a JAMAIS été alimenté.** Le moteur est testé unitairement, validé sur aucune donnée réelle. Lots 2→5 parkés (voir § TVA SUR MARGE). **Corrections de statut** : ❌ « Node 20 EOL à planifier » → FAIT (24.x en prod) • ❌ « httpOnly cookies reverté » → EN PROD • ❌ « `pgsql-console` cassé » → FONCTIONNE (pipe stdin). Voir SESSION_STATE 14/07 (soir).
+> *(14/07/2026, jour)* — **Journée « activation hébergeur » : 9 commits, tout recetté en prod.** ✅ Bloc 🟠 TRIAL RÉSOLU (source unique + garde centre ACTIVE + alignement multi-centre) • ✅ 🟡 DETTE §1 `createCentre` RÉSOLUE — et le bug réel n'était pas celui écrit ici : le parcours **« ajouter un centre »** créait un centre PENDING **invisible des DEUX listes admin**, donc **jamais activable** • ✅ 🟡 §2 **3 WORKFLOWS ADMIN UNIFIÉS** sur l'écran strict (routes permissives supprimées côté serveur) • ✅ **Node 20 → 24** (🟡 §3 résolu) • ✅ `schemeID` Factur-X (bug préexistant, échéance e-invoicing 01/09) • ✅ Backfill SIREN/SIRET prod • ✅ Recette backend T1→T7 sur base jetable • ✅ Recette manuelle prod validée (17h43). ⚠️ **RECTIFICATION** : la note « correction » que j'avais ajoutée au §2 ce matin était **fausse** — la roadmap avait raison, je n'avais lu qu'un des deux écrans admin. Voir §2. Reste : purger `RECETTE 14-07`, purge S3 `kbis/`, accès `pgsql-console` cassé. Voir SESSION_STATE 14/07.
+> *(13/07/2026)* — **Bloc 🔴 ex-nihilo RÉSOLU** (10 commits, recette prod de bout en bout : inscription → justificatif → validation admin → devis ENVOYÉ). L'analyse initiale du bloc était partiellement fausse — corrigée ci-dessous. **Nouveau bloc 🔴** : déploiement frontend silencieusement cassé 12→13/07 (HOSTNAME × Next standalone, résolu `88e49ec`, leçon à retenir). Voir SESSION_STATE 13/07.
 > *(12/07/2026)* — **Export ZIP des factures PDF LIVRÉ** (§2.8 ci-dessous) : ZIP + index CSV, avoirs inclus dans le ZIP ET dans l'export CSV comptable, **bug multi-centre des exports réparé** (les `<a href download>` court-circuitaient axios → le header `X-Centre-Id` ne partait jamais → tout hébergeur multi-centre exportait son 1er centre, silencieusement). 3 commits poussés (`6023edc`, `f0f96f8`, `b0a1ed3`), recette prod validée (62 PDF Sauvageon, ~10 s). **Statut corrigé** : `28e364a` (fix SIRET) était noté « non poussé » ici — il est **en prod depuis le 09/07** ; en revanche le SIRET **n'est pas réglé** (cf. 4e cause du bloc 🔴). Voir SESSION_STATE 12/07.
 > *(08/07/2026, soir)* — Run dette §4 : 4.6 (escapeHtml) et 4.10 (jspdf) constatés déjà faits → actés ; 4.9 partiel (SequenceService couvert par la suite invariants) ; **4.15 LIVRÉ** (bandeau « nouvelle version » non-destructif dans global-error.tsx, jamais de reload auto) ; **4.11 LIVRÉ** (13 vulns → 3 : audit fix + next 16.2.10 + @types/react-pdf mort supprimé ; xlsx = risque ACCEPTÉ ; postcss vendored Next non actionnable) ; **4.7 étape 1 prête** (`docs/AUDIT_FLOAT_DECIMAL.md`, requêtes prod à exécuter par Théo, migration non engagée). Après-midi : chantier 10.1 livré de bout en bout, deadline 26/09 NEUTRALISÉE (cron exclut VIREMENT + Choucas marqué, facture échéance/mention dynamiques, badge Paiement, relance J-30, self-service +14j) ; edge cases onboarding soldés ; compte de test neutralisé. Soir (tard) : fix page abonnement — libellés neutres (amorce §2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`). Matin : onboarding phase 2 (§10.11) + 3 bugs smoke-test corrigés. Voir §2/§4/§10 + SESSION_STATE 08/07.
 > *(07/07 : Refonte planning ↔ groupes m2m livrée. Fix crash boot Scalingo P3015. Refactor PDF extraction dynamic imports. Item dette 4.18 ajouté.)*
@@ -9,6 +11,65 @@
 > **Auteur** : Théo + Claude (sparring partner)
 > **Ce document remplace** : ROADMAP_POST_DEMO.md, ROADMAP_COMPLETE.md, TIER1_CHANTIERS.md comme source de priorisation.
 > **Règle** : les docs ci-dessus restent comme archives de décision. Celui-ci est le seul qui dit quoi faire et dans quel ordre.
+
+---
+
+## ❄️ TVA SUR MARGE — Lot 1 LIVRÉ (14/07), Lots 2→5 GELÉS jusqu'à l'HIVER 2026-2027
+
+### Le problème
+Les hébergeurs de montagne **revendent** des prestations achetées à des tiers (ESF, guides, transport, rafting, chiens de traîneau). Ces prestations relèvent du **régime de la marge** (art. 266-1-e CGI) : TVA à 20 % sur `vente TTC − achat TTC`, TVA d'amont **non déductible**. La pension produite en propre reste au régime normal (10 %).
+
+Théo remplit ça **à la main dans un Excel** (3 onglets, ~268 k€ de flux, 15 k€ de marge sur déc→mai) qu'il envoie à son expert-comptable. Objectif : que LIAVO produise ce tableau et que l'Excel devienne un **export**.
+
+### ⚠️ Le piège (à ne jamais oublier)
+`rentabilite.getTableau()` calcule `CA du devis ENTIER − charges` = marge **économique**, **pension incluse**. Ce n'est **PAS** la base du régime de la marge. Diviser cette marge par 1,2 = **déclarer de la TVA sur la pension** = sur-imposition. Le trou n'était pas la formule, c'était **le côté vente** : rien ne permettait de dire « cette ligne de devis est une revente tierce ».
+
+### ✅ LOT 1 — Backend (LIVRÉ, `cf8795d`, en prod)
+- Migration `20260714120000_tva_sur_marge` : `regime_marge_actif` + `taux_tva_marge` (centre), `revendu_tiers_defaut` + `categorie_marge` (catalogue), `revendu_tiers` + `categorie_marge` (lignes de devis).
+- `GET /rentabilite/tva-marge?annee=` → `parMois[12]`, `parPoste[]`, `totaux`, `anomalies[]`. Plan PILOTAGE requis.
+- **4 requêtes, aucune en boucle.** TVA dérivée (`baseHT + tva === margeTTC`). Marge négative conservée signée.
+- 5 anomalies de données, dont `FACTURE_SOUS_VENTILEE` (**bug existant** : `validateMontantEtVentilations()` ne rejette que la SUR-ventilation — une sous-ventilation crée une charge orpheline en silence).
+- 10 tests. `regime_marge_actif = true` sur Sauvageon.
+
+### 🔴 POURQUOI C'EST GELÉ
+
+**Smoke test post-déploiement : `parPoste: []`. ZÉRO facture prestataire en base.**
+
+Le module Rentabilité, livré le **04/06/2026** à la demande de Yves Massard, **n'a jamais été alimenté en production.** Conséquences :
+1. Le moteur est testé unitairement, **validé sur zéro donnée réelle**.
+2. Le coût réel du projet n'est pas le code, c'est **la saisie des factures prestataires**. Théo ne peut pas la faire avant l'**hiver 2026-2027** (pas de vrais séjours LIAVO au Sauvageon d'ici là).
+3. **Aucun client payant n'a demandé cette feature.** Yves / Anne / Alticlub n'ont **jamais été sondés** sur le régime de la marge.
+
+Le Lot 1 est **inerte en prod** : aucun frontend ne le consomme, `regime_marge_actif = false` partout ailleurs. Zéro impact utilisateur, zéro coût à le laisser dormir.
+
+### 🚦 CONDITION DE REPRISE (à vérifier AVANT de coder le Lot 2)
+**Poser la question à Yves, Anne et Alticlub** : *« êtes-vous au régime de la marge sur les prestations que vous revendez ? Vous le suivez sur Excel ? »*
+- **3/3 oui** → c'est le hook du palier PILOTAGE à 79 €. Prioritaire.
+- **1/3** → feature Sauvageon (centre gratuit de Théo). Assumer comme telle, la garder en dernier.
+
+### 📅 LOTS PARKÉS
+
+| Lot | Contenu | Est. |
+|---|---|---|
+| **2** | **Frontend saisie** : checkbox « revendu (régime marge) » + `categorieMarge` sur le catalogue **et** les lignes de devis. ⚠️ `categorieMarge` doit être un `<input list>` **alimenté par les `typeCharge` déjà utilisés par le centre** — sinon les colonnes vente et achat ne se rejoignent jamais et tout le chantier est inutile. ⚠️ Le flag doit **piloter** la TVA (cocher → force `tva = 0` + mention PDF), jamais l'inverse : deux sources de vérité = TVA fausse sans signal. | 1,5 j |
+| **3** | **Export XLSX format EC** (mensuel + par poste, calqué sur l'Excel actuel). C'est **lui** qui fait disparaître le fichier. Le canal `/pilotage/export/*` existe déjà. | 1 j |
+| **4** | **Frontend restitution** : onglet « TVA sur marge » + **écran d'anomalies** (non négociable : sans lui, l'Excel ne peut pas disparaître — quand on saisit à la main on VOIT les incohérences, automatisé on ne voit plus rien). | 2 j |
+| **5** | **Mention TVA sur les PDF** : le prop `mentionTVA` **existe** dans `FacturePDF.tsx` mais `mapFactureToPdfProps()` ne le renseigne **jamais** → les factures affichent « TVA (0 %) » **sans la mention légale du régime de la marge**. Non fatal aujourd'hui (aucune facture de séjour émise, 1ʳᵉ en décembre), **à corriger avant la 1ʳᵉ facture d'hiver**. | 0,5 j |
+| **6 ?** | **OCR facture prestataire** (le PDF est déjà uploadé dans OVH) → pré-remplissage nom/n°/date/montant. Tue la dernière tâche manuelle. **Hors périmètre**, à rediscuter. | — |
+
+### 🔧 BACKFILL (prêt, NON EXÉCUTÉ)
+Chez Sauvageon, les lignes revendues sont **déjà saisies à `tva = 0`** (avec mention régime marge sur la facture papier). Donc :
+```sql
+UPDATE lignes_devis SET revendu_tiers = true WHERE tva = 0;
+```
+⚠️ **Jamais en aveugle** : `tva = 0` peut aussi désigner une caution, une remise, une taxe de séjour, une erreur. `SELECT` de contrôle obligatoire + écran de vérification derrière.
+
+### 📝 DÉCISIONS DE RÉFÉRENCE (ne pas relitiger)
+- **LIAVO ne déclare RIEN.** LIAVO restitue, l'EC déclare. Aucune règle fiscale codée (pas de plancher à zéro, pas de report, pas de compensation inter-mois). Marge négative = conservée signée, pas une anomalie.
+- **Rattachement mensuel = `sejour.dateDebut`**, même à cheval sur 2 mois.
+- **Ne pas filtrer sur `isComplementaire`** — filtrer sur le flag `revenduTiers`.
+- **`categorieMarge` et `typeCharge` en VarChar(50)**, même longueur, clé de rapprochement.
+- **Ne PAS toucher à `getTableau()`** : la marge économique reste l'indicateur de Yves. Deux indicateurs, pas un remplacement.
 
 ---
 
@@ -51,7 +112,26 @@
 
 Trois constats issus du chantier inscription ex-nihilo. Aucun ne bloque personne aujourd'hui ; les trois sont des bombes à retardement.
 
-### 1. `createCentre` avale encore l'échec organisation — même bug, autre porte
+### 1. ✅ RÉSOLU 14/07 — `createCentre` (le bug réel était AILLEURS)
+
+**RÉSOLU par `6b5bb4a` + `9724d2a`.** L'analyse ci-dessous (atomicité) était **exacte mais incomplète** — elle décrivait la moitié du problème. Le vrai bug, trouvé en lisant les deux listes admin :
+
+> Un hébergeur **déjà validé** ajoute son 2e centre. Le SIRET est **optionnel**, il ne le remplit pas. La dédup tombe sur `nom + ville` : le nom du **chalet** ne matche pas le nom de son **organisation** → **organisation neuve** + membership `NON_APPLICABLE`. Le centre PENDING n'apparaît alors ni dans `/admin/claims` (qui ne liste que les `EN_ATTENTE_*`), ni dans `/admin/centres/pending` (qui exige un membership `VALIDE` sur l'org). **Invisible → jamais activable → hébergeur bloqué sans issue.**
+
+**Invariant posé** : *tout centre créé en PENDING est visible dans au moins une liste admin.*
+
+**Fix à la source** (une transaction interactive, calquée sur `registerHebergeur`) :
+- l'organisation est résolue **par la DONNÉE, plus par le chemin** : (1) SIRET saisi → dédup SIREN ; (2) sinon membership VALIDE **le plus ancien** (`orderBy claimValidatedAt asc`) ; (3) sinon dédup textuelle / création ;
+- `claimStatut` dérivé de la **relation user × organisation résolue** (et non du chemin) ;
+- `try/catch` avaleur supprimé → rollback complet ; mapping P2002/P2000 ; email admin via `process.env.ADMIN_EMAIL`.
+
+**Contrôle prod** : **0 centre PENDING en base** → aucun rattrapage. Corollaire : le parcours « ajouter un centre » **n'a jamais servi en production** — le premier vrai utilisateur aurait tout découvert à notre place.
+
+⚠️ **`claimFromCatalogue` porte le MÊME défaut** (membership VALIDE prime sur toute autre résolution, `findFirst` sans `orderBy` → organisation arbitraire si double membership). **NON TOUCHÉ volontairement** : c'est le chemin que Louise emprunte pour Chambéret cette semaine. → **à traiter dans un lot dédié, après recette.**
+
+---
+
+**Analyse d'origine (13/07), conservée pour mémoire :**
 
 `centre.service.ts:295-297` : le `try/catch` autour de `findOrCreateOrganisation` fait `console.error` **puis continue**. C'est exactement le pattern qu'on vient de supprimer de `registerHebergeur` (chantier atomicité du 13/07).
 
@@ -67,7 +147,41 @@ Conséquence : un hébergeur existant qui ajoute un centre peut se retrouver ave
 | `centre.service.ts` | `getClaimsPending`, `validateClaim`, `getCentresPending`, `validateCentrePending` | `/centres/admin/*` | **permissif** : accepte `EN_ATTENTE_DOCUMENT` |
 | `admin.service.ts` | `getCentresPending` (3ᵉ version), `activerCentre` | `/admin/centres/*` | filtre sur `organisation.memberships.some(VALIDE)` |
 
-**Le dashboard admin consomme les routes `/centres/admin/*`** (la version permissive). Les deux autres coexistent avec des règles différentes sur la même question métier.
+⚠️ **« CORRECTION 14/07 » — RÉTRACTÉE LE MÊME JOUR. LA ROADMAP AVAIT RAISON, PAS MOI.**
+
+J'ai écrit ici, le 14/07 au matin, que l'affirmation ci-dessus était « FAUSSE », après avoir lu **un seul** des deux écrans admin (`/dashboard/admin/claims`). Je n'avais **jamais lu** `/dashboard/admin/page.tsx`. Claude Code a refusé d'exécuter le lot 3 et a fourni le grep : le dashboard admin PRINCIPAL consommait bien `/centres/admin/*`, via deux onglets entiers (`claims-centres`, `centres-pending`) et 4 helpers de `lib/admin.ts`. **L'affirmation d'origine était exacte.**
+
+→ **Leçon** : une lecture partielle produit une correction fausse, qui corrompt la source de vérité elle-même. Ne jamais « corriger » un doc sans avoir lu **tous** les appelants.
+
+---
+
+## ✅ RÉSOLU 14/07/2026 (après-midi) — UNIFICATION SUR L'ÉCRAN STRICT
+
+**Le problème réel n'était pas « du code mort » : c'était DEUX ÉCRANS ADMIN divergents.**
+
+| | `/dashboard/admin` (principal) | `/dashboard/admin/claims` (sous-page) |
+|---|---|---|
+| Routes | `/centres/admin/*` (centre.service) | `/admin/*` (claim.service + admin.service) |
+| Valider un claim | **PERMISSIF** : accepte `EN_ATTENTE_DOCUMENT` → **validation SANS justificatif** ; `updateMany({ userId, statut: PENDING })` → active **tous** les centres du user, **toutes organisations confondues** | **STRICT** : bouton désactivé tant que le justificatif manque ; limité à l'organisation du membership |
+
+Le justificatif est la **seule barrière anti-usurpation** (revendiquer le centre d'un tiers). L'écran principal permettait de la contourner, sans trace ni avertissement.
+
+**Décision Théo** : un seul écran, le strict. Il confirme n'avoir **jamais** validé de claim sans justificatif → aucune capacité à préserver.
+
+**⚠️ Proposition de CC REFUSÉE** : il suggérait d'« assouplir `claim.service.validerClaim` » pour qu'il accepte `EN_ATTENTE_DOCUMENT` et préserve le comportement existant. **NON** — ce refus n'est pas un bug, c'est le contrôle de sécurité. L'assouplir aurait rouvert le trou fermé cette semaine.
+
+**Livré (3 commits, poussés, recettés en prod) :**
+- `3df072c` — **additif** : `admin.service.refuserCentre(centreId, motif?)` + `PATCH /admin/centres/:id/refuser`. **Fix au passage** : le refus d'un centre était **totalement SILENCIEUX** (`validateCentrePending` passait le centre en SUSPENDED sans aucun email). L'hébergeur était bloqué sans savoir pourquoi. Désormais : email motivé, calqué sur `claim.service.refuserClaim`.
+- `c1e2dde` — **frontend** : `handleRefuserCentre` aligné sur `handleRefuser` (prompt motif) et rebranché sur la nouvelle route ; **suppression des 2 onglets permissifs** du dashboard principal (~320 lignes) ; remplacés par une carte « N dossier(s) à valider → » (compteur = `/admin/claims` + `/admin/centres/pending`) ; 4 helpers + 2 types supprimés de `lib/admin.ts`.
+- `8267482` — **suppression backend** : les 4 routes `/centres/admin/*` et les 4 méthodes de `centre.service` (`getClaimsPending`, `validateClaim`, `getCentresPending`, `validateCentrePending`). **Les routes sont supprimées CÔTÉ SERVEUR**, pas seulement masquées dans l'UI → la surface qui permettait de contourner le justificatif n'existe plus du tout.
+
+⚠️ **PIÈGE — HOMONYMIE** : `admin.service.getCentresPending` porte le **même nom** que la méthode supprimée de `centre.service`, mais c'est une **autre méthode, bien vivante** (consommée par l'écran strict et par le harness d'intégration). À ne jamais confondre.
+
+**Recette prod (14/07, 17h43)** : centre `RECETTE 14-07` créé **sans SIRET** → rattaché à **Chalet Le Sauvageon** (organisation existante, **pas** d'organisation fantôme) → visible dans l'admin → refusé avec motif « TEST » → **email reçu avec le motif**. Les deux fixes de la journée validés d'un coup.
+
+---
+
+**Analyse d'origine (13/07), conservée :**
 
 Différences réelles entre `centreService.validateClaim` et `claimService.validerClaim` : la première ne touche ni `compteValide`, ni `emailVerifie`, ni `isPrimary`, **n'envoie aucun email à l'hébergeur**, et active *tous* les centres PENDING du user (toutes orgs) là où l'autre se limite à l'organisation du membership.
 
@@ -85,9 +199,31 @@ Le buildpack Scalingo avertit à chaque déploiement :
 
 ---
 
-## 🟠 TRIAL 30J DÉMARRE PENDANT L'ATTENTE DE VALIDATION (identifié 13/07/2026, recette prod)
+## ✅ RÉSOLU 14/07/2026 — TRIAL 30J (ex-🟠, identifié 13/07)
 
-**Symptôme** : le trial 30j Pilotage s'active au **premier login**, alors que le centre est encore `PENDING` et le claim en `EN_ATTENTE_DOCUMENT`. L'hébergeur voit son essai gratuit s'écouler **sans pouvoir rien faire** — `envoisBloques` reste `true` tant que le centre n'est pas `ACTIVE` : ni devis, ni email externe.
+**RÉSOLU par `0a23953`** — et le problème était plus large que décrit ci-dessous : il n'y avait pas *un* déclenchement fautif, mais **4 comportements divergents** selon le chemin d'activation :
+
+| Chemin | Avant | Après |
+|---|---|---|
+| `auth.login` | Pilotage 30j, **sans regarder `centre.statut`** | source unique, **garde `statut ACTIVE`** |
+| `admin.validerHebergeur` | **COMPLET** 30j, **sans `trialStartedAt`** (invisible du cron) | source unique |
+| `claim.validerClaim` | **aucun essai** | source unique |
+| `admin.activerCentre` | **aucun essai** | source unique |
+
+**Fix à la source** : `demarrerOuAlignerTrial(prisma, email, userId)` dans `trial.helper.ts` (fonction pure, `email` typé structurellement → aucun cycle de module), appelée aux 4 sites. Politique validée :
+- compte payant (mandat Mollie **ou** `modePaiement VIREMENT`) → aucun essai ;
+- abonnement offert / manuel (ACTIF sans trial ni mandat — Sauvageon, Alticlub, Pôle Montagne) → aucun essai ;
+- **essai en cours → ALIGNEMENT** du nouveau centre sur la même date de fin (jamais de prolongation) ;
+- **essai expiré → le centre suivant est payant** (décision Théo) ;
+- sinon → Pilotage 30j.
+
+**Cascade évitée** : sans l'alignement, la revendication du 2e centre de Louise (Chambéret) aurait ouvert un **2e essai** à une date différente de Valloire (08/08). L'essai serait devenu **renouvelable à l'infini** en revendiquant un centre de plus.
+
+**Ni l'option A ni l'option B ci-dessous n'ont été retenues** — les deux traitaient le symptôme sur un seul chemin. Analyse d'origine conservée ci-dessous pour mémoire.
+
+---
+
+**Symptôme (analyse du 13/07)** : le trial 30j Pilotage s'active au **premier login**, alors que le centre est encore `PENDING` et le claim en `EN_ATTENTE_DOCUMENT`. L'hébergeur voit son essai gratuit s'écouler **sans pouvoir rien faire** — `envoisBloques` reste `true` tant que le centre n'est pas `ACTIVE` : ni devis, ni email externe.
 
 **Constaté en recette prod (13/07)** : compte `recette-exnihilo-13-07` — inscription 14h51, **trial démarré 14h54** (email « Nouveau trial », expiration 12/08), justificatif déposé 14h55, claim validé ~15h30. Entre 14h54 et 15h30, le compte à rebours tourne dans le vide. Sur un vrai prospect validé le lundi après une inscription du vendredi soir, c'est **10 % de l'essai perdu** sans avoir touché au produit. Jamais validé → 100 % perdu, sans que le prospect comprenne pourquoi.
 
@@ -100,6 +236,56 @@ Le buildpack Scalingo avertit à chaque déploiement :
 - **B. Ajouter `statut: 'ACTIVE'` au `where` de `activerTrialPremiereConnexion`.** Une ligne. Le trial démarre au premier login **après** activation. Moins élégant (le trial peut ne jamais démarrer si l'hébergeur ne se reconnecte pas), mais quasi sans risque de régression.
 
 **Priorité** : à traiter avant le premier vrai self-signup hébergeur. Pas de client impacté aujourd'hui.
+
+---
+
+## ✅ RECETTE — lots du 14/07 : BACKEND PROUVÉ + PROD VALIDÉE À LA MAIN
+
+**✅ 1. Recette backend automatisée — T1→T7 TOUS VERTS** (harness `backend/scripts/integration-trial-centres.mjs`, commit `8b1f764`).
+Postgres 16 **jetable** en Docker (le harness refuse de démarrer si `DATABASE_URL` ne pointe pas la base jetable), schéma via `prisma db push`, **vrais** `CentreService`/`AdminService`/`ClaimService` consommés depuis `dist/`, vraies contraintes SQL. Seul `EmailService` mocké. Container détruit après run.
+
+| Test | Résultat |
+|---|---|
+| T1 `createCentre` sans SIRET | ✅ centre PENDING rattaché à l'organisation existante ; **aucune org neuve** ; membership VALIDE intact ; aucun essai |
+| T2 visibilité admin | ✅ sort dans **`/admin/centres/pending`** |
+| T3 activation + alignement | ✅ `trialStartedAt` et `abonnementActifJusquAu` **identiques** au centre existant ; **aucune prolongation** ; aucun essai 30j ouvert |
+| T4 essai expiré | ✅ centre ACTIVE **sans essai** (DECOUVERTE / INACTIF) |
+| T5 gardes clients | ✅ Mollie / VIREMENT (Choucas) / abonnement offert (Sauvageon) → **aucun essai** posé |
+| T6 seconde société | ✅ SIREN différent → organisation **distincte** + `EN_ATTENTE_DOCUMENT` |
+| T7 atomicité | ✅ P2000 en transaction → **0 org, 0 centre, 0 membership** : rollback total |
+
+⚠️ **Lecture honnête de T4** : « payant » signifie en réalité **`DECOUVERTE` / `INACTIF`** — le plan gratuit bridé, **pas** une facturation. **Rien ne dit à l'hébergeur qu'il doit souscrire.** À requalifier au premier cas réel.
+→ Le harness dépend du `dist/` (build préalable obligatoire) → candidat item **4.8 CI minimale**.
+
+**✅ 2. Recette manuelle prod — FAITE le 14/07 à 17h43**
+Centre `RECETTE 14-07` créé depuis l'UI hébergeur, **SIRET laissé VIDE** :
+- → rattaché à **« Organisation : Chalet Le Sauvageon »** (affiché à l'écran) — **aucune organisation fantôme** ✅
+- → **visible** dans `/dashboard/admin/claims` → section « Nouveaux centres à valider » ✅ *(avant ce matin : invisible, donc jamais activable)*
+- → **Refuser** + motif « TEST » → **email reçu avec le motif** ✅ *(avant cet après-midi : refus totalement silencieux)*
+- → carte « Dossiers à valider → » du dashboard principal fonctionnelle ✅
+
+**❌ Reste à faire :**
+1. **Purger `RECETTE 14-07`** (centre en SUSPENDED, invisible partout, sans impact — mais à nettoyer) :
+   `BEGIN; SELECT id, nom, statut FROM centres_hebergement WHERE nom = 'RECETTE 14-07'; DELETE FROM centres_hebergement WHERE nom = 'RECETTE 14-07'; COMMIT;`
+   ⚠️ **NE PAS** toucher au membership ni à l'organisation (ceux de Sauvageon).
+2. **Purge S3** : objets `kbis/` de la recette ex-nihilo du 13/07 (bucket `liavo-uploads`).
+3. **🔴 `scalingo pgsql-console` ne s'ouvre plus** (voir bloc dédié ci-dessous).
+
+---
+
+## 🔴 ACCÈS SQL PROD CASSÉ (14/07) — non résolu
+
+**Symptôme** : `scalingo -a liavo-backend pgsql-console` et `db-tunnel` ne renvoient **RIEN** (aucune sortie, aucune erreur). `echo`, `psql --version` et `scalingo login --api-token` fonctionnent.
+
+**Point commun des commandes qui échouent** : elles doivent **contacter le réseau / ouvrir un tunnel SSH**. Celles qui rendent la main immédiatement fonctionnent.
+
+**Cause éliminée** : `psql` était absent du PATH → **corrigé en dur** (PATH utilisateur + `C:\Program Files\PostgreSQL\17\bin`). `psql --version` → 17.9 ✅. **Le problème persiste**.
+
+**Pistes non instruites** : CLI Scalingo en **1.44.1** (warning « out-of-date, update to 1.47.0 » à chaque commande) — la plus probable ; clé SSH `id_ed25519` / agent SSH ; port 22 sortant bloqué ; proxy / antivirus.
+
+**Contournement connu** : la console SQL est aussi accessible **depuis le dashboard Scalingo** (app → Addons → PostgreSQL), sans terminal ni tunnel.
+
+**Bloquant à terme** : tout SQL prod passe par là (rattrapages, backfills, purges).
 
 ---
 
@@ -236,6 +422,9 @@ Reverté. Root cause : axios 1.13.6 + turbopack fetch adapter ne forward pas `cr
 | 4.15 | ~~Erreurs `Failed to find Server Action` à chaque deploy~~ | 0.5j | — | ✅ FAIT (08/07, version non-destructive décidée par Théo) : `global-error.tsx` détecte l'erreur Server Action périmée (best-effort sur le message) et affiche « Une nouvelle version de LIAVO a été déployée » + bouton Recharger — **jamais de reload() automatique**. Les autres erreurs gardent le rendu générique. |
 | 4.16 | Upgrade @react-pdf/renderer (dépendance fantôme pako) | 0.5j | Post-pitch | 05/07 : @react-pdf/pdfkit 4.1.0 lib/pdfkit.browser.js importe pako/lib/zlib/* sans déclarer pako. Fix actuel = pin pako@1.0.11 exact en dépendance directe (commit 8a60079). Vérifier si release react-pdf récente déclare pako correctement → retirer le pin. NE PAS passer pako en ^2/^3 (exports field bloque les subpaths). |
 | 4.17 | Qté 0 affiche "0" dans PDF devis (lignes option Alticlub) | 15min | Si Alticlub s'en plaint | Workaround option = ligne qty 0 avec PU TTC visible (livré 05/07). Résidu cosmétique : "0" et "0,00 €" dans qty/totaux. Fix : afficher "—" quand qty=0 dans DevisPDF/FacturePDF/page signer. 3 lignes × 3 fichiers. |
+| 4.19 | `claimFromCatalogue` : résolution d'organisation par le CHEMIN, pas par la DONNÉE | 0.5j | **Après recette du 14/07** | 14/07 : même défaut que `createCentre` (corrigé, cf. 🟡 §1) — le membership VALIDE prime sur toute autre résolution, et le `findFirst` est **sans `orderBy`** → organisation **arbitraire** si l'hébergeur a deux memberships VALIDE. Un hébergeur à deux sociétés verra son centre rattaché à la mauvaise structure. **NON corrigé le 14/07 volontairement** : c'est le chemin que Louise emprunte pour Chambéret cette semaine — pas de modification sans recette. Fix : même ordre que `createCentre` (SIRET → membership VALIDE le plus ancien → dédup). |
+| 4.20 | Cron : 2 mails d'alerte le même jour pour un compte multi-centre aligné | 15min | Quand un compte multi-centre atteindra J-21 | 14/07 : l'alignement du trial (`0a23953`) donne la MÊME date de fin à tous les centres d'un compte → le cron enverra une alerte **par centre**. Non bloquant, cosmétique. Fix : grouper les alertes par `userId`. |
+| 4.21 | `refreshFacturePdf` régénère le PDF d'une facture **déjà émise** | à arbitrer | — | Dette du 12/07, **reconfirmée le 14/07** : un versement enregistré sur une ancienne facture régénère son PDF **et son XML Factur-X** à partir de l'état courant du code. Le snapshot en base (`emetteur_*`, montants) ne bouge pas → pas de dérive de contenu. Mais **un PDF de facture qui change après émission est douteux** vis-à-vis de l'immuabilité d'une pièce comptable. Question comptable, pas technique. |
 | 4.18 | Refonte `regrouperParCreneau` dans journal public | 30min-1h | Si un client se plaint des badges groupes absents dans le journal public | 07/07 : la fonction parse les suffixes de titre ("Escalade — G1") pour afficher les badges groupes. Marchait avec l'ancien schéma (activités dupliquées par groupe, suffixe automatique). Ne marche plus avec la refonte m2m (1 activité par cluster, titre sans suffixe, groupes dans une table de jointure). Impact : dégradation cosmétique du journal public pour les nouveaux plannings. Fix : ajouter `groupes` au select backend `journal-public.controller.ts:39` + refondre `regrouperParCreneau` (page.tsx L89-133) pour lire les groupes structurés. Voir `docs/audit-planning-cascade.md` §C.2. |
 
 ---
@@ -352,6 +541,13 @@ Août
 | xlsx vulnérable (4.11) | Risque ACCEPTÉ, documenté : pas de fix npm, parsing limité aux fichiers uploadés par l'hébergeur authentifié sur ses propres données → exposition réelle faible. Ni migration exceljs ni CDN SheetJS. À requalifier si le parsing s'ouvre à des fichiers tiers. | 08/07/2026 |
 | Erreurs deploy Server Actions (4.15) | Version NON-destructive : error boundary (global-error.tsx) détecte l'erreur et propose « Recharger la page » — jamais de reload() automatique (saisie en cours). L'IDDJ n'est pas le trigger, le fix est fait pour lui-même. | 08/07/2026 |
 | Float→Decimal (4.7) | Audit d'abord, migration ensuite (ou pas) : requêtes de contrôle prod dans `docs/AUDIT_FLOAT_DECIMAL.md`, décision sur le rapport d'écarts. Jamais en overnight. | 08/07/2026 |
+| **Essai gratuit — source unique** | `demarrerOuAlignerTrial` (trial.helper.ts) est le **SEUL** point de démarrage, appelé par les 4 chemins d'activation (login, `validerClaim`, `activerCentre`, `validerHebergeur`). Plus jamais de logique de trial ailleurs. Un centre **PENDING ne consomme jamais** son essai. | 14/07/2026 |
+| **Essai multi-centre — alignement** | Un compte = **un** essai. Un nouveau centre s'**aligne** sur la date de fin de l'essai en cours (jamais de prolongation, jamais de 2e essai). Essai **expiré** → le centre suivant est **payant directement**. Empêche l'essai « renouvelable à l'infini » en ajoutant des centres. Le self-service **+14j** (`demander-extension`) reste la seule soupape. | 14/07/2026 |
+| **Invariant centre PENDING** | *Tout centre créé en PENDING doit être visible dans au moins une liste admin* (`/admin/claims` **ou** `/admin/centres/pending`). Un centre invisible = un hébergeur bloqué sans issue. À vérifier à chaque modification d'un chemin de création de centre. | 14/07/2026 |
+| **Résolution d'organisation** | L'organisation d'un centre se déduit de la **DONNÉE** (SIRET → SIREN), pas du **CHEMIN** (« l'hébergeur est-il validé ? »). Ordre : (1) SIRET saisi → dédup SIREN ; (2) membership VALIDE le plus ancien ; (3) dédup textuelle / création. Le `claimStatut` dérive de la **relation user × organisation résolue**. | 14/07/2026 |
+| **SIRET à l'ajout d'un centre** | Reste **OPTIONNEL** (pas de durcissement du formulaire). La règle de résolution ci-dessus suffit à fermer le trou. | 14/07/2026 |
+| **Factures Sauvageon à 9 chiffres** | **Option A — ne rien faire.** Les 62 factures (11/06→01/07) portent `emetteur_siret = 953632031` (un SIREN). Le XML les déclarait `schemeID 0002` = SIREN → **cohérent**. Le SIREN identifie correctement l'entreprise, les clients ont payé. Réécrire un snapshot de facture émise (B) ou émettre 62 avoirs (C) : **écartés**. Question posée au comptable. Les **futures** factures sont correctes (backfill + `schemeID` dérivé). | 14/07/2026 |
+| **`schemeID` Factur-X** | Dérivé de la **valeur réelle**, jamais codé en dur : 14 chiffres → `0009` (SIRET), 9 chiffres → `0002` (SIREN), longueur aberrante → **bloc omis** (mieux qu'un identifiant mal typé). Échéance réception e-invoicing : **01/09/2026**. | 14/07/2026 |
 
 ---
 

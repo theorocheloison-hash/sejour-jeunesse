@@ -1,5 +1,250 @@
 # LIAVO — État session dev
-> Dernière mise à jour : 13/07/2026 — Session chantier inscription ex-nihilo SOLDÉ (atomicité `60eb12f`, SIRET 3 DTO `b1bbcd4`, motDePasseDefini `5e59e28`, emails non bloquants `2a07b7b`, écran justificatif + 3 CTA + boucle résiduelle `ba54a8c`→`81e4315` ; recette prod complète jusqu'au devis DEV-2026-0001 ENVOYÉ) + **fix déploiement frontend silencieusement cassé depuis le 12/07 15h42** (HOSTNAME × Next standalone, `88e49ec`, ⚠️ vérifier `scalingo deployments` après chaque push) + ménage démo LMDJ + Chalet des Nants détaché de Pôle Montagne (org dédiée `24e4e21e`, centre ACTIVE revendicable) + purge préparée (`docs/purge-13-07.sql`, à exécuter par Théo). Avant : 12/07/2026 — Session export ZIP factures : téléchargement en masse des PDF de factures (ZIP + index CSV), avoirs inclus dans le ZIP ET dans l'export CSV comptable (colonne Type), **bug multi-centre des exports réparé** (3 commits poussés : `6023edc`, `f0f96f8`, `b0a1ed3` ; recette prod validée). **Correction d'un statut faux** : `28e364a` (fix SIRET) était noté « non poussé » dans ce doc ET dans la roadmap — il est en prod depuis le 09/07 (2e dérive de statut en 4 jours). Avant : 09/07/2026 — Session Louise / PULSE SPORTS : bug SIRET (espaces → overflow VarChar(14)), fix `@Transform` (commit `28e364a`, **poussé — en prod depuis le 09/07**), rattrapage SQL complet (compte + centre Valloire ACTIVE, trial Pilotage 30j), trou inscription ex-nihilo documenté (roadmap 🔴). Avant : 08/07/2026 (soir, tard) — Fix page abonnement : libellés neutres (amorce 2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`), vérifié on-MCP, poussé. Avant : run dette §4 (4.11 13 vulns→3 next 16.2.10 xlsx accepté ; 4.15 bandeau non-destructif ; 4.6/4.10 déjà faits ; 4.7 audit prêt, **requêtes prod à exécuter par Théo** `docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections + roadmap §2/§4/§10.
+> Dernière mise à jour : 14/07/2026 (soir) — **Session « TVA sur marge » : Lot 1 backend livré, déployé, activé (`cf8795d`).** Endpoint `GET /rentabilite/tva-marge` en prod, migration `20260714120000_tva_sur_marge` appliquée, `regime_marge_actif = true` sur Le Sauvageon (`3a710674-d580-4ffd-9d9a-f739bae82154`). **Découverte majeure : ZÉRO facture prestataire en base — le module Rentabilité livré le 04/06 n'a JAMAIS été alimenté en prod.** Impossible de valider le moteur sur de la donnée réelle. **Chantier GELÉ jusqu'à l'hiver 2026-2027** (premiers vrais séjours LIAVO au Sauvageon). Lots 2→5 documentés en roadmap. ✅ **Correction de statut : `pgsql-console` FONCTIONNE** (pipe stdin depuis CC) — la note « ne s'ouvre plus » ci-dessous était fausse. Voir section TVA SUR MARGE. Avant (jour) : **Session « activation hébergeur » : 9 commits, tout recetté en prod.** `0a23953` trial source unique + garde centre ACTIVE + alignement multi-centre • `6b5bb4a` + `9724d2a` createCentre atomique + centre PENDING toujours visible en admin + résolution d'organisation par SIRET • `83f07b8` schemeID Factur-X • `8b1f764` harness de recette • `95af83e` + `a08d27b` **Node 20 → 24** • `3df072c` + `c1e2dde` + `8267482` **unification des 3 workflows admin** sur l'écran strict. Backfill SIREN/SIRET prod (Choucas, Alticlub, Sauvageon). **✅ Recette backend T1→T7 sur base jetable + ✅ recette manuelle prod (17h43)**. ⚠️ **Reste** : purger `RECETTE 14-07`, purge S3 `kbis/`. (~~`pgsql-console` ne s'ouvre plus~~ — **faux**, corrigé le soir même : le pipe stdin depuis CC fonctionne.) Avant : 13/07/2026 — Session chantier inscription ex-nihilo SOLDÉ (atomicité `60eb12f`, SIRET 3 DTO `b1bbcd4`, motDePasseDefini `5e59e28`, emails non bloquants `2a07b7b`, écran justificatif + 3 CTA + boucle résiduelle `ba54a8c`→`81e4315` ; recette prod complète jusqu'au devis DEV-2026-0001 ENVOYÉ) + **fix déploiement frontend silencieusement cassé depuis le 12/07 15h42** (HOSTNAME × Next standalone, `88e49ec`, ⚠️ vérifier `scalingo deployments` après chaque push) + ménage démo LMDJ + Chalet des Nants détaché de Pôle Montagne (org dédiée `24e4e21e`, centre ACTIVE revendicable) + **purge exécutée** (`docs/purge-13-07.sql` — comptes `trochenrc` et `recette-exnihilo` supprimés, 7 hébergeurs restants ; reste les objets S3 `kbis/` à purger à la main). Avant : 12/07/2026 — Session export ZIP factures : téléchargement en masse des PDF de factures (ZIP + index CSV), avoirs inclus dans le ZIP ET dans l'export CSV comptable (colonne Type), **bug multi-centre des exports réparé** (3 commits poussés : `6023edc`, `f0f96f8`, `b0a1ed3` ; recette prod validée). **Correction d'un statut faux** : `28e364a` (fix SIRET) était noté « non poussé » dans ce doc ET dans la roadmap — il est en prod depuis le 09/07 (2e dérive de statut en 4 jours). Avant : 09/07/2026 — Session Louise / PULSE SPORTS : bug SIRET (espaces → overflow VarChar(14)), fix `@Transform` (commit `28e364a`, **poussé — en prod depuis le 09/07**), rattrapage SQL complet (compte + centre Valloire ACTIVE, trial Pilotage 30j), trou inscription ex-nihilo documenté (roadmap 🔴). Avant : 08/07/2026 (soir, tard) — Fix page abonnement : libellés neutres (amorce 2.4) + bouton « plan actuel / Nous contacter » dérivé du plan courant (`PricingTable`), vérifié on-MCP, poussé. Avant : run dette §4 (4.11 13 vulns→3 next 16.2.10 xlsx accepté ; 4.15 bandeau non-destructif ; 4.6/4.10 déjà faits ; 4.7 audit prêt, **requêtes prod à exécuter par Théo** `docs/AUDIT_FLOAT_DECIMAL.md`). Après-midi : 10.1 livré, deadline 26/09 NEUTRALISÉE. Voir sections + roadmap §2/§4/§10.
+
+---
+
+## SESSION 14/07/2026 (soir) — TVA sur marge : Lot 1 backend livré, chantier gelé
+
+### Déclencheur
+Théo remplit à la main un Excel `TVA_SUR_MARGE_OCT-2025_SEPT-2026.xlsx` (3 onglets HIVER/PRINTEMPS/ÉTÉ) pour son expert-comptable. Question initiale : « le module Rentabilité qu'on a dév ne calcule-t-il pas déjà la marge et la TVA ? »
+
+### Le diagnostic — ce n'était PAS une formule manquante, c'était un périmètre faux
+
+`rentabilite.service.getTableau()` calcule :
+```
+caTTC     = factureSolde?.montantFacture ?? meilleurDevis.montantTTC   // devis ENTIER
+chargesTTC = Σ ventilationsPrestataires.montantTTC
+margeTTC  = caTTC − chargesTTC
+```
+
+→ `caTTC` = **le devis complet, pension incluse**. C'est une marge **économique**, pas la base du **régime de la marge** (art. 266-1-e CGI).
+
+**Le régime de la marge ne porte QUE sur les prestations achetées à des tiers et revendues** (ESF, guides, transport, rafting, chiens de traîneau…). La pension produite en propre reste au **régime normal** (TVA 10 %, TVA déductible). Preuve : l'Excel de Théo n'a **aucune colonne hébergement/pension**.
+
+→ Diviser la marge de `getTableau()` par 1,2 aurait fait **déclarer de la TVA sur la pension**. Sur-imposition.
+
+**Le trou structurel n'était pas la formule, c'était le côté VENTE** : rien dans LIAVO ne permettait de dire *cette ligne de devis est une revente tierce, celle-là est de la production propre*.
+
+### Décisions actées
+
+| Sujet | Décision |
+|---|---|
+| **LIAVO ne déclare RIEN** | LIAVO restitue le tableau, l'expert-comptable déclare. **Aucune règle fiscale codée** : pas de plancher à zéro, pas de report, pas de compensation inter-mois. Marge négative conservée signée. |
+| **Rattachement mensuel** | `sejour.dateDebut` **fait foi**, y compris pour un séjour à cheval sur 2 mois. |
+| **Devis complémentaires** | On ne filtre **PAS** sur `isComplementaire` — on filtre sur le flag `revenduTiers`. Théo ne met que de la PC sur les complémentaires *aujourd'hui* ; le filtrage par flag reste juste si ça change. |
+| **Clé de rapprochement vente↔achat** | `ligneDevis.categorieMarge` (VarChar(50)) ↔ `facturePrestataire.typeCharge` (VarChar(50)). **Même longueur, impératif.** |
+| **Toggle par centre** | `regimeMargeActif` — invisible pour les hébergeurs non concernés (pension sèche, entremise, assos non assujetties). |
+| **Backfill** | `revendu_tiers = true WHERE tva = 0` : les lignes revendues sont **déjà** à 0 % de TVA chez Sauvageon. **NON EXÉCUTÉ** — à faire avec un `SELECT` de contrôle. |
+
+### Ce qui est LIVRÉ (`cf8795d`, en prod)
+
+**Migration** `20260714120000_tva_sur_marge` (appliquée, vérifiée dans les logs Scalingo) :
+- `centres_hebergement` : `regime_marge_actif` (bool, false), `taux_tva_marge` (float, 20)
+- `produits_catalogue` : `revendu_tiers_defaut` (bool, false), `categorie_marge` (VarChar(50))
+- `lignes_devis` : `revendu_tiers` (bool, false), `categorie_marge` (VarChar(50)) + index partiel
+
+**Backend** : `RentabiliteService.getTvaSurMarge(userId, centreId, annee)` + `GET /rentabilite/tva-marge?annee=` (`@Roles(HEBERGEUR)`, `@RequirePermission('facturation')`, `@RequirePlan('PILOTAGE')` hérité).
+
+Retour : `parMois[12]`, `parPoste[]`, `totaux`, `anomalies[]`.
+
+**4 requêtes exactement, aucune en boucle** — le pattern `Promise.all` + `findMany`-par-séjour de `getTableau()` n'a **pas** été reproduit.
+
+**Ordre des arrondis (comptabilité)** : `margeTTC = round2(vente − achat)` → `baseHT = round2(marge / 1,2)` → `tva = round2(marge − baseHT)`. La TVA est **dérivée**, jamais recalculée → `baseHT + tva === margeTTC` au centime. Totaux = somme des 12 mois **déjà arrondis**.
+
+**5 anomalies de DONNÉES** (jamais de fiscalité) :
+- `FACTURE_SOUS_VENTILEE` — **bug existant révélé** : `validateMontantEtVentilations()` ne rejette QUE la sur-ventilation. Une facture de 3 000 € ventilée à 2 400 € passe **en silence** → charge orpheline → marge fausse. **Non corrigé dans ce lot** (remonté en anomalie seulement).
+- `ACHAT_SANS_VENTE` — flag oublié → TVA **sous**-déclarée (le pire sens).
+- `VENTE_SANS_ACHAT` — facture prestataire pas encore saisie.
+- `PLUSIEURS_DEVIS_PRINCIPAUX` — double comptage possible de la vente.
+- `SEJOUR_SANS_DATE` — charges ventilées sur un séjour sans `dateDebut` → tombent dans aucun mois, disparaîtraient sans signal.
+
+**10 tests** (`rentabilite.service.spec.ts`), 187 tests verts au total.
+
+**Prod** : `regime_marge_actif = true` sur `3a710674-d580-4ffd-9d9a-f739bae82154` (Chalet Le Sauvageon, plan PILOTAGE, taux 20).
+
+### ⚠️ LA DÉCOUVERTE — le module Rentabilité n'a jamais servi
+
+Smoke test post-activation : `GET /rentabilite/tva-marge?annee=2026` → **`parPoste: []`**. Ni vente (attendu, `revendu_tiers` pas encore peuplé), **ni achat** (pas attendu).
+
+→ **ZÉRO facture prestataire en base.** Le module Rentabilité, livré le 04/06/2026 sur demande de Yves Massard, **n'a jamais été alimenté en production.**
+
+**Conséquences honnêtes** :
+1. Le moteur TVA sur marge est correct sur **10 tests unitaires**, sur **zéro donnée réelle**. Il n'est pas validé.
+2. Le vrai coût du projet n'est pas le code, c'est **la saisie**. Théo ne peut pas la faire avant l'hiver (pas de vrais séjours LIAVO au Sauvageon d'ici là).
+3. **Aucun client payant n'a demandé cette feature.** Yves / Anne / Alticlub n'ont pas été sondés sur le régime de la marge.
+
+### DÉCISION : chantier GELÉ jusqu'à l'hiver 2026-2027
+
+Le Lot 1 est en prod, **inerte** : aucun frontend ne consomme l'endpoint, `regime_marge_actif = false` sur tous les autres centres. Zéro impact utilisateur. Il peut dormir sans coût.
+
+**Lots 2→5 documentés en roadmap** (`docs/ROADMAP_ETE_2026.md`), à reprendre quand les données existeront.
+
+### Corrections de statut faites ce soir (3e et 4e dérives détectées)
+- ❌ « `pgsql-console` ne s'ouvre plus » → **FAUX**. Le pipe stdin depuis CC fonctionne : `echo "SQL;" | scalingo.exe --app liavo-backend --region osc-fr1 pgsql-console`. Le code de sortie 1 en fin de session est normal (fermeture du stdin), pas une erreur.
+- ❌ « Node 20 EOL — migration à planifier » → **FAIT**. `engines.node = 24.x`, Node 24.18.0 en prod (`95af83e` + `a08d27b`).
+- ❌ « LOT 4a Phase 2 httpOnly cookies frontend — reverté » → **EN PROD**. `api.ts` tourne en `baseURL = '/api'` avec cookies httpOnly same-origin (Next rewrites). Option B implémentée.
+- ⚠️ Convention migrations : **dossier Prisma** (`prisma/migrations/<timestamp>_nom/migration.sql`), appliqué par `prisma migrate deploy` au boot (Procfile). **JAMAIS de `BEGIN;`/`COMMIT;` dans un `migration.sql`** — Prisma enveloppe déjà chaque migration dans sa propre transaction. Le `BEGIN/COMMIT` ne vaut que pour le SQL tapé dans `pgsql-console`. `manual-migrations/` = 1 seul fichier legacy, **ce n'est pas la convention**.
+
+---
+
+## SESSION 14/07/2026 — Activation hébergeur : essai unifié + createCentre réparé + Factur-X
+
+### Déclencheur
+Audit de priorisation en début de session : le parcours d'inscription est réparé (13/07) mais **inexploitable commercialement**. Deux trous se combinaient pour rendre le self-signup dangereux : l'essai gratuit brûlait pendant l'attente de validation, et le parcours multi-centre était cassé sans que personne l'ait jamais emprunté.
+
+### 1. Essai gratuit — source unique (`0a23953`, poussé)
+**Diagnostic on-code** : 4 comportements divergents selon le chemin d'activation.
+- `auth.service.activerTrialPremiereConnexion` : Pilotage 30j au 1er login, **sans regarder `centre.statut`** → un centre PENDING consommait son essai alors que `envoisBloques = true` (ni devis, ni email externe).
+- `admin.service.validerHebergeur` : **COMPLET** 30j, **sans `trialStartedAt`** → invisible du cron et des stats.
+- `claim.service.validerClaim` et `admin.service.activerCentre` : **aucun essai**.
+
+**Fix** : `demarrerOuAlignerTrial(prisma, email, userId)` dans `trial.helper.ts` — fonction pure, `email` typé structurellement (`{ sendNotifAdmin }`) → **aucun import d'EmailService, aucun cycle de module**. Appelée aux 4 sites. Politique validée par Théo :
+- (a) compte payant (mandat Mollie **ou** `modePaiement = VIREMENT`) → aucun essai (le centre est facturé, +39€) ;
+- (b) abonnement offert / posé à la main (ACTIF sans trial ni mandat — **Sauvageon, Alticlub, Pôle Montagne**) → aucun essai ;
+- (c) éligibles = `statut ACTIVE` + `trialStartedAt null` + `mollieMandatId null` + `abonnementStatut INACTIF` ;
+- (d1) **essai en cours → ALIGNEMENT** sur la même `abonnementActifJusquAu` et le même `trialStartedAt` (jamais de prolongation) ;
+- (d2) **essai expiré → aucun nouvel essai** : le centre suivant est payant directement ;
+- (d3) aucun essai antérieur → Pilotage 30j.
+
+**Bug latent fermé au passage** : l'ancien code retrouvait les centres à notifier via `findMany({ where: { trialStartedAt: now } })` — comparaison de `Date` exacte, fragile. Les éligibles sont désormais capturés **avant** l'update.
+
+**Cascade évitée (le cas Louise)** : sans la règle (d1), la revendication de son 2e centre (Chambéret) lui aurait ouvert un **second essai de 30j** à une date différente de Valloire (expire le 08/08) → deux essais décalés, deux mails admin, facturation illisible. `validerHebergeur` est **vivant** (bouton admin, vérifié par grep) — son essai divergent a été remplacé, pas laissé.
+
+### 2. `createCentre` — atomicité + visibilité admin (`6b5bb4a` + `9724d2a`, poussés)
+**Le vrai bug n'était pas l'atomicité.** Le parcours NOMINAL du multi-centre était cassé :
+
+Un hébergeur **déjà validé** (Pôle Montagne) ajoute son 2e chalet. Le SIRET est **optionnel**, il ne le remplit pas. `findOrCreateOrganisation` déduplique par SIREN → UAI → nom+ville : le nom du **chalet** ne matche pas le nom de son **organisation** → **organisation neuve** + membership `NON_APPLICABLE`. Conséquence :
+- `/admin/claims` ne liste que les memberships `EN_ATTENTE_*` → absent ;
+- `/admin/centres/pending` ne liste que les centres dont l'org a **déjà** un membership `VALIDE` → absent.
+→ **Le centre PENDING n'apparaît dans AUCUNE liste admin. Jamais activable. L'hébergeur reste bloqué sans issue.**
+
+**Invariant posé** : *tout centre créé en PENDING est visible dans au moins une liste admin.*
+
+**Fix** (une transaction interactive, calquée sur `registerHebergeur`) :
+- résolution de l'organisation **par la DONNÉE, plus par le chemin** : (1) SIRET saisi → dédup SIREN (un établissement secondaire porte le même SIREN ; une seconde société = SIREN différent = autre organisation — **le SIRET n'est plus jamais ignoré**) ; (2) sinon membership VALIDE **le plus ancien** (`orderBy claimValidatedAt asc` — plus de `findFirst` arbitraire) ; (3) sinon dédup textuelle / création ;
+- `claimStatut` dérivé de la **relation user × organisation résolue** : org possédée par le user ou par un tiers → `NON_APPLICABLE` (sort dans `/admin/centres/pending`) ; org neuve ou non revendiquée → `EN_ATTENTE_DOCUMENT` + `claimSubmittedAt` (sort dans `/admin/claims`) ;
+- fin du `try/catch` avaleur : tout échec → rollback complet ;
+- mapping P2002 → 409 / P2000 → 400 FR ;
+- email admin : `process.env.ADMIN_EMAIL ?? 'contact@liavo.fr'` (était hardcodé).
+
+**Amendement `9724d2a`** : la 1ʳᵉ version faisait primer le membership VALIDE sur le SIRET → un hébergeur à **deux sociétés** aurait vu son centre rattaché à la mauvaise structure. Corrigé avant push. `claimFromCatalogue` **porte le même défaut** (membership VALIDE prime, `findFirst` sans `orderBy`) → **non touché volontairement** (c'est le chemin que Louise va emprunter pour Chambéret cette semaine — pas de modification sans recette). → backlog.
+
+**Contrôle prod** : `SELECT ... WHERE statut = 'PENDING'` → **0 ligne**. Aucun rattrapage à écrire : le fix est 100 % préventif. Corollaire : le parcours « ajouter un centre » **n'a jamais servi en production**.
+
+### 3. Backfill SIREN/SIRET prod (exécuté, committé)
+La dédup SIREN ne fonctionne que si `organisations.siren` est renseigné. État trouvé : **Alticlub et Choucas = `siren` NULL** ; **Sauvageon = SIRET à 9 chiffres** (c'était un SIREN).
+
+| Organisation | Avant | Après |
+|---|---|---|
+| Le Choucas | siren/siret NULL | `219300498` / `21930049800017` (Ville de Neuilly-Plaisance = entité de facturation) |
+| Alticlub | siren/siret NULL (centre aussi) | `437832314` / `43783231400011` (org + centre) |
+| Sauvageon | siret = `953632031` (9 ch.) | `95363203100027` (org + centre) |
+
+⚠️ **La table `factures` n'a PAS été touchée.** Les 62 factures Sauvageon gardent leur snapshot `emetteur_siret = 953632031`.
+
+### 4. Factur-X — `schemeID` ISO 6523 (`83f07b8`)
+**Bug préexistant trouvé en vérifiant l'impact du backfill** : `facture-x.ts` écrivait `schemeID="0002"` **en dur** pour l'identifiant légal du vendeur ET de l'acheteur. Or **0002 = SIREN**, **0009 = SIRET**. La facture Florimont (14 chiffres annoncés SIREN) était **déjà non conforme** avant ce matin.
+
+Ironie : les 62 factures Sauvageon (9 chiffres × `0002`) étaient **cohérentes**. Le backfill les aurait fait basculer dans le cas Florimont pour les **prochaines** émissions → d'où le fix, avant l'échéance **réception e-invoicing du 01/09/2026**.
+
+**Fix** : helper `schemeIdFor()` — 14 chiffres → `0009`, 9 chiffres → `0002`, sinon **bloc omis** (mieux qu'un ID mal typé). Valeur écrite nettoyée (chiffres seuls). `getChorusXml` (UBL), le PDF visuel et les snapshots : non touchés.
+
+**Cascade de la source de l'émetteur** (`construireEmetteur`, `facture.service.ts:238`) : `devis.siretEntreprise` → **`organisation.siret`** → `centre.siret` → null. C'est donc `organisations.siret` qui sert en priorité → le backfill du §3 alimente **directement** la facturation. Effet le plus net : **Alticlub n'avait AUCUN identifiant vendeur dans ses XML** (bloc absent) — désormais renseigné.
+
+**Décision Théo — passé = option A (ne rien faire)** : les 62 factures Sauvageon restent en l'état. Le SIREN identifie correctement l'entreprise, le XML était cohérent, les clients ont payé. Réécrire le snapshot d'une facture émise (option B) ou émettre 62 avoirs (option C) = écartés. Question posée au comptable, pas à Claude.
+
+### Recette (mise à jour fin de session)
+**✅ Backend PROUVÉ — T1→T7 tous verts** (`8b1f764`, harness `backend/scripts/integration-trial-centres.mjs`). Postgres 16 jetable en Docker (le harness **refuse de démarrer** si `DATABASE_URL` ne pointe pas la base jetable), vrais services depuis `dist/`, vraies contraintes SQL, `EmailService` mocké (12 appels interceptés, 0 mail parti), container détruit après run.
+- T1 `createCentre` sans SIRET → org existante, **aucune org neuve**, membership VALIDE intact, aucun essai
+- T2 → le centre sort dans **`/admin/centres/pending`** (absent de `getClaimsEnAttente` : conforme)
+- T3 → essai **aligné** (`trialStartedAt` + `abonnementActifJusquAu` identiques au centre A), **A non modifié**, aucun 30j ouvert
+- T4 essai expiré → centre ACTIVE **sans essai** (DECOUVERTE/INACTIF)
+- T5 → Mollie / VIREMENT / abonnement offert : **aucun essai** posé
+- T6 seconde société → org distincte + `EN_ATTENTE_DOCUMENT` → sort dans `/admin/claims`
+- T7 → P2000 en transaction → **0 org, 0 centre, 0 membership** : rollback total prouvé
+
+⚠️ **À lire honnêtement — T4** : « payant » = en réalité **DECOUVERTE / INACTIF** (plan gratuit bridé), **pas** une facturation. Rien ne dit à l'hébergeur qu'il doit souscrire. Conforme à la décision, à requalifier au premier cas réel.
+⚠️ Le harness consomme `dist/` → build obligatoire avant run, pas de CI naïve (candidat item 4.8).
+
+**✅ Recette manuelle prod : FAITE à 17h43** — voir §7 ci-dessous.
+
+**❌ Reste à faire :**
+1. **Purger `RECETTE 14-07`** (SUSPENDED, invisible partout, sans impact) — bloqué par l'accès SQL cassé :
+   `BEGIN; SELECT id, nom, statut FROM centres_hebergement WHERE nom = 'RECETTE 14-07'; DELETE FROM centres_hebergement WHERE nom = 'RECETTE 14-07'; COMMIT;`
+   ⚠️ NE PAS toucher au membership ni à l'organisation (ceux de Sauvageon).
+2. **Purge S3** : objets `kbis/` de la recette du 13/07 (bucket `liavo-uploads`).
+3. **Réparer `pgsql-console`** — voir bloc 🔴 ci-dessous.
+
+### 5. Node 20 → 24 (`95af83e` + `a08d27b`)
+Node 20 EOL : le buildpack Scalingo avertissait, il aurait fini par **bloquer tout déploiement, y compris un hotfix client**.
+
+**Cible = 24, pas 22** : Node 24 est LTS jusqu'à ~2028 **et c'est la version par défaut du buildpack Scalingo** (le chemin le mieux testé). Viser 22 aurait imposé de refaire l'opération dans ~9 mois.
+
+**Risque instruit avant d'agir** : `bcrypt@6` est le **seul module natif** du backend. Vérifié : il n'a plus d'assets de prebuild sur GitHub (v5 en avait), **mais** il embarque des prebuilds **N-API** dans le paquet npm (ABI-stable entre majeures de Node), binaires Linux inclus → **aucune compilation** au build. Confirmé en local sous Node 24.14.0 : zéro ligne node-gyp.
+
+**Fausse piste (2 h perdues — ma faute)** : j'ai fait poser `NODE_MODULES_CACHE=false` par précaution, craignant qu'un binaire natif compilé sous Node 20 soit resservi depuis le cache. **Inutile** : vérification faite dans `lib/cache.sh` du buildpack, la signature de cache contient `$(node --version)` → le changement de version **invalide le cache automatiquement**. → **Leçon : lire le buildpack avant d'inventer une procédure d'exploitation.**
+
+2 commits séparés exprès (`engines` d'abord, `@types/node` ensuite) pour isoler la cause en cas de casse. Builds locaux sous **Node 24.14.0 réel**, `node_modules` supprimés, `npm ci`. Zéro erreur TS avec `@types/node@24`.
+
+**Prod validée** : déploiements verts × 2 **+ connexion réussie sur liavo.fr** (le login passe par `bcrypt` → c'est LE test qui compte, pas le voyant vert) + dashboard chargé avec données réelles.
+
+⚠️ Signalé, non traité : `backend/Dockerfile` et `frontend/Dockerfile` restent en `node:22-alpine` (usage docker-compose local, pas le chemin Scalingo).
+
+### 6. Unification des 3 workflows admin (`3df072c` + `c1e2dde` + `8267482`)
+**J'AI EU TORT, ET CC M'A ARRÊTÉ.** J'ai lu **un seul** des deux écrans admin, conclu que `centre.service` était du code mort, et écrit dans la roadmap que son analyse était « fausse ». CC a refusé d'exécuter le lot et a fourni le grep : **la roadmap avait raison**.
+
+**Réalité : deux écrans admin divergents.**
+- `/dashboard/admin` (principal), onglets `claims-centres` + `centres-pending` → `/centres/admin/*` — **PERMISSIF** : valide un claim **SANS justificatif**, et active **tous** les centres du user, **toutes organisations confondues**
+- `/dashboard/admin/claims` (sous-page) → `/admin/*` — **STRICT** : bouton désactivé sans justificatif, limité à l'organisation du membership
+
+Le justificatif est la **seule barrière anti-usurpation**. L'écran principal permettait de la contourner, sans trace.
+
+**Décision Théo : un seul écran, le strict.** Il confirme n'avoir **jamais** validé de claim sans justificatif.
+
+**⚠️ Proposition de CC REFUSÉE** : « assouplir `claim.service.validerClaim` » pour préserver le comportement. **NON** — ce refus est le contrôle de sécurité, pas un bug.
+
+Livré : `refuserCentre` + `PATCH /admin/centres/:id/refuser` avec **email motivé** (le refus était **totalement silencieux** — hébergeur bloqué sans savoir pourquoi) ; suppression des 2 onglets permissifs (~320 lignes) remplacés par une carte « N dossier(s) à valider → » ; **suppression des 4 routes `/centres/admin/*` CÔTÉ SERVEUR** (pas seulement masquées dans l'UI).
+
+⚠️ **PIÈGE — HOMONYMIE** : `admin.service.getCentresPending` porte le même nom que la méthode supprimée de `centre.service` mais est **bien vivante**. Ne pas confondre.
+
+### 7. Recette prod manuelle — 14/07, 17h43 ✅
+Centre `RECETTE 14-07` créé depuis l'UI hébergeur, **SIRET VIDE** :
+- → « **Organisation : Chalet Le Sauvageon** » affiché à l'écran → **aucune organisation fantôme** ✅
+- → **visible** dans l'admin ✅ *(avant ce matin : invisible → jamais activable)*
+- → refusé avec motif « TEST » → **email reçu avec le motif** ✅ *(avant : refus silencieux)*
+
+Les deux fixes de la journée validés d'un coup, sur le câblage frontend qu'aucun test ne couvre.
+
+### 🔴 Accès SQL prod cassé (non résolu)
+`scalingo pgsql-console` et `db-tunnel` → **aucune sortie, aucune erreur**. `echo`, `psql --version`, `scalingo login` → OK. Point commun des échecs : **les commandes qui ouvrent un tunnel réseau**.
+- Cause **éliminée** : `psql` absent du PATH → corrigé en dur (PATH utilisateur + `C:\Program Files\PostgreSQL\17\bin`). `psql --version` → 17.9 ✅. **Problème persiste.**
+- Pistes non instruites : **CLI Scalingo 1.44.1 vs 1.47.0** (warning « out-of-date » à chaque commande — la plus probable) ; clé SSH `id_ed25519` ; port 22 sortant ; proxy/antivirus.
+- **Contournement** : console SQL disponible dans le **dashboard Scalingo** (app → Addons → PostgreSQL), sans terminal.
+
+### Leçons
+1. **Le bug n'est jamais celui qu'on croit.** Le lot 2 devait traiter l'atomicité (`createCentre` avale l'échec org). En lisant les deux listes admin, le vrai bug est apparu : le centre était **invisible**, donc jamais activable. L'atomicité n'était que la moitié du sujet.
+2. ~~La roadmap affirmait que le dashboard admin consommait `/centres/admin/*` → FAUX~~ — **⚠️ LEÇON ÉCRITE LE MATIN, RÉTRACTÉE L'APRÈS-MIDI. LA ROADMAP AVAIT RAISON.** Il existe **deux** écrans admin : la sous-page `/dashboard/admin/claims` (que j'avais lue → `/admin/*`) **et** le dashboard principal `/dashboard/admin` (que je n'avais **pas** lu → `/centres/admin/*`, via 2 onglets entiers). Ma « correction » était fausse. → Voir leçon 5.
+3. **Corriger une donnée peut casser un code qui compensait.** Le backfill du SIRET Sauvageon (9 → 14 ch.) rendait ses futures factures non conformes, parce que le `schemeID` était figé sur SIREN. Le code « marchait » **grâce** à une donnée fausse.
+4. **Aucun de ces bugs n'avait jamais mordu** — 0 centre PENDING en base : tous les clients ont été créés à la main ou par import. Le premier vrai utilisateur du parcours aurait tout découvert à notre place.
+5. **🔴 UNE LECTURE PARTIELLE PRODUIT UNE CORRECTION FAUSSE.** J'ai lu un seul des deux écrans admin, déclaré la roadmap « fausse », et **corrompu la source de vérité**. Seul le grep de CC (et sa garde « ARRÊTE-TOI si un appelant inattendu apparaît ») a évité la casse. → **La garde « arrête-toi et rapporte » dans les prompts CC n'est pas décorative : c'est ce qui a sauvé le lot.** À mettre dans TOUS les prompts de suppression.
+6. **Ne jamais inventer une procédure d'exploitation sans lire l'outil.** `NODE_MODULES_CACHE=false` : 2 h perdues sur une précaution que le buildpack gère déjà (signature de cache = `$(node --version)`).
+7. **Le voyant vert de Scalingo ne prouve rien.** Ce qui prouve : **se connecter** (le login passe par bcrypt) et **voir des données réelles s'afficher**.
+
+---
+
+## ⚠️ LE VRAI SUJET, QUE LE CODE NE RÈGLE PAS (constaté sur le dashboard admin, 14/07)
+
+| Client | Signal | Dernière activité | Essai expire |
+|---|---|---|---|
+| **PULSE / Louise** | **Aucune activité** — 0 séjour, 0 devis | **jamais connectée** | **08/08** |
+| **Alticlub** | **Inactif** | 02/07 (12 j) | **10/09** — *premier vrai test Mollie* |
+| **Le Florimont** (Pôle Montagne) | **Inactif** | 01/07 (13 j) | 01/12 |
+| Chalet YAKA | Ralenti | 10/07 (4 j) | 01/12 |
+| Les Choucas | Actif | 14/07 | 17/10 |
+
+**~14 sessions de dev depuis fin juin, 0 nouveau client payant.** Le produit n'est plus le goulot depuis aujourd'hui. **Deux clients sur trois décrochent.** Un client qui n'a jamais ouvert le produit (Louise) et un client qui l'a utilisé puis a décroché (Florimont) sont deux problèmes différents — aucun des deux ne se corrige avec un commit.
+
+→ **RDV Louise : 15/07.**
 
 ---
 
@@ -21,9 +266,9 @@
 - ⚠️ **Leçon** : vérifier `scalingo deployments` après chaque push — un frontend peut échouer en silence pendant que le backend continue de se déployer (divergence sans alerte).
 
 ### 3. Ménage & données (session du matin, acté ici)
-- Ménage démo LMDJ effectué.
+- **Ménage démo LMDJ effectué** : 5 séjours démo (4 appels d'offres LMDJ + « Test Théo Maé ») + leurs 5 demandes de devis supprimés en cascade, + 4 comptes `test-*@liavo.fr` (Moreau, Croquette, Dumont, Bertrand, tous `source_reseau = lmdj`). 0 devis touché. Effet de bord positif : `getReseauStats('lmdj')` ne compte plus 4 faux organisateurs. Compte `maeva.loison@gmail.com` conservé (vrai compte, seul son séjour de test supprimé).
 - **Chalet des Nants détaché de l'organisation Pôle Montagne** → nouvelle organisation dédiée `24e4e21e-c544-448f-9bb1-98fe6267fc32`, centre `fe8d1222-7f76-4622-8fbe-76b82cb6ac95` ACTIVE, **revendicable**. ⚠️ NE PAS purger — légitimes.
-- **Purge préparée, NON exécutée** : `docs/purge-13-07.sql` — comptes `recette-exnihilo-13-07@liavo.fr` (ZZZ RECETTE 13-07) et `trochenrc@gmail.com` (centre « test » SUSPENDED). Diagnostic prod : 0 facture sur les 2 devis, séquences `sequence_numero` par ORGANISATION dédiée → aucune séquence comptable partagée trouée. **Théo exécute.**
+- **Purge EXÉCUTÉE en prod le 13/07** : `docs/purge-13-07.sql` — comptes `recette-exnihilo-13-07@liavo.fr` (ZZZ RECETTE 13-07) et `trochenrc@gmail.com` (centre « test » SUSPENDED) supprimés. Les 2 transactions committées, tous les DELETE conformes aux attendus (le `OR createur_id` large a bien renvoyé DELETE 1, aucun séjour collatéral). Diagnostic préalable : 0 facture sur les 2 devis, `sequence_numero` par ORGANISATION dédiée → aucune séquence comptable partagée trouée. **Contrôles post-purge** : 0 restant sur les 2 comptes, Chalet des Nants intact, **7 hébergeurs restants** (Sauvageon, Pôle Montagne, Corrotte, Alticlub, T. Massard, Choucas, PULSE). ⚠️ **Reste à faire à la main** : purger les objets S3 OVH (bucket `liavo-uploads`, préfixe `kbis/` — PDF du claim ZZZ RECETTE).
 
 ### Dette nouvelle (voir roadmap 🟡 13/07 et 🟠 TRIAL, blocs déjà rédigés)
 `createCentre` avale encore l'échec organisation ; 3 workflows admin divergents (décision : claim.service source unique, ordre impératif documenté) ; Node 20 EOL ; trial 30j démarre pendant l'attente de validation.
