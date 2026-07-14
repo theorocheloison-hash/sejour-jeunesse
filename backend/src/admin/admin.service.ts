@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
-import { trialExpiration } from '../centres/trial.helper.js';
+import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -112,16 +112,14 @@ export class AdminService {
       data: { compteValide: true },
     });
 
-    // Activer le centre aussi + démarrer l'essai gratuit 30j (plan COMPLET)
+    // Activer les centres ; l'essai gratuit passe par la source unique
+    // (demarrerOuAlignerTrial), plus de trial divergent posé ici.
     await this.prisma.centreHebergement.updateMany({
       where: { userId: id },
-      data: {
-        statut: 'ACTIVE',
-        planAbonnement: 'COMPLET',
-        abonnementStatut: 'ACTIF',
-        abonnementActifJusquAu: trialExpiration(),
-      },
+      data: { statut: 'ACTIVE' },
     });
+
+    await demarrerOuAlignerTrial(this.prisma, this.email, id);
 
     try {
       const nomCentre = user.centres[0]?.nom ?? 'votre centre';
@@ -1251,6 +1249,10 @@ export class AdminService {
       where: { id: centreId },
       data: { statut: 'ACTIVE' },
     });
+
+    if (centre.userId) {
+      await demarrerOuAlignerTrial(this.prisma, this.email, centre.userId);
+    }
 
     if (centre.user?.email) {
       this.email.sendGenericNotification(

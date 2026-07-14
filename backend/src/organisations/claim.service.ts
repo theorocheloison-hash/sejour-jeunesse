@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { shouldRequireKbis, findOrCreateOrganisation } from './organisation.helpers.js';
+import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 
 const EN_CATALOGUE_API =
   'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
@@ -617,6 +618,10 @@ export class ClaimService {
       where: { organisationId: membership.organisationId, userId: membership.userId, statut: 'PENDING' },
       data: { statut: 'ACTIVE' },
     });
+
+    // L'essai gratuit démarre à l'activation du centre, pas au premier login
+    // (un centre PENDING ne doit jamais consommer son essai pendant l'attente).
+    await demarrerOuAlignerTrial(this.prisma, this.email, membership.userId);
 
     await this.email.sendGenericNotification(
       membership.user.email,

@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { CentreHebergement, PlanAbonnement, Prisma, Role, StatutAbonnement, User } from '@prisma/client';
+import { CentreHebergement, Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -18,6 +18,7 @@ import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { ClaimService } from '../organisations/claim.service.js';
+import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
 
 @Injectable()
@@ -642,72 +643,13 @@ export class AuthService {
 
     // Trial 30j Pilotage à la première connexion. UNIQUEMENT ici (pas dans
     // consommerMagicLink ni refreshAccessToken) : un seul point d'activation,
-    // et updateMany filtre par userId propriétaire — un collaborateur invité
+    // et le helper filtre par userId propriétaire — un collaborateur invité
     // (CollaborateurCentre) n'est jamais userId d'un CentreHebergement.
     if (user.role === 'HEBERGEUR') {
-      await this.activerTrialPremiereConnexion(user.id);
+      await demarrerOuAlignerTrial(this.prisma, this.email, user.id);
     }
 
     return this.buildAuthResponse(user);
-  }
-
-  /**
-   * Active le trial 30j Pilotage sur les centres de l'hébergeur à sa première
-   * connexion. Gardes du WHERE : trialStartedAt null (trial jamais consommé),
-   * mollieMandatId null (pas d'abonnement payé), abonnementStatut INACTIF —
-   * garde critique qui protège les clients existants en prod (leurs centres
-   * ACTIF ne sont jamais touchés). Non bloquant : un échec ne doit JAMAIS
-   * faire échouer le login.
-   * Notif admin au format d'activerTrial() (AbonnementService non injectable
-   * ici : AbonnementModule importe AuthModule, l'inverse créerait un cycle).
-   */
-  private async activerTrialPremiereConnexion(userId: string) {
-    try {
-      const now = new Date();
-      const expiration = new Date(now);
-      expiration.setDate(expiration.getDate() + 30);
-
-      const { count } = await this.prisma.centreHebergement.updateMany({
-        where: {
-          userId,
-          trialStartedAt: null,
-          mollieMandatId: null,
-          abonnementStatut: StatutAbonnement.INACTIF,
-        },
-        data: {
-          planAbonnement: PlanAbonnement.PILOTAGE,
-          abonnementStatut: StatutAbonnement.ACTIF,
-          abonnementActifJusquAu: expiration,
-          trialStartedAt: now,
-        },
-      });
-      if (count === 0) return;
-
-      const [user, centres] = await Promise.all([
-        this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { email: true, prenom: true, nom: true },
-        }),
-        this.prisma.centreHebergement.findMany({
-          where: { userId, trialStartedAt: now },
-          select: { nom: true },
-        }),
-      ]);
-      const dateExp = expiration.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-      for (const centre of centres) {
-        await this.email.sendNotifAdmin(
-          `[Admin] Nouveau trial — ${centre.nom}`,
-          `<p><strong>${centre.nom}</strong> a activé un essai gratuit (30 jours Pilotage).</p>
-           <table style="width:100%;border-collapse:collapse;margin:16px 0">
-             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
-             <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user?.prenom ?? ''} ${user?.nom ?? ''} — ${user?.email ?? 'N/A'}</td></tr>
-             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Expiration</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${dateExp}</td></tr>
-           </table>`,
-        );
-      }
-    } catch (err) {
-      console.error('[login] Echec activation trial première connexion', err);
-    }
   }
 
   // ── Recherche SIRENE ────────────────────────────────────────────────
