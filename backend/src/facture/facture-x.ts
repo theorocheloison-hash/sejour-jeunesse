@@ -32,6 +32,14 @@ function fmtAmt(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
 }
 
+/** schemeID ISO 6523 : 0009 = SIRET (14 chiffres), 0002 = SIREN (9 chiffres). */
+function schemeIdFor(id: string | null | undefined): '0009' | '0002' | null {
+  const clean = String(id ?? '').replace(/\D/g, '');
+  if (clean.length === 14) return '0009';
+  if (clean.length === 9) return '0002';
+  return null;
+}
+
 /** Date PDF (D:YYYYMMDDHHmmSSZ) pour le Params/ModDate du fichier embarqué. */
 function pdfDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -107,18 +115,20 @@ export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): st
             <ram:ID schemeID="VA">${escXml(facture.emetteurTva)}</ram:ID>
           </ram:SpecifiedTaxRegistration>`
     : '';
-  const sellerSiret = facture.emetteurSiret
-    ? `
+  // Identifiant légal (BT-30) : schemeID dérivé du format réel de la donnée
+  // (0009 = SIRET 14 chiffres, 0002 = SIREN 9 chiffres), valeur nettoyée
+  // (chiffres seuls). Longueur aberrante → bloc omis, mieux qu'un ID mal typé.
+  const legalOrgBlock = (id: string | null | undefined): string => {
+    const schemeId = schemeIdFor(id);
+    return schemeId
+      ? `
           <ram:SpecifiedLegalOrganization>
-            <ram:ID schemeID="0002">${escXml(facture.emetteurSiret)}</ram:ID>
+            <ram:ID schemeID="${schemeId}">${String(id ?? '').replace(/\D/g, '')}</ram:ID>
           </ram:SpecifiedLegalOrganization>`
-    : '';
-  const buyerSiret = facture.destinataireSiret
-    ? `
-          <ram:SpecifiedLegalOrganization>
-            <ram:ID schemeID="0002">${escXml(facture.destinataireSiret)}</ram:ID>
-          </ram:SpecifiedLegalOrganization>`
-    : '';
+      : '';
+  };
+  const sellerSiret = legalOrgBlock(facture.emetteurSiret);
+  const buyerSiret = legalOrgBlock(facture.destinataireSiret);
 
   // Acompte déjà facturé (SOLDE uniquement)
   const prepaidXml =
