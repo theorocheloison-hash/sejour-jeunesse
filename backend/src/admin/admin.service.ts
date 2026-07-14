@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -1265,6 +1265,42 @@ export class AdminService {
     }
 
     return { success: true };
+  }
+
+  /**
+   * Refuse un centre PENDING (validation admin) : passage en SUSPENDED + email
+   * motivé à l'hébergeur — le refus silencieux laissait l'hébergeur bloqué sans
+   * explication (même modèle que claimService.refuserClaim).
+   */
+  async refuserCentre(centreId: string, motif?: string) {
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      include: { user: { select: { email: true, prenom: true } } },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (centre.statut !== 'PENDING') throw new ForbiddenException("Ce centre n'est pas en attente");
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centreId },
+      data: { statut: 'SUSPENDED' },
+    });
+
+    if (centre.user?.email) {
+      this.email.sendGenericNotification(
+        centre.user.email,
+        `Votre centre ${centre.nom} n'a pas pu être validé`,
+        `<p>Bonjour ${centre.user.prenom ?? ''},</p>
+         <p>Votre centre <strong>${centre.nom}</strong> n'a pas pu être validé
+         pour la raison suivante :</p>
+         <blockquote style="border-left:3px solid #ccc;padding-left:12px;color:#555">
+           ${motif || 'Document non conforme'}
+         </blockquote>
+         <p>Si vous pensez qu'il s'agit d'une erreur, contactez-nous à
+         <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>.</p>`,
+      ).catch((err) => console.error('[refuserCentre] échec email hébergeur', err));
+    }
+
+    return { message: 'Centre refusé.' };
   }
 
   // ─── Activité (feed + santé clients + KPIs) ────────────────────────────────

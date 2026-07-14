@@ -162,6 +162,12 @@ export class AdminController {
     return this.adminService.activerCentre(id);
   }
 
+  /** PATCH /admin/centres/:id/refuser — Refuser un centre PENDING (+ email motivé). */
+  @Patch('centres/:id/refuser')
+  refuserCentre(@Param('id') id: string, @Body('motif') motif?: string) {
+    return this.adminService.refuserCentre(id, motif);
+  }
+
   @Patch('claims/:id/valider')
   validerClaim(
     @Param('id') membershipId: string,
