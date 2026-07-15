@@ -229,7 +229,16 @@ export default function PilotageCAPage() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#999' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#999' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)} />
                   <RechartsTooltip
-                    formatter={(value, name) => [fmtEur(Number(value)), name === 'confirme' ? 'Confirmé' : 'Encaissé']}
+                    formatter={(value, _name, item) => {
+                      // Recharts v3 : item.dataKey identifie la série, item.payload.name = mois abrégé.
+                      const dataKey = item?.dataKey;
+                      if (dataKey === 'encaisse') return [fmtEur(Number(value)), 'Encaissé'];
+                      // Série `confirme` : « Réalisé » (mois passé/en cours) ou « Prévisionnel » (mois futur),
+                      // même seuil que la couleur des barres (index+1 > moisActuel).
+                      const moisIndex = MOIS_LABELS.indexOf(String(item?.payload?.name));
+                      const estFutur = moisIndex >= 0 && moisIndex + 1 > moisActuel;
+                      return [fmtEur(Number(value)), estFutur ? 'Prévisionnel' : 'Réalisé'];
+                    }}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
                   />
                   <Bar dataKey="confirme" name="Confirmé" radius={[3, 3, 0, 0]} maxBarSize={28}>
