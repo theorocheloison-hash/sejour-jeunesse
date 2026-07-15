@@ -1114,6 +1114,14 @@ export default function TabDevisFacturation({
                     <p className="text-xs text-gray-400 mt-0.5">
                       Créé le {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
                     </p>
+                    {devis.statut === 'EN_ATTENTE' && devis.dateEnvoi && (
+                      <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        Devis envoyé le {new Date(devis.dateEnvoi).toLocaleDateString('fr-FR')}
+                      </p>
+                    )}
                   </div>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                     etatFacturation === 'SOLDE' ? 'bg-teal-100 text-teal-700' :

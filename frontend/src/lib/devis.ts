@@ -132,6 +132,8 @@ export interface Devis {
   statut: StatutDevis;
   documentUrl: string | null;
   createdAt: string;
+  // Date du dernier envoi du devis au client (null = jamais envoyé). Source backend : Devis.dateEnvoi.
+  dateEnvoi?: string | null;
   // Professional fields
   nomEntreprise?: string | null;
   adresseEntreprise?: string | null;
