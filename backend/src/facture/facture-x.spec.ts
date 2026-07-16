@@ -98,3 +98,47 @@ describe('buildCiiXml — schemeID ISO 6523 (SpecifiedLegalOrganization)', () =>
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
   });
 });
+
+// ─── Caractérisation Prepaid/Due (refacto facture-solde, étape 0) ────────────
+// BR-CO-16 (EN 16931) : DuePayable = GrandTotal − Prepaid. Les valeurs viennent
+// des champs FIGES de la facture — ces tests documentent le mapping actuel et
+// évoluent explicitement à l'étape 4 (bornage trop-perçu).
+
+function extraireMontant(xml: string, balise: string): number | null {
+  const m = xml.match(new RegExp(`<ram:${balise}>([-0-9.]+)</ram:${balise}>`));
+  return m ? Number(m[1]) : null;
+}
+
+describe('buildCiiXml — TotalPrepaidAmount / DuePayableAmount (§7.8)', () => {
+  it('SOLDE : Prepaid = montantAcompteDejaFacture, Due = montantFacture, BR-CO-16 boucle', () => {
+    const xml = buildCiiXml(
+      facture({ montantTTC: 6600, montantFacture: 3630, montantAcompteDejaFacture: 2970, montantHT: 6600, montantTVA: 0, tauxTva: 0 }),
+      'Séjour Test',
+    );
+    expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(2970);
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(3630);
+    expect(extraireMontant(xml, 'GrandTotalAmount')).toBe(6600);
+    // BR-CO-16
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(
+      extraireMontant(xml, 'GrandTotalAmount')! - extraireMontant(xml, 'TotalPrepaidAmount')!,
+    );
+  });
+
+  it('SOLDE sans acompte (facture total, montantAcompteDejaFacture = 0) : balise émise à 0.00', () => {
+    const xml = buildCiiXml(
+      facture({ montantTTC: 6600, montantFacture: 6600, montantAcompteDejaFacture: 0, montantHT: 6600, montantTVA: 0, tauxTva: 0 }),
+      'Séjour Test',
+    );
+    expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(0);
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(6600);
+  });
+
+  it('ACOMPTE : pas de TotalPrepaidAmount, Due = montantFacture', () => {
+    const xml = buildCiiXml(
+      facture({ typeFacture: 'ACOMPTE', numero: 'FA-2026-002', montantTTC: 6600, montantFacture: 2970, montantAcompteDejaFacture: null }),
+      'Séjour Test',
+    );
+    expect(xml).not.toContain('TotalPrepaidAmount');
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(2970);
+  });
+});
