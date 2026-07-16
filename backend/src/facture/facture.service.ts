@@ -29,7 +29,7 @@ interface LigneAvoirDto {
  * Module facturation (Lot 1). La Facture est un snapshot IMMUABLE émis depuis un Devis :
  * émetteur, destinataire et montants sont figés au moment de l'émission.
  * Le Devis n'est PAS muté (statut/typeDocument inchangés) — il reste modifiable, et la
- * facture de solde se calcule sur son total révisé moins l'acompte déjà facturé.
+ * facture de solde se calcule sur son total révisé moins l'acompte réellement encaissé.
  */
 @Injectable()
 export class FactureService {
@@ -462,15 +462,15 @@ export class FactureService {
     const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
     // Refacto facture-solde (étape 2) : on déduit l'acompte ENCAISSÉ (Σ versements
     // de la facture d'acompte, maintenu dans montantVerseTotal), plus jamais
-    // l'acompte facturé — le client paie un TOTAL, le reste dû se calcule sur
+    // l'acompte facturé seul — le client paie un TOTAL, le reste dû se calcule sur
     // ce qu'il a réellement réglé. L'invariant « encaissé = Σ versements » est
     // garanti par validerAcompte (versement de régularisation) et ajouterVersement.
-    // Garde legacy : acomptes validés AVANT la refonte (acompteVerse=true sans
-    // aucun versement saisi) — l'encaissé vaut 0 en base alors que l'argent a été
-    // reçu ; on retombe sur l'acompte facturé pour ne JAMAIS réclamer le total.
-    const acompteEncaisse = (factureAcompte.montantVerseTotal ?? 0) > 0
-      ? factureAcompte.montantVerseTotal
-      : factureAcompte.montantFacture;
+    // Déduit TOUJOURS au moins l'acompte facturé (acompte legacy validé sans
+    // versement complet en base), et crédite tout sur-paiement. Pas de discontinuité.
+    const acompteEncaisse = Math.max(
+      factureAcompte.montantVerseTotal ?? 0,
+      factureAcompte.montantFacture,
+    );
     let acompteNet = acompteEncaisse;
     if (montantTTC <= acompteEncaisse) {
       // Chercher un avoir sur la facture d'acompte (relation 1-1 via factureAnnuleeId)

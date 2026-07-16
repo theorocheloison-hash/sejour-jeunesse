@@ -258,7 +258,20 @@ describe('emettreFactureSolde — calcul du solde (sur l\'acompte ENCAISSÉ, ét
       versements: [],
     }));
     const f = await service.emettreFactureSolde('devis-1', 'user-1');
-    expect(f.montantFacture).toBe(3630); // 6600 − 2970 (facturé, repli legacy)
+    expect(f.montantFacture).toBe(3630); // 6600 − max(0, 2970) = 6600 − 2970
+    expect(f.montantAcompteDejaFacture).toBe(2970);
+  });
+
+  it('garde legacy sans discontinuité : versement PARTIEL saisi (< facturé) → déduit quand même l\'acompte facturé', async () => {
+    const { service } = mockDeps(initState({
+      factureAcompte: factureAcompte({ montantVerseTotal: 1000, acompteVerse: true }),
+      versements: [
+        { id: 'v1', devisId: 'devis-1', factureId: 'fa-1', montant: 1000, datePaiement: new Date(2026, 5, 2) },
+      ],
+    }));
+    const f = await service.emettreFactureSolde('devis-1', 'user-1');
+    // max(1000, 2970) = 2970 → le solde ne réclame PAS le complément d'acompte.
+    expect(f.montantFacture).toBe(3630);
     expect(f.montantAcompteDejaFacture).toBe(2970);
   });
 
