@@ -47,17 +47,11 @@ export interface FacturePDFProps {
     reference: string | null;
     modePaiement: string | null;
   }>;
-  // Refacto facture-solde (étape 1) : contexte du solde — Variante A.
-  // Optionnels : renseignés seulement quand la requête a chargé les relations.
+  // Refacto facture-solde : référence de la facture d'acompte liée (ligne
+  // « Acompte déjà encaissé (FA-… du …) » du solde). Optionnels : renseignés
+  // seulement quand la requête a chargé la relation.
   factureAcompteNumero?: string | null;
   factureAcompteDate?: string | null; // ISO
-  versementsDevis?: Array<{
-    datePaiement: string; // ISO
-    montant: number;
-    reference: string | null;
-    modePaiement: string | null;
-  }>;
-  totalRegleDevis?: number | null;
 }
 
 // Libellés français des modes de règlement (PDF)
@@ -177,7 +171,7 @@ export default function FacturePDF(props: FacturePDFProps) {
     montantFacture, pourcentageAcompte, montantAcompteDejaFacture,
     conditionsAnnulation, versements,
     factureAnnuleeNumero, factureAnnuleeDate,
-    factureAcompteNumero, factureAcompteDate, versementsDevis, totalRegleDevis,
+    factureAcompteNumero, factureAcompteDate,
   } = props;
 
   const titre =
@@ -199,8 +193,10 @@ export default function FacturePDF(props: FacturePDFProps) {
   );
 
   // ─── Reste à payer (AFFICHAGE uniquement — le montant facturé reste figé) ────
-  // ACOMPTE : reste = montant facturé − versements de CETTE facture (pièce autonome).
-  // Non inséré sur les AVOIR (pas de versement). Edge case trop-perçu → "Soldé ✓".
+  // ACOMPTE et SOLDE : reste = montant facturé − versements de CETTE facture
+  // (chaque pièce est autonome ; l'acompte encaissé est déjà déduit du montant du
+  // solde à l'émission — plus de double comptage). Non inséré sur les AVOIR.
+  // Trop-perçu (< −0,01) → « Trop-perçu : X € » ; « Soldé ✓ » seulement si |reste| ≤ 0,01.
   const totalVerse = (versements ?? []).reduce((sum, v) => sum + v.montant, 0);
   const resteAPayer = montantFacture - totalVerse;
   const resteBlock =
@@ -216,6 +212,17 @@ export default function FacturePDF(props: FacturePDFProps) {
             <Text style={s.totauxSolde}>{fmtMontant(resteAPayer)} €</Text>
           </View>
         </>
+      ) : resteAPayer < -0.01 ? (
+        <>
+          <View style={s.totauxRow}>
+            <Text style={s.totauxLabel}>Versements reçus</Text>
+            <Text style={s.totauxValue}>{fmtMontant(totalVerse)} €</Text>
+          </View>
+          <View style={s.totauxRow}>
+            <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>Trop-perçu</Text>
+            <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>{fmtMontant(Math.abs(resteAPayer))} €</Text>
+          </View>
+        </>
       ) : (
         <View style={s.totauxRow}>
           <Text style={{ ...s.totauxSolde, color: '#16A34A', fontSize: 10, width: '100%', textAlign: 'right' }}>
@@ -225,16 +232,10 @@ export default function FacturePDF(props: FacturePDFProps) {
       )
     ) : null;
 
-  // ─── SOLDE — Variante A (refacto facture-solde, étape 3) ────────────────────
-  // Le reste dû est GLOBAL : TTC du devis − TOUS les règlements du devis
-  // (informatif, recalculé à chaque régénération ; les montants légaux restent figés).
   // Discriminant solde-avec-acompte : la facture d'acompte liée (fallback sur
   // montantAcompteDejaFacture > 0 pour les snapshots sans relation chargée).
   const isSoldeAvecAcompte =
     typeFacture === 'SOLDE' && (factureAcompteNumero != null || (montantAcompteDejaFacture ?? 0) > 0);
-  const reglesDevis = versementsDevis ?? versements ?? [];
-  const totalRegle = totalRegleDevis ?? reglesDevis.reduce((sum, v) => sum + v.montant, 0);
-  const resteGlobal = montantTTC - totalRegle;
 
   return (
     <Document>
@@ -358,6 +359,7 @@ export default function FacturePDF(props: FacturePDFProps) {
               </View>
             )
           )}
+          {typeFacture === 'SOLDE' && resteBlock}
 
           {typeFacture === 'AVOIR' && (
             <View style={s.totauxRow}>
@@ -369,44 +371,6 @@ export default function FacturePDF(props: FacturePDFProps) {
           )}
         </View>
 
-        {/* SOLDE — Variante A : TOUS les règlements du devis + reste global informatif */}
-        {typeFacture === 'SOLDE' && reglesDevis.length > 0 && (
-          <View style={s.versBlock}>
-            <Text style={s.versTitle}>Règlements reçus</Text>
-            {reglesDevis.map((v, i) => (
-              <View key={i} style={s.versRow}>
-                <Text style={s.versDate}>{fmtDate(v.datePaiement)}</Text>
-                <Text style={s.versMode}>{v.modePaiement ? LABEL_MODE[v.modePaiement] ?? v.modePaiement : '—'}</Text>
-                <Text style={s.versRef}>{v.reference ?? ''}</Text>
-                <Text style={s.versMontant}>{fmtMontant(v.montant)} €</Text>
-              </View>
-            ))}
-            <View style={s.totauxBlock}>
-              <View style={s.totauxRow}>
-                <Text style={s.totauxLabel}>Total réglé</Text>
-                <Text style={s.totauxValue}>{fmtMontant(totalRegle)} €</Text>
-              </View>
-              {resteGlobal > 0.01 ? (
-                <View style={s.totauxRow}>
-                  <Text style={s.totauxSolde}>Reste à payer</Text>
-                  <Text style={s.totauxSolde}>{fmtMontant(resteGlobal)} €</Text>
-                </View>
-              ) : resteGlobal < -0.01 ? (
-                <View style={s.totauxRow}>
-                  <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>Trop-perçu</Text>
-                  <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>{fmtMontant(Math.abs(resteGlobal))} €</Text>
-                </View>
-              ) : (
-                <View style={s.totauxRow}>
-                  <Text style={{ ...s.totauxSolde, color: '#16A34A', fontSize: 10, width: '100%', textAlign: 'right' }}>
-                    Soldé ✓
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
         {/* Coordonnées bancaires — pas sur un avoir (aucun paiement entrant) */}
         {emetteurIban && typeFacture !== 'AVOIR' && (
           <View style={s.ibanBlock}>
@@ -415,9 +379,8 @@ export default function FacturePDF(props: FacturePDFProps) {
           </View>
         )}
 
-        {/* Règlements reçus de CETTE facture (ACOMPTE/AVOIR — le SOLDE a son bloc
-            Variante A ci-dessus, sur TOUS les règlements du devis) */}
-        {typeFacture !== 'DEVIS' && typeFacture !== 'SOLDE' && versements && versements.length > 0 && (
+        {/* Règlements reçus de CETTE facture (présents uniquement après versement / régénération) */}
+        {typeFacture !== 'DEVIS' && versements && versements.length > 0 && (
           <View style={s.versBlock}>
             <Text style={s.versTitle}>Règlements reçus</Text>
             {versements.map((v, i) => (
