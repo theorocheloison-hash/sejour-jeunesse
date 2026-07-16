@@ -18,6 +18,7 @@ import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
+import { STATUTS_SEJOUR_CONFIRMES } from '../sejours/sejour-statuts.constants.js';
 import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { matchesCapacite } from '../demandes/demande.service.js';
@@ -694,7 +695,7 @@ export class CentreService {
       const sejoursActifs = await this.prisma.sejour.count({
         where: {
           hebergementSelectionneId: c.id,
-          statut: { in: ['CONVENTION', 'SOUMIS_RECTORAT', 'SIGNE_DIRECTION', 'DECLARE_TAM'] },
+          statut: { in: STATUTS_SEJOUR_CONFIRMES },
         },
       });
       return { centreId: c.id, devisEnAttente, sejoursActifs };

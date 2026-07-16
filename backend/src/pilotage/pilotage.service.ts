@@ -1,13 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { StatutSejour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
-
-/** Statuts de séjour considérés comme "confirmés" pour le remplissage. */
-const STATUTS_CONFIRMES: StatutSejour[] = ['CONVENTION', 'SOUMIS_RECTORAT', 'SIGNE_DIRECTION', 'DECLARE_TAM'];
-
+import { STATUTS_SEJOUR_CONFIRMES } from '../sejours/sejour-statuts.constants.js';
 
 /** Formate une date en dd/MM/yyyy. */
 function fmtDate(d: Date | string): string {
@@ -122,7 +118,7 @@ export class PilotageService {
     const sejours = await this.prisma.sejour.findMany({
       where: {
         hebergementSelectionneId: centre.id,
-        statut: { in: STATUTS_CONFIRMES },
+        statut: { in: STATUTS_SEJOUR_CONFIRMES },
         deletedAt: null,
         dateDebut: { lte: yearEnd },
         dateFin: { gte: yearStart },
@@ -177,7 +173,7 @@ export class PilotageService {
     const sejoursPrev = await this.prisma.sejour.count({
       where: {
         hebergementSelectionneId: centre.id,
-        statut: { in: STATUTS_CONFIRMES },
+        statut: { in: STATUTS_SEJOUR_CONFIRMES },
         deletedAt: null,
         dateDebut: { lte: prevYearEnd },
         dateFin: { gte: prevYearStart },
@@ -209,7 +205,7 @@ export class PilotageService {
     const sejours = await this.prisma.sejour.findMany({
       where: {
         hebergementSelectionneId: centreId,
-        statut: { in: STATUTS_CONFIRMES },
+        statut: { in: STATUTS_SEJOUR_CONFIRMES },
         deletedAt: null,
         dateDebut: { lte: yearEnd },
         dateFin: { gte: yearStart },
