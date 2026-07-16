@@ -9,6 +9,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getMesSejours, updateSejourStatus } from '@/src/lib/sejour';
 import type { Sejour, StatutSejour } from '@/src/lib/sejour';
 import { estHorsScolaire } from '@/src/lib/sejour';
+import StatutBadge from '@/src/components/StatutBadge';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -21,15 +22,6 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
   DECLARE_TAM:     { label: 'Déclaré TAM',       cls: 'bg-teal-100 text-teal-700' },
 };
-
-function StatutBadge({ statut }: { statut: StatutSejour }) {
-  const { label, cls } = STATUT_CONFIG[statut] ?? STATUT_CONFIG.DRAFT;
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {label}
-    </span>
-  );
-}
 
 // ─── Carte séjour ───────────────────────────────────────────────────────────
 
@@ -62,7 +54,7 @@ function SejourCard({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="text-sm font-semibold text-gray-900 truncate">{sejour.titre}</h3>
-            <StatutBadge statut={sejour.statut} />
+            <StatutBadge statut={sejour.statut} config={STATUT_CONFIG} fallback={STATUT_CONFIG.DRAFT} />
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>{sejour.lieu}</span>

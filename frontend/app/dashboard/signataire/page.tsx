@@ -32,6 +32,7 @@ import type { BudgetData } from '@/src/lib/collaboration';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
+import StatutBadge from '@/src/components/StatutBadge';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -44,15 +45,6 @@ const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
   DECLARE_TAM:     { label: 'Déclaré TAM',     cls: 'bg-teal-100 text-teal-700' },
 };
-
-function StatutBadge({ statut }: { statut: StatutSejour }) {
-  const { label, cls } = STATUT_CONFIG[statut] ?? STATUT_CONFIG.DRAFT;
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {label}
-    </span>
-  );
-}
 
 // ─── Modale Chorus Pro ──────────────────────────────────────────────────────
 
@@ -185,7 +177,7 @@ function SejourCard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h3 className="text-sm font-semibold text-gray-900">{sejour.titre}</h3>
-              <StatutBadge statut={sejour.statut} />
+              <StatutBadge statut={sejour.statut} config={STATUT_CONFIG} fallback={STATUT_CONFIG.DRAFT} />
               {hasDevisASign && (
                 <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
                   Devis à signer

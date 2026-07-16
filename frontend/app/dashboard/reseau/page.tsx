@@ -14,6 +14,7 @@ import {
 } from '@/src/lib/admin';
 import { formatDate } from '@/src/lib/utils';
 import KpiCard from '@/src/components/KpiCard';
+import StatutBadge, { type StatutBadgeEntry } from '@/src/components/StatutBadge';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -31,15 +32,11 @@ function demandePeriode(d: DemandeReseau): string {
   return parts.length ? parts.join(' ') : 'Période à définir';
 }
 
-function DemandeStatutBadge({ statut }: { statut: string }) {
-  const map: Record<string, { cls: string; label: string }> = {
-    OUVERTE: { cls: 'bg-green-100 text-green-700', label: 'Ouverte' },
-    FERMEE: { cls: 'bg-gray-100 text-gray-600', label: 'Fermée' },
-    ANNULEE: { cls: 'bg-red-100 text-red-700', label: 'Annulée' },
-  };
-  const s = map[statut] ?? { cls: 'bg-gray-100 text-gray-600', label: statut };
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}>{s.label}</span>;
-}
+const DEMANDE_STATUT_CONFIG: Record<string, StatutBadgeEntry> = {
+  OUVERTE: { cls: 'bg-green-100 text-green-700', label: 'Ouverte' },
+  FERMEE: { cls: 'bg-gray-100 text-gray-600', label: 'Fermée' },
+  ANNULEE: { cls: 'bg-red-100 text-red-700', label: 'Annulée' },
+};
 
 const PERIODES: { value: string; label: string }[] = [
   { value: '30j', label: '30 derniers jours' },
@@ -89,20 +86,11 @@ function FunnelPipeline({ demandes, kpis, active, onSelect }: {
 
 // ─── Statut badge ────────────────────────────────────────────────────────────
 
-function StatutBadge({ statut }: { statut: string }) {
-  const cls =
-    statut === 'ACTIVE'
-      ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
-      : statut === 'SUSPENDED'
-        ? 'bg-red-100 text-red-700'
-        : 'bg-amber-100 text-amber-700';
-  const label = statut === 'ACTIVE' ? 'Actif' : statut === 'SUSPENDED' ? 'Suspendu' : 'En attente';
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {label}
-    </span>
-  );
-}
+const CENTRE_STATUT_CONFIG: Record<string, StatutBadgeEntry> = {
+  ACTIVE: { label: 'Actif', cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' },
+  SUSPENDED: { label: 'Suspendu', cls: 'bg-red-100 text-red-700' },
+};
+const CENTRE_STATUT_FALLBACK: StatutBadgeEntry = { label: 'En attente', cls: 'bg-amber-100 text-amber-700' };
 
 // ─── Onboarding dots ─────────────────────────────────────────────────────────
 
@@ -338,7 +326,7 @@ function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string;
                 <p className="text-xs font-medium text-gray-500 uppercase">Statut plateforme</p>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Compte</span>
-                  <StatutBadge statut={centre.statut} />
+                  <StatutBadge statut={centre.statut} config={CENTRE_STATUT_CONFIG} fallback={CENTRE_STATUT_FALLBACK} compact />
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Mandat signé</span>
@@ -424,7 +412,7 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
 
           <div className="pt-2">
             <div className="flex items-center gap-2">
-              <DemandeStatutBadge statut={demande.statut} />
+              <StatutBadge statut={demande.statut} config={DEMANDE_STATUT_CONFIG} compact />
               <span className="text-xs text-gray-400">{formatDate(demande.createdAt, 'numeric')}</span>
             </div>
             <h2 className="text-lg font-bold text-gray-900 mt-2">{demande.titre}</h2>
@@ -913,7 +901,7 @@ export default function ReseauDashboardPage() {
                             {c.ville}{c.departement ? ` (${c.departement})` : ''}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500">{c.capacite}</td>
-                          <td className="px-4 py-3"><StatutBadge statut={c.statut} /></td>
+                          <td className="px-4 py-3"><StatutBadge statut={c.statut} config={CENTRE_STATUT_CONFIG} fallback={CENTRE_STATUT_FALLBACK} compact /></td>
                           <td className="px-4 py-3"><OnboardingDots centre={c} /></td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-primary)]">{c.demandesReseau}</td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-accent)] whitespace-nowrap">{formatEuros(c.caViaReseau)}</td>
@@ -968,7 +956,7 @@ export default function ReseauDashboardPage() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-500">{d.placesTotales}</td>
                                 <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{demandePeriode(d)}</td>
-                                <td className="px-4 py-3"><DemandeStatutBadge statut={d.statut} /></td>
+                                <td className="px-4 py-3"><StatutBadge statut={d.statut} config={DEMANDE_STATUT_CONFIG} compact /></td>
                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{d.nombreReponses}</td>
                               </tr>
                             ))}
