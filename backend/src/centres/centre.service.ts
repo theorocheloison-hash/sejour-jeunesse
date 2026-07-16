@@ -541,7 +541,12 @@ export class CentreService {
     });
     const aFacturerSolde = acomptesValides.map(f => ({
       id: f.devis.id, centreId: f.devis.centreId, montantTTC: f.montantTTC,
-      montantVerseTotal: f.montantFacture, // acompte déjà facturé (= versé)
+      // Refacto facture-solde (étape 6) : encaissé RÉEL du devis (Σ versements),
+      // plus le postulat « facturé = versé ». Repli legacy identique au calcul du
+      // solde : acompte validé avant la refonte sans versement saisi → facturé.
+      montantVerseTotal: (f.devis.montantVerseTotal ?? 0) > 0
+        ? f.devis.montantVerseTotal
+        : f.montantFacture,
       statut: f.devis.statut, demande: f.devis.demande,
     }));
 
