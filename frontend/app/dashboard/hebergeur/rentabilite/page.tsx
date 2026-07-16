@@ -16,6 +16,7 @@ import type {
   FacturePrestataire,
   LigneRentabilite,
 } from '@/src/lib/rentabilite';
+import { formatDate } from '@/src/lib/utils';
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
@@ -54,9 +55,6 @@ const fmtTaux = (t: number | null) =>
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
       }) + ' %';
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
 // Couleur du taux de marge selon sa valeur
 function tauxColor(t: number | null): string | undefined {
@@ -441,7 +439,7 @@ export default function HebergeurRentabilitePage() {
                           {ligne.titre}
                         </td>
                         <td className="px-4 py-3 text-gray-500">
-                          {fmtDate(ligne.dateDebut)} – {fmtDate(ligne.dateFin)}
+                          {formatDate(ligne.dateDebut, 'jourMoisCourt')} – {formatDate(ligne.dateFin, 'jourMoisCourt')}
                         </td>
                         <td className="px-4 py-3 text-gray-500">
                           {ligne.natureSejour === 'EVENEMENT'
@@ -548,7 +546,7 @@ export default function HebergeurRentabilitePage() {
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {f.numeroFacture ? `N° ${f.numeroFacture} · ` : ''}
-                          {f.dateFacture ? `${fmtDate(f.dateFacture)} · ` : ''}
+                          {f.dateFacture ? `${formatDate(f.dateFacture, 'jourMoisCourt')} · ` : ''}
                           {f.ventilations.length} ventilation
                           {f.ventilations.length > 1 ? 's' : ''}
                         </p>
@@ -780,7 +778,7 @@ export default function HebergeurRentabilitePage() {
                             items={sejoursDisponibles}
                             valueFn={(s) => s.sejourId}
                             labelFn={(s) => s.titre}
-                            subLabelFn={(s) => `${fmtDate(s.dateDebut)} – ${fmtDate(s.dateFin)}`}
+                            subLabelFn={(s) => `${formatDate(s.dateDebut, 'jourMoisCourt')} – ${formatDate(s.dateFin, 'jourMoisCourt')}`}
                             value={v.sejourId}
                             onChange={(val) => updateVentilation(i, 'sejourId', val)}
                             placeholder="Rechercher un séjour…"

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { inviterOrganisateurDirect } from '@/src/lib/collaboration';
+import { formatDate } from '@/src/lib/utils';
 
 /**
  * Carte d'invitation de l'organisateur (séjour DIRECT) — partagée par les onglets
@@ -28,9 +29,6 @@ export default function InviteOrganisateurCard({
   const [sending, setSending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   const envoyer = async (target: string) => {
     const value = target.trim();
@@ -64,7 +62,7 @@ export default function InviteOrganisateurCard({
         <div className="flex flex-col items-center gap-2">
           <p className="text-xs text-gray-600">
             Invitation envoyée à <strong>{inviteEmail}</strong>
-            {inviteDate ? ` le ${fmtDate(inviteDate)}` : ''}.
+            {inviteDate ? ` le ${formatDate(inviteDate, 'long')}` : ''}.
           </p>
           <div className="flex items-center justify-center gap-2">
             <button

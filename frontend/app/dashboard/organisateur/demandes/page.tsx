@@ -11,17 +11,7 @@ import type { Demande } from '@/src/lib/demande';
 import type { Devis, StatutDevis } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
-
-const afficherDatesDemande = (d: { dateDebut?: string | null, dateFin?: string | null, moisSouhaite?: number | null, anneeSouhaitee?: number | null, noteDateFlexible?: string | null, dureeNuits?: number | null }) => {
-  const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  if (d.dateDebut && d.dateFin) return `${new Date(d.dateDebut).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})} → ${new Date(d.dateFin).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})}`;
-  const parts: string[] = [];
-  if (d.moisSouhaite) parts.push(MOIS[d.moisSouhaite-1]);
-  if (d.anneeSouhaitee) parts.push(String(d.anneeSouhaitee));
-  if (d.noteDateFlexible) parts.push(d.noteDateFlexible);
-  if (d.dureeNuits) parts.push(`~${d.dureeNuits}n`);
-  return parts.length > 0 ? '📅 ' + parts.join(' · ') : 'Dates à définir';
-};
+import { afficherDatesDemande } from '@/src/lib/utils';
 
 const STATUT_DEVIS_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },

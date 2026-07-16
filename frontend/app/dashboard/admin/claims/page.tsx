@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import SecureFileLink from '@/src/components/SecureFileLink';
+import { formatDate } from '@/src/lib/utils';
 
 interface ClaimEnAttente {
   id: string;
@@ -38,15 +39,6 @@ interface CentrePending {
 const ANNUAIRE_BASE = 'https://annuaire-entreprises.data.gouv.fr';
 function annuaireHref(siren: string | null | undefined): string | null {
   return siren ? `${ANNUAIRE_BASE}/entreprise/${siren}` : null;
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 export default function AdminClaimsPage() {
@@ -248,7 +240,7 @@ export default function AdminClaimsPage() {
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         <span className="font-medium text-gray-700">Soumis le :</span>{' '}
-                        {formatDate(claim.claimSubmittedAt)}
+                        {formatDate(claim.claimSubmittedAt, 'court', '—')}
                       </p>
                     </div>
                   </div>
@@ -329,7 +321,7 @@ export default function AdminClaimsPage() {
                               </p>
                             )}
                             <p className="text-xs text-gray-500 mt-0.5">
-                              <span className="font-medium text-gray-700">Soumis le :</span> {formatDate(c.claimSubmittedAt)}
+                              <span className="font-medium text-gray-700">Soumis le :</span> {formatDate(c.claimSubmittedAt, 'court', '—')}
                             </p>
                           </div>
                         </div>

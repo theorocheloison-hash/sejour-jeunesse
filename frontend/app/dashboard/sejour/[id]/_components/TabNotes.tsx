@@ -10,6 +10,7 @@ import {
   type ActiviteSejour,
   type RappelSejour,
 } from '@/src/lib/collaboration';
+import { formatDateRelative } from '@/src/lib/utils';
 
 interface TabNotesProps {
   sejourId: string;
@@ -60,23 +61,6 @@ const RAPPEL_TYPES: { value: string; label: string }[] = [
 ];
 
 // ── Helpers dates ─────────────────────────────────────────────────────────────
-
-function formatDateRelative(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return 'à l\'instant';
-  if (diffMin < 60) return `il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `il y a ${diffH}h`;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.floor((today.getTime() - that.getTime()) / 86400000);
-  if (diffDays === 1) return 'hier';
-  if (diffDays < 7) return `il y a ${diffDays} jours`;
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -330,7 +314,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
                         )}
                       </p>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        {formatDateRelative(a.createdAt)}
+                        {formatDateRelative(a.createdAt, { avecAnnee: true })}
                       </p>
                     </div>
                     {emailMeta && isExpanded && (

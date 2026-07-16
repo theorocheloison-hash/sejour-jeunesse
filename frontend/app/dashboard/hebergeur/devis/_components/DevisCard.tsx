@@ -7,6 +7,7 @@ import type { CategorieAlerte } from '@/src/lib/devisAlertes';
 import { resolveSejourDateFin } from '@/src/lib/devisAlertes';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import { formatDate } from '@/src/lib/utils';
 
 // ─── Format monétaire unifié ─────────────────────────────────────────────────
 
@@ -157,7 +158,6 @@ interface DevisCardProps {
 export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: DevisCardProps) {
   const fa = getFactureAcompte(d);
   const fs = getFactureSolde(d);
-  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
   // Badge dérivé des factures liées (le devis reste SELECTIONNE/SIGNE_DIRECTION).
   const badge = fs
@@ -256,7 +256,7 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
               <span><Highlight text={etablissement} query={searchQuery} /></span>
             )}
             {dateDebut && dateFin && (
-              <span className="font-medium text-gray-600">{fmtDate(dateDebut)} → {fmtDate(dateFin)}</span>
+              <span className="font-medium text-gray-600">{formatDate(dateDebut, 'court')} → {formatDate(dateFin, 'court')}</span>
             )}
             <span>Total : {fmtMoney(total)}</span>
             {d.numeroDevis && (

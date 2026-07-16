@@ -10,6 +10,7 @@ import {
 import type { BudgetData, LigneCompl, RecetteBudget } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
+import { formatDate } from '@/src/lib/utils';
 
 const CATEGORIES_COMPL =['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
 const SOURCES_RECETTES = ['Participation familles', 'Subvention collectivité', 'FSE / MDL', 'Ressources établissement', 'Don association', 'Autre'];
@@ -61,7 +62,6 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
         const solde = totalRecettes - totalDepenses;
 
         const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const fmtDate = (iso: string | null) => !iso ? 'Dates à définir' : new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
         const handleAddLigneCompl = async () => {
           const montant = parseFloat(ligneComplForm.montant);
@@ -102,7 +102,7 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
                   )}
                   {s && (
                     <p className="mt-1 text-sm text-gray-500">
-                      Du {fmtDate(s.dateDebut)} au {fmtDate(s.dateFin)} — {s.placesTotales} élèves
+                      Du {formatDate(s.dateDebut, 'long', 'Dates à définir')} au {formatDate(s.dateFin, 'long', 'Dates à définir')} — {s.placesTotales} élèves
                     </p>
                   )}
                 </div>

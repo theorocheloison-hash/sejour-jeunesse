@@ -8,6 +8,7 @@ import {
   getFacturesPdfPreview,
   type FacturesPdfPreview,
 } from '@/src/lib/pilotage';
+import { formatDate } from '@/src/lib/utils';
 
 function getDefaultDates() {
   const now = new Date();
@@ -19,10 +20,6 @@ function getDefaultDates() {
 }
 
 const inputCls = 'rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
-
-function fmtDateFr(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR');
-}
 
 function DownloadIcon({ size = 20 }: { size?: number }) {
   return (
@@ -204,7 +201,7 @@ export default function PilotageComptabilitePage() {
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             <p className="font-semibold">
               {preview.sansPdf.length} facture{preview.sansPdf.length > 1 ? 's' : ''} sans PDF archivé :{' '}
-              {preview.sansPdf.map(f => `${f.numero} (émise le ${fmtDateFr(f.dateEmission)})`).join(', ')}
+              {preview.sansPdf.map(f => `${f.numero} (émise le ${formatDate(f.dateEmission, 'numeric')})`).join(', ')}
             </p>
             <p className="mt-1">Elles seront listées dans un fichier _PDF_MANQUANTS.txt à l'intérieur de l'archive.</p>
           </div>

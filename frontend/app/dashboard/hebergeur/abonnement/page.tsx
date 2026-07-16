@@ -6,6 +6,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { getAbonnementStatut, souscrireAbonnement, annulerAbonnement, getFacturesLiavo, demanderExtension } from '@/src/lib/abonnement';
 import type { AbonnementStatut, FactureLiavo } from '@/src/lib/abonnement';
 import PricingTable from '@/app/components/PricingTable';
+import { formatDate } from '@/src/lib/utils';
 
 const PLAN_LABELS: Record<string, string> = {
   DECOUVERTE: 'Découverte',
@@ -13,11 +14,6 @@ const PLAN_LABELS: Record<string, string> = {
   COMPLET: 'Complet',
   PILOTAGE: 'Pilotage',
 };
-
-function formatDateFr(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-}
 
 export default function AbonnementPage() {
   const { user, isLoading } = useAuth();
@@ -98,7 +94,7 @@ export default function AbonnementPage() {
   }
 
   async function handleAnnuler() {
-    const dateFin = formatDateFr(abo?.actifJusquAu ?? null);
+    const dateFin = formatDate(abo?.actifJusquAu ?? null, 'long', '');
     if (!window.confirm('Êtes-vous sûr ? Votre abonnement restera actif jusqu\'au ' + dateFin + '.')) {
       return;
     }
@@ -228,7 +224,7 @@ export default function AbonnementPage() {
                   </span>
                   {abo.actifJusquAu && (
                     <span style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>
-                      &middot; Actif jusqu&apos;au <strong>{formatDateFr(abo.actifJusquAu)}</strong>
+                      &middot; Actif jusqu&apos;au <strong>{formatDate(abo.actifJusquAu, 'long', '')}</strong>
                     </span>
                   )}
                 </div>
@@ -399,7 +395,7 @@ export default function AbonnementPage() {
                   {factures.map((f) => (
                     <tr key={f.id} style={{ borderTop: '1px solid #eee' }}>
                       <td style={{ padding: '10px 16px', color: '#374151', fontWeight: 500 }}>{f.numero}</td>
-                      <td style={{ padding: '10px 16px', color: '#4a4a4a' }}>{formatDateFr(f.dateEmission)}</td>
+                      <td style={{ padding: '10px 16px', color: '#4a4a4a' }}>{formatDate(f.dateEmission, 'long', '')}</td>
                       <td style={{ padding: '10px 16px', color: '#4a4a4a' }}>{f.description}</td>
                       <td style={{ padding: '10px 16px', color: '#374151', fontWeight: 500, textAlign: 'right' }}>
                         {(f.montantHT / 100).toFixed(2)} €

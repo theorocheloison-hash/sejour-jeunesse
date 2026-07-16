@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDashboardGlobal } from '@/src/lib/centre';
 import { PLANNING_COULEURS, COULEUR_DEMANDE_ATTENTE, derivePlanningStatut } from '@/src/lib/planning-statut';
-import { formatParticipants } from '@/src/lib/utils';
+import { formatParticipants, formatDate } from '@/src/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -116,7 +116,6 @@ const fmtDateShort = (s: string) => {
   const d = new Date(s);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);
 
 const isUrgent = (dateButoire: string | null): boolean => {
@@ -470,7 +469,7 @@ export default function DashboardGlobalPage() {
                             return (
                               <div
                                 key={s.id}
-                                title={`${s.titre}\n${fmtDate(s.dateDebut)} → ${fmtDate(s.dateFin)}\n${formatParticipants(s.placesTotales, s.nombreAccompagnateurs)}\nStatut : ${couleur.label}`}
+                                title={`${s.titre}\n${formatDate(s.dateDebut, 'court')} → ${formatDate(s.dateFin, 'court')}\n${formatParticipants(s.placesTotales, s.nombreAccompagnateurs)}\nStatut : ${couleur.label}`}
                                 className="absolute rounded-md px-2 py-1 text-xs truncate shadow-sm"
                                 style={{
                                   left: `${pos.leftPct}%`,
@@ -496,7 +495,7 @@ export default function DashboardGlobalPage() {
                             return (
                               <div
                                 key={o.id}
-                                title={`${o.titre}\n${fmtDate(o.dateDebut)} → ${fmtDate(o.dateFin)}\n${o.participants} participants\nDemande en attente`}
+                                title={`${o.titre}\n${formatDate(o.dateDebut, 'court')} → ${formatDate(o.dateFin, 'court')}\n${o.participants} participants\nDemande en attente`}
                                 className="absolute rounded-md px-2 py-1 text-xs truncate"
                                 style={{
                                   left: `${pos.leftPct}%`,
@@ -617,7 +616,7 @@ export default function DashboardGlobalPage() {
                       <Td>{d.titre}</Td>
                       <Td><Pill color="#7C3AED">Demande</Pill></Td>
                       <Td>
-                        {d.dateButoireReponse ? fmtDate(d.dateButoireReponse) : '—'}
+                        {d.dateButoireReponse ? formatDate(d.dateButoireReponse, 'court') : '—'}
                         {isUrgent(d.dateButoireReponse) && (
                           <Pill color="var(--color-danger)" ml>Urgent</Pill>
                         )}
@@ -632,7 +631,7 @@ export default function DashboardGlobalPage() {
                       <Td>{d.demande?.titre ?? '—'}</Td>
                       <Td><Pill color="var(--color-primary)">Devis envoyé</Pill></Td>
                       <Td>
-                        {d.demande?.dateButoireReponse ? fmtDate(d.demande.dateButoireReponse) : '—'}
+                        {d.demande?.dateButoireReponse ? formatDate(d.demande.dateButoireReponse, 'court') : '—'}
                         {isUrgent(d.demande?.dateButoireReponse ?? null) && (
                           <Pill color="var(--color-danger)" ml>Urgent</Pill>
                         )}
@@ -725,7 +724,7 @@ export default function DashboardGlobalPage() {
                         <Td>{f.numeroFacture ?? '—'}</Td>
                         <Td>{f.demande?.titre ?? '—'}</Td>
                         <Td align="right">{fmtEUR((f.montantTTC ?? 0) - f.montantVerseTotal)}</Td>
-                        <Td>{f.dateFacture ? fmtDate(f.dateFacture) : '—'}</Td>
+                        <Td>{f.dateFacture ? formatDate(f.dateFacture, 'court') : '—'}</Td>
                         <Td><span style={{ color: ancienColor, fontWeight: jours > 15 ? 500 : 400 }}>{f.dateFacture ? `${jours} j` : '—'}</span></Td>
                       </tr>
                     );

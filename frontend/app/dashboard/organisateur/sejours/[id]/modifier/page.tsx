@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getMesSejours, updateSejour } from '@/src/lib/sejour';
 import type { Sejour } from '@/src/lib/sejour';
 import { extractApiError } from '@/src/contexts/AuthContext';
+import { formatDate } from '@/src/lib/utils';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -78,8 +79,6 @@ export default function ModifierSejourPage() {
     }
   };
 
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
@@ -124,7 +123,7 @@ export default function ModifierSejourPage() {
           <p className="text-xs font-semibold text-blue-700 mb-1">Informations fixes — non modifiables</p>
           <p className="text-sm text-blue-800 font-medium">{sejour.titre}</p>
           <p className="text-xs text-blue-600 mt-0.5">
-            {fmt(sejour.dateDebut)} → {fmt(sejour.dateFin)} · {sejour.placesTotales} élèves
+            {formatDate(sejour.dateDebut, 'long')} → {formatDate(sejour.dateFin, 'long')} · {sejour.placesTotales} élèves
           </p>
         </div>
 

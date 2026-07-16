@@ -6,23 +6,7 @@ import type { PostJournal } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import SecureImage from '@/src/components/SecureImage';
 import InviteOrganisateurCard from './InviteOrganisateurCard';
-
-function formatDateRelative(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return 'à l\'instant';
-  if (diffMin < 60) return `il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `il y a ${diffH}h`;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.floor((today.getTime() - that.getTime()) / 86400000);
-  if (diffDays === 1) return 'hier';
-  if (diffDays < 7) return `il y a ${diffDays} jours`;
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
+import { formatDateRelative } from '@/src/lib/utils';
 
 function PhotoGrid({ photos }: { photos: { id: string; url: string }[] }) {
   if (photos.length === 0) return null;

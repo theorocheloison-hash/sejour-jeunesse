@@ -5,6 +5,7 @@ import { getDossierPedagogique } from '@/src/lib/sejour';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePDFButton';
 import PreparationTamPDFButton from '@/src/components/pdf/PreparationTamPDFButton';
+import { formatDate } from '@/src/lib/utils';
 
 export interface TabProjetPedagogiqueProps {
   sejourId: string;
@@ -46,7 +47,6 @@ export default function TabProjetPedagogique({ sejourId }: TabProjetPedagogiqueP
 
       {!dossierLoading && dossier && (() => {
         const d = dossier;
-        const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
         const signedAuto = d.autorisations.filter((a) => a.signeeAt).length;
         const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 
@@ -104,7 +104,7 @@ export default function TabProjetPedagogique({ sejourId }: TabProjetPedagogiqueP
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Dates</span>
-                  <p className="font-medium text-gray-900">Du {fmtDate(d.dateDebut)} au {fmtDate(d.dateFin)}</p>
+                  <p className="font-medium text-gray-900">Du {formatDate(d.dateDebut, 'long')} au {formatDate(d.dateFin, 'long')}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">Destination</span>

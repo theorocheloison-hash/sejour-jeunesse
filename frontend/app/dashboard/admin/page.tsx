@@ -32,6 +32,7 @@ import {
   type FactureLiavo,
   type MetriquesAbonnements,
 } from '@/src/lib/admin';
+import { formatDate } from '@/src/lib/utils';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -74,10 +75,6 @@ const STATUT_SEJOUR_LABELS: Record<string, string> = {
 
 function normalize(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('fr-FR');
 }
 
 // ─── KPI Card ────────────────────────────────────────────────────────────────
@@ -178,7 +175,7 @@ function ActiviteTab() {
                         <td className="px-4 py-3 text-sm whitespace-nowrap">
                           {c.expiration ? (
                             <span className={c.joursRestants !== null && c.joursRestants <= 14 ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                              {formatDate(c.expiration)}
+                              {formatDate(c.expiration, 'numeric')}
                               {c.joursRestants !== null && <span className="ml-1 text-xs">({c.joursRestants}j)</span>}
                             </span>
                           ) : '—'}
@@ -186,7 +183,7 @@ function ActiviteTab() {
                         <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                           {c.derniereActivite ? (
                             <>
-                              {formatDate(c.derniereActivite)}
+                              {formatDate(c.derniereActivite, 'numeric')}
                               {c.joursDepuisActivite !== null && (
                                 <span className="ml-1 text-xs text-gray-400">
                                   (il y a {c.joursDepuisActivite}j)
@@ -229,7 +226,7 @@ function ActiviteTab() {
                   detail = `${d.titre}${d.centre ? ` → ${d.centre}` : ''}${d.places ? ` · ${d.places} places` : ''}${d.clientNom ? ` · Client: ${d.clientNom}` : ''}${d.clientEmail ? ` (${d.clientEmail})` : ''}${d.clientOrganisation ? ` — ${d.clientOrganisation}` : ''}`;
                   break;
                 case 'NOUVELLE_DEMANDE':
-                  detail = `${d.titre} — ${d.nbEleves} élèves${d.ville ? ` · ${d.ville}` : ''}${d.centre ? ` → ${d.centre}` : ' (appel ouvert)'}${d.dateDebut ? ` · ${formatDate(d.dateDebut)}` : ''}${d.dateFin ? `–${formatDate(d.dateFin)}` : ''} · ${d.nbDevisRecus} devis reçu${d.nbDevisRecus > 1 ? 's' : ''} · ${d.enseignant} (${d.enseignantEmail})`;
+                  detail = `${d.titre} — ${d.nbEleves} élèves${d.ville ? ` · ${d.ville}` : ''}${d.centre ? ` → ${d.centre}` : ' (appel ouvert)'}${d.dateDebut ? ` · ${formatDate(d.dateDebut, 'numeric')}` : ''}${d.dateFin ? `–${formatDate(d.dateFin, 'numeric')}` : ''} · ${d.nbDevisRecus} devis reçu${d.nbDevisRecus > 1 ? 's' : ''} · ${d.enseignant} (${d.enseignantEmail})`;
                   break;
                 case 'NOUVEAU_DEVIS':
                   detail = `${d.numero ?? 'Sans numéro'} — ${d.montant?.toFixed(2) ?? '?'} € · ${d.statut}${d.centre ? ` · ${d.centre}` : ''}${d.sejour ? ` · ${d.sejour}` : ''}`;
@@ -414,7 +411,7 @@ function HebergeursTab() {
                     </div>
                     <p className="text-sm text-gray-500">{h.email}</p>
                     {h.telephone && <p className="text-xs text-gray-400">{h.telephone}</p>}
-                    <p className="text-xs text-gray-400 mt-1">Inscrit le {formatDate(h.createdAt)}</p>
+                    <p className="text-xs text-gray-400 mt-1">Inscrit le {formatDate(h.createdAt, 'numeric')}</p>
 
                     {centre && (
                       <div className="mt-3 rounded-lg bg-gray-50 border border-gray-100 p-3">
@@ -598,7 +595,7 @@ function UtilisateursTab() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(u.createdAt, 'numeric')}</td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleToggleValide(u)}
@@ -726,7 +723,7 @@ function CentresTab() {
                       {!c.user.compteValide && <span className="text-amber-600 font-medium ml-1">— compte non validé</span>}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400">Créé le {formatDate(c.createdAt)}</p>
+                  <p className="text-xs text-gray-400">Créé le {formatDate(c.createdAt, 'numeric')}</p>
                 </div>
                 <div className="shrink-0">
                   <label className="text-xs text-gray-500 block mb-1">Réseau</label>
@@ -1132,7 +1129,7 @@ function FacturesLiavoTab() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{f.typeAbonnement === 'ANNUEL' ? 'Annuel' : 'Mensuel'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{(f.montantHT / 100).toFixed(2)} €</td>
-                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(f.dateEmission)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(f.dateEmission, 'numeric')}</td>
                         <td className="px-4 py-3 text-sm whitespace-nowrap">
                           {f.pdfUrl ? (
                             <SecureFileLink url={f.pdfUrl} className="text-[var(--color-primary)] hover:underline">Télécharger</SecureFileLink>
@@ -1260,10 +1257,10 @@ function AbonnementsTab() {
                         </span>
                       </td>
                       <td className={`px-4 py-3 text-sm whitespace-nowrap ${expiré ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                        {a.abonnementActifJusquAu ? formatDate(a.abonnementActifJusquAu) : '—'}
+                        {a.abonnementActifJusquAu ? formatDate(a.abonnementActifJusquAu, 'numeric') : '—'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                        {a.trialStartedAt ? `Oui · ${formatDate(a.trialStartedAt)}` : 'Non'}
+                        {a.trialStartedAt ? `Oui · ${formatDate(a.trialStartedAt, 'numeric')}` : 'Non'}
                       </td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap">
                         {a.mollieMandatId ? '✅' : '❌'}

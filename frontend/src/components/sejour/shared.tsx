@@ -1,4 +1,5 @@
 import type { TypeZone } from '@/src/lib/sejour';
+import { formatDate } from '@/src/lib/utils';
 
 export interface SejourFormData {
   titre: string;
@@ -90,17 +91,10 @@ export function Field({ label, children }: { label: string; children: React.Reac
   );
 }
 
-export function formatDate(iso: string) {
-  if (!iso) return '\u2014';
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  });
-}
-
 export function buildPeriodeLabel(form: Pick<SejourFormData, 'datesFlexibles' | 'dateDebut' | 'dateFin' | 'moisSouhaite' | 'anneeSouhaitee' | 'noteDateFlexible' | 'dureeNuits'>): string {
   const MOIS = ['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
   if (!form.datesFlexibles && form.dateDebut && form.dateFin) {
-    return `${formatDate(form.dateDebut)} \u2192 ${formatDate(form.dateFin)}`;
+    return `${formatDate(form.dateDebut, 'long', '\u2014')} \u2192 ${formatDate(form.dateFin, 'long', '\u2014')}`;
   }
   const parts: string[] = [];
   if (form.moisSouhaite) parts.push(MOIS[parseInt(form.moisSouhaite) - 1]);

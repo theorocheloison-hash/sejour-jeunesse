@@ -33,6 +33,7 @@ import {
   uploadDocumentMedical,
   type AutorisationPublique,
 } from '@/src/lib/autorisation';
+import { formatDate } from '@/src/lib/utils';
 
 const THEMATIQUE_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -212,13 +213,6 @@ export default function SignerAutorisationPage() {
   const { sejour, hebergement } = autorisation;
   const thematiques = sejour.thematiquesPedagogiques ?? [];
 
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-
   const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance && (!infosMedicales.trim() || consentementMedical);
 
   return (
@@ -241,7 +235,7 @@ export default function SignerAutorisationPage() {
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-blue-100">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4" />
-                Du {fmt(sejour.dateDebut)} au {fmt(sejour.dateFin)}
+                Du {formatDate(sejour.dateDebut, 'long')} au {formatDate(sejour.dateFin, 'long')}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
@@ -363,7 +357,7 @@ export default function SignerAutorisationPage() {
               </div>
               <h2 className="text-xl font-bold text-[var(--color-success)]">
                 {autorisation.signeeAt
-                  ? `Autorisation signée le ${fmt(autorisation.signeeAt)}`
+                  ? `Autorisation signée le ${formatDate(autorisation.signeeAt, 'long')}`
                   : 'Autorisation signée avec succès !'}
               </h2>
               <p className="mt-2 text-sm text-[var(--color-success)]">

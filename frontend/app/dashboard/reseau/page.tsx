@@ -12,19 +12,16 @@ import {
   type ReseauCentre,
   type DemandeReseau,
 } from '@/src/lib/admin';
+import { formatDate } from '@/src/lib/utils';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('fr-FR');
-}
 
 function formatEuros(n: number): string {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 }
 
 function demandePeriode(d: DemandeReseau): string {
-  if (d.dateDebut && d.dateFin) return `${formatDate(d.dateDebut)} → ${formatDate(d.dateFin)}`;
+  if (d.dateDebut && d.dateFin) return `${formatDate(d.dateDebut, 'numeric')} → ${formatDate(d.dateFin, 'numeric')}`;
   const MOIS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
   const parts: string[] = [];
   if (d.moisSouhaite) parts.push(MOIS[d.moisSouhaite - 1]);
@@ -366,7 +363,7 @@ function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string;
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Mandat signé</span>
                   <span className={`font-medium ${centre.mandatFacturationAccepte ? 'text-green-600' : 'text-amber-600'}`}>
-                    {centre.mandatFacturationAccepte ? `Oui (${formatDate(centre.mandatFacturationAccepteAt)})` : 'Non'}
+                    {centre.mandatFacturationAccepte ? `Oui (${formatDate(centre.mandatFacturationAccepteAt, 'numeric')})` : 'Non'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -384,7 +381,7 @@ function CentreSlideOver({ centreId, reseauLabel, onClose }: { centreId: string;
                   <div className="space-y-1.5">
                     {centre.devis.slice(0, 5).map((d: any, i: number) => (
                       <div key={i} className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2">
-                        <span className="text-gray-500">{formatDate(d.createdAt)}</span>
+                        <span className="text-gray-500">{formatDate(d.createdAt, 'numeric')}</span>
                         <div className="flex items-center gap-1.5">
                           {d.demande?.sourceReseau && (
                             <span className="inline-flex items-center rounded-full bg-[var(--color-primary)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-primary)]">via {reseauLabel}</span>
@@ -448,7 +445,7 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
           <div className="pt-2">
             <div className="flex items-center gap-2">
               <DemandeStatutBadge statut={demande.statut} />
-              <span className="text-xs text-gray-400">{formatDate(demande.createdAt)}</span>
+              <span className="text-xs text-gray-400">{formatDate(demande.createdAt, 'numeric')}</span>
             </div>
             <h2 className="text-lg font-bold text-gray-900 mt-2">{demande.titre}</h2>
           </div>
@@ -554,7 +551,7 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
 
           {demande.dateButoireReponse && (
             <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
-              <p className="text-xs font-medium text-orange-700">Date limite de réponse : {formatDate(demande.dateButoireReponse)}</p>
+              <p className="text-xs font-medium text-orange-700">Date limite de réponse : {formatDate(demande.dateButoireReponse, 'numeric')}</p>
             </div>
           )}
 
@@ -569,7 +566,7 @@ function DemandeSlideOver({ demande, reseauLabel, onClose }: { demande: DemandeR
                   <div key={i} className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2">
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate">{r.centreNom}</p>
-                      <p className="text-xs text-gray-400">{r.centreVille} · {formatDate(r.dateReponse)}</p>
+                      <p className="text-xs text-gray-400">{r.centreVille} · {formatDate(r.dateReponse, 'numeric')}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs font-medium text-gray-600">{DEVIS_STATUT_LABELS[r.statut] ?? r.statut}</p>
@@ -940,7 +937,7 @@ export default function ReseauDashboardPage() {
                           <td className="px-4 py-3"><OnboardingDots centre={c} /></td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-primary)]">{c.demandesReseau}</td>
                           <td className="px-4 py-3 text-sm font-medium text-[var(--color-accent)] whitespace-nowrap">{formatEuros(c.caViaReseau)}</td>
-                          <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(c.derniereActivite)}</td>
+                          <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(c.derniereActivite, 'numeric')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -978,7 +975,7 @@ export default function ReseauDashboardPage() {
                           <tbody className="divide-y divide-gray-100">
                             {demandesFiltrees.map(d => (
                               <tr key={d.id} className="hover:bg-gray-50 transition cursor-pointer" onClick={() => setSelectedDemande(d)}>
-                                <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(d.createdAt)}</td>
+                                <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(d.createdAt, 'numeric')}</td>
                                 <td className="px-4 py-3 text-sm whitespace-nowrap">
                                   <span className="font-medium text-gray-900">{d.enseignant.prenom} {d.enseignant.nom}</span>
                                   {d.organisation && <span className="block text-xs text-gray-400">{d.organisation.nom}</span>}

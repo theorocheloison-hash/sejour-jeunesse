@@ -7,6 +7,7 @@ import { Logo } from '@/app/components/Logo';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getInvitation, accepterInvitation } from '@/src/lib/invitation-collaboration';
 import type { InvitationCollaboration } from '@/src/lib/invitation-collaboration';
+import { formatDate } from '@/src/lib/utils';
 
 type Status = 'loading' | 'ready' | 'not_found' | 'already_accepted' | 'accepting' | 'accepted' | 'error';
 
@@ -48,9 +49,6 @@ export default function RejoindreInvitationPage() {
   useEffect(() => {
     loadInvitation();
   }, [loadInvitation]);
-
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   if (status === 'loading') {
     return (
@@ -170,7 +168,7 @@ export default function RejoindreInvitationPage() {
             <div>
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Dates</span>
               <p style={{ fontSize: 14, color: 'var(--color-text)', margin: '2px 0 0' }}>
-                Du {fmt(invitation!.dateDebut)} au {fmt(invitation!.dateFin)}
+                Du {formatDate(invitation!.dateDebut, 'long')} au {formatDate(invitation!.dateFin, 'long')}
               </p>
             </div>
             <div>

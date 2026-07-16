@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { updateInfosSejour, deleteSejourDirect } from '@/src/lib/collaboration';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
-import { formatParticipants } from '@/src/lib/utils';
+import { formatParticipants, formatDate } from '@/src/lib/utils';
 
 // ─── Statut sejour (barre contexte) ────────────────────────────────────────
 
@@ -96,8 +96,6 @@ export default function SejourHeader({
     sejour.clientAdresse, sejour.clientCodePostal, sejour.clientVille,
     sejour.placesTotales, sejour.nombreAccompagnateurs,
   ]);
-
-  const fmtCtx = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
   // ── Save infos séjour (titre + dates) ──
   const handleSaveInfos = async () => {
@@ -201,7 +199,7 @@ export default function SejourHeader({
           <p className="text-xs text-gray-400 truncate">
             {sejour?.hebergementSelectionne?.nom ?? '—'}
             {sejour?.dateDebut && sejour?.dateFin && (
-              <> · {fmtCtx(sejour.dateDebut)} → {fmtCtx(sejour.dateFin)}</>
+              <> · {formatDate(sejour.dateDebut, 'jourMoisCourt')} → {formatDate(sejour.dateFin, 'jourMoisCourt')}</>
             )}
             {sejour?.placesTotales != null && <> · {formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</>}
           </p>

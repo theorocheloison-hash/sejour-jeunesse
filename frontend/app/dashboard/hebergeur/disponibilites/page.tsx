@@ -6,13 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getDisponibilites, createDisponibilite, deleteDisponibilite } from '@/src/lib/centre';
 import type { Disponibilite } from '@/src/lib/centre';
+import { formatDate } from '@/src/lib/utils';
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-}
 
 export default function DisponibilitesPage() {
   const router = useRouter();
@@ -114,7 +111,7 @@ export default function DisponibilitesPage() {
               <div key={d.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {fmtDate(d.dateDebut)} → {fmtDate(d.dateFin)}
+                    {formatDate(d.dateDebut, 'long')} → {formatDate(d.dateFin, 'long')}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {d.capaciteDisponible} places{d.commentaire ? ` — ${d.commentaire}` : ''}

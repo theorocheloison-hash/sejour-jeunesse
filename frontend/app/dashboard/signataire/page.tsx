@@ -31,6 +31,7 @@ import { getBudgetData } from '@/src/lib/collaboration';
 import type { BudgetData } from '@/src/lib/collaboration';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import { formatDate } from '@/src/lib/utils';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -119,8 +120,6 @@ function SejourCard({
   isActing: boolean;
   emailRectoratConfigured: boolean;
 }) {
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR',
-    { day: '2-digit', month: 'short', year: 'numeric' });
   const fmt = (n: number) => n.toLocaleString('fr-FR',
     { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -198,7 +197,7 @@ function SejourCard({
               {sejour.createur?.memberships?.[0]?.organisation?.nom && (
                 <span>{sejour.createur.memberships[0].organisation.nom}</span>
               )}
-              <span>{fmtDate(sejour.dateDebut)} → {fmtDate(sejour.dateFin)}</span>
+              <span>{formatDate(sejour.dateDebut, 'court')} → {formatDate(sejour.dateFin, 'court')}</span>
               <span>{sejour.placesTotales} {estHorsScolaire(sejour) ? 'participant' : 'élève'}{sejour.placesTotales > 1 ? 's' : ''}</span>
               {sejour.hebergementSelectionne && <span>Hébergeur : {sejour.hebergementSelectionne.nom}</span>}
             </div>

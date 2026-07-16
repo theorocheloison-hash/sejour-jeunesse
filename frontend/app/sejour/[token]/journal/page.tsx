@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Logo } from '@/app/components/Logo';
 import { getJournalPublic, type JournalPublicData } from '@/src/lib/journal-public';
 import type { PhotoJournal, PostJournal } from '@/src/lib/collaboration';
+import { formatDateRelative } from '@/src/lib/utils';
 
 type Tab = 'journal' | 'planning';
 
@@ -19,23 +20,6 @@ const initialReactions = (): Reactions => ({
   thumb: { active: false, count: 0 },
   star: { active: false, count: 0 },
 });
-
-function formatDateRelative(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "à l'instant";
-  if (diffMin < 60) return `il y a ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `il y a ${diffH}h`;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.floor((today.getTime() - that.getTime()) / 86400000);
-  if (diffDays === 1) return 'hier';
-  if (diffDays < 7) return `il y a ${diffDays} jours`;
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
 
 function formatDateRange(debut: string, fin: string): string {
   const d1 = new Date(debut);

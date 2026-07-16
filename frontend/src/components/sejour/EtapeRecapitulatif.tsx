@@ -1,6 +1,7 @@
 'use client';
 
-import { Section, Row, formatDate, zoneLabel, buildPeriodeLabel, TYPE_ACCUEIL_ACM_OPTIONS } from './shared';
+import { Section, Row, zoneLabel, buildPeriodeLabel, TYPE_ACCUEIL_ACM_OPTIONS } from './shared';
+import { formatDate } from '@/src/lib/utils';
 import type { SejourFormData } from './shared';
 
 interface Props {
@@ -51,7 +52,7 @@ export default function EtapeRecapitulatif({ form, estHorsScolaireUser = false }
               ? `Département(s) ${form.departementsCibles.join(', ')}`
               : zoneLabel(form.typeZone, form.zoneGeographique)
           } />
-          <Row label="Date butoire" value={formatDate(form.dateButoireDevis)} />
+          <Row label="Date butoire" value={formatDate(form.dateButoireDevis, 'long', '—')} />
         </Section>
         {form.informationsComplementaires && (
           <Section title="Informations compl&eacute;mentaires">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
+import { formatDate } from '@/src/lib/utils';
 
 interface Invitation {
   id: string;
@@ -32,11 +33,6 @@ interface CentreResult {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function formatDate(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 export default function AdminInvitationsPage() {
   const { user, isLoading } = useAuth();
@@ -294,7 +290,7 @@ export default function AdminInvitationsPage() {
                             <td className="px-4 py-3">{centreLabel}</td>
                             <td className="px-4 py-3 text-xs text-gray-500">{typeLabel(inv)}</td>
                             <td className="px-4 py-3">{statutBadge(inv)}</td>
-                            <td className="px-4 py-3 text-xs text-gray-500">{formatDate(inv.createdAt)}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500">{formatDate(inv.createdAt, 'court', '—')}</td>
                             <td className="px-4 py-3 text-right">
                               <button
                                 type="button"

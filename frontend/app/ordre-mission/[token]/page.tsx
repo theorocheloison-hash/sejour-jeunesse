@@ -15,6 +15,7 @@ import {
   lierCompteAccompagnateur,
   type AccompagnateurPublique,
 } from '@/src/lib/accompagnateur';
+import { formatDate } from '@/src/lib/utils';
 
 const RGPD_TEXT = `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire sont traitées par l'établissement scolaire responsable du séjour. Elles sont utilisées dans le strict cadre de l'organisation du séjour scolaire. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Vous pouvez accéder, rectifier ou supprimer vos données en contactant l'établissement scolaire.`;
 
@@ -66,13 +67,6 @@ export default function SignerOrdreMissionPage() {
       setSigning(false);
     }
   };
-
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
 
   if (loading) {
     return (
@@ -178,7 +172,7 @@ export default function SignerOrdreMissionPage() {
               <div className="text-right text-[11px] leading-relaxed">
                 <p className="text-[14px] font-bold text-[var(--color-primary)] mb-1">{numOM}</p>
                 <p className="text-gray-600">
-                  Date d&apos;émission : {fmt(data.createdAt)}
+                  Date d&apos;émission : {formatDate(data.createdAt, 'long')}
                 </p>
               </div>
             </div>
@@ -269,11 +263,11 @@ export default function SignerOrdreMissionPage() {
                   )}
                   <tr>
                     <td className="py-1 pr-4 text-gray-500">Date de départ</td>
-                    <td className="py-1 font-semibold text-gray-900">{fmt(sejour.dateDebut)}</td>
+                    <td className="py-1 font-semibold text-gray-900">{formatDate(sejour.dateDebut, 'long')}</td>
                   </tr>
                   <tr>
                     <td className="py-1 pr-4 text-gray-500">Date de retour</td>
-                    <td className="py-1 font-semibold text-gray-900">{fmt(sejour.dateFin)}</td>
+                    <td className="py-1 font-semibold text-gray-900">{formatDate(sejour.dateFin, 'long')}</td>
                   </tr>
                   <tr>
                     <td className="py-1 pr-4 text-gray-500">Durée</td>
@@ -360,7 +354,7 @@ export default function SignerOrdreMissionPage() {
                       {data.signatureNom ?? `${data.prenom} ${data.nom}`}
                     </p>
                     <p className="text-[12px] text-gray-600 mt-1">
-                      Date : {data.signeeAt ? fmt(data.signeeAt) : '—'}
+                      Date : {data.signeeAt ? formatDate(data.signeeAt, 'long') : '—'}
                     </p>
                   </div>
                   <div>
@@ -397,7 +391,7 @@ export default function SignerOrdreMissionPage() {
             </div>
             <h2 className="text-xl font-bold text-[var(--color-success)]">
               {data.signeeAt
-                ? `Ordre de mission signé le ${fmt(data.signeeAt)}`
+                ? `Ordre de mission signé le ${formatDate(data.signeeAt, 'long')}`
                 : 'Ordre de mission signé avec succès !'}
             </h2>
             <p className="mt-2 text-sm text-[var(--color-success)]">
