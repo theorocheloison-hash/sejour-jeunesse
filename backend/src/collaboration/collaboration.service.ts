@@ -9,7 +9,7 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
-import { STATUTS_SEJOUR_COLLABORATIFS } from '../sejours/sejour-statuts.constants.js';
+import { STATUTS_SEJOUR_COLLABORATIFS, STATUTS_SEJOUR_DIRECT } from '../sejours/sejour-statuts.constants.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -90,9 +90,8 @@ export class CollaborationService {
     const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
 
     // Statuts autorisés selon le mode de gestion
-    const STATUTS_DIRECT = ['OPTION', ...STATUTS_SEJOUR_COLLABORATIFS];
     const statutsAutorises = (sejour.modeGestion === 'DIRECT' && isHebergeur)
-      ? STATUTS_DIRECT
+      ? STATUTS_SEJOUR_DIRECT
       : STATUTS_SEJOUR_COLLABORATIFS;
 
     if (!statutsAutorises.includes(sejour.statut)) {
@@ -503,7 +502,7 @@ export class CollaborationService {
 
     return this.prisma.sejour.findMany({
       where: {
-        statut: { in: ['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_SEJOUR_DIRECT },
         hebergementSelectionneId: { in: centreIds },
         deletedAt: null,
       },
