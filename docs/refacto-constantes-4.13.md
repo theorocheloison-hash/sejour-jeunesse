@@ -124,6 +124,59 @@ Paires communes **toutes identiques** (zéro divergence de valeur). Mais les com
 
 Gate avant CHAQUE commit : `npx tsc --noEmit` 0 erreur · `npm run build` succès · `npm test` 100% verts (136 tests).
 
-## 5. Rapport final
+## 5. Rapport final (Phase 4 — 16/07/2026)
 
-_(complété en Phase 4)_
+### 5.1 Sites dédupliqués par famille
+
+| Famille | Sites remplacés | Delta commit (ins/del) |
+|---|---|---|
+| DEPT_TO_REGION | 1 / 4 copies (demande.service — les 3 autres = exceptions motivées §1.3) | 2 fichiers, +47 / −38 |
+| Durée trial | 2 / 2 (trialExpiration + activerTrial) → `TRIAL_DUREE_JOURS` | 2 fichiers, +6 / −2 |
+| Sets statuts devis | **16 littéraux → 3 constantes** (RETENUS ×9, ENGAGEANTS ×5, EN_COURS ×2) | 9 fichiers, +65 / −48 |
+
+### 5.2 Preuve de composition (Sets — aucune n'a changé)
+
+| Constante | Composition (identique aux 16 littéraux remplacés) | Usages après dédup |
+|---|---|---|
+| `STATUTS_DEVIS_RETENUS` | `SELECTIONNE, SIGNE_DIRECTION, FACTURE_ACOMPTE, FACTURE_SOLDE` | admin:425, admin:669, centre:614, centre:628, clients:149, collaboration:383, devis:1826, pilotage:245, pilotage:325, rentabilite:406 |
+| `STATUTS_DEVIS_ENGAGEANTS` | `SELECTIONNE, SIGNE_DIRECTION` | centre:505, collaboration:653, collaboration:846, devis:2543, sejour:1258 |
+| `STATUTS_DEVIS_EN_COURS` | `EN_ATTENTE, EN_ATTENTE_VALIDATION, SELECTIONNE` | devis:73, devis:1342 |
+
+Note : pilotage (ex-`STATUTS_CA`) et rentabilite (ex-`STATUTS_MARGE`) référencent
+directement la constante canonique — leurs alias locaux ont été supprimés
+(1 littéral chacun, composition identique vérifiée).
+
+DEPT_TO_REGION : identité vérifiée par diff programmatique (paires communes
+100 % identiques ; seules public/sejour ont des compositions plus petites → non
+fusionnées, voir §1.2-1.3).
+
+### 5.3 Exceptions non fusionnées (récapitulatif)
+
+- **DEPT_TO_REGION** : public.service (−Corse −DOM), sejour.service (−DOM), hebergement.service (table noms→région) — §1.3.
+- **Statuts devis** : modifiables/annulables (même composition, 2 intentions, 1 occurrence chacune), STATUTS_PERTINENTS (7), PRIORITE_STATUT (ranking ordonné), compositions uniques 5/6 statuts, chaînes booléennes `===`, Sets de StatutSejour (hors famille — la paire `STATUTS_CONFIRMES` ×2 est notée candidate §4.13-bis) — §2.2.
+- **Trial** : faux positifs (refresh token, magic link, fenêtres analytiques, seuil 40) — §3.2.
+
+### 5.4 Gates par famille (avant chaque commit)
+
+| Famille | `npx tsc --noEmit` | `npm run build` | `npm test` |
+|---|---|---|---|
+| (baseline avant modif) | — | — | ✅ 187 passés + 3 todo (la suite a grandi depuis les « 136 » de la roadmap) |
+| DEPT_TO_REGION | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+| Durée trial | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+| Sets statuts devis | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+
+Aucun fichier `*.spec.ts` touché (aucun import de test cassé par les déplacements).
+
+### 5.5 Commits créés (locaux, NON poussés — revue Théo avant push)
+
+1. `34df168` — docs(4.13): recensement constantes avant dédup
+2. `9050464` — refactor(4.13): centralise DEPT_TO_REGION (src/utils/departements.ts)
+3. `aa2fdd6` — refactor(4.13): centralise durée trial (TRIAL_DUREE_JOURS = 30)
+4. `d587e33` — refactor(4.13): centralise Sets statuts devis (16 littéraux → 3 constantes)
+
+(+ le présent commit de clôture du rapport.)
+
+### 5.6 Suites possibles (décisions métier, PAS faites dans ce run)
+
+- Converger public.service / sejour.service vers la table DEPT_TO_REGION complète (fixerait le matching REGION Corse/DOM — changement de comportement à assumer).
+- §4.13-bis : dédupliquer les Sets de **StatutSejour** (`STATUTS_CONFIRMES` ×2 pilotage/centre, `STATUTS_COLLABORATIFS` collaboration).
