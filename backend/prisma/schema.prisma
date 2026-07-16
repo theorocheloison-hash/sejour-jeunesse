@@ -1034,6 +1034,10 @@ model Facture {
   pourcentageAcompte Float? @map("pourcentage_acompte")
   // Lien acompte → solde
   factureAcompteId String?  @map("facture_acompte_id") @db.Uuid
+  // ⚠️ Sens depuis la refacto facture-solde (07/2026) : acompte ENCAISSÉ net
+  // d'avoir au moment de l'émission du solde (Σ versements de la facture
+  // d'acompte). Historiquement : acompte FACTURÉ net d'avoir — les factures
+  // émises avant la refonte gardent l'ancien sens (snapshots immuables).
   montantAcompteDejaFacture Float? @map("montant_acompte_deja_facture")
   // Suivi paiement de CETTE facture
   montantVerseTotal Float   @default(0) @map("montant_verse_total")

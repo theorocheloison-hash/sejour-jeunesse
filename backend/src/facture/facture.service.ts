@@ -438,7 +438,7 @@ export class FactureService {
     return facture;
   }
 
-  /** Émet la facture de solde sur le total RÉVISÉ du devis moins l'acompte déjà facturé. NE MUTE PAS le devis. */
+  /** Émet la facture de solde sur le total RÉVISÉ du devis moins l'acompte ENCAISSÉ. NE MUTE PAS le devis. */
   async emettreFactureSolde(devisId: string, userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
@@ -460,22 +460,32 @@ export class FactureService {
     }
 
     const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
-    const acompte = factureAcompte.montantFacture;
-    let acompteNet = acompte;
-    if (montantTTC <= acompte) {
+    // Refacto facture-solde (étape 2) : on déduit l'acompte ENCAISSÉ (Σ versements
+    // de la facture d'acompte, maintenu dans montantVerseTotal), plus jamais
+    // l'acompte facturé — le client paie un TOTAL, le reste dû se calcule sur
+    // ce qu'il a réellement réglé. L'invariant « encaissé = Σ versements » est
+    // garanti par validerAcompte (versement de régularisation) et ajouterVersement.
+    // Garde legacy : acomptes validés AVANT la refonte (acompteVerse=true sans
+    // aucun versement saisi) — l'encaissé vaut 0 en base alors que l'argent a été
+    // reçu ; on retombe sur l'acompte facturé pour ne JAMAIS réclamer le total.
+    const acompteEncaisse = (factureAcompte.montantVerseTotal ?? 0) > 0
+      ? factureAcompte.montantVerseTotal
+      : factureAcompte.montantFacture;
+    let acompteNet = acompteEncaisse;
+    if (montantTTC <= acompteEncaisse) {
       // Chercher un avoir sur la facture d'acompte (relation 1-1 via factureAnnuleeId)
       const avoir = await this.prisma.facture.findUnique({
         where: { factureAnnuleeId: factureAcompte.id },
       });
       if (!avoir) {
         throw new ForbiddenException(
-          'Le total révisé du devis est inférieur ou égal à l\'acompte déjà facturé. ' +
+          'Le total révisé du devis est inférieur ou égal à l\'acompte déjà encaissé. ' +
           'Émettez d\'abord un avoir sur la facture d\'acompte depuis l\'onglet ' +
           'Devis & Facturation.'
         );
       }
       // avoir.montantFacture est négatif (ex : -240) → réduit l'acompte net
-      acompteNet = round2(acompte + avoir.montantFacture); // ex : 1440 + (-240) = 1200
+      acompteNet = round2(acompteEncaisse + avoir.montantFacture); // ex : 1440 + (-240) = 1200
       if (acompteNet < 0) {
         throw new ForbiddenException(
           'L\'avoir dépasse le montant de l\'acompte — situation comptable incohérente.'
@@ -516,6 +526,8 @@ export class FactureService {
         montantFacture,
         pourcentageAcompte: devis.pourcentageAcompte,
         factureAcompteId: factureAcompte.id,
+        // Depuis la refacto facture-solde : acompte ENCAISSÉ net d'avoir (le nom
+        // historique est conservé, le sens a changé — ex-« acompte facturé »).
         montantAcompteDejaFacture: acompteNet,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
@@ -1198,11 +1210,45 @@ export class FactureService {
       throw new ForbiddenException('Cet acompte a déjà été validé');
     }
 
+    // Refacto facture-solde (étape 2) : l'invariant « acompte encaissé = Σ versements
+    // de l'acompte » doit tenir même sur une validation manuelle. Si les versements
+    // saisis ne couvrent pas le montant facturé, on crée un versement de
+    // régularisation du complément (jamais de doublon si déjà couvert) — le calcul
+    // du solde (TTC − encaissé) ne réclamera donc jamais le total au client.
+    const agg = await this.prisma.versementPaiement.aggregate({
+      where: { factureId },
+      _sum: { montant: true },
+    });
+    const dejaVerse = agg._sum.montant ?? 0;
+    const manque = round2(facture.montantFacture - dejaVerse);
+    if (manque > 0) {
+      await this.prisma.versementPaiement.create({
+        data: {
+          devisId: facture.devisId,
+          factureId,
+          montant: manque,
+          datePaiement: new Date(),
+          reference: 'Régularisation — acompte validé manuellement',
+          modePaiement: null,
+        },
+      });
+    }
+
     const updated = await this.prisma.facture.update({
       where: { id: factureId },
-      data: { acompteVerse: true, dateVersement: new Date() },
+      data: {
+        acompteVerse: true,
+        dateVersement: new Date(),
+        ...(manque > 0 ? { montantVerseTotal: round2(dejaVerse + manque) } : {}),
+      },
       include: { lignes: true, versements: true },
     });
+
+    if (manque > 0) {
+      await this.resyncMontantVerseDevis(facture.devisId);
+      // PDF de l'acompte régénéré avec le versement de régularisation (fire-and-forget)
+      void this.refreshFacturePdf(factureId, facture.devis.centre?.logoUrl ?? null);
+    }
 
     try {
       const emailHebergeur = facture.devis.centre?.user?.email;
