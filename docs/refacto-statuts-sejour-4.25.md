@@ -57,6 +57,43 @@
 
 Gate avant CHAQUE commit : `npx tsc --noEmit` 0 erreur · `npm run build` succès · `npm test` 100 % verts.
 
-## 4. Rapport final
+## 4. Rapport final (Phase 4 — 16/07/2026)
 
-_(complété en Phase 4)_
+### 4.1 Sites dédupliqués par composition
+
+| Constante | Littéraux remplacés | Delta commit (ins/del) |
+|---|---|---|
+| `STATUTS_SEJOUR_CONFIRMES` | 2 (pilotage const locale + centre:697) | 3 fichiers, +41 / −9 (inclut la création du fichier de constantes) |
+| `STATUTS_SEJOUR_COLLABORATIFS` | 3 (collaboration : const locale + 2 `in:`) | 1 fichier, +5 / −5 |
+| `STATUTS_SEJOUR_DIRECT` | 2 (collaboration : dérivée locale + 1 `in:`) | 1 fichier, +3 / −4 |
+
+### 4.2 Preuve de composition (aucune n'a changé)
+
+| Constante | Composition | Usages après dédup |
+|---|---|---|
+| `STATUTS_SEJOUR_CONFIRMES` | `CONVENTION, SOUMIS_RECTORAT, SIGNE_DIRECTION, DECLARE_TAM` | pilotage:121, 176, 208 · centre:698 |
+| `STATUTS_SEJOUR_COLLABORATIFS` | `CONVENTION, SIGNE_DIRECTION` | collaboration:95, 479, 557 |
+| `STATUTS_SEJOUR_DIRECT` | `OPTION, CONVENTION, SIGNE_DIRECTION` (spread `[OPTION, ...COLLABORATIFS]` conservé de l'origine) | collaboration:94, 505 |
+
+### 4.3 Exceptions non fusionnées
+
+Voir §2 : `devis.service.ts:2554` (composition unique SUBMITTED+CONVENTION+SIGNE_DIRECTION), `centre.service.ts:655` (`notIn: ['DRAFT']` singleton), comparaisons `===`/`!==`, assignations de statut. Sets de StatutDevis non touchés (§4.13).
+
+### 4.4 Gates par composition (avant chaque commit)
+
+| Composition | `npx tsc --noEmit` | `npm run build` | `npm test` |
+|---|---|---|---|
+| CONFIRMES | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+| COLLABORATIFS | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+| DIRECT | ✅ 0 erreur | ✅ | ✅ 187 passés + 3 todo |
+
+Aucun `*.spec.ts` touché. Nettoyage annexe : import `StatutSejour` devenu inutilisé retiré de pilotage.service.ts.
+
+### 4.5 Commits créés (locaux, NON poussés — revue Théo avant push)
+
+1. `d85ba91` — docs(4.25): recensement statuts séjour avant dédup
+2. `9cc03a8` — refactor(4.25): centralise STATUTS_SEJOUR_CONFIRMES (2 littéraux → 1 constante)
+3. `b9a78be` — refactor(4.25): centralise STATUTS_SEJOUR_COLLABORATIFS (3 littéraux → 1 constante)
+4. `2604d44` — refactor(4.25): centralise STATUTS_SEJOUR_DIRECT (2 occurrences → 1 constante)
+
+(+ le présent commit de clôture du rapport.)
