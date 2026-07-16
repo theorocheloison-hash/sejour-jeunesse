@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { TRIAL_DUREE_JOURS } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
 import createMollieClient, { MandateMethod } from '@mollie/api-client';
@@ -81,7 +82,7 @@ export class AbonnementService {
 
     const now = new Date();
     const expiration = new Date(now);
-    expiration.setDate(expiration.getDate() + 30);
+    expiration.setDate(expiration.getDate() + TRIAL_DUREE_JOURS);
 
     const updated = await this.prisma.centreHebergement.update({
       where: { id: centre.id },

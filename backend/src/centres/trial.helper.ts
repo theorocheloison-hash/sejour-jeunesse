@@ -1,13 +1,16 @@
 import { PlanAbonnement, StatutAbonnement } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
+/** Durée de l'essai gratuit Pilotage, en jours (§4.13 — source unique du 30). */
+export const TRIAL_DUREE_JOURS = 30;
+
 /**
  * Retourne la date d'expiration du trial (now + 30 jours, minuit, date pure).
  * Utilisé à la création/validation du compte hébergeur.
  */
 export function trialExpiration(): Date {
   const d = new Date();
-  d.setDate(d.getDate() + 30);
+  d.setDate(d.getDate() + TRIAL_DUREE_JOURS);
   return new Date(d.toISOString().split('T')[0]);
 }
 
