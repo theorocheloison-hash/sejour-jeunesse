@@ -9,6 +9,7 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
+import { STATUTS_SEJOUR_COLLABORATIFS } from '../sejours/sejour-statuts.constants.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -89,11 +90,10 @@ export class CollaborationService {
     const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
 
     // Statuts autorisés selon le mode de gestion
-    const STATUTS_COLLABORATIFS = ['CONVENTION', 'SIGNE_DIRECTION'];
-    const STATUTS_DIRECT = ['OPTION', ...STATUTS_COLLABORATIFS];
+    const STATUTS_DIRECT = ['OPTION', ...STATUTS_SEJOUR_COLLABORATIFS];
     const statutsAutorises = (sejour.modeGestion === 'DIRECT' && isHebergeur)
       ? STATUTS_DIRECT
-      : STATUTS_COLLABORATIFS;
+      : STATUTS_SEJOUR_COLLABORATIFS;
 
     if (!statutsAutorises.includes(sejour.statut)) {
       throw new ForbiddenException('Le séjour n\'est pas dans un statut accessible');
@@ -477,7 +477,7 @@ export class CollaborationService {
 
     return this.prisma.sejour.findMany({
       where: {
-        statut: { in: ['CONVENTION', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_SEJOUR_COLLABORATIFS },
         hebergementSelectionneId: { in: centreIds },
         deletedAt: null,
       },
@@ -555,7 +555,7 @@ export class CollaborationService {
     const sejours = await this.prisma.sejour.findMany({
       where: {
         hebergementSelectionneId: { in: centreIds },
-        statut: { in: ['CONVENTION', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_SEJOUR_COLLABORATIFS },
         deletedAt: null,
         createurId: { not: null },
       },
