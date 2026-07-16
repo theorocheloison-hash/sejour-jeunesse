@@ -498,4 +498,14 @@ describe('getChorusXml — Prepaid / PayableAmount (§7.8)', () => {
     expect(xml).toContain('<cbc:PrepaidAmount currencyID="EUR">0.00</cbc:PrepaidAmount>');
     expect(xml).toContain('<cbc:PayableAmount currencyID="EUR">2970.00</cbc:PayableAmount>');
   });
+
+  it('trop-perçu (§7.7, étape 4) : Prepaid borné au TTC, Payable = 0', async () => {
+    const { service } = mockDeps(stateChorus({
+      montantHT: 2000, montantTTC: 2000,
+      montantFacture: 0, montantAcompteDejaFacture: 2300,
+    }));
+    const { xml } = await service.getChorusXml('f-x', { id: 'user-1', role: 'HEBERGEUR' });
+    expect(xml).toContain('<cbc:PrepaidAmount currencyID="EUR">2000.00</cbc:PrepaidAmount>');
+    expect(xml).toContain('<cbc:PayableAmount currencyID="EUR">0.00</cbc:PayableAmount>');
+  });
 });

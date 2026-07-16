@@ -134,11 +134,13 @@ export function buildCiiXml(facture: FactureAvecLignes, titreSejour: string): st
   const sellerSiret = legalOrgBlock(facture.emetteurSiret);
   const buyerSiret = legalOrgBlock(facture.destinataireSiret);
 
-  // Acompte déjà facturé (SOLDE uniquement)
+  // Acompte déjà encaissé (SOLDE uniquement) — borné au GrandTotal pour que
+  // DuePayable = GrandTotal − Prepaid ≥ 0 (BR-CO-16 EN 16931) même en trop-perçu :
+  // montantFacture est déjà borné à 0 à l'émission, le Prepaid doit l'accompagner.
   const prepaidXml =
     facture.typeFacture === 'SOLDE' && facture.montantAcompteDejaFacture != null
       ? `
-          <ram:TotalPrepaidAmount>${fmtAmt(facture.montantAcompteDejaFacture)}</ram:TotalPrepaidAmount>`
+          <ram:TotalPrepaidAmount>${fmtAmt(Math.min(facture.montantAcompteDejaFacture, facture.montantTTC))}</ram:TotalPrepaidAmount>`
       : '';
 
   // Référence facture annulée (AVOIR) — BG-3, placée dans ApplicableHeaderTradeSettlement

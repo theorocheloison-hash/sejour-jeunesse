@@ -99,18 +99,25 @@ describe('buildCiiXml — schemeID ISO 6523 (SpecifiedLegalOrganization)', () =>
   });
 });
 
-// ─── Caractérisation Prepaid/Due (refacto facture-solde, étape 0) ────────────
+// ─── Prepaid/Due (refacto facture-solde, étapes 0 → 4) ───────────────────────
 // BR-CO-16 (EN 16931) : DuePayable = GrandTotal − Prepaid. Les valeurs viennent
-// des champs FIGES de la facture — ces tests documentent le mapping actuel et
-// évoluent explicitement à l'étape 4 (bornage trop-perçu).
+// des champs FIGES de la facture (montantAcompteDejaFacture = acompte ENCAISSÉ
+// net d'avoir depuis l'étape 2) ; le Prepaid est borné au GrandTotal (étape 4)
+// pour que l'équation boucle même en trop-perçu.
 
 function extraireMontant(xml: string, balise: string): number | null {
   const m = xml.match(new RegExp(`<ram:${balise}>([-0-9.]+)</ram:${balise}>`));
   return m ? Number(m[1]) : null;
 }
 
+function assertBrCo16(xml: string) {
+  expect(extraireMontant(xml, 'DuePayableAmount')).toBe(
+    extraireMontant(xml, 'GrandTotalAmount')! - (extraireMontant(xml, 'TotalPrepaidAmount') ?? 0),
+  );
+}
+
 describe('buildCiiXml — TotalPrepaidAmount / DuePayableAmount (§7.8)', () => {
-  it('SOLDE : Prepaid = montantAcompteDejaFacture, Due = montantFacture, BR-CO-16 boucle', () => {
+  it('SOLDE partiel (nominal) : Prepaid = acompte encaissé, Due = montantFacture, BR-CO-16', () => {
     const xml = buildCiiXml(
       facture({ montantTTC: 6600, montantFacture: 3630, montantAcompteDejaFacture: 2970, montantHT: 6600, montantTVA: 0, tauxTva: 0 }),
       'Séjour Test',
@@ -118,22 +125,41 @@ describe('buildCiiXml — TotalPrepaidAmount / DuePayableAmount (§7.8)', () => 
     expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(2970);
     expect(extraireMontant(xml, 'DuePayableAmount')).toBe(3630);
     expect(extraireMontant(xml, 'GrandTotalAmount')).toBe(6600);
-    // BR-CO-16
-    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(
-      extraireMontant(xml, 'GrandTotalAmount')! - extraireMontant(xml, 'TotalPrepaidAmount')!,
-    );
+    assertBrCo16(xml);
   });
 
-  it('SOLDE sans acompte (facture total, montantAcompteDejaFacture = 0) : balise émise à 0.00', () => {
+  it('SOLDE sur acompte sur-payé (§7.1) : Prepaid = encaissé (3 300), Due = 3 300, BR-CO-16', () => {
+    const xml = buildCiiXml(
+      facture({ montantTTC: 6600, montantFacture: 3300, montantAcompteDejaFacture: 3300, montantHT: 6600, montantTVA: 0, tauxTva: 0 }),
+      'Séjour Test',
+    );
+    expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(3300);
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(3300);
+    assertBrCo16(xml);
+  });
+
+  it('trop-perçu global (§7.7) : Prepaid borné au TTC, Due = 0, BR-CO-16 boucle', () => {
+    // Encaissé net 2 300 > TTC révisé 2 000 → montantFacture émis à 0.
+    const xml = buildCiiXml(
+      facture({ montantTTC: 2000, montantFacture: 0, montantAcompteDejaFacture: 2300, montantHT: 2000, montantTVA: 0, tauxTva: 0 }),
+      'Séjour Test',
+    );
+    expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(2000); // borné, pas 2300
+    expect(extraireMontant(xml, 'DuePayableAmount')).toBe(0);
+    assertBrCo16(xml);
+  });
+
+  it('SOLDE sans acompte (facture total, montantAcompteDejaFacture = 0) : balise émise à 0.00, BR-CO-16', () => {
     const xml = buildCiiXml(
       facture({ montantTTC: 6600, montantFacture: 6600, montantAcompteDejaFacture: 0, montantHT: 6600, montantTVA: 0, tauxTva: 0 }),
       'Séjour Test',
     );
     expect(extraireMontant(xml, 'TotalPrepaidAmount')).toBe(0);
     expect(extraireMontant(xml, 'DuePayableAmount')).toBe(6600);
+    assertBrCo16(xml);
   });
 
-  it('ACOMPTE : pas de TotalPrepaidAmount, Due = montantFacture', () => {
+  it('ACOMPTE : pas de TotalPrepaidAmount, Due = montantFacture (386 : Due = montant demandé, pas TTC − Prepaid)', () => {
     const xml = buildCiiXml(
       facture({ typeFacture: 'ACOMPTE', numero: 'FA-2026-002', montantTTC: 6600, montantFacture: 2970, montantAcompteDejaFacture: null }),
       'Séjour Test',

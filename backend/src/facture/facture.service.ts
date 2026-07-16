@@ -1311,7 +1311,11 @@ export class FactureService {
       </cac:Price>
     </cac:InvoiceLine>`).join('');
 
-    const prepaid = facture.typeFacture === 'SOLDE' ? (facture.montantAcompteDejaFacture ?? 0) : 0;
+    // Prepaid borné au TTC : PayableAmount = TTC − Prepaid ≥ 0 (BR-CO-16) même en
+    // trop-perçu (montantFacture est déjà borné à 0 à l'émission).
+    const prepaid = facture.typeFacture === 'SOLDE'
+      ? Math.min(facture.montantAcompteDejaFacture ?? 0, facture.montantTTC)
+      : 0;
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
