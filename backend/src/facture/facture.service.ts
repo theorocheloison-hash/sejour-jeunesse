@@ -576,90 +576,10 @@ export class FactureService {
       } catch { /* non bloquant */ }
     }
 
-    // ── Re-balance : déplacer les versements overflow de l'acompte vers le solde ──
-    const versementsAcompte = await this.prisma.versementPaiement.findMany({
-      where: { factureId: factureAcompte.id },
-      orderBy: { datePaiement: 'asc' },
-    });
-
-    let cumul = 0;
-    const idsADeplacer: string[] = [];
-    for (const v of versementsAcompte) {
-      if (cumul >= factureAcompte.montantFacture) {
-        // Ce versement est en overflow → le déplacer vers le solde
-        idsADeplacer.push(v.id);
-      } else {
-        cumul += v.montant;
-      }
-    }
-
-    if (idsADeplacer.length > 0) {
-      // Déplacer les versements vers la facture de solde
-      await this.prisma.versementPaiement.updateMany({
-        where: { id: { in: idsADeplacer } },
-        data: { factureId: facture.id },
-      });
-
-      // Recalculer montantVerseTotal sur l'acompte
-      const aggAcompte = await this.prisma.versementPaiement.aggregate({
-        where: { factureId: factureAcompte.id },
-        _sum: { montant: true },
-      });
-      const totalAcompte = aggAcompte._sum.montant ?? 0;
-      await this.prisma.facture.update({
-        where: { id: factureAcompte.id },
-        data: {
-          montantVerseTotal: totalAcompte,
-          acompteVerse: totalAcompte >= factureAcompte.montantFacture * 0.99,
-        },
-      });
-
-      // Recalculer montantVerseTotal sur le solde
-      const aggSolde = await this.prisma.versementPaiement.aggregate({
-        where: { factureId: facture.id },
-        _sum: { montant: true },
-      });
-      const totalSolde = aggSolde._sum.montant ?? 0;
-      await this.prisma.facture.update({
-        where: { id: facture.id },
-        data: {
-          montantVerseTotal: totalSolde,
-          acompteVerse: totalSolde >= facture.montantFacture * 0.99,
-        },
-      });
-
-      // Régénérer les PDFs des DEUX factures (versements ont changé)
-      await this.generateAndStorePdf(
-        await this.prisma.facture.findUniqueOrThrow({
-          where: { id: factureAcompte.id },
-          include: {
-            lignes: true,
-            versements: { orderBy: { datePaiement: 'asc' } },
-            factureAnnulee: { select: { numero: true, dateEmission: true } },
-            factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
-            devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
-          },
-        }),
-        destinataire.sejourTitre,
-        devis.centre.logoUrl,
-      );
-      await this.generateAndStorePdf(
-        await this.prisma.facture.findUniqueOrThrow({
-          where: { id: facture.id },
-          include: {
-            lignes: true,
-            versements: { orderBy: { datePaiement: 'asc' } },
-            factureAnnulee: { select: { numero: true, dateEmission: true } },
-            factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
-            devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
-          },
-        }),
-        destinataire.sejourTitre,
-        devis.centre.logoUrl,
-      );
-
-      await this.resyncMontantVerseDevis(devisId);
-    }
+    // Refacto facture-solde (étape 5) : plus de « re-balance » — les versements
+    // restent rattachés à leur facture d'origine. Le solde n'a plus besoin de les
+    // « récupérer » : son PDF liste TOUS les versements du devis (étape 1/3) et
+    // son montant déduit l'acompte réellement encaissé (étape 2).
 
     return facture;
   }

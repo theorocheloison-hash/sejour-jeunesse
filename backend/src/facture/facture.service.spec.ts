@@ -335,12 +335,11 @@ function stateAcompteEncaisse(encaisse: number): State {
   });
 }
 
-// ─── Re-balance (COMPORTEMENT ACTUEL — supprimée à l'étape 5) ────────────────
+// ─── Re-balance SUPPRIMÉE (étape 5) ──────────────────────────────────────────
 
-describe('emettreFactureSolde — re-balance des versements (COMPORTEMENT ACTUEL)', () => {
-  it('acompte sur-payé en 3 versements : le versement en overflow est DÉPLACÉ vers le solde (§7.4)', async () => {
-    // Facturé 2 970 ; versements 1 980 + 1 320 + 500. Parcours par date :
-    // v1 (cumul 0 < 2970, reste) → v2 (cumul 1980 < 2970, reste) → v3 (cumul 3300 ≥ 2970, DÉPLACÉ).
+describe('emettreFactureSolde — les versements ne sont plus déplacés (étape 5)', () => {
+  it('acompte sur-payé en 3 versements : AUCUN versement déplacé vers le solde (§7.1/§7.4)', async () => {
+    // Facturé 2 970 ; versements 1 980 + 1 320 + 500 = 3 800, tous sur l'acompte.
     const state = initState({
       factureAcompte: factureAcompte({ montantVerseTotal: 3800 }),
       versements: [
@@ -350,27 +349,13 @@ describe('emettreFactureSolde — re-balance des versements (COMPORTEMENT ACTUEL
       ],
     });
     const { service, prisma } = mockDeps(state);
-    await service.emettreFactureSolde('devis-1', 'user-1');
-    expect(prisma.versementPaiement.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['v3'] } },
-      data: { factureId: 'fs-new' },
-    });
-    expect(state.versements.find(v => v.id === 'v3')?.factureId).toBe('fs-new');
-    expect(state.versements.filter(v => v.factureId === 'fa-1').map(v => v.id)).toEqual(['v1', 'v2']);
-  });
-
-  it('versement à cheval sur la frontière : NON scindé, reste entier sur l\'acompte', async () => {
-    // v1 1980 (cumul 0 < 2970, reste) → v2 1320 (cumul 1980 < 2970, reste ENTIER malgré le dépassement).
-    const { service, prisma } = mockDeps(stateAcompteEncaisse(3300));
-    await service.emettreFactureSolde('devis-1', 'user-1');
+    const f = await service.emettreFactureSolde('devis-1', 'user-1');
     expect(prisma.versementPaiement.updateMany).not.toHaveBeenCalled();
-    expect(state3300AllOnAcompte(prisma)).toBe(true);
+    expect(state.versements.every(v => v.factureId === 'fa-1')).toBe(true);
+    // Le solde est juste malgré tout : 6600 − 3800 encaissés = 2800.
+    expect(f.montantFacture).toBe(2800);
   });
 });
-
-function state3300AllOnAcompte(prisma: { versementPaiement: { updateMany: jest.Mock } }): boolean {
-  return prisma.versementPaiement.updateMany.mock.calls.length === 0;
-}
 
 // ─── emettreFactureTotal ─────────────────────────────────────────────────────
 
