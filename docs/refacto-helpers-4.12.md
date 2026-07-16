@@ -66,7 +66,7 @@ export type FormatDateStyle = 'numeric' | 'court' | 'long' | 'jourMoisCourt';
 
 export function formatDate(
   date: string | Date | null | undefined,
-  style: FormatDateStyle = 'long',
+  style: FormatDateStyle,     // OBLIGATOIRE : un site migré sans style = erreur tsc (pas de format par défaut silencieux)
   fallback?: string,          // si omis : PAS de garde null (reproduit les sites non gardés)
 ): string;
 
@@ -87,8 +87,9 @@ Point de fidélité clé : la garde `!date → fallback` n'est active **que si `
 | `app/sejour/[token]/journal/page.tsx:40` | `formatDateRange` | Occurrence unique (logique same-month/same-year). |
 | `app/dashboard/reseau/page.tsx:26` | `demandePeriode` | Proche d'`afficherDatesDemande` mais PAS identique (tableau MOIS différent : « Janv » vs « Jan », `join(' ')` vs `' · '`, pas d'emoji 📅, pas de `noteDateFlexible`). Doute → non fusionnée. |
 | `src/components/sejour/shared.tsx:100` | `buildPeriodeLabel` | Logique formulaire spécifique, non dupliquée (continuera d'appeler le helper unifié en interne). |
+| `app/dashboard/hebergeur/global/page.tsx:115` | `fmtDateShort` (« JJ/MM » construit à la main via getDate/getMonth, sans toLocaleDateString) | Occurrence unique, format absent des variantes unifiées. Découverte en phase 3 (échappait au grep toLocaleDateString). |
 | ~55 usages inline JSX (45 fichiers) | `new Date(x).toLocaleDateString(…)` dans le rendu | Usages, pas des redéfinitions. Les convertir n'enlève aucune duplication de définition et multiplie les points de régression. |
-| `src/components/pdf/*` (5 occ.) | footers PDF `new Date().toLocaleDateString('fr-FR')` | Interdiction @react-pdf du brief. |
+| `src/components/pdf/*` | footers `new Date().toLocaleDateString('fr-FR')` (5 occ.) **+ ~7 défs `fmtDate`/`fmtDateObj`/`fmtDateLong` locales** (DevisPDF, BudgetPDF, PlanningPDF, PlanningPDFButton, PreparationTamPDF, ProjetPedagogiquePDF) | Interdiction @react-pdf du brief. |
 
 ## 2. Famille `StatutBadge` (4 copies)
 
@@ -144,6 +145,46 @@ Correspondances exactes : #1/#2 → `config={STATUT_CONFIG} fallback={STATUT_CON
 
 Gate avant chaque commit : `npx tsc --noEmit` = 0 erreur ET `npm run build` = succès.
 
-## 5. Rapport final
+## 5. Rapport final (Phase 4 — 16/07/2026)
 
-_(complété en Phase 4)_
+### 5.1 Sites dédupliqués par famille
+
+| Famille | Défs supprimées | Détail | Delta commit (ins/del) |
+|---|---|---|---|
+| formatDate | **25 / 25 recensées** | 10 `long` + 5 `court` + 3 `numeric` + 2 `jourMoisCourt` + 3 `formatDateRelative` + 2 `afficherDatesDemande` | 27 fichiers, **+153 / −202** (dont +75 = helpers documentés dans utils.ts) |
+| KpiCard | **2 / 3 copies** (admin, réseau) | pilotage/ca = exception assumée (§3) | 3 fichiers, **+25 / −32** |
+| StatutBadge | **4 / 4 copies** | mappings conservés aux sites d'appel, zéro libellé/couleur modifié | 4 fichiers, **+48 / −47** |
+| **Total** | **31 définitions** | | **+226 / −281 (net −55 lignes)** |
+
+### 5.2 Écarts par rapport au plan de la Phase 1
+
+- `formatDate` : paramètre `style` rendu **obligatoire** (le plan §1.4 prévoyait un défaut `'long'`). Raison : dans les fichiers où la déf locale s'appelait déjà `formatDate` (admin, réseau), un site d'appel oublié aurait silencieusement changé de format avec un défaut ; sans défaut, tout oubli est une erreur tsc. Sûreté > confort.
+- Découverte tardive consignée : `fmtDateShort` (global:115) ajoutée aux exceptions (§1.5).
+
+### 5.3 Exceptions non fusionnées (récapitulatif)
+
+Voir §1.5 (formatDate : signer T12:00:00, fmtMonth, f imbriquée planning, formatDateRange, demandePeriode, buildPeriodeLabel, fmtDateShort, ~55 inline JSX, PDF) et §3 (KpiCard pilotage/ca). Aucune exception StatutBadge.
+
+### 5.4 Gates par famille (avant chaque commit)
+
+| Famille | `npx tsc --noEmit` | `npm run build` |
+|---|---|---|
+| formatDate | ✅ 0 erreur | ✅ succès (standalone préparé) |
+| KpiCard | ✅ 0 erreur | ✅ succès |
+| StatutBadge | ✅ 0 erreur | ✅ succès |
+
+### 5.5 Commits créés (locaux, NON poussés — revue Théo avant push)
+
+1. `d3863cc` — docs(4.12): recensement helpers avant dédup
+2. `75c7b8a` — refactor(4.12): unifie formatDate (25 définitions locales → src/lib/utils)
+3. `5b2d5d4` — refactor(4.12): unifie KpiCard (2 copies → src/components/KpiCard)
+4. `7c6bf4c` — refactor(4.12): unifie StatutBadge (4 copies → src/components/StatutBadge)
+
+(+ le présent commit de clôture du rapport.)
+
+### 5.6 Points de recette manuelle suggérés (rendus non couverts par le build)
+
+- Dashboard organisateur + signataire : badges de statut séjour (libellés/couleurs par rôle inchangés).
+- Dashboard réseau : badges centres (Actif/Suspendu/En attente) et demandes (Ouverte/Fermée/Annulée), KPI cards cliquables (curseur + hover).
+- Onglet Notes & suivi : dates relatives avec année (« 5 juin 2026 ») vs Journal sans année.
+- Pages demandes organisateur/hébergeur : libellé période (« 📅 … » / plage JJ/MM/AAAA).
