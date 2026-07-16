@@ -1,14 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { StatutSejour, StatutDevis } from '@prisma/client';
+import { StatutSejour } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
 /** Statuts de séjour considérés comme "confirmés" pour le remplissage. */
 const STATUTS_CONFIRMES: StatutSejour[] = ['CONVENTION', 'SOUMIS_RECTORAT', 'SIGNE_DIRECTION', 'DECLARE_TAM'];
 
-/** Statuts de devis considérés comme "CA confirmé". */
-const STATUTS_CA: StatutDevis[] = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
 
 /** Formate une date en dd/MM/yyyy. */
 function fmtDate(d: Date | string): string {
@@ -243,7 +242,7 @@ export class PilotageService {
     const devis = await this.prisma.devis.findMany({
       where: {
         centreId: centre.id,
-        statut: { in: STATUTS_CA },
+        statut: { in: STATUTS_DEVIS_RETENUS },
         isComplementaire: false,
       },
       select: {
@@ -323,7 +322,7 @@ export class PilotageService {
       where: {
         devis: {
           centreId: centre.id,
-          statut: { in: STATUTS_CA },
+          statut: { in: STATUTS_DEVIS_RETENUS },
           isComplementaire: false,
         },
       },

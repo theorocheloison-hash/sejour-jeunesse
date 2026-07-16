@@ -8,6 +8,7 @@ import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
@@ -1254,7 +1255,7 @@ export class SejourService {
     const devisEngageant = await this.prisma.devis.count({
       where: {
         ...devisSejourWhere,
-        statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
+        statut: { in: STATUTS_DEVIS_ENGAGEANTS },
       },
     });
     if (devisEngageant > 0) {

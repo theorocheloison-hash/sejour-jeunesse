@@ -6,6 +6,7 @@ import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
+import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -421,7 +422,7 @@ export class AdminService {
 
     // Un devis facturé (acompte/solde) est toujours du CA confirmé → on l'inclut au même
     // titre que SELECTIONNE/SIGNE_DIRECTION dans tous les calculs de devis « retenus ».
-    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']);
+    const RETENUS = new Set<string>(STATUTS_DEVIS_RETENUS);
 
     const devisEnvoyes = tousLesDevis.length;
     const devisSelectionnes = tousLesDevis.filter(d => RETENUS.has(d.statut)).length;
@@ -665,7 +666,7 @@ export class AdminService {
 
     // CA généré via le réseau sur les devis retournés (retenus, hors complémentaires,
     // dont la demande provient bien de ce réseau).
-    const RETENUS = new Set(['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']);
+    const RETENUS = new Set<string>(STATUTS_DEVIS_RETENUS);
     const caViaReseau = centre.devis
       .filter(
         d => RETENUS.has(d.statut)

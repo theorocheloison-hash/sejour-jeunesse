@@ -17,6 +17,7 @@ import { UpdateCentreDto } from './dto/update-centre.dto.js';
 import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { matchesCapacite } from '../demandes/demande.service.js';
@@ -501,7 +502,7 @@ export class CentreService {
     const aFacturerAcompteRaw = await this.prisma.devis.findMany({
       where: {
         centreId: { in: centreIds },
-        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_DEVIS_ENGAGEANTS },
         factures: { none: { typeFacture: 'ACOMPTE' } },
       },
       select: {
@@ -610,7 +611,7 @@ export class CentreService {
     const previsionnel = await this.prisma.devis.findMany({
       where: {
         centreId: { in: centreIds },
-        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+        statut: { in: STATUTS_DEVIS_RETENUS },
       },
       select: { montantTTC: true, montantVerseTotal: true },
     });
@@ -624,7 +625,7 @@ export class CentreService {
       const devisReseau = await this.prisma.devis.findMany({
         where: {
           centreId: { in: centreIds },
-          statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] },
+          statut: { in: STATUTS_DEVIS_RETENUS },
           isComplementaire: false,
           demande: { sourceReseau: { equals: reseauNom, mode: 'insensitive' } },
         },

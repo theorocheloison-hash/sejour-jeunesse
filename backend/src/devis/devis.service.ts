@@ -16,6 +16,7 @@ import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { formatParticipants } from '../utils/format.js';
+import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_EN_COURS } from './devis-statuts.constants.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import {
   assertSignataireCanAccessDemande,
@@ -69,13 +70,7 @@ export class DevisService {
       where: {
         demandeId,
         centreId: centre.id,
-        statut: {
-          in: [
-            StatutDevis.EN_ATTENTE,
-            StatutDevis.EN_ATTENTE_VALIDATION,
-            StatutDevis.SELECTIONNE,
-          ],
-        },
+        statut: { in: STATUTS_DEVIS_EN_COURS },
       },
     });
     if (devisExistant) {
@@ -1344,13 +1339,7 @@ export class DevisService {
     const devisExistant = await this.prisma.devis.findFirst({
       where: {
         sejourDirectId,
-        statut: {
-          in: [
-            StatutDevis.EN_ATTENTE,
-            StatutDevis.EN_ATTENTE_VALIDATION,
-            StatutDevis.SELECTIONNE,
-          ],
-        },
+        statut: { in: STATUTS_DEVIS_EN_COURS },
       },
     });
     if (devisExistant) {
@@ -1834,7 +1823,7 @@ export class DevisService {
     if (!sejourSource) {
       throw new ForbiddenException('Ce devis n\'est rattaché à aucun séjour');
     }
-    if (!['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut)) {
+    if (!STATUTS_DEVIS_RETENUS.includes(devis.statut)) {
       throw new ForbiddenException('Le devis doit être signé pour générer la convention');
     }
 
@@ -2551,7 +2540,7 @@ export class DevisService {
         where: {
           id: { not: devisId },
           isComplementaire: false, // les complémentaires ne pilotent pas le statut du séjour
-          statut: { in: [StatutDevis.SELECTIONNE, StatutDevis.SIGNE_DIRECTION] },
+          statut: { in: STATUTS_DEVIS_ENGAGEANTS },
           OR: [
             { sejourDirectId: sejourCibleId },
             { demande: { sejourId: sejourCibleId } },

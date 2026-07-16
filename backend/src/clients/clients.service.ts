@@ -6,6 +6,7 @@ import { CreateClientDto } from './dto/create-client.dto.js';
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
 const INCLUDE_FULL = {
   contacts: true,
@@ -141,18 +142,11 @@ export class ClientsService {
     for (const d of devisCollab) pushDevis(d.demande?.sejourId, d);
     for (const d of devisDirect) pushDevis(d.sejourDirectId, d);
 
-    // CA = uniquement les devis confirmés/facturés (évite de gonfler avec EN_ATTENTE/NON_RETENU)
-    const CA_STATUTS: string[] = [
-      StatutDevis.SELECTIONNE,
-      StatutDevis.SIGNE_DIRECTION,
-      StatutDevis.FACTURE_ACOMPTE,
-      StatutDevis.FACTURE_SOLDE,
-    ];
-
     return clients.map(c => {
       const devisClient = c.sejours.flatMap(s => devisBySejourId.get(s.sejourId) ?? []);
+      // CA = uniquement les devis confirmés/facturés (évite de gonfler avec EN_ATTENTE/NON_RETENU)
       const montantCA = devisClient
-        .filter(d => CA_STATUTS.includes(d.statut))
+        .filter(d => STATUTS_DEVIS_RETENUS.includes(d.statut))
         .reduce((sum, d) => sum + (d.montantTTC ?? Number(d.montantTotal) ?? 0), 0);
       return {
         ...c,

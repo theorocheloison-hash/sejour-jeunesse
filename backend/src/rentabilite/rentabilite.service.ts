@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 import { CreateFacturePrestatireDto } from './dto/create-facture-prestataire.dto.js';
 
 @Injectable()
@@ -366,13 +367,6 @@ export class RentabiliteService {
       throw new BadRequestException('Régime de la marge non activé');
     }
 
-    // EN_ATTENTE, EN_ATTENTE_VALIDATION et NON_RETENU sont exclus de la base.
-    const STATUTS_MARGE = [
-      'SELECTIONNE',
-      'SIGNE_DIRECTION',
-      'FACTURE_ACOMPTE',
-      'FACTURE_SOLDE',
-    ] as const;
 
     // Q1 — séjours du centre dans l'année (dateDebut), avec leurs achats.
     // La traversée ventilation → facture est obligatoire : typeCharge est
@@ -402,13 +396,14 @@ export class RentabiliteService {
     const sejourIds = sejours.map((s) => s.id);
 
     // Q2 — devis rattachés à ces séjours (modes DIRECT et COLLAB), avec leurs
-    // seules lignes revendues à des tiers. Tous les devis en STATUTS_MARGE
+    // seules lignes revendues à des tiers. Tous les devis retenus (EN_ATTENTE,
+    // EN_ATTENTE_VALIDATION et NON_RETENU sont exclus de la base)
     // comptent, complémentaires inclus : pas de tri PRIORITE_STATUT ici, il ne
     // retiendrait qu'un devis et ferait tomber des lignes hors base.
     const devisList = await this.prisma.devis.findMany({
       where: {
         centreId: centre.id,
-        statut: { in: [...STATUTS_MARGE] },
+        statut: { in: STATUTS_DEVIS_RETENUS },
         OR: [
           { sejourDirectId: { in: sejourIds } },
           { demande: { sejourId: { in: sejourIds } } },

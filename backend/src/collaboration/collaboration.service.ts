@@ -8,6 +8,7 @@ import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
+import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -379,7 +380,7 @@ export class CollaborationService {
       where: { sejourId },
       include: {
         devis: {
-          where: { statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'] } },
+          where: { statut: { in: STATUTS_DEVIS_RETENUS } },
           include: {
             lignes: true,
             centre: {
@@ -649,7 +650,7 @@ export class CollaborationService {
     // mode DIRECT  : via devis.sejourDirectId
     const devisSelectionne = await this.prisma.devis.findFirst({
       where: {
-        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_DEVIS_ENGAGEANTS },
         OR: [
           { demande: { sejourId } },
           { sejourDirectId: sejourId },
@@ -842,7 +843,7 @@ export class CollaborationService {
 
     const devisSelectionne = await this.prisma.devis.findFirst({
       where: {
-        statut: { in: ['SELECTIONNE', 'SIGNE_DIRECTION'] },
+        statut: { in: STATUTS_DEVIS_ENGAGEANTS },
         OR: [
           { demande: { sejourId } },
           { sejourDirectId: sejourId },
