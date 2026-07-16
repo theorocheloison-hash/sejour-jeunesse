@@ -47,6 +47,17 @@ export interface FacturePDFProps {
     reference: string | null;
     modePaiement: string | null;
   }>;
+  // Refacto facture-solde (étape 1) : contexte du solde — Variante A.
+  // Optionnels : renseignés seulement quand la requête a chargé les relations.
+  factureAcompteNumero?: string | null;
+  factureAcompteDate?: string | null; // ISO
+  versementsDevis?: Array<{
+    datePaiement: string; // ISO
+    montant: number;
+    reference: string | null;
+    modePaiement: string | null;
+  }>;
+  totalRegleDevis?: number | null;
 }
 
 // Libellés français des modes de règlement (PDF)

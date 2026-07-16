@@ -5,6 +5,10 @@ type FactureWithLignesEtendue = Facture & {
   lignes: LigneFacture[];
   versements?: VersementPaiement[];
   factureAnnulee?: { numero: string; dateEmission: Date } | null;
+  // Refacto facture-solde (étape 1) : facture d'acompte liée + versements de
+  // TOUT le devis (Variante A du PDF de solde).
+  factureAcompte?: { numero: string; dateEmission: Date; montantVerseTotal: number } | null;
+  devis?: { versements?: VersementPaiement[] } | null;
 };
 
 /**
@@ -73,5 +77,18 @@ export function mapFactureToPdfProps(
       reference: v.reference,
       modePaiement: v.modePaiement,
     })),
+    // Refacto facture-solde (étape 1) : contexte du solde — présent seulement si
+    // la requête d'origine a chargé la relation (props optionnelles, additives).
+    factureAcompteNumero: facture.factureAcompte?.numero ?? null,
+    factureAcompteDate: facture.factureAcompte?.dateEmission?.toISOString() ?? null,
+    versementsDevis: facture.devis?.versements?.map((v) => ({
+      datePaiement: v.datePaiement.toISOString(),
+      montant: v.montant,
+      reference: v.reference,
+      modePaiement: v.modePaiement,
+    })),
+    totalRegleDevis: facture.devis?.versements
+      ? Math.round(facture.devis.versements.reduce((s, v) => s + v.montant, 0) * 100) / 100
+      : null,
   };
 }

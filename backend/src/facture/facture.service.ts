@@ -52,6 +52,10 @@ export class FactureService {
       lignes: LigneFacture[];
       versements?: VersementPaiement[];
       factureAnnulee?: { numero: string; dateEmission: Date } | null;
+      // Refacto facture-solde (étape 1) : contexte du solde — facture d'acompte
+      // liée et versements de TOUT le devis (optionnels, additifs).
+      factureAcompte?: { numero: string; dateEmission: Date; montantVerseTotal: number } | null;
+      devis?: { versements?: VersementPaiement[] } | null;
     },
     titreSejour: string,
     logoUrl?: string | null,
@@ -90,10 +94,12 @@ export class FactureService {
           lignes: true,
           versements: { orderBy: { datePaiement: 'asc' } },
           factureAnnulee: { select: { numero: true, dateEmission: true } },
+          factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
           devis: {
             include: {
               demande: { include: { sejour: { select: { titre: true } } } },
               sejourDirect: { select: { titre: true } },
+              versements: { orderBy: { datePaiement: 'asc' } },
             },
           },
         },
@@ -120,10 +126,12 @@ export class FactureService {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' } },
         factureAnnulee: { select: { numero: true, dateEmission: true } },
+        factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
         devis: {
           include: {
             demande: { include: { sejour: { select: { titre: true } } } },
             sejourDirect: { select: { titre: true } },
+            versements: { orderBy: { datePaiement: 'asc' } },
           },
         },
       },
@@ -521,7 +529,12 @@ export class FactureService {
           })),
         },
       },
-      include: { lignes: true, versements: true },
+      include: {
+        lignes: true,
+        versements: true,
+        factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
+        devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
+      },
     });
 
     // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
@@ -607,7 +620,13 @@ export class FactureService {
       await this.generateAndStorePdf(
         await this.prisma.facture.findUniqueOrThrow({
           where: { id: factureAcompte.id },
-          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } }, factureAnnulee: { select: { numero: true, dateEmission: true } } },
+          include: {
+            lignes: true,
+            versements: { orderBy: { datePaiement: 'asc' } },
+            factureAnnulee: { select: { numero: true, dateEmission: true } },
+            factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
+            devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
+          },
         }),
         destinataire.sejourTitre,
         devis.centre.logoUrl,
@@ -615,7 +634,13 @@ export class FactureService {
       await this.generateAndStorePdf(
         await this.prisma.facture.findUniqueOrThrow({
           where: { id: facture.id },
-          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } }, factureAnnulee: { select: { numero: true, dateEmission: true } } },
+          include: {
+            lignes: true,
+            versements: { orderBy: { datePaiement: 'asc' } },
+            factureAnnulee: { select: { numero: true, dateEmission: true } },
+            factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
+            devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
+          },
         }),
         destinataire.sejourTitre,
         devis.centre.logoUrl,
@@ -702,7 +727,11 @@ export class FactureService {
           })),
         },
       },
-      include: { lignes: true, versements: true },
+      include: {
+        lignes: true,
+        versements: true,
+        devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
+      },
     });
 
     // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
@@ -1196,7 +1225,15 @@ export class FactureService {
     await this.assertFactureOwnership(factureId, user, centreId);
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
-      include: { lignes: true, devis: { include: { centre: { select: { mandatFacturationAccepte: true } } } } },
+      include: {
+        lignes: true,
+        devis: {
+          include: {
+            centre: { select: { mandatFacturationAccepte: true } },
+            versements: { orderBy: { datePaiement: 'asc' } },
+          },
+        },
+      },
     });
     if (!facture) throw new NotFoundException('Facture introuvable');
     if (facture.typeFacture === 'AVOIR') {

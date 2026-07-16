@@ -12,6 +12,10 @@ import type { Facture, LigneFacture } from '@prisma/client';
 export type FactureAvecLignes = Facture & {
   lignes: LigneFacture[];
   factureAnnulee?: { numero: string; dateEmission: Date } | null;
+  // Refacto facture-solde (étape 1) : contexte optionnel du solde (additif,
+  // non consommé par buildCiiXml — les montants XML restent les champs figés).
+  factureAcompte?: { numero: string; dateEmission: Date; montantVerseTotal: number } | null;
+  devis?: { versements?: Array<{ montant: number; datePaiement: Date }> } | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
