@@ -33,6 +33,7 @@ import {
   type MetriquesAbonnements,
 } from '@/src/lib/admin';
 import { formatDate } from '@/src/lib/utils';
+import KpiCard from '@/src/components/KpiCard';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
@@ -75,17 +76,6 @@ const STATUT_SEJOUR_LABELS: Record<string, string> = {
 
 function normalize(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-// ─── KPI Card ────────────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? 'text-gray-900'}`}>{value}</p>
-    </div>
-  );
 }
 
 // ─── Activité Tab ────────────────────────────────────────────────────────────
