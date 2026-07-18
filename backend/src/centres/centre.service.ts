@@ -1329,7 +1329,7 @@ export class CentreService {
     const galerie = this.galerieCourante(centre);
     const estPermutation =
       urls.length === galerie.length &&
-      [...urls].sort().join(' ') === [...galerie].sort().join(' ');
+      [...urls].sort().join('\n') === [...galerie].sort().join('\n');
     if (!estPermutation) {
       throw new BadRequestException(
         'La liste fournie doit contenir exactement les photos actuelles du centre.',
