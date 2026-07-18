@@ -11,6 +11,13 @@ import type { Centre } from '@/src/lib/centre';
 // Aligné sur MAX_PHOTOS_CENTRE côté backend.
 const MAX_PHOTOS = 12;
 
+// Champs tags (thématiques/activités) : ajoute la saisie en attente au tableau,
+// idempotent (dédup) — utilisé sur Entrée, blur ET submit pour ne rien perdre.
+const flushTag = (arr: string[], pending: string): string[] => {
+  const v = pending.trim();
+  return v && !arr.includes(v) ? [...arr, v] : arr;
+};
+
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -104,6 +111,8 @@ export default function HebergeurProfilPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [thematiqueInput, setThematiqueInput] = useState('');
+  const [activiteInput, setActiviteInput] = useState('');
 
   useEffect(() => {
     if (!user || user.role !== 'HEBERGEUR') return;
@@ -172,6 +181,10 @@ export default function HebergeurProfilPage() {
     setSaving(true);
     setError(null);
     setSuccess(false);
+    // Flush synchrone des saisies tags en attente : « ce qui est tapé est sauvegardé »,
+    // même sans Entrée. Calculé AVANT le payload (setState serait asynchrone → périmé).
+    const thematiquesFinal = flushTag(form.thematiquesCentre, thematiqueInput);
+    const activitesFinal = flushTag(form.activitesCentre, activiteInput);
     try {
       await updateMonProfil({
         nom: form.nom,
@@ -190,13 +203,17 @@ export default function HebergeurProfilPage() {
         conditionsAnnulation: form.conditionsAnnulation || undefined,
         accessiblePmr: form.accessiblePmr,
         avisSecurite: form.avisSecurite || undefined,
-        thematiquesCentre: form.thematiquesCentre,
-        activitesCentre: form.activitesCentre,
+        thematiquesCentre: thematiquesFinal,
+        activitesCentre: activitesFinal,
         capaciteAdultes: form.capaciteAdultes ? parseInt(form.capaciteAdultes, 10) : undefined,
         capaciteGroupeMin: form.capaciteGroupeMin ? parseInt(form.capaciteGroupeMin, 10) : undefined,
         capaciteGroupeMax: form.capaciteGroupeMax ? parseInt(form.capaciteGroupeMax, 10) : undefined,
         periodeOuverture: form.periodeOuverture || undefined,
       });
+      // Refléter le flush dans l'UI (puces à jour, saisies vidées).
+      setForm((f) => ({ ...f, thematiquesCentre: thematiquesFinal, activitesCentre: activitesFinal }));
+      setThematiqueInput('');
+      setActiviteInput('');
       setSuccess(true);
     } catch {
       setError('Erreur lors de la sauvegarde.');
@@ -844,14 +861,19 @@ export default function HebergeurProfilPage() {
                   </div>
                   <input type="text" placeholder="Ex : Sciences et nature, Histoire et patrimoine..."
                     className={inputCls}
+                    value={thematiqueInput}
+                    onChange={(e) => setThematiqueInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const val = (e.target as HTMLInputElement).value.trim();
-                        if (val && !form.thematiquesCentre.includes(val)) {
-                          setForm(f => ({ ...f, thematiquesCentre: [...f.thematiquesCentre, val] }));
-                          (e.target as HTMLInputElement).value = '';
-                        }
+                        setForm(f => ({ ...f, thematiquesCentre: flushTag(f.thematiquesCentre, thematiqueInput) }));
+                        setThematiqueInput('');
+                      }
+                    }}
+                    onBlur={() => {
+                      if (thematiqueInput.trim()) {
+                        setForm(f => ({ ...f, thematiquesCentre: flushTag(f.thematiquesCentre, thematiqueInput) }));
+                        setThematiqueInput('');
                       }
                     }} />
                 </div>
@@ -871,14 +893,19 @@ export default function HebergeurProfilPage() {
                   </div>
                   <input type="text" placeholder="Ex : Ski, Escalade, Randonnée..."
                     className={inputCls}
+                    value={activiteInput}
+                    onChange={(e) => setActiviteInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const val = (e.target as HTMLInputElement).value.trim();
-                        if (val && !form.activitesCentre.includes(val)) {
-                          setForm(f => ({ ...f, activitesCentre: [...f.activitesCentre, val] }));
-                          (e.target as HTMLInputElement).value = '';
-                        }
+                        setForm(f => ({ ...f, activitesCentre: flushTag(f.activitesCentre, activiteInput) }));
+                        setActiviteInput('');
+                      }
+                    }}
+                    onBlur={() => {
+                      if (activiteInput.trim()) {
+                        setForm(f => ({ ...f, activitesCentre: flushTag(f.activitesCentre, activiteInput) }));
+                        setActiviteInput('');
                       }
                     }} />
                 </div>
