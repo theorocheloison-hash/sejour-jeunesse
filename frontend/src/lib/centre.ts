@@ -21,6 +21,8 @@ export interface Centre {
   capacite: number;
   description: string | null;
   imageUrl: string | null;
+  /** Galerie multi-photos — imageUrl est toujours la couverture (imagesUrls[0]). */
+  imagesUrls?: string[];
   brochureUrl?: string | null;
   logoUrl?: string | null;
   conventionPdfUrl?: string | null;
@@ -138,6 +140,16 @@ export async function uploadCentreImage(file: File): Promise<Centre> {
   const { data } = await api.post<Centre>('/centres/image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return data;
+}
+
+export async function supprimerCentreImage(url: string): Promise<Centre> {
+  const { data } = await api.delete<Centre>('/centres/images', { data: { url } });
+  return data;
+}
+
+export async function reordonnerCentreImages(urls: string[]): Promise<Centre> {
+  const { data } = await api.patch<Centre>('/centres/images', { urls });
   return data;
 }
 

@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, updateMonProfil, uploadCentreImage, uploadBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
+import { getMonProfil, updateMonProfil, uploadCentreImage, supprimerCentreImage, reordonnerCentreImages, uploadBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
+
+// Aligné sur MAX_PHOTOS_CENTRE côté backend.
+const MAX_PHOTOS = 12;
 
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
@@ -90,7 +93,8 @@ export default function HebergeurProfilPage() {
   const [mandatLu, setMandatLu] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [imageBusy, setImageBusy] = useState(false); // suppression / réordonnancement en cours
   const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
   const [brochureUploading, setBrochureUploading] = useState(false);
   const [brochureError, setBrochureError] = useState<string | null>(null);
@@ -106,7 +110,8 @@ export default function HebergeurProfilPage() {
     getMonProfil()
       .then((c) => {
         setCentre(c);
-        setImageUrl(c.imageUrl ?? null);
+        // Centre importé (APIDAE) : imageUrl posée sans galerie → on l'affiche comme 1ère photo.
+        setImages(c.imagesUrls?.length ? c.imagesUrls : c.imageUrl ? [c.imageUrl] : []);
         setBrochureUrl(c.brochureUrl ?? null);
         setConventionPdfUrl(c.conventionPdfUrl ?? null);
         setLogoUrl(c.logoUrl ?? null);
@@ -201,27 +206,67 @@ export default function HebergeurProfilPage() {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      setImageError('Format non supporté. Utilisez JPG, PNG ou WebP.');
-      return;
+    for (const file of files) {
+      if (!allowed.includes(file.type)) {
+        setImageError('Format non supporté. Utilisez JPG, PNG ou WebP.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setImageError('Fichier trop lourd. Maximum 10 Mo.');
+        return;
+      }
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setImageError('Fichier trop lourd. Maximum 10 Mo.');
+    if (images.length + files.length > MAX_PHOTOS) {
+      setImageError(`Maximum ${MAX_PHOTOS} photos. Supprimez-en avant d'en ajouter.`);
       return;
     }
     setImageUploading(true);
     setImageError(null);
     try {
-      const updated = await uploadCentreImage(file);
-      setImageUrl(updated.imageUrl ?? null);
+      // Uploads séquentiels : le backend fait un append par requête.
+      let updated: Centre | null = null;
+      for (const file of files) {
+        updated = await uploadCentreImage(file);
+      }
+      if (updated) setImages(updated.imagesUrls ?? (updated.imageUrl ? [updated.imageUrl] : []));
     } catch {
       setImageError("Erreur lors de l'upload. Réessayez.");
     } finally {
       setImageUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleSupprimerImage = async (url: string) => {
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const updated = await supprimerCentreImage(url);
+      setImages(updated.imagesUrls ?? []);
+    } catch {
+      setImageError('Erreur lors de la suppression. Réessayez.');
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const handleDeplacerImage = async (index: number, delta: -1 | 1) => {
+    const cible = index + delta;
+    if (cible < 0 || cible >= images.length) return;
+    const ordre = [...images];
+    [ordre[index], ordre[cible]] = [ordre[cible], ordre[index]];
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const updated = await reordonnerCentreImages(ordre);
+      setImages(updated.imagesUrls ?? ordre);
+    } catch {
+      setImageError('Erreur lors du réordonnancement. Réessayez.');
+    } finally {
+      setImageBusy(false);
     }
   };
 
@@ -358,55 +403,104 @@ export default function HebergeurProfilPage() {
             )}
 
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4">Photo de l&apos;établissement</h2>
-              <div className="flex items-start gap-6">
-                <div className="shrink-0">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt="Photo de l'établissement"
-                      className="h-24 w-24 rounded-xl object-cover border border-gray-200"
-                    />
-                  ) : (
-                    <div className="h-24 w-24 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
-                      <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                      </svg>
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">
+                Photos de l&apos;établissement
+                {images.length > 0 && (
+                  <span className="ml-2 font-normal text-gray-400">{images.length}/{MAX_PHOTOS}</span>
+                )}
+              </h2>
+              <p className="text-sm text-gray-500 mb-3">
+                La première photo est la couverture : elle apparaît dans le catalogue et sur vos devis.<br />
+                Formats acceptés : JPG, PNG, WebP — maximum 10 Mo par photo, {MAX_PHOTOS} photos.
+              </p>
+              {imageError && (
+                <p className="text-sm text-red-600 mb-2">{imageError}</p>
+              )}
+              {images.length > 0 && (
+                <div className="flex flex-wrap gap-4 mb-4">
+                  {images.map((url, index) => (
+                    <div key={url} className="w-24">
+                      <div className="relative">
+                        <img
+                          src={url}
+                          alt={index === 0 ? "Photo de couverture de l'établissement" : `Photo ${index + 1} de l'établissement`}
+                          className="h-24 w-24 rounded-xl object-cover border border-gray-200"
+                        />
+                        {index === 0 && (
+                          <span className="absolute bottom-1 left-1 rounded-md bg-[var(--color-primary)] px-1.5 py-0.5 text-[10px] font-medium text-white">
+                            Couverture
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label="Supprimer cette photo"
+                          disabled={imageBusy || imageUploading}
+                          onClick={() => handleSupprimerImage(url)}
+                          className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 shadow-sm hover:text-red-600 hover:border-red-300 transition-colors disabled:opacity-50"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="mt-1 flex justify-center gap-1">
+                        <button
+                          type="button"
+                          aria-label="Déplacer la photo vers la gauche"
+                          disabled={imageBusy || imageUploading || index === 0}
+                          onClick={() => handleDeplacerImage(index, -1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Déplacer la photo vers la droite"
+                          disabled={imageBusy || imageUploading || index === images.length - 1}
+                          onClick={() => handleDeplacerImage(index, 1)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-500 mb-3">
-                    Cette photo apparaît dans le catalogue et sur vos devis.<br />
-                    Formats acceptés : JPG, PNG, WebP — maximum 10 Mo.
-                  </p>
-                  {imageError && (
-                    <p className="text-sm text-red-600 mb-2">{imageError}</p>
-                  )}
-                  <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${imageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    {imageUploading ? (
-                      <>
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                        Upload en cours...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                        </svg>
-                        {imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      disabled={imageUploading}
-                      onChange={handleImageUpload}
-                    />
-                  </label>
+              )}
+              {images.length === 0 && (
+                <div className="mb-4 h-24 w-24 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+                  <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
                 </div>
-              </div>
+              )}
+              <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${imageUploading || imageBusy || images.length >= MAX_PHOTOS ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {imageUploading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    Upload en cours...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    {images.length > 0 ? 'Ajouter des photos' : 'Ajouter une photo'}
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  disabled={imageUploading || imageBusy || images.length >= MAX_PHOTOS}
+                  onChange={handleImageUpload}
+                />
+              </label>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
