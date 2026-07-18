@@ -15,6 +15,8 @@ export interface Hebergement {
   capaciteAdultes: number | null;
   description: string | null;
   image: string | null;
+  /** Galerie §3.11 — image reste la couverture (= images[0]). Peut manquer sur une réponse en cache. */
+  images?: string[];
   permalien: string | null;
   contact: string | null;
   thematiques: string[];

@@ -17,6 +17,28 @@ export default function CentrePublicPage() {
   const [claimFile, setClaimFile] = useState<File | null>(null);
   const [isHebergeur, setIsHebergeur] = useState(false);
   const [showClaimForm, setShowClaimForm] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Galerie §3.11 : repli couverture seule si images absent (réponse en cache) ou vide.
+  const photos = centre
+    ? centre.images?.length
+      ? centre.images
+      : centre.image
+        ? [centre.image]
+        : []
+    : [];
+
+  // Lightbox : Échap ferme, ←/→ naviguent.
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowLeft') setLightboxIndex((i) => (i === null ? i : (i + photos.length - 1) % photos.length));
+      if (e.key === 'ArrowRight') setLightboxIndex((i) => (i === null ? i : (i + 1) % photos.length));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxIndex, photos.length]);
 
   // Bouton « Je gère ce centre » : redirige vers l'inscription si non connecté,
   // appelle le claim si hébergeur, sinon invite à se connecter en hébergeur.
@@ -108,10 +130,32 @@ export default function CentrePublicPage() {
       </nav>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Image */}
-        {centre.image && (
-          <div className="rounded-2xl overflow-hidden mb-8 h-56 w-full">
-            <img src={centre.image} alt={centre.nom} className="w-full h-full object-cover" />
+        {/* Galerie photos (§3.11) — couverture + vignettes, lightbox plein écran */}
+        {photos.length > 0 && (
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={() => setLightboxIndex(0)}
+              aria-label="Agrandir la photo"
+              className="block w-full rounded-2xl overflow-hidden h-56 cursor-zoom-in"
+            >
+              <img src={photos[0]} alt={centre.nom} className="w-full h-full object-cover" />
+            </button>
+            {photos.length > 1 && (
+              <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+                {photos.map((url, i) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setLightboxIndex(i)}
+                    aria-label={`Voir la photo ${i + 1} sur ${photos.length}`}
+                    className="shrink-0 rounded-xl overflow-hidden border-2 border-transparent hover:border-[var(--color-primary)] transition-colors cursor-zoom-in"
+                  >
+                    <img src={url} alt={`${centre.nom} — photo ${i + 1}`} className="h-16 w-24 object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -270,6 +314,64 @@ export default function CentrePublicPage() {
           </div>
         </div>
       </main>
+
+      {/* Lightbox plein écran — croix / clic hors image / Échap, navigation ←/→ */}
+      {lightboxIndex !== null && photos[lightboxIndex] && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Photo ${lightboxIndex + 1} sur ${photos.length} — ${centre.nom}`}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 sm:p-8"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <button
+            type="button"
+            aria-label="Fermer"
+            autoFocus
+            onClick={() => setLightboxIndex(null)}
+            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+          {photos.length > 1 && (
+            <button
+              type="button"
+              aria-label="Photo précédente"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + photos.length - 1) % photos.length); }}
+              className="absolute left-2 sm:left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+          )}
+          <img
+            src={photos[lightboxIndex]}
+            alt={`${centre.nom} — photo ${lightboxIndex + 1} sur ${photos.length}`}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-full max-w-full rounded-lg object-contain"
+          />
+          {photos.length > 1 && (
+            <button
+              type="button"
+              aria-label="Photo suivante"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % photos.length); }}
+              className="absolute right-2 sm:right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          )}
+          {photos.length > 1 && (
+            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/80">
+              {lightboxIndex + 1} / {photos.length}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
