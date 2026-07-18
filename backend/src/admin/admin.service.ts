@@ -811,33 +811,54 @@ export class AdminService {
         });
 
         if (existing) {
-          await this.prisma.centreHebergement.update({
-            where: { id: existing.id },
-            data: {
-              nom,
-              adresse: adresseStr,
-              ville,
-              codePostal,
-              departement,
-              email,
-              telephone,
-              siteWeb,
-              capacite: capacite > 0 ? capacite : existing.capacite,
-              capaciteAdultes: capaciteAdultes ?? existing.capaciteAdultes,
-              description: description ?? existing.description,
-              // Images : jamais sur un centre revendiqué (le hébergeur est maître de sa
-              // galerie), et jamais d'écrasement par du vide si APIDAE n'a rien.
-              ...(!existing.userId && galerieApidae.length > 0
-                && { imageUrl: coverApidae, imagesUrls: galerieApidae }),
-              periodeOuverture: periodeOuverture ?? existing.periodeOuverture,
-              activitesCentre: activitesCentre.length > 0 ? activitesCentre : existing.activitesCentre,
-              accessiblePmr,
-              reseau,
-              source: 'APIDAE',
-            },
-          });
-          updated++;
-          details.push(`MIS À JOUR : ${nom} (${ville})`);
+          if (existing.userId) {
+            // Centre revendiqué : l'hébergeur est maître de ses données. On n'ENRICHIT que
+            // les champs vides, jamais d'écrasement, pas de flip reseau.
+            await this.prisma.centreHebergement.update({
+              where: { id: existing.id },
+              data: {
+                ...(existing.reseau == null && { reseau }),
+                ...(existing.email == null && email && { email }),
+                ...(existing.telephone == null && telephone && { telephone }),
+                ...(existing.siteWeb == null && siteWeb && { siteWeb }),
+                ...(existing.description == null && description && { description }),
+                ...(existing.periodeOuverture == null && periodeOuverture && { periodeOuverture }),
+                ...(existing.capaciteAdultes == null && capaciteAdultes != null && { capaciteAdultes }),
+                ...(existing.capacite === 0 && capacite > 0 && { capacite }),
+                ...((existing.activitesCentre?.length ?? 0) === 0 && activitesCentre.length > 0 && { activitesCentre }),
+                ...(existing.imageUrl == null && galerieApidae.length > 0 && { imageUrl: coverApidae, imagesUrls: galerieApidae }),
+                ...(!existing.accessiblePmr && accessiblePmr && { accessiblePmr: true }),
+              },
+            });
+            updated++;
+            details.push(`ENRICHI (revendiqué) : ${nom} (${ville})`);
+          } else {
+            // Centre non revendiqué (catalogue) : refresh complet depuis APIDAE (comportement actuel).
+            await this.prisma.centreHebergement.update({
+              where: { id: existing.id },
+              data: {
+                nom,
+                adresse: adresseStr,
+                ville,
+                codePostal,
+                departement,
+                email,
+                telephone,
+                siteWeb,
+                capacite: capacite > 0 ? capacite : existing.capacite,
+                capaciteAdultes: capaciteAdultes ?? existing.capaciteAdultes,
+                description: description ?? existing.description,
+                ...(galerieApidae.length > 0 && { imageUrl: coverApidae, imagesUrls: galerieApidae }),
+                periodeOuverture: periodeOuverture ?? existing.periodeOuverture,
+                activitesCentre: activitesCentre.length > 0 ? activitesCentre : existing.activitesCentre,
+                accessiblePmr,
+                reseau,
+                source: 'APIDAE',
+              },
+            });
+            updated++;
+            details.push(`MIS À JOUR : ${nom} (${ville})`);
+          }
         } else {
           await this.prisma.centreHebergement.create({
             data: {
