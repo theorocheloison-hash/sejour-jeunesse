@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
+import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
@@ -771,10 +772,13 @@ export class AdminService {
         const description: string | null =
           (obj.presentation?.descriptifCourt?.libelleFr ?? null)?.substring(0, 2000) ?? null;
 
-        const imageUrl: string | null =
-          obj.illustrations?.[0]?.traductionFichiers?.find(
-            (t: any) => t.locale === 'fr'
-          )?.urlDiaporama ?? null;
+        // Galerie complète (§3.11) — dédupliquée, plafonnée comme l'upload hébergeur.
+        const galerieApidae: string[] = [...new Set(
+          ((obj.illustrations ?? []) as any[])
+            .map((ill: any) => ill.traductionFichiers?.find((t: any) => t.locale === 'fr')?.urlDiaporama)
+            .filter(Boolean) as string[]
+        )].slice(0, MAX_PHOTOS_CENTRE);
+        const coverApidae: string | null = galerieApidae[0] ?? null;
 
         const periodeOuverture: string | null =
           (obj.ouverture?.periodeEnClair?.libelleFr ?? null)?.substring(0, 255) ?? null;
@@ -821,7 +825,10 @@ export class AdminService {
               capacite: capacite > 0 ? capacite : existing.capacite,
               capaciteAdultes: capaciteAdultes ?? existing.capaciteAdultes,
               description: description ?? existing.description,
-              imageUrl: imageUrl ?? existing.imageUrl,
+              // Images : jamais sur un centre revendiqué (le hébergeur est maître de sa
+              // galerie), et jamais d'écrasement par du vide si APIDAE n'a rien.
+              ...(!existing.userId && galerieApidae.length > 0
+                && { imageUrl: coverApidae, imagesUrls: galerieApidae }),
               periodeOuverture: periodeOuverture ?? existing.periodeOuverture,
               activitesCentre: activitesCentre.length > 0 ? activitesCentre : existing.activitesCentre,
               accessiblePmr,
@@ -845,7 +852,8 @@ export class AdminService {
               capacite: capacite > 0 ? capacite : 0,
               capaciteAdultes,
               description,
-              imageUrl,
+              imageUrl: coverApidae,
+              imagesUrls: galerieApidae,
               periodeOuverture,
               activitesCentre,
               accessiblePmr,
