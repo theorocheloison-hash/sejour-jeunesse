@@ -50,6 +50,8 @@ function mapRecord(r: ApiRecord) {
     capaciteAdultes: r.nombre_de_lits_pour_les_adultes_assurant_l_encadrement,
     description: r.description_longue,
     image: r.image,
+    // Récord EN : une seule photo à la source — galerie réduite à la couverture.
+    images: r.image ? [r.image] : [],
     permalien: r.permalien,
     contact: r.outils_d_inscription,
     thematiques: r.thematiques_principales_proposees_par_la_structure_d_accueil_et_d_hebergement ?? [],
@@ -92,6 +94,8 @@ function mapCentre(c: any) {
     capaciteAdultes: c.capaciteAdultes ?? null,
     description: c.description,
     image: c.imageUrl ?? null,
+    // Galerie §3.11 — self-heal : centre importé (imageUrl sans galerie) → couverture seule.
+    images: c.imagesUrls?.length ? c.imagesUrls : c.imageUrl ? [c.imageUrl] : [],
     permalien: null,
     contact: c.telephone ?? c.email ?? null,
     thematiques: c.thematiquesCentre ?? [],
