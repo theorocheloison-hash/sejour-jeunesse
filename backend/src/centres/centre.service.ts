@@ -37,6 +37,9 @@ export const DEFAULT_CONFIG_INSCRIPTION = {
   champsCustom: [],
 };
 
+// Garde-fou galerie multi-photos (§3.11).
+export const MAX_PHOTOS_CENTRE = 12;
+
 @Injectable()
 export class CentreService {
   constructor(
@@ -232,7 +235,7 @@ export class CentreService {
       where: { id: { in: ids } },
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
-        capacite: true, imageUrl: true, logoUrl: true, statut: true,
+        capacite: true, imageUrl: true, imagesUrls: true, logoUrl: true, statut: true,
         abonnementStatut: true, planAbonnement: true,
         userId: true, // pour calculer isOwned (non exposé dans la réponse)
       },
@@ -241,7 +244,7 @@ export class CentreService {
     return centres.map(c => ({
       id: c.id, nom: c.nom, ville: c.ville, adresse: c.adresse,
       codePostal: c.codePostal, capacite: c.capacite, imageUrl: c.imageUrl,
-      logoUrl: c.logoUrl,
+      imagesUrls: c.imagesUrls, logoUrl: c.logoUrl,
       statut: c.statut, abonnementStatut: c.abonnementStatut,
       planAbonnement: c.planAbonnement,
       isOwned: c.userId === userId,
@@ -437,7 +440,7 @@ export class CentreService {
     const centres = await this.prisma.centreHebergement.findMany({
       where: { id: { in: centreIds } },
       select: {
-        id: true, nom: true, ville: true, capacite: true, imageUrl: true,
+        id: true, nom: true, ville: true, capacite: true, imageUrl: true, imagesUrls: true,
         capaciteGroupeMin: true, capaciteGroupeMax: true, reseau: true,
       },
     });
@@ -855,7 +858,7 @@ export class CentreService {
       select: {
         id: true, nom: true, adresse: true, ville: true, codePostal: true,
         telephone: true, email: true, capacite: true, description: true,
-        imageUrl: true, siteWeb: true, typeSejours: true, thematiquesCentre: true,
+        imageUrl: true, imagesUrls: true, siteWeb: true, typeSejours: true, thematiquesCentre: true,
         activitesCentre: true, equipements: true, accessiblePmr: true,
         agrementEducationNationale: true, periodeOuverture: true, departement: true,
         source: true, apidaeId: true, organisationId: true, userId: true,
@@ -1262,6 +1265,16 @@ export class CentreService {
     });
   }
 
+  /**
+   * Galerie effective d'un centre. Un centre importé (APIDAE / catalogue) peut
+   * porter une imageUrl sans galerie : on la sème comme 1ère photo plutôt que
+   * de toucher aux chemins d'import — invariant imageUrl = imagesUrls[0] ?? null.
+   */
+  private galerieCourante(centre: { imagesUrls: string[]; imageUrl: string | null }): string[] {
+    if (centre.imagesUrls.length > 0) return centre.imagesUrls;
+    return centre.imageUrl ? [centre.imageUrl] : [];
+  }
+
   async uploadImage(userId: string, file: Express.Multer.File, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
@@ -1273,15 +1286,59 @@ export class CentreService {
       throw new ForbiddenException('Fichier trop lourd. Maximum 10MB.');
     }
 
-    if (centre.imageUrl) {
-      await this.storage.delete(centre.imageUrl);
+    const galerie = this.galerieCourante(centre);
+    if (galerie.length >= MAX_PHOTOS_CENTRE) {
+      throw new BadRequestException(
+        `Maximum ${MAX_PHOTOS_CENTRE} photos par centre. Supprimez une photo avant d'en ajouter.`,
+      );
     }
 
-    const imageUrl = await this.storage.upload(file, 'centres');
+    const url = await this.storage.upload(file, 'centres');
+    const imagesUrls = [...galerie, url];
 
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
-      data: { imageUrl },
+      data: { imagesUrls, imageUrl: imagesUrls[0] ?? null },
+    });
+  }
+
+  /** Retire une photo de la galerie (OVH + base) et recale la couverture. */
+  async supprimerImage(userId: string, url: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const galerie = this.galerieCourante(centre);
+    if (!galerie.includes(url)) {
+      throw new NotFoundException('Photo introuvable sur ce centre.');
+    }
+
+    // No-op silencieux si l'URL ne pointe pas le bucket (photo APIDAE externe).
+    await this.storage.delete(url);
+
+    const imagesUrls = galerie.filter((u) => u !== url);
+
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { imagesUrls, imageUrl: imagesUrls[0] ?? null },
+    });
+  }
+
+  /** Réordonne la galerie (la 1ère photo devient la couverture). */
+  async reordonnerImages(userId: string, urls: string[], centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const galerie = this.galerieCourante(centre);
+    const estPermutation =
+      urls.length === galerie.length &&
+      [...urls].sort().join(' ') === [...galerie].sort().join(' ');
+    if (!estPermutation) {
+      throw new BadRequestException(
+        'La liste fournie doit contenir exactement les photos actuelles du centre.',
+      );
+    }
+
+    return this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { imagesUrls: urls, imageUrl: urls[0] ?? null },
     });
   }
 

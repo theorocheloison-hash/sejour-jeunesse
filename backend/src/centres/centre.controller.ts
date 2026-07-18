@@ -30,6 +30,7 @@ import { CreateCentreDto } from './dto/create-centre.dto.js';
 import { ClaimCentreDto } from './dto/claim-centre.dto.js';
 import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
+import { SupprimerImageCentreDto, ReordonnerImagesCentreDto } from './dto/update-images-centre.dto.js';
 import { CentreId } from './centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
@@ -225,6 +226,30 @@ export class CentreController {
   ) {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     return this.centreService.uploadImage(user.id, file, centreId);
+  }
+
+  @Delete('images')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  supprimerImage(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: SupprimerImageCentreDto,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.supprimerImage(user.id, dto.url, centreId);
+  }
+
+  @Patch('images')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  reordonnerImages(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: ReordonnerImagesCentreDto,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.reordonnerImages(user.id, dto.urls, centreId);
   }
 
   @Post('brochure-upload')

@@ -607,6 +607,9 @@ model CentreHebergement {
   apidaeId            String?           @map("apidae_id") @db.VarChar(20)
   source              String?           @map("source") @db.VarChar(20)
   imageUrl            String?           @map("image_url") @db.VarChar(500)
+  // Galerie multi-photos (§3.11). Invariant : imageUrl = imagesUrls[0] ?? null
+  // (couverture), maintenu par uploadImage / supprimerImage / reordonnerImages.
+  imagesUrls          String[]          @default([]) @map("images_urls")
   brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
   logoUrl             String?           @map("logo_url") @db.VarChar(500)
   conventionPdfUrl    String?           @map("convention_pdf_url") @db.VarChar(500)
