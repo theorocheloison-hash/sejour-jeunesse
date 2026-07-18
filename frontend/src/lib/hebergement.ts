@@ -21,6 +21,8 @@ export interface Hebergement {
   contact: string | null;
   thematiques: string[];
   activites: string[];
+  /** Équipements du centre (saisis par l'hébergeur). Peut manquer sur une réponse en cache. */
+  equipements?: string[];
   accessible: boolean;
   avisSecurite: string | null;
   periodeOuverture: string | null;

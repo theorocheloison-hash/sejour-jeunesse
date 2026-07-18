@@ -203,6 +203,20 @@ export default function CentrePublicPage() {
               </div>
             )}
 
+            {/* Équipements */}
+            {(centre.equipements?.length ?? 0) > 0 && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-2">Équipements</h2>
+                <div className="flex flex-wrap gap-2">
+                  {centre.equipements!.map((eq) => (
+                    <span key={eq} className="rounded-full border border-gray-200 bg-white text-gray-600 px-3 py-1 text-xs">
+                      {eq}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {centre.periodeOuverture && (
               <p className="text-sm text-gray-500">
                 <span className="font-medium text-gray-700">Période d&apos;ouverture :</span>{' '}
