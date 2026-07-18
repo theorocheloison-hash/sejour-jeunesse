@@ -1,3 +1,6 @@
+/* ✅ EXÉCUTÉ EN PROD LE 13/07/2026 — les 2 transactions ont été committées. Tous les DELETE conformes aux attendus (dont le OR createur_id large : DELETE 1, aucun séjour collatéral). Contrôles post-purge : 0 utilisateur/centre/organisation restants sur les 2 comptes ; Chalet des Nants intact (org 24e4e21e + centre fe8d1222 ACTIVE) ; 7 hébergeurs restants (Sauvageon, Pôle Montagne, Corrotte, Alticlub, T. Massard, Choucas, PULSE). Fichier conservé pour archive. */
+/* RESTE À FAIRE À LA MAIN : purger les objets S3 OVH (bucket liavo-uploads, préfixe kbis/ — PDF du claim ZZZ RECETTE). */
+
 /* PURGE 13/07 — comptes recette-exnihilo-13-07@liavo.fr (ZZZ RECETTE 13-07) et trochenrc@gmail.com (centre test SUSPENDED). Préparé par CC le 13/07, diagnostic prod SELECT-only. THEO EXECUTE. */
 /* Diagnostic préalable : 0 facture sur les 2 devis ; sequence_numero est par ORGANISATION (les 2 orgs sont dédiées, 1 centre + 1 membership chacune) : aucune séquence comptable partagée n'est trouée. */
 /* GARDE-FOU : ne touche PAS à l'organisation Chalet des Nants 24e4e21e-c544-448f-9bb1-98fe6267fc32 ni au centre fe8d1222-7f76-4622-8fbe-76b82cb6ac95 (traités le 13/07 au matin, légitimes). Aucune requête ci-dessous ne les référence ; contrôle explicite en fin de script. */
