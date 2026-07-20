@@ -34,7 +34,7 @@
 |---|---|---|
 | 1 | **Impossible d'ajouter plusieurs options sur une même semaine** si un séjour en option prend déjà tous les lits | ✅ **LIAVO le gère déjà nativement** `[FAIT — déclaré Théo, à re-confirmer en démo]` |
 | 2 | Espace client collaboratif = **1 seul interlocuteur**, **facturé en plus**, pas d'accès multi-enseignants co-organisateurs | ✅ **LIAVO = multi-collaborateur inclus** `[FAIT]` ⚠️ voir correction §5 |
-| 3 | Facture complémentaire = **oblige à recréer un nouveau client** (ex : asso parents d'élèves payeur partiel) | 🟡 **LIAVO censé le faire** (devis/factures complémentaires) — **à vérifier dans le code** `[INCERTAIN]` |
+| 3 | Facture complémentaire = **oblige à recréer un nouveau client** (ex : asso parents d'élèves payeur partiel) | ✅ **LIAVO le fait déjà — vérifié end-to-end le 18/07** : devis complémentaire à destinataire propre (nom/SIRET/email), facturé au co-payeur via facture totale, **zéro Client CRM recréé** `[FAIT — code lu]` |
 | 4 | Généraliste (pas natif séjour jeunesse) | Positionnement LIAVO = natif séjour jeunesse |
 | 5 | Souveraineté : données élèves hors France | ✅ LIAVO = société FR, données en France (Scalingo Paris + OVH Gravelines) `[FAIT]` |
 
@@ -62,7 +62,7 @@
 ### 🟢 Panier A — déjà à nous / finissable, vrais différenciateurs → FAIRE
 - **Multi-option même semaine** — marche déjà. Démo massue.
 - **Espace client multi-collaborateur** — plusieurs enseignants co-organisateurs, inclus (vs Venue360 : 1 interlocuteur payant).
-- **Multi-payeur** (collège + asso parents sans recréer un client) — dans notre domaine (facturation), fort ROI, finissable. ⚠️ **Relire le code des devis/factures complémentaires avant de promettre « quasi-prêt ».** `[INCERTAIN]`
+- **Multi-payeur** (collège + asso parents sans recréer un client) — ✅ **VÉRIFIÉ end-to-end le 18/07 : c'est FAIT, pas « à finir ».** `[FAIT — code lu]` Devis complémentaire attaché au séjour, destinataire propre, facturé via facture totale au co-payeur, sans recréer de Client CRM. Backend + API + UI câblés. Caveats mineurs : surfacé uniquement sur séjours **DIRECT** (gate `isDirect` en UI — le backend l'accepterait aussi en collab) ; modèle **facture-directe** (pas d'envoi d'un devis au co-payeur pour validation préalable). Reste : **smoke-test réel en prod** (créer → facturer → PDF) avant de le démontrer à Pierre.
 
 ### 🟡 Panier B — dans le périmètre séjour, à planifier (financés, phasés) → PAS gratuits, PAS maintenant
 - **Plan des chambres** drag-drop + accès enseignant + affectation des inscrits. Natif séjour scolaire (rooming lists = cœur). Déjà sur la wishlist. Bénéficie à tous les clients (Choucas/PULSE…).
@@ -124,7 +124,7 @@
 
 ## 7. À vérifier / actions ouvertes
 
-- [ ] **Relire le code multi-payeur / factures complémentaires** → « finissable » vs « à refaire » avant septembre. `[Claude, prochaine session]`
+- [x] **Relire le code multi-payeur / factures complémentaires** → **FAIT le 18/07 : fonctionnel end-to-end, pas « à refaire ».** Reste : smoke-test réel prod (créer un complémentaire → facturer total → PDF Factur-X → email) avant de le démontrer à Pierre en septembre.
 - [ ] Confirmer l'**orthographe de Tereva**.
 - [ ] **Compléter et envoyer** l'email récap (fait : envoyé 18/07 — voir versions courte/structurée).
 - [ ] `[INCERTAIN]` Vérifier si le **modèle participant/groupe capture régimes/allergies** (prérequis du module restauration intégré).
@@ -134,3 +134,6 @@
 
 ## 8. Séquençage — garde-fou
 `[INTERPRÉTATION]` Tereva est un prospect majeur **mais post-septembre et post-conversion**. Le problème n°1 **aujourd'hui** reste la conversion du funnel existant (Choucas paie-t-il ? PULSE/Alticlub/Pôle Montagne convertissent-ils ?). **Ne pas laisser une bonne idée doubler la file devant le cash immédiat.** La visite de septembre = **pure découverte** (il montre Venue360 en live = intel ; Théo montre Le Sauvageon + LIAVO). Repartir avec une **proposition scopée**, pas des promesses de features.
+
+### Actifs de démo (livrés le 18/07)
+`[FAIT]` **Fiche catalogue publique soignée** (`liavo.fr/catalogue/<id>`) : galerie multi-photos + lightbox, thématiques / activités / équipements, capacités, badge PMR — **données en France, société française**. **Le Sauvageon = vitrine de référence.** À montrer en septembre à côté de « vos 14 centres ressembleront à ça, hébergés en France, moins cher que Venue360 ». Preuve concrète > argumentaire — et ça matérialise l'angle souveraineté (§3) que Venue360 ne peut pas cocher.

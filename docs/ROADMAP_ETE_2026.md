@@ -16,6 +16,12 @@
 
 ---
 
+## 🗺️ IDÉE PRODUIT — Carte interactive du catalogue (backlog)
+
+> **Carte interactive du catalogue** — afficher les centres sur une carte (recherche géographique visuelle côté organisateur + actif de démo). Prérequis : coordonnées GPS en base → migration `latitude`/`longitude` sur `CentreHebergement` + backfill depuis l'API Éducation nationale (qui les expose déjà, champs `nom_du_lieu_d_accueil_latitude`/`_longitude`). Bonus : dédup GPS infaillible (2 fiches au même point = même bâtiment). Reporté en **Lot 2bis** du chantier catalogue (décision 20/07 : GPS sorti du Lot 2 pour garder le commit propre — le Lot 2 backfille identifiant EN + avis + thématiques + capacité adultes sans toucher au schéma).
+
+---
+
 ## ❄️ TVA SUR MARGE — Lot 1 LIVRÉ (14/07), Lots 2→5 GELÉS jusqu'à l'HIVER 2026-2027
 
 ### Le problème
