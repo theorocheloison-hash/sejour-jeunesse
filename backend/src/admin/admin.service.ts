@@ -1159,34 +1159,46 @@ export class AdminService {
    * adultes). Prépare la dédup catalogue (Lot 3). Idempotent : n'écrit que les
    * champs null/vides, jamais nom/ville/source/reseau.
    *
-   * Garde faux-positif : match uniquement sur égalité stricte des noms normalisés
-   * (préfixes chalet/centre/le/la/les/l'/maison/domaine/village/colonie retirés).
-   * L'inclusion est tolérée seulement s'il n'y a qu'un candidat EN au CP. En cas
-   * de doute → AMBIGU, rien n'est écrit (un faux positif efface un vrai centre
-   * du catalogue, pire qu'un doublon résiduel).
+   * Garde faux-positif : similarité de Jaccard sur les tokens distinctifs
+   * (ponctuation → espaces, stopwords de domaine retirés partout). RATTACHÉ auto
+   * seulement si un candidat unique atteint ≥ 0.8 ; zone 0.5–0.8 (ou plusieurs
+   * candidats forts) → PROPOSITION jamais écrite, avec l'identifiant EN pour
+   * rattachement manuel. En cas de doute → rien n'est écrit (un faux positif
+   * efface un vrai centre du catalogue, pire qu'un doublon résiduel).
+   *
+   * dryRun : tout le matching, aucune écriture — pour valider le rapport avant.
    */
-  async backfillEducationNationale(reseau: string): Promise<{
+  async backfillEducationNationale(reseau: string, dryRun: boolean): Promise<{
+    dryRun: boolean;
     matched: number;
+    proposed: number;
     ambiguous: number;
     notFound: number;
     errors: number;
     details: string[];
   }> {
-    // Retrait itératif des préfixes de tête, en gardant au moins un token
-    // (sinon "Le Village" et "La Maison" normaliseraient tous deux en "").
-    const PREFIXES = new Set(['chalet', 'centre', 'le', 'la', 'les', 'l', 'maison', 'domaine', 'village', 'colonie']);
-    const normaliserNom = (s: string): string => {
-      const tokens = (s ?? '')
+    const STOPWORDS = new Set([
+      'centre', 'chalet', 'maison', 'domaine', 'village', 'residence', 'residences',
+      'vacances', 'colonie', 'gite', 'gites', 'sejour', 'sas', 'cchm', 'cap', 'france',
+      'de', 'du', 'des', 'd', 'le', 'la', 'les', 'l', 'et',
+    ]);
+    const tokensDistinctifs = (s: string): Set<string> => {
+      const bruts = (s ?? '')
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '')
-        .replace(/['’]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .split(' ')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
         .filter(Boolean);
-      while (tokens.length > 1 && PREFIXES.has(tokens[0])) tokens.shift();
-      return tokens.join(' ');
+      const distincts = bruts.filter((t) => !STOPWORDS.has(t));
+      // Jamais de Set vide (deux noms 100 % stopwords matcheraient entre eux).
+      return new Set(distincts.length > 0 ? distincts : bruts);
+    };
+    const jaccard = (a: Set<string>, b: Set<string>): number => {
+      if (a.size === 0 || b.size === 0) return 0;
+      let inter = 0;
+      for (const t of a) if (b.has(t)) inter++;
+      return inter / (a.size + b.size - inter);
     };
 
     const centres = await this.prisma.centreHebergement.findMany({
@@ -1198,6 +1210,7 @@ export class AdminService {
     });
 
     let matched = 0;
+    let proposed = 0;
     let ambiguous = 0;
     let notFound = 0;
     let errors = 0;
@@ -1218,7 +1231,7 @@ export class AdminService {
     }
 
     for (const [cp, groupe] of parCp) {
-      let candidats: { identifiant: string; nom: string; norm: string; avis: string | null; thematiques: string[]; litsAdultes: number | null }[];
+      let candidats: { identifiant: string; nom: string; tokens: Set<string>; avis: string | null; thematiques: string[]; litsAdultes: number | null }[];
       try {
         const params = new URLSearchParams({
           where: `nom_du_lieu_d_accueil_code_postal="${cp}"`,
@@ -1232,7 +1245,7 @@ export class AdminService {
           .map((r) => ({
             identifiant: String(r.identifiant),
             nom: String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr),
-            norm: normaliserNom(String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr)),
+            tokens: tokensDistinctifs(String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr)),
             avis: r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite
               ? String(r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite)
               : null,
@@ -1251,34 +1264,31 @@ export class AdminService {
 
       for (const centre of groupe) {
         try {
-          const cible = normaliserNom(centre.nom);
-          const egaux = cible ? candidats.filter((k) => k.norm === cible) : [];
+          const cible = tokensDistinctifs(centre.nom);
+          const scores = candidats
+            .map((k) => ({ candidat: k, score: jaccard(cible, k.tokens) }))
+            .sort((a, b) => b.score - a.score);
+          const meilleur = scores[0];
+          const forts = scores.filter((s) => s.score >= 0.8);
 
-          let match: (typeof candidats)[number] | null = null;
-          if (egaux.length === 1) {
-            match = egaux[0];
-          } else if (
-            egaux.length === 0 &&
-            candidats.length === 1 &&
-            cible &&
-            candidats[0].norm &&
-            (candidats[0].norm.includes(cible) || cible.includes(candidats[0].norm))
-          ) {
-            // Inclusion tolérée uniquement quand elle est non ambiguë (candidat unique au CP).
-            match = candidats[0];
-          }
-
-          if (match) {
-            const data: Record<string, unknown> = {};
-            if (centre.apidaeId == null) data.apidaeId = match.identifiant;
-            if (centre.avisSecurite == null && match.avis) data.avisSecurite = match.avis.substring(0, 50);
-            if ((centre.thematiquesCentre?.length ?? 0) === 0 && match.thematiques.length > 0) data.thematiquesCentre = match.thematiques;
-            if (centre.capaciteAdultes == null && match.litsAdultes != null) data.capaciteAdultes = match.litsAdultes;
-            if (Object.keys(data).length > 0) {
-              await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
+          if (meilleur && meilleur.score >= 0.8 && forts.length === 1) {
+            const match = meilleur.candidat;
+            if (!dryRun) {
+              const data: Record<string, unknown> = {};
+              if (centre.apidaeId == null) data.apidaeId = match.identifiant;
+              if (centre.avisSecurite == null && match.avis) data.avisSecurite = match.avis.substring(0, 50);
+              if ((centre.thematiquesCentre?.length ?? 0) === 0 && match.thematiques.length > 0) data.thematiquesCentre = match.thematiques;
+              if (centre.capaciteAdultes == null && match.litsAdultes != null) data.capaciteAdultes = match.litsAdultes;
+              if (Object.keys(data).length > 0) {
+                await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
+              }
             }
             matched++;
             details.push(`RATTACHÉ : ${centre.nom} (${cp}) → EN ${match.identifiant}`);
+          } else if (meilleur && meilleur.score >= 0.5) {
+            // Score intermédiaire OU plusieurs candidats forts : décision humaine.
+            proposed++;
+            details.push(`PROPOSITION : ${centre.nom} (${cp}) → EN ${meilleur.candidat.identifiant} "${meilleur.candidat.nom}" (score ${meilleur.score.toFixed(2)})`);
           } else if (candidats.length > 0) {
             ambiguous++;
             details.push(`AMBIGU : ${centre.nom} (${cp}) — candidats : [${candidats.map((k) => k.nom).join(', ')}]`);
@@ -1293,7 +1303,7 @@ export class AdminService {
       }
     }
 
-    return { matched, ambiguous, notFound, errors, details };
+    return { dryRun, matched, proposed, ambiguous, notFound, errors, details };
   }
 
   async bulkInviteApidae(reseau: string): Promise<{

@@ -134,10 +134,10 @@ export class AdminController {
     return this.adminService.bulkInviteApidae(reseau);
   }
 
-  /** POST /admin/reseau/:reseau/backfill-en — Rattache les centres LMDJ à leur fiche EN (apidaeId) + enrichit les champs vides. */
+  /** POST /admin/reseau/:reseau/backfill-en?dry=1 — Rattache les centres LMDJ à leur fiche EN (apidaeId) + enrichit les champs vides. dry=1 : matching seul, aucune écriture. */
   @Post('reseau/:reseau/backfill-en')
-  backfillEducationNationale(@Param('reseau') reseau: string) {
-    return this.adminService.backfillEducationNationale(reseau);
+  backfillEducationNationale(@Param('reseau') reseau: string, @Query('dry') dry?: string) {
+    return this.adminService.backfillEducationNationale(reseau, dry === '1');
   }
 
   /** POST /admin/sync-lmdj — Import des centres LMDJ scrapés (scripts/lmdj-centres.json). */
