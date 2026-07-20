@@ -239,12 +239,13 @@ export default function DevisPDF(props: DevisPDFProps) {
         {lignes.map((l, i) => (
           <View key={i} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
             <Text style={[s.cellText, s.cellDesc]}>{l.description}</Text>
-            <Text style={[s.cellText, s.cellQte]}>{l.quantite}</Text>
+            {/* Ligne option (qty 0) : le PU TTC reste la seule info pertinente — qté et totaux en « — » */}
+            <Text style={[s.cellText, s.cellQte]}>{l.quantite === 0 ? '—' : l.quantite}</Text>
             <Text style={[s.cellText, s.cellPUTTC]}>{fmtMontant(puTTC(l.prixUnitaire, l.tva))} €</Text>
             <Text style={[s.cellText, s.cellTVA]}>{l.tva} %</Text>
             <Text style={[s.cellText, s.cellPU]}>{fmtMontant(l.prixUnitaire)} €</Text>
-            <Text style={[s.cellText, s.cellTotal]}>{fmtMontant(l.totalHT)} €</Text>
-            <Text style={[s.cellText, s.cellTotalTTC]}>{fmtMontant(l.totalTTC)} €</Text>
+            <Text style={[s.cellText, s.cellTotal]}>{l.quantite === 0 ? '—' : `${fmtMontant(l.totalHT)} €`}</Text>
+            <Text style={[s.cellText, s.cellTotalTTC]}>{l.quantite === 0 ? '—' : `${fmtMontant(l.totalTTC)} €`}</Text>
           </View>
         ))}
 

@@ -285,12 +285,13 @@ export default function SignerDevisPage() {
                 {devis.lignes.map((l, i) => (
                   <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-3 py-2">{l.description}</td>
-                    <td className="px-3 py-2 text-right">{l.quantite}</td>
+                    {/* Ligne option (qty 0) : le PU TTC reste la seule info pertinente — qté et totaux en « — » */}
+                    <td className="px-3 py-2 text-right">{Number(l.quantite) === 0 ? '—' : l.quantite}</td>
                     <td className="px-3 py-2 text-right">{fmtMoney(puTTC(Number(l.prixUnitaire), Number(l.tva)))} €</td>
                     <td className="px-3 py-2 text-right hidden sm:table-cell">{Number(l.tva)} %</td>
                     <td className="px-3 py-2 text-right hidden sm:table-cell">{fmtMoney(Number(l.prixUnitaire))} €</td>
-                    <td className="px-3 py-2 text-right hidden sm:table-cell">{fmtMoney(Number(l.totalHT))} €</td>
-                    <td className="px-3 py-2 text-right font-medium">{fmtMoney(Number(l.totalTTC))} €</td>
+                    <td className="px-3 py-2 text-right hidden sm:table-cell">{Number(l.quantite) === 0 ? '—' : `${fmtMoney(Number(l.totalHT))} €`}</td>
+                    <td className="px-3 py-2 text-right font-medium">{Number(l.quantite) === 0 ? '—' : `${fmtMoney(Number(l.totalTTC))} €`}</td>
                   </tr>
                 ))}
               </tbody>
