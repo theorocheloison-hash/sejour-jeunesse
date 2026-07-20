@@ -196,6 +196,59 @@ describe('CronAlertesService', () => {
     it.todo(
       "centre payant par virement (trialStartedAt résiduel, pas de mandat Mollie) → PAS d'alerte essai — invariant du chantier 10.1, à faire passer avant le 26/09",
     );
+
+    // ── 4.20 : regroupement par compte (multi-centre aligné) ────────────
+
+
+    it('multi-centre aligné (même userId, même palier) → UN seul mail, noms joints, tampon posé sur CHAQUE centre', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ id: 'c-yaka', nom: 'YAKA', userId: 'user-pm' }),
+        centreEssai({ id: 'c-flo', nom: 'Florimont', userId: 'user-pm' }),
+      ]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledWith(
+        'YAKA, Florimont', 'heb@centre.fr', 'Jean', 21, dansJours(21),
+      );
+      expect(prisma.centreHebergement.update).toHaveBeenCalledTimes(2);
+      expect(prisma.centreHebergement.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'c-yaka' } }),
+      );
+      expect(prisma.centreHebergement.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'c-flo' } }),
+      );
+    });
+
+    it('même userId mais paliers différents (J-21 et J-7) → deux mails distincts', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ id: 'c-a', nom: 'Centre A', userId: 'user-x', abonnementActifJusquAu: dansJours(21) }),
+        centreEssai({ id: 'c-b', nom: 'Centre B', userId: 'user-x', abonnementActifJusquAu: dansJours(7) }),
+      ]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(2);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(2);
+    });
+
+    it('envoyerAlertesExpires regroupe aussi par userId → un seul mail pour deux centres expirés du même compte', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ id: 'c-a', nom: 'Centre A', userId: 'user-x', abonnementActifJusquAu: dansJours(-2) }),
+        centreEssai({ id: 'c-b', nom: 'Centre B', userId: 'user-x', abonnementActifJusquAu: dansJours(-2) }),
+      ]);
+
+      const { expiresNotifies } = await service.envoyerAlertesExpires();
+
+      expect(expiresNotifies).toBe(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledWith(
+        'Centre A, Centre B', 'heb@centre.fr', 'Jean', 0, dansJours(-2),
+      );
+      expect(prisma.centreHebergement.update).toHaveBeenCalledTimes(2);
+    });
   });
 
   // ── 10.1a : exclusion des clients payés par virement/BdC ─────────────

@@ -89,23 +89,41 @@ export class CronAlertesService {
       include: { user: { select: { email: true, prenom: true, nom: true } } },
     });
 
-    let count = 0;
+    // 4.20 : les centres d'un même compte partagent la même date de fin (alignement
+    // trial 14/07) → une alerte admin PAR centre le même jour. Regroupement par
+    // userId + palier : UN mail par compte, noms de centres joints. Clé de repli
+    // centre.id si userId absent (comportement par-centre conservé).
+    type CentreAlerte = (typeof centres)[number];
+    const groupes = new Map<string, { centres: CentreAlerte[]; joursRestants: number; exp: Date }>();
     for (const centre of centres) {
       const exp = centre.abonnementActifJusquAu;
       if (!exp || !centre.user?.email) continue;
       const joursRestants = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
       if (![21, 14, 7, 3, 1].includes(joursRestants)) continue;
+      const cle = `${centre.userId ?? centre.id}|${joursRestants}`;
+      const groupe = groupes.get(cle);
+      if (groupe) groupe.centres.push(centre);
+      else groupes.set(cle, { centres: [centre], joursRestants, exp });
+    }
+
+    let count = 0;
+    for (const groupe of groupes.values()) {
+      const premier = groupe.centres[0];
+      const noms = groupe.centres.map((c) => c.nom).join(', ');
       try {
         await this.emailService.sendTrialExpirationAlert(
-          centre.nom, centre.user.email, centre.user.prenom, joursRestants, exp,
+          noms, premier.user!.email, premier.user!.prenom, groupe.joursRestants, groupe.exp,
         );
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
-          data: { dernierEmailAlerteAt: now },
-        });
+        // Tampon posé centre par centre (pas d'updateMany) : ne s'applique qu'après envoi réussi.
+        for (const centre of groupe.centres) {
+          await this.prisma.centreHebergement.update({
+            where: { id: centre.id },
+            data: { dernierEmailAlerteAt: now },
+          });
+        }
         count++;
       } catch (err) {
-        this.logger.error(`[alertes] Erreur centre ${centre.id}`, err as Error);
+        this.logger.error(`[alertes] Erreur groupe ${premier.id}`, err as Error);
       }
     }
     return { alertesEnvoyees: count };
@@ -134,21 +152,35 @@ export class CronAlertesService {
       include: { user: { select: { email: true, prenom: true, nom: true } } },
     });
 
-    let count = 0;
+    // 4.20 : même regroupement par compte que envoyerAlertes (palier unique 0).
+    type CentreExpire = (typeof centres)[number];
+    const groupes = new Map<string, { centres: CentreExpire[]; exp: Date }>();
     for (const centre of centres) {
       const exp = centre.abonnementActifJusquAu;
       if (!exp || !centre.user?.email) continue;
+      const cle = centre.userId ?? centre.id;
+      const groupe = groupes.get(cle);
+      if (groupe) groupe.centres.push(centre);
+      else groupes.set(cle, { centres: [centre], exp });
+    }
+
+    let count = 0;
+    for (const groupe of groupes.values()) {
+      const premier = groupe.centres[0];
+      const noms = groupe.centres.map((c) => c.nom).join(', ');
       try {
         await this.emailService.sendTrialExpirationAlert(
-          centre.nom, centre.user.email, centre.user.prenom, 0, exp,
+          noms, premier.user!.email, premier.user!.prenom, 0, groupe.exp,
         );
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
-          data: { dernierEmailAlerteAt: now },
-        });
+        for (const centre of groupe.centres) {
+          await this.prisma.centreHebergement.update({
+            where: { id: centre.id },
+            data: { dernierEmailAlerteAt: now },
+          });
+        }
         count++;
       } catch (err) {
-        this.logger.error(`[alertes-expires] Erreur centre ${centre.id}`, err as Error);
+        this.logger.error(`[alertes-expires] Erreur groupe ${premier.id}`, err as Error);
       }
     }
     return { expiresNotifies: count };
