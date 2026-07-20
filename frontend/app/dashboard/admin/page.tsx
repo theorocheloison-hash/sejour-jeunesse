@@ -1174,10 +1174,10 @@ function AbonnementsTab() {
       {metriques && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KpiCard label="Centres actifs" value={metriques.totalCentres} />
-          <KpiCard label="Trials actifs" value={metriques.trialActifs} accent="#C87D2E" />
-          <KpiCard label="Trials expirés" value={metriques.trialExpires} accent="#9C2B2B" />
-          <KpiCard label="Abonnements payés" value={metriques.aboPayes} accent="#1E5C42" />
-          <KpiCard label="MRR" value={`${metriques.mrr.toFixed(2)} €/mois`} accent="#1B4060" />
+          <KpiCard label="Trials actifs" value={metriques.trialActifs} accent="text-[#C87D2E]" />
+          <KpiCard label="Trials expirés" value={metriques.trialExpires} accent="text-[#9C2B2B]" />
+          <KpiCard label="Abonnements payés" value={metriques.aboPayes} accent="text-[#1E5C42]" />
+          <KpiCard label="MRR" value={`${metriques.mrr.toFixed(2)} €/mois`} accent="text-[#1B4060]" />
         </div>
       )}
 
