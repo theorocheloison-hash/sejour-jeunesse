@@ -2,12 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
-
-const PRIX_ANNUEL_MAP: Record<string, number> = {
-  ESSENTIEL: 290,
-  COMPLET: 490,
-  PILOTAGE: 690,
-};
+import { calculerMontantAbonnementCents } from './abonnement.constants.js';
 
 @Injectable()
 export class CronAlertesService {
@@ -210,7 +205,15 @@ export class CronAlertesService {
       const exp = centre.abonnementActifJusquAu;
       if (!exp || !centre.user?.email) continue;
       const dateFmt = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-      const prix = PRIX_ANNUEL_MAP[centre.planAbonnement] ?? 0;
+      // 10.5 : même formule que la souscription et le webhook Mollie — plan +
+      // supplément par centre ACTIF au-delà du premier (le prélèvement réel
+      // inclut ce supplément, le mail doit annoncer le même montant).
+      const nbCentresActifs = centre.userId
+        ? await this.prisma.centreHebergement.count({
+            where: { userId: centre.userId, statut: 'ACTIVE' },
+          })
+        : 1;
+      const prix = calculerMontantAbonnementCents(centre.planAbonnement, 'ANNUEL', nbCentresActifs) / 100;
       try {
         await this.emailService.sendGenericNotification(
           centre.user.email,

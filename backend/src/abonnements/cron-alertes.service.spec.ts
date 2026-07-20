@@ -8,6 +8,7 @@ function mockPrisma() {
     centreHebergement: {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
+      count: jest.fn().mockResolvedValue(1),
     },
   };
 }
@@ -323,9 +324,37 @@ describe('CronAlertesService', () => {
   });
 
   describe('envoyerAlertesRenouvellement', () => {
-    it.todo(
-      'le montant de renouvellement inclut le supplément multi-centre +39€/centre (bug 10.5, actuellement ignoré)',
-    );
+    it('mono-centre PILOTAGE annuel → montant du plan seul (690 €)', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ userId: 'user-x', abonnementActifJusquAu: dansJours(30) }),
+      ]);
+      prisma.centreHebergement.count.mockResolvedValue(1);
+
+      const { renouvellementsNotifies } = await service.envoyerAlertesRenouvellement();
+
+      expect(renouvellementsNotifies).toBe(1);
+      const [, sujet, corps] = emailService.sendGenericNotification.mock.calls[0];
+      expect(sujet).toBe('Renouvellement de votre abonnement LIAVO');
+      expect(corps).toContain('690 €');
+    });
+
+    it('le montant inclut le supplément multi-centre +390 €/an/centre (10.5) : 2 centres ACTIVE → 1080 €', async () => {
+      prisma.centreHebergement.findMany.mockResolvedValue([
+        centreEssai({ userId: 'user-pm', abonnementActifJusquAu: dansJours(30) }),
+      ]);
+      prisma.centreHebergement.count.mockResolvedValue(2);
+
+      const { renouvellementsNotifies } = await service.envoyerAlertesRenouvellement();
+
+      expect(renouvellementsNotifies).toBe(1);
+      // Le comptage porte sur les centres ACTIVE du compte, comme le webhook Mollie.
+      expect(prisma.centreHebergement.count).toHaveBeenCalledWith({
+        where: { userId: 'user-pm', statut: 'ACTIVE' },
+      });
+      const [, , corps] = emailService.sendGenericNotification.mock.calls[0];
+      expect(corps).toContain('1080 €');
+      expect(corps).not.toContain('690 €');
+    });
   });
 
   // ── 10.1b-4 : relance admin J-30 pour les renouvellements virement ───

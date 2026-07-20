@@ -6,23 +6,11 @@ import { TRIAL_DUREE_JOURS } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
 import createMollieClient, { MandateMethod } from '@mollie/api-client';
+import { calculerMontantAbonnementCents } from './abonnement.constants.js';
 
 const mollieClient = createMollieClient({
   apiKey: process.env.MOLLIE_API_KEY ?? '',
 });
-
-const PRIX_MENSUEL: Record<string, number> = {
-  ESSENTIEL: 2900,
-  COMPLET: 4900,
-  PILOTAGE: 6900,
-};
-const PRIX_ANNUEL: Record<string, number> = {
-  ESSENTIEL: 29000,
-  COMPLET: 49000,
-  PILOTAGE: 69000,
-};
-const CENTRE_SUPP_MENSUEL = 3900;
-const CENTRE_SUPP_ANNUEL = 39000;
 
 function centsToMollie(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -246,10 +234,7 @@ export class AbonnementService {
     const nbCentresActifs = await this.prisma.centreHebergement.count({
       where: { userId, statut: 'ACTIVE' },
     });
-    const centresSupp = Math.max(0, nbCentresActifs - 1);
-    const prixPlan = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
-    const prixCentresSupp = centresSupp * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
-    const montantTotal = prixPlan + prixCentresSupp;
+    const montantTotal = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
     // Créer ou réutiliser le customer Mollie
     let mollieCustomerId = centre.mollieCustomerId;
@@ -403,16 +388,14 @@ export class AbonnementService {
       console.log('[mollie-webhook] Abonnement prolongé centre', centre.id, 'jusqu\'au', expiration.toISOString());
 
       try {
-        const prixPlanFacture = frequence === 'ANNUEL'
-          ? PRIX_ANNUEL[centre.planAbonnement] ?? 0
-          : PRIX_MENSUEL[centre.planAbonnement] ?? 0;
         const nbCentresFacture = await this.prisma.centreHebergement.count({
           where: { userId: centre.userId!, statut: 'ACTIVE' },
         });
-        const centresSuppFacture = Math.max(0, nbCentresFacture - 1);
-        const prixSuppFacture = centresSuppFacture * (frequence === 'ANNUEL' ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
+        const montantFacture = calculerMontantAbonnementCents(
+          centre.planAbonnement, frequence ?? 'MENSUEL', nbCentresFacture,
+        );
         await this.factureLiavoService.emettre(
-          centre.id, prixPlanFacture + prixSuppFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
+          centre.id, montantFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
         );
         console.log('[mollie-webhook] Facture LIAVO émise pour centre', centre.id);
       } catch (err) {
