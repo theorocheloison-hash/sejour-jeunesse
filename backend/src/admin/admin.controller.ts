@@ -134,6 +134,12 @@ export class AdminController {
     return this.adminService.bulkInviteApidae(reseau);
   }
 
+  /** POST /admin/reseau/:reseau/backfill-en — Rattache les centres LMDJ à leur fiche EN (apidaeId) + enrichit les champs vides. */
+  @Post('reseau/:reseau/backfill-en')
+  backfillEducationNationale(@Param('reseau') reseau: string) {
+    return this.adminService.backfillEducationNationale(reseau);
+  }
+
   /** POST /admin/sync-lmdj — Import des centres LMDJ scrapés (scripts/lmdj-centres.json). */
   @Post('sync-lmdj')
   syncLmdj(@Body() body: any[]) {

@@ -11,6 +11,9 @@ import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
+// Même dataset que HebergementService.search — constante volontairement redéfinie ici.
+const EN_API = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
+
 const PRIX_MENSUEL: Record<string, number> = { ESSENTIEL: 2900, COMPLET: 4900, PILOTAGE: 6900 };
 const PRIX_ANNUEL: Record<string, number> = { ESSENTIEL: 29000, COMPLET: 49000, PILOTAGE: 69000 };
 
@@ -1148,6 +1151,149 @@ export class AdminService {
     }
 
     return { created, updated, enriched, errors, details };
+  }
+
+  /**
+   * Rattache les centres LMDJ_WEB à leur fiche Éducation nationale (identifiant EN
+   * → apidaeId) et enrichit les champs vides (avis sécurité, thématiques, capacité
+   * adultes). Prépare la dédup catalogue (Lot 3). Idempotent : n'écrit que les
+   * champs null/vides, jamais nom/ville/source/reseau.
+   *
+   * Garde faux-positif : match uniquement sur égalité stricte des noms normalisés
+   * (préfixes chalet/centre/le/la/les/l'/maison/domaine/village/colonie retirés).
+   * L'inclusion est tolérée seulement s'il n'y a qu'un candidat EN au CP. En cas
+   * de doute → AMBIGU, rien n'est écrit (un faux positif efface un vrai centre
+   * du catalogue, pire qu'un doublon résiduel).
+   */
+  async backfillEducationNationale(reseau: string): Promise<{
+    matched: number;
+    ambiguous: number;
+    notFound: number;
+    errors: number;
+    details: string[];
+  }> {
+    // Retrait itératif des préfixes de tête, en gardant au moins un token
+    // (sinon "Le Village" et "La Maison" normaliseraient tous deux en "").
+    const PREFIXES = new Set(['chalet', 'centre', 'le', 'la', 'les', 'l', 'maison', 'domaine', 'village', 'colonie']);
+    const normaliserNom = (s: string): string => {
+      const tokens = (s ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/['’]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(Boolean);
+      while (tokens.length > 1 && PREFIXES.has(tokens[0])) tokens.shift();
+      return tokens.join(' ');
+    };
+
+    const centres = await this.prisma.centreHebergement.findMany({
+      where: { source: 'LMDJ_WEB', userId: null, reseau },
+      select: {
+        id: true, nom: true, ville: true, codePostal: true,
+        apidaeId: true, avisSecurite: true, capaciteAdultes: true, thematiquesCentre: true,
+      },
+    });
+
+    let matched = 0;
+    let ambiguous = 0;
+    let notFound = 0;
+    let errors = 0;
+    const details: string[] = [];
+
+    // Un seul fetch EN par code postal distinct.
+    const parCp = new Map<string, typeof centres>();
+    for (const c of centres) {
+      const cp = (c.codePostal ?? '').trim();
+      if (!cp) {
+        notFound++;
+        details.push(`INTROUVABLE : ${c.nom} (CP manquant)`);
+        continue;
+      }
+      const groupe = parCp.get(cp) ?? [];
+      groupe.push(c);
+      parCp.set(cp, groupe);
+    }
+
+    for (const [cp, groupe] of parCp) {
+      let candidats: { identifiant: string; nom: string; norm: string; avis: string | null; thematiques: string[]; litsAdultes: number | null }[];
+      try {
+        const params = new URLSearchParams({
+          where: `nom_du_lieu_d_accueil_code_postal="${cp}"`,
+          limit: '50',
+        });
+        const res = await fetch(`${EN_API}?${params}`);
+        if (!res.ok) throw new Error(`API EN ${res.status}`);
+        const data: any = await res.json();
+        candidats = ((data.results ?? []) as any[])
+          .filter((r) => r.identifiant && r.nom_de_la_structure_d_accueil_et_d_hebergement_fr)
+          .map((r) => ({
+            identifiant: String(r.identifiant),
+            nom: String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr),
+            norm: normaliserNom(String(r.nom_de_la_structure_d_accueil_et_d_hebergement_fr)),
+            avis: r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite
+              ? String(r.avis_rendu_par_la_commission_consultative_departementale_de_securite_et_d_accessibilite)
+              : null,
+            thematiques: Array.isArray(r.thematiques_principales_proposees_par_la_structure_d_accueil_et_d_hebergement)
+              ? (r.thematiques_principales_proposees_par_la_structure_d_accueil_et_d_hebergement as any[]).filter((t) => typeof t === 'string')
+              : [],
+            litsAdultes: typeof r.nombre_de_lits_pour_les_adultes_assurant_l_encadrement === 'number'
+              ? r.nombre_de_lits_pour_les_adultes_assurant_l_encadrement
+              : null,
+          }));
+      } catch (err: any) {
+        errors += groupe.length;
+        details.push(`ERREUR : CP ${cp} — ${err?.message ?? err} (${groupe.length} centre(s) non traités)`);
+        continue;
+      }
+
+      for (const centre of groupe) {
+        try {
+          const cible = normaliserNom(centre.nom);
+          const egaux = cible ? candidats.filter((k) => k.norm === cible) : [];
+
+          let match: (typeof candidats)[number] | null = null;
+          if (egaux.length === 1) {
+            match = egaux[0];
+          } else if (
+            egaux.length === 0 &&
+            candidats.length === 1 &&
+            cible &&
+            candidats[0].norm &&
+            (candidats[0].norm.includes(cible) || cible.includes(candidats[0].norm))
+          ) {
+            // Inclusion tolérée uniquement quand elle est non ambiguë (candidat unique au CP).
+            match = candidats[0];
+          }
+
+          if (match) {
+            const data: Record<string, unknown> = {};
+            if (centre.apidaeId == null) data.apidaeId = match.identifiant;
+            if (centre.avisSecurite == null && match.avis) data.avisSecurite = match.avis.substring(0, 50);
+            if ((centre.thematiquesCentre?.length ?? 0) === 0 && match.thematiques.length > 0) data.thematiquesCentre = match.thematiques;
+            if (centre.capaciteAdultes == null && match.litsAdultes != null) data.capaciteAdultes = match.litsAdultes;
+            if (Object.keys(data).length > 0) {
+              await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
+            }
+            matched++;
+            details.push(`RATTACHÉ : ${centre.nom} (${cp}) → EN ${match.identifiant}`);
+          } else if (candidats.length > 0) {
+            ambiguous++;
+            details.push(`AMBIGU : ${centre.nom} (${cp}) — candidats : [${candidats.map((k) => k.nom).join(', ')}]`);
+          } else {
+            notFound++;
+            details.push(`INTROUVABLE : ${centre.nom} (${cp})`);
+          }
+        } catch (err: any) {
+          errors++;
+          details.push(`ERREUR : ${centre.nom} (${cp}) — ${err?.message ?? err}`);
+        }
+      }
+    }
+
+    return { matched, ambiguous, notFound, errors, details };
   }
 
   async bulkInviteApidae(reseau: string): Promise<{
