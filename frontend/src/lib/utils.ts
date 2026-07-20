@@ -5,16 +5,22 @@
  * comptés séparément (`nombreAccompagnateurs`). Le total réel = élèves + accompagnateurs.
  *
  * - accompagnateurs > 0 : « 45 participants (40 élèves + 5 accompagnateurs) »
+ * - accompagnateurs > 0 en HORS_SCOLAIRE : « 45 participants (dont 5 accompagnateurs) »
  * - accompagnateurs 0/null : « 40 participants »
  */
 export function formatParticipants(
   placesTotales: number,
   nombreAccompagnateurs?: number | null,
+  // §2.4 : optionnel pour rester rétrocompatible — sans contexte, libellé scolaire historique.
+  typeContexte?: string | null,
 ): string {
   const eleves = placesTotales ?? 0;
   const accompagnateurs = nombreAccompagnateurs ?? 0;
   if (accompagnateurs > 0) {
     const total = eleves + accompagnateurs;
+    if (typeContexte === 'HORS_SCOLAIRE') {
+      return `${total} participants (dont ${accompagnateurs} accompagnateur${accompagnateurs > 1 ? 's' : ''})`;
+    }
     return `${total} participants (${eleves} élèves + ${accompagnateurs} accompagnateurs)`;
   }
   return `${eleves} participant${eleves > 1 ? 's' : ''}`;

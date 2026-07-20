@@ -201,7 +201,7 @@ export default function SejourHeader({
             {sejour?.dateDebut && sejour?.dateFin && (
               <> · {formatDate(sejour.dateDebut, 'jourMoisCourt')} → {formatDate(sejour.dateFin, 'jourMoisCourt')}</>
             )}
-            {sejour?.placesTotales != null && <> · {formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</>}
+            {sejour?.placesTotales != null && <> · {formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs, sejour.typeContexte)}</>}
           </p>
           {isDirect && (
             <p className="text-xs text-gray-500 truncate">

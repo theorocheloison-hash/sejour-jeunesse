@@ -75,6 +75,7 @@ function NouveauDevisContent() {
   const [directSejour, setDirectSejour] = useState<{
     titre: string; dateDebut: string | null; dateFin: string | null; placesTotales: number;
     nombreAccompagnateurs?: number | null;
+    typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE' | null;
     clientNom: string | null; clientEmail: string | null; clientOrganisation: string | null;
     lieu: string;
   } | null>(null);
@@ -111,6 +112,7 @@ function NouveauDevisContent() {
           dateFin: s.dateFin,
           placesTotales: s.placesTotales,
           nombreAccompagnateurs: s.nombreAccompagnateurs,
+          typeContexte: s.typeContexte ?? null,
           clientNom: s.clientNom ?? null,
           clientEmail: s.clientEmail ?? null,
           clientOrganisation: s.clientOrganisation ?? null,
@@ -318,7 +320,7 @@ function NouveauDevisContent() {
             : ' — Dates à définir'}
         </p>
         <div className="flex gap-4 text-xs text-gray-500">
-          <span>{formatParticipants(directSejour.placesTotales, directSejour.nombreAccompagnateurs)}</span>
+          <span>{formatParticipants(directSejour.placesTotales, directSejour.nombreAccompagnateurs, directSejour.typeContexte)}</span>
         </div>
       </div>
     ) : (

@@ -63,6 +63,8 @@ export interface SejourCollabInfo {
   modeGestion?: string;
   natureSejour?: string;
   typeSejour?: string | null;
+  // Déjà renvoyé par GET /collaboration/:id (include sans select restrictif) — §2.4.
+  typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE' | null;
   clientNom?: string | null;
   clientPrenom?: string | null;
   clientEmail?: string | null;
