@@ -23,11 +23,15 @@ async function bootstrap() {
   // pour que req.cookies soit peuplé avant la JwtStrategy.
   app.use(cookieParser());
 
-  // Derrière le reverse proxy Scalingo : faire confiance au 1er proxy pour que
-  // req.ip lise X-Forwarded-For (IP client réelle) au lieu de l'IP du proxy.
-  // Sans cela, le ThrottlerGuard rate-limite sur une IP unique = compteur global.
-  // '1' (et non 'true') pour ne truster qu'un seul proxy (non spoofable au-delà).
-  app.set('trust proxy', 1);
+  // Derrière le reverse proxy Scalingo : faire confiance aux hops internes pour que
+  // req.ip lise l'IP client réelle (X-Forwarded-For) et non une IP interne 10.x.
+  // On truste par PLAGES d'IP privées (loopback/linklocal/uniquelocal) plutôt que par
+  // un nombre de hops : Express dépouille tous les proxies internes depuis la droite
+  // jusqu'à la première IP publique = l'IP observée par le routeur Scalingo. Robuste
+  // au nombre de proxies (inconnu/variable), non spoofable tant que le routeur ajoute
+  // lui-même l'IP réelle à la chaîne. Impacte req.ip partout : ThrottlerGuard (rate-
+  // limit par vrai client) + captures d'IP signatures parentales / devis / CGV / mandat.
+  app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 
   // Limite body JSON (imports volumineux, ex. POST /admin/sync-lmdj)
   app.use(json({ limit: '5mb' }));
