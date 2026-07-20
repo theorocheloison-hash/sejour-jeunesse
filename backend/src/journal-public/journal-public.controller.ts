@@ -46,6 +46,11 @@ export class JournalPublicController {
                 titre: true,
                 couleur: true,
                 estCollective: true,
+                // §4.18 : groupes structurés (refonte m2m 07/07) — le front ne peut
+                // plus les déduire du titre (plus de suffixe « — G1 »).
+                groupes: {
+                  select: { groupe: { select: { id: true, nom: true, couleur: true } } },
+                },
               },
             },
           },
@@ -57,6 +62,21 @@ export class JournalPublicController {
     if (autorisation.tokenExpiresAt && autorisation.tokenExpiresAt < new Date()) {
       throw new NotFoundException('Lien invalide ou expiré');
     }
-    return autorisation;
+
+    // Aplatissement de la jointure : groupes = [{id, nom, couleur}] — même contrat
+    // que le planning authentifié (collaboration.service).
+    const { sejour } = autorisation;
+    return {
+      ...autorisation,
+      sejour: sejour
+        ? {
+            ...sejour,
+            planningActivites: sejour.planningActivites.map(({ groupes, ...activite }) => ({
+              ...activite,
+              groupes: groupes.map((g) => g.groupe),
+            })),
+          }
+        : sejour,
+    };
   }
 }

@@ -55,6 +55,8 @@ type PlanningAct = {
   titre: string;
   couleur: string | null;
   estCollective: boolean;
+  // §4.18 : groupes structurés (refonte m2m) — absent sur les vieux payloads.
+  groupes?: { id: string; nom: string; couleur: string | null }[];
 };
 
 type GroupedActivite = {
@@ -96,13 +98,25 @@ function regrouperParCreneau(activites: PlanningAct[]): CreneauGroupe[] {
 
       const activitesGroupees: GroupedActivite[] = Array.from(byName.values()).map((rows) => {
         const nomBase = rows[0].titre.replace(/ — G\d+$/, '').trim();
-        const groupes = rows
-          .map((r) => {
-            const m = r.titre.match(/ — (G\d+)$/);
-            return m ? { label: m[1], couleur: r.couleur } : null;
-          })
-          .filter((x): x is { label: string; couleur: string | null } => x !== null)
-          .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+        // §4.18 — schéma m2m : les groupes sont structurés sur l'activité (1 activité
+        // par cluster). Dédup par id (plusieurs rows legacy pourraient se chevaucher).
+        const structures = new Map<string, { label: string; couleur: string | null }>();
+        for (const r of rows) {
+          for (const g of r.groupes ?? []) {
+            structures.set(g.id, { label: g.nom, couleur: g.couleur ?? r.couleur });
+          }
+        }
+        // Fallback legacy (plannings d'avant la refonte : activités dupliquées,
+        // suffixe « — G1 » dans le titre) — uniquement si aucun groupe structuré.
+        const groupes = structures.size > 0
+          ? Array.from(structures.values())
+          : rows
+              .map((r) => {
+                const m = r.titre.match(/ — (G\d+)$/);
+                return m ? { label: m[1], couleur: r.couleur } : null;
+              })
+              .filter((x): x is { label: string; couleur: string | null } => x !== null);
+        groupes.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
         return {
           nomBase,
           estCollective: rows[0].estCollective,
