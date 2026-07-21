@@ -79,6 +79,7 @@ const ROUTE_PERMISSION: Record<string, keyof Omit<CentrePermissions, 'isOwner'>>
   '/dashboard/hebergeur/profil': 'parametres',
   '/dashboard/hebergeur/documents': 'parametres',
   '/dashboard/hebergeur/parametres/inscription': 'parametres',
+  '/dashboard/hebergeur/parametres/chambres': 'parametres',
   '/dashboard/hebergeur/abonnement': 'parametres',
   '/dashboard/hebergeur/equipe': 'parametres',
 };
@@ -119,6 +120,7 @@ const NAV_GROUPS_BASE: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
       { href: '/dashboard/hebergeur/profil',           label: 'Profil',               icon: ICONS.buildingStorefront },
       { href: '/dashboard/hebergeur/documents',        label: 'Documents',            icon: ICONS.folderOpen },
       { href: '/dashboard/hebergeur/parametres/inscription', label: 'Fiche d\'inscription', icon: ICONS.clipboardCheck },
+      { href: '/dashboard/hebergeur/parametres/chambres', label: 'Plan des chambres', icon: ICONS.squares2x2, requiredPlan: 'COMPLET' },
       { href: '/dashboard/hebergeur/equipe',           label: 'Mon équipe',           icon: ICONS.users, requiredPlan: 'COMPLET' },
       { href: '/dashboard/hebergeur/abonnement',       label: 'Abonnement',           icon: ICONS.creditCard },
     ],
