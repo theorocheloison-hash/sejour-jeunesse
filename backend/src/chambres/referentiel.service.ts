@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { CreateChambreDto } from './dto/create-chambre.dto.js';
@@ -27,6 +28,7 @@ type ChambreAvecLits = {
   etage: string | null;
   ordre: number;
   notes: string | null;
+  equipements: string[];
   actif: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +46,7 @@ export class ReferentielService {
       etage: c.etage,
       ordre: c.ordre,
       notes: c.notes,
+      equipements: c.equipements,
       actif: c.actif,
       capacite: c.lits.reduce((s, l) => s + l.places, 0),
       lits: c.lits.map((l) => ({
@@ -90,30 +93,49 @@ export class ReferentielService {
     return chambres.map((c) => this.mapChambre(c));
   }
 
-  /** POST /chambres — création, lits inline en une transaction (create imbriqué). */
+  /** Prochain ordre du centre : max + 1 (run 5.1, D13 — la saisie suit le couloir). */
+  private async prochainOrdre(tx: Prisma.TransactionClient, centreId: string): Promise<number> {
+    const max = await tx.chambre.aggregate({
+      where: { centreId },
+      _max: { ordre: true },
+    });
+    return (max._max.ordre ?? -1) + 1;
+  }
+
+  /**
+   * POST /chambres — création, lits inline, en une transaction interactive :
+   * ordre = max(centre) + 1 si non fourni (run 5.1 — une chambre née à 0 se
+   * triait par nom, « Chambre 10 » avant « Chambre 2 »). dto.ordre explicite
+   * reste prioritaire. Max par CENTRE : le tri etage/ordre/nom place de toute
+   * façon la nouvelle chambre en dernier dans son étage.
+   */
   async createChambre(dto: CreateChambreDto, userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
-    const chambre = await this.prisma.chambre.create({
-      data: {
-        centreId: centre.id,
-        nom: dto.nom,
-        etage: dto.etage ?? null,
-        ordre: dto.ordre ?? 0,
-        notes: dto.notes ?? null,
-        ...(dto.lits?.length
-          ? {
-              lits: {
-                create: dto.lits.map((l, i) => ({
-                  type: l.type,
-                  places: placesEffectives(l.type, l.places),
-                  libelle: l.libelle ?? null,
-                  ordre: l.ordre ?? i,
-                })),
-              },
-            }
-          : {}),
-      },
-      include: LITS_INCLUDE,
+    const chambre = await this.prisma.$transaction(async (tx) => {
+      const ordre = dto.ordre ?? (await this.prochainOrdre(tx, centre.id));
+      return tx.chambre.create({
+        data: {
+          centreId: centre.id,
+          nom: dto.nom,
+          etage: dto.etage ?? null,
+          ordre,
+          notes: dto.notes ?? null,
+          equipements: dto.equipements ?? [],
+          ...(dto.lits?.length
+            ? {
+                lits: {
+                  create: dto.lits.map((l, i) => ({
+                    type: l.type,
+                    places: placesEffectives(l.type, l.places),
+                    libelle: l.libelle ?? null,
+                    ordre: l.ordre ?? i,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: LITS_INCLUDE,
+      });
     });
     return this.mapChambre(chambre);
   }
@@ -134,6 +156,7 @@ export class ReferentielService {
         ...(dto.etage !== undefined ? { etage: dto.etage } : {}),
         ...(dto.ordre !== undefined ? { ordre: dto.ordre } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+        ...(dto.equipements !== undefined ? { equipements: { set: dto.equipements } } : {}),
         ...(dto.actif !== undefined ? { actif: dto.actif } : {}),
       },
       include: LITS_INCLUDE,
@@ -178,6 +201,8 @@ export class ReferentielService {
    * POST /chambres/:id/dupliquer — copie chambre + TOUS ses lits (le but D3 :
    * matérialiser un étage en un geste), nombre 1–20, suffixe « (copie) » avec
    * anti-collision sur les noms du centre. Transaction : tout ou rien.
+   * Run 5.1 : les copies prennent max+1, max+2… (même chemin que la création) —
+   * plus d'empilement à égalité d'ordre avec la source.
    */
   async dupliquerChambre(
     chambreId: string,
@@ -194,30 +219,36 @@ export class ReferentielService {
     });
     const existants = new Set(noms.map((n) => n.nom));
 
-    const copies = await this.prisma.$transaction(
-      Array.from({ length: nombre }, () => {
+    const copies = await this.prisma.$transaction(async (tx) => {
+      const ordreBase = await this.prochainOrdre(tx, centre.id);
+      const creees: ChambreAvecLits[] = [];
+      for (let i = 0; i < nombre; i++) {
         const nom = this.nomCopie(source.nom, existants);
         existants.add(nom);
-        return this.prisma.chambre.create({
-          data: {
-            centreId: centre.id,
-            nom,
-            etage: source.etage,
-            ordre: source.ordre,
-            notes: source.notes,
-            lits: {
-              create: source.lits.map((l) => ({
-                type: l.type,
-                places: l.places,
-                libelle: l.libelle,
-                ordre: l.ordre,
-              })),
+        creees.push(
+          await tx.chambre.create({
+            data: {
+              centreId: centre.id,
+              nom,
+              etage: source.etage,
+              ordre: ordreBase + i,
+              notes: source.notes,
+              equipements: source.equipements,
+              lits: {
+                create: source.lits.map((l) => ({
+                  type: l.type,
+                  places: l.places,
+                  libelle: l.libelle,
+                  ordre: l.ordre,
+                })),
+              },
             },
-          },
-          include: LITS_INCLUDE,
-        });
-      }),
-    );
+            include: LITS_INCLUDE,
+          }),
+        );
+      }
+      return creees;
+    });
     return copies.map((c) => this.mapChambre(c));
   }
 

@@ -29,6 +29,7 @@ function chambre(overrides: Record<string, unknown> = {}) {
     etage: 'RDC',
     ordre: 0,
     notes: null,
+    equipements: [] as string[],
     actif: true,
     createdAt: new Date(0),
     updatedAt: new Date(0),
@@ -42,6 +43,7 @@ function mockPrisma({
   chambreTrouvee = null as Record<string, unknown> | null,
   litTrouve = null as Record<string, unknown> | null,
   occupations = 0,
+  maxOrdre = null as number | null, // aggregate _max.ordre (run 5.1 — null = centre vide)
 } = {}) {
   let seq = 0;
   const echoCreate = async ({ data }: { data: Record<string, any> }) => ({
@@ -51,6 +53,7 @@ function mockPrisma({
     etage: data.etage ?? null,
     ordre: data.ordre ?? 0,
     notes: data.notes ?? null,
+    equipements: data.equipements ?? [],
     actif: true,
     createdAt: new Date(0),
     updatedAt: new Date(0),
@@ -75,6 +78,7 @@ function mockPrisma({
         select ? (chambres as Array<{ nom: string }>).map((c) => ({ nom: c.nom })) : chambres,
       ),
       findFirst: jest.fn(async () => chambreTrouvee),
+      aggregate: jest.fn(async () => ({ _max: { ordre: maxOrdre } })),
       create: jest.fn(echoCreate),
       update: jest.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => ({
         ...chambre(),
@@ -95,7 +99,13 @@ function mockPrisma({
       delete: jest.fn(async () => litTrouve),
     },
     occupationChambre: { count: jest.fn(async () => occupations) },
-    $transaction: jest.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
+    // Run 5.1 : création/duplication passent en transaction INTERACTIVE (callback) ;
+    // la forme tableau reste supportée par symétrie avec le vrai client.
+    $transaction: jest.fn(async (arg: unknown) =>
+      typeof arg === 'function'
+        ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
+        : Promise.all(arg as Promise<unknown>[]),
+    ),
   };
   return { prisma: prisma as unknown as PrismaService, mocks: prisma };
 }
@@ -146,6 +156,42 @@ describe('ReferentielService — création et saisie rapide', () => {
     expect(res.capacite).toBe(6);
   });
 
+  it('ordre auto (run 5.1) : max(centre) + 1, centre vide → 0, dto.ordre explicite prioritaire', async () => {
+    const deps = mockPrisma({ maxOrdre: 4 });
+    await svc(deps).createChambre({ nom: 'Chambre 13' } as CreateChambreDto, 'user-1', 'centre-1');
+    expect((deps.mocks.chambre.create as jest.Mock).mock.calls[0][0].data.ordre).toBe(5);
+    // Le max est bien scopé au centre (jamais global)
+    expect((deps.mocks.chambre.aggregate as jest.Mock).mock.calls[0][0].where).toEqual({
+      centreId: 'centre-1',
+    });
+
+    const vide = mockPrisma({ maxOrdre: null });
+    await svc(vide).createChambre({ nom: 'Première' } as CreateChambreDto, 'user-1', 'centre-1');
+    expect((vide.mocks.chambre.create as jest.Mock).mock.calls[0][0].data.ordre).toBe(0);
+
+    const explicite = mockPrisma({ maxOrdre: 4 });
+    await svc(explicite).createChambre(
+      { nom: 'Insérée', ordre: 2 } as CreateChambreDto, 'user-1', 'centre-1',
+    );
+    expect((explicite.mocks.chambre.create as jest.Mock).mock.calls[0][0].data.ordre).toBe(2);
+    expect(explicite.mocks.chambre.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('equipements (run 5.1) : défaut [], transmis au create, exposés au mapping', async () => {
+    const deps = mockPrisma();
+    const sans = await svc(deps).createChambre(
+      { nom: 'Nue' } as CreateChambreDto, 'user-1', 'centre-1',
+    );
+    expect((deps.mocks.chambre.create as jest.Mock).mock.calls[0][0].data.equipements).toEqual([]);
+    expect(sans.equipements).toEqual([]);
+
+    const avec = await svc(deps).createChambre(
+      { nom: 'Équipée', equipements: ['Salle de bain', 'TV'] } as CreateChambreDto,
+      'user-1', 'centre-1',
+    );
+    expect(avec.equipements).toEqual(['Salle de bain', 'TV']);
+  });
+
   it('batch append : les nouveaux lits prennent l\'ordre après le max existant', async () => {
     const deps = mockPrisma({
       chambreTrouvee: chambre({ lits: [lit('l-1', 'SIMPLE', 1, 0), lit('l-2', 'SIMPLE', 1, 4)] }),
@@ -175,6 +221,15 @@ describe('ReferentielService — duplication', () => {
     for (const c of copies) expect(c.capacite).toBe(3);
     expect((deps.mocks.$transaction as jest.Mock)).toHaveBeenCalledTimes(1);
   });
+
+  it('run 5.1 : les copies prennent max+1, max+2… (jamais l\'ordre de la source) et héritent des équipements', async () => {
+    const source = chambre({ ordre: 2, equipements: ['Douche', 'Balcon'] });
+    const deps = mockPrisma({ chambreTrouvee: source, chambres: [source], maxOrdre: 8 });
+    await svc(deps).dupliquerChambre('ch-1', 3, 'user-1', 'centre-1');
+    const creates = (deps.mocks.chambre.create as jest.Mock).mock.calls;
+    expect(creates.map(([arg]) => arg.data.ordre)).toEqual([9, 10, 11]);
+    for (const [arg] of creates) expect(arg.data.equipements).toEqual(['Douche', 'Balcon']);
+  });
 });
 
 describe('ReferentielService — DELETE chambre (un geste, le service choisit)', () => {
@@ -203,6 +258,17 @@ describe('ReferentielService — update chambre (etage/ordre de premier rang)', 
 
     await svc(deps).updateChambre('ch-1', { etage: null, actif: false }, 'user-1', 'centre-1');
     expect((deps.mocks.chambre.update as jest.Mock).mock.calls[1][0].data).toEqual({ etage: null, actif: false });
+  });
+
+  it('equipements au PATCH : sémantique { set } (liste complète recalculée), absent → intouché', async () => {
+    const deps = mockPrisma({ chambreTrouvee: chambre() });
+    await svc(deps).updateChambre('ch-1', { equipements: ['WC privés'] }, 'user-1', 'centre-1');
+    expect((deps.mocks.chambre.update as jest.Mock).mock.calls[0][0].data).toEqual({
+      equipements: { set: ['WC privés'] },
+    });
+
+    await svc(deps).updateChambre('ch-1', { nom: 'X' }, 'user-1', 'centre-1');
+    expect((deps.mocks.chambre.update as jest.Mock).mock.calls[1][0].data).toEqual({ nom: 'X' });
   });
 });
 
@@ -247,6 +313,14 @@ describe('DTOs — validation class-validator', () => {
     );
     expect(await validate(litDto({ type: 'SIMPLE', places: 0 }))).not.toHaveLength(0);
     expect(await validate(litDto({ type: 'SIMPLE', places: 6 }))).toHaveLength(0);
+  });
+
+  it('equipements bornés (run 5.1) : 21 items → rejeté, item de 51 chars → rejeté, liste valide → ok', async () => {
+    const dto = (equipements: unknown) => plainToInstance(CreateChambreDto, { nom: 'X', equipements });
+    expect(await validate(dto(Array.from({ length: 21 }, (_, i) => `eq-${i}`)))).not.toHaveLength(0);
+    expect(await validate(dto(['x'.repeat(51)]))).not.toHaveLength(0);
+    expect(await validate(dto(['Salle de bain', 'WC privés'])))
+      .toHaveLength(0);
   });
 
   it('chambre sans nom → rejetée ; batch lits vide → rejeté (ArrayMinSize)', async () => {

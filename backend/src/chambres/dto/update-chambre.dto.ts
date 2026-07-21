@@ -1,4 +1,13 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Length, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 
 // etage et ordre sont modifiables : l'ordre physique des chambres dans l'étage
 // est une donnée de premier rang (le plan se rend spatialement, jamais en liste
@@ -9,4 +18,12 @@ export class UpdateChambreDto {
   @IsOptional() @IsInt() ordre?: number;
   @IsOptional() @IsString() notes?: string | null;
   @IsOptional() @IsBoolean() actif?: boolean;
+
+  // Liste complète recalculée côté front (sémantique { set } au service).
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  equipements?: string[];
 }

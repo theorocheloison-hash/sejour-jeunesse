@@ -1735,6 +1735,7 @@ model Chambre {
   etage     String?  @db.VarChar(50)         // étiquette libre : "RDC", "1er", "Chalet annexe"
   ordre     Int      @default(0)             // tri d'affichage (étage puis ordre)
   notes     String?  @db.Text                // "lavabo, vue vallée"
+  equipements String[] @default([])          // "Salle de bain", "WC privés"… (run 5.1)
   actif     Boolean  @default(true)          // désactivation — JAMAIS de delete si historique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

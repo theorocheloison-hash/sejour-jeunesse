@@ -17,6 +17,14 @@ export class CreateChambreDto {
   @IsOptional() @IsInt() ordre?: number;
   @IsOptional() @IsString() notes?: string;
 
+  // Bornes défensives (saisie libre ouverte) — le DTO centre n'en a pas, choix 5.1.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  equipements?: string[];
+
   // Lits inline à la création (saisie rapide) — une seule transaction.
   @IsOptional()
   @IsArray()
