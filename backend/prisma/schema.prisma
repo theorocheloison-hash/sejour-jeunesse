@@ -281,6 +281,13 @@ model Sejour {
   deletedAt         DateTime? @map("deleted_at")
   notesInternes     String?   @map("notes_internes") @db.Text
 
+  // ── Alerte capacité globale (module chambres, étage 1 — D9/D10) ──
+  // Acquittement daté « prévenu, gardé en attente » d'une alerte « option plus accueillable ».
+  capaciteAlerteAcquitteeAt DateTime? @map("capacite_alerte_acquittee_at")
+  // Empreinte sha256 de la situation acquittée (capacité centre + effectif/dates de l'option
+  // + signés chevauchants) — l'alerte se réarme si l'empreinte courante diverge.
+  capaciteAlerteSituation   String?   @map("capacite_alerte_situation") @db.VarChar(64)
+
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)
   inscriptions           Inscription[]
@@ -301,6 +308,10 @@ model Sejour {
   rappels                Rappel[]
   activitesClient        ActiviteClient[] @relation("ActivitesClientSejour")
   ventilationsPrestataires VentilationSejourPrestataire[]
+  // Pas de relation inverse vers AffectationChambre : aucun FK direct sejour→affectation
+  // (le sejourId d'une affectation est verrouillé par le FK composite via l'occupation) ;
+  // chemin de lecture : sejour → occupationsChambre → affectations.
+  occupationsChambre     OccupationChambre[]
 
   @@index([createurId])
   @@index([statut])
@@ -382,6 +393,7 @@ model AutorisationParentale {
 
   sejour  Sejour        @relation(fields: [sejourId], references: [id], onDelete: Cascade)
   groupes EleveGroupe[]
+  affectationsChambre AffectationChambre[]
 
   @@map("autorisations_parentales")
 }
@@ -414,6 +426,7 @@ model AccompagnateurMission {
   tokenExpiresAt      DateTime? @map("token_expires_at")
 
   sejour Sejour @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  affectationsChambre AffectationChambre[]
 
   @@index([userId])
   @@map("accompagnateurs_missions")
@@ -649,6 +662,7 @@ model CentreHebergement {
   collaborateurs   CollaborateurCentre[]
   facturesLiavo    FactureLiavo[]
   acceptationsCgv  AcceptationCgv[]
+  chambres         Chambre[]
   @@map("centres_hebergement")
 }
 
@@ -1705,4 +1719,92 @@ model VentilationSejourPrestataire {
   @@index([sejourId])
   @@index([factureId])
   @@map("ventilations_sejour_prestataire")
+}
+
+// ============================================================
+// MODULE CHAMBRES (Monde 1) — docs/ARCHITECTURE_MODULE_CHAMBRES.md §2
+// Référentiel physique (chambres/lits) + primitive d'occupation datée
+// + affectation participant → chambre. Contrainte EXCLUDE, CHECK et FK
+// composite dans le SQL manuel de la migration (inexprimables en Prisma).
+// ============================================================
+
+model Chambre {
+  id        String   @id @default(uuid()) @db.Uuid
+  centreId  String   @map("centre_id") @db.Uuid
+  nom       String   @db.VarChar(100)        // "Chambre 12", "Dortoir Nord"
+  etage     String?  @db.VarChar(50)         // étiquette libre : "RDC", "1er", "Chalet annexe"
+  ordre     Int      @default(0)             // tri d'affichage (étage puis ordre)
+  notes     String?  @db.Text                // "lavabo, vue vallée"
+  actif     Boolean  @default(true)          // désactivation — JAMAIS de delete si historique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  centre      CentreHebergement   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  lits        Lit[]
+  occupations OccupationChambre[]
+
+  @@index([centreId])
+  @@map("chambres")
+}
+// D3 : capacité = Σ lits.places, TOUJOURS calculée — aucune colonne capacite.
+
+model Lit {
+  id        String  @id @default(uuid()) @db.Uuid
+  chambreId String  @map("chambre_id") @db.Uuid
+  type      String  @db.VarChar(30)    // SIMPLE | SUPERPOSE | TIROIR | DOUBLE | BB | APPOINT
+  places    Int     @default(1)        // superposé = 2, double = 2…
+  libelle   String? @db.VarChar(50)    // "lit haut fenêtre" (optionnel)
+  ordre     Int     @default(0)
+
+  chambre      Chambre              @relation(fields: [chambreId], references: [id], onDelete: Cascade)
+  affectations AffectationChambre[]
+
+  @@index([chambreId])
+  @@map("lits")
+}
+
+// ── LA PRIMITIVE — datée dès le départ (contrainte d'architecture non négociable) ──
+model OccupationChambre {
+  id        String   @id @default(uuid()) @db.Uuid
+  chambreId String   @map("chambre_id") @db.Uuid
+  dateDebut DateTime @map("date_debut") @db.Date   // nuit d'arrivée incluse
+  dateFin   DateTime @map("date_fin") @db.Date     // matin de départ EXCLU — [debut, fin)
+  source    String   @db.VarChar(20)               // SEJOUR | BLOCAGE  (WEEKEND = Monde 2, additif)
+  statut    String   @default("OPTION") @db.VarChar(12) // OPTION | FERME | A_REPLACER
+  sejourId  String?  @map("sejour_id") @db.Uuid    // requis si source=SEJOUR (CHECK SQL)
+  motif     String?  @db.VarChar(255)              // BLOCAGE : "travaux plomberie"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chambre      Chambre              @relation(fields: [chambreId], references: [id], onDelete: Restrict)
+  sejour       Sejour?              @relation(fields: [sejourId], references: [id], onDelete: Cascade)
+  affectations AffectationChambre[]
+
+  @@unique([id, sejourId])          // support du FK composite (cf. AffectationChambre)
+  @@index([chambreId, dateDebut])
+  @@index([sejourId])
+  @@map("occupations_chambre")
+}
+
+// Affectation participant → chambre (via l'occupation) — le drag & drop
+model AffectationChambre {
+  id               String   @id @default(uuid()) @db.Uuid
+  occupationId     String   @map("occupation_id") @db.Uuid
+  sejourId         String   @map("sejour_id") @db.Uuid   // dénormalisé, verrouillé par FK composite
+  autorisationId   String?  @map("autorisation_id") @db.Uuid    // élève…
+  accompagnateurId String?  @map("accompagnateur_id") @db.Uuid  // …XOR adulte (CHECK SQL)
+  litId            String?  @map("lit_id") @db.Uuid             // V1 : niveau chambre, lit optionnel
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // FK composite (occupationId, sejourId) → OccupationChambre(id, sejourId)
+  // ⇒ impossible EN BASE d'affecter un participant sur l'occupation d'un AUTRE séjour
+  occupation     OccupationChambre      @relation(fields: [occupationId, sejourId], references: [id, sejourId], onDelete: Cascade)
+  autorisation   AutorisationParentale? @relation(fields: [autorisationId], references: [id], onDelete: Cascade)
+  accompagnateur AccompagnateurMission? @relation(fields: [accompagnateurId], references: [id], onDelete: Cascade)
+  lit            Lit?                   @relation(fields: [litId], references: [id], onDelete: SetNull)
+
+  @@unique([sejourId, autorisationId])     // un élève = une chambre max par séjour
+  @@unique([sejourId, accompagnateurId])   // idem accompagnateur
+  @@index([occupationId])
+  @@map("affectations_chambre")
 }
