@@ -35,6 +35,7 @@ import { InvitationsDirecteurModule } from './invitations-directeur/invitations-
 import { JournalPublicModule } from './journal-public/journal-public.module.js';
 import { OrganisationsModule } from './organisations/organisations.module.js';
 import { PublicModule } from './public/public.module.js';
+import { ChambresModule } from './chambres/chambres.module.js';
 import { PermissionGuard } from './auth/guards/permission.guard.js';
 
 @Module({
@@ -77,6 +78,7 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
     JournalPublicModule,
     OrganisationsModule,
     PublicModule,
+    ChambresModule,
   ],
   controllers: [AppController],
   providers: [
