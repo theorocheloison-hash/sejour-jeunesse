@@ -2203,25 +2203,27 @@ export class DevisService {
       .update(`${token}${body.nomSignataire}${now.toISOString()}${devis.montantTTC ?? '0'}`)
       .digest('hex');
 
-    await this.prisma.devis.update({
-      where: { id: devis.id },
-      data: {
-        statut: StatutDevis.SELECTIONNE,
-        signatureDirecteur: `Signé électroniquement par ${body.nomSignataire}${body.fonctionSignataire ? ` (${body.fonctionSignataire})` : ''} — ${now.toLocaleDateString('fr-FR')}`,
-        nomSignataireDirecteur: body.nomSignataire.trim(),
-        dateSignatureDirecteur: now,
-        signatureIpAddress: req.ip ?? null,
-        signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
-        signatureHash: hash,
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.devis.update({
+        where: { id: devis.id },
+        data: {
+          statut: StatutDevis.SELECTIONNE,
+          signatureDirecteur: `Signé électroniquement par ${body.nomSignataire}${body.fonctionSignataire ? ` (${body.fonctionSignataire})` : ''} — ${now.toLocaleDateString('fr-FR')}`,
+          nomSignataireDirecteur: body.nomSignataire.trim(),
+          dateSignatureDirecteur: now,
+          signatureIpAddress: req.ip ?? null,
+          signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
+          signatureHash: hash,
+        },
+      });
 
-    await this.prisma.sejour.update({
-      where: { id: devis.sejourDirect.id },
-      data: {
-        statut: StatutSejour.CONVENTION,
-        hebergementSelectionneId: devis.centreId,
-      },
+      await tx.sejour.update({
+        where: { id: devis.sejourDirect!.id },
+        data: {
+          statut: StatutSejour.CONVENTION,
+          hebergementSelectionneId: devis.centreId,
+        },
+      });
     });
 
     // Sync occupations chambres (site 7 du §3.1, run-chambres-4a) — page
@@ -2435,22 +2437,24 @@ export class DevisService {
 
     const nomSignataireClean = nomSignataire?.trim().slice(0, 255) || null;
 
-    await this.prisma.devis.update({
-      where: { id: devis.id },
-      data: {
-        statut: StatutDevis.SELECTIONNE,
-        signatureDocumentUrl: documentUrl,
-        signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
-        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
-        dateSignatureDirecteur: new Date(),
-        signatureIpAddress: req.ip ?? null,
-        signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.devis.update({
+        where: { id: devis.id },
+        data: {
+          statut: StatutDevis.SELECTIONNE,
+          signatureDocumentUrl: documentUrl,
+          signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+          ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
+          dateSignatureDirecteur: new Date(),
+          signatureIpAddress: req.ip ?? null,
+          signatureUserAgent: (req.headers['user-agent'] as string) ?? null,
+        },
+      });
 
-    await this.prisma.sejour.update({
-      where: { id: devis.sejourDirect.id },
-      data: { statut: StatutSejour.CONVENTION },
+      await tx.sejour.update({
+        where: { id: devis.sejourDirect!.id },
+        data: { statut: StatutSejour.CONVENTION },
+      });
     });
 
     // Sync occupations chambres (site 8 du §3.1, run-chambres-4a).
