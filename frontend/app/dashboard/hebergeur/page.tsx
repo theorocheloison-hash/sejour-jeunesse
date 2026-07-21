@@ -15,6 +15,7 @@ import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-stat
 import { getJourFerie, getVacancesZones } from '@/src/data/calendrier-france';
 import { centreCouvertParClaim, type CentrePending, type MonClaimStatut } from '@/src/lib/justificatif';
 import OnboardingChecklist from './_components/OnboardingChecklist';
+import AlertesCapacite from '../_shared/AlertesCapacite';
 
 // ─── CA confirmé : helpers réutilisables ─────────────────────────────────────
 type PeriodeCA = 'DDA' | 'DDM' | 'T1' | 'T2' | 'T3' | 'T4';
@@ -336,6 +337,9 @@ export default function HebergeurDashboard() {
             </Link>
           </div>
         )}
+
+        {/* ── Alertes capacité globale (module chambres, étage 1) ── */}
+        <AlertesCapacite />
 
         {/* ── Zone 1 : KPI CA confirmé ── */}
         <Link
