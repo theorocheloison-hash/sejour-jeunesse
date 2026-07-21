@@ -922,22 +922,29 @@ export class DevisService {
 
     const nomSignataireClean = nomSignataire?.trim().slice(0, 255) || null;
 
-    const updated = await this.prisma.devis.update({
-      where: { id: devisId },
-      data: {
-        signatureDocumentUrl: url,
-        statut: 'SIGNE_DIRECTION',
-        signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
-        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
-        dateSignatureDirecteur: new Date(),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const devisMaj = await tx.devis.update({
+        where: { id: devisId },
+        data: {
+          signatureDocumentUrl: url,
+          statut: 'SIGNE_DIRECTION',
+          signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+          ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
+          dateSignatureDirecteur: new Date(),
+        },
+      });
+
+      if (devis.demande?.sejourId) {
+        await tx.sejour.update({
+          where: { id: devis.demande.sejourId },
+          data: { statut: 'SIGNE_DIRECTION' },
+        });
+      }
+
+      return devisMaj;
     });
 
     if (devis.demande?.sejourId) {
-      await this.prisma.sejour.update({
-        where: { id: devis.demande.sejourId },
-        data: { statut: 'SIGNE_DIRECTION' },
-      });
       // Sync occupations chambres (site 5 du §3.1, run-chambres-4a).
       await this.occupations.syncOccupationsSejourSafe(devis.demande.sejourId, 'devis.uploadSignatureDocument');
     }
@@ -1041,29 +1048,36 @@ export class DevisService {
     const targetStatut = isClientSignature ? StatutDevis.SELECTIONNE : StatutDevis.SIGNE_DIRECTION;
     const targetSejourStatut = isClientSignature ? StatutSejour.CONVENTION : StatutSejour.SIGNE_DIRECTION;
 
-    const updated = await this.prisma.devis.update({
-      where: { id: devisId },
-      data: {
-        statut: targetStatut,
-        ...(signatureDocumentUrl ? { signatureDocumentUrl } : {}),
-        signatureDirecteur: nomSignataireClean
-          ? `Signé par ${nomSignataireClean} — enregistré le ${new Date().toLocaleDateString('fr-FR')}`
-          : isClientSignature
-            ? `Signature enregistrée le ${new Date().toLocaleDateString('fr-FR')}`
-            : `Signature direction enregistrée le ${new Date().toLocaleDateString('fr-FR')}`,
-        ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
-        dateSignatureDirecteur: new Date(),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const devisMaj = await tx.devis.update({
+        where: { id: devisId },
+        data: {
+          statut: targetStatut,
+          ...(signatureDocumentUrl ? { signatureDocumentUrl } : {}),
+          signatureDirecteur: nomSignataireClean
+            ? `Signé par ${nomSignataireClean} — enregistré le ${new Date().toLocaleDateString('fr-FR')}`
+            : isClientSignature
+              ? `Signature enregistrée le ${new Date().toLocaleDateString('fr-FR')}`
+              : `Signature direction enregistrée le ${new Date().toLocaleDateString('fr-FR')}`,
+          ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
+          dateSignatureDirecteur: new Date(),
+        },
+      });
+
+      if (sejourId) {
+        await tx.sejour.update({
+          where: { id: sejourId },
+          data: {
+            statut: targetSejourStatut,
+            ...(isClientSignature ? { hebergementSelectionneId: devis.centreId } : {}),
+          },
+        });
+      }
+
+      return devisMaj;
     });
 
     if (sejourId) {
-      await this.prisma.sejour.update({
-        where: { id: sejourId },
-        data: {
-          statut: targetSejourStatut,
-          ...(isClientSignature ? { hebergementSelectionneId: devis.centreId } : {}),
-        },
-      });
       // Sync occupations chambres (site 6 du §3.1, run-chambres-4a).
       await this.occupations.syncOccupationsSejourSafe(sejourId, 'devis.marquerDevisSigneHebergeur');
     }
