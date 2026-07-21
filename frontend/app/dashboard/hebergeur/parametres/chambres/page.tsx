@@ -178,6 +178,27 @@ export default function PlanChambresPage() {
     }, 'La réactivation a échoué. Réessayez.');
   };
 
+  // ←/→ (pattern galerie photos) : échange avec la voisine du même étage.
+  // Renumérotation séquentielle du groupe plutôt qu'un échange des deux ordres :
+  // un simple swap serait un no-op quand les deux valent 0 (défaut de création).
+  // Seuls les ordres qui changent sont PATCHés ; l'état revient du serveur.
+  const handleDeplacer = (c: Chambre, delta: -1 | 1) => {
+    const groupe = groupes.find((g) => g.etage === (c.etage ?? SANS_ETAGE));
+    if (!groupe) return;
+    const liste = [...groupe.liste];
+    const idx = liste.findIndex((x) => x.id === c.id);
+    const cible = idx + delta;
+    if (idx < 0 || cible < 0 || cible >= liste.length) return;
+    [liste[idx], liste[cible]] = [liste[cible], liste[idx]];
+    const patches = liste
+      .map((x, i) => ({ id: x.id, ancien: x.ordre, ordre: i }))
+      .filter((p) => p.ancien !== p.ordre);
+    if (patches.length === 0) return;
+    executer(async () => {
+      await Promise.all(patches.map((p) => updateChambre(p.id, { ordre: p.ordre })));
+    }, 'Le déplacement a échoué. Réessayez.');
+  };
+
   if (isLoading || !user) return null;
 
   return (
@@ -242,7 +263,7 @@ export default function PlanChambresPage() {
                 <span className="flex-1 border-t border-gray-200" />
               </h2>
               <div className="flex flex-wrap gap-3">
-                {liste.map((c) => (
+                {liste.map((c, idx) => (
                   <div
                     key={c.id}
                     className={`w-[230px] rounded-xl border bg-white px-4 py-3 shadow-sm ${c.actif ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
@@ -267,6 +288,8 @@ export default function PlanChambresPage() {
                         <>
                           <button title="Modifier" disabled={busy} onClick={() => setModal({ mode: 'edit', chambre: c })} className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)] hover:bg-gray-50 disabled:opacity-40">✎</button>
                           <button title="Dupliquer" disabled={busy} onClick={() => setDupliquerPour({ id: c.id, nombre: 1 })} className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)] hover:bg-gray-50 disabled:opacity-40">⧉</button>
+                          <button title="Déplacer vers la gauche" disabled={busy || idx === 0} onClick={() => handleDeplacer(c, -1)} className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)] hover:bg-gray-50 disabled:opacity-30">←</button>
+                          <button title="Déplacer vers la droite" disabled={busy || idx === liste.length - 1} onClick={() => handleDeplacer(c, 1)} className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)] hover:bg-gray-50 disabled:opacity-30">→</button>
                           <span className="flex-1" />
                           <button title="Supprimer" disabled={busy} onClick={() => handleDelete(c)} className="rounded p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40">🗑</button>
                         </>
