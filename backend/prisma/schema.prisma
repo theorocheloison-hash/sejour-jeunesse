@@ -1773,6 +1773,8 @@ model OccupationChambre {
   statut    String   @default("OPTION") @db.VarChar(12) // OPTION | FERME | A_REPLACER
   sejourId  String?  @map("sejour_id") @db.Uuid    // requis si source=SEJOUR (CHECK SQL)
   motif     String?  @db.VarChar(255)              // BLOCAGE : "travaux plomberie"
+  etiquette String?  @db.VarChar(30)               // D13 : "Filles", "Encadrants"…
+  couleur   String?  @db.VarChar(20)               // token/hex libre côté front
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
