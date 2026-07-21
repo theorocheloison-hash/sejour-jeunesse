@@ -30,6 +30,7 @@ function option(overrides: Record<string, unknown> = {}) {
 function signe(id: string, places: number, debut: string, fin: string, accompagnateurs: number | null = null) {
   return {
     id,
+    titre: `Séjour ${id}`,
     dateDebut: d(debut),
     dateFin: d(fin),
     placesTotales: places,
@@ -299,5 +300,56 @@ describe('CapaciteService — réarmement par empreinte de situation', () => {
     expect(
       await etatApres(empreinte, { signes: [signe('s-1', 50, '2027-03-01', '2027-03-08')] }),
     ).toBeUndefined();
+  });
+});
+
+describe('CapaciteService — sur-engagement entre signés (extension 21/07)', () => {
+  it('deux signés dépassant la capacité entre eux → sur-engagement, même sans option', async () => {
+    const deps = mockPrisma({
+      options: [],
+      signes: [signe('s-1', 70, '2027-03-01', '2027-03-08'), signe('s-2', 70, '2027-03-04', '2027-03-10')],
+    });
+    const res = await getAlertes(deps);
+    expect(res.alertes).toHaveLength(0);
+    expect(res.surEngagements).toHaveLength(1);
+    expect(res.surEngagements[0]).toMatchObject({
+      dateDebut: d('2027-03-04'),
+      dateFin: d('2027-03-08'),
+      pic: 140,
+      deficit: 20,
+    });
+    expect(res.surEngagements[0].sejours.map((s) => s.id).sort()).toEqual(['s-1', 's-2']);
+  });
+
+  it('rotation du samedi entre signés → aucun sur-engagement ([debut, fin) demi-ouvert)', async () => {
+    const deps = mockPrisma({
+      signes: [signe('s-1', 100, '2027-02-27', '2027-03-05'), signe('s-2', 100, '2027-03-05', '2027-03-10')],
+    });
+    expect((await getAlertes(deps)).surEngagements).toHaveLength(0);
+  });
+
+  it('deux fenêtres disjointes de dépassement → deux intervalles', async () => {
+    const deps = mockPrisma({
+      signes: [
+        signe('s-1', 70, '2027-03-01', '2027-03-05'),
+        signe('s-2', 70, '2027-03-01', '2027-03-05'),
+        signe('s-3', 70, '2027-03-10', '2027-03-15'),
+        signe('s-4', 70, '2027-03-10', '2027-03-15'),
+      ],
+    });
+    const { surEngagements } = await getAlertes(deps);
+    expect(surEngagements).toHaveLength(2);
+    expect(surEngagements[0]).toMatchObject({ dateDebut: d('2027-03-01'), dateFin: d('2027-03-05'), pic: 140, deficit: 20 });
+    expect(surEngagements[1]).toMatchObject({ dateDebut: d('2027-03-10'), dateFin: d('2027-03-15'), pic: 140, deficit: 20 });
+  });
+
+  it('signés sous capacité → [] ; option en surcapacité laisse surEngagements vide (calculs indépendants)', async () => {
+    const deps = mockPrisma({
+      options: [option()],
+      signes: [signe('s-1', 50, '2027-03-01', '2027-03-08'), signe('s-2', 50, '2027-03-01', '2027-03-08')],
+    });
+    const res = await getAlertes(deps);
+    expect(res.alertes).toHaveLength(1); // l'option est en surcapacité (100 + 45 > 120)
+    expect(res.surEngagements).toHaveLength(0); // mais les signés seuls (100) ne le sont pas
   });
 });

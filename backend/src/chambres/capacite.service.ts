@@ -28,6 +28,7 @@ import { STATUTS_SEJOUR_CONFIRMES } from '../sejours/sejour-statuts.constants.js
 
 interface SejourSigne {
   id: string;
+  titre: string;
   dateDebut: Date;
   dateFin: Date;
   effectif: number;
@@ -43,6 +44,14 @@ export interface AlerteCapacite {
   deficit: number;
   etat: 'ACTIVE' | 'ACQUITTEE';
   capaciteAlerteAcquitteeAt: Date | null;
+}
+
+export interface SurEngagement {
+  dateDebut: Date;   // 1ère nuit en dépassement
+  dateFin: Date;     // exclusif — [debut, fin)
+  pic: number;
+  deficit: number;   // pic - capacite
+  sejours: Array<{ id: string; titre: string }>;
 }
 
 const effectifSejour = (s: { placesTotales: number | null; nombreAccompagnateurs: number | null }) =>
@@ -77,6 +86,60 @@ export class CapaciteService {
       if (courant > max) max = courant;
     }
     return max;
+  }
+
+  /**
+   * Extension 21/07 (doc §4) : fenêtres où les seuls séjours SIGNÉS dépassent
+   * centre.capacite — sur-engagement, indépendant des options, non acquittable
+   * (pas d'option à prévenir : un problème à résoudre). Même balayage des
+   * bornes ; les événements d'un même jour sont appliqués ensemble (rotation du
+   * samedi neutre). capacite <= 0 → [] (aligné sur le early-return du
+   * remplissage — on ne hurle pas sur un centre mal configuré).
+   */
+  private calculerSurEngagements(signes: SejourSigne[], capacite: number): SurEngagement[] {
+    if (capacite <= 0 || signes.length === 0) return [];
+    const events: Array<[number, number]> = [];
+    for (const s of signes) {
+      events.push([s.dateDebut.getTime(), s.effectif], [s.dateFin.getTime(), -s.effectif]);
+    }
+    events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+    const resultat: SurEngagement[] = [];
+    let courant = 0;
+    let debut: number | null = null;
+    let pic = 0;
+    let i = 0;
+    while (i < events.length) {
+      const t = events[i][0];
+      while (i < events.length && events[i][0] === t) {
+        courant += events[i][1];
+        i++;
+      }
+      if (courant > capacite) {
+        if (debut === null) {
+          debut = t;
+          pic = courant;
+        } else if (courant > pic) {
+          pic = courant;
+        }
+      } else if (debut !== null) {
+        const dernierDebut = debut;
+        resultat.push({
+          dateDebut: new Date(dernierDebut),
+          dateFin: new Date(t),
+          pic,
+          deficit: pic - capacite,
+          sejours: signes
+            .filter((s) => s.dateDebut.getTime() < t && s.dateFin.getTime() > dernierDebut)
+            .map((s) => ({ id: s.id, titre: s.titre })),
+        });
+        debut = null;
+        pic = 0;
+      }
+    }
+    // Les events finissent toujours par des fins → courant retombe à 0 ≤ capacite,
+    // tout intervalle ouvert est refermé dans la boucle.
+    return resultat;
   }
 
   /**
@@ -130,6 +193,7 @@ export class CapaciteService {
         where: { ...baseWhere, statut: { in: STATUTS_SEJOUR_CONFIRMES } },
         select: {
           id: true,
+          titre: true,
           dateDebut: true,
           dateFin: true,
           placesTotales: true,
@@ -139,6 +203,7 @@ export class CapaciteService {
     ]);
     const signes: SejourSigne[] = signesRaw.map((s) => ({
       id: s.id,
+      titre: s.titre,
       dateDebut: s.dateDebut!,
       dateFin: s.dateFin!,
       effectif: effectifSejour(s),
@@ -198,7 +263,11 @@ export class CapaciteService {
     const alertes = options
       .map((o) => this.evaluerOption(o, signes, centre.capacite ?? 0))
       .filter((a): a is AlerteCapacite => a !== null);
-    return { capacite: centre.capacite ?? 0, alertes };
+    return {
+      capacite: centre.capacite ?? 0,
+      alertes,
+      surEngagements: this.calculerSurEngagements(signes, centre.capacite ?? 0),
+    };
   }
 
   /**
