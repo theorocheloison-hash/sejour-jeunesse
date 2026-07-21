@@ -33,6 +33,7 @@ import TabJournal from './_components/TabJournal';
 import TabParticipantsCollab from './_components/TabParticipantsCollab';
 import TabNotes from './_components/TabNotes';
 import SejourHeader from './_components/SejourHeader';
+import AlertesCapacite from '../../_shared/AlertesCapacite';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -229,6 +230,9 @@ export default function CollaborationPage() {
           </div>
         </div>
       )}
+
+      {/* ── Alerte capacité globale (hébergeur, séjour OPTION plus accueillable) ── */}
+      <AlertesCapacite sejourId={id} />
 
       {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
       {user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
