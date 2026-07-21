@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { InvitationsDirecteurController } from './invitations-directeur.controller.js';
 import { InvitationsDirecteurService } from './invitations-directeur.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { ChambresModule } from '../chambres/chambres.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ChambresModule],
   controllers: [InvitationsDirecteurController],
   providers: [InvitationsDirecteurService],
   exports: [InvitationsDirecteurService],

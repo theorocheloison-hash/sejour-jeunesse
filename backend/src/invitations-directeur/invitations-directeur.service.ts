@@ -2,12 +2,14 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { OccupationsService } from '../chambres/occupations.service.js';
 
 @Injectable()
 export class InvitationsDirecteurService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private occupations: OccupationsService,
   ) {}
 
   async findByToken(token: string) {
@@ -239,6 +241,9 @@ export class InvitationsDirecteurService {
       where: { id: invitation.sejourId },
       data: { statut: 'SIGNE_DIRECTION' },
     });
+
+    // Sync occupations chambres (site 10 du §3.1, run-chambres-4a).
+    await this.occupations.syncOccupationsSejourSafe(invitation.sejourId, 'invitationsDirecteur.signerSansCompte');
 
     const devis = await this.prisma.devis.findUnique({
       where: { id: invitation.devisId },

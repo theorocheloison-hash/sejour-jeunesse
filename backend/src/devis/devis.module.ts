@@ -5,9 +5,10 @@ import { DevisPublicController } from './devis-public.controller.js';
 import { DevisService } from './devis.service.js';
 import { ClientsModule } from '../clients/clients.module.js';
 import { SequenceModule } from '../sequence/sequence.module.js';
+import { ChambresModule } from '../chambres/chambres.module.js';
 
 @Module({
-  imports: [AuthModule, ClientsModule, SequenceModule],
+  imports: [AuthModule, ClientsModule, SequenceModule, ChambresModule],
   controllers: [DevisController, DevisPublicController],
   providers: [DevisService],
 })

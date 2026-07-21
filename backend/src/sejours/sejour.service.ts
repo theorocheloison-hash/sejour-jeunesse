@@ -12,6 +12,7 @@ import { STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
+import { OccupationsService } from '../chambres/occupations.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -20,6 +21,7 @@ export class SejourService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
+    private occupations: OccupationsService,
   ) {}
 
   async create(dto: CreateSejourDto, createurId: string) {
@@ -1274,6 +1276,11 @@ export class SejourService {
         data: { deletedAt: new Date() },
       }),
     ]);
+
+    // Sync occupations chambres (site 11 du §3.1, run-chambres-4a) : les devis
+    // sont supprimés → cible OPTION, les FERME du séjour libèrent le stock.
+    // La suppression des occupations au soft-delete (cascade §6.2) = run 4b.
+    await this.occupations.syncOccupationsSejourSafe(sejourId, 'sejour.softDeleteSejour');
 
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({

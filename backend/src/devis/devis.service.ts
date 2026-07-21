@@ -18,6 +18,7 @@ import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.
 import { formatParticipants } from '../utils/format.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_EN_COURS } from './devis-statuts.constants.js';
 import { SequenceService } from '../sequence/sequence.service.js';
+import { OccupationsService } from '../chambres/occupations.service.js';
 import {
   assertSignataireCanAccessDemande,
   assertHebergeurCanAccessDemande,
@@ -42,6 +43,7 @@ export class DevisService {
     private storage: StorageService,
     private clientsService: ClientsService,
     private sequence: SequenceService,
+    private occupations: OccupationsService,
   ) {}
 
   async create(dto: CreateDevisDto, userId: string, file?: Express.Multer.File, centreId?: string | null) {
@@ -752,6 +754,12 @@ export class DevisService {
       }
     }
 
+    // Sync occupations chambres (sites 1+2 du §3.1, run-chambres-4a) — seuls
+    // SELECTIONNE/NON_RETENU changent l'état dérivé du séjour.
+    if (statut === StatutDevis.SELECTIONNE || statut === StatutDevis.NON_RETENU) {
+      await this.occupations.syncOccupationsSejourSafe(demande.sejourId, 'devis.updateStatut');
+    }
+
     return updated;
   }
 
@@ -831,6 +839,8 @@ export class DevisService {
         where: { id: devis.demande.sejour.id },
         data: { statut: StatutSejour.SIGNE_DIRECTION },
       });
+      // Sync occupations chambres (sites 3+4 du §3.1, run-chambres-4a).
+      await this.occupations.syncOccupationsSejourSafe(devis.demande.sejour.id, 'devis.signerDevis');
     }
 
     if (devis.centre?.user?.email) {
@@ -928,6 +938,8 @@ export class DevisService {
         where: { id: devis.demande.sejourId },
         data: { statut: 'SIGNE_DIRECTION' },
       });
+      // Sync occupations chambres (site 5 du §3.1, run-chambres-4a).
+      await this.occupations.syncOccupationsSejourSafe(devis.demande.sejourId, 'devis.uploadSignatureDocument');
     }
 
     const centre = await this.prisma.centreHebergement.findUnique({
@@ -1052,6 +1064,8 @@ export class DevisService {
           ...(isClientSignature ? { hebergementSelectionneId: devis.centreId } : {}),
         },
       });
+      // Sync occupations chambres (site 6 du §3.1, run-chambres-4a).
+      await this.occupations.syncOccupationsSejourSafe(sejourId, 'devis.marquerDevisSigneHebergeur');
     }
 
     // Log CRM non bloquant
@@ -2210,6 +2224,10 @@ export class DevisService {
       },
     });
 
+    // Sync occupations chambres (site 7 du §3.1, run-chambres-4a) — page
+    // publique : jamais bloquant (D12), le wrapper Safe garantit la signature.
+    await this.occupations.syncOccupationsSejourSafe(devis.sejourDirect.id, 'devis.signerDevisDirect');
+
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
     const sejour = devis.sejourDirect;
@@ -2435,6 +2453,9 @@ export class DevisService {
       data: { statut: StatutSejour.CONVENTION },
     });
 
+    // Sync occupations chambres (site 8 du §3.1, run-chambres-4a).
+    await this.occupations.syncOccupationsSejourSafe(devis.sejourDirect.id, 'devis.uploadSignaturePublic');
+
     if (devis.centre?.email) {
       try {
         const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -2556,6 +2577,9 @@ export class DevisService {
           data: { statut: StatutSejour.OPTION },
         });
       }
+      // Sync occupations chambres (site 9 du §3.1, run-chambres-4a) — hors du
+      // if (autresActifs === 0) : le sync recalcule lui-même l'état dérivé.
+      await this.occupations.syncOccupationsSejourSafe(sejourCibleId, 'devis.annulerDevis');
     }
 
     // Log CRM non bloquant
