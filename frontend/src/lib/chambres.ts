@@ -69,6 +69,7 @@ export interface Chambre {
   etage: string | null;
   ordre: number;
   notes: string | null;
+  equipements: string[];
   actif: boolean;
   capacite: number;
   lits: Lit[];
@@ -84,8 +85,9 @@ export interface CreateLitInput {
 export interface CreateChambreInput {
   nom: string;
   etage?: string;
-  ordre?: number;
+  ordre?: number; // omis en pratique : le serveur attribue max(centre)+1 (run 5.1)
   notes?: string;
+  equipements?: string[];
   lits?: CreateLitInput[];
 }
 
@@ -94,6 +96,7 @@ export interface UpdateChambreInput {
   etage?: string | null;
   ordre?: number;
   notes?: string | null;
+  equipements?: string[]; // liste COMPLÈTE recalculée (sémantique set côté serveur)
   actif?: boolean;
 }
 

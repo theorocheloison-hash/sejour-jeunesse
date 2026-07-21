@@ -38,19 +38,21 @@ const TYPES_LITS: { type: TypeLit; label: string; labelCourt: string; places: nu
 
 const SANS_ETAGE = 'Sans étage';
 
+// Liste fixe V1 (run 5.1) — la saisie libre complète, ne remplace jamais.
+const EQUIPEMENTS_CHAMBRE = [
+  'Salle de bain', 'WC privés', 'Douche', 'Lavabo', 'TV', 'Climatisation',
+  'Sèche-cheveux', 'Balcon', 'Terrasse', 'PMR', 'Mezzanine',
+];
+
 type Compteurs = Record<TypeLit, number>;
 const COMPTEURS_VIDES: Compteurs = { SUPERPOSE: 0, SIMPLE: 0, DOUBLE: 0, TIROIR: 0, BB: 0, APPOINT: 0 };
 
-/** Compteurs → tableau du contrat (places = défauts serveur). */
-function compteursVersLits(compteurs: Compteurs): CreateLitInput[] {
-  return TYPES_LITS.flatMap(({ type }) =>
-    Array.from({ length: compteurs[type] ?? 0 }, () => ({ type })),
-  );
-}
+const PLACES_DEFAUT = Object.fromEntries(
+  TYPES_LITS.map((t) => [t.type, t.places]),
+) as Record<TypeLit, number>;
 
-function capacitePrevisionnelle(compteurs: Compteurs): number {
-  return TYPES_LITS.reduce((s, t) => s + (compteurs[t.type] ?? 0) * t.places, 0);
-}
+/** Places d'un lit à créer : éditées, sinon défaut du type (miroir serveur). */
+const placesEffectives = (l: CreateLitInput) => l.places ?? PLACES_DEFAUT[l.type];
 
 /** « 3× superposé, 1× simple » dans l'ordre canonique des types. */
 function resumeLits(lits: Lit[]): string {
@@ -71,7 +73,8 @@ function estPlanInsuffisant(e: unknown): boolean {
 interface ModalCreate {
   mode: 'create';
   etage: string; // pré-rempli par « Enregistrer et créer la suivante »
-  compteurs: Compteurs;
+  lits: CreateLitInput[]; // types + places de la précédente (JAMAIS les libellés)
+  equipements: string[];
 }
 interface ModalEdit {
   mode: 'edit';
@@ -206,7 +209,7 @@ export default function PlanChambresPage() {
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <h1 className="text-base font-semibold text-gray-900">Plan des chambres</h1>
         <button
-          onClick={() => setModal({ mode: 'create', etage: '', compteurs: { ...COMPTEURS_VIDES } })}
+          onClick={() => setModal({ mode: 'create', etage: '', lits: [], equipements: [] })}
           className="rounded-lg bg-[var(--color-primary)] px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
         >
           + Nouvelle chambre
@@ -278,6 +281,18 @@ export default function PlanChambresPage() {
                       {c.lits.length > 0 ? resumeLits(c.lits) : 'Aucun lit — inutilisable'}
                     </p>
                     {c.notes && <p className="text-[11px] text-gray-400 truncate mt-0.5">𝑖 {c.notes}</p>}
+                    {c.equipements.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {c.equipements.slice(0, 3).map((eq) => (
+                          <span key={eq} className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{eq}</span>
+                        ))}
+                        {c.equipements.length > 3 && (
+                          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500" title={c.equipements.slice(3).join(', ')}>
+                            +{c.equipements.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {!c.actif && (
                       <span className="inline-block mt-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
                         Inactive
@@ -353,9 +368,14 @@ function ChambreModal({
   const [nom, setNom] = useState(isEdit ? modal.chambre.nom : '');
   const [etage, setEtage] = useState(isEdit ? (modal.chambre.etage ?? '') : modal.etage);
   const [notes, setNotes] = useState(isEdit ? (modal.chambre.notes ?? '') : '');
-  const [compteurs, setCompteurs] = useState<Compteurs>(
-    isEdit ? { ...COMPTEURS_VIDES } : modal.compteurs,
+  // Run 5.1 (B) : la LISTE des lits à créer est la source de vérité, les
+  // compteurs une vue dérivée — synchronisation structurelle, plus de double état.
+  const [litsAjout, setLitsAjout] = useState<CreateLitInput[]>(isEdit ? [] : modal.lits);
+  const [detailOuvert, setDetailOuvert] = useState(false);
+  const [equipements, setEquipements] = useState<string[]>(
+    isEdit ? modal.chambre.equipements : modal.equipements,
   );
+  const [equipementLibre, setEquipementLibre] = useState('');
   const [lits, setLits] = useState<Lit[]>(isEdit ? modal.chambre.lits : []);
   const [saving, setSaving] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -365,12 +385,45 @@ function ChambreModal({
     nomRef.current?.focus();
   }, []);
 
+  const compteurs: Compteurs = useMemo(() => {
+    const c = { ...COMPTEURS_VIDES };
+    for (const l of litsAjout) c[l.type] = (c[l.type] ?? 0) + 1;
+    return c;
+  }, [litsAjout]);
+
+  // + ajoute en fin de liste ; − retire le DERNIER lit du type (libellé compris).
   const setCompteur = (type: TypeLit, delta: number) =>
-    setCompteurs((prev) => ({ ...prev, [type]: Math.max(0, Math.min(30, (prev[type] ?? 0) + delta)) }));
+    setLitsAjout((prev) => {
+      if (delta > 0) return prev.length >= 30 ? prev : [...prev, { type }];
+      const idx = prev.map((l) => l.type).lastIndexOf(type);
+      return idx < 0 ? prev : prev.filter((_, i) => i !== idx);
+    });
+
+  const majLitAjout = (i: number, patch: Partial<CreateLitInput>) =>
+    setLitsAjout((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const retirerLitAjout = (i: number) => setLitsAjout((prev) => prev.filter((_, j) => j !== i));
+
+  /** Payload du contrat : libellés trimés, vides omis. */
+  const litsPourEnvoi = (): CreateLitInput[] =>
+    litsAjout.map((l) => ({
+      type: l.type,
+      ...(l.places !== undefined ? { places: l.places } : {}),
+      ...(l.libelle?.trim() ? { libelle: l.libelle.trim() } : {}),
+    }));
+
+  const toggleEquipement = (eq: string) =>
+    setEquipements((prev) => (prev.includes(eq) ? prev.filter((e) => e !== eq) : [...prev, eq]));
+
+  const ajouterEquipementLibre = () => {
+    const eq = equipementLibre.trim();
+    if (!eq || equipements.includes(eq) || equipements.length >= 20) return;
+    setEquipements((prev) => [...prev, eq]);
+    setEquipementLibre('');
+  };
 
   const capaciteLits = lits.reduce((s, l) => s + l.places, 0);
-  const capaciteAjout = capacitePrevisionnelle(compteurs);
-  const nbAjout = TYPES_LITS.reduce((s, t) => s + (compteurs[t.type] ?? 0), 0);
+  const capaciteAjout = litsAjout.reduce((s, l) => s + placesEffectives(l), 0);
+  const nbAjout = litsAjout.length;
 
   const gererErreur = (e: unknown, msg: string) => {
     if (!estPlanInsuffisant(e)) setErreur(msg);
@@ -389,13 +442,24 @@ function ChambreModal({
         nom: nom.trim(),
         ...(etage.trim() ? { etage: etage.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-        ...(nbAjout > 0 ? { lits: compteursVersLits(compteurs) } : {}),
+        ...(equipements.length > 0 ? { equipements } : {}),
+        ...(nbAjout > 0 ? { lits: litsPourEnvoi() } : {}),
       });
       await onDone(
         `Chambre « ${nom.trim() } » créée.`,
-        // Étage et compteurs pré-remplis de la précédente : la saisie d'un
-        // centre entier s'enchaîne sans fermer/rouvrir.
-        enchainer ? { mode: 'create', etage, compteurs: { ...compteurs } } : undefined,
+        // Étage, lits (types + places, JAMAIS les libellés — « lit haut fenêtre »
+        // dupliqué serait un mensonge) et équipements pré-remplis de la
+        // précédente : la saisie d'un centre entier s'enchaîne sans fermer/rouvrir.
+        enchainer
+          ? {
+              mode: 'create',
+              etage,
+              lits: litsAjout.map((l) =>
+                l.places !== undefined ? { type: l.type, places: l.places } : { type: l.type },
+              ),
+              equipements: [...equipements],
+            }
+          : undefined,
       );
     } catch (e) {
       gererErreur(e, 'La création a échoué. Vérifiez les champs et réessayez.');
@@ -417,8 +481,9 @@ function ChambreModal({
         nom: nom.trim(),
         etage: etage.trim() ? etage.trim() : null,
         notes: notes.trim() ? notes.trim() : null,
+        equipements, // liste complète recalculée (sémantique set)
       });
-      if (nbAjout > 0) await ajouterLits(modal.chambre.id, compteursVersLits(compteurs));
+      if (nbAjout > 0) await ajouterLits(modal.chambre.id, litsPourEnvoi());
       await onDone(`Chambre « ${nom.trim()} » enregistrée.`);
     } catch (e) {
       gererErreur(e, "L'enregistrement a échoué. Réessayez.");
@@ -538,6 +603,52 @@ function ChambreModal({
                 </div>
               ))}
             </div>
+            {/* Run 5.1 (B) : détail des lits à créer — libellés/places sans second passage */}
+            {!isEdit && nbAjout > 0 && (
+              <button
+                onClick={() => setDetailOuvert((v) => !v)}
+                className="mt-2 text-xs font-medium text-[var(--color-primary)] hover:underline"
+              >
+                {detailOuvert ? 'Replier' : `Détailler les lits (${nbAjout})`}
+              </button>
+            )}
+            {!isEdit && detailOuvert && nbAjout > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {litsAjout.map((l, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <select
+                      value={l.type}
+                      onChange={(e) => majLitAjout(i, { type: e.target.value as TypeLit })}
+                      className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                    >
+                      {TYPES_LITS.map((t) => (
+                        <option key={t.type} value={t.type}>{t.labelCourt}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={6}
+                      value={l.places ?? PLACES_DEFAUT[l.type]}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isInteger(v) && v >= 1 && v <= 6) majLitAjout(i, { places: v });
+                      }}
+                      className="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                      title="Places (1–6) — pour un dortoir, créez plusieurs lits"
+                    />
+                    <input
+                      value={l.libelle ?? ''}
+                      placeholder="libellé (optionnel)"
+                      maxLength={50}
+                      onChange={(e) => majLitAjout(i, { libelle: e.target.value })}
+                      className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                    />
+                    <button title="Retirer ce lit" onClick={() => retirerLitAjout(i)} className="rounded p-1 text-gray-400 hover:text-red-600">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <p className="mt-2 border-t border-gray-100 pt-2 text-sm text-gray-700">
               {isEdit ? (
                 <>Capacité après ajout : <strong>{capaciteLits + capaciteAjout} places</strong></>
@@ -545,6 +656,45 @@ function ChambreModal({
                 <>Capacité : <strong>{capaciteAjout} place{capaciteAjout > 1 ? 's' : ''}</strong></>
               )}
             </p>
+          </div>
+
+          {/* ── Équipements (run 5.1 — liste fixe + saisie libre, chips sur la carte) ── */}
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1.5">Équipements</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {[...EQUIPEMENTS_CHAMBRE, ...equipements.filter((e) => !EQUIPEMENTS_CHAMBRE.includes(e))].map((eq) => (
+                <label key={eq} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={equipements.includes(eq)}
+                    onChange={() => toggleEquipement(eq)}
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                  />
+                  <span className="truncate">{eq}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                value={equipementLibre}
+                onChange={(e) => setEquipementLibre(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ajouterEquipementLibre();
+                  }
+                }}
+                placeholder="Autre équipement…"
+                maxLength={50}
+                className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+              />
+              <button
+                onClick={ajouterEquipementLibre}
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Ajouter
+              </button>
+            </div>
           </div>
         </div>
 
