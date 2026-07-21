@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getAlertesCapacite, acquitterAlerteCapacite } from '@/src/lib/chambres';
-import type { AlerteCapacite } from '@/src/lib/chambres';
+import type { AlerteCapacite, SurEngagement } from '@/src/lib/chambres';
 
 /**
  * Alertes « option plus accueillable » (module chambres, étage 1 — D9/D10).
@@ -24,6 +24,7 @@ export default function AlertesCapacite({ sejourId }: { sejourId?: string }) {
 
   const [capacite, setCapacite] = useState(0);
   const [alertes, setAlertes] = useState<AlerteCapacite[]>([]);
+  const [surEngagements, setSurEngagements] = useState<SurEngagement[]>([]);
   const [acquitting, setAcquitting] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -32,6 +33,7 @@ export default function AlertesCapacite({ sejourId }: { sejourId?: string }) {
       const data = await getAlertesCapacite();
       setCapacite(data.capacite);
       setAlertes(data.alertes);
+      setSurEngagements(data.surEngagements ?? []);
     } catch {
       // Silencieux : l'alerte est une aide, jamais un blocage d'écran.
     }
@@ -44,7 +46,9 @@ export default function AlertesCapacite({ sejourId }: { sejourId?: string }) {
   if (!isHebergeur) return null;
 
   const visibles = sejourId ? alertes.filter((a) => a.sejourId === sejourId) : alertes;
-  if (visibles.length === 0) return null;
+  // Sur-engagements : mode dashboard uniquement (pas la page séjour, pas la liste).
+  const surEngagementsVisibles = sejourId ? [] : surEngagements;
+  if (visibles.length === 0 && surEngagementsVisibles.length === 0) return null;
 
   const acquitter = async (id: string) => {
     setAcquitting(id);
@@ -116,10 +120,31 @@ export default function AlertesCapacite({ sejourId }: { sejourId?: string }) {
     );
   }
 
+  // dateFin est EXCLUSIVE ([debut, fin)) : on affiche la veille.
+  const fmtVeille = (iso: string) => {
+    const veille = new Date(iso);
+    veille.setDate(veille.getDate() - 1);
+    return fmtDate(veille.toISOString());
+  };
+
   // Dashboard : cartes arrondies dans le flux des bannières existantes.
+  // Sur-engagements (rouge) AU-DESSUS des alertes options — non acquittables,
+  // aucun bouton : la bannière ne se tait que quand la surcapacité disparaît.
   return (
     <div className="space-y-2">
       {erreur && <p className="text-sm text-red-700">{erreur}</p>}
+      {surEngagementsVisibles.map((se) => (
+        <div
+          key={`${se.dateDebut}-${se.dateFin}`}
+          className="rounded-lg border border-red-700 bg-red-50 px-5 py-3"
+        >
+          <p className="text-sm text-red-800">
+            🔴 <strong>Sur-engagement</strong> : {se.pic} places pour capacité {capacite} du{' '}
+            {fmtDate(se.dateDebut)} au {fmtVeille(se.dateFin)} (déficit {se.deficit}) — séjours :{' '}
+            {se.sejours.map((s) => s.titre).join(', ')}
+          </p>
+        </div>
+      ))}
       {visibles.map((a) => (
         <div
           key={a.sejourId}

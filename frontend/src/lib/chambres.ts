@@ -18,9 +18,21 @@ export interface AlerteCapacite {
   capaciteAlerteAcquitteeAt: string | null;
 }
 
+// Extension 21/07 : fenêtre où les seuls séjours SIGNÉS dépassent la capacité.
+// Non acquittable — elle ne se tait que quand la surcapacité disparaît.
+export interface SurEngagement {
+  dateDebut: string;
+  dateFin: string; // EXCLUSIVE — [debut, fin), afficher la veille
+  pic: number;
+  deficit: number;
+  sejours: Array<{ id: string; titre: string }>;
+}
+
 export interface AlertesCapaciteResponse {
   capacite: number;
   alertes: AlerteCapacite[];
+  // Optionnel : rétrocompatible avec un backend qui ne le renvoie pas encore.
+  surEngagements?: SurEngagement[];
 }
 
 // ─── Fonctions API ───────────────────────────────────────────────────────────
