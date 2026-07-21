@@ -537,8 +537,15 @@ export class OccupationsService {
           return { occupations: occupations.map((o) => this.mapOccupation(o)) };
         });
       } catch (err) {
-        if (!isConflitExclusion(err) || tentative >= 1) throw err;
-        // Course : au retry, le check applicatif voit le FERME gagnant → 409 parlant.
+        if (!isConflitExclusion(err)) throw err;
+        if (tentative >= 1) {
+          // Double course perdue : re-lire pour un 409 parlant — jamais un
+          // 500 brut sur 23P01 (§2.3 doc archi).
+          this.jeterConflit(
+            await this.chevauchementsFermes(this.prisma, idsChambres, debut, fin),
+          );
+        }
+        // Course simple : au retry, le check applicatif voit le FERME gagnant → 409 parlant.
       }
     }
   }

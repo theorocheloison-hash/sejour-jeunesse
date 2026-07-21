@@ -412,6 +412,20 @@ describe('OccupationsService — POST blocages', () => {
     );
   });
 
+  it('double course 23P01 (check aveugle deux fois) → 409 structuré, jamais un 500 brut', async () => {
+    const prisma = mockPrisma();
+    prisma.occupationChambre.create.mockRejectedValue(new Error('violation 23P01'));
+    await expect(
+      service(prisma).createBlocages(
+        { chambreIds: ['ch-1'], dateDebut: '2027-03-01', dateFin: '2027-03-15', motif: 'travaux' },
+        'user-1', 'centre-1',
+      ),
+    ).rejects.toMatchObject({
+      constructor: ConflictException,
+      response: expect.objectContaining({ error: 'CHAMBRES_CONFLIT' }),
+    });
+  });
+
   it('conflit avec un FERME existant → 409 (un blocage qui ne bloque pas n\'a pas de sens)', async () => {
     const prisma = mockPrisma({
       occupations: [occ({ id: 'occ-rival', statut: 'FERME', sejourId: 'sej-2' })],
