@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { getMesSejoursPlanning, getMesNonLus } from '@/src/lib/collaboration';
 import type { SejourPlanning, NonLusResponse } from '@/src/lib/collaboration';
 import { PLANNING_COULEURS, derivePlanningStatut } from '@/src/lib/planning-statut';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { getAlertesCapacite } from '@/src/lib/chambres';
+import type { AlerteCapacite } from '@/src/lib/chambres';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent';
 
@@ -23,12 +26,14 @@ const NATURE_FILTRES: { value: string; label: string }[] = [
 ];
 
 export default function HebergeurSejoursPage() {
+  const { user } = useAuth();
   const [sejours, setSejours] = useState<SejourPlanning[]>([]);
   const [nonLus, setNonLus] = useState<NonLusResponse>({ total: 0, parSejour: [] });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filtreStatut, setFiltreStatut] = useState('ALL');
   const [filtreNature, setFiltreNature] = useState('ALL');
+  const [alertesCapacite, setAlertesCapacite] = useState<Map<string, AlerteCapacite>>(new Map());
 
   useEffect(() => {
     Promise.all([
@@ -39,6 +44,14 @@ export default function HebergeurSejoursPage() {
       setNonLus(nl);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  // Alertes capacité (étage 1) — badge par séjour ; hébergeur uniquement, non bloquant.
+  useEffect(() => {
+    if (user?.role !== 'HEBERGEUR') return;
+    getAlertesCapacite()
+      .then((d) => setAlertesCapacite(new Map(d.alertes.map((a) => [a.sejourId, a]))))
+      .catch(() => {});
+  }, [user]);
 
   // Nombre de non-lus par séjour (messages + documents + journal)
   const nonLuMap = useMemo(() => {
@@ -167,6 +180,27 @@ export default function HebergeurSejoursPage() {
                       {s.placesTotales ? ` · ${s.placesTotales} pers.` : ''}
                     </p>
                   </div>
+
+                  {/* Badge alerte capacité (étage 1) */}
+                  {(() => {
+                    const alerte = alertesCapacite.get(s.id);
+                    if (!alerte) return null;
+                    return alerte.etat === 'ACTIVE' ? (
+                      <span
+                        title="Plus accueillable — capacité dépassée par les séjours signés"
+                        className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                      >
+                        ⚠️ plus accueillable
+                      </span>
+                    ) : (
+                      <span
+                        title={`Client prévenu${alerte.capaciteAlerteAcquitteeAt ? ` le ${new Date(alerte.capaciteAlerteAcquitteeAt).toLocaleDateString('fr-FR')}` : ''} — en attente`}
+                        className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500"
+                      >
+                        ⏳ prévenu
+                      </span>
+                    );
+                  })()}
 
                   {/* Badge statut */}
                   <span
