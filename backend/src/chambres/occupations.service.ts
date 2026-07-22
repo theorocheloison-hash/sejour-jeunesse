@@ -128,6 +128,9 @@ export class OccupationsService {
     debut: Date,
     fin: Date,
     exclureOccupationId?: string,
+    // Lot 5 : exclure les occupations d'un séjour donné (elles bougent ensemble
+    // au re-datage — une occupation ne se voit pas elle-même en conflit).
+    exclureSejourId?: string,
   ): Promise<Conflit[]> {
     const fermes = await db.occupationChambre.findMany({
       where: {
@@ -136,6 +139,7 @@ export class OccupationsService {
         dateDebut: { lt: fin },
         dateFin: { gt: debut },
         ...(exclureOccupationId ? { id: { not: exclureOccupationId } } : {}),
+        ...(exclureSejourId ? { sejourId: { not: exclureSejourId } } : {}),
       },
       include: {
         chambre: { select: { nom: true } },
@@ -225,6 +229,101 @@ export class OccupationsService {
     } catch (err) {
       this.logger.error(`[sync] échec — site=${site} sejourId=${sejourId}`, err as Error);
     }
+  }
+
+  // ── Cascade de re-datage — quand un séjour change de dates (Lot 5) ────────
+
+  /**
+   * Cascade : un séjour change de dates → ses occupations « plage complète »
+   * suivent (règle A, actée 22/07). SUIVENT uniquement les occupations
+   * `source='SEJOUR'` calées sur les ANCIENNES dates du séjour
+   * (`[dateDebut, dateFin) == [anciennes]`) — les seules que l'UI V1 crée.
+   * NE SUIVENT PAS les sous-périodes custom (dates ≠ dates séjour) : intactes,
+   * comptées `nonSuivies`, signalées par un log `[redatage]` (la grille les
+   * montre déjà). `anciennes = null` (séjour « à définir » qui reçoit ses dates)
+   * → aucune plage complète n'existe → no-op, tout compté `nonSuivies`.
+   *
+   * Statuts : OPTION → dates seules ; A_REPLACER → dates seules, reste
+   * A_REPLACER (D8 : la résolution est un geste manuel, jamais une re-tentative) ;
+   * FERME → dates + re-vérification `chevauchementsFermes` aux NOUVELLES dates
+   * (en excluant les occupations du même séjour) + filet 23P01 : conflit →
+   * A_REPLACER (D6 : jamais de refus du changement de dates, jamais de
+   * suppression silencieuse). BLOCAGE hors périmètre (pas de `sejourId`).
+   *
+   * @param tx OBLIGATOIRE — la cascade s'exécute dans la MÊME transaction que
+   *   l'update du séjour (atomicité) ; premier usage réel du `tx?` préparé en 4a.
+   */
+  async redaterOccupationsSejour(
+    sejourId: string,
+    anciennes: { debut: Date; fin: Date } | null,
+    nouvelles: { debut: Date; fin: Date },
+    tx: Prisma.TransactionClient,
+  ): Promise<{ redatees: number; passeesAReplacer: number; nonSuivies: number }> {
+    const occupations = await tx.occupationChambre.findMany({
+      where: { sejourId, source: 'SEJOUR' },
+      select: { id: true, chambreId: true, dateDebut: true, dateFin: true, statut: true },
+    });
+
+    let redatees = 0;
+    let passeesAReplacer = 0;
+    let nonSuivies = 0;
+
+    for (const occ of occupations) {
+      // Ne suivent que les « plage complète » calées sur les anciennes dates.
+      // anciennes=null → aucune ne suit (le POST exige des dates explicites sur
+      // un séjour sans dates, donc aucune occupation « plage complète »).
+      const suit =
+        anciennes !== null &&
+        occ.dateDebut.getTime() === anciennes.debut.getTime() &&
+        occ.dateFin.getTime() === anciennes.fin.getTime();
+      if (!suit) {
+        nonSuivies++;
+        continue;
+      }
+
+      const dates = { dateDebut: nouvelles.debut, dateFin: nouvelles.fin };
+
+      if (occ.statut === 'FERME') {
+        // Re-vérification aux nouvelles dates, en excluant les occupations du
+        // même séjour (elles bougent ensemble). Conflit → A_REPLACER (D6).
+        const conflits = await this.chevauchementsFermes(
+          tx, [occ.chambreId], nouvelles.debut, nouvelles.fin, occ.id, sejourId,
+        );
+        if (conflits.length > 0) {
+          await tx.occupationChambre.update({
+            where: { id: occ.id },
+            data: { ...dates, statut: 'A_REPLACER' },
+          });
+          passeesAReplacer++;
+          continue;
+        }
+        try {
+          await tx.occupationChambre.update({ where: { id: occ.id }, data: dates });
+          redatees++;
+        } catch (err) {
+          // Course entre le check et l'update : le filet 23P01 pose A_REPLACER.
+          if (!isConflitExclusion(err)) throw err;
+          await tx.occupationChambre.update({
+            where: { id: occ.id },
+            data: { ...dates, statut: 'A_REPLACER' },
+          });
+          passeesAReplacer++;
+        }
+        continue;
+      }
+
+      // OPTION (rien à vérifier) et A_REPLACER (reste A_REPLACER — D8) : dates seules.
+      await tx.occupationChambre.update({ where: { id: occ.id }, data: dates });
+      redatees++;
+    }
+
+    if (nonSuivies > 0) {
+      this.logger.warn(
+        `[redatage] sejourId=${sejourId} : ${nonSuivies} sous-période(s) custom non re-datée(s) (dates ≠ dates séjour) — visibles en grille`,
+      );
+    }
+
+    return { redatees, passeesAReplacer, nonSuivies };
   }
 
   // ── Grille de disponibilité (couche 3 — la prévention) ──────────────────

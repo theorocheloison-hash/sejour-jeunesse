@@ -72,6 +72,9 @@ function mockPrisma({
     if (typeof where.statut === 'string' && o.statut !== where.statut) return false;
     if (typeof where.source === 'string' && o.source !== where.source) return false;
     if (typeof where.sejourId === 'string' && o.sejourId !== where.sejourId) return false;
+    // Prisma `not` inclut les NULL : seule une valeur égale est exclue (une
+    // occupation sejourId=null reste candidate face à { not: 'sej-1' }).
+    if (where.sejourId?.not !== undefined && o.sejourId === where.sejourId.not) return false;
     if (where.dateDebut?.lt && !((o.dateDebut as Date) < where.dateDebut.lt)) return false;
     if (where.dateFin?.gt && !((o.dateFin as Date) > where.dateFin.gt)) return false;
     if (where.id?.not && o.id === where.id.not) return false;
@@ -197,6 +200,117 @@ describe('OccupationsService — syncOccupationsSejour', () => {
       service(prisma).syncOccupationsSejourSafe('sej-1', 'devis.signerDevis'),
     ).resolves.toBeUndefined();
   });
+});
+
+describe('OccupationsService — redaterOccupationsSejour (cascade dates, Lot 5)', () => {
+  const ANC = { debut: d('2027-03-03'), fin: d('2027-03-07') };
+  const NOUV = { debut: d('2027-03-10'), fin: d('2027-03-14') };
+  const redater = (prisma: ReturnType<typeof mockPrisma>, anc: typeof ANC | null = ANC) =>
+    service(prisma).redaterOccupationsSejour('sej-1', anc, NOUV, prisma as never);
+
+  it('nominal : plage complète OPTION + FERME sans conflit → re-datées, statuts conservés', async () => {
+    const opt = occ({ id: 'o-opt', chambreId: 'ch-1', statut: 'OPTION' });
+    const ferme = occ({ id: 'o-ferme', chambreId: 'ch-2', statut: 'FERME' });
+    const prisma = mockPrisma({ occupations: [opt, ferme] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 2, passeesAReplacer: 0, nonSuivies: 0 });
+    expect(opt).toMatchObject({ statut: 'OPTION', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+    expect(ferme).toMatchObject({ statut: 'FERME', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+  });
+
+  it('conflit au re-datage : FERME heurte un FERME d\'un autre séjour → A_REPLACER, dates posées quand même (D6)', async () => {
+    const mien = occ({ id: 'o-mien', chambreId: 'ch-1', statut: 'FERME' });
+    const rival = occ({
+      id: 'o-rival', chambreId: 'ch-1', statut: 'FERME', sejourId: 'sej-2',
+      dateDebut: NOUV.debut, dateFin: NOUV.fin, sejour: { id: 'sej-2', titre: 'Autre' },
+    });
+    const prisma = mockPrisma({ occupations: [mien, rival] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 0, passeesAReplacer: 1, nonSuivies: 0 });
+    expect(mien).toMatchObject({ statut: 'A_REPLACER', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+  });
+
+  it('rotation du samedi : nouvelle fin = début d\'un FERME rival ⇒ pas un conflit (demi-ouvert)', async () => {
+    const mien = occ({ id: 'o-mien', chambreId: 'ch-1', statut: 'FERME' });
+    const rival = occ({
+      id: 'o-rival', chambreId: 'ch-1', statut: 'FERME', sejourId: 'sej-2',
+      dateDebut: NOUV.fin, dateFin: d('2027-03-20'), sejour: { id: 'sej-2', titre: 'Autre' },
+    });
+    const prisma = mockPrisma({ occupations: [mien, rival] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 1, passeesAReplacer: 0, nonSuivies: 0 });
+    expect(mien).toMatchObject({ statut: 'FERME', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+  });
+
+  it('sous-période custom (dates ≠ dates séjour) : intacte, comptée nonSuivies', async () => {
+    const custom = occ({
+      id: 'o-custom', chambreId: 'ch-1', statut: 'FERME',
+      dateDebut: d('2027-03-04'), dateFin: d('2027-03-06'),
+    });
+    const prisma = mockPrisma({ occupations: [custom] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 0, passeesAReplacer: 0, nonSuivies: 1 });
+    expect(custom).toMatchObject({ dateDebut: d('2027-03-04'), dateFin: d('2027-03-06') });
+    expect(prisma.occupationChambre.update).not.toHaveBeenCalled();
+  });
+
+  it('A_REPLACER : re-daté mais reste A_REPLACER (D8 — pas de re-tentative de place)', async () => {
+    const ar = occ({ id: 'o-ar', chambreId: 'ch-1', statut: 'A_REPLACER' });
+    const prisma = mockPrisma({ occupations: [ar] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 1, passeesAReplacer: 0, nonSuivies: 0 });
+    expect(ar).toMatchObject({ statut: 'A_REPLACER', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+  });
+
+  it('BLOCAGE : jamais touché (source ≠ SEJOUR, hors périmètre)', async () => {
+    const blocage = occ({
+      id: 'o-bloc', chambreId: 'ch-1', source: 'BLOCAGE', statut: 'FERME',
+      sejourId: null, sejour: null,
+    });
+    const prisma = mockPrisma({ occupations: [blocage] });
+    const res = await redater(prisma);
+    expect(res).toEqual({ redatees: 0, passeesAReplacer: 0, nonSuivies: 0 });
+    expect(blocage).toMatchObject({ dateDebut: ANC.debut, dateFin: ANC.fin });
+    expect(prisma.occupationChambre.update).not.toHaveBeenCalled();
+  });
+
+  it('anciennes = null (séjour « à définir ») : no-op, tout compté nonSuivies', async () => {
+    const o1 = occ({ id: 'o1', chambreId: 'ch-1', statut: 'OPTION' });
+    const o2 = occ({ id: 'o2', chambreId: 'ch-2', statut: 'FERME' });
+    const prisma = mockPrisma({ occupations: [o1, o2] });
+    const res = await redater(prisma, null);
+    expect(res).toEqual({ redatees: 0, passeesAReplacer: 0, nonSuivies: 2 });
+    expect(prisma.occupationChambre.update).not.toHaveBeenCalled();
+  });
+
+  it('exclusion même séjour : la sous-période custom du même séjour ne fait pas passer le plage-complète en conflit', async () => {
+    const plage = occ({ id: 'o-plage', chambreId: 'ch-1', statut: 'FERME' });
+    const sousPeriode = occ({
+      id: 'o-sous', chambreId: 'ch-1', statut: 'FERME',
+      dateDebut: d('2027-03-11'), dateFin: d('2027-03-13'), // chevauche les nouvelles dates
+    });
+    const prisma = mockPrisma({ occupations: [plage, sousPeriode] });
+    const res = await redater(prisma);
+    // sans l'exclusion sejourId, le plage-complète verrait sa propre sous-période → A_REPLACER
+    expect(res).toEqual({ redatees: 1, passeesAReplacer: 0, nonSuivies: 1 });
+    expect(plage).toMatchObject({ statut: 'FERME', dateDebut: NOUV.debut, dateFin: NOUV.fin });
+    expect(sousPeriode).toMatchObject({ dateDebut: d('2027-03-11'), dateFin: d('2027-03-13') });
+  });
+
+  it.each(['23P01', 'occupation_non_chevauchement'])(
+    'filet %s : course sur l\'update FERME re-daté → A_REPLACER',
+    async (marqueur) => {
+      const ferme = occ({ id: 'o-ferme', chambreId: 'ch-1', statut: 'FERME' });
+      const prisma = mockPrisma({ occupations: [ferme] });
+      // le check ne voit pas de conflit, mais l'update (pose des dates) heurte l'EXCLUDE
+      prisma.occupationChambre.update.mockRejectedValueOnce(new Error(`violation ${marqueur}`));
+      const res = await redater(prisma);
+      expect(res).toEqual({ redatees: 0, passeesAReplacer: 1, nonSuivies: 0 });
+      expect(prisma.occupationChambre.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ statut: 'A_REPLACER' }) }),
+      );
+    },
+  );
 });
 
 describe('OccupationsService — POST occupations', () => {
