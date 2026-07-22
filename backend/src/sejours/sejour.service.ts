@@ -1269,18 +1269,18 @@ export class SejourService {
     // Suppression en cascade des devis restants (brouillon EN_ATTENTE, EN_ATTENTE_VALIDATION,
     // NON_RETENU, etc.) — aucun n'a de facture grâce à la garde 1. lignes_devis et
     // versements suivent (onDelete: Cascade). Évite les devis orphelins après suppression.
+    // Lot 5 : les occupations du séjour sont supprimées dans la même tx (cascade
+    // §6.2) — un séjour supprimé ne laisse plus de lignes fantômes en grille ; les
+    // AffectationChambre suivent par FK onDelete: Cascade. Remplace l'ancien
+    // site 11 (syncOccupationsSejourSafe post-tx) devenu un no-op garanti.
     await this.prisma.$transaction([
+      this.prisma.occupationChambre.deleteMany({ where: { sejourId } }),
       this.prisma.devis.deleteMany({ where: devisSejourWhere }),
       this.prisma.sejour.update({
         where: { id: sejourId },
         data: { deletedAt: new Date() },
       }),
     ]);
-
-    // Sync occupations chambres (site 11 du §3.1, run-chambres-4a) : les devis
-    // sont supprimés → cible OPTION, les FERME du séjour libèrent le stock.
-    // La suppression des occupations au soft-delete (cascade §6.2) = run 4b.
-    await this.occupations.syncOccupationsSejourSafe(sejourId, 'sejour.softDeleteSejour');
 
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({

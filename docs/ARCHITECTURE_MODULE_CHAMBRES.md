@@ -181,6 +181,12 @@ ALTER TABLE affectations_chambre
 
 La transition de statut devis/séjour n'a **pas de point unique** : **9 sites de promotion + 2 de libération**, dans 3 fichiers :
 
+> **Amendement Lot 5 (22/07)** : le site 11 (`sejour.service.ts` softDeleteSejour)
+> ne branche plus `syncOccupationsSejour` — un séjour soft-supprimé **supprime
+> désormais ses occupations** dans sa `$transaction` (cascade Lot 5, §6.2), ce qui
+> rend une sync post-suppression sans objet. **10 sites actifs** branchent la sync ;
+> le site 11 est remplacé par la cascade de suppression.
+
 | Fichier | Lignes (21/07) | Transition |
 |---|---|---|
 | `devis.service.ts` | 665-673 | Sélection collab : `SELECTIONNE` + rivaux de la demande → `NON_RETENU` |
@@ -193,7 +199,7 @@ La transition de statut devis/séjour n'a **pas de point unique** : **9 sites de
 | `devis.service.ts` | 2423 | `uploadSignaturePublic` (scan signé) |
 | `devis.service.ts` | 2531 + 2554 | `annulerDevis` → `NON_RETENU`, séjour rétrogradé `OPTION` |
 | `invitations-directeur.service.ts` | 227 + 240 | Signature direction via invitation (devis + séjour) |
-| `sejour.service.ts` | ~1253 | Suppression séjour : passage forcé par `NON_RETENU` |
+| ~~`sejour.service.ts`~~ | ~~~1253~~ | ~~Suppression séjour : passage forcé par `NON_RETENU`~~ → **Lot 5** : suppression des occupations dans la tx (plus de sync) |
 
 Saupoudrer une logique de transition à chaque site = un site oublié garanti (cf. cicatrice « 3× Signé direction fixées »).
 
@@ -215,7 +221,7 @@ syncOccupationsSejour(sejourId, tx) :
 
 Propriétés :
 - **Recalcule** depuis l'état des devis (`STATUTS_DEVIS_RETENUS`, constante existante) au lieu de pousser une transition → un site oublié s'auto-répare au prochain appel n'importe où.
-- Branchée en fin des 11 sites du tableau §3.1, dans la transaction de chaque site.
+- Branchée en fin des 10 sites actifs du tableau §3.1, dans la transaction de chaque site (site 11 retiré — cascade de suppression Lot 5, cf. amendement §3.1).
 - Affectation post-signature (cas nominal mars→septembre) : l'occupation naît directement au statut dérivé — pas de détour par OPTION.
 - D12 : la promotion ne jette jamais — les conflits se résolvent en `A_REPLACER`, la signature aboutit toujours.
 

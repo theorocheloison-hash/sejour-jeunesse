@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { OccupationsService } from './occupations.service.js';
+import { SejourService } from '../sejours/sejour.service.js';
+import type { EmailService } from '../email/email.service.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
 
 /**
@@ -612,5 +614,57 @@ describe('OccupationsService — GET grille', () => {
         }),
       }),
     );
+  });
+});
+
+describe('SejourService — softDeleteSejour cascade occupations (Lot 5)', () => {
+  function mockPrismaSoftDelete() {
+    return {
+      centreHebergement: {
+        findUnique: jest.fn(async ({ where }: any) => ({
+          id: where.id, userId: 'user-1', statut: 'ACTIVE',
+        })),
+      },
+      sejour: {
+        findUnique: jest.fn(async () => ({
+          id: 'sej-1', hebergementSelectionneId: 'centre-1', modeGestion: 'DIRECT',
+          titre: 'Séjour test', deletedAt: null, clientEmail: null,
+        })),
+        update: jest.fn(async () => ({ _op: 'sejour.update' })),
+      },
+      facture: { count: jest.fn(async () => 0) },
+      devis: {
+        count: jest.fn(async () => 0),
+        deleteMany: jest.fn(async () => ({ _op: 'devis.deleteMany', count: 0 })),
+      },
+      occupationChambre: {
+        deleteMany: jest.fn(async () => ({ _op: 'occ.deleteMany', count: 0 })),
+      },
+      sejourClient: { findFirst: jest.fn(async () => null) },
+      activiteClient: { create: jest.fn() },
+      $transaction: jest.fn(async (arr: any) => Promise.all(arr)),
+    };
+  }
+
+  it('supprime les occupations DANS la tx (occ → devis → séjour), sans appel au site 11', async () => {
+    const prisma = mockPrismaSoftDelete();
+    const occupations = { syncOccupationsSejourSafe: jest.fn() };
+    const service = new SejourService(
+      prisma as unknown as PrismaService,
+      {} as EmailService,
+      occupations as unknown as OccupationsService,
+    );
+
+    const res = await service.softDeleteSejour('sej-1', 'user-1', 'centre-1');
+    expect(res).toEqual({ deleted: true });
+
+    // deleteMany occupations scopé au séjour, présent dans la tx et en tête du tableau.
+    expect(prisma.occupationChambre.deleteMany).toHaveBeenCalledWith({ where: { sejourId: 'sej-1' } });
+    const txArg = prisma.$transaction.mock.calls[0][0];
+    const ops = await Promise.all(txArg);
+    expect(ops.map((o: any) => o._op)).toEqual(['occ.deleteMany', 'devis.deleteMany', 'sejour.update']);
+
+    // Site 11 retiré : le deleteMany rend la sync post-tx inutile (no-op garanti).
+    expect(occupations.syncOccupationsSejourSafe).not.toHaveBeenCalled();
   });
 });
