@@ -10,6 +10,7 @@ import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_COLLABORATIFS, STATUTS_SEJOUR_DIRECT } from '../sejours/sejour-statuts.constants.js';
+import { OccupationsService } from '../chambres/occupations.service.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -33,6 +34,7 @@ export class CollaborationService {
     private prisma: PrismaService,
     private storage: StorageService,
     private email: EmailService,
+    private occupations: OccupationsService,
   ) {}
 
   private async notifierOrganisateur(
@@ -1431,25 +1433,71 @@ export class CollaborationService {
       throw new ForbiddenException('Seul l\'hébergeur peut modifier les informations du séjour');
     }
 
-    const updated = await this.prisma.sejour.update({
-      where: { id: sejourId },
-      data: {
-        ...(dto.titre !== undefined && { titre: dto.titre }),
-        ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
-        ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
-        ...(dto.clientNom !== undefined && { clientNom: dto.clientNom }),
-        ...(dto.clientPrenom !== undefined && { clientPrenom: dto.clientPrenom }),
-        ...(dto.clientEmail !== undefined && { clientEmail: dto.clientEmail }),
-        ...(dto.clientTelephone !== undefined && { clientTelephone: dto.clientTelephone }),
-        ...(dto.clientAdresse !== undefined && { clientAdresse: dto.clientAdresse }),
-        ...(dto.clientCodePostal !== undefined && { clientCodePostal: dto.clientCodePostal }),
-        ...(dto.clientVille !== undefined && { clientVille: dto.clientVille }),
-        ...(dto.placesTotales !== undefined && { placesTotales: dto.placesTotales }),
-        ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
-      },
+    // Anciennes dates (avant update) et cible, pour la cascade de re-datage (Lot 5).
+    const anciennes =
+      sejour.dateDebut && sejour.dateFin
+        ? { debut: sejour.dateDebut, fin: sejour.dateFin }
+        : null;
+    const nouvelleDebut = dto.dateDebut !== undefined ? new Date(dto.dateDebut) : sejour.dateDebut;
+    const nouvelleFin = dto.dateFin !== undefined ? new Date(dto.dateFin) : sejour.dateFin;
+    // Cascade uniquement si des dates sont fournies ET effectivement modifiées
+    // (le front renvoie souvent tout le formulaire — éviter un re-datage no-op
+    // à chaque édition d'un autre champ).
+    const datesChangees =
+      (dto.dateDebut !== undefined || dto.dateFin !== undefined) &&
+      nouvelleDebut != null &&
+      nouvelleFin != null &&
+      (sejour.dateDebut?.getTime() !== nouvelleDebut.getTime() ||
+        sejour.dateFin?.getTime() !== nouvelleFin.getTime());
+
+    const demandeActive = sejour.demandes?.[0];
+
+    // Tout-ou-rien : séjour + demande + cascade occupations dans la même tx —
+    // un crash entre les écritures ne laisse plus des dates divergentes (même
+    // classe de défaut que les blocs signature 4b).
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const maj = await tx.sejour.update({
+        where: { id: sejourId },
+        data: {
+          ...(dto.titre !== undefined && { titre: dto.titre }),
+          ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
+          ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
+          ...(dto.clientNom !== undefined && { clientNom: dto.clientNom }),
+          ...(dto.clientPrenom !== undefined && { clientPrenom: dto.clientPrenom }),
+          ...(dto.clientEmail !== undefined && { clientEmail: dto.clientEmail }),
+          ...(dto.clientTelephone !== undefined && { clientTelephone: dto.clientTelephone }),
+          ...(dto.clientAdresse !== undefined && { clientAdresse: dto.clientAdresse }),
+          ...(dto.clientCodePostal !== undefined && { clientCodePostal: dto.clientCodePostal }),
+          ...(dto.clientVille !== undefined && { clientVille: dto.clientVille }),
+          ...(dto.placesTotales !== undefined && { placesTotales: dto.placesTotales }),
+          ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
+        },
+      });
+
+      if (demandeActive) {
+        await tx.demandeDevis.update({
+          where: { id: demandeActive.id },
+          data: {
+            ...(dto.titre !== undefined && { titre: dto.titre }),
+            ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
+            ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
+          },
+        });
+      }
+
+      // Cascade de re-datage : les occupations « plage complète » suivent les
+      // nouvelles dates, puis re-dérivation FERME/OPTION (premier usage du tx?).
+      if (datesChangees && nouvelleDebut && nouvelleFin) {
+        await this.occupations.redaterOccupationsSejour(
+          sejourId, anciennes, { debut: nouvelleDebut, fin: nouvelleFin }, tx,
+        );
+        await this.occupations.syncOccupationsSejour(sejourId, tx);
+      }
+
+      return maj;
     });
 
-    // Propagation vers la fiche Client CRM liée (NON BLOQUANTE).
+    // Propagation vers la fiche Client CRM liée (NON BLOQUANTE, hors tx).
     const clientFieldsFournis =
       dto.clientNom !== undefined ||
       dto.clientPrenom !== undefined ||
@@ -1499,18 +1547,6 @@ export class CollaborationService {
         // Non bloquant : une erreur côté CRM ne doit jamais faire échouer la maj du séjour.
         console.error('updateInfosSejour: sync CRM Client échouée:', err instanceof Error ? err.message : String(err));
       }
-    }
-
-    const demande = sejour.demandes?.[0];
-    if (demande) {
-      await this.prisma.demandeDevis.update({
-        where: { id: demande.id },
-        data: {
-          ...(dto.titre !== undefined && { titre: dto.titre }),
-          ...(dto.dateDebut !== undefined && { dateDebut: new Date(dto.dateDebut) }),
-          ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
-        },
-      });
     }
 
     if (sejour.createur?.email) {
