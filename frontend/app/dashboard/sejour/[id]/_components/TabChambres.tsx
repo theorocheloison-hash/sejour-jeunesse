@@ -34,6 +34,16 @@ interface GrilleResponse {
   chambres: ChambreGrille[];
 }
 
+// Contrat rooming-stats — backend/src/chambres/rooming.controller.ts (SC7)
+interface RoomingStats {
+  elevesTotal: number;
+  filles: number;
+  garcons: number;
+  autre: number;
+  aCategoriser: number;
+  encadrants: number;
+}
+
 const BADGES: Record<ChambreGrille['etat']['type'], { label: string; cls: string }> = {
   libre: { label: 'Libre', cls: 'bg-green-100 text-green-700' },
   option: { label: 'Option', cls: 'bg-amber-100 text-amber-700' },
@@ -63,6 +73,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
   const [selection, setSelection] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [avertissement, setAvertissement] = useState<string | null>(null);
+  const [stats, setStats] = useState<RoomingStats | null>(null);
 
   const loadGrille = useCallback(async () => {
     if (!centreId || !dateDebut || !dateFin) return;
@@ -83,6 +94,23 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
   }, [centreId, dateDebut, dateFin, onError]);
 
   useEffect(() => { loadGrille(); }, [loadGrille]);
+
+  // Compteur participants (SC7) — indépendant des dates du séjour.
+  useEffect(() => {
+    if (!centreId) return;
+    let annule = false;
+    api
+      .get('/chambres/rooming-stats', {
+        params: { sejourId },
+        headers: { 'X-Centre-Id': centreId },
+      })
+      .then((r) => { if (!annule) setStats(r.data); })
+      .catch(() => {
+        // 403 plan → modale globale ; autre erreur → compteur simplement
+        // masqué, la grille reste prioritaire.
+      });
+    return () => { annule = true; };
+  }, [centreId, sejourId]);
 
   // Occupation de CE séjour par chambre (source SEJOUR) — porte l'id pour le DELETE.
   const occupationDuSejour = useMemo(() => {
@@ -157,26 +185,35 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
     );
   }
 
-  if (!dateDebut || !dateFin) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-sm text-gray-500">
-        Définissez d&apos;abord les dates du séjour pour attribuer des chambres.
-      </div>
-    );
-  }
-
-  if (loading && !grille) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
-      </div>
-    );
-  }
-
   const chambres = grille?.chambres ?? [];
+  const sansDates = !dateDebut || !dateFin;
 
   return (
     <div className="space-y-4">
+      {/* ── Compteur participants (SC7) — indépendant des dates du séjour ── */}
+      {stats && (
+        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {stats.elevesTotal === 0 ? (
+              <p className="text-sm text-gray-500">Aucun participant saisi pour l&apos;instant.</p>
+            ) : (
+              <p className="text-sm font-semibold text-gray-900">
+                {stats.elevesTotal} participant(s) : {stats.filles} fille(s) · {stats.garcons} garçon(s) · {stats.autre} autre ·{' '}
+                <span className={stats.aCategoriser > 0 ? 'rounded bg-amber-100 px-1.5 py-0.5 text-amber-700' : ''}>
+                  {stats.aCategoriser} à catégoriser
+                </span>
+              </p>
+            )}
+            <p className="text-xs text-gray-500">
+              {stats.encadrants} encadrant(s)
+              {!sejour.inscriptionsCloturees && (
+                <span className="text-gray-400"> · inscriptions en cours</span>
+              )}
+            </p>
+          </div>
+        </section>
+      )}
+
       {avertissement && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 text-sm text-amber-800">
           <span>{avertissement}</span>
@@ -190,6 +227,16 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
         </div>
       )}
 
+      {/* ── Section chambres — conditionnelle aux dates, le compteur non ── */}
+      {sansDates ? (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-sm text-gray-500">
+          Définissez d&apos;abord les dates du séjour pour attribuer des chambres.
+        </div>
+      ) : loading && !grille ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+        </div>
+      ) : (
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">
@@ -315,6 +362,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
