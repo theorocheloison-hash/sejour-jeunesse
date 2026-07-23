@@ -92,7 +92,7 @@ export default function CollaborationPage() {
   }, [user, accompagnateurs]);
   const estLectureSeule = monRoleCollaboratif === 'LECTURE';
   const estAccompagnateur = monRoleCollaboratif !== null && sejour?.createur?.id !== user?.id;
-  const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'journal'];
+  const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'chambres', 'journal'];
 
   // Budget (partagé : onglet devis via TabDevisFacturation + onglet budget)
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
