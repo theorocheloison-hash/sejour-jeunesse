@@ -14,6 +14,8 @@ interface OccupationGrille {
   source: 'SEJOUR' | 'BLOCAGE';
   dateDebut: string;
   dateFin: string;
+  etiquette?: string | null;
+  couleur?: string | null;
   sejour: { id: string; titre: string } | null;
 }
 
@@ -51,6 +53,15 @@ const BADGES: Record<ChambreGrille['etat']['type'], { label: string; cls: string
   bloquee: { label: 'Bloquée', cls: 'bg-gray-100 text-gray-600' },
   a_replacer: { label: 'À replacer', cls: 'bg-red-100 text-red-700' },
 };
+
+// Directives hébergeur (SC7 lot 1). `couleur` en base = le TOKEN court, jamais
+// la classe — le backend reste agnostique et le token resservira au PDF.
+const ETIQUETTES = [
+  { label: 'Filles', couleur: 'teal', cls: 'bg-teal-100 text-teal-700' },
+  { label: 'Garçons', couleur: 'amber', cls: 'bg-amber-100 text-amber-700' },
+  { label: 'Encadrants', couleur: 'violet', cls: 'bg-violet-100 text-violet-700' },
+  { label: 'Mixte', couleur: 'slate', cls: 'bg-slate-100 text-slate-700' },
+];
 
 /** 403 PLAN_INSUFFICIENT : la modale globale (api.ts) s'en charge — rien de plus ici. */
 function isPlanInsufficient(err: unknown): boolean {
@@ -160,6 +171,27 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const setEtiquette = async (occupationId: string, label: string) => {
+    const preset = ETIQUETTES.find((e) => e.label === label);
+    try {
+      // ⚠️ Marquage pur : etiquette + couleur SEULS — jamais de dates ni de
+      // chambreId, sinon le backend bascule en mode déplacement (recalcul de
+      // statut, 409 possible).
+      await api.patch(
+        `/chambres/occupations/${occupationId}`,
+        preset
+          ? { etiquette: preset.label, couleur: preset.couleur }
+          : { etiquette: null, couleur: null },
+        { headers: { 'X-Centre-Id': centreId } },
+      );
+      await loadGrille();
+    } catch (err) {
+      if (!isPlanInsufficient(err)) {
+        onError('Impossible de modifier l\'étiquette. Veuillez réessayer.');
+      }
     }
   };
 
@@ -302,6 +334,25 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
                       </svg>
                     </span>
                     {infos}
+                    {occ.etiquette && (
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                          ETIQUETTES.find((e) => e.label === occ.etiquette)?.cls ?? 'bg-gray-200'
+                        }`}
+                      />
+                    )}
+                    <select
+                      value={occ.etiquette ?? ''}
+                      onChange={(e) => setEtiquette(occ.id, e.target.value)}
+                      className="shrink-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700"
+                    >
+                      <option value="">— étiquette</option>
+                      {ETIQUETTES.map((e) => (
+                        <option key={e.label} value={e.label}>
+                          {e.label}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={() => handleRetirer(occ.id)}
