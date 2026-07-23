@@ -33,6 +33,7 @@ import TabJournal from './_components/TabJournal';
 import TabParticipantsCollab from './_components/TabParticipantsCollab';
 import TabNotes from './_components/TabNotes';
 import TabChambres from './_components/TabChambres';
+import TabRooming from './_components/TabRooming';
 import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
 
@@ -339,7 +340,7 @@ export default function CollaborationPage() {
                   (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
                   (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
                   (t.key !== 'notes' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'chambres' || user.role === 'HEBERGEUR')
+                  (t.key !== 'chambres' || user.role === 'HEBERGEUR' || user.role === 'ORGANISATEUR')
                 )
             )
             .filter((t) => {
@@ -431,13 +432,26 @@ export default function CollaborationPage() {
           />
         )}
 
-        {/* ── Chambres (hébergeur seul, SEJOUR uniquement) ─── */}
+        {/* ── Chambres (SEJOUR uniquement) : hébergeur = attribution,
+               organisateur = rooming. Ternaire EXPLICITE — un rôle imprévu
+               ne doit jamais tomber sur TabRooming. ─── */}
         {tab === 'chambres' && sejour && (
-          <TabChambres
-            sejourId={id}
-            sejour={sejour}
-            onError={setMutationError}
-          />
+          user.role === 'HEBERGEUR' ? (
+            <TabChambres
+              sejourId={id}
+              sejour={sejour}
+              onError={setMutationError}
+            />
+          ) : user.role === 'ORGANISATEUR' ? (
+            <TabRooming
+              sejourId={id}
+              sejour={sejour}
+              user={user}
+              onError={setMutationError}
+              onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
+              onReloadSejour={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+            />
+          ) : null
         )}
 
         {/* ── Journal ─── */}

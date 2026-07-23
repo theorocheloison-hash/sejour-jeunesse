@@ -481,6 +481,62 @@ export async function cloturerInscriptions(sejourId: string): Promise<void> {
   await api.post(`/collaboration/${sejourId}/cloturer-inscriptions`);
 }
 
+// ─── Rooming (SC7) — affectation participant→chambre, geste ORGANISATEUR ────
+// Contrat : backend/src/chambres/affectation.controller.ts. Routes ORGANISATEUR
+// (accès createurId/collaborateur côté back) : AUCUN header X-Centre-Id.
+
+export interface RoomingOccupant {
+  affectationId: string;
+  type: 'ELEVE' | 'ENCADRANT';
+  nom: string;
+  prenom: string;
+  signee: boolean;
+}
+
+export interface RoomingChambre {
+  occupationId: string;
+  chambreId: string;
+  nom: string;
+  etage: string | null;
+  ordre: number;
+  capacite: number;
+  etiquette: string | null;
+  couleur: string | null;
+  occupants: RoomingOccupant[];
+}
+
+export interface RoomingParticipant {
+  id: string;
+  nom: string;
+  prenom: string;
+  hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
+  signee?: boolean;
+}
+
+export interface RoomingData {
+  chambres: RoomingChambre[];
+  nonAffectes: { eleves: RoomingParticipant[]; encadrants: RoomingParticipant[] };
+}
+
+export async function getRoomingCollab(sejourId: string): Promise<RoomingData> {
+  const { data } = await api.get<RoomingData>('/chambres/rooming', { params: { sejourId } });
+  return data;
+}
+
+export async function affecterChambre(
+  sejourId: string,
+  chambreId: string,
+  body: { autorisationId?: string; accompagnateurId?: string },
+): Promise<unknown> {
+  const { data } = await api.post('/chambres/affectations', { sejourId, chambreId, ...body });
+  return data;
+}
+
+export async function retirerChambre(affectationId: string): Promise<{ deleted: boolean }> {
+  const { data } = await api.delete(`/chambres/affectations/${affectationId}`);
+  return data;
+}
+
 export async function genererPlanningIA(sejourId: string, debutActivites?: string, finActivites?: string): Promise<{ jobId: string }> {
   const { data } = await api.post<{ jobId: string }>(`/collaboration/${sejourId}/planning/generer`, {
     debutActivites,

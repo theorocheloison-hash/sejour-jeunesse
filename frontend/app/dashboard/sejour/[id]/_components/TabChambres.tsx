@@ -56,7 +56,8 @@ const BADGES: Record<ChambreGrille['etat']['type'], { label: string; cls: string
 
 // Directives hébergeur (SC7 lot 1). `couleur` en base = le TOKEN court, jamais
 // la classe — le backend reste agnostique et le token resservira au PDF.
-const ETIQUETTES = [
+// Exporté : TabRooming (organisateur) réutilise le même mapping token→classe.
+export const ETIQUETTES = [
   { label: 'Filles', couleur: 'teal', cls: 'bg-teal-100 text-teal-700' },
   { label: 'Garçons', couleur: 'amber', cls: 'bg-amber-100 text-amber-700' },
   { label: 'Encadrants', couleur: 'violet', cls: 'bg-violet-100 text-violet-700' },
