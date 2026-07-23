@@ -8,6 +8,7 @@ import { OccupationsController } from './occupations.controller.js';
 import { OccupationsService } from './occupations.service.js';
 import { RoomingController } from './rooming.controller.js';
 import { RoomingService } from './rooming.service.js';
+import { AffectationController } from './affectation.controller.js';
 
 // Module chambres (Monde 1) — étage 1 : capacité globale + référentiel
 // chambres/lits (sous-chantier 3) + occupations/grille/sync (sous-chantier 4a)
@@ -16,7 +17,7 @@ import { RoomingService } from './rooming.service.js';
 // (syncOccupationsSejourSafe — §3.1 du plan 4a).
 @Module({
   imports: [AuthModule],
-  controllers: [CapaciteController, ReferentielController, OccupationsController, RoomingController],
+  controllers: [CapaciteController, ReferentielController, OccupationsController, RoomingController, AffectationController],
   providers: [CapaciteService, ReferentielService, OccupationsService, RoomingService],
   exports: [CapaciteService, ReferentielService, OccupationsService],
 })
