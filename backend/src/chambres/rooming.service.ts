@@ -91,16 +91,35 @@ export class RoomingService {
 
   // ── Affectation participant→chambre (SC7 lot 2) — geste ORGANISATEUR ─────
 
-  /** Séjour du CRÉATEUR ou 404/403 (accès organisateur — pas de centreId ici). */
-  private async getSejourDuCreateur(sejourId: string, userId: string) {
+  /**
+   * Accès rooming : créateur OU accompagnateur à accès collaboratif (lecture ;
+   * `requireEdition` exige roleCollaboratif EDITION pour les écritures).
+   * DETTE : logique répliquée de collaboration.service.verifyAccess, réduite
+   * aux profils atteignables sous @Roles(ORGANISATEUR) — créateur +
+   * accompagnateur-collaborateur ; hébergeur/signataire sont déjà exclus par
+   * le RolesGuard du controller. Divergence à surveiller si verifyAccess
+   * évolue. (Pas d'injection de CollaborationService : cycle de modules
+   * chambres↔collaboration.)
+   */
+  private async resoudreAccesRooming(sejourId: string, userId: string, requireEdition: boolean) {
     if (!sejourId) throw new BadRequestException('Paramètre sejourId requis');
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
       select: { id: true, createurId: true, deletedAt: true, hebergementSelectionneId: true },
     });
     if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== userId) {
-      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    if (sejour.createurId === userId) return sejour; // le créateur peut tout
+
+    const accompagnateur = await this.prisma.accompagnateurMission.findFirst({
+      where: { sejourId, userId, accesCollaboratif: true },
+      select: { roleCollaboratif: true },
+    });
+    if (!accompagnateur) {
+      throw new ForbiddenException('Vous n\'avez pas accès à ce séjour');
+    }
+    if (requireEdition && accompagnateur.roleCollaboratif !== 'EDITION') {
+      throw new ForbiddenException('Accès en lecture seule');
     }
     return sejour;
   }
@@ -137,7 +156,8 @@ export class RoomingService {
 
   /** GET /chambres/rooming — chambres attribuées + occupants + non-affectés. */
   async getRooming(userId: string, sejourId: string) {
-    const sejour = await this.getSejourDuCreateur(sejourId, userId);
+    // LECTURE : un accompagnateur lecture seule voit le rooming
+    const sejour = await this.resoudreAccesRooming(sejourId, userId, false);
     await this.assertPlanCentreComplet(sejour.hebergementSelectionneId);
 
     const [occupations, eleves, encadrants] = await Promise.all([
@@ -237,7 +257,7 @@ export class RoomingService {
     chambreId: string,
     body: { autorisationId?: string; accompagnateurId?: string },
   ) {
-    const sejour = await this.getSejourDuCreateur(sejourId, userId);
+    const sejour = await this.resoudreAccesRooming(sejourId, userId, true);
     await this.assertPlanCentreComplet(sejour.hebergementSelectionneId);
 
     if (!chambreId) throw new BadRequestException('chambreId requis');
@@ -321,7 +341,7 @@ export class RoomingService {
       select: { id: true, sejourId: true },
     });
     if (!affectation) throw new NotFoundException('Affectation introuvable');
-    await this.getSejourDuCreateur(affectation.sejourId, userId);
+    await this.resoudreAccesRooming(affectation.sejourId, userId, true);
 
     await this.prisma.affectationChambre.delete({ where: { id: affectationId } });
     return { deleted: true as const };

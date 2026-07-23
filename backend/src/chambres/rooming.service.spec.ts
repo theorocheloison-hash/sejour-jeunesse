@@ -51,6 +51,8 @@ function mockPrisma() {
       count: jest.fn().mockResolvedValue(4),
       findUnique: jest.fn().mockResolvedValue({ sejourId: 'sejour-1' }),
       findMany: jest.fn().mockResolvedValue([]),
+      // Accès rooming : null = pas accompagnateur-collaborateur du séjour
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     occupationChambre: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -193,10 +195,34 @@ describe('RoomingService.affecter', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("403 si l'appelant n'est pas le créateur du séjour", async () => {
+  it("403 si l'appelant n'est ni créateur ni accompagnateur-collaborateur", async () => {
     const prisma = mockPrisma();
     await expect(
       makeService(prisma).affecter('orga-INTRUS', 'sejour-1', 'chambre-1', {
+        autorisationId: 'auto-1',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.affectationChambre.create).not.toHaveBeenCalled();
+  });
+
+  it('accompagnateur EDITION : affecter autorisé (aligné groupes)', async () => {
+    const prisma = mockPrisma();
+    prisma.accompagnateurMission.findFirst.mockResolvedValue({ roleCollaboratif: 'EDITION' });
+    await makeService(prisma).affecter('accomp-1', 'sejour-1', 'chambre-1', {
+      autorisationId: 'auto-1',
+    });
+    expect(prisma.accompagnateurMission.findFirst).toHaveBeenCalledWith({
+      where: { sejourId: 'sejour-1', userId: 'accomp-1', accesCollaboratif: true },
+      select: { roleCollaboratif: true },
+    });
+    expect(prisma.affectationChambre.create).toHaveBeenCalled();
+  });
+
+  it('accompagnateur LECTURE : 403 sur affecter (écriture)', async () => {
+    const prisma = mockPrisma();
+    prisma.accompagnateurMission.findFirst.mockResolvedValue({ roleCollaboratif: 'LECTURE' });
+    await expect(
+      makeService(prisma).affecter('accomp-1', 'sejour-1', 'chambre-1', {
         autorisationId: 'auto-1',
       }),
     ).rejects.toThrow(ForbiddenException);
@@ -277,6 +303,24 @@ describe('RoomingService.affecter', () => {
     expect(prisma.affectationChambre.count).not.toHaveBeenCalled();
     expect(prisma.affectationChambre.update).not.toHaveBeenCalled();
     expect(prisma.affectationChambre.create).not.toHaveBeenCalled();
+  });
+});
+
+// ── getRooming — accès collaborateur ────────────────────────────────────────
+
+describe('RoomingService.getRooming (accès)', () => {
+  it('accompagnateur LECTURE : getRooming autorisé (lecture seule suffit)', async () => {
+    const prisma = mockPrisma();
+    prisma.accompagnateurMission.findFirst.mockResolvedValue({ roleCollaboratif: 'LECTURE' });
+    const res = await makeService(prisma).getRooming('accomp-1', 'sejour-1');
+    expect(res).toEqual({ chambres: [], nonAffectes: { eleves: [], encadrants: [] } });
+  });
+
+  it('utilisateur non lié : 403', async () => {
+    const prisma = mockPrisma();
+    await expect(makeService(prisma).getRooming('orga-INTRUS', 'sejour-1')).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
 
