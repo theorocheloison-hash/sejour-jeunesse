@@ -32,12 +32,13 @@ import TabProjetPedagogique from './_components/TabProjetPedagogique';
 import TabJournal from './_components/TabJournal';
 import TabParticipantsCollab from './_components/TabParticipantsCollab';
 import TabNotes from './_components/TabNotes';
+import TabChambres from './_components/TabChambres';
 import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
-type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'participants' | 'documents' | 'budget' | 'projet' | 'journal' | 'notes';
+type Tab = 'devis' | 'messages' | 'planning' | 'groupes' | 'participants' | 'chambres' | 'documents' | 'budget' | 'projet' | 'journal' | 'notes';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'devis', label: 'Devis' },
@@ -45,6 +46,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'planning', label: 'Planning' },
   { key: 'groupes', label: 'Groupes' },
   { key: 'participants', label: 'Participants' },
+  { key: 'chambres', label: 'Chambres' },
   { key: 'documents', label: 'Documents' },
   { key: 'journal', label: 'Journal' },
   { key: 'budget', label: 'Budget prévisionnel' },
@@ -336,12 +338,13 @@ export default function CollaborationPage() {
                   (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
                   (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
                   (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'notes' || user.role === 'HEBERGEUR')
+                  (t.key !== 'notes' || user.role === 'HEBERGEUR') &&
+                  (t.key !== 'chambres' || user.role === 'HEBERGEUR')
                 )
             )
             .filter((t) => {
               // Journal masqué pour tout EVENEMENT (quel que soit le mode de gestion).
-              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants' || t.key === 'journal')) return false;
+              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants' || t.key === 'journal' || t.key === 'chambres')) return false;
               if (isDirect && (t.key === 'budget' || t.key === 'projet')) return false;
               return true;
             })
@@ -425,6 +428,15 @@ export default function CollaborationPage() {
             participants={participants}
             accompagnateurs={accompagnateurs}
             onReload={loadParticipants}
+          />
+        )}
+
+        {/* ── Chambres (hébergeur seul, SEJOUR uniquement) ─── */}
+        {tab === 'chambres' && sejour && (
+          <TabChambres
+            sejourId={id}
+            sejour={sejour}
+            onError={setMutationError}
           />
         )}
 
