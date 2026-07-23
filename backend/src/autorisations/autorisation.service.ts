@@ -31,6 +31,8 @@ export interface ParticipantDirectInput {
   telephoneUrgence?: string | null;
   infosMedicales?: string | null;
   champsPersonnalises?: Record<string, unknown> | null;
+  // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
+  hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }
 
 // Parse une date ISO ; retourne null si absente ou invalide (jamais d'Invalid Date)
@@ -38,6 +40,22 @@ function parseDateOrNull(value?: string | null): Date | null {
   if (!value) return null;
   const d = new Date(value);
   return isNaN(d.getTime()) ? null : d;
+}
+
+// SC7 — mappe PRUDEMMENT une valeur CSV de sexe/genre vers la catégorie
+// d'hébergement. Matching sur la valeur normalisée COMPLÈTE (jamais includes,
+// pour éviter que « Féminin » matche « M ») ; toute autre valeur — y compris
+// les codes numériques « 1 »/« 2 » (l'ordre ONDE n'est pas fiable) → null,
+// l'organisateur catégorise à la main.
+function mapSexeToCategorie(val: string): 'FILLE' | 'GARCON' | null {
+  const normalise = val
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (['F', 'FILLE', 'FEMININ', 'FEMME'].includes(normalise)) return 'FILLE';
+  if (['M', 'G', 'GARCON', 'MASCULIN', 'HOMME'].includes(normalise)) return 'GARCON';
+  return null;
 }
 
 // Parse une date CSV en gérant le format français JJ/MM/AAAA (sinon ISO en fallback)
@@ -75,6 +93,7 @@ export class AutorisationService {
         eleveNom: dto.eleveNom,
         elevePrenom: dto.elevePrenom,
         parentEmail: dto.parentEmail,
+        hebergementCategorie: dto.hebergementCategorie ?? null,
         tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       },
     });
@@ -108,6 +127,7 @@ export class AutorisationService {
         eleveNom: dto.eleveNom,
         elevePrenom: dto.elevePrenom,
         parentEmail: dto.parentEmail,
+        hebergementCategorie: dto.hebergementCategorie ?? null,
         tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
       },
     });
@@ -365,6 +385,7 @@ export class AutorisationService {
     const colNomParent = findCol(['parent', 'nom parent', 'nom du parent', 'responsable', 'nom responsable']);
     const colTelUrgence = findCol(['urgence', 'tel urgence', 'téléphone urgence', 'telephone urgence', 'tel. urgence']);
     const colInfosMedicales = findCol(['médical', 'medical', 'infos médicales', 'infos medicales', 'santé', 'sante']);
+    const colSexe = findCol(['sexe', 'genre', 'fille', 'garçon', 'garcon']);
 
     if (colNom === -1) throw new BadRequestException('Colonne "Nom" introuvable. Colonnes détectées : ' + headers.join(', '));
     if (colPrenom === -1) throw new BadRequestException('Colonne "Prénom" introuvable. Colonnes détectées : ' + headers.join(', '));
@@ -426,6 +447,11 @@ export class AutorisationService {
       if (colNomParent !== -1 && cols[colNomParent]?.trim()) data.nomParent = cols[colNomParent].trim();
       if (colTelUrgence !== -1 && cols[colTelUrgence]?.trim()) data.telephoneUrgence = cols[colTelUrgence].trim();
       if (colInfosMedicales !== -1 && cols[colInfosMedicales]?.trim()) data.infosMedicales = cols[colInfosMedicales].trim();
+      if (colSexe !== -1 && cols[colSexe]?.trim()) {
+        // Valeur non reconnue → null (l'organisateur catégorise à la main)
+        const categorie = mapSexeToCategorie(cols[colSexe]);
+        if (categorie) data.hebergementCategorie = categorie;
+      }
 
       try {
         await this.prisma.autorisationParentale.create({ data });
@@ -449,6 +475,7 @@ export class AutorisationService {
       colNomParent !== -1 && 'Nom parent',
       colTelUrgence !== -1 && 'Tél. urgence',
       colInfosMedicales !== -1 && 'Infos médicales',
+      colSexe !== -1 && 'Sexe',
     ].filter(Boolean) as string[];
 
     return { ...results, emailColumnFound: colEmail !== -1, columnsDetected };
@@ -513,6 +540,7 @@ export class AutorisationService {
             telephoneUrgence: p.telephoneUrgence ?? null,
             // Cascade 2 : date invalide → null (jamais d'Invalid Date)
             eleveDateNaissance: parseDateOrNull(p.eleveDateNaissance),
+            hebergementCategorie: p.hebergementCategorie ?? null,
             sourceInscription: 'SAISIE_DIRECTE',
             emailEnvoye: false,
             tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
@@ -534,7 +562,8 @@ export class AutorisationService {
   /**
    * Mise à jour inline d'un participant (ORGANISATEUR).
    * Après signature : seuls les champs logistiques restent modifiables
-   * (taille, poids, pointure, niveauSki, regimeAlimentaire, champsPersonnalises).
+   * (taille, poids, pointure, niveauSki, regimeAlimentaire, champsPersonnalises,
+   * hebergementCategorie — donnée d'organisation interne, hors consentement parent).
    */
   async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
@@ -572,6 +601,8 @@ export class AutorisationService {
     if (body.pointure !== undefined) data.pointure = body.pointure ?? null;
     if (body.niveauSki !== undefined) data.niveauSki = body.niveauSki ?? null;
     if (body.regimeAlimentaire !== undefined) data.regimeAlimentaire = body.regimeAlimentaire ?? null;
+    // SC7 : organisation interne, pas de consentement parent → jamais verrouillé
+    if (body.hebergementCategorie !== undefined) data.hebergementCategorie = body.hebergementCategorie ?? null;
     if (body.champsPersonnalises !== undefined) {
       data.champsPersonnalises =
         body.champsPersonnalises === null

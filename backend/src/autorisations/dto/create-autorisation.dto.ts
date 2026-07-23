@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class CreateAutorisationDto {
   @IsUUID()
@@ -14,4 +14,9 @@ export class CreateAutorisationDto {
 
   @IsEmail()
   parentEmail!: string;
+
+  // SC7 : donnée d'organisation interne (organisateur), jamais côté parent.
+  @IsOptional()
+  @IsIn(['FILLE', 'GARCON', 'AUTRE'])
+  hebergementCategorie?: string;
 }

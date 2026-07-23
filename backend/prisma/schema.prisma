@@ -388,6 +388,10 @@ model AutorisationParentale {
   emailEnvoye       Boolean   @default(false) @map("email_envoye")
   champsPersonnalises Json?   @map("champs_personnalises")
   sourceInscription String?   @map("source_inscription") @db.VarChar(20)
+  // SC7 : catégorie d'hébergement (FILLE | GARCON | AUTRE | null = pas encore
+  // catégorisé) — donnée d'organisation interne posée par l'organisateur,
+  // jamais par le parent → hors parcours signature, modifiable après signature.
+  hebergementCategorie String? @map("hebergement_categorie") @db.VarChar(10)
   tokenExpiresAt    DateTime? @map("token_expires_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
