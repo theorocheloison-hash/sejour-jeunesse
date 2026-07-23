@@ -45,7 +45,7 @@ const DATE_FIELDS = new Set(['eleveDateNaissance']);
 
 // Champs scalaires comparés pour la détection de modification
 const COMPARE_KEYS = [
-  'eleveNom', 'elevePrenom', 'parentEmail',
+  'eleveNom', 'elevePrenom', 'parentEmail', 'hebergementCategorie',
   'taille', 'poids', 'pointure', 'niveauSki', 'regimeAlimentaire',
   'eleveDateNaissance', 'nomParent', 'telephoneUrgence', 'infosMedicales',
 ];
@@ -85,6 +85,7 @@ function participantToRow(p: Participant): Row {
     eleveNom: p.eleveNom ?? '',
     elevePrenom: p.elevePrenom ?? '',
     parentEmail: p.parentEmail ?? '',
+    hebergementCategorie: p.hebergementCategorie ?? '',
     taille: p.taille != null ? String(p.taille) : '',
     poids: p.poids != null ? String(p.poids) : '',
     pointure: p.pointure != null ? String(p.pointure) : '',
@@ -110,7 +111,7 @@ function emptyRow(): Row {
     _localId: crypto.randomUUID(),
     _status: 'new',
     _original: null,
-    eleveNom: '', elevePrenom: '', parentEmail: '',
+    eleveNom: '', elevePrenom: '', parentEmail: '', hebergementCategorie: '',
     taille: '', poids: '', pointure: '', niveauSki: '', regimeAlimentaire: '',
     eleveDateNaissance: '', nomParent: '', telephoneUrgence: '', infosMedicales: '',
     champsPersonnalises: {},
@@ -197,6 +198,9 @@ export default function TabParticipantsSaisieDirecte({
       eleveNom: r.eleveNom.trim(),
       elevePrenom: r.elevePrenom.trim(),
       parentEmail: strOrNull(r.parentEmail),
+      // Le select ne produit que '', FILLE, GARCON, AUTRE → cast sûr
+      hebergementCategorie: strOrNull(r.hebergementCategorie) as
+        | 'FILLE' | 'GARCON' | 'AUTRE' | null,
       taille: numOrNull(r.taille),
       poids: numOrNull(r.poids),
       pointure: numOrNull(r.pointure),
@@ -450,6 +454,7 @@ export default function TabParticipantsSaisieDirecte({
             <tr>
               <th className={`${cls.th} sticky left-0 bg-gray-50 z-10`}>Nom</th>
               <th className={`${cls.th} sticky left-0 bg-gray-50 z-10`}>Prénom</th>
+              <th className={cls.th}>Sexe</th>
               {champsActifs.map((f) => (
                 <th key={f} className={cls.th}>
                   {LABELS[f] ?? f}
@@ -470,7 +475,7 @@ export default function TabParticipantsSaisieDirecte({
               <tr>
                 <td
                   className="px-2 py-4 text-center text-sm text-gray-400"
-                  colSpan={3 + champsActifs.length + champsCustom.length + 1}
+                  colSpan={4 + champsActifs.length + champsCustom.length + 1}
                 >
                   Aucun participant. Cliquez sur « + Ajouter une ligne ».
                 </td>
@@ -495,6 +500,18 @@ export default function TabParticipantsSaisieDirecte({
                       onChange={(e) => updateCell(row._localId, 'elevePrenom', e.target.value)}
                       placeholder="Prénom"
                     />
+                  </td>
+                  <td className={cls.cell}>
+                    <select
+                      className={`${cls.input} w-24`}
+                      value={row.hebergementCategorie ?? ''}
+                      onChange={(e) => updateCell(row._localId, 'hebergementCategorie', e.target.value)}
+                    >
+                      <option value="">—</option>
+                      <option value="FILLE">Fille</option>
+                      <option value="GARCON">Garçon</option>
+                      <option value="AUTRE">Autre</option>
+                    </select>
                   </td>
                   {champsActifs.map((f) => (
                     <td key={f} className={cls.cell}>

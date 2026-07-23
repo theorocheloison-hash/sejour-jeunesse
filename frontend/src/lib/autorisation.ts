@@ -94,7 +94,13 @@ export async function envoyerInvitations(
 export async function importAutorisationsCsv(
   sejourId: string,
   file: File,
-): Promise<{ created: number; skipped: number; errors: string[] }> {
+): Promise<{
+  created: number;
+  skipped: number;
+  errors: string[];
+  columnsDetected?: string[];
+  emailColumnFound?: boolean;
+}> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('sejourId', sejourId);
@@ -127,6 +133,8 @@ export interface ParticipantDirectInput {
   telephoneUrgence?: string | null;
   infosMedicales?: string | null;
   champsPersonnalises?: Record<string, any> | null;
+  // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
+  hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }
 
 export async function createBatchDirect(

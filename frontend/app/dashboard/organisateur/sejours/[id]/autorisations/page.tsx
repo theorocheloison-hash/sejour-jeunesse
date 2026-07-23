@@ -42,7 +42,7 @@ export default function GestionAutorisationsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[]; columnsDetected?: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [postImportBanner, setPostImportBanner] = useState<number | null>(null);
@@ -937,6 +937,11 @@ export default function GestionAutorisationsPage() {
                   <p className="text-sm font-semibold text-[var(--color-success)]">
                     {importResult.created} élève{importResult.created > 1 ? 's' : ''} importé{importResult.created > 1 ? 's' : ''}
                   </p>
+                  {importResult.columnsDetected && importResult.columnsDetected.length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      Colonnes détectées : {importResult.columnsDetected.join(', ')}
+                    </p>
+                  )}
                   {importResult.skipped > 0 && (
                     <p className="text-sm text-gray-500">
                       {importResult.skipped} ignoré{importResult.skipped > 1 ? 's' : ''} (doublons ou lignes vides)

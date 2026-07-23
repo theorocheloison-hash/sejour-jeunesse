@@ -154,6 +154,8 @@ export interface Participant {
   nombreVersementsEffectues?: number | null;
   champsPersonnalises?: Record<string, unknown> | null;
   sourceInscription?: string | null;
+  // SC7 : donnée d'organisation interne (organisateur), null = non catégorisé
+  hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
   createdAt: string;
 }
 
