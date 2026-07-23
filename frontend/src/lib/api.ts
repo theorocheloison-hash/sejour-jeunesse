@@ -10,7 +10,9 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const centreId = localStorage.getItem('liavo-centre-actif');
-    if (centreId) {
+    // Non-destructif : un X-Centre-Id fourni explicitement par l'appelant
+    // (ex. centre du séjour ≠ centre actif) prime sur le localStorage.
+    if (centreId && !config.headers['X-Centre-Id']) {
       config.headers['X-Centre-Id'] = centreId;
     }
   }
