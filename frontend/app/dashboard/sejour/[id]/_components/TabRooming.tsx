@@ -13,6 +13,7 @@ import {
 import type { User } from '@/src/types/auth';
 import { ETIQUETTES } from './TabChambres';
 import RoomingPlanView from './RoomingPlanView';
+import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
 
 // Vue ORGANISATEUR de l'onglet Chambres (SC7 lot 3) — drag & drop des
 // participants vers les chambres attribuées par l'hébergeur. Calqué sur
@@ -172,21 +173,33 @@ export default function TabRooming({
         </div>
       ) : (
         <>
-          {/* Toggle Édition | Plan — le plan (lecture seule) est toujours
-              visible, y compris inscriptions ouvertes */}
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            {(['edition', 'plan'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setVue(v)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {v === 'edition' ? 'Édition' : 'Plan'}
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* Toggle Édition | Plan — le plan (lecture seule) est toujours
+                visible, y compris inscriptions ouvertes */}
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              {(['edition', 'plan'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVue(v)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {v === 'edition' ? 'Édition' : 'Plan'}
+                </button>
+              ))}
+            </div>
+            <RoomingPlanPDFButton
+              planProps={{
+                titreSejour: sejour?.titre ?? 'Séjour',
+                dateDebut: sejour?.dateDebut ?? null,
+                dateFin: sejour?.dateFin ?? null,
+                centreName: sejour?.hebergementSelectionne?.nom,
+                rooming: rooming!,
+              }}
+              filename={`plan-chambres-${sejour?.titre ?? 'sejour'}.pdf`}
+            />
           </div>
 
           {vue === 'plan' ? (
