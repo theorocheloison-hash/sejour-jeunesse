@@ -12,6 +12,7 @@ import {
 } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import { ETIQUETTES } from './TabChambres';
+import RoomingPlanView from './RoomingPlanView';
 
 // Vue ORGANISATEUR de l'onglet Chambres (SC7 lot 3) — drag & drop des
 // participants vers les chambres attribuées par l'hébergeur. Calqué sur
@@ -53,6 +54,7 @@ export default function TabRooming({
   // ⚠️ Pas un simple id : au drop il faut savoir poster autorisationId (ELEVE)
   // ou accompagnateurId (ENCADRANT).
   const [drag, setDrag] = useState<{ id: string; type: 'ELEVE' | 'ENCADRANT' } | null>(null);
+  const [vue, setVue] = useState<'edition' | 'plan'>('edition');
 
   const load = useCallback(async () => {
     try {
@@ -168,7 +170,28 @@ export default function TabRooming({
         <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
           Votre hébergeur doit d&apos;abord vous affecter des chambres à ce séjour.
         </div>
-      ) : sejour?.inscriptionsCloturees ? (
+      ) : (
+        <>
+          {/* Toggle Édition | Plan — le plan (lecture seule) est toujours
+              visible, y compris inscriptions ouvertes */}
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {(['edition', 'plan'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVue(v)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {v === 'edition' ? 'Édition' : 'Plan'}
+              </button>
+            ))}
+          </div>
+
+          {vue === 'plan' ? (
+            <RoomingPlanView rooming={rooming!} />
+          ) : sejour?.inscriptionsCloturees ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Colonne gauche — participants non affectés */}
@@ -246,7 +269,13 @@ export default function TabRooming({
             </div>
           </div>
         </div>
-      ) : null}
+          ) : (
+            <div className="rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center text-sm text-gray-400">
+              Clôturez les inscriptions pour répartir les participants. En attendant, l&apos;onglet « Plan » affiche les chambres attribuées.
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

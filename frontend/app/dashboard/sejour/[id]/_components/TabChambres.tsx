@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '@/src/lib/api';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
+import { ETIQUETTES } from '@/src/lib/rooming';
 
 // ── Contrat grille — backend/src/chambres/occupations.controller.ts (4a) ─────
 // X-Centre-Id posé explicitement (centre du séjour, pas le centre actif) —
@@ -55,15 +56,9 @@ const BADGES: Record<ChambreGrille['etat']['type'], { label: string; cls: string
   a_replacer: { label: 'À replacer', cls: 'bg-red-100 text-red-700' },
 };
 
-// Directives hébergeur (SC7 lot 1). `couleur` en base = le TOKEN court, jamais
-// la classe — le backend reste agnostique et le token resservira au PDF.
-// Exporté : TabRooming (organisateur) réutilise le même mapping token→classe.
-export const ETIQUETTES = [
-  { label: 'Filles', couleur: 'teal', cls: 'bg-teal-100 text-teal-700' },
-  { label: 'Garçons', couleur: 'amber', cls: 'bg-amber-100 text-amber-700' },
-  { label: 'Encadrants', couleur: 'violet', cls: 'bg-violet-100 text-violet-700' },
-  { label: 'Mixte', couleur: 'slate', cls: 'bg-slate-100 text-slate-700' },
-];
+// ETIQUETTES vit désormais dans lib/rooming (brique partagée) — re-export
+// conservé : TabRooming importe encore depuis './TabChambres'.
+export { ETIQUETTES };
 
 /** 403 PLAN_INSUFFICIENT : la modale globale (api.ts) s'en charge — rien de plus ici. */
 function isPlanInsufficient(err: unknown): boolean {
