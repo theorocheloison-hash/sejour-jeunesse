@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '@/src/lib/api';
-import type { SejourCollabInfo } from '@/src/lib/collaboration';
+import { getRoomingCollab, type RoomingData, type SejourCollabInfo } from '@/src/lib/collaboration';
 import { ETIQUETTES } from '@/src/lib/rooming';
+import RoomingPlanView from './RoomingPlanView';
+import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
 
 // ── Contrat grille — backend/src/chambres/occupations.controller.ts (4a) ─────
 // X-Centre-Id posé explicitement (centre du séjour, pas le centre actif) —
@@ -82,6 +84,9 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
   const [saving, setSaving] = useState(false);
   const [avertissement, setAvertissement] = useState<string | null>(null);
   const [stats, setStats] = useState<RoomingStats | null>(null);
+  const [vue, setVue] = useState<'attribution' | 'plan'>('attribution');
+  const [rooming, setRooming] = useState<RoomingData | null>(null);
+  const [roomingErreur, setRoomingErreur] = useState(false);
 
   const loadGrille = useCallback(async () => {
     if (!centreId || !dateDebut || !dateFin) return;
@@ -119,6 +124,22 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
       });
     return () => { annule = true; };
   }, [centreId, sejourId]);
+
+  // Plan « qui dort où » (lecture seule — route ouverte à l'hébergeur, sans
+  // X-Centre-Id, le controller l'ignore). Échec confiné à roomingErreur : ne
+  // bloque JAMAIS la grille/l'attribution.
+  const loadRooming = useCallback(async () => {
+    try {
+      setRoomingErreur(false);
+      setRooming(await getRoomingCollab(sejourId));
+    } catch {
+      // Échec réel (le rooming est soft sur le plan → pas de 403 attendu ici).
+      // On le signale en mode Plan au lieu d'afficher un faux « vide ».
+      setRoomingErreur(true);
+    }
+  }, [sejourId]);
+
+  useEffect(() => { loadRooming(); }, [loadRooming]);
 
   // Occupation de CE séjour par chambre (source SEJOUR) — porte l'id pour le DELETE.
   const occupationDuSejour = useMemo(() => {
@@ -162,6 +183,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
       }
       setSelection([]);
       await loadGrille();
+      await loadRooming();
     } catch (err) {
       if (!isPlanInsufficient(err)) {
         onError('Impossible d\'attribuer les chambres. Veuillez réessayer.');
@@ -208,6 +230,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
         headers: { 'X-Centre-Id': centreId },
       });
       await loadGrille();
+      await loadRooming();
     } catch (err) {
       if (!isPlanInsufficient(err)) {
         onError('Impossible de retirer la chambre. Veuillez réessayer.');
@@ -277,6 +300,39 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
         </div>
       ) : (
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        {/* Toggle Attribution | Plan + PDF — le plan est en lecture seule,
+            le geste d'attribution reste intact en dessous */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {(['attribution', 'plan'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => { setVue(v); if (v === 'plan') loadRooming(); }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {v === 'attribution' ? 'Attribution' : 'Plan'}
+              </button>
+            ))}
+          </div>
+          {rooming && (
+            <RoomingPlanPDFButton
+              planProps={{
+                titreSejour: sejour.titre,
+                dateDebut: sejour.dateDebut,
+                dateFin: sejour.dateFin,
+                centreName: sejour.hebergementSelectionne?.nom,
+                rooming,
+              }}
+              filename={`plan-chambres-${sejour.titre}.pdf`}
+            />
+          )}
+        </div>
+
+        {vue === 'attribution' ? (
+          <>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
@@ -441,6 +497,23 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
                 : `Attribuer les chambres sélectionnées (${selection.length})`}
             </button>
           </div>
+        )}
+          </>
+        ) : roomingErreur ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+            <span>Impossible de charger le plan des chambres.</span>
+            <button
+              type="button"
+              onClick={loadRooming}
+              className="shrink-0 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <RoomingPlanView
+            rooming={rooming ?? { chambres: [], nonAffectes: { eleves: [], encadrants: [] } }}
+          />
         )}
       </section>
       )}

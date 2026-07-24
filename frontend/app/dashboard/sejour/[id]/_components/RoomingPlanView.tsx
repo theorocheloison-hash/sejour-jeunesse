@@ -15,6 +15,16 @@ export default function RoomingPlanView({ rooming }: RoomingPlanViewProps) {
   const groupes = groupByEtage(rooming.chambres);
   const { eleves, encadrants } = rooming.nonAffectes;
 
+  // État vide (atteignable côté hébergeur : rooming lisible avant toute
+  // attribution). S'il reste des non-affectés, on garde leur bloc.
+  if (groupes.length === 0 && eleves.length === 0 && encadrants.length === 0) {
+    return (
+      <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
+        Aucune chambre attribuée à ce séjour pour le moment.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {groupes.map((g, i) => (
