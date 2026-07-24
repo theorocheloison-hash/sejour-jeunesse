@@ -20,8 +20,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
-import { AutorisationService, type ParticipantDirectInput } from './autorisation.service.js';
+import { AutorisationService } from './autorisation.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
+import { BatchDirectDto, ParticipantDirectDto } from './dto/participant-direct.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 
 @Controller('autorisations')
@@ -33,7 +34,7 @@ export class AutorisationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR)
   batchDirect(
-    @Body() body: { sejourId: string; participants: ParticipantDirectInput[] },
+    @Body() body: BatchDirectDto,
     @CurrentUser() user: JwtUser,
   ) {
     return this.autorisationService.createBatchDirect(body.sejourId, body.participants, user.id);
@@ -104,7 +105,7 @@ export class AutorisationController {
   @Roles(Role.ORGANISATEUR)
   updateFields(
     @Param('id') id: string,
-    @Body() body: ParticipantDirectInput,
+    @Body() body: ParticipantDirectDto,
     @CurrentUser() user: JwtUser,
   ) {
     return this.autorisationService.updateFields(id, body, user.id);
