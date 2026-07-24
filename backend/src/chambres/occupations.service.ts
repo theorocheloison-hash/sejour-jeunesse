@@ -63,6 +63,9 @@ type OccupationAvecSejour = {
   sejour: { id: string; titre: string } | null;
 };
 
+// Grille seulement : la ligne porte en plus le count d'affectations (rooming).
+type OccupationGrilleRow = OccupationAvecSejour & { _count?: { affectations: number } };
+
 @Injectable()
 export class OccupationsService {
   private readonly logger = new Logger(OccupationsService.name);
@@ -363,12 +366,13 @@ export class OccupationsService {
           // soft-supprimé n'encombrent pas la grille (suppression réelle = 4b).
           OR: [{ sejourId: null }, { sejour: { deletedAt: null } }],
         },
-        include: OCCUPATION_INCLUDE,
+        // _count local à la grille — OCCUPATION_INCLUDE reste partagé tel quel
+        include: { ...OCCUPATION_INCLUDE, _count: { select: { affectations: true } } },
         orderBy: { dateDebut: 'asc' },
       }),
     ]);
 
-    const parChambre = new Map<string, OccupationAvecSejour[]>();
+    const parChambre = new Map<string, OccupationGrilleRow[]>();
     for (const occ of occupations) {
       const liste = parChambre.get(occ.chambreId) ?? [];
       liste.push(occ);
@@ -392,7 +396,12 @@ export class OccupationsService {
             actif: c.actif,
             capacite: c.lits.reduce((s, l) => s + l.places, 0),
             etat: this.etatChambre(occs),
-            occupations: occs.map((o) => this.mapOccupation(o)),
+            occupations: occs.map((o) => ({
+              ...this.mapOccupation(o),
+              // Additif (lot couture) : occupants roomés — l'UI hébergeur peut
+              // avertir avant un Retirer qui casserait le rooming (FK cascade).
+              nbAffectations: o._count?.affectations ?? 0,
+            })),
           };
         }),
     };

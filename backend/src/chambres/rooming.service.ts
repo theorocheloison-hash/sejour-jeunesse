@@ -105,11 +105,25 @@ export class RoomingService {
     if (!sejourId) throw new BadRequestException('Paramètre sejourId requis');
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
-      select: { id: true, createurId: true, deletedAt: true, hebergementSelectionneId: true },
+      select: {
+        id: true,
+        createurId: true,
+        deletedAt: true,
+        hebergementSelectionneId: true,
+        hebergementSelectionne: { select: { userId: true } },
+      },
     });
     if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
 
     if (sejour.createurId === userId) return sejour; // le créateur peut tout
+
+    // L'hébergeur du centre voit le rooming (impression/accueil) mais ne mute
+    // pas — les mutations lui sont de toute façon fermées par le @Roles du
+    // controller ; ce garde est le filet en lecture.
+    if (sejour.hebergementSelectionne?.userId === userId) {
+      if (requireEdition) throw new ForbiddenException('Lecture seule pour l\'hébergeur');
+      return sejour;
+    }
 
     const accompagnateur = await this.prisma.accompagnateurMission.findFirst({
       where: { sejourId, userId, accesCollaboratif: true },
@@ -156,9 +170,11 @@ export class RoomingService {
 
   /** GET /chambres/rooming — chambres attribuées + occupants + non-affectés. */
   async getRooming(userId: string, sejourId: string) {
-    // LECTURE : un accompagnateur lecture seule voit le rooming
-    const sejour = await this.resoudreAccesRooming(sejourId, userId, false);
-    await this.assertPlanCentreComplet(sejour.hebergementSelectionneId);
+    // LECTURE : un accompagnateur lecture seule voit le rooming.
+    // Pas de gate plan en lecture — soft, aligné sur la grille hébergeur (un
+    // plan expiré ne doit pas produire un 403 avalé qui fait mentir l'UI
+    // « votre hébergeur doit d'abord… ») ; les mutations restent COMPLET.
+    await this.resoudreAccesRooming(sejourId, userId, false);
 
     const [occupations, eleves, encadrants] = await Promise.all([
       this.prisma.occupationChambre.findMany({
@@ -210,6 +226,7 @@ export class RoomingService {
         capacite: o.chambre.lits.reduce((s, l) => s + l.places, 0),
         etiquette: o.etiquette,
         couleur: o.couleur,
+        statut: o.statut,
         occupants: o.affectations.map((a) =>
           a.autorisation
             ? {

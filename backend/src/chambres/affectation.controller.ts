@@ -21,7 +21,10 @@ import { RoomingService } from './rooming.service.js';
 export class AffectationController {
   constructor(private readonly service: RoomingService) {}
 
+  // Lecture ouverte à l'hébergeur du centre (impression/accueil) — le service
+  // le restreint en lecture seule ; POST/DELETE restent ORGANISATEUR (classe).
   @Get('rooming')
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   getRooming(@CurrentUser() u: JwtUser, @Query('sejourId') sejourId: string) {
     return this.service.getRooming(u.id, sejourId);
   }

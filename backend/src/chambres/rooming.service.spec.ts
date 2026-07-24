@@ -36,6 +36,7 @@ function mockPrisma() {
         deletedAt: null,
         hebergementSelectionneId: 'centre-1',
         createurId: 'orga-1',
+        hebergementSelectionne: { userId: 'hebergeur-1' },
       }),
     },
     autorisationParentale: {
@@ -321,6 +322,40 @@ describe('RoomingService.getRooming (accès)', () => {
     await expect(makeService(prisma).getRooming('orga-INTRUS', 'sejour-1')).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it("hébergeur du centre : lecture autorisée (impression/accueil)", async () => {
+    const prisma = mockPrisma();
+    const res = await makeService(prisma).getRooming('hebergeur-1', 'sejour-1');
+    expect(res).toEqual({ chambres: [], nonAffectes: { eleves: [], encadrants: [] } });
+    // Pas passé par la branche accompagnateur
+    expect(prisma.accompagnateurMission.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('hébergeur du centre : 403 en écriture (filet service)', async () => {
+    const prisma = mockPrisma();
+    await expect(
+      makeService(prisma).affecter('hebergeur-1', 'sejour-1', 'chambre-1', {
+        autorisationId: 'auto-1',
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.affectationChambre.create).not.toHaveBeenCalled();
+  });
+
+  it('getRooming ne gate plus le plan (lecture soft, plan expiré ok)', async () => {
+    const prisma = mockPrisma();
+    prisma.centreHebergement.findUnique.mockResolvedValue({
+      id: 'centre-1',
+      userId: 'user-1',
+      statut: 'ACTIVE',
+      abonnementStatut: 'EXPIRE',
+      abonnementActifJusquAu: null,
+      planAbonnement: 'COMPLET',
+    });
+    await expect(makeService(prisma).getRooming('orga-1', 'sejour-1')).resolves.toEqual({
+      chambres: [],
+      nonAffectes: { eleves: [], encadrants: [] },
+    });
   });
 });
 
