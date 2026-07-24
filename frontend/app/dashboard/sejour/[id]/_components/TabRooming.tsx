@@ -26,6 +26,14 @@ export interface TabRoomingProps {
   onReloadSejour: () => void;
 }
 
+// Pastille catégorie élève — palette alignée sur les étiquettes de chambre
+// (Filles=teal, Garçons=amber ; AUTRE reprend le slate de « Mixte »).
+const CATEGORIE_PASTILLE: Record<'FILLE' | 'GARCON' | 'AUTRE', { lettre: string; cls: string }> = {
+  FILLE: { lettre: 'F', cls: ETIQUETTES.find((e) => e.label === 'Filles')?.cls ?? 'bg-teal-100 text-teal-700' },
+  GARCON: { lettre: 'G', cls: ETIQUETTES.find((e) => e.label === 'Garçons')?.cls ?? 'bg-amber-100 text-amber-700' },
+  AUTRE: { lettre: 'A', cls: ETIQUETTES.find((e) => e.label === 'Mixte')?.cls ?? 'bg-slate-100 text-slate-700' },
+};
+
 /** 403 PLAN_INSUFFICIENT : la modale globale (api.ts) s'en charge — rien ici. */
 function isPlanInsufficient(err: unknown): boolean {
   const e = err as { response?: { status?: number; data?: { error?: string } } };
@@ -115,6 +123,17 @@ export default function TabRooming({
           {p.prenom?.[0] ?? ''}{p.nom?.[0] ?? ''}
         </div>
         <span className="truncate font-medium text-gray-900">{p.prenom} {p.nom}</span>
+        {/* Catégorie : élèves seulement (les encadrants n'en ont pas — V1) */}
+        {type === 'ELEVE' && p.hebergementCategorie && (
+          <span
+            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+              CATEGORIE_PASTILLE[p.hebergementCategorie].cls
+            }`}
+            title={p.hebergementCategorie === 'FILLE' ? 'Fille' : p.hebergementCategorie === 'GARCON' ? 'Garçon' : 'Autre'}
+          >
+            {CATEGORIE_PASTILLE[p.hebergementCategorie].lettre}
+          </span>
+        )}
         {p.signee && <span className="shrink-0 text-green-500">✓</span>}
       </div>
     );

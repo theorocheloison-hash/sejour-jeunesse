@@ -16,6 +16,7 @@ interface OccupationGrille {
   dateFin: string;
   etiquette?: string | null;
   couleur?: string | null;
+  nbAffectations: number;
   sejour: { id: string; titre: string } | null;
 }
 
@@ -196,7 +197,17 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
     }
   };
 
-  const handleRetirer = async (occupationId: string) => {
+  const handleRetirer = async (occupationId: string, nbAffectations: number) => {
+    // La cascade FK désaffecte les participants roomés — confirmation quand il
+    // y en a, retrait direct sinon.
+    if (
+      nbAffectations > 0 &&
+      !window.confirm(
+        `Retirer cette chambre ? ${nbAffectations} participant(s) y sont affecté(s) et seront désaffecté(s).`,
+      )
+    ) {
+      return;
+    }
     try {
       await api.delete(`/chambres/occupations/${occupationId}`, {
         headers: { 'X-Centre-Id': centreId },
@@ -272,9 +283,32 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
       ) : (
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">
-            {chambresAttribuees.length} chambre(s) attribuée(s) · {placesAttribuees} places
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              {chambresAttribuees.length} chambre(s) attribuée(s) · {placesAttribuees} places
+            </h3>
+            {/* Rapprochement places/personnes — le ⚠️ n'a de sens que si des
+                chambres SONT attribuées (0 chambre = état initial normal). */}
+            {stats && (() => {
+              const totalPersonnes = stats.elevesTotal + stats.encadrants;
+              if (placesAttribuees === 0) {
+                return (
+                  <p className="text-xs mt-0.5 text-gray-400">
+                    {totalPersonnes} personne(s) à loger
+                  </p>
+                );
+              }
+              return placesAttribuees >= totalPersonnes ? (
+                <p className="text-xs mt-0.5 text-green-600">
+                  ✓ {placesAttribuees} place(s) pour {totalPersonnes} personne(s)
+                </p>
+              ) : (
+                <p className="text-xs mt-0.5 text-amber-600">
+                  ⚠️ {placesAttribuees} place(s) pour {totalPersonnes} personne(s) — il manque des places
+                </p>
+              );
+            })()}
+          </div>
           {loading && (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
           )}
@@ -356,7 +390,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
                     </select>
                     <button
                       type="button"
-                      onClick={() => handleRetirer(occ.id)}
+                      onClick={() => handleRetirer(occ.id, occ.nbAffectations ?? 0)}
                       className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Retirer
