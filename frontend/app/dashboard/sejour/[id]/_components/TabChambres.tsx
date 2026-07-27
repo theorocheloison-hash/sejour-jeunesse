@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '@/src/lib/api';
 import { getRoomingCollab, type RoomingData, type SejourCollabInfo } from '@/src/lib/collaboration';
-import { ETIQUETTES } from '@/src/lib/rooming';
+import { ETIQUETTES, groupByEtage } from '@/src/lib/rooming';
 import RoomingPlanView from './RoomingPlanView';
 import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
 
@@ -156,6 +156,11 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
     [grille, occupationDuSejour],
   );
   const placesAttribuees = chambresAttribuees.reduce((s, c) => s + c.capacite, 0);
+
+  // Phase 3 : regroupement présentationnel de la sélection par étage (ordre
+  // physique via min(ordre), aligné mode Plan / border #1). Le geste ne change
+  // pas : selection reste un id[] à plat.
+  const groupesChambres = useMemo(() => groupByEtage(grille?.chambres ?? []), [grille]);
 
   const toggleSelection = (chambreId: string) => {
     setSelection((prev) =>
@@ -370,8 +375,16 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
             Aucune chambre dans le référentiel de ce centre.
           </p>
         ) : (
-          <ul className="space-y-2">
-            {chambres.map((c) => {
+          <div className="space-y-6">
+            {groupesChambres.map((g, gi) => (
+              <div key={g.etage ?? `sans-etage-${gi}`}>
+                {(g.etage !== null || groupesChambres.length > 1) && (
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    {g.etage ?? 'Autres'}
+                  </h3>
+                )}
+                <ul className="space-y-2">
+                  {g.chambres.map((c) => {
               const occ = occupationDuSejour.get(c.id);
               const badge = BADGES[c.etat.type];
               const badgeLabel =
@@ -394,7 +407,6 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-gray-900">{c.nom}</span>
-                    {c.etage && <span className="text-xs text-gray-400">{c.etage}</span>}
                     <span className="text-xs text-gray-500">{c.capacite} places</span>
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${badge.cls}`}>
                       {badgeLabel}
@@ -480,8 +492,11 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
                   </label>
                 </li>
               );
-            })}
-          </ul>
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
 
         {chambres.length > 0 && (
