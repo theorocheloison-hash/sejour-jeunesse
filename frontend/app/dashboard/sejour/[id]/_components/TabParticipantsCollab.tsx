@@ -79,7 +79,7 @@ export default function TabParticipantsCollab({
 
   return (
     <div className="space-y-4">
-      {sejour && (
+      {sejour && sejour.createur?.id === user.id && (
         <TabParticipantsSaisieDirecte
           sejourId={sejour.id}
           champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}
