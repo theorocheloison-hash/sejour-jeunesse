@@ -32,7 +32,7 @@ export class AutorisationController {
   /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR) */
   @Post('batch-direct')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   batchDirect(
     @Body() body: BatchDirectDto,
     @CurrentUser() user: JwtUser,
@@ -102,7 +102,7 @@ export class AutorisationController {
   /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR) */
   @Patch(':id/update-fields')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   updateFields(
     @Param('id') id: string,
     @Body() body: ParticipantDirectDto,
@@ -114,7 +114,7 @@ export class AutorisationController {
   /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR) */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   deleteAutorisation(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
