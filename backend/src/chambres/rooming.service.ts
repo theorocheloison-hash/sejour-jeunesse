@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { peutGererEnPropre } from '../common/sejour-ownership.js';
 
 // Copie du PlanGuard — voir la dette notée sur assertPlanCentreComplet.
 const PLAN_HIERARCHY: Record<string, number> = {
@@ -108,6 +109,7 @@ export class RoomingService {
       select: {
         id: true,
         createurId: true,
+        modeGestion: true,
         deletedAt: true,
         hebergementSelectionneId: true,
         hebergementSelectionne: { select: { userId: true } },
@@ -117,11 +119,14 @@ export class RoomingService {
 
     if (sejour.createurId === userId) return sejour; // le créateur peut tout
 
-    // L'hébergeur du centre voit le rooming (impression/accueil) mais ne mute
-    // pas — les mutations lui sont de toute façon fermées par le @Roles du
-    // controller ; ce garde est le filet en lecture.
+    // L'hébergeur du centre voit le rooming (impression/accueil) et, sur un
+    // séjour DIRECT géré en propre (peutGererEnPropre), peut aussi muter. Le
+    // filet lecture-seule ne s'applique qu'aux autres cas (séjour COLLAB sur
+    // son centre).
     if (sejour.hebergementSelectionne?.userId === userId) {
-      if (requireEdition) throw new ForbiddenException('Lecture seule pour l\'hébergeur');
+      if (requireEdition && !peutGererEnPropre(sejour, userId)) {
+        throw new ForbiddenException('Lecture seule pour l\'hébergeur');
+      }
       return sejour;
     }
 
