@@ -7,8 +7,9 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { RoomingService } from './rooming.service.js';
 
 /**
- * Affectation participant→chambre (SC7 lot 2) — geste ORGANISATEUR sur SON
- * séjour (createurId). PAS de PermissionGuard/PlanGuard : ces guards sont
+ * Affectation participant→chambre (SC7 lot 2) — geste du CRÉATEUR du séjour
+ * (ORGANISATEUR, ou HEBERGEUR sur un séjour DIRECT en propre ; createurId
+ * tranché par resoudreAccesRooming). PAS de PermissionGuard/PlanGuard : ces guards sont
  * inopérants pour un organisateur (PlanGuard étape 3 laisse passer les
  * non-HEBERGEUR) — le plan COMPLET du centre est vérifié MANUELLEMENT dans le
  * service. Segments statiques `rooming`/`affectations` disjoints de
@@ -22,7 +23,8 @@ export class AffectationController {
   constructor(private readonly service: RoomingService) {}
 
   // Lecture ouverte à l'hébergeur du centre (impression/accueil) — le service
-  // le restreint en lecture seule ; POST/DELETE restent ORGANISATEUR (classe).
+  // le restreint en lecture seule ; POST/DELETE ouverts à ORGANISATEUR+HEBERGEUR,
+  // l'écriture reste cloisonnée au créateur du séjour par resoudreAccesRooming.
   @Get('rooming')
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   getRooming(@CurrentUser() u: JwtUser, @Query('sejourId') sejourId: string) {
@@ -30,6 +32,7 @@ export class AffectationController {
   }
 
   @Post('affectations')
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   affecter(
     @Body()
     body: {
@@ -47,6 +50,7 @@ export class AffectationController {
   }
 
   @Delete('affectations/:id')
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   retirer(@Param('id') id: string, @CurrentUser() u: JwtUser) {
     return this.service.retirer(u.id, id);
   }
