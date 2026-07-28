@@ -77,9 +77,15 @@ export default function TabParticipantsCollab({
   // Check if ski column relevant
   const showSkiColumn = participants.some((p) => p.niveauSki);
 
+  const peutSaisirParticipants =
+    sejour != null &&
+    (sejour.createur?.id === user.id ||
+      (sejour.modeGestion === 'DIRECT' &&
+        sejour.hebergementSelectionne?.userId === user.id));
+
   return (
     <div className="space-y-4">
-      {sejour && sejour.createur?.id === user.id && (
+      {peutSaisirParticipants && (
         <TabParticipantsSaisieDirecte
           sejourId={sejour.id}
           champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}
