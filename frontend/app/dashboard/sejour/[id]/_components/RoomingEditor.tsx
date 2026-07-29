@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { RoomingData, RoomingParticipant } from '@/src/lib/collaboration';
-import { ETIQUETTES } from '@/src/lib/rooming';
+import type { RoomingChambre, RoomingData, RoomingParticipant } from '@/src/lib/collaboration';
+import { ETIQUETTES, groupByEtage } from '@/src/lib/rooming';
 
 // Éditeur drag & drop du rooming (extrait de TabRooming, 3b) — présentationnel :
 // l'état drag vit ici, les écritures remontent via onAffecter/onRetirer.
@@ -19,11 +19,11 @@ export interface RoomingEditorProps {
   rooming: RoomingData;
   onAffecter: (chambreId: string, body: { autorisationId?: string; accompagnateurId?: string }) => void;
   onRetirer: (affectationId: string) => void;
-  /** Regroupement des chambres par étage — déclaré pour la 3c, non branché. */
+  /** Regroupement des chambres par étage (pattern RoomingPlanView) — défaut à plat. */
   groupParEtage?: boolean;
 }
 
-export default function RoomingEditor({ rooming, onAffecter, onRetirer }: RoomingEditorProps) {
+export default function RoomingEditor({ rooming, onAffecter, onRetirer, groupParEtage = false }: RoomingEditorProps) {
   // ⚠️ Pas un simple id : au drop il faut savoir poster autorisationId (ELEVE)
   // ou accompagnateurId (ENCADRANT).
   const [drag, setDrag] = useState<{ id: string; type: 'ELEVE' | 'ENCADRANT' } | null>(null);
@@ -39,6 +39,50 @@ export default function RoomingEditor({ rooming, onAffecter, onRetirer }: Roomin
     setDrag(null);
     onAffecter(chambreId, body);
   };
+
+  function renderChambre(c: RoomingChambre) {
+    const et = ETIQUETTES.find((e) => e.label === c.etiquette);
+    return (
+                  <div
+                    key={c.occupationId}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); handleDrop(c.chambreId); }}
+                    className={`rounded-2xl border-2 bg-white p-4 transition-colors ${
+                      drag ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-semibold text-gray-900 truncate">{c.nom}</span>
+                        {c.etage && <span className="text-xs text-gray-400 shrink-0">{c.etage}</span>}
+                        {c.etiquette && (
+                          <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${et?.cls ?? 'bg-gray-100 text-gray-600'}`}>
+                            {c.etiquette}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">({c.occupants.length}/{c.capacite})</span>
+                    </div>
+                    <div className="space-y-1 min-h-8">
+                      {c.occupants.map((o) => (
+                        <div key={o.affectationId} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs">
+                          <span className="truncate text-gray-900">
+                            {o.prenom} {o.nom}
+                            {o.type === 'ENCADRANT' && (
+                              <span className="ml-1 text-[10px] text-violet-600">encadrant</span>
+                            )}
+                          </span>
+                          <button onClick={() => onRetirer(o.affectationId)}
+                            className="shrink-0 ml-2 text-gray-300 hover:text-red-400">&times;</button>
+                        </div>
+                      ))}
+                      {c.occupants.length === 0 && (
+                        <p className="text-xs text-gray-300 text-center py-2">Glissez un participant ici</p>
+                      )}
+                    </div>
+                  </div>
+    );
+  }
 
   function renderDraggable(p: RoomingParticipant, type: 'ELEVE' | 'ENCADRANT') {
     return (
@@ -100,51 +144,28 @@ export default function RoomingEditor({ rooming, onAffecter, onRetirer }: Roomin
 
           {/* Colonne droite — chambres (déjà triées étage/ordre par le back) */}
           <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {chambres.map((c) => {
-                const et = ETIQUETTES.find((e) => e.label === c.etiquette);
-                return (
-                  <div
-                    key={c.occupationId}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => { e.preventDefault(); handleDrop(c.chambreId); }}
-                    className={`rounded-2xl border-2 bg-white p-4 transition-colors ${
-                      drag ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3 gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-semibold text-gray-900 truncate">{c.nom}</span>
-                        {c.etage && <span className="text-xs text-gray-400 shrink-0">{c.etage}</span>}
-                        {c.etiquette && (
-                          <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${et?.cls ?? 'bg-gray-100 text-gray-600'}`}>
-                            {c.etiquette}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400 shrink-0">({c.occupants.length}/{c.capacite})</span>
-                    </div>
-                    <div className="space-y-1 min-h-8">
-                      {c.occupants.map((o) => (
-                        <div key={o.affectationId} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs">
-                          <span className="truncate text-gray-900">
-                            {o.prenom} {o.nom}
-                            {o.type === 'ENCADRANT' && (
-                              <span className="ml-1 text-[10px] text-violet-600">encadrant</span>
-                            )}
-                          </span>
-                          <button onClick={() => onRetirer(o.affectationId)}
-                            className="shrink-0 ml-2 text-gray-300 hover:text-red-400">&times;</button>
-                        </div>
-                      ))}
-                      {c.occupants.length === 0 && (
-                        <p className="text-xs text-gray-300 text-center py-2">Glissez un participant ici</p>
-                      )}
+            {groupParEtage ? (
+              <div className="space-y-6">
+                {groupByEtage(chambres).map((g, gi, groupes) => (
+                  <div key={g.etage ?? `sans-etage-${gi}`}>
+                    {/* Étage null : pas d'en-tête si c'est le seul groupe (plan à plat),
+                        « Autres » dans le cas mixte — pattern RoomingPlanView. */}
+                    {(g.etage !== null || groupes.length > 1) && (
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        {g.etage ?? 'Autres'}
+                      </h3>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {g.chambres.map((c) => renderChambre(c))}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {chambres.map((c) => renderChambre(c))}
+              </div>
+            )}
           </div>
         </div>
   );
