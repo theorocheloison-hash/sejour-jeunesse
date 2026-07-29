@@ -247,6 +247,14 @@ export default function TabParticipantsSaisieDirecte({
   const pendingCount = toCreate.length + toModify.length + toDelete.length;
 
   async function handleSave() {
+    if (
+      toDelete.length > 0 &&
+      !window.confirm(
+        `Supprimer ${toDelete.length} participant(s) ? Ceux affectés à une chambre en seront retirés.`,
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     setBanner(null);
     let created = 0;
