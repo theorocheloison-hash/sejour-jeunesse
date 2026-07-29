@@ -36,6 +36,7 @@ import TabChambres from './_components/TabChambres';
 import TabRooming from './_components/TabRooming';
 import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
+import { peutGererEnPropre } from '@/src/lib/sejour-ownership';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -441,6 +442,7 @@ export default function CollaborationPage() {
               sejourId={id}
               sejour={sejour}
               onError={setMutationError}
+              peutGererEnPropre={peutGererEnPropre(sejour, user)}
             />
           ) : user.role === 'ORGANISATEUR' ? (
             <TabRooming

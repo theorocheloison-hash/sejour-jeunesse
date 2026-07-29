@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '@/src/lib/api';
-import { getRoomingCollab, type RoomingData, type SejourCollabInfo } from '@/src/lib/collaboration';
+import { affecterChambre, getRoomingCollab, retirerChambre, type RoomingData, type SejourCollabInfo } from '@/src/lib/collaboration';
 import { ETIQUETTES, groupByEtage } from '@/src/lib/rooming';
+import RoomingEditor from './RoomingEditor';
 import RoomingPlanView from './RoomingPlanView';
 import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
 
@@ -72,9 +73,11 @@ export interface TabChambresProps {
   sejourId: string;
   sejour: SejourCollabInfo;
   onError: (msg: string) => void;
+  /** DIRECT géré en propre : layout répartition (éditeur) + attribution dépliable. */
+  peutGererEnPropre?: boolean;
 }
 
-export default function TabChambres({ sejourId, sejour, onError }: TabChambresProps) {
+export default function TabChambres({ sejourId, sejour, onError, peutGererEnPropre = false }: TabChambresProps) {
   const centreId = sejour.hebergementSelectionne?.id;
   const { dateDebut, dateFin } = sejour;
 
@@ -87,6 +90,7 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
   const [vue, setVue] = useState<'attribution' | 'plan'>('attribution');
   const [rooming, setRooming] = useState<RoomingData | null>(null);
   const [roomingErreur, setRoomingErreur] = useState(false);
+  const [attributionOuverte, setAttributionOuverte] = useState(false);
 
   const loadGrille = useCallback(async () => {
     if (!centreId || !dateDebut || !dateFin) return;
@@ -243,6 +247,32 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
     }
   };
 
+  // ── Rooming en propre (DIRECT) — calqués sur TabRooming ; loadRooming SEUL,
+  // une affectation de participant n'impacte pas la grille d'attribution.
+  const handleAffecterParticipant = async (chambreId: string, body: { autorisationId?: string; accompagnateurId?: string }) => {
+    try {
+      await affecterChambre(sejourId, chambreId, body);
+      await loadRooming();
+    } catch (err) {
+      if (!isPlanInsufficient(err)) {
+        // Capacité dure (D7) : le back tranche — remonter son 409 parlant.
+        const e = err as { response?: { data?: { message?: string } } };
+        onError(e.response?.data?.message ?? 'Impossible d\'affecter le participant. Veuillez réessayer.');
+      }
+    }
+  };
+
+  const handleRetirerAffectation = async (affectationId: string) => {
+    try {
+      await retirerChambre(affectationId);
+      await loadRooming();
+    } catch (err) {
+      if (!isPlanInsufficient(err)) {
+        onError('Impossible de retirer le participant. Veuillez réessayer.');
+      }
+    }
+  };
+
   // ── Garde-fous ──
   if (!centreId) {
     return (
@@ -255,88 +285,11 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
   const chambres = grille?.chambres ?? [];
   const sansDates = !dateDebut || !dateFin;
 
-  return (
-    <div className="space-y-4">
-      {/* ── Compteur participants (SC7) — indépendant des dates du séjour ── */}
-      {stats && (
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            {stats.elevesTotal === 0 ? (
-              <p className="text-sm text-gray-500">Aucun participant saisi pour l&apos;instant.</p>
-            ) : (
-              <p className="text-sm font-semibold text-gray-900">
-                {stats.elevesTotal} participant(s) : {stats.filles} fille(s) · {stats.garcons} garçon(s) · {stats.autre} autre ·{' '}
-                <span className={stats.aCategoriser > 0 ? 'rounded bg-amber-100 px-1.5 py-0.5 text-amber-700' : ''}>
-                  {stats.aCategoriser} à catégoriser
-                </span>
-              </p>
-            )}
-            <p className="text-xs text-gray-500">
-              {stats.encadrants} encadrant(s)
-              {!sejour.inscriptionsCloturees && (
-                <span className="text-gray-400"> · inscriptions en cours</span>
-              )}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {avertissement && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 text-sm text-amber-800">
-          <span>{avertissement}</span>
-          <button
-            type="button"
-            onClick={() => setAvertissement(null)}
-            className="text-amber-500 hover:text-amber-700 shrink-0"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* ── Section chambres — conditionnelle aux dates, le compteur non ── */}
-      {sansDates ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-sm text-gray-500">
-          Définissez d&apos;abord les dates du séjour pour attribuer des chambres.
-        </div>
-      ) : loading && !grille ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
-        </div>
-      ) : (
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        {/* Toggle Attribution | Plan + PDF — le plan est en lecture seule,
-            le geste d'attribution reste intact en dessous */}
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            {(['attribution', 'plan'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => { setVue(v); if (v === 'plan') loadRooming(); }}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {v === 'attribution' ? 'Attribution' : 'Plan'}
-              </button>
-            ))}
-          </div>
-          {rooming && (
-            <RoomingPlanPDFButton
-              planProps={{
-                titreSejour: sejour.titre,
-                dateDebut: sejour.dateDebut,
-                dateFin: sejour.dateFin,
-                centreName: sejour.hebergementSelectionne?.nom,
-                rooming,
-              }}
-              filename={`plan-chambres-${sejour.titre}.pdf`}
-            />
-          )}
-        </div>
-
-        {vue === 'attribution' ? (
+  // Bloc d'attribution (récap + dimensionnement + liste groupée + bouton) —
+  // fonction de rendu interne : closures captées telles quelles. Servie par les
+  // deux layouts (COLLAB : branche Attribution du toggle ; propre : dépliable).
+  function renderAttribution() {
+    return (
           <>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -514,6 +467,147 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
           </div>
         )}
           </>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ── Compteur participants (SC7) — indépendant des dates du séjour ── */}
+      {stats && (
+        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {stats.elevesTotal === 0 ? (
+              <p className="text-sm text-gray-500">Aucun participant saisi pour l&apos;instant.</p>
+            ) : (
+              <p className="text-sm font-semibold text-gray-900">
+                {stats.elevesTotal} participant(s) : {stats.filles} fille(s) · {stats.garcons} garçon(s) · {stats.autre} autre ·{' '}
+                <span className={stats.aCategoriser > 0 ? 'rounded bg-amber-100 px-1.5 py-0.5 text-amber-700' : ''}>
+                  {stats.aCategoriser} à catégoriser
+                </span>
+              </p>
+            )}
+            <p className="text-xs text-gray-500">
+              {stats.encadrants} encadrant(s)
+              {!sejour.inscriptionsCloturees && (
+                <span className="text-gray-400"> · inscriptions en cours</span>
+              )}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {avertissement && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 text-sm text-amber-800">
+          <span>{avertissement}</span>
+          <button
+            type="button"
+            onClick={() => setAvertissement(null)}
+            className="text-amber-500 hover:text-amber-700 shrink-0"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* ── Section chambres — conditionnelle aux dates, le compteur non ── */}
+      {sansDates ? (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-sm text-gray-500">
+          Définissez d&apos;abord les dates du séjour pour attribuer des chambres.
+        </div>
+      ) : loading && !grille ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+        </div>
+      ) : (
+      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        {peutGererEnPropre ? (
+          <>
+            {/* Gestion en propre (DIRECT) : la répartition groupée par étage EST
+                le plan — pas de toggle Attribution/Plan, attribution dépliable
+                en sibling conditionnel (RoomingEditor jamais démonté). */}
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <button
+                type="button"
+                onClick={() => setAttributionOuverte((v) => !v)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                {attributionOuverte ? '▾ Gérer les chambres' : '▸ Gérer les chambres'}
+              </button>
+              {rooming && (
+                <RoomingPlanPDFButton
+                  planProps={{
+                    titreSejour: sejour.titre,
+                    dateDebut: sejour.dateDebut,
+                    dateFin: sejour.dateFin,
+                    centreName: sejour.hebergementSelectionne?.nom,
+                    rooming,
+                  }}
+                  filename={`plan-chambres-${sejour.titre}.pdf`}
+                />
+              )}
+            </div>
+
+            {attributionOuverte && <div className="mb-6">{renderAttribution()}</div>}
+
+            {rooming == null ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
+              </div>
+            ) : rooming.chambres.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center">
+                <p className="text-sm text-gray-400">Commencez par choisir vos chambres pour ce séjour.</p>
+                <button
+                  type="button"
+                  onClick={() => setAttributionOuverte(true)}
+                  className="mt-3 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors"
+                >
+                  Gérer les chambres
+                </button>
+              </div>
+            ) : (
+              <RoomingEditor
+                rooming={rooming}
+                groupParEtage
+                onAffecter={handleAffecterParticipant}
+                onRetirer={handleRetirerAffectation}
+              />
+            )}
+          </>
+        ) : (
+          <>
+        {/* Toggle Attribution | Plan + PDF — le plan est en lecture seule,
+            le geste d'attribution reste intact en dessous */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {(['attribution', 'plan'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => { setVue(v); if (v === 'plan') loadRooming(); }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  vue === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {v === 'attribution' ? 'Attribution' : 'Plan'}
+              </button>
+            ))}
+          </div>
+          {rooming && (
+            <RoomingPlanPDFButton
+              planProps={{
+                titreSejour: sejour.titre,
+                dateDebut: sejour.dateDebut,
+                dateFin: sejour.dateFin,
+                centreName: sejour.hebergementSelectionne?.nom,
+                rooming,
+              }}
+              filename={`plan-chambres-${sejour.titre}.pdf`}
+            />
+          )}
+        </div>
+
+        {vue === 'attribution' ? (
+          renderAttribution()
         ) : roomingErreur ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
             <span>Impossible de charger le plan des chambres.</span>
@@ -529,6 +623,8 @@ export default function TabChambres({ sejourId, sejour, onError }: TabChambresPr
           <RoomingPlanView
             rooming={rooming ?? { chambres: [], nonAffectes: { eleves: [], encadrants: [] } }}
           />
+        )}
+          </>
         )}
       </section>
       )}
