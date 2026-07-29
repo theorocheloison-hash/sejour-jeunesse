@@ -247,12 +247,14 @@ export default function TabChambres({ sejourId, sejour, onError, peutGererEnProp
     }
   };
 
-  // ── Rooming en propre (DIRECT) — calqués sur TabRooming ; loadRooming SEUL,
-  // une affectation de participant n'impacte pas la grille d'attribution.
+  // ── Rooming en propre (DIRECT) — calqués sur TabRooming ; loadRooming PUIS
+  // loadGrille : la grille porte nbAffectations, lu par la confirmation du
+  // Retirer (sinon compte périmé → désaffectation silencieuse en cascade).
   const handleAffecterParticipant = async (chambreId: string, body: { autorisationId?: string; accompagnateurId?: string }) => {
     try {
       await affecterChambre(sejourId, chambreId, body);
       await loadRooming();
+      await loadGrille();
     } catch (err) {
       if (!isPlanInsufficient(err)) {
         // Capacité dure (D7) : le back tranche — remonter son 409 parlant.
@@ -266,6 +268,7 @@ export default function TabChambres({ sejourId, sejour, onError, peutGererEnProp
     try {
       await retirerChambre(affectationId);
       await loadRooming();
+      await loadGrille();
     } catch (err) {
       if (!isPlanInsufficient(err)) {
         onError('Impossible de retirer le participant. Veuillez réessayer.');
