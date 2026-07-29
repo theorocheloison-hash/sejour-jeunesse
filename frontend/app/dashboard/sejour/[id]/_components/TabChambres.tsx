@@ -549,7 +549,18 @@ export default function TabChambres({ sejourId, sejour, onError, peutGererEnProp
 
             {attributionOuverte && <div className="mb-6">{renderAttribution()}</div>}
 
-            {rooming == null ? (
+            {roomingErreur ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+                <span>Impossible de charger le plan des chambres.</span>
+                <button
+                  type="button"
+                  onClick={loadRooming}
+                  className="shrink-0 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  Réessayer
+                </button>
+              </div>
+            ) : rooming == null ? (
               <div className="flex items-center justify-center py-12">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
               </div>
