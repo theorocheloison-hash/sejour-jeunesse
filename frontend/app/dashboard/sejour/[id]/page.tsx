@@ -419,6 +419,7 @@ export default function CollaborationPage() {
             onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
             onReloadSejour={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
             onError={setMutationError}
+            peutGererEnPropre={sejour ? peutGererEnPropre(sejour, user) : false}
           />
         )}
 

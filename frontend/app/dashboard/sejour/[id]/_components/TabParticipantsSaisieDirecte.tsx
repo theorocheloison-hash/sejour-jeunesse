@@ -250,7 +250,7 @@ export default function TabParticipantsSaisieDirecte({
     if (
       toDelete.length > 0 &&
       !window.confirm(
-        `Supprimer ${toDelete.length} participant(s) ? Ceux affectés à une chambre en seront retirés.`,
+        `Supprimer ${toDelete.length} participant(s) ? Ceux affectés à une chambre ou un groupe en seront retirés.`,
       )
     ) {
       return;

@@ -31,6 +31,7 @@ export interface TabGroupesProps {
   onSejourUpdate: (updates: Partial<SejourCollabInfo>) => void;
   onReloadSejour: () => void;
   onError: (message: string) => void;
+  peutGererEnPropre?: boolean;
 }
 
 export default function TabGroupes({
@@ -43,6 +44,7 @@ export default function TabGroupes({
   onSejourUpdate,
   onReloadSejour,
   onError,
+  peutGererEnPropre = false,
 }: TabGroupesProps) {
   const [groupeModal, setGroupeModal] = useState<{ open: boolean; editId?: string; nom: string; couleur: string; taille: number } | null>(null);
   const [propositionGroupes, setPropositionGroupes] = useState<PropositionGroupes | null>(null);
@@ -143,6 +145,9 @@ export default function TabGroupes({
     }
   };
 
+  const peutEditer = user.role === 'ORGANISATEUR' || peutGererEnPropre;
+  const colonneNonAffectesVisible = !!(sejour?.inscriptionsCloturees || peutGererEnPropre);
+
   return (
     <div className="space-y-6">
       {/* Bandeau clôture inscriptions — ORGANISATEUR uniquement */}
@@ -227,7 +232,7 @@ export default function TabGroupes({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Colonne gauche — élèves non affectés */}
-        {sejour?.inscriptionsCloturees && (
+        {colonneNonAffectesVisible && (
           <div className="lg:col-span-1">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
               Élèves non affectés ({participants.filter(p => !groupes.some(g => g.eleves.some(e => e.autorisationId === p.id))).length})
@@ -238,10 +243,10 @@ export default function TabGroupes({
                 .map(p => (
                   <div
                     key={p.id}
-                    draggable={user.role === 'ORGANISATEUR'}
-                    onDragStart={() => user.role === 'ORGANISATEUR' && setDragEleve(p.id)}
+                    draggable={peutEditer}
+                    onDragStart={() => peutEditer && setDragEleve(p.id)}
                     onDragEnd={() => setDragEleve(null)}
-                    className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs ${user.role === 'ORGANISATEUR' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                    className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs ${peutEditer ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   >
                     <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-semibold shrink-0">
                       {p.elevePrenom[0]}{p.eleveNom[0]}
@@ -255,7 +260,7 @@ export default function TabGroupes({
         )}
 
         {/* Colonne droite — cards groupes */}
-        <div className={`${sejour?.inscriptionsCloturees ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+        <div className={`${colonneNonAffectesVisible ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           {groupes.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
               {user.role === 'HEBERGEUR' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
@@ -265,9 +270,9 @@ export default function TabGroupes({
               {groupes.map(g => (
                 <div
                   key={g.id}
-                  onDragOver={user.role === 'ORGANISATEUR' ? (e) => e.preventDefault() : undefined}
-                  onDrop={user.role === 'ORGANISATEUR' ? (e) => { e.preventDefault(); if (dragEleve) { handleAffecterEleve(dragEleve, g.id); setDragEleve(null); } } : undefined}
-                  className={`rounded-2xl border-2 bg-white p-4 transition-colors ${dragEleve && user.role === 'ORGANISATEUR' ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'}`}
+                  onDragOver={peutEditer ? (e) => e.preventDefault() : undefined}
+                  onDrop={peutEditer ? (e) => { e.preventDefault(); if (dragEleve) { handleAffecterEleve(dragEleve, g.id); setDragEleve(null); } } : undefined}
+                  className={`rounded-2xl border-2 bg-white p-4 transition-colors ${dragEleve && peutEditer ? 'border-dashed border-[var(--color-primary)] bg-blue-50' : 'border-gray-200'}`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -296,7 +301,7 @@ export default function TabGroupes({
                     {g.eleves.map(e => (
                       <div key={e.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs">
                         <span className="truncate text-gray-900">{e.autorisation.elevePrenom} {e.autorisation.eleveNom}</span>
-                        {user.role === 'ORGANISATEUR' && (
+                        {peutEditer && (
                           <button onClick={() => handleRetirerEleve(e.autorisationId)}
                             className="shrink-0 ml-2 text-gray-300 hover:text-red-400">&times;</button>
                         )}
@@ -304,7 +309,7 @@ export default function TabGroupes({
                     ))}
                     {g.eleves.length === 0 && (
                       <p className="text-xs text-gray-300 text-center py-2">
-                        {sejour?.inscriptionsCloturees && user.role === 'ORGANISATEUR' ? 'Glissez des élèves ici' : 'Vide'}
+                        {colonneNonAffectesVisible && peutEditer ? 'Glissez des élèves ici' : 'Vide'}
                       </p>
                     )}
                   </div>
