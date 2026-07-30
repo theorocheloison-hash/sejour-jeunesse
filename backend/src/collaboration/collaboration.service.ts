@@ -750,7 +750,17 @@ export class CollaborationService {
 
   async affecterEleve(sejourId: string, userId: string, groupeId: string, autorisationId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
-    // Retirer l'élève de son groupe actuel s'il en a un
+    // Cloisonnement séjour : le groupe ET l'élève doivent appartenir à CE séjour.
+    // verifyAccess ne valide que le sejourId de l'URL — sans ces checks, IDOR
+    // cross-séjour (patron identique à updateGroupe/deleteGroupe).
+    const groupe = await this.prisma.groupeSejour.findUnique({ where: { id: groupeId } });
+    if (!groupe || groupe.sejourId !== sejourId) throw new NotFoundException('Groupe introuvable');
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id: autorisationId },
+      select: { sejourId: true },
+    });
+    if (!autorisation || autorisation.sejourId !== sejourId) throw new NotFoundException('Participant introuvable');
+    // Retirer l'élève de son groupe actuel s'il en a un (borné au séjour par le check ci-dessus)
     await this.prisma.eleveGroupe.deleteMany({ where: { autorisationId } });
     // Affecter au nouveau groupe
     return this.prisma.eleveGroupe.create({
@@ -760,6 +770,13 @@ export class CollaborationService {
 
   async retirerEleve(sejourId: string, userId: string, autorisationId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
+    // Cloisonnement séjour : l'élève doit appartenir à CE séjour (sinon IDOR :
+    // dégroupage cross-séjour via UUID forgé).
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id: autorisationId },
+      select: { sejourId: true },
+    });
+    if (!autorisation || autorisation.sejourId !== sejourId) throw new NotFoundException('Participant introuvable');
     await this.prisma.eleveGroupe.deleteMany({ where: { autorisationId } });
   }
 
