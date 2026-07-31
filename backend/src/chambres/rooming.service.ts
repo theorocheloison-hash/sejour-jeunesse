@@ -93,14 +93,14 @@ export class RoomingService {
   // ── Affectation participant→chambre (SC7 lot 2) — geste ORGANISATEUR ─────
 
   /**
-   * Accès rooming : créateur OU accompagnateur à accès collaboratif (lecture ;
-   * `requireEdition` exige roleCollaboratif EDITION pour les écritures).
+   * Accès rooming : créateur, hébergeur du centre (lecture ; écriture si
+   * DIRECT géré en propre — peutGererEnPropre), ou accompagnateur à accès
+   * collaboratif (`requireEdition` exige roleCollaboratif EDITION).
    * DETTE : logique répliquée de collaboration.service.verifyAccess, réduite
-   * aux profils atteignables sous @Roles(ORGANISATEUR) — créateur +
-   * accompagnateur-collaborateur ; hébergeur/signataire sont déjà exclus par
-   * le RolesGuard du controller. Divergence à surveiller si verifyAccess
-   * évolue. (Pas d'injection de CollaborationService : cycle de modules
-   * chambres↔collaboration.)
+   * aux profils atteignables sous @Roles(ORGANISATEUR, HEBERGEUR) — le
+   * signataire reste exclu par le RolesGuard. Divergence à surveiller si
+   * verifyAccess évolue. (Pas d'injection de CollaborationService : cycle de
+   * modules chambres↔collaboration.)
    */
   private async resoudreAccesRooming(sejourId: string, userId: string, requireEdition: boolean) {
     if (!sejourId) throw new BadRequestException('Paramètre sejourId requis');

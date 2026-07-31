@@ -12,7 +12,6 @@ import { STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
-import { OccupationsService } from '../chambres/occupations.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -21,7 +20,6 @@ export class SejourService {
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
-    private occupations: OccupationsService,
   ) {}
 
   async create(dto: CreateSejourDto, createurId: string) {

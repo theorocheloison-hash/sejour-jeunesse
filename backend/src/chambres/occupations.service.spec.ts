@@ -648,11 +648,9 @@ describe('SejourService — softDeleteSejour cascade occupations (Lot 5)', () =>
 
   it('supprime les occupations DANS la tx (occ → devis → séjour), sans appel au site 11', async () => {
     const prisma = mockPrismaSoftDelete();
-    const occupations = { syncOccupationsSejourSafe: jest.fn() };
     const service = new SejourService(
       prisma as unknown as PrismaService,
       {} as EmailService,
-      occupations as unknown as OccupationsService,
     );
 
     const res = await service.softDeleteSejour('sej-1', 'user-1', 'centre-1');
@@ -664,7 +662,8 @@ describe('SejourService — softDeleteSejour cascade occupations (Lot 5)', () =>
     const ops = await Promise.all(txArg);
     expect(ops.map((o: any) => o._op)).toEqual(['occ.deleteMany', 'devis.deleteMany', 'sejour.update']);
 
-    // Site 11 retiré : le deleteMany rend la sync post-tx inutile (no-op garanti).
-    expect(occupations.syncOccupationsSejourSafe).not.toHaveBeenCalled();
+    // Site 11 retiré : plus aucune sync post-tx possible PAR CONSTRUCTION —
+    // l'injection OccupationsService a été supprimée de SejourService (hygiène
+    // M2) ; le deleteMany dans la tx suffit.
   });
 });
