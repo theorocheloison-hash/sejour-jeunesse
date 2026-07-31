@@ -36,6 +36,7 @@ export default function SignerDevisPage() {
   const [contratOuvert, setContratOuvert] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [voirDevis, setVoirDevis] = useState(false);
 
   const [emailDirecteur, setEmailDirecteur] = useState('');
   const [sendingDirection, setSendingDirection] = useState(false);
@@ -51,7 +52,6 @@ export default function SignerDevisPage() {
     getDevisPublic(token)
       .then((d) => {
         setDevis(d);
-        if (d.isSigned) setSigned(true);
       })
       .catch(() => setError('Ce lien de signature est invalide ou a expiré.'))
       .finally(() => setLoading(false));
@@ -68,6 +68,9 @@ export default function SignerDevisPage() {
         confirmation: true,
       });
       setSigned(true);
+      // Re-fetch silencieux : récupère isSigned/nom/date pour la vue lecture
+      // seule — sans toucher loading (pas de flash spinner).
+      try { setDevis(await getDevisPublic(token)); } catch { /* garde l'état local */ }
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la signature');
     } finally {
@@ -96,6 +99,8 @@ export default function SignerDevisPage() {
     try {
       await uploadSignaturePublic(token, uploadFile);
       setUploaded(true);
+      // Re-fetch silencieux — même logique que handleSign, loading intact.
+      try { setDevis(await getDevisPublic(token)); } catch { /* garde l'état local */ }
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'upload');
     } finally {
@@ -109,7 +114,7 @@ export default function SignerDevisPage() {
     </div>
   );
 
-  if (signed || uploaded) return (
+  if ((signed || uploaded) && !voirDevis) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 max-w-md w-full text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 mb-4">
@@ -129,6 +134,13 @@ export default function SignerDevisPage() {
         {devis?.centre && (
           <p className="text-sm text-gray-500 mt-2">À bientôt — {devis.centre.nom}</p>
         )}
+        <button
+          type="button"
+          onClick={() => setVoirDevis(true)}
+          className="mt-4 text-sm text-[#1B4060] font-semibold underline"
+        >
+          Voir mon devis
+        </button>
       </div>
     </div>
   );
@@ -159,6 +171,7 @@ export default function SignerDevisPage() {
 
   if (!devis) return null;
 
+  const estSigne = devis.isSigned || signed || uploaded;
   const sejour = devis.sejour;
   const centre = devis.centre;
 
@@ -213,6 +226,14 @@ export default function SignerDevisPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
+
+        {estSigne && (
+          <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm font-medium">
+            ✓ Devis signé
+            {devis.nomSignataireDirecteur ? ` par ${devis.nomSignataireDirecteur}` : ''}
+            {devis.dateSignatureDirecteur ? ` le ${fmt(devis.dateSignatureDirecteur)}` : ''}
+          </div>
+        )}
 
         <div className="text-center">
           <div className="flex justify-center mb-4">
@@ -375,6 +396,7 @@ export default function SignerDevisPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
+        {!estSigne && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex border-b border-gray-200">
             {([
@@ -493,6 +515,7 @@ export default function SignerDevisPage() {
             </p>
           </div>
         </div>
+        )}
 
       </div>
     </div>
