@@ -16,7 +16,8 @@ import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
 
 // Vue ORGANISATEUR de l'onglet Chambres (SC7 lot 3) — drag & drop des
 // participants vers les chambres attribuées par l'hébergeur. Calqué sur
-// TabGroupes. ⚠️ Routes ORGANISATEUR : aucun header X-Centre-Id.
+// TabGroupes. ⚠️ Aucun header X-Centre-Id : le controller l'ignore (routes
+// partagées ORGANISATEUR+HEBERGEUR depuis la gestion en propre — 3a).
 
 export interface TabRoomingProps {
   sejourId: string;

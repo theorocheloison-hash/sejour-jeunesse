@@ -59,10 +59,6 @@ const BADGES: Record<ChambreGrille['etat']['type'], { label: string; cls: string
   a_replacer: { label: 'À replacer', cls: 'bg-red-100 text-red-700' },
 };
 
-// ETIQUETTES vit désormais dans lib/rooming (brique partagée) — re-export
-// conservé : TabRooming importe encore depuis './TabChambres'.
-export { ETIQUETTES };
-
 /** 403 PLAN_INSUFFICIENT : la modale globale (api.ts) s'en charge — rien de plus ici. */
 function isPlanInsufficient(err: unknown): boolean {
   const e = err as { response?: { status?: number; data?: { error?: string } } };
