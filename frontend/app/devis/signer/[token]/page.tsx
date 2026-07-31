@@ -364,7 +364,7 @@ export default function SignerDevisPage() {
               </svg>
               Télécharger le contrat (PDF)
             </a>
-            {!contratOuvert && (
+            {!contratOuvert && !estSigne && (
               <p className="mt-2 text-xs text-amber-600 font-medium">
                 Veuillez ouvrir et lire le contrat avant de signer.
               </p>
