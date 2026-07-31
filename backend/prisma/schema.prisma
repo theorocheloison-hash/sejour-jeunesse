@@ -952,6 +952,9 @@ model Devis {
   contratUrl            String?   @map("contrat_url") @db.VarChar(500)
 
   relanceEnvoyeeAt DateTime? @map("relance_envoyee_at")
+  // Tampon de la relance HÉBERGEUR (cron relancerHerbergeurDevisIgnore) —
+  // distinct de relanceEnvoyeeAt (relance enseignant, cron 2, cycle 7j).
+  relanceHebergeurAt DateTime? @map("relance_hebergeur_at")
   montantVerseTotal Float @default(0) @map("montant_verse_total")
 
   // Date du dernier envoi du devis au client (null = jamais envoyé).

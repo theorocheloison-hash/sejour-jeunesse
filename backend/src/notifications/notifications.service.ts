@@ -168,6 +168,11 @@ export class NotificationsService {
       where: {
         statut: 'EN_ATTENTE',
         createdAt: { lte: seuil },
+        // Anti-répétition : 1re relance à J+30, puis au plus 1×/30 j.
+        OR: [
+          { relanceHebergeurAt: null },
+          { relanceHebergeurAt: { lte: seuil } },
+        ],
       },
       include: {
         centre: {
@@ -209,6 +214,11 @@ export class NotificationsService {
            <p>L'enseignant n'a pas encore donné suite. Vous pouvez le relancer directement ou consulter l'état de votre devis depuis votre tableau de bord.</p>
            <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
         );
+
+        await this.prisma.devis.update({
+          where: { id: d.id },
+          data: { relanceHebergeurAt: new Date() },
+        });
 
         this.logger.log(`[CRON] Relance hébergeur envoyée — devis: ${d.id}, centre: ${centreNom}`);
       } catch (err) {
