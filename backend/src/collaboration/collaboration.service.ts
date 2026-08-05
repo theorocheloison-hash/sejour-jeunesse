@@ -90,9 +90,13 @@ export class CollaborationService {
     if (sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
 
     const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
+    const isCreateur = sejour.createurId === userId;
 
-    // Statuts autorisés selon le mode de gestion
-    const statutsAutorises = (sejour.modeGestion === 'DIRECT' && isHebergeur)
+    // Parties prenantes du séjour (hébergeur rattaché OU organisateur créateur) : accès dès
+    // OPTION (pré-réservation, devis émis), quel que soit le mode. Les autres (accompagnateurs,
+    // signataires) restent limités aux statuts collaboratifs (CONVENTION/SIGNE_DIRECTION).
+    // STATUTS_SEJOUR_DIRECT = [OPTION, CONVENTION, SIGNE_DIRECTION], réutilisé ici.
+    const statutsAutorises = (isHebergeur || isCreateur)
       ? STATUTS_SEJOUR_DIRECT
       : STATUTS_SEJOUR_COLLABORATIFS;
 
@@ -100,7 +104,6 @@ export class CollaborationService {
       throw new ForbiddenException('Le séjour n\'est pas dans un statut accessible');
     }
 
-    const isCreateur = sejour.createurId === userId;
     const isDirector = role === 'SIGNATAIRE' && await isSignataireLinkedToSejour(this.prisma, userId, sejourId);
 
     const accompagnateurAcces = await this.prisma.accompagnateurMission.findFirst({

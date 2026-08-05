@@ -103,51 +103,72 @@ export class DevisService {
       documentUrl = await this.storage.upload(file, 'devis');
     }
 
-    const devis = await this.prisma.devis.create({
-      data: {
-        demandeId,
-        centreId: centre.id,
-        emetteurId,
-        montantTotal: dto.montantTotal,
-        montantParEleve: dto.montantParEleve,
-        description: dto.description,
-        conditionsAnnulation: dto.conditionsAnnulation,
-        documentUrl,
-        // Professional fields
-        nomEntreprise: dto.nomEntreprise,
-        adresseEntreprise: dto.adresseEntreprise,
-        siretEntreprise: dto.siretEntreprise,
-        emailEntreprise: dto.emailEntreprise,
-        telEntreprise: dto.telEntreprise,
-        tauxTva: dto.tauxTva,
-        montantHT: dto.montantHT,
-        montantTVA: dto.montantTVA,
-        montantTTC: dto.montantTTC,
-        pourcentageAcompte: dto.pourcentageAcompte,
-        montantAcompte: dto.montantAcompte,
-        numeroDevis,
-        typeDevis: dto.typeDevis ?? 'PLATEFORME',
-        // Chemin COLLAB : la création vaut envoi (notif sendDevisRecu à
-        // l'enseignant juste après, avec magic link).
-        dateEnvoi: new Date(),
-      },
-    });
-
-    // Create lignes if provided
-    if (dto.lignes && dto.lignes.length > 0) {
-      await this.prisma.ligneDevis.createMany({
-        data: dto.lignes.map((l) => ({
-          devisId: devis.id,
-          description: l.description,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-          tva: l.tva ?? 0,
-          totalHT: l.totalHT,
-          totalTTC: l.totalTTC,
-          produitCatalogueId: l.produitCatalogueId ?? null,
-        })),
+    const devis = await this.prisma.$transaction(async (tx) => {
+      const d = await tx.devis.create({
+        data: {
+          demandeId,
+          centreId: centre.id,
+          emetteurId,
+          montantTotal: dto.montantTotal,
+          montantParEleve: dto.montantParEleve,
+          description: dto.description,
+          conditionsAnnulation: dto.conditionsAnnulation,
+          documentUrl,
+          // Professional fields
+          nomEntreprise: dto.nomEntreprise,
+          adresseEntreprise: dto.adresseEntreprise,
+          siretEntreprise: dto.siretEntreprise,
+          emailEntreprise: dto.emailEntreprise,
+          telEntreprise: dto.telEntreprise,
+          tauxTva: dto.tauxTva,
+          montantHT: dto.montantHT,
+          montantTVA: dto.montantTVA,
+          montantTTC: dto.montantTTC,
+          pourcentageAcompte: dto.pourcentageAcompte,
+          montantAcompte: dto.montantAcompte,
+          numeroDevis,
+          typeDevis: dto.typeDevis ?? 'PLATEFORME',
+          // Chemin COLLAB : la création vaut envoi (notif sendDevisRecu à
+          // l'enseignant juste après, avec magic link).
+          dateEnvoi: new Date(),
+        },
       });
-    }
+
+      // Create lignes if provided
+      if (dto.lignes && dto.lignes.length > 0) {
+        await tx.ligneDevis.createMany({
+          data: dto.lignes.map((l) => ({
+            devisId: d.id,
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.prixUnitaire,
+            tva: l.tva ?? 0,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+            produitCatalogueId: l.produitCatalogueId ?? null,
+          })),
+        });
+      }
+
+      // Demande CIBLÉE (un seul hébergeur visé) : l'envoi du devis vaut pré-réservation →
+      // séjour rattaché + OPTION (planning + accès collab aux deux parties). Filtre
+      // SUBMITTED/non-rattaché = idempotent, ne touche jamais un séjour avancé ; les
+      // appels d'offres broadcast (centreDestinataireId null ou ≠ centre) ne sont pas concernés.
+      //
+      // Pas de syncOccupationsSejour ici (contrairement aux sites de signature) : la cible
+      // d'occupation dérive de l'état des DEVIS (deriverCible → RETENUS), pas du statut séjour.
+      // Le devis émis est EN_ATTENTE (non retenu → cible OPTION, inchangée) et aucune occupation
+      // source='SEJOUR' ne peut exister avant ce rattachement (createOccupations exige
+      // hebergementSelectionneId === centre.id) → le sync serait un no-op strict.
+      if (demande.centreDestinataireId === centre.id) {
+        await tx.sejour.updateMany({
+          where: { id: demande.sejourId, statut: StatutSejour.SUBMITTED, hebergementSelectionneId: null },
+          data: { hebergementSelectionneId: centre.id, statut: StatutSejour.OPTION },
+        });
+      }
+
+      return d;
+    });
 
     const fullDevis = await this.prisma.devis.findUnique({
       where: { id: devis.id },
