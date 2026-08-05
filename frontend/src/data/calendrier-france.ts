@@ -104,6 +104,18 @@ export const VACANCES_SCOLAIRES: PeriodeVacances[] = [
   { nom: 'Printemps',  zones: 'B',   debut: '2027-04-17', fin: '2027-05-03' },
   { nom: 'Ascension',  zones: 'ABC', debut: '2027-05-05', fin: '2027-05-10' },
   { nom: 'Été',        zones: 'ABC', debut: '2027-07-03', fin: '2027-09-01' },
+
+  // ── 2027-2028 ──
+  { nom: 'Toussaint',  zones: 'ABC', debut: '2027-10-23', fin: '2027-11-08' },
+  { nom: 'Noël',       zones: 'ABC', debut: '2027-12-18', fin: '2028-01-03' },
+  { nom: 'Hiver',      zones: 'B',   debut: '2028-02-05', fin: '2028-02-21' },
+  { nom: 'Hiver',      zones: 'C',   debut: '2028-02-12', fin: '2028-02-28' },
+  { nom: 'Hiver',      zones: 'A',   debut: '2028-02-19', fin: '2028-03-06' },
+  { nom: 'Printemps',  zones: 'B',   debut: '2028-04-08', fin: '2028-04-24' },
+  { nom: 'Printemps',  zones: 'C',   debut: '2028-04-15', fin: '2028-05-02' },
+  { nom: 'Printemps',  zones: 'A',   debut: '2028-04-22', fin: '2028-05-09' },
+  { nom: 'Ascension',  zones: 'ABC', debut: '2028-05-24', fin: '2028-05-29' },
+  { nom: 'Été',        zones: 'ABC', debut: '2028-07-05', fin: '2028-09-01' },
 ];
 
 /**
@@ -129,7 +141,7 @@ export function getVacancesZones(dateStr: string): { nom: string; zones: string 
 // ─── Alerte admin — données bientôt expirées ─────────────────────────────────
 
 /** Dernière date couverte par les données de vacances hardcodées. */
-export const VACANCES_DATA_FIN = '2027-09-01';
+export const VACANCES_DATA_FIN = '2028-09-01';
 
 /** Nombre de mois avant VACANCES_DATA_FIN à partir duquel on alerte l'admin. */
 const SEUIL_ALERTE_MOIS = 6;
