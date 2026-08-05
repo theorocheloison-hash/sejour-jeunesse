@@ -67,6 +67,9 @@ export interface ConventionScolaireData {
   montantTTC: number;
   pourcentageAcompte: number;
   montantAcompte: number;
+  // Conditions d'annulation saisies par le centre (snapshot porté par le devis).
+  // Absent/vide → fallback sur les 3 puces Sauvageon historiques (article 4).
+  conditionsAnnulation?: string | null;
   // Date document
   dateDocument: string;
 }
@@ -253,9 +256,21 @@ export async function generateConventionScolaireSauvageonPdf(data: ConventionSco
 
         <Text style={styles.articleTitle}>Article 4 — Annulation du fait du client</Text>
         <Text style={styles.paragraph}>Toute annulation doit être notifiée par écrit au service de réservation.</Text>
-        <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé sera remboursé dans son intégralité.</Text>
-        <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : il sera retenu 50 % du montant du loyer et du montant des prestations directement liées au séjour.</Text>
-        <Text style={styles.bullet}>• Annulation entre 6 mois et le jour du séjour : l&apos;intégralité du devis signé devra être réglée.</Text>
+        {data.conditionsAnnulation?.trim() ? (
+          data.conditionsAnnulation
+            .split('\n')
+            .map(l => l.trim())
+            .filter(Boolean)
+            .map((ligne, i) => (
+              <Text style={styles.paragraph} key={i}>{ligne}</Text>
+            ))
+        ) : (
+          <>
+            <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé sera remboursé dans son intégralité.</Text>
+            <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : il sera retenu 50 % du montant du loyer et du montant des prestations directement liées au séjour.</Text>
+            <Text style={styles.bullet}>• Annulation entre 6 mois et le jour du séjour : l&apos;intégralité du devis signé devra être réglée.</Text>
+          </>
+        )}
 
         <Text style={styles.articleTitle}>Article 5 — Annulation du fait du Chalet Le Sauvageon</Text>
         <Text style={styles.paragraph}>

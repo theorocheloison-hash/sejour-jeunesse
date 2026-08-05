@@ -1934,6 +1934,7 @@ export class DevisService {
       montantTTC: round2(montantTTC),
       pourcentageAcompte,
       montantAcompte: round2(montantAcompte),
+      conditionsAnnulation: devis.conditionsAnnulation ?? null,
       dateDocument: fmtDate(new Date()),
     };
 
