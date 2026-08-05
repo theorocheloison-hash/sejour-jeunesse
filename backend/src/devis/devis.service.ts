@@ -1937,17 +1937,17 @@ export class DevisService {
       dateDocument: fmtDate(new Date()),
     };
 
-    // ── BRANCHING : convention configurable (couverture LIAVO + PDF centre) vs legacy Sauvageon ──
+    // ── BRANCHING : couverture LIAVO + PDF centre / legacy Sauvageon (flag) / couverture seule ──
     let pdfBuffer: Buffer;
 
-    if (centre.conventionPdfUrl) {
-      // Représentant = utilisateur connecté (pas de nom hardcodé pour la couverture générique).
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { prenom: true, nom: true },
-      });
-      const representant = [user?.prenom, user?.nom].filter(Boolean).join(' ') || 'Le responsable';
+    // Représentant = utilisateur connecté (pas de nom hardcodé pour la couverture générique).
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { prenom: true, nom: true },
+    });
+    const representant = [user?.prenom, user?.nom].filter(Boolean).join(' ') || 'Le responsable';
 
+    if (centre.conventionPdfUrl) {
       const { generateConventionCouverturePdf } = await import('./convention-couverture.pdf.js');
       const couvertureBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant });
 
@@ -1970,10 +1970,14 @@ export class DevisService {
       centrePages.forEach(p => mergedPdf.addPage(p));
 
       pdfBuffer = Buffer.from(await mergedPdf.save());
-    } else {
+    } else if (centre.conventionTemplateLegacy) {
       // Legacy Sauvageon : représentant = directrice.
       const { generateConventionScolaireSauvageonPdf } = await import('./convention-scolaire-sauvageon.pdf.js');
       pdfBuffer = await generateConventionScolaireSauvageonPdf({ ...baseData, centreRepresentant: 'Maëva Roche-Loison' });
+    } else {
+      // Centre sans PDF de conditions ni template legacy : couverture générique seule.
+      const { generateConventionCouverturePdf } = await import('./convention-couverture.pdf.js');
+      pdfBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant });
     }
 
     return {

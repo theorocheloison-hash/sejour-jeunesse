@@ -630,6 +630,9 @@ model CentreHebergement {
   brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
   logoUrl             String?           @map("logo_url") @db.VarChar(500)
   conventionPdfUrl    String?           @map("convention_pdf_url") @db.VarChar(500)
+  // Template de convention hardcodé historique (Sauvageon uniquement) — les autres
+  // centres sans conventionPdfUrl reçoivent la couverture générique seule.
+  conventionTemplateLegacy Boolean      @default(false) @map("convention_template_legacy")
   champsInscription   Json?             @map("champs_inscription")
   // Justificatif de revendication propre à CE centre (hébergeur déjà validé qui
   // ajoute un centre) — distinct de Membership.claimDocumentUrl (1er claim société).
