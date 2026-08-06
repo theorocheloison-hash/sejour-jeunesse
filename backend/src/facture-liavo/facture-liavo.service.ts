@@ -108,6 +108,7 @@ export class FactureLiavoService {
     type: string,
     molliePaymentId: string | null,
     destinataire?: { nom: string; adresse: string | null; siret: string | null; email: string | null } | null,
+    organisationId?: string | null,
   ) {
     const numero = await this.genererNumero();
 
@@ -122,6 +123,9 @@ export class FactureLiavoService {
     const facture = await this.prisma.factureLiavo.create({
       data: {
         centreId,
+        // Rattachement au débiteur légal (Lot 2a) — fallback dérivé du centre :
+        // même les appelants non migrés produisent des factures rattachées.
+        organisationId: organisationId ?? centre.organisationId ?? null,
         numero,
         dateEmission: new Date(),
         montantHT: montantCentimes,
@@ -209,6 +213,14 @@ export class FactureLiavoService {
   async lister(centreId: string) {
     return this.prisma.factureLiavo.findMany({
       where: { centreId },
+      orderBy: { dateEmission: 'desc' },
+    });
+  }
+
+  /** Factures de l'organisation (Lot 2a) — toutes les nouvelles factures portent organisationId. */
+  async listerParOrganisation(organisationId: string) {
+    return this.prisma.factureLiavo.findMany({
+      where: { organisationId },
       orderBy: { dateEmission: 'desc' },
     });
   }

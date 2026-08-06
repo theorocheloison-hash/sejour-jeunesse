@@ -28,9 +28,15 @@ import { calculerMontantAbonnementCents, centsToMollie } from './abonnement.cons
  */
 export async function resyncMontantOrganisation(
   prisma: PrismaService,
+  // Type structurel = la forme EXACTE de l'appel émis (customerId + mandateId
+  // requis par le SDK 4.5.0). Ce shape est assignable à UpdateParameters →
+  // le vrai client Mollie satisfait ce type sans import ni cast.
   mollie: {
     customerSubscriptions: {
-      update: (id: string, params: Record<string, unknown>) => Promise<unknown>;
+      update: (
+        id: string,
+        params: { customerId: string; mandateId: string; amount: { currency: string; value: string } },
+      ) => Promise<unknown>;
     };
   },
   organisationId: string,

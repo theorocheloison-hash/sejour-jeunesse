@@ -1,20 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { TRIAL_DUREE_JOURS } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
-import createMollieClient, { MandateMethod } from '@mollie/api-client';
-import { calculerMontantAbonnementCents } from './abonnement.constants.js';
-
-const mollieClient = createMollieClient({
-  apiKey: process.env.MOLLIE_API_KEY ?? '',
-});
-
-function centsToMollie(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
+import { MandateMethod } from '@mollie/api-client';
+import { calculerMontantAbonnementCents, centsToMollie } from './abonnement.constants.js';
+import { mollieClient } from './mollie.client.js';
+import { resyncMontantOrganisation } from './resync-montant.helper.js';
 
 @Injectable()
 export class AbonnementService {
@@ -33,10 +27,40 @@ export class AbonnementService {
     return `${prefix}${masked}${suffix}`;
   }
 
+  /**
+   * Résout le centre actif (X-Centre-Id) et son organisation — porteuse de
+   * l'abonnement depuis le Lot 2a. DOUBLE ÉCRITURE transitoire jusqu'à L3 :
+   * chaque write d'état d'abonnement sur l'organisation a son MIROIR à
+   * l'identique sur le centre, dans le même flux (les guards/cron lisent
+   * encore le centre).
+   */
+  private async resolveOrganisation(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    if (!centre.organisationId) {
+      throw new ConflictException("Ce centre n'est rattaché à aucune organisation");
+    }
+    return { centre, organisationId: centre.organisationId };
+  }
+
+  /**
+   * Seul le PROPRIETAIRE de l'organisation peut souscrire/annuler/gérer
+   * l'essai. claimStatut VALIDE non exigé (payer ≠ envoyer des emails
+   * externes) ; les collaborateurs de centre n'ont pas de Membership → 403.
+   */
+  private async assertProprietaireOrganisation(userId: string, organisationId: string): Promise<void> {
+    const membership = await this.prisma.membership.findUnique({
+      where: { userId_organisationId: { userId, organisationId } },
+      select: { role: true },
+    });
+    if (!membership || membership.role !== 'PROPRIETAIRE') {
+      throw new ForbiddenException("Seul le propriétaire de l'organisation peut gérer l'abonnement.");
+    }
+  }
+
   // ── Simuler (existant — admin/test, pas de paiement réel) ─────────────
 
   async simuler(userId: string, type: TypeAbonnement, plan: PlanAbonnement, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
     const now = new Date();
     const expiration = new Date(now);
     if (type === TypeAbonnement.MENSUEL) {
@@ -44,43 +68,51 @@ export class AbonnementService {
     } else {
       expiration.setFullYear(expiration.getFullYear() + 1);
     }
-    return this.prisma.centreHebergement.update({
-      where: { id: centre.id },
-      data: {
-        abonnement: type,
-        abonnementStatut: StatutAbonnement.ACTIF,
-        abonnementActifJusquAu: expiration,
-        planAbonnement: plan,
-      },
-    });
+    const data = {
+      abonnement: type,
+      abonnementStatut: StatutAbonnement.ACTIF,
+      abonnementActifJusquAu: expiration,
+      planAbonnement: plan,
+    };
+    const updated = await this.prisma.organisation.update({ where: { id: organisationId }, data });
+    // Miroir centre (double écriture transitoire jusqu'à L3)
+    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
+    return updated;
   }
 
   // ── Trial 30j Pilotage (tout déverrouillé pour découvrir) ─────────────
 
   async activerTrial(userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
+    await this.assertProprietaireOrganisation(userId, organisationId);
 
-    if (centre.trialStartedAt) {
-      throw new BadRequestException('La période d\'essai a déjà été utilisée pour ce centre');
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: { trialStartedAt: true, mollieMandatId: true },
+    });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+
+    if (org.trialStartedAt) {
+      throw new BadRequestException('La période d\'essai a déjà été utilisée pour cette organisation');
     }
 
-    if (centre.mollieMandatId) {
-      throw new BadRequestException('Ce centre a déjà un abonnement actif');
+    if (org.mollieMandatId) {
+      throw new BadRequestException('Cette organisation a déjà un abonnement actif');
     }
 
     const now = new Date();
     const expiration = new Date(now);
     expiration.setDate(expiration.getDate() + TRIAL_DUREE_JOURS);
 
-    const updated = await this.prisma.centreHebergement.update({
-      where: { id: centre.id },
-      data: {
-        planAbonnement: PlanAbonnement.PILOTAGE,
-        abonnementStatut: StatutAbonnement.ACTIF,
-        abonnementActifJusquAu: expiration,
-        trialStartedAt: now,
-      },
-    });
+    const data = {
+      planAbonnement: PlanAbonnement.PILOTAGE,
+      abonnementStatut: StatutAbonnement.ACTIF,
+      abonnementActifJusquAu: expiration,
+      trialStartedAt: now,
+    };
+    const updated = await this.prisma.organisation.update({ where: { id: organisationId }, data });
+    // Miroir centre (double écriture transitoire jusqu'à L3)
+    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
 
     try {
       const user = await this.prisma.user.findUnique({
@@ -110,29 +142,36 @@ export class AbonnementService {
    * déjà étendu = 44j → seuil 40j), pas de champ dédié.
    */
   async demanderExtension(userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
+    await this.assertProprietaireOrganisation(userId, organisationId);
+
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: { trialStartedAt: true, mollieMandatId: true, abonnementActifJusquAu: true },
+    });
+    if (!org) throw new NotFoundException('Organisation introuvable');
 
     // Réservé aux essais (pas de mandat Mollie, pas un client payé/virement)
-    if (!centre.trialStartedAt || centre.mollieMandatId) {
+    if (!org.trialStartedAt || org.mollieMandatId) {
       throw new BadRequestException("L'extension est réservée aux comptes en période d'essai.");
     }
 
     // Anti-abus : une seule extension. Essai frais = 30j, déjà étendu = 44j → seuil 40j.
-    const trialStart = new Date(centre.trialStartedAt);
+    const trialStart = new Date(org.trialStartedAt);
     const seuil = new Date(trialStart); seuil.setDate(seuil.getDate() + 40);
-    if (centre.abonnementActifJusquAu && new Date(centre.abonnementActifJusquAu) > seuil) {
+    if (org.abonnementActifJusquAu && new Date(org.abonnementActifJusquAu) > seuil) {
       throw new BadRequestException('Une extension a déjà été accordée pour cet essai.');
     }
 
     // Prolonger de 14j depuis max(aujourd'hui, fin actuelle)
     const now = new Date();
-    const finActuelle = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : now;
+    const finActuelle = org.abonnementActifJusquAu ? new Date(org.abonnementActifJusquAu) : now;
     const base = finActuelle > now ? finActuelle : now;
     const nouvelleFin = new Date(base); nouvelleFin.setDate(nouvelleFin.getDate() + 14);
-    await this.prisma.centreHebergement.update({
-      where: { id: centre.id },
-      data: { abonnementActifJusquAu: nouvelleFin, abonnementStatut: StatutAbonnement.ACTIF },
-    });
+    const data = { abonnementActifJusquAu: nouvelleFin, abonnementStatut: StatutAbonnement.ACTIF };
+    await this.prisma.organisation.update({ where: { id: organisationId }, data });
+    // Miroir centre (double écriture transitoire jusqu'à L3)
+    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
 
     try {
       const user = await this.prisma.user.findUnique({
@@ -159,12 +198,25 @@ export class AbonnementService {
   // ── Statut ────────────────────────────────────────────────────────────────
 
   async getStatut(userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { organisationId } = await this.resolveOrganisation(userId, centreId);
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: {
+        abonnement: true,
+        abonnementStatut: true,
+        abonnementActifJusquAu: true,
+        planAbonnement: true,
+        trialStartedAt: true,
+        mollieMandatId: true,
+        mollieSubscriptionId: true,
+      },
+    });
+    if (!org) throw new NotFoundException('Organisation introuvable');
     const now = new Date();
-    const expiration = centre.abonnementActifJusquAu;
+    const expiration = org.abonnementActifJusquAu;
 
     const actif =
-      centre.abonnementStatut === 'ACTIF' &&
+      org.abonnementStatut === 'ACTIF' &&
       !!expiration &&
       expiration >= now;
 
@@ -174,21 +226,21 @@ export class AbonnementService {
         : 0;
 
     // Distinguer trial (pas de mandat) vs abonnement payé (mandat signé)
-    const isTrial = actif && !!centre.trialStartedAt && !centre.mollieMandatId;
-    const trialExpire = !actif && !!centre.trialStartedAt && !centre.mollieMandatId;
+    const isTrial = actif && !!org.trialStartedAt && !org.mollieMandatId;
+    const trialExpire = !actif && !!org.trialStartedAt && !org.mollieMandatId;
 
     return {
-      type: centre.abonnement,
-      statut: centre.abonnementStatut,
-      actifJusquAu: centre.abonnementActifJusquAu,
-      plan: centre.planAbonnement,
+      type: org.abonnement,
+      statut: org.abonnementStatut,
+      actifJusquAu: org.abonnementActifJusquAu,
+      plan: org.planAbonnement,
       actif,
       joursRestants,
-      mandatActif: !!centre.mollieMandatId,
-      mollieSubscriptionId: centre.mollieSubscriptionId ?? null,
+      mandatActif: !!org.mollieMandatId,
+      mollieSubscriptionId: org.mollieSubscriptionId ?? null,
       isTrial,
       trialExpire,
-      trialUsed: !!centre.trialStartedAt,
+      trialUsed: !!org.trialStartedAt,
     };
   }
 
@@ -205,7 +257,10 @@ export class AbonnementService {
       throw new BadRequestException('Fréquence invalide');
     }
 
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
+    await this.assertProprietaireOrganisation(userId, organisationId);
+    const org = await this.prisma.organisation.findUnique({ where: { id: organisationId } });
+    if (!org) throw new NotFoundException('Organisation introuvable');
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { email: true, prenom: true, nom: true },
@@ -214,33 +269,41 @@ export class AbonnementService {
 
     const ibanClean = iban.replace(/\s+/g, '').toUpperCase();
 
-    // Si une subscription existe déjà, l'annuler (upgrade/changement)
-    if (centre.mollieSubscriptionId && centre.mollieCustomerId) {
+    // Si une subscription existe déjà SUR L'ORG, l'annuler (upgrade/changement).
+    // C'est LA garde anti-double-souscription : le 2e centre d'une org abonnée
+    // retombe sur la même subscription (remplacée), jamais 2 mandats.
+    if (org.mollieSubscriptionId && org.mollieCustomerId) {
       try {
         await mollieClient.customerSubscriptions.cancel(
-          centre.mollieSubscriptionId,
-          { customerId: centre.mollieCustomerId },
+          org.mollieSubscriptionId,
+          { customerId: org.mollieCustomerId },
         );
       } catch (err) {
         console.warn('[souscrire] Erreur annulation ancienne subscription:', err);
       }
+      await this.prisma.organisation.update({
+        where: { id: organisationId },
+        data: { mollieSubscriptionId: null },
+      });
+      // Miroir centre (double écriture transitoire jusqu'à L3)
       await this.prisma.centreHebergement.update({
         where: { id: centre.id },
         data: { mollieSubscriptionId: null },
       });
     }
 
-    // Calculer le montant
+    // Calculer le montant : centres EXPLOITÉS de l'organisation (userId non null
+    // exclut les fiches catalogue APIDAE/LMDJ jamais revendiquées)
     const nbCentresActifs = await this.prisma.centreHebergement.count({
-      where: { userId, statut: 'ACTIVE' },
+      where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
     });
     const montantTotal = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
-    // Créer ou réutiliser le customer Mollie
-    let mollieCustomerId = centre.mollieCustomerId;
+    // Créer ou réutiliser le customer Mollie (1 customer = 1 organisation)
+    let mollieCustomerId = org.mollieCustomerId;
     if (!mollieCustomerId) {
       const customer = await mollieClient.customers.create({
-        name: `${user.prenom} ${user.nom} — ${centre.nom}`,
+        name: org.raisonSociale ?? org.nom,
         email: user.email,
       });
       mollieCustomerId = customer.id;
@@ -264,7 +327,7 @@ export class AbonnementService {
       customerId: mollieCustomerId,
       amount: { value: centsToMollie(montantTotal), currency: 'EUR' },
       interval,
-      description: `Abonnement LIAVO ${plan} ${intervalLabel} — ${centre.nom}`,
+      description: `Abonnement LIAVO ${plan} ${intervalLabel} — ${org.nom}`,
       startDate: startDate.toISOString().split('T')[0],
       mandateId: mandate.id,
       webhookUrl: `${process.env.BACKEND_URL || 'https://api.liavo.fr'}/abonnements/webhook`,
@@ -276,25 +339,26 @@ export class AbonnementService {
     const gracePeriod = new Date(now);
     gracePeriod.setDate(gracePeriod.getDate() + 14);
     // Si le trial actuel est plus long que le grace period, le garder
-    const currentExp = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : null;
+    const currentExp = org.abonnementActifJusquAu ? new Date(org.abonnementActifJusquAu) : null;
     const expiration = currentExp && currentExp > gracePeriod ? currentExp : gracePeriod;
 
-    await this.prisma.centreHebergement.update({
-      where: { id: centre.id },
-      data: {
-        mollieCustomerId,
-        mollieMandatId: mandate.id,
-        mollieSubscriptionId: subscription.id,
-        planAbonnement: plan as any,
-        abonnement: frequence as any,
-        abonnementStatut: 'ACTIF',
-        abonnementActifJusquAu: expiration,
-      },
-    });
+    const dataAbonnement = {
+      mollieCustomerId,
+      mollieMandatId: mandate.id,
+      mollieSubscriptionId: subscription.id,
+      planAbonnement: plan as any,
+      abonnement: frequence as any,
+      abonnementStatut: 'ACTIF' as const,
+      abonnementActifJusquAu: expiration,
+    };
+    await this.prisma.organisation.update({ where: { id: organisationId }, data: dataAbonnement });
+    // Miroir centre (double écriture transitoire jusqu'à L3)
+    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data: dataAbonnement });
 
     await this.prisma.acceptationCgv.create({
       data: {
         centreId: centre.id,
+        organisationId,
         userId,
         plan,
         frequence,
@@ -351,11 +415,13 @@ export class AbonnementService {
     console.log('[mollie-webhook] Payment status:', payment.status, '| sequenceType:', payment.sequenceType, '| customerId:', customerId);
     if (!customerId) return { received: true };
 
-    const centre = await this.prisma.centreHebergement.findFirst({
+    // Résolution par l'ORGANISATION — unicité garantie par l'index partiel L1
+    // (organisations_mollie_customer_id_key).
+    const org = await this.prisma.organisation.findFirst({
       where: { mollieCustomerId: customerId },
     });
-    if (!centre) {
-      console.error('[mollie-webhook] Centre introuvable pour customerId:', customerId);
+    if (!org) {
+      console.error('[mollie-webhook] Organisation introuvable pour customerId:', customerId);
       return { received: true };
     }
 
@@ -367,9 +433,9 @@ export class AbonnementService {
         return { received: true, alreadyProcessed: true };
       }
 
-      const frequence = centre.abonnement;
+      const frequence = org.abonnement;
       const now = new Date();
-      const oldExp = centre.abonnementActifJusquAu;
+      const oldExp = org.abonnementActifJusquAu;
       const base = oldExp && oldExp > now ? oldExp : now;
       const expiration = new Date(base);
       if (frequence === 'ANNUEL') {
@@ -378,36 +444,68 @@ export class AbonnementService {
         expiration.setMonth(expiration.getMonth() + 1);
       }
 
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
+      await this.prisma.organisation.update({
+        where: { id: org.id },
         data: {
           abonnementStatut: StatutAbonnement.ACTIF,
           abonnementActifJusquAu: expiration,
         },
       });
-      console.log('[mollie-webhook] Abonnement prolongé centre', centre.id, 'jusqu\'au', expiration.toISOString());
+      // Miroir centres (double écriture transitoire jusqu'à L3) : l'abonnement
+      // d'org couvre TOUS ses centres exploités.
+      await this.prisma.centreHebergement.updateMany({
+        where: { organisationId: org.id, userId: { not: null } },
+        data: {
+          abonnementStatut: StatutAbonnement.ACTIF,
+          abonnementActifJusquAu: expiration,
+        },
+      });
+      console.log('[mollie-webhook] Abonnement prolongé organisation', org.id, 'jusqu\'au', expiration.toISOString());
 
       try {
-        const nbCentresFacture = await this.prisma.centreHebergement.count({
-          where: { userId: centre.userId!, statut: 'ACTIVE' },
+        // Facture = montant RÉELLEMENT PRÉLEVÉ (payment.amount.value, chaîne
+        // décimale "147.00"). Fallback recalcul théorique si absent/invalide —
+        // jamais de facture à 0 €.
+        let montantFacture = Math.round(Number(payment.amount?.value) * 100);
+        if (!payment.amount?.value || !Number.isFinite(montantFacture) || montantFacture <= 0) {
+          console.error('[mollie-webhook] payment.amount invalide, fallback recalcul théorique:', payment.amount);
+          const nbCentresFacture = await this.prisma.centreHebergement.count({
+            where: { organisationId: org.id, statut: 'ACTIVE', userId: { not: null } },
+          });
+          montantFacture = calculerMontantAbonnementCents(
+            org.planAbonnement, frequence ?? 'MENSUEL', nbCentresFacture,
+          );
+        }
+        // Centre représentatif (trace + fallback destinataire actuel d'emettre —
+        // le destinataire raison sociale org est le Lot 4).
+        const centreRepresentatif = await this.prisma.centreHebergement.findFirst({
+          where: { organisationId: org.id, statut: 'ACTIVE', userId: { not: null } },
+          orderBy: { createdAt: 'asc' },
         });
-        const montantFacture = calculerMontantAbonnementCents(
-          centre.planAbonnement, frequence ?? 'MENSUEL', nbCentresFacture,
-        );
-        await this.factureLiavoService.emettre(
-          centre.id, montantFacture, centre.planAbonnement, frequence ?? 'MENSUEL', paymentId,
-        );
-        console.log('[mollie-webhook] Facture LIAVO émise pour centre', centre.id);
+        if (!centreRepresentatif) {
+          console.error('[mollie-webhook] Aucun centre exploité pour organisation', org.id, '— facture non émise');
+        } else {
+          await this.factureLiavoService.emettre(
+            centreRepresentatif.id, montantFacture, org.planAbonnement, frequence ?? 'MENSUEL', paymentId, null, org.id,
+          );
+          console.log('[mollie-webhook] Facture LIAVO émise pour organisation', org.id);
+        }
       } catch (err) {
         console.error('[mollie-webhook] Erreur émission facture LIAVO:', err);
       }
+
+      // DERNIER geste : réaligner le montant de la subscription (auto-correction
+      // des resyncs ratés aux transitions de centres). Fire-and-forget.
+      resyncMontantOrganisation(this.prisma, mollieClient, org.id).catch((err) =>
+        console.error('[mollie-webhook] resync:', err),
+      );
 
       return { received: true, renewed: true };
     }
 
     // ── Paiement échoué ou expiré ──
     if (['failed', 'expired', 'canceled'].includes(payment.status)) {
-      console.warn(`[mollie-webhook] Paiement ${payment.status} pour centre ${centre.id}`);
+      console.warn(`[mollie-webhook] Paiement ${payment.status} pour organisation ${org.id}`);
       // On ne désactive PAS immédiatement — Mollie retentera automatiquement
       // via la subscription. Désactivation manuelle si besoin.
       return { received: true, status: payment.status };
@@ -419,13 +517,25 @@ export class AbonnementService {
   // ── Annuler l'abonnement ──────────────────────────────────────────────────
 
   async annuler(userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
+    await this.assertProprietaireOrganisation(userId, organisationId);
 
-    if (centre.mollieSubscriptionId && centre.mollieCustomerId) {
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: {
+        mollieSubscriptionId: true,
+        mollieCustomerId: true,
+        planAbonnement: true,
+        abonnementActifJusquAu: true,
+      },
+    });
+    if (!org) throw new NotFoundException('Organisation introuvable');
+
+    if (org.mollieSubscriptionId && org.mollieCustomerId) {
       try {
         await mollieClient.customerSubscriptions.cancel(
-          centre.mollieSubscriptionId,
-          { customerId: centre.mollieCustomerId },
+          org.mollieSubscriptionId,
+          { customerId: org.mollieCustomerId },
         );
       } catch (err) {
         console.error('[annuler] Erreur annulation Mollie:', err);
@@ -433,13 +543,18 @@ export class AbonnementService {
     }
 
     // L'abonnement reste actif jusqu'à la fin de la période en cours
-    const updated = await this.prisma.centreHebergement.update({
-      where: { id: centre.id },
+    const updated = await this.prisma.organisation.update({
+      where: { id: organisationId },
       data: {
         mollieSubscriptionId: null,
         // abonnementStatut reste ACTIF jusqu'à expiration naturelle
         // Le cron ou une vérif au login basculera en INACTIF à l'expiration
       },
+    });
+    // Miroir centre (double écriture transitoire jusqu'à L3)
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: { mollieSubscriptionId: null },
     });
 
     // Fetch user UNE SEULE FOIS pour les 2 emails
@@ -455,8 +570,8 @@ export class AbonnementService {
 
     if (user?.email) {
       try {
-        const dateExp = centre.abonnementActifJusquAu
-          ? centre.abonnementActifJusquAu.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+        const dateExp = org.abonnementActifJusquAu
+          ? org.abonnementActifJusquAu.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
           : 'la fin de la période en cours';
         await this.emailService.sendConfirmationAnnulation(
           user.email, user.prenom ?? '', centre.nom, dateExp,
@@ -472,7 +587,7 @@ export class AbonnementService {
            <table style="width:100%;border-collapse:collapse;margin:16px 0">
              <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
              <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user.prenom ?? ''} ${user.nom ?? ''} — ${user.email}</td></tr>
-             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Plan actuel</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.planAbonnement}</td></tr>
+             <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Plan actuel</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${org.planAbonnement}</td></tr>
            </table>`,
         );
       } catch (err) {
@@ -484,7 +599,7 @@ export class AbonnementService {
   }
 
   async getFactures(userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-    return this.factureLiavoService.lister(centre.id);
+    const { organisationId } = await this.resolveOrganisation(userId, centreId);
+    return this.factureLiavoService.listerParOrganisation(organisationId);
   }
 }
