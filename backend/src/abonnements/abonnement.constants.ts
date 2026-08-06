@@ -18,6 +18,15 @@ export const CENTRE_SUPP_MENSUEL = 3900;
 export const CENTRE_SUPP_ANNUEL = 39000;
 
 /**
+ * Conversion centimes → montant Mollie ("146.80"). Copie exportée de la
+ * fonction privée d'abonnement.service.ts (duplication temporaire assumée,
+ * résorbée au Lot 2a quand le service basculera sur cet export).
+ */
+export function centsToMollie(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+/**
  * Montant total d'un abonnement en centimes : prix du plan + supplément
  * par centre ACTIF au-delà du premier (39 €/mois ou 390 €/an par centre).
  * Plan inconnu → 0 (comportement du webhook Mollie, `?? 0`).
