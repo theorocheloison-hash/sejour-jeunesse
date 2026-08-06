@@ -675,7 +675,10 @@ model CentreHebergement {
 
 model FactureLiavo {
   id              String   @id @default(uuid()) @db.Uuid
-  centreId        String   @map("centre_id") @db.Uuid
+  // Pièce comptable : doit survivre à la suppression de son centre (ex-Cascade
+  // destructeur retiré au Lot 1). Le débiteur légal est l'organisation (Restrict).
+  centreId        String?  @map("centre_id") @db.Uuid
+  organisationId  String?  @map("organisation_id") @db.Uuid
   numero          String   @unique @db.VarChar(20)
   dateEmission    DateTime @map("date_emission")
   montantHT       Int      @map("montant_ht")
@@ -688,25 +691,30 @@ model FactureLiavo {
   pdfUrl          String?  @map("pdf_url") @db.VarChar(500)
   createdAt       DateTime @default(now()) @map("created_at")
 
-  centre CentreHebergement @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  centre       CentreHebergement? @relation(fields: [centreId], references: [id], onDelete: SetNull)
+  organisation Organisation?      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
 
   @@index([centreId])
+  @@index([organisationId])
   @@index([dateEmission])
   @@map("factures_liavo")
 }
 
 model AcceptationCgv {
-  id         String   @id @default(uuid()) @db.Uuid
-  centreId   String   @map("centre_id") @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  plan       String
-  frequence  String
-  ipAddress  String?  @map("ip_address")
-  acceptedAt DateTime @default(now()) @map("accepted_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  centreId       String   @map("centre_id") @db.Uuid
+  organisationId String?  @map("organisation_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  plan           String
+  frequence      String
+  ipAddress      String?  @map("ip_address")
+  acceptedAt     DateTime @default(now()) @map("accepted_at")
 
-  centre CentreHebergement @relation(fields: [centreId], references: [id])
-  user   User              @relation(fields: [userId], references: [id])
+  centre       CentreHebergement @relation(fields: [centreId], references: [id])
+  organisation Organisation?     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  user         User              @relation(fields: [userId], references: [id])
 
+  @@index([organisationId])
   @@map("acceptations_cgv")
 }
 
@@ -1560,6 +1568,22 @@ model Organisation {
   academie       String?           @db.VarChar(100)
   source         SourceOrganisation @default(MANUAL)
   sourceId       String?            @map("source_id") @db.VarChar(100)
+  // ── Abonnement LIAVO porté par l'organisation (Lot 1 abonnement-organisation) ──
+  // Miroir des colonnes de CentreHebergement. Transition : tant que les Lots 2-3
+  // n'ont pas basculé le code, SEUL l'état du centre fait foi — aucun write
+  // applicatif sur ces champs avant la bascule. Unicité mollie_* garantie par des
+  // index uniques PARTIELS (WHERE ... IS NOT NULL) créés dans la migration
+  // 20260806150000 — non modélisables ici, ne PAS ajouter de @unique (divergerait).
+  abonnement             TypeAbonnement?   @map("abonnement")
+  abonnementActifJusquAu DateTime?         @map("abonnement_actif_jusqua") @db.Date
+  abonnementStatut       StatutAbonnement  @default(INACTIF) @map("abonnement_statut")
+  planAbonnement         PlanAbonnement    @default(DECOUVERTE) @map("plan_abonnement")
+  mollieCustomerId       String?           @map("mollie_customer_id") @db.VarChar(50)
+  mollieSubscriptionId   String?           @map("mollie_subscription_id") @db.VarChar(50)
+  mollieMandatId         String?           @map("mollie_mandat_id") @db.VarChar(50)
+  trialStartedAt         DateTime?         @map("trial_started_at")
+  dernierEmailAlerteAt   DateTime?         @map("dernier_email_alerte_at")
+  modePaiement           ModePaiement?     @map("mode_paiement")
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
 
@@ -1569,6 +1593,8 @@ model Organisation {
   relationsCliente     RelationCommerciale[]   @relation("OrganisationCliente")
   relationsHebergeur   RelationCommerciale[]   @relation("OrganisationHebergeur")
   invitationsDirecteur InvitationDirecteur[]
+  facturesLiavo        FactureLiavo[]
+  acceptationsCgv      AcceptationCgv[]
 
   @@index([siren])
   @@index([siret])
