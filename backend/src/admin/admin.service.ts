@@ -124,7 +124,17 @@ export class AdminService {
       data: { statut: 'ACTIVE' },
     });
 
-    await demarrerOuAlignerTrial(this.prisma, this.email, id);
+    // Essai porté par l'organisation (Lot 2e) : 1 appel par organisation dont
+    // un centre vient d'être activé. Les gardes org filtrent ensuite (payante /
+    // offerte / essai en cours) organisation par organisation.
+    const orgsAActiver = await this.prisma.centreHebergement.findMany({
+      where: { userId: id, organisationId: { not: null } },
+      select: { organisationId: true },
+      distinct: ['organisationId'],
+    });
+    for (const { organisationId } of orgsAActiver) {
+      if (organisationId) await demarrerOuAlignerTrial(this.prisma, this.email, organisationId);
+    }
 
     try {
       const nomCentre = user.centres[0]?.nom ?? 'votre centre';
@@ -1436,8 +1446,12 @@ export class AdminService {
       data: { statut: 'ACTIVE' },
     });
 
-    if (centre.userId) {
-      await demarrerOuAlignerTrial(this.prisma, this.email, centre.userId);
+    // Essai porté par l'organisation (Lot 2e) : l'org du centre qu'on vient
+    // d'activer. Un centre sans organisation (théorique, 0 en prod) → pas d'essai.
+    if (centre.organisationId) {
+      await demarrerOuAlignerTrial(this.prisma, this.email, centre.organisationId);
+    } else {
+      console.log('[activerCentre] centre', centre.id, 'sans organisation — essai non démarré');
     }
 
     if (centre.user?.email) {

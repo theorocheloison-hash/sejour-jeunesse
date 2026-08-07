@@ -6,16 +6,17 @@ import type { ClaimService } from '../organisations/claim.service';
 import { AuthService } from './auth.service';
 
 /**
- * Tests du trial à la première connexion, désormais délégué à la source unique
+ * Tests du trial à la première connexion, délégué à la source unique
  * demarrerOuAlignerTrial (centres/trial.helper) — exercé ici via login().
- * Les gardes détaillées (compte payant, abonnement offert, centre PENDING,
- * alignement multi-centre) sont couvertes par trial.helper.spec.ts ; ce fichier
- * vérifie le câblage depuis login() : rôle HEBERGEUR uniquement, jamais avant
- * validation du mot de passe, et échec du helper non bloquant.
+ * Lot 2e : l'essai est porté par l'ORGANISATION. login() résout les
+ * organisations distinctes des centres POSSÉDÉS et appelle le helper une fois
+ * par organisation. Les gardes détaillées (payante, offerte, essai en cours)
+ * vivent dans trial.helper.spec.ts ; ce fichier vérifie le CÂBLAGE : rôle
+ * HEBERGEUR uniquement, jamais avant validation du mot de passe, un appel par
+ * org, et échec du helper non bloquant.
  */
 
 const PASSWORD = 'S3cret!password';
-// Coût bcrypt 4 (au lieu de 12) : le hash embarque son coût, compare() reste valide.
 let PASSWORD_HASH: string;
 
 function mockPrisma() {
@@ -24,9 +25,21 @@ function mockPrisma() {
       findUnique: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
     },
+    organisation: {
+      // Par défaut : org payante → le helper court-circuite après findUnique
+      // (on teste le câblage, pas les branches internes du helper).
+      findUnique: jest.fn().mockResolvedValue({
+        mollieMandatId: 'mdt_1',
+        modePaiement: null,
+        abonnementStatut: 'ACTIF',
+        trialStartedAt: null,
+        abonnementActifJusquAu: null,
+      }),
+      update: jest.fn().mockResolvedValue({}),
+    },
     centreHebergement: {
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
   };
 }
@@ -50,22 +63,7 @@ function hebergeur(over: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-/** Centre ACTIVE vierge : éligible au trial dans demarrerOuAlignerTrial. */
-function centreVierge(over: Partial<Record<string, unknown>> = {}) {
-  return {
-    id: 'centre-1',
-    nom: 'Centre A',
-    statut: 'ACTIVE',
-    trialStartedAt: null,
-    abonnementStatut: 'INACTIF',
-    abonnementActifJusquAu: null,
-    mollieMandatId: null,
-    modePaiement: null,
-    ...over,
-  };
-}
-
-describe('AuthService.login — trial première connexion', () => {
+describe('AuthService.login — trial première connexion (Lot 2e, scope organisation)', () => {
   let prisma: PrismaMock;
   let email: { sendNotifAdmin: jest.Mock };
   let service: AuthService;
@@ -86,87 +84,60 @@ describe('AuthService.login — trial première connexion', () => {
       {} as ClaimService,
     );
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 
   const login = () => service.login({ email: 'heb@centre.fr', password: PASSWORD } as any);
 
-  it("HEBERGEUR vierge : le helper charge les centres du user et borne l'updateMany aux éligibles", async () => {
+  it('HEBERGEUR : résout les orgs distinctes des centres POSSÉDÉS (userId + organisationId non null) et appelle le helper', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur());
-    prisma.centreHebergement.findMany.mockResolvedValue([centreVierge()]);
-    await login();
-
-    expect(prisma.centreHebergement.findMany).toHaveBeenCalledTimes(1);
-    expect(prisma.centreHebergement.findMany.mock.calls[0][0].where).toEqual({ userId: 'user-1' });
-    expect(prisma.centreHebergement.updateMany).toHaveBeenCalledTimes(1);
-    const arg = prisma.centreHebergement.updateMany.mock.calls[0][0];
-    // Garde de réentrance : seuls les éligibles capturés, jamais re-trialés.
-    expect(arg.where).toEqual({ id: { in: ['centre-1'] }, trialStartedAt: null });
-  });
-
-  it('HEBERGEUR vierge : trial 30 jours PILOTAGE posé (plan, statut, expiration, trialStartedAt)', async () => {
-    prisma.user.findUnique.mockResolvedValue(hebergeur());
-    prisma.centreHebergement.findMany.mockResolvedValue([centreVierge()]);
-    prisma.centreHebergement.updateMany.mockResolvedValue({ count: 1 });
+    prisma.centreHebergement.findMany.mockResolvedValue([{ organisationId: 'org-1' }]);
 
     await login();
 
-    const { data } = prisma.centreHebergement.updateMany.mock.calls[0][0];
-    expect(data.planAbonnement).toBe('PILOTAGE');
-    expect(data.abonnementStatut).toBe('ACTIF');
-    expect(data.trialStartedAt).toBeInstanceOf(Date);
-    expect(data.abonnementActifJusquAu).toBeInstanceOf(Date);
-    // trialExpiration() tronque à minuit UTC : durée réelle dans (29j, 30j].
-    const dureeMs = data.abonnementActifJusquAu.getTime() - data.trialStartedAt.getTime();
-    expect(dureeMs).toBeGreaterThan(29 * 86400000 - 3600000);
-    expect(dureeMs).toBeLessThanOrEqual(30 * 86400000 + 3600000);
+    expect(prisma.centreHebergement.findMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', organisationId: { not: null } },
+      select: { organisationId: true },
+      distinct: ['organisationId'],
+    });
+    // Le helper a été appelé avec l'org résolue.
+    expect(prisma.organisation.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'org-1' } }),
+    );
   });
 
-  it('centres éligibles → une notif admin par centre', async () => {
+  it('multi-organisation : un appel helper par organisation distincte', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur());
     prisma.centreHebergement.findMany.mockResolvedValue([
-      centreVierge({ id: 'c-a', nom: 'Centre A' }),
-      centreVierge({ id: 'c-b', nom: 'Centre B' }),
+      { organisationId: 'org-1' },
+      { organisationId: 'org-2' },
     ]);
-    prisma.centreHebergement.updateMany.mockResolvedValue({ count: 2 });
 
     await login();
 
-    expect(email.sendNotifAdmin).toHaveBeenCalledTimes(2);
-    expect(email.sendNotifAdmin.mock.calls[0][0]).toContain('Centre A');
-    expect(email.sendNotifAdmin.mock.calls[1][0]).toContain('Centre B');
+    expect(prisma.organisation.findUnique).toHaveBeenCalledTimes(2);
+    const ids = prisma.organisation.findUnique.mock.calls.map((c) => c[0].where.id);
+    expect(ids).toEqual(expect.arrayContaining(['org-1', 'org-2']));
   });
 
-  it('aucun centre éligible → ni updateMany ni notif admin', async () => {
+  it('HEBERGEUR sans centre rattaché à une organisation → aucun appel helper', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur());
     prisma.centreHebergement.findMany.mockResolvedValue([]);
 
     const result = await login();
 
     expect(result.access_token).toBe('jwt-token');
-    expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
-    expect(email.sendNotifAdmin).not.toHaveBeenCalled();
+    expect(prisma.organisation.findUnique).not.toHaveBeenCalled();
   });
 
-  it('échec de la notif admin → le login réussit quand même (non bloquant)', async () => {
+  it('échec du helper (findUnique rejette) → le login réussit quand même (non bloquant)', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur());
-    prisma.centreHebergement.findMany.mockResolvedValue([centreVierge()]);
-    prisma.centreHebergement.updateMany.mockResolvedValue({ count: 1 });
-    email.sendNotifAdmin.mockRejectedValue(new Error('Brevo down'));
-
-    const result = await login();
-
-    expect(result.access_token).toBe('jwt-token');
-    expect(consoleErrorSpy).toHaveBeenCalled();
-  });
-
-  it('échec du updateMany lui-même → le login réussit quand même', async () => {
-    prisma.user.findUnique.mockResolvedValue(hebergeur());
-    prisma.centreHebergement.findMany.mockResolvedValue([centreVierge()]);
-    prisma.centreHebergement.updateMany.mockRejectedValue(new Error('DB down'));
+    prisma.centreHebergement.findMany.mockResolvedValue([{ organisationId: 'org-1' }]);
+    prisma.organisation.findUnique.mockRejectedValue(new Error('DB down'));
 
     const result = await login();
 
@@ -175,7 +146,7 @@ describe('AuthService.login — trial première connexion', () => {
   });
 
   it.each(['ORGANISATEUR', 'ADMIN', 'PARENT', 'RESEAU'])(
-    'rôle %s → aucune tentative d’activation de trial',
+    'rôle %s → aucune tentative de trial (pas de résolution d organisations)',
     async (role) => {
       prisma.user.findUnique.mockResolvedValue(hebergeur({ role, compteValide: false }));
 
@@ -183,23 +154,21 @@ describe('AuthService.login — trial première connexion', () => {
 
       expect(result.access_token).toBe('jwt-token');
       expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
-      expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
+      expect(prisma.organisation.findUnique).not.toHaveBeenCalled();
     },
   );
 
-  it('login refusé (mauvais mot de passe) → jamais d’activation de trial', async () => {
+  it('login refusé (mauvais mot de passe) → jamais de trial', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur());
     await expect(
       service.login({ email: 'heb@centre.fr', password: 'mauvais' } as any),
     ).rejects.toThrow('Identifiants invalides');
     expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
-    expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
   });
 
-  it('email non vérifié → EMAIL_NON_VERIFIE, jamais d’activation de trial', async () => {
+  it('email non vérifié → EMAIL_NON_VERIFIE, jamais de trial', async () => {
     prisma.user.findUnique.mockResolvedValue(hebergeur({ emailVerifie: false }));
     await expect(login()).rejects.toThrow('EMAIL_NON_VERIFIE');
     expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
-    expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
   });
 });

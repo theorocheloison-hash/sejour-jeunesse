@@ -621,7 +621,8 @@ export class ClaimService {
 
     // L'essai gratuit démarre à l'activation du centre, pas au premier login
     // (un centre PENDING ne doit jamais consommer son essai pendant l'attente).
-    await demarrerOuAlignerTrial(this.prisma, this.email, membership.userId);
+    // Essai porté par l'organisation (Lot 2e) — validerClaim a déjà l'org sous la main.
+    await demarrerOuAlignerTrial(this.prisma, this.email, membership.organisationId);
 
     await this.email.sendGenericNotification(
       membership.user.email,

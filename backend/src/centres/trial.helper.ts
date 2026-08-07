@@ -37,79 +37,71 @@ export function trialExpiration(): Date {
 export async function demarrerOuAlignerTrial(
   prisma: PrismaService,
   email: { sendNotifAdmin: (sujet: string, html: string) => Promise<unknown> },
-  userId: string,
+  organisationId: string,
 ): Promise<void> {
   try {
     const now = new Date();
 
-    const centres = await prisma.centreHebergement.findMany({
-      where: { userId },
+    // L'essai est porté par l'ORGANISATION (Lot 2e — « une organisation = un
+    // essai », remplace « un compte = un essai » du 14/07). Les centres sont
+    // écrits en MIROIR (double écriture transitoire jusqu'à L3).
+    const org = await prisma.organisation.findUnique({
+      where: { id: organisationId },
       select: {
-        id: true,
-        nom: true,
-        statut: true,
-        trialStartedAt: true,
-        abonnementStatut: true,
-        abonnementActifJusquAu: true,
         mollieMandatId: true,
         modePaiement: true,
+        abonnementStatut: true,
+        trialStartedAt: true,
+        abonnementActifJusquAu: true,
       },
     });
+    if (!org) return;
 
-    // a) Compte payant : le nouveau centre est facturé, pas d'essai.
-    if (centres.some((c) => c.mollieMandatId !== null || c.modePaiement === 'VIREMENT')) return;
+    // a) Organisation payante : mandat Mollie ou virement → pas d'essai.
+    if (org.mollieMandatId !== null || org.modePaiement === 'VIREMENT') return;
 
     // b) Abonnement offert / posé à la main (ex. Sauvageon) : ACTIF sans trial ni mandat.
     if (
-      centres.some(
-        (c) =>
-          c.abonnementStatut === StatutAbonnement.ACTIF &&
-          c.trialStartedAt === null &&
-          c.mollieMandatId === null,
-      )
+      org.abonnementStatut === StatutAbonnement.ACTIF &&
+      org.trialStartedAt === null &&
+      org.mollieMandatId === null
     ) return;
 
-    // c) Centres éligibles : ACTIVE, vierges de tout essai et de tout abonnement.
-    const eligibles = centres.filter(
-      (c) =>
-        c.statut === 'ACTIVE' &&
-        c.trialStartedAt === null &&
-        c.mollieMandatId === null &&
-        c.abonnementStatut === StatutAbonnement.INACTIF,
-    );
-    if (eligibles.length === 0) return;
+    // c) Essai déjà présent sur l'org.
+    if (org.trialStartedAt !== null) {
+      // c-expiré : jamais de 2e essai. NO-OP strict (pas de findMany, pas d'update).
+      if (!org.abonnementActifJusquAu || org.abonnementActifJusquAu <= now) return;
+    }
 
-    // d) Référence d'essai : le trialStartedAt non null le plus récent.
-    const trialRef = centres
-      .filter((c) => c.trialStartedAt !== null)
-      .sort((a, b) => b.trialStartedAt!.getTime() - a.trialStartedAt!.getTime())[0] ?? null;
+    // Centres à miroiter/notifier : ACTIVE exploités (userId non null) encore
+    // vierges d'essai. La garde trialStartedAt:null ne réécrit jamais un
+    // timestamp historique (cas YAKA, dérive de ms bénigne).
+    const centresAMiroiter = await prisma.centreHebergement.findMany({
+      where: { organisationId, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null },
+      select: { id: true, nom: true, userId: true },
+    });
 
     let expiration: Date;
+    let trialStartedAtValue: Date;
     let sujet: (nom: string) => string;
     let corps: (nom: string) => string;
 
-    if (trialRef) {
-      // d2) Essai terminé : aucun nouvel essai, le centre reste hors abonnement.
-      if (!trialRef.abonnementActifJusquAu || trialRef.abonnementActifJusquAu <= now) return;
-
-      // d1) Essai en cours : alignement sur la MÊME expiration (pas de prolongation).
-      expiration = trialRef.abonnementActifJusquAu;
-      await prisma.centreHebergement.updateMany({
-        where: { id: { in: eligibles.map((c) => c.id) }, trialStartedAt: null },
-        data: {
-          planAbonnement: PlanAbonnement.PILOTAGE,
-          abonnementStatut: StatutAbonnement.ACTIF,
-          trialStartedAt: trialRef.trialStartedAt,
-          abonnementActifJusquAu: trialRef.abonnementActifJusquAu,
-        },
-      });
+    if (org.trialStartedAt !== null) {
+      // c-en-cours : alignement sur la MÊME expiration (pas de prolongation),
+      // AUCUN write sur l'org (l'essai y est déjà posé) — miroir seul.
+      expiration = org.abonnementActifJusquAu!;
+      trialStartedAtValue = org.trialStartedAt;
       sujet = (nom) => `[Admin] Centre ajouté à l'essai en cours — ${nom}`;
       corps = (nom) => `<p><strong>${nom}</strong> a été ajouté à l'essai gratuit en cours (Pilotage).</p>`;
     } else {
-      // d3) Aucun essai antérieur : nouvel essai 30 jours Pilotage.
+      // d) Organisation vierge : nouvel essai 30j Pilotage.
+      // INVARIANT : aucun centre ACTIVE exploité éligible → aucun essai (un
+      // PENDING ne consomme jamais l'essai, porté au niveau org).
+      if (centresAMiroiter.length === 0) return;
       expiration = trialExpiration();
-      await prisma.centreHebergement.updateMany({
-        where: { id: { in: eligibles.map((c) => c.id) }, trialStartedAt: null },
+      trialStartedAtValue = now;
+      await prisma.organisation.update({
+        where: { id: organisationId },
         data: {
           planAbonnement: PlanAbonnement.PILOTAGE,
           abonnementStatut: StatutAbonnement.ACTIF,
@@ -121,14 +113,35 @@ export async function demarrerOuAlignerTrial(
       corps = (nom) => `<p><strong>${nom}</strong> a activé un essai gratuit (30 jours Pilotage).</p>`;
     }
 
-    // Notifs admin sur les éligibles capturés AVANT l'update (jamais de findMany
-    // post-update sur trialStartedAt : la comparaison de Date exacte est fragile).
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, prenom: true, nom: true },
+    // c-en-cours sans nouveau centre à aligner : rien à miroiter ni notifier.
+    if (centresAMiroiter.length === 0) return;
+
+    // Miroir centres (double écriture transitoire jusqu'à L3).
+    await prisma.centreHebergement.updateMany({
+      where: { organisationId, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null },
+      data: {
+        planAbonnement: PlanAbonnement.PILOTAGE,
+        abonnementStatut: StatutAbonnement.ACTIF,
+        trialStartedAt: trialStartedAtValue,
+        abonnementActifJusquAu: expiration,
+      },
     });
+
+    // Notifs admin sur les centres capturés AVANT l'update (jamais de findMany
+    // post-update sur trialStartedAt : la comparaison de Date exacte est fragile).
     const dateExp = expiration.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-    for (const centre of eligibles) {
+    const userCache = new Map<string, { prenom: string | null; nom: string | null; email: string } | null>();
+    for (const centre of centresAMiroiter) {
+      if (centre.userId && !userCache.has(centre.userId)) {
+        userCache.set(
+          centre.userId,
+          await prisma.user.findUnique({
+            where: { id: centre.userId },
+            select: { email: true, prenom: true, nom: true },
+          }),
+        );
+      }
+      const user = centre.userId ? userCache.get(centre.userId) : null;
       await email
         .sendNotifAdmin(
           sujet(centre.nom),

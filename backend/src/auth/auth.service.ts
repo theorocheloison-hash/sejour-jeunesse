@@ -642,11 +642,19 @@ export class AuthService {
     }
 
     // Trial 30j Pilotage à la première connexion. UNIQUEMENT ici (pas dans
-    // consommerMagicLink ni refreshAccessToken) : un seul point d'activation,
-    // et le helper filtre par userId propriétaire — un collaborateur invité
-    // (CollaborateurCentre) n'est jamais userId d'un CentreHebergement.
+    // consommerMagicLink ni refreshAccessToken) : filet de rattrapage pour les
+    // comptes legacy à centres déjà ACTIVE. Essai porté par l'organisation
+    // (Lot 2e) : 1 appel par org des centres POSSÉDÉS (userId propriétaire —
+    // un collaborateur invité n'est jamais userId d'un CentreHebergement).
     if (user.role === 'HEBERGEUR') {
-      await demarrerOuAlignerTrial(this.prisma, this.email, user.id);
+      const orgs = await this.prisma.centreHebergement.findMany({
+        where: { userId: user.id, organisationId: { not: null } },
+        select: { organisationId: true },
+        distinct: ['organisationId'],
+      });
+      for (const { organisationId } of orgs) {
+        if (organisationId) await demarrerOuAlignerTrial(this.prisma, this.email, organisationId);
+      }
     }
 
     return this.buildAuthResponse(user);
