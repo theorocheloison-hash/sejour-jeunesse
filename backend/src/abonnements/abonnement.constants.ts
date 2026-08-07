@@ -41,3 +41,27 @@ export function calculerMontantAbonnementCents(
   const centresSupp = Math.max(0, nbCentresActifs - 1);
   return prixPlan + centresSupp * (annuel ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
 }
+
+// Hiérarchie des plans — source unique consommée par PlanGuard,
+// rooming.assertPlanCentreComplet et demande.findOpen (fin de la triple copie, L3a).
+export const PLAN_HIERARCHY: Record<string, number> = {
+  DECOUVERTE: 0,
+  ESSENTIEL: 1,
+  COMPLET: 2,
+  PILOTAGE: 3,
+};
+
+/**
+ * Plan effectif d'un porteur d'abonnement (organisation depuis L3a, centre avant) :
+ * DECOUVERTE si l'abo est inactif/expiré, sinon le plan (DECOUVERTE si plan absent).
+ * Fonction PURE : reçoit les 3 champs d'abo, ne connaît PAS le cas « org null »
+ * (le fallback org-null se décide dans chaque consommateur avant l'appel).
+ */
+export function getPlanEffectif(
+  statut: string | null,
+  exp: Date | string | null,
+  plan: string | null,
+): string {
+  const isActive = statut === 'ACTIF' && !!exp && new Date(exp) >= new Date();
+  return isActive ? (plan ?? 'DECOUVERTE') : 'DECOUVERTE';
+}

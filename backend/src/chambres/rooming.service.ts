@@ -8,14 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { peutGererEnPropre } from '../common/sejour-ownership.js';
-
-// Copie du PlanGuard — voir la dette notée sur assertPlanCentreComplet.
-const PLAN_HIERARCHY: Record<string, number> = {
-  DECOUVERTE: 0,
-  ESSENTIEL: 1,
-  COMPLET: 2,
-  PILOTAGE: 3,
-};
+import { PLAN_HIERARCHY, getPlanEffectif } from '../abonnements/abonnement.constants.js';
 
 /**
  * Rooming (sous-chantier 7) — foyer du geste collab chambres : stats de
@@ -155,13 +148,21 @@ export class RoomingService {
     }
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: hebergementSelectionneId },
-      select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+      select: { organisationId: true },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
 
-    const exp = centre.abonnementActifJusquAu;
-    const isActive = centre.abonnementStatut === 'ACTIF' && exp && new Date(exp) >= new Date();
-    const effectivePlan = isActive ? (centre.planAbonnement ?? 'DECOUVERTE') : 'DECOUVERTE';
+    // Plan lu sur l'ORGANISATION du centre DU SÉJOUR (L3a). Centre sans org ou org
+    // introuvable → DECOUVERTE (fail-closed, cohérent avec la nature du gate).
+    const org = centre.organisationId
+      ? await this.prisma.organisation.findUnique({
+          where: { id: centre.organisationId },
+          select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+        })
+      : null;
+    const effectivePlan = org
+      ? getPlanEffectif(org.abonnementStatut, org.abonnementActifJusquAu, org.planAbonnement)
+      : 'DECOUVERTE';
     if ((PLAN_HIERARCHY[effectivePlan] ?? 0) < PLAN_HIERARCHY.COMPLET) {
       throw new ForbiddenException({
         statusCode: 403,

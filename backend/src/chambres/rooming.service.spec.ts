@@ -21,7 +21,16 @@ function mockPrisma() {
         id: 'centre-1',
         userId: 'user-1',
         statut: 'ACTIVE',
+        organisationId: 'org-1',
         // Plan effectif COMPLET (gate manuel organisateur)
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: new Date('2099-01-01'),
+        planAbonnement: 'COMPLET',
+      }),
+    },
+    organisation: {
+      // Abo lu par assertPlanCentreComplet depuis L3a (org du centre du séjour).
+      findUnique: jest.fn().mockResolvedValue({
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: new Date('2099-01-01'),
         planAbonnement: 'COMPLET',
@@ -232,11 +241,10 @@ describe('RoomingService.affecter', () => {
 
   it('403 PLAN_INSUFFICIENT si le centre du séjour est sous COMPLET', async () => {
     const prisma = mockPrisma();
-    prisma.centreHebergement.findUnique.mockResolvedValue({
-      id: 'centre-1',
-      userId: 'user-1',
-      statut: 'ACTIVE',
-      abonnementStatut: 'EXPIRE', // → plan effectif DECOUVERTE
+    // Centre par défaut (organisationId:'org-1') ; l'org est expirée → plan
+    // effectif DECOUVERTE (le 403 est prouvé par l'org expirée, pas par une org absente).
+    prisma.organisation.findUnique.mockResolvedValue({
+      abonnementStatut: 'EXPIRE',
       abonnementActifJusquAu: null,
       planAbonnement: 'COMPLET',
     });

@@ -4,13 +4,7 @@ import { PLAN_KEY, type PlanMetadata } from '../decorators/plan.decorator.js';
 import type { JwtUser } from '../decorators/current-user.decorator.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { getCentreForUser } from '../../centres/centre.helper.js';
-
-const PLAN_HIERARCHY: Record<string, number> = {
-  DECOUVERTE: 0,
-  ESSENTIEL: 1,
-  COMPLET: 2,
-  PILOTAGE: 3,
-};
+import { PLAN_HIERARCHY, getPlanEffectif } from '../../abonnements/abonnement.constants.js';
 
 const PLAN_LABELS: Record<string, string> = {
   ESSENTIEL: 'Essentiel',
@@ -57,10 +51,20 @@ export class PlanGuard implements CanActivate {
       return true;
     }
 
-    // 6. Calculer le plan effectif
-    const exp = centre.abonnementActifJusquAu;
-    const isActive = centre.abonnementStatut === 'ACTIF' && exp && new Date(exp) >= new Date();
-    const effectivePlan = isActive ? (centre.planAbonnement ?? 'DECOUVERTE') : 'DECOUVERTE';
+    // 6. Résoudre l'ORGANISATION du centre puis calculer le plan effectif sur son
+    //    état d'abonnement (L3a). Centre sans org ou org introuvable → fail-open
+    //    (return true), cohérent avec le catch de résolution du centre (§5).
+    if (!centre.organisationId) return true;
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: centre.organisationId },
+      select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+    });
+    if (!org) return true;
+    const effectivePlan = getPlanEffectif(
+      org.abonnementStatut,
+      org.abonnementActifJusquAu,
+      org.planAbonnement,
+    );
 
     // 7. Vérifier la hiérarchie
     const effectiveLevel = PLAN_HIERARCHY[effectivePlan] ?? 0;

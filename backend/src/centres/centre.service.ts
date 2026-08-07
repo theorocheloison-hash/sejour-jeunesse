@@ -236,7 +236,9 @@ export class CentreService {
       select: {
         id: true, nom: true, ville: true, adresse: true, codePostal: true,
         capacite: true, imageUrl: true, imagesUrls: true, logoUrl: true, statut: true,
-        abonnementStatut: true, planAbonnement: true,
+        // Statut/plan lus sur l'ORGANISATION du centre (L3a) — une seule requête,
+        // pas de N+1. Multi-société : chaque centre porte sa propre org.
+        organisation: { select: { abonnementStatut: true, planAbonnement: true } },
         userId: true, // pour calculer isOwned (non exposé dans la réponse)
       },
       orderBy: { nom: 'asc' },
@@ -245,8 +247,10 @@ export class CentreService {
       id: c.id, nom: c.nom, ville: c.ville, adresse: c.adresse,
       codePostal: c.codePostal, capacite: c.capacite, imageUrl: c.imageUrl,
       imagesUrls: c.imagesUrls, logoUrl: c.logoUrl,
-      statut: c.statut, abonnementStatut: c.abonnementStatut,
-      planAbonnement: c.planAbonnement,
+      statut: c.statut,
+      // Centre sans org → INACTIF/DECOUVERTE (affichage honnête). Contrat inchangé.
+      abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
+      planAbonnement: c.organisation?.planAbonnement ?? 'DECOUVERTE',
       isOwned: c.userId === userId,
     }));
   }

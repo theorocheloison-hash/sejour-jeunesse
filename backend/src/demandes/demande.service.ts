@@ -2,8 +2,8 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
-import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { getPlanEffectif } from '../abonnements/abonnement.constants.js';
 import { normaliserDepartements, DEPT_TO_REGION } from '../utils/departements.js';
 import { assertSignataireCanAccessDemande, assertHebergeurCanAccessDemande } from '../auth/ownership.helper.js';
 
@@ -155,11 +155,17 @@ export class DemandeService {
   async findOpen(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
-    const now = new Date();
-    const accesComplet =
-      centre.abonnementStatut === 'ACTIF' &&
-      !!centre.abonnementActifJusquAu &&
-      centre.abonnementActifJusquAu >= now;
+    // accesComplet lu sur l'ORGANISATION du centre (L3a). Centre sans org ou org
+    // introuvable → false (contact masqué, fail-closed RGPD sûr par défaut).
+    const org = centre.organisationId
+      ? await this.prisma.organisation.findUnique({
+          where: { id: centre.organisationId },
+          select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+        })
+      : null;
+    const accesComplet = org
+      ? getPlanEffectif(org.abonnementStatut, org.abonnementActifJusquAu, org.planAbonnement) !== 'DECOUVERTE'
+      : false;
 
     const ignorees = await this.prisma.demandeIgnoree.findMany({
       where: { centreId: centre.id },

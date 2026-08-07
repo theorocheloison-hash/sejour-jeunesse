@@ -5,9 +5,11 @@ import type { PlanMetadata } from '../decorators/plan.decorator';
 import { PlanGuard } from './plan.guard';
 
 /**
- * Le guard résout le centre via getCentreForUser (non mocké) : on pilote donc
+ * Le guard résout le centre via getCentreForUser (non mocké) : on pilote
  * prisma.centreHebergement.findUnique pour retourner un centre possédé par le
- * user du contexte — le chemin propriétaire du helper suffit ici.
+ * user du contexte (chemin propriétaire du helper). Depuis L3a, l'état d'abo est
+ * lu sur l'ORGANISATION du centre : on pilote donc prisma.organisation.findUnique
+ * pour faire varier plan / statut / expiration.
  */
 function mockPrisma() {
   return {
@@ -18,6 +20,9 @@ function mockPrisma() {
     collaborateurCentre: {
       findFirst: jest.fn(),
     },
+    organisation: {
+      findUnique: jest.fn(),
+    },
   };
 }
 
@@ -27,11 +32,20 @@ const USER_ID = 'user-1';
 const IN_30_DAYS = new Date(Date.now() + 30 * 86400000);
 const YESTERDAY = new Date(Date.now() - 86400000);
 
-function centreAbonnement(over: Partial<Record<string, unknown>> = {}) {
+// Centre possédé par le user — porte l'organisationId (l'abo est sur l'org).
+function centreOwned(over: Partial<Record<string, unknown>> = {}) {
   return {
     id: 'centre-1',
     userId: USER_ID,
     statut: 'ACTIVE',
+    organisationId: 'org-1',
+    ...over,
+  };
+}
+
+// État d'abonnement porté par l'organisation.
+function orgAbonnement(over: Partial<Record<string, unknown>> = {}) {
+  return {
     planAbonnement: 'PILOTAGE',
     abonnementStatut: 'ACTIF',
     abonnementActifJusquAu: IN_30_DAYS,
@@ -66,6 +80,10 @@ describe('PlanGuard', () => {
 
   beforeEach(() => {
     prisma = mockPrisma();
+    // Défauts : centre résolu + org abonnée PILOTAGE active. Chaque test qui
+    // fait varier l'abo surcharge organisation.findUnique.
+    prisma.centreHebergement.findUnique.mockResolvedValue(centreOwned());
+    prisma.organisation.findUnique.mockResolvedValue(orgAbonnement());
     reflector = { getAllAndOverride: jest.fn() };
     guard = new PlanGuard(reflector as unknown as Reflector, prisma as unknown as PrismaService);
   });
@@ -105,8 +123,8 @@ describe('PlanGuard', () => {
 
   it('mode strict : les GET sont eux aussi soumis au plan', async () => {
     setMeta({ plan: 'PILOTAGE', strict: true });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ abonnementStatut: 'INACTIF' }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ abonnementStatut: 'INACTIF' }),
     );
     await expect(guard.canActivate(makeContext(makeRequest({ method: 'GET' })))).rejects.toThrow(
       ForbiddenException,
@@ -119,18 +137,25 @@ describe('PlanGuard', () => {
     await expect(guard.canActivate(makeContext(makeRequest()))).resolves.toBe(true);
   });
 
-  // ── Plan effectif ─────────────────────────────────────────────────────
+  it('centre sans organisationId → fail-open, passe (org jamais consultée)', async () => {
+    setMeta({ plan: 'PILOTAGE', strict: false });
+    prisma.centreHebergement.findUnique.mockResolvedValue(centreOwned({ organisationId: null }));
+    await expect(guard.canActivate(makeContext(makeRequest()))).resolves.toBe(true);
+    expect(prisma.organisation.findUnique).not.toHaveBeenCalled();
+  });
+
+  // ── Plan effectif (lu sur l'organisation) ─────────────────────────────
 
   it('ACTIF + expiration future → le plan réel s’applique (PILOTAGE requis, PILOTAGE actif)', async () => {
     setMeta({ plan: 'PILOTAGE', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(centreAbonnement());
+    prisma.organisation.findUnique.mockResolvedValue(orgAbonnement());
     await expect(guard.canActivate(makeContext(makeRequest()))).resolves.toBe(true);
   });
 
   it('ACTIF mais expiration PASSÉE → rétrogradé DECOUVERTE → 403', async () => {
     setMeta({ plan: 'ESSENTIEL', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ abonnementActifJusquAu: YESTERDAY }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ abonnementActifJusquAu: YESTERDAY }),
     );
     await expect(guard.canActivate(makeContext(makeRequest()))).rejects.toThrow(
       ForbiddenException,
@@ -139,8 +164,8 @@ describe('PlanGuard', () => {
 
   it('INACTIF même avec date future → DECOUVERTE → 403', async () => {
     setMeta({ plan: 'ESSENTIEL', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ abonnementStatut: 'INACTIF' }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ abonnementStatut: 'INACTIF' }),
     );
     await expect(guard.canActivate(makeContext(makeRequest()))).rejects.toThrow(
       ForbiddenException,
@@ -149,8 +174,8 @@ describe('PlanGuard', () => {
 
   it('ACTIF sans date d’expiration → DECOUVERTE → 403', async () => {
     setMeta({ plan: 'ESSENTIEL', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ abonnementActifJusquAu: null }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ abonnementActifJusquAu: null }),
     );
     await expect(guard.canActivate(makeContext(makeRequest()))).rejects.toThrow(
       ForbiddenException,
@@ -159,12 +184,18 @@ describe('PlanGuard', () => {
 
   it('ACTIF + date future mais planAbonnement null → DECOUVERTE → 403', async () => {
     setMeta({ plan: 'ESSENTIEL', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ planAbonnement: null }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ planAbonnement: null }),
     );
     await expect(guard.canActivate(makeContext(makeRequest()))).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('organisation introuvable → fail-open, passe', async () => {
+    setMeta({ plan: 'PILOTAGE', strict: false });
+    prisma.organisation.findUnique.mockResolvedValue(null);
+    await expect(guard.canActivate(makeContext(makeRequest()))).resolves.toBe(true);
   });
 
   // ── Hiérarchie DECOUVERTE < ESSENTIEL < COMPLET < PILOTAGE ────────────
@@ -180,8 +211,8 @@ describe('PlanGuard', () => {
     ['COMPLET', 'PILOTAGE', false],
   ])('plan actif %s vs requis %s → autorisé=%s', async (actif, requis, autorise) => {
     setMeta({ plan: requis as PlanMetadata['plan'], strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ planAbonnement: actif }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ planAbonnement: actif }),
     );
     const promise = guard.canActivate(makeContext(makeRequest()));
     if (autorise) {
@@ -193,8 +224,8 @@ describe('PlanGuard', () => {
 
   it('la 403 porte le code PLAN_INSUFFICIENT + planRequired + planActuel', async () => {
     setMeta({ plan: 'PILOTAGE', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(
-      centreAbonnement({ planAbonnement: 'ESSENTIEL' }),
+    prisma.organisation.findUnique.mockResolvedValue(
+      orgAbonnement({ planAbonnement: 'ESSENTIEL' }),
     );
     const err = await guard.canActivate(makeContext(makeRequest())).then(
       () => null,
@@ -209,13 +240,18 @@ describe('PlanGuard', () => {
     });
   });
 
-  it('header x-centre-id en tableau → utilise la première valeur', async () => {
+  it('header x-centre-id en tableau → centre résolu par id, org par organisationId', async () => {
     setMeta({ plan: 'ESSENTIEL', strict: false });
-    prisma.centreHebergement.findUnique.mockResolvedValue(centreAbonnement());
+    prisma.centreHebergement.findUnique.mockResolvedValue(centreOwned());
+    prisma.organisation.findUnique.mockResolvedValue(orgAbonnement());
     const req = makeRequest({ headers: { 'x-centre-id': ['centre-1', 'centre-2'] } });
     await expect(guard.canActivate(makeContext(req))).resolves.toBe(true);
     expect(prisma.centreHebergement.findUnique).toHaveBeenCalledWith({
       where: { id: 'centre-1' },
+    });
+    expect(prisma.organisation.findUnique).toHaveBeenCalledWith({
+      where: { id: 'org-1' },
+      select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
     });
   });
 });
