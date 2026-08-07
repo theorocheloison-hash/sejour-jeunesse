@@ -110,6 +110,10 @@ export async function findOrCreateMembership(
     isPrimary?: boolean;
     claimStatut?: ClaimStatut;
     claimSubmittedAt?: Date;
+    // Claim pré-validé (ex. invitation admin → claimStatut VALIDE) : traçabilité
+    // de la validation. Défauts null → les appelants existants sont inchangés.
+    claimValidatedAt?: Date | null;
+    claimValidatedById?: string | null;
   },
 ): Promise<{ membership: { id: string; [key: string]: any }; created: boolean }> {
   const existing = await prisma.membership.findUnique({
@@ -130,6 +134,8 @@ export async function findOrCreateMembership(
       isPrimary: params.isPrimary ?? true,
       claimStatut: params.claimStatut ?? 'NON_APPLICABLE',
       claimSubmittedAt: params.claimSubmittedAt ?? null,
+      claimValidatedAt: params.claimValidatedAt ?? null,
+      claimValidatedById: params.claimValidatedById ?? null,
     },
   });
 

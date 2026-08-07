@@ -961,172 +961,197 @@ export class CentreService {
 
     const hashed = await bcrypt.hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        prenom: dto.prenom ?? dto.nom ?? '',
-        nom: dto.nomContact ?? '',
-        email: invitation.email,
-        motDePasse: hashed,
-        // Sans ce flag (défaut false), login() compare contre DUMMY_HASH :
-        // reconnexion par mot de passe impossible pour ces comptes.
-        motDePasseDefini: true,
-        role: Role.HEBERGEUR,
-      },
-    });
+    // Tout ou rien (Lot 2e-2) : user → centre → organisation → membership VALIDE
+    // → abonnement offert sur l'ORG (+ miroir centre) → invitation consommée EN
+    // DERNIER. Un échec à mi-course ne laisse ni user à email consommé, ni centre
+    // orphelin, ni invitation brûlée. Les helpers findOrCreate* acceptent le tx
+    // (PrismaLike). La notif admin et le JWT sont posés APRÈS le commit.
+    let user!: Awaited<ReturnType<typeof this.prisma.user.create>>;
+    let centre!: CentreHebergement;
+    try {
+      ({ user, centre } = await this.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            prenom: dto.prenom ?? dto.nom ?? '',
+            nom: dto.nomContact ?? '',
+            email: invitation.email,
+            motDePasse: hashed,
+            // Sans ce flag (défaut false), login() compare contre DUMMY_HASH :
+            // reconnexion par mot de passe impossible pour ces comptes.
+            motDePasseDefini: true,
+            role: Role.HEBERGEUR,
+          },
+        });
 
+        let createdCentre: CentreHebergement;
+        let centreExistantApidae:
+          | Awaited<ReturnType<typeof tx.centreHebergement.findFirst>>
+          | null = null;
+
+        if (invitation.centreExistantId) {
+          // ── CAS 1 : invitation admin pointant vers un centre déjà en base ────
+          createdCentre = await tx.centreHebergement.update({
+            where: { id: invitation.centreExistantId },
+            data: { userId: createdUser.id, statut: 'ACTIVE' },
+          });
+        } else if (invitation.centrePrecreerNom) {
+          // ── CAS 2 : invitation admin avec données pré-remplies ─────────────
+          createdCentre = await tx.centreHebergement.create({
+            data: {
+              nom:         invitation.centrePrecreerNom,
+              adresse:     invitation.centrePrecreerAdresse ?? '',
+              ville:       invitation.centrePrecreerVille ?? '',
+              codePostal:  invitation.centrePrecreerCodePostal ?? '',
+              capacite:    invitation.centrePrecreerCapacite ?? 0,
+              siret:       invitation.centrePrecreerSiret ?? null,
+              departement: normaliserDepartement(invitation.centrePrecreerDepartement),
+              email:       invitation.email,
+              userId:      createdUser.id,
+              statut:      'ACTIVE',
+            },
+          });
+        } else {
+          // ── CAS 3 : invitation minimale (réseau ou autonome) — matching APIDAE ─
+          // Passe 1 : par email
+          centreExistantApidae = await tx.centreHebergement.findFirst({
+            where: { email: invitation.email, userId: null, source: 'APIDAE' },
+          });
+
+          // Passe 2 : fallback nom + ville si pas trouvé
+          if (!centreExistantApidae && dto.nom && dto.ville) {
+            centreExistantApidae = await tx.centreHebergement.findFirst({
+              where: {
+                userId: null,
+                source: 'APIDAE',
+                nom: { equals: dto.nom, mode: 'insensitive' },
+                ville: { equals: dto.ville, mode: 'insensitive' },
+              },
+            });
+          }
+
+          if (centreExistantApidae) {
+            // Claim du centre APIDAE — merge non-écrasant
+            createdCentre = await tx.centreHebergement.update({
+              where: { id: centreExistantApidae.id },
+              data: {
+                userId: createdUser.id,
+                statut: 'ACTIVE',
+                ...(dto.nom && !centreExistantApidae.nom && { nom: dto.nom }),
+                ...(dto.adresse && !centreExistantApidae.adresse && { adresse: dto.adresse }),
+                ...(dto.ville && !centreExistantApidae.ville && { ville: dto.ville }),
+                ...(dto.codePostal && !centreExistantApidae.codePostal && { codePostal: dto.codePostal }),
+                ...(dto.telephone && !centreExistantApidae.telephone && { telephone: dto.telephone }),
+              },
+            });
+          } else {
+            createdCentre = await tx.centreHebergement.create({
+              data: {
+                nom: dto.nom ?? '',
+                adresse: dto.adresse ?? '',
+                ville: dto.ville ?? '',
+                codePostal: dto.codePostal ?? '',
+                telephone: dto.telephone ?? null,
+                email: invitation.email,
+                capacite: dto.capacite ?? 0,
+                description: dto.description ?? null,
+                reseau: dto.reseau ?? null,
+                userId: createdUser.id,
+                statut: 'ACTIVE',
+              },
+            });
+          }
+        }
+
+        // Organisation + Membership (commun aux 3 cas) — AVANT l'abonnement,
+        // pour poser l'abo offert sur l'ORG. CAS 1/3a : le centre pré-existant
+        // a déjà un organisationId → réutilisé (idempotent, pas de recréation).
+        let organisationId = createdCentre.organisationId;
+        if (!organisationId) {
+          const { organisation } = await findOrCreateOrganisation(tx, {
+            nom: createdCentre.nom,
+            adresse: createdCentre.adresse,
+            codePostal: createdCentre.codePostal,
+            ville: createdCentre.ville,
+            emailContact: createdCentre.email,
+            telephoneContact: createdCentre.telephone,
+            siteWeb: createdCentre.siteWeb,
+            siret: createdCentre.siret,
+            siren: createdCentre.siret ? createdCentre.siret.substring(0, 9) : null,
+            source: centreExistantApidae ? 'APIDAE' : 'MANUAL',
+            sourceId: centreExistantApidae?.apidaeId ?? null,
+            typeStructure: null,
+          });
+          organisationId = organisation.id;
+          await tx.centreHebergement.update({
+            where: { id: createdCentre.id },
+            data: { organisationId },
+          });
+        }
+
+        // Invitation admin = validation humaine en amont → claimStatut VALIDE
+        // (court-circuite le tunnel justificatif/Kbis). claimValidatedById null :
+        // l'InvitationHebergement ne trace pas l'admin émetteur.
+        await findOrCreateMembership(tx, {
+          userId: createdUser.id,
+          organisationId,
+          role: 'PROPRIETAIRE',
+          isPrimary: true,
+          claimStatut: 'VALIDE',
+          claimValidatedAt: new Date(),
+          claimValidatedById: null,
+        });
+
+        // Abonnement COMPLET offert — un SEUL bloc, sur l'ORG + miroir centre
+        // (double écriture transitoire jusqu'à L3). Sans trialStartedAt :
+        // sémantique « offert », garde b de demarrerOuAlignerTrial.
+        const dataAbo = {
+          planAbonnement: 'COMPLET' as const,
+          abonnementStatut: 'ACTIF' as const,
+          abonnementActifJusquAu: trialExpiration(),
+        };
+        await tx.organisation.update({ where: { id: organisationId }, data: dataAbo });
+        const centreAJour = await tx.centreHebergement.update({
+          where: { id: createdCentre.id },
+          data: dataAbo,
+        });
+
+        // DERNIER write : consommer l'invitation. Un échec avant ce point la
+        // laisse réutilisable.
+        await tx.invitationHebergement.update({
+          where: { id: invitation.id },
+          data: { utilisedAt: new Date() },
+        });
+
+        return { user: createdUser, centre: centreAJour };
+      }, { timeout: 10000 }));
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          throw new ConflictException('Un centre ou une organisation identique existe déjà.');
+        }
+        if (err.code === 'P2000') {
+          const colonne = (err.meta as { column_name?: string } | undefined)?.column_name;
+          throw new BadRequestException(
+            colonne
+              ? `La valeur du champ « ${colonne} » est trop longue. Corrigez-la puis réessayez.`
+              : 'Une des informations saisies est trop longue. Corrigez-la puis réessayez.',
+          );
+        }
+      }
+      console.error(
+        `[register] Échec — rollback complet, aucune donnée créée :`,
+        err instanceof Error ? err.message : err,
+      );
+      throw err;
+    }
+
+    // APRÈS commit uniquement : un rollback ne doit pas laisser partir un mail
+    // « nouveau compte » pour un compte inexistant.
     this.email.notifyAdminNewAccount(
       { prenom: user.prenom, nom: user.nom, email: user.email, role: user.role },
       'Créé via une invitation admin'
         + (invitation.centrePrecreerNom ? ` — ${invitation.centrePrecreerNom}` : ''),
     ).catch(() => {});
-
-    let centre: Awaited<ReturnType<typeof this.prisma.centreHebergement.findUnique>>;
-    let centreExistantApidae:
-      | Awaited<ReturnType<typeof this.prisma.centreHebergement.findFirst>>
-      | null = null;
-
-    if (invitation.centreExistantId) {
-      // ── CAS 1 : invitation admin pointant vers un centre déjà en base ────
-      centre = await this.prisma.centreHebergement.update({
-        where: { id: invitation.centreExistantId },
-        data: { userId: user.id, statut: 'ACTIVE' },
-      });
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: {
-          planAbonnement: 'COMPLET',
-          abonnementStatut: 'ACTIF',
-          abonnementActifJusquAu: trialExpiration(),
-        },
-      });
-    } else if (invitation.centrePrecreerNom) {
-      // ── CAS 2 : invitation admin avec données pré-remplies ─────────────
-      centre = await this.prisma.centreHebergement.create({
-        data: {
-          nom:         invitation.centrePrecreerNom,
-          adresse:     invitation.centrePrecreerAdresse ?? '',
-          ville:       invitation.centrePrecreerVille ?? '',
-          codePostal:  invitation.centrePrecreerCodePostal ?? '',
-          capacite:    invitation.centrePrecreerCapacite ?? 0,
-          siret:       invitation.centrePrecreerSiret ?? null,
-          departement: normaliserDepartement(invitation.centrePrecreerDepartement),
-          email:       invitation.email,
-          userId:      user.id,
-          statut:      'ACTIVE',
-        },
-      });
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: {
-          planAbonnement: 'COMPLET',
-          abonnementStatut: 'ACTIF',
-          abonnementActifJusquAu: trialExpiration(),
-        },
-      });
-    } else {
-      // ── CAS 3 : invitation minimale (réseau ou autonome) — matching APIDAE ─
-      // Passe 1 : par email
-      centreExistantApidae = await this.prisma.centreHebergement.findFirst({
-        where: {
-          email: invitation.email,
-          userId: null,
-          source: 'APIDAE',
-        },
-      });
-
-      // Passe 2 : fallback nom + ville si pas trouvé
-      if (!centreExistantApidae && dto.nom && dto.ville) {
-        centreExistantApidae = await this.prisma.centreHebergement.findFirst({
-          where: {
-            userId: null,
-            source: 'APIDAE',
-            nom: { equals: dto.nom, mode: 'insensitive' },
-            ville: { equals: dto.ville, mode: 'insensitive' },
-          },
-        });
-      }
-
-      if (centreExistantApidae) {
-        // Claim du centre APIDAE — merge non-écrasant
-        centre = await this.prisma.centreHebergement.update({
-          where: { id: centreExistantApidae.id },
-          data: {
-            userId: user.id,
-            statut: 'ACTIVE',
-            ...(dto.nom && !centreExistantApidae.nom && { nom: dto.nom }),
-            ...(dto.adresse && !centreExistantApidae.adresse && { adresse: dto.adresse }),
-            ...(dto.ville && !centreExistantApidae.ville && { ville: dto.ville }),
-            ...(dto.codePostal && !centreExistantApidae.codePostal && { codePostal: dto.codePostal }),
-            ...(dto.telephone && !centreExistantApidae.telephone && { telephone: dto.telephone }),
-          },
-        });
-      } else {
-        centre = await this.prisma.centreHebergement.create({
-          data: {
-            nom: dto.nom ?? '',
-            adresse: dto.adresse ?? '',
-            ville: dto.ville ?? '',
-            codePostal: dto.codePostal ?? '',
-            telephone: dto.telephone ?? null,
-            email: invitation.email,
-            capacite: dto.capacite ?? 0,
-            description: dto.description ?? null,
-            reseau: dto.reseau ?? null,
-            userId: user.id,
-            statut: 'ACTIVE',
-          },
-        });
-      }
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: {
-          planAbonnement: 'COMPLET',
-          abonnementStatut: 'ACTIF',
-          abonnementActifJusquAu: trialExpiration(),
-        },
-      });
-    }
-
-    if (!centre) {
-      throw new NotFoundException('Centre introuvable après création');
-    }
-
-    await this.prisma.invitationHebergement.update({
-      where: { id: invitation.id },
-      data: { utilisedAt: new Date() },
-    });
-
-    // Organisation + Membership (commun aux 3 cas)
-    let organisationId = centre.organisationId;
-    if (!organisationId) {
-      const { organisation } = await findOrCreateOrganisation(this.prisma, {
-        nom: centre.nom,
-        adresse: centre.adresse,
-        codePostal: centre.codePostal,
-        ville: centre.ville,
-        emailContact: centre.email,
-        telephoneContact: centre.telephone,
-        siteWeb: centre.siteWeb,
-        siret: centre.siret,
-        siren: centre.siret ? centre.siret.substring(0, 9) : null,
-        source: centreExistantApidae ? 'APIDAE' : 'MANUAL',
-        sourceId: centreExistantApidae?.apidaeId ?? null,
-        typeStructure: null,
-      });
-      organisationId = organisation.id;
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: { organisationId },
-      });
-    }
-
-    await findOrCreateMembership(this.prisma, {
-      userId: user.id,
-      organisationId,
-      role: 'PROPRIETAIRE',
-      isPrimary: true,
-      claimStatut: 'NON_APPLICABLE',
-    });
 
     const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: 0 };
     const access_token = this.jwt.sign(payload);
