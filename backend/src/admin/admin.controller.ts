@@ -18,6 +18,7 @@ import { ClaimService } from '../organisations/claim.service.js';
 import { InvitationService } from '../invitations/invitation.service.js';
 import { CreateInvitationDto } from '../invitations/dto/create-invitation.dto.js';
 import { CronAlertesService } from '../abonnements/cron-alertes.service.js';
+import { ReseauService } from '../reseau/reseau.service.js';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,6 +29,7 @@ export class AdminController {
     private readonly claimService: ClaimService,
     private readonly invitationService: InvitationService,
     private readonly cronAlertesService: CronAlertesService,
+    private readonly reseauService: ReseauService,
   ) {}
 
   @Get('stats')
@@ -121,7 +123,7 @@ export class AdminController {
 
   @Get('reseau/:reseau/stats')
   getReseauStats(@Param('reseau') reseau: string) {
-    return this.adminService.getReseauStats(reseau);
+    return this.reseauService.getReseauStats(reseau);
   }
 
   @Post('reseau/:reseau/sync-apidae')
@@ -203,40 +205,5 @@ export class AdminController {
   @Post('invitations/:id/renvoyer')
   renvoyerInvitation(@Param('id') id: string) {
     return this.invitationService.renvoyer(id);
-  }
-}
-
-@Controller('reseau')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.RESEAU, Role.ADMIN)
-export class ReseauController {
-  constructor(private readonly adminService: AdminService) {}
-
-  @Get('stats')
-  getMyReseauStats(@Request() req: any, @Query('periode') periode?: string) {
-    const reseau = req.user.reseauNom;
-    if (!reseau) throw new Error('Compte réseau non configuré');
-    return this.adminService.getReseauStats(reseau, periode, req.user.reseauNomComplet);
-  }
-
-  @Get('demandes')
-  getMyReseauDemandes(@Request() req: any, @Query('periode') periode?: string) {
-    const reseau = req.user.reseauNom;
-    if (!reseau) throw new Error('Compte réseau non configuré');
-    return this.adminService.getReseauDemandes(reseau, periode);
-  }
-
-  @Get('centres/:id')
-  getCentreDetail(@Request() req: any, @Param('id') id: string) {
-    const reseau = req.user.reseauNom;
-    if (!reseau) throw new Error('Compte réseau non configuré');
-    return this.adminService.getReseauCentreDetail(id, reseau);
-  }
-
-  @Post('inviter')
-  inviterCentre(@Request() req: any, @Body() body: { email: string; nomCentre: string }) {
-    const reseau = req.user.reseauNom;
-    if (!reseau) throw new Error('Compte réseau non configuré');
-    return this.adminService.inviterCentreReseau(reseau, body.email, body.nomCentre);
   }
 }

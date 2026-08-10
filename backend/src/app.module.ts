@@ -27,6 +27,7 @@ import { EtablissementsModule } from './etablissements/etablissements.module.js'
 import { UsersModule } from './users/users.module.js';
 import { AccompagnateurModule } from './accompagnateurs/accompagnateur.module.js';
 import { AdminModule } from './admin/admin.module.js';
+import { ReseauModule } from './reseau/reseau.module.js';
 import { InvitationCollaborationModule } from './invitation-collaboration/invitation-collaboration.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { ClientsModule } from './clients/clients.module.js';
@@ -71,6 +72,7 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
     UsersModule,
     AccompagnateurModule,
     AdminModule,
+    ReseauModule,
     InvitationCollaborationModule,
     ClientsModule,
     NotificationsModule,
