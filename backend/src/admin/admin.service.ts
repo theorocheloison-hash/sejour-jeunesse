@@ -1750,18 +1750,27 @@ export class AdminService {
 
     // Activer le plan. Chemin manuel hors Mollie → toujours VIREMENT :
     // exclut le centre des alertes d'essai du cron (10.1a).
-    await this.prisma.centreHebergement.update({
-      where: { id: centreId },
-      data: {
-        planAbonnement: plan as any,
-        abonnement: frequence as any,
-        abonnementStatut: 'ACTIF',
-        abonnementActifJusquAu: expiration,
-        modePaiement: 'VIREMENT',
-      },
+    // Miroir organisation (double écriture transitoire jusqu'à la coupure des
+    // miroirs centre) : même objet data aux deux updates, dans une transaction.
+    // Supplément multi-centre = L2d (le montant reste le prix plan sec ici).
+    const dataAbo = {
+      planAbonnement: plan as any,
+      abonnement: frequence as any,
+      abonnementStatut: 'ACTIF' as const,
+      abonnementActifJusquAu: expiration,
+      modePaiement: 'VIREMENT' as const,
+    };
+    await this.prisma.$transaction(async (tx) => {
+      await tx.centreHebergement.update({ where: { id: centreId }, data: dataAbo });
+      if (centre.organisationId) {
+        await tx.organisation.update({ where: { id: centre.organisationId }, data: dataAbo });
+      } else {
+        // Centre sans organisation (théorique, 0 en prod) : garde défensive, jamais bloquant.
+        console.log('[facturerCentre] centre', centre.id, 'sans organisation — miroir org non écrit');
+      }
     });
 
-    // Émettre la facture LIAVO (PDF + email)
+    // Émettre la facture LIAVO (PDF + email) — effet de bord, après commit.
     const facture = await this.factureLiavo.emettre(centreId, montant, plan, frequence, null, destinataire);
 
     return facture;
