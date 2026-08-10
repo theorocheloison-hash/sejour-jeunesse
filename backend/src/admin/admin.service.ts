@@ -332,24 +332,47 @@ export class AdminService {
   }
 
   async getAbonnements() {
-    return this.prisma.centreHebergement.findMany({
+    // Abonnement lu sur l'ORGANISATION du centre (L3a-bis) — une seule requête,
+    // pas de N+1. Réponse recomposée : mêmes clés qu'avant la bascule, 1 ligne
+    // par centre (contrat front inchangé).
+    const centres = await this.prisma.centreHebergement.findMany({
       select: {
         id: true,
         nom: true,
-        planAbonnement: true,
-        abonnement: true,
-        abonnementStatut: true,
-        abonnementActifJusquAu: true,
-        trialStartedAt: true,
-        mollieCustomerId: true,
-        mollieSubscriptionId: true,
-        mollieMandatId: true,
-        modePaiement: true,
         userId: true,
         user: { select: { email: true, prenom: true, nom: true } },
+        organisation: {
+          select: {
+            planAbonnement: true,
+            abonnement: true,
+            abonnementStatut: true,
+            abonnementActifJusquAu: true,
+            trialStartedAt: true,
+            mollieCustomerId: true,
+            mollieSubscriptionId: true,
+            mollieMandatId: true,
+            modePaiement: true,
+          },
+        },
       },
       orderBy: { nom: 'asc' },
     });
+    return centres.map(c => ({
+      id: c.id,
+      nom: c.nom,
+      // Centre sans org → INACTIF/DECOUVERTE (affichage honnête). Contrat inchangé.
+      planAbonnement: c.organisation?.planAbonnement ?? 'DECOUVERTE',
+      abonnement: c.organisation?.abonnement ?? null,
+      abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
+      abonnementActifJusquAu: c.organisation?.abonnementActifJusquAu ?? null,
+      trialStartedAt: c.organisation?.trialStartedAt ?? null,
+      mollieCustomerId: c.organisation?.mollieCustomerId ?? null,
+      mollieSubscriptionId: c.organisation?.mollieSubscriptionId ?? null,
+      mollieMandatId: c.organisation?.mollieMandatId ?? null,
+      modePaiement: c.organisation?.modePaiement ?? null,
+      userId: c.userId,
+      user: c.user,
+    }));
   }
 
   async getFacturesLiavo() {
@@ -1617,6 +1640,17 @@ export class AdminService {
     const centresActifs = await this.prisma.centreHebergement.findMany({
       where: { statut: 'ACTIVE', userId: { not: null } },
       include: {
+        // Abonnement lu sur l'ORGANISATION du centre (L3a-bis), fallback org-null
+        // aligné getMesCentres.
+        organisation: {
+          select: {
+            planAbonnement: true,
+            trialStartedAt: true,
+            mollieMandatId: true,
+            abonnementActifJusquAu: true,
+            abonnementStatut: true,
+          },
+        },
         sejoursSelectionne: {
           select: { id: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
@@ -1651,19 +1685,20 @@ export class AdminService {
         else signal = 'rouge';
       }
 
-      const isTrial = !!c.trialStartedAt && !c.mollieMandatId;
-      const joursRestants = c.abonnementActifJusquAu
-        ? Math.ceil((new Date(c.abonnementActifJusquAu).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const isTrial = !!c.organisation?.trialStartedAt && !c.organisation?.mollieMandatId;
+      const expiration = c.organisation?.abonnementActifJusquAu ?? null;
+      const joursRestants = expiration
+        ? Math.ceil((new Date(expiration).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         : null;
 
       return {
         id: c.id,
         nom: c.nom,
-        plan: c.planAbonnement,
+        plan: c.organisation?.planAbonnement ?? 'DECOUVERTE',
         isTrial,
-        abonnementStatut: c.abonnementStatut,
+        abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
         joursRestants,
-        expiration: c.abonnementActifJusquAu,
+        expiration,
         derniereActivite,
         joursDepuisActivite,
         signal,
