@@ -71,7 +71,10 @@ export class AdminService {
     if (statut === 'EN_ATTENTE') where.compteValide = false;
     if (statut === 'VALIDE') where.compteValide = true;
 
-    return this.prisma.user.findMany({
+    // Abonnement lu sur l'ORGANISATION du centre (L3c-0). Réponse recomposée
+    // clé par clé (users puis centres) : mêmes clés plates qu'avant la bascule,
+    // la structure `organisation` du select ne fuit pas dans le contrat.
+    const users = await this.prisma.user.findMany({
       where,
       select: {
         id: true,
@@ -93,12 +96,35 @@ export class AdminService {
             departement: true,
             agrementEducationNationale: true,
             statut: true,
-            abonnementStatut: true,
+            organisation: { select: { abonnementStatut: true } },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+    return users.map(u => ({
+      id: u.id,
+      email: u.email,
+      prenom: u.prenom,
+      nom: u.nom,
+      telephone: u.telephone,
+      compteValide: u.compteValide,
+      emailVerifie: u.emailVerifie,
+      createdAt: u.createdAt,
+      centres: u.centres.map(c => ({
+        id: c.id,
+        nom: c.nom,
+        ville: c.ville,
+        codePostal: c.codePostal,
+        capacite: c.capacite,
+        siret: c.siret,
+        departement: c.departement,
+        agrementEducationNationale: c.agrementEducationNationale,
+        statut: c.statut,
+        // Centre sans org → INACTIF (théorique : 0 orphelin en prod, SQL 10/08).
+        abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
+      })),
+    }));
   }
 
   async validerHebergeur(id: string) {
@@ -304,7 +330,10 @@ export class AdminService {
       ];
     }
 
-    return this.prisma.centreHebergement.findMany({
+    // Abonnement lu sur l'ORGANISATION du centre (L3c-0). Réponse recomposée
+    // clé par clé : mêmes clés plates qu'avant la bascule, `organisation` ne
+    // fuit pas dans le contrat.
+    const centres = await this.prisma.centreHebergement.findMany({
       where,
       select: {
         id: true,
@@ -319,7 +348,7 @@ export class AdminService {
         departement: true,
         agrementEducationNationale: true,
         statut: true,
-        abonnementStatut: true,
+        organisation: { select: { abonnementStatut: true } },
         reseau: true,
         createdAt: true,
         user: {
@@ -330,6 +359,26 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+    return centres.map(c => ({
+      id: c.id,
+      nom: c.nom,
+      adresse: c.adresse,
+      ville: c.ville,
+      codePostal: c.codePostal,
+      telephone: c.telephone,
+      email: c.email,
+      capacite: c.capacite,
+      siret: c.siret,
+      departement: c.departement,
+      agrementEducationNationale: c.agrementEducationNationale,
+      statut: c.statut,
+      // Centre sans org → INACTIF (théorique : 0 orphelin en prod, SQL 10/08).
+      abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
+      reseau: c.reseau,
+      createdAt: c.createdAt,
+      user: c.user,
+      _count: c._count,
+    }));
   }
 
   async getAbonnements() {
@@ -464,7 +513,9 @@ export class AdminService {
       where: { reseau },
       select: {
         id: true, nom: true, ville: true, departement: true,
-        capacite: true, statut: true, abonnementStatut: true, userId: true,
+        capacite: true, statut: true, userId: true,
+        // Abonnement lu sur l'ORGANISATION du centre (L3c-0).
+        organisation: { select: { abonnementStatut: true } },
         mandatFacturationAccepte: true, siret: true,
         agrementEducationNationale: true, description: true, telephone: true,
         createdAt: true,
@@ -572,7 +623,8 @@ export class AdminService {
           departement: c.departement,
           capacite: c.capacite,
           statut: c.statut,
-          abonnementStatut: c.abonnementStatut,
+          // Centre sans org → INACTIF (théorique : 0 orphelin en prod, SQL 10/08).
+          abonnementStatut: c.organisation?.abonnementStatut ?? 'INACTIF',
           demandesRecues: c.demandesDestinees.length,
           demandesReseau: c.devis.filter(
             d => (d.demande?.sourceReseau ?? '').toLowerCase() === reseau.toLowerCase(),
@@ -711,7 +763,9 @@ export class AdminService {
       select: {
         id: true, nom: true, ville: true, departement: true, adresse: true,
         codePostal: true, telephone: true, email: true, siteWeb: true,
-        capacite: true, capaciteAdultes: true, statut: true, abonnementStatut: true,
+        capacite: true, capaciteAdultes: true, statut: true,
+        // Abonnement lu sur l'ORGANISATION du centre (L3c-0).
+        organisation: { select: { abonnementStatut: true } },
         siret: true, agrementEducationNationale: true,
         accessiblePmr: true, avisSecurite: true,
         thematiquesCentre: true, activitesCentre: true,
@@ -743,7 +797,15 @@ export class AdminService {
       )
       .reduce((sum, d) => sum + (d.montantTTC ?? 0), 0);
 
-    return { ...centre, caViaReseau };
+    // Isoler `organisation` du spread : le contrat expose la clé plate
+    // abonnementStatut, jamais la structure imbriquée du select (L3c-0).
+    const { organisation, ...centreSansOrg } = centre;
+    return {
+      ...centreSansOrg,
+      // Centre sans org → INACTIF (théorique : 0 orphelin en prod, SQL 10/08).
+      abonnementStatut: organisation?.abonnementStatut ?? 'INACTIF',
+      caViaReseau,
+    };
   }
 
   async inviterCentreReseau(reseau: string, email: string, nomCentre: string) {
