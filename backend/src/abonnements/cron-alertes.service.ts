@@ -64,7 +64,10 @@ export class CronAlertesService {
     const dans21j = new Date(now); dans21j.setDate(dans21j.getDate() + 21);
     const il_y_a_6j = new Date(now); il_y_a_6j.setDate(il_y_a_6j.getDate() - 6);
 
-    const centres = await this.prisma.centreHebergement.findMany({
+    // L3b : l'abonnement est porté par l'ORGANISATION — le cron itère les orgs.
+    // Une org = un abo = une itération : le regroupement 4.20 par userId est
+    // obsolète (il n'existait que pour dédupliquer N centres d'un même compte).
+    const orgs = await this.prisma.organisation.findMany({
       where: {
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: { gte: now, lte: dans21j },
@@ -81,44 +84,38 @@ export class CronAlertesService {
           { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
         ],
       },
-      include: { user: { select: { email: true, prenom: true, nom: true } } },
+      include: {
+        // Centres exploités (ACTIVE + revendiqués) : destinataire + noms du mail.
+        centresHebergement: {
+          where: { statut: 'ACTIVE', userId: { not: null } },
+          include: { user: { select: { email: true, prenom: true, nom: true } } },
+        },
+      },
     });
 
-    // 4.20 : les centres d'un même compte partagent la même date de fin (alignement
-    // trial 14/07) → une alerte admin PAR centre le même jour. Regroupement par
-    // userId + palier : UN mail par compte, noms de centres joints. Clé de repli
-    // centre.id si userId absent (comportement par-centre conservé).
-    type CentreAlerte = (typeof centres)[number];
-    const groupes = new Map<string, { centres: CentreAlerte[]; joursRestants: number; exp: Date }>();
-    for (const centre of centres) {
-      const exp = centre.abonnementActifJusquAu;
-      if (!exp || !centre.user?.email) continue;
+    let count = 0;
+    for (const org of orgs) {
+      const exp = org.abonnementActifJusquAu;
+      if (!exp) continue;
+      const centresExploites = org.centresHebergement;
+      if (centresExploites.length === 0) continue; // org sans centre exploité = pas de destinataire
+      const premier = centresExploites[0];
+      if (!premier?.user?.email) continue;
       const joursRestants = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
       if (![21, 14, 7, 3, 1].includes(joursRestants)) continue;
-      const cle = `${centre.userId ?? centre.id}|${joursRestants}`;
-      const groupe = groupes.get(cle);
-      if (groupe) groupe.centres.push(centre);
-      else groupes.set(cle, { centres: [centre], joursRestants, exp });
-    }
-
-    let count = 0;
-    for (const groupe of groupes.values()) {
-      const premier = groupe.centres[0];
-      const noms = groupe.centres.map((c) => c.nom).join(', ');
+      const noms = centresExploites.map((c) => c.nom).join(', ');
       try {
         await this.emailService.sendTrialExpirationAlert(
-          noms, premier.user!.email, premier.user!.prenom, groupe.joursRestants, groupe.exp,
+          noms, premier.user!.email, premier.user!.prenom, joursRestants, exp,
         );
-        // Tampon posé centre par centre (pas d'updateMany) : ne s'applique qu'après envoi réussi.
-        for (const centre of groupe.centres) {
-          await this.prisma.centreHebergement.update({
-            where: { id: centre.id },
-            data: { dernierEmailAlerteAt: now },
-          });
-        }
+        // Tampon posé sur l'org SEULE (unique porteur du champ), après envoi réussi.
+        await this.prisma.organisation.update({
+          where: { id: org.id },
+          data: { dernierEmailAlerteAt: now },
+        });
         count++;
       } catch (err) {
-        this.logger.error(`[alertes] Erreur groupe ${premier.id}`, err as Error);
+        this.logger.error(`[alertes] Erreur organisation ${org.id}`, err as Error);
       }
     }
     return { alertesEnvoyees: count };
@@ -129,7 +126,8 @@ export class CronAlertesService {
     const now = new Date();
     const il_y_a_6j = new Date(now); il_y_a_6j.setDate(il_y_a_6j.getDate() - 6);
 
-    const centres = await this.prisma.centreHebergement.findMany({
+    // L3b : itération par organisation (une org = un abo), regroupement 4.20 obsolète.
+    const orgs = await this.prisma.organisation.findMany({
       where: {
         abonnementStatut: 'ACTIF',
         abonnementActifJusquAu: { lt: now },
@@ -144,38 +142,34 @@ export class CronAlertesService {
           { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
         ],
       },
-      include: { user: { select: { email: true, prenom: true, nom: true } } },
+      include: {
+        centresHebergement: {
+          where: { statut: 'ACTIVE', userId: { not: null } },
+          include: { user: { select: { email: true, prenom: true, nom: true } } },
+        },
+      },
     });
 
-    // 4.20 : même regroupement par compte que envoyerAlertes (palier unique 0).
-    type CentreExpire = (typeof centres)[number];
-    const groupes = new Map<string, { centres: CentreExpire[]; exp: Date }>();
-    for (const centre of centres) {
-      const exp = centre.abonnementActifJusquAu;
-      if (!exp || !centre.user?.email) continue;
-      const cle = centre.userId ?? centre.id;
-      const groupe = groupes.get(cle);
-      if (groupe) groupe.centres.push(centre);
-      else groupes.set(cle, { centres: [centre], exp });
-    }
-
     let count = 0;
-    for (const groupe of groupes.values()) {
-      const premier = groupe.centres[0];
-      const noms = groupe.centres.map((c) => c.nom).join(', ');
+    for (const org of orgs) {
+      const exp = org.abonnementActifJusquAu;
+      if (!exp) continue;
+      const centresExploites = org.centresHebergement;
+      if (centresExploites.length === 0) continue; // org sans centre exploité = pas de destinataire
+      const premier = centresExploites[0];
+      if (!premier?.user?.email) continue;
+      const noms = centresExploites.map((c) => c.nom).join(', ');
       try {
         await this.emailService.sendTrialExpirationAlert(
-          noms, premier.user!.email, premier.user!.prenom, 0, groupe.exp,
+          noms, premier.user!.email, premier.user!.prenom, 0, exp,
         );
-        for (const centre of groupe.centres) {
-          await this.prisma.centreHebergement.update({
-            where: { id: centre.id },
-            data: { dernierEmailAlerteAt: now },
-          });
-        }
+        await this.prisma.organisation.update({
+          where: { id: org.id },
+          data: { dernierEmailAlerteAt: now },
+        });
         count++;
       } catch (err) {
-        this.logger.error(`[alertes-expires] Erreur groupe ${premier.id}`, err as Error);
+        this.logger.error(`[alertes-expires] Erreur organisation ${org.id}`, err as Error);
       }
     }
     return { expiresNotifies: count };
@@ -187,7 +181,8 @@ export class CronAlertesService {
     const dans30j = new Date(now); dans30j.setDate(dans30j.getDate() + 30);
     const il_y_a_25j = new Date(now); il_y_a_25j.setDate(il_y_a_25j.getDate() - 25);
 
-    const centres = await this.prisma.centreHebergement.findMany({
+    // L3b : itération par organisation (une org = un abo).
+    const orgs = await this.prisma.organisation.findMany({
       where: {
         abonnement: 'ANNUEL',
         mollieMandatId: { not: null },
@@ -197,36 +192,42 @@ export class CronAlertesService {
           { dernierEmailAlerteAt: { lt: il_y_a_25j } },
         ],
       },
-      include: { user: { select: { email: true, prenom: true, nom: true } } },
+      include: {
+        centresHebergement: {
+          where: { statut: 'ACTIVE', userId: { not: null } },
+          include: { user: { select: { email: true, prenom: true, nom: true } } },
+        },
+      },
     });
 
     let count = 0;
-    for (const centre of centres) {
-      const exp = centre.abonnementActifJusquAu;
-      if (!exp || !centre.user?.email) continue;
+    for (const org of orgs) {
+      const exp = org.abonnementActifJusquAu;
+      if (!exp) continue;
+      const centresExploites = org.centresHebergement;
+      if (centresExploites.length === 0) continue; // org sans centre exploité = pas de destinataire
+      const premier = centresExploites[0];
+      if (!premier?.user?.email) continue;
       const dateFmt = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
       // 10.5 : même formule que la souscription et le webhook Mollie — plan +
-      // supplément par centre ACTIF au-delà du premier (le prélèvement réel
+      // supplément par centre exploité au-delà du premier (le prélèvement réel
       // inclut ce supplément, le mail doit annoncer le même montant).
-      const nbCentresActifs = centre.userId
-        ? await this.prisma.centreHebergement.count({
-            where: { userId: centre.userId, statut: 'ACTIVE' },
-          })
-        : 1;
-      const prix = calculerMontantAbonnementCents(centre.planAbonnement, 'ANNUEL', nbCentresActifs) / 100;
+      // centresExploites est déjà filtré ACTIVE + userId non null (Q7) :
+      // pas de count séparé (l'ancien count par userId était faux en multi-société).
+      const prix = calculerMontantAbonnementCents(org.planAbonnement, 'ANNUEL', centresExploites.length) / 100;
       try {
         await this.emailService.sendGenericNotification(
-          centre.user.email,
+          premier.user.email,
           'Renouvellement de votre abonnement LIAVO',
-          `Bonjour ${centre.user.prenom},<br/><br/>Votre abonnement annuel LIAVO sera renouvelé le ${dateFmt}. Montant : ${prix} €.`,
+          `Bonjour ${premier.user.prenom},<br/><br/>Votre abonnement annuel LIAVO sera renouvelé le ${dateFmt}. Montant : ${prix} €.`,
         );
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
+        await this.prisma.organisation.update({
+          where: { id: org.id },
           data: { dernierEmailAlerteAt: now },
         });
         count++;
       } catch (err) {
-        this.logger.error(`[renouvellement] Erreur centre ${centre.id}`, err as Error);
+        this.logger.error(`[renouvellement] Erreur organisation ${org.id}`, err as Error);
       }
     }
     return { renouvellementsNotifies: count };
@@ -245,7 +246,9 @@ export class CronAlertesService {
     const dans30j = new Date(now); dans30j.setDate(dans30j.getDate() + 30);
     const il_y_a_25j = new Date(now); il_y_a_25j.setDate(il_y_a_25j.getDate() - 25);
 
-    const centres = await this.prisma.centreHebergement.findMany({
+    // L3b : itération par organisation (une org = un abo). Destinataire = admin,
+    // les centres exploités ne servent qu'aux noms du mail.
+    const orgs = await this.prisma.organisation.findMany({
       where: {
         modePaiement: 'VIREMENT',
         abonnementStatut: 'ACTIF',
@@ -255,27 +258,36 @@ export class CronAlertesService {
           { dernierEmailAlerteAt: { lt: il_y_a_25j } },
         ],
       },
+      include: {
+        centresHebergement: {
+          where: { statut: 'ACTIVE', userId: { not: null } },
+          select: { nom: true },
+        },
+      },
     });
 
     const adminEmail = process.env.ADMIN_ALERT_EMAIL ?? 'contact@liavo.fr';
     let count = 0;
-    for (const centre of centres) {
-      const exp = centre.abonnementActifJusquAu;
+    for (const org of orgs) {
+      const exp = org.abonnementActifJusquAu;
       if (!exp) continue;
+      const centresExploites = org.centresHebergement;
+      if (centresExploites.length === 0) continue; // pas de relance sans nom de centre
+      const noms = centresExploites.map((c) => c.nom).join(', ');
       const dateFmt = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
       try {
         await this.emailService.sendGenericNotification(
           adminEmail,
           'Renouvellement virement à préparer',
-          `Le centre ${centre.nom} (abonnement ${centre.planAbonnement}) expire le ${dateFmt}. Pense à ré-émettre la facture virement/BdC.`,
+          `Le centre ${noms} (abonnement ${org.planAbonnement}) expire le ${dateFmt}. Pense à ré-émettre la facture virement/BdC.`,
         );
-        await this.prisma.centreHebergement.update({
-          where: { id: centre.id },
+        await this.prisma.organisation.update({
+          where: { id: org.id },
           data: { dernierEmailAlerteAt: now },
         });
         count++;
       } catch (err) {
-        this.logger.error(`[relance-virement] Erreur centre ${centre.id}`, err as Error);
+        this.logger.error(`[relance-virement] Erreur organisation ${org.id}`, err as Error);
       }
     }
     return { relancesVirementNotifiees: count };

@@ -5,6 +5,12 @@ import { CronAlertesService } from './cron-alertes.service';
 
 function mockPrisma() {
   return {
+    organisation: {
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    // Conservé UNIQUEMENT pour vérifier que le cron ne touche plus les centres
+    // (ni lecture, ni tampon, ni count multi-centre) depuis L3b.
     centreHebergement: {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
@@ -18,14 +24,17 @@ type PrismaMock = ReturnType<typeof mockPrisma>;
 const NOW = new Date('2026-07-07T08:00:00.000Z');
 const dansJours = (j: number) => new Date(NOW.getTime() + j * 86400000);
 
-function centreEssai(over: Partial<Record<string, unknown>> = {}) {
+const userJean = { email: 'heb@centre.fr', prenom: 'Jean', nom: 'Dupont' };
+
+// L3b : le cron itère les ORGANISATIONS (une org = un abo) ; les centres
+// exploités (ACTIVE + revendiqués) arrivent par l'include centresHebergement.
+function orgEssai(over: Partial<Record<string, unknown>> = {}) {
   return {
-    id: 'centre-1',
-    nom: 'Centre Essai',
+    id: 'org-1',
     abonnementActifJusquAu: dansJours(21),
     dernierEmailAlerteAt: null,
     planAbonnement: 'PILOTAGE',
-    user: { email: 'heb@centre.fr', prenom: 'Jean', nom: 'Dupont' },
+    centresHebergement: [{ id: 'centre-1', nom: 'Centre Essai', user: userJean }],
     ...over,
   };
 }
@@ -78,6 +87,7 @@ describe('CronAlertesService', () => {
 
       await service.cronQuotidien();
 
+      expect(prisma.organisation.findMany).not.toHaveBeenCalled();
       expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
       expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
       expect(emailService.sendGenericNotification).not.toHaveBeenCalled();
@@ -112,10 +122,10 @@ describe('CronAlertesService', () => {
   // ── envoyerAlertes : ciblage essais uniquement ────────────────────────
 
   describe('envoyerAlertes — filtres essais uniquement', () => {
-    it('le WHERE cible les ESSAIS actifs : trial démarré, PAS de mandat Mollie, statut ACTIF', async () => {
+    it('le WHERE cible les ESSAIS actifs sur l\'ORG : trial démarré, PAS de mandat Mollie, statut ACTIF', async () => {
       await service.envoyerAlertes();
 
-      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      const arg = prisma.organisation.findMany.mock.calls[0][0];
       expect(arg.where.abonnementStatut).toBe('ACTIF');
       expect(arg.where.trialStartedAt).toEqual({ not: null }); // essai consommé
       expect(arg.where.mollieMandatId).toBeNull(); // jamais un abonnement payé
@@ -128,11 +138,16 @@ describe('CronAlertesService', () => {
         { dernierEmailAlerteAt: null },
         { dernierEmailAlerteAt: { lt: expect.any(Date) } },
       ]);
+      // Q7 : seuls les centres exploités (ACTIVE + revendiqués) sont inclus.
+      expect(arg.include.centresHebergement.where).toEqual({
+        statut: 'ACTIVE',
+        userId: { not: null },
+      });
     });
 
     it.each([21, 14, 7, 3, 1])('J-%i → alerte envoyée avec le bon nombre de jours', async (j) => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ abonnementActifJusquAu: dansJours(j) }),
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ abonnementActifJusquAu: dansJours(j) }),
       ]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
@@ -145,29 +160,32 @@ describe('CronAlertesService', () => {
         j,
         dansJours(j),
       );
-      // Le tampon anti-spam est posé après envoi.
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({
-        where: { id: 'centre-1' },
+      // Le tampon anti-spam est posé sur l'ORG SEULE après envoi.
+      expect(prisma.organisation.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
         data: { dernierEmailAlerteAt: expect.any(Date) },
       });
-    });
-
-    it.each([20, 10, 5, 2])('J-%i hors des paliers 21/14/7/3/1 → aucun envoi', async (j) => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ abonnementActifJusquAu: dansJours(j) }),
-      ]);
-
-      const { alertesEnvoyees } = await service.envoyerAlertes();
-
-      expect(alertesEnvoyees).toBe(0);
-      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
       expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
 
-    it('centre sans email utilisateur ou sans date → ignoré sans erreur', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ user: { email: null, prenom: 'X', nom: 'Y' } }),
-        centreEssai({ id: 'centre-2', abonnementActifJusquAu: null }),
+    it.each([20, 10, 5, 2])('J-%i hors des paliers 21/14/7/3/1 → aucun envoi', async (j) => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ abonnementActifJusquAu: dansJours(j) }),
+      ]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(0);
+      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+    });
+
+    it('org sans email utilisateur ou sans date → ignorée sans erreur', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({
+          centresHebergement: [{ id: 'c1', nom: 'Centre Essai', user: { email: null, prenom: 'X', nom: 'Y' } }],
+        }),
+        orgEssai({ id: 'org-2', abonnementActifJusquAu: null }),
       ]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
@@ -176,10 +194,10 @@ describe('CronAlertesService', () => {
       expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
     });
 
-    it("échec d'envoi sur un centre → pas de tampon pour lui, les suivants continuent", async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ id: 'centre-ko' }),
-        centreEssai({ id: 'centre-ok', nom: 'Centre OK' }),
+    it("échec d'envoi sur une org → pas de tampon pour elle, les suivantes continuent", async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ id: 'org-ko' }),
+        orgEssai({ id: 'org-ok', centresHebergement: [{ id: 'c-ok', nom: 'Centre OK', user: userJean }] }),
       ]);
       emailService.sendTrialExpirationAlert
         .mockRejectedValueOnce(new Error('Brevo down'))
@@ -188,9 +206,9 @@ describe('CronAlertesService', () => {
       const { alertesEnvoyees } = await service.envoyerAlertes();
 
       expect(alertesEnvoyees).toBe(1);
-      expect(prisma.centreHebergement.update).toHaveBeenCalledTimes(1);
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'centre-ok' } }),
+      expect(prisma.organisation.update).toHaveBeenCalledTimes(1);
+      expect(prisma.organisation.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'org-ok' } }),
       );
     });
 
@@ -198,13 +216,17 @@ describe('CronAlertesService', () => {
       "centre payant par virement (trialStartedAt résiduel, pas de mandat Mollie) → PAS d'alerte essai — invariant du chantier 10.1, à faire passer avant le 26/09",
     );
 
-    // ── 4.20 : regroupement par compte (multi-centre aligné) ────────────
+    // ── L3b : une org = un abo = une itération (regroupement 4.20 supprimé) ──
 
-
-    it('multi-centre aligné (même userId, même palier) → UN seul mail, noms joints, tampon posé sur CHAQUE centre', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ id: 'c-yaka', nom: 'YAKA', userId: 'user-pm' }),
-        centreEssai({ id: 'c-flo', nom: 'Florimont', userId: 'user-pm' }),
+    it("une org à 2 centres exploités → UN seul mail, noms joints, tampon posé sur l'org SEULE", async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({
+          id: 'org-pm',
+          centresHebergement: [
+            { id: 'c-yaka', nom: 'YAKA', user: userJean },
+            { id: 'c-flo', nom: 'Florimont', user: userJean },
+          ],
+        }),
       ]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
@@ -214,31 +236,61 @@ describe('CronAlertesService', () => {
       expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledWith(
         'YAKA, Florimont', 'heb@centre.fr', 'Jean', 21, dansJours(21),
       );
-      expect(prisma.centreHebergement.update).toHaveBeenCalledTimes(2);
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'c-yaka' } }),
-      );
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'c-flo' } }),
-      );
+      expect(prisma.organisation.update).toHaveBeenCalledTimes(1);
+      expect(prisma.organisation.update).toHaveBeenCalledWith({
+        where: { id: 'org-pm' },
+        data: { dernierEmailAlerteAt: expect.any(Date) },
+      });
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
 
-    it('même userId mais paliers différents (J-21 et J-7) → deux mails distincts', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ id: 'c-a', nom: 'Centre A', userId: 'user-x', abonnementActifJusquAu: dansJours(21) }),
-        centreEssai({ id: 'c-b', nom: 'Centre B', userId: 'user-x', abonnementActifJusquAu: dansJours(7) }),
+    it('deux orgs à paliers différents (J-21 et J-7) → deux alertes indépendantes', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({
+          id: 'org-a',
+          abonnementActifJusquAu: dansJours(21),
+          centresHebergement: [{ id: 'c-a', nom: 'Centre A', user: userJean }],
+        }),
+        orgEssai({
+          id: 'org-b',
+          abonnementActifJusquAu: dansJours(7),
+          centresHebergement: [{ id: 'c-b', nom: 'Centre B', user: userJean }],
+        }),
       ]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
 
       expect(alertesEnvoyees).toBe(2);
       expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(2);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenNthCalledWith(
+        1, 'Centre A', 'heb@centre.fr', 'Jean', 21, dansJours(21),
+      );
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenNthCalledWith(
+        2, 'Centre B', 'heb@centre.fr', 'Jean', 7, dansJours(7),
+      );
+      expect(prisma.organisation.update).toHaveBeenCalledTimes(2);
     });
 
-    it('envoyerAlertesExpires regroupe aussi par userId → un seul mail pour deux centres expirés du même compte', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ id: 'c-a', nom: 'Centre A', userId: 'user-x', abonnementActifJusquAu: dansJours(-2) }),
-        centreEssai({ id: 'c-b', nom: 'Centre B', userId: 'user-x', abonnementActifJusquAu: dansJours(-2) }),
+    it('org sans centre exploité → aucun mail, aucun tampon', async () => {
+      prisma.organisation.findMany.mockResolvedValue([orgEssai({ centresHebergement: [] })]);
+
+      const { alertesEnvoyees } = await service.envoyerAlertes();
+
+      expect(alertesEnvoyees).toBe(0);
+      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+    });
+
+    it('envoyerAlertesExpires : org à 2 centres expirée → un seul mail, noms joints, tampon org unique', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({
+          id: 'org-x',
+          abonnementActifJusquAu: dansJours(-2),
+          centresHebergement: [
+            { id: 'c-a', nom: 'Centre A', user: userJean },
+            { id: 'c-b', nom: 'Centre B', user: userJean },
+          ],
+        }),
       ]);
 
       const { expiresNotifies } = await service.envoyerAlertesExpires();
@@ -248,7 +300,10 @@ describe('CronAlertesService', () => {
       expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledWith(
         'Centre A, Centre B', 'heb@centre.fr', 'Jean', 0, dansJours(-2),
       );
-      expect(prisma.centreHebergement.update).toHaveBeenCalledTimes(2);
+      expect(prisma.organisation.update).toHaveBeenCalledTimes(1);
+      expect(prisma.organisation.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'org-x' } }),
+      );
     });
   });
 
@@ -261,35 +316,35 @@ describe('CronAlertesService', () => {
      * service — {modePaiement: null} matche NULL ; {modePaiement: {not:
      * 'VIREMENT'}} exclut les NULL (comme `mode_paiement <> 'VIREMENT'`).
      */
-    const matchModePaiement = (where: any, centre: any): boolean =>
+    const matchModePaiement = (where: any, org: any): boolean =>
       (where.AND ?? []).every((groupe: any) =>
         (groupe.OR ?? []).some((cond: any) => {
-          if (cond.modePaiement === null) return centre.modePaiement == null;
+          if (cond.modePaiement === null) return org.modePaiement == null;
           if (cond.modePaiement?.not) {
-            return centre.modePaiement != null && centre.modePaiement !== cond.modePaiement.not;
+            return org.modePaiement != null && org.modePaiement !== cond.modePaiement.not;
           }
           return false;
         }),
       );
 
-    const setCentres = (liste: Record<string, unknown>[]) => {
-      prisma.centreHebergement.findMany.mockImplementation(async ({ where }: any) =>
-        liste.filter((c) => matchModePaiement(where, c)),
+    const setOrgs = (liste: Record<string, unknown>[]) => {
+      prisma.organisation.findMany.mockImplementation(async ({ where }: any) =>
+        liste.filter((o) => matchModePaiement(where, o)),
       );
     };
 
     it('le cas Choucas : ACTIF, trial posé, pas de mandat, VIREMENT, J-21 → NON alerté', async () => {
-      setCentres([centreEssai({ modePaiement: 'VIREMENT' })]);
+      setOrgs([orgEssai({ modePaiement: 'VIREMENT' })]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
 
       expect(alertesEnvoyees).toBe(0);
       expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
-      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
     });
 
     it('un vrai essai (modePaiement null), J-21 → alerté (anti-régression Alticlub/Pôle Montagne)', async () => {
-      setCentres([centreEssai({ modePaiement: null })]);
+      setOrgs([orgEssai({ modePaiement: null })]);
 
       const { alertesEnvoyees } = await service.envoyerAlertes();
 
@@ -299,7 +354,7 @@ describe('CronAlertesService', () => {
 
     it('le WHERE porte le groupe AND null-safe (jamais un not:VIREMENT seul)', async () => {
       await service.envoyerAlertes();
-      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      const arg = prisma.organisation.findMany.mock.calls[0][0];
       expect(arg.where.AND).toEqual([
         { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
       ]);
@@ -308,15 +363,15 @@ describe('CronAlertesService', () => {
     });
 
     it('envoyerAlertesExpires porte la même exclusion : VIREMENT expiré → non notifié', async () => {
-      setCentres([
-        centreEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(-3) }),
+      setOrgs([
+        orgEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(-3) }),
       ]);
 
       const { expiresNotifies } = await service.envoyerAlertesExpires();
 
       expect(expiresNotifies).toBe(0);
       expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
-      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
+      const arg = prisma.organisation.findMany.mock.calls[0][0];
       expect(arg.where.AND).toEqual([
         { OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' } }] },
       ]);
@@ -324,11 +379,10 @@ describe('CronAlertesService', () => {
   });
 
   describe('envoyerAlertesRenouvellement', () => {
-    it('mono-centre PILOTAGE annuel → montant du plan seul (690 €)', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ userId: 'user-x', abonnementActifJusquAu: dansJours(30) }),
+    it('org mono-centre PILOTAGE annuel → montant du plan seul (690 €)', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ abonnementActifJusquAu: dansJours(30) }),
       ]);
-      prisma.centreHebergement.count.mockResolvedValue(1);
 
       const { renouvellementsNotifies } = await service.envoyerAlertesRenouvellement();
 
@@ -338,19 +392,24 @@ describe('CronAlertesService', () => {
       expect(corps).toContain('690 €');
     });
 
-    it('le montant inclut le supplément multi-centre +390 €/an/centre (10.5) : 2 centres ACTIVE → 1080 €', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ userId: 'user-pm', abonnementActifJusquAu: dansJours(30) }),
+    it("le montant inclut le supplément multi-centre +390 €/an/centre (10.5) : org à 2 centres exploités → 1080 €, SANS count séparé", async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({
+          id: 'org-pm',
+          abonnementActifJusquAu: dansJours(30),
+          centresHebergement: [
+            { id: 'c-yaka', nom: 'YAKA', user: userJean },
+            { id: 'c-flo', nom: 'Florimont', user: userJean },
+          ],
+        }),
       ]);
-      prisma.centreHebergement.count.mockResolvedValue(2);
 
       const { renouvellementsNotifies } = await service.envoyerAlertesRenouvellement();
 
       expect(renouvellementsNotifies).toBe(1);
-      // Le comptage porte sur les centres ACTIVE du compte, comme le webhook Mollie.
-      expect(prisma.centreHebergement.count).toHaveBeenCalledWith({
-        where: { userId: 'user-pm', statut: 'ACTIVE' },
-      });
+      // Q7 : le nombre de centres facturables vient de l'include filtré de la
+      // requête org — l'ancien count par userId (faux en multi-société) a disparu.
+      expect(prisma.centreHebergement.count).not.toHaveBeenCalled();
       const [, , corps] = emailService.sendGenericNotification.mock.calls[0];
       expect(corps).toContain('1080 €');
       expect(corps).not.toContain('690 €');
@@ -360,9 +419,9 @@ describe('CronAlertesService', () => {
   // ── 10.1b-4 : relance admin J-30 pour les renouvellements virement ───
 
   describe('envoyerRelanceVirement', () => {
-    it('centre VIREMENT/ACTIF/J-30 → 1 relance admin + tampon dernierEmailAlerteAt posé', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([
-        centreEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(30) }),
+    it('org VIREMENT/ACTIF/J-30 → 1 relance admin + tampon dernierEmailAlerteAt posé sur l\'org', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(30) }),
       ]);
 
       const { relancesVirementNotifiees } = await service.envoyerRelanceVirement();
@@ -375,17 +434,30 @@ describe('CronAlertesService', () => {
       expect(corps).toContain('Centre Essai');
       expect(corps).toContain('PILOTAGE');
       expect(corps).toContain('ré-émettre la facture virement/BdC');
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({
-        where: { id: 'centre-1' },
+      expect(prisma.organisation.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
         data: { dernierEmailAlerteAt: expect.any(Date) },
       });
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
 
-    it('ciblage exclusif VIREMENT : les centres Mollie ou en essai ne matchent pas le WHERE', async () => {
+    it('org VIREMENT sans centre exploité → aucun mail admin (pas de relance sans nom de centre)', async () => {
+      prisma.organisation.findMany.mockResolvedValue([
+        orgEssai({ modePaiement: 'VIREMENT', abonnementActifJusquAu: dansJours(30), centresHebergement: [] }),
+      ]);
+
+      const { relancesVirementNotifiees } = await service.envoyerRelanceVirement();
+
+      expect(relancesVirementNotifiees).toBe(0);
+      expect(emailService.sendGenericNotification).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+    });
+
+    it('ciblage exclusif VIREMENT : les orgs Mollie ou en essai ne matchent pas le WHERE', async () => {
       await service.envoyerRelanceVirement();
 
-      const arg = prisma.centreHebergement.findMany.mock.calls[0][0];
-      // Égalité stricte : un centre Mollie ou un vrai essai a modePaiement null → exclu.
+      const arg = prisma.organisation.findMany.mock.calls[0][0];
+      // Égalité stricte : une org Mollie ou un vrai essai a modePaiement null → exclue.
       expect(arg.where.modePaiement).toBe('VIREMENT');
       expect(arg.where.abonnementStatut).toBe('ACTIF');
       // Fenêtre J..J+30 + même debounce 25j que la relance renouvellement.
@@ -399,14 +471,14 @@ describe('CronAlertesService', () => {
       ]);
     });
 
-    it('aucun centre ciblé (debounce ou fenêtre) → aucun email, aucun tampon', async () => {
-      prisma.centreHebergement.findMany.mockResolvedValue([]);
+    it('aucune org ciblée (debounce ou fenêtre) → aucun email, aucun tampon', async () => {
+      prisma.organisation.findMany.mockResolvedValue([]);
 
       const { relancesVirementNotifiees } = await service.envoyerRelanceVirement();
 
       expect(relancesVirementNotifiees).toBe(0);
       expect(emailService.sendGenericNotification).not.toHaveBeenCalled();
-      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
     });
 
     it("cronQuotidien exécute la relance virement en 4e étape, même si une étape précédente échoue", async () => {
