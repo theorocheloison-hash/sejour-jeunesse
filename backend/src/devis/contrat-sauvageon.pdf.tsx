@@ -92,6 +92,9 @@ export interface ContratData {
   iban?: string | null;
   bic?: string | null;
   banque?: string | null;
+  // Conditions d'annulation (snapshot devis ou profil centre, résolu côté service).
+  // Absent/vide → fallback sur les 3 puces Sauvageon historiques (article 4).
+  conditionsAnnulation?: string | null;
 }
 
 const fmt = (n: number) => {
@@ -216,13 +219,13 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         {/* RÉSERVATION */}
         <Text style={styles.sectionTitle}>RÉSERVATION</Text>
         <Text style={styles.paragraph}>
-          La réservation est validée sous deux conditions : réception du présent contrat signé électroniquement avec la mention &laquo; bon pour accord &raquo;, et réception de l&apos;acompte de 30% ({fmt(data.montantAcompte)} €) par virement dans un délai d&apos;un mois. Sans réception de l&apos;acompte dans ce délai, les dates ne sont pas bloquées et la SAS Le Sauvageon se réserve le droit d&apos;accepter une autre réservation sur les dates concernées.
+          La réservation est validée sous deux conditions : réception du présent contrat signé électroniquement avec la mention &laquo; bon pour accord &raquo;, et réception de l&apos;acompte de {data.pourcentageAcompte}% ({fmt(data.montantAcompte)} €) par virement dans un délai d&apos;un mois. Sans réception de l&apos;acompte dans ce délai, les dates ne sont pas bloquées et la SAS Le Sauvageon se réserve le droit d&apos;accepter une autre réservation sur les dates concernées.
         </Text>
 
         {/* CONDITIONS RÈGLEMENT */}
         <Text style={styles.sectionTitle}>CONDITIONS DE RÈGLEMENT</Text>
         <Text style={styles.paragraph}>
-          L&apos;acompte de 30% ({fmt(data.montantAcompte)} €) est à régler par virement bancaire dès signature du présent contrat.
+          L&apos;acompte de {data.pourcentageAcompte}% ({fmt(data.montantAcompte)} €) est à régler par virement bancaire dès signature du présent contrat.
         </Text>
         <Text style={styles.paragraph}>
           Le solde ({fmt(data.resteAPayer)} €) est à régler par virement ou espèces au plus tard une semaine avant l&apos;événement.
@@ -292,9 +295,21 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
         <Text style={styles.paragraph}>
           Toute annulation doit être notifiée par écrit à resa@lesauvageon.com.
         </Text>
-        <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé est remboursé dans son intégralité</Text>
-        <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : 50% du montant total TTC est retenu</Text>
-        <Text style={styles.bullet}>• Annulation moins de 6 mois avant le début du séjour : l&apos;intégralité du montant TTC est due</Text>
+        {data.conditionsAnnulation?.trim() ? (
+          data.conditionsAnnulation
+            .split('\n')
+            .map(l => l.trim())
+            .filter(Boolean)
+            .map((ligne, i) => (
+              <Text style={styles.paragraph} key={i}>{ligne}</Text>
+            ))
+        ) : (
+          <>
+            <Text style={styles.bullet}>• Annulation jusqu&apos;à 9 mois avant le début du séjour : l&apos;acompte versé est remboursé dans son intégralité</Text>
+            <Text style={styles.bullet}>• Annulation entre 9 et 6 mois avant le début du séjour : 50% du montant total TTC est retenu</Text>
+            <Text style={styles.bullet}>• Annulation moins de 6 mois avant le début du séjour : l&apos;intégralité du montant TTC est due</Text>
+          </>
+        )}
 
         <Text style={styles.articleTitle}>Article 5 — Annulation du fait de la SAS Le Sauvageon</Text>
         <Text style={styles.paragraph}>

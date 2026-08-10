@@ -1640,6 +1640,7 @@ export class DevisService {
       iban: centre.iban,
       bic: 'AGRIFRPP881',
       banque: 'Crédit Agricole des Savoie',
+      conditionsAnnulation: devis.conditionsAnnulation ?? centre.conditionsAnnulation ?? null,
     });
 
     return { buffer: pdfBuffer, fileName: `contrat-${devis.numeroDevis ?? devis.id}.pdf` };
@@ -1955,7 +1956,7 @@ export class DevisService {
       montantTTC: round2(montantTTC),
       pourcentageAcompte,
       montantAcompte: round2(montantAcompte),
-      conditionsAnnulation: devis.conditionsAnnulation ?? null,
+      conditionsAnnulation: devis.conditionsAnnulation ?? centre.conditionsAnnulation ?? null,
       dateDocument: fmtDate(new Date()),
     };
 
@@ -1971,7 +1972,7 @@ export class DevisService {
 
     if (centre.conventionPdfUrl) {
       const { generateConventionCouverturePdf } = await import('./convention-couverture.pdf.js');
-      const couvertureBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant });
+      const couvertureBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant, afficherConditionsAnnulation: false });
 
       // Récupérer le PDF de conditions du centre (URL OVH) via fetch natif Node 20.
       const centreConventionResponse = await fetch(centre.conventionPdfUrl);
@@ -1999,7 +2000,7 @@ export class DevisService {
     } else {
       // Centre sans PDF de conditions ni template legacy : couverture générique seule.
       const { generateConventionCouverturePdf } = await import('./convention-couverture.pdf.js');
-      pdfBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant });
+      pdfBuffer = await generateConventionCouverturePdf({ ...baseData, centreRepresentant: representant, afficherConditionsAnnulation: true });
     }
 
     return {

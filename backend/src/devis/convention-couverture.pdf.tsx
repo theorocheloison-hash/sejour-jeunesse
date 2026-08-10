@@ -136,6 +136,19 @@ function ConventionCouvertureDocument({ data }: { data: ConventionScolaireData }
           </Text>
         </View>
 
+        {data.afficherConditionsAnnulation && data.conditionsAnnulation?.trim() ? (
+          <>
+            <Text style={styles.sectionTitle}>CONDITIONS D&apos;ANNULATION</Text>
+            {data.conditionsAnnulation
+              .split('\n')
+              .map(l => l.trim())
+              .filter(Boolean)
+              .map((ligne, i) => (
+                <Text style={styles.value} key={i}>{ligne}</Text>
+              ))}
+          </>
+        ) : null}
+
         {/* Signatures */}
         <Text style={styles.sectionTitle}>SIGNATURES</Text>
         <View style={styles.signatureRow}>

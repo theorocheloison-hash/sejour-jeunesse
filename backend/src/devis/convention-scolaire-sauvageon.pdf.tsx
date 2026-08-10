@@ -70,6 +70,9 @@ export interface ConventionScolaireData {
   // Conditions d'annulation saisies par le centre (snapshot porté par le devis).
   // Absent/vide → fallback sur les 3 puces Sauvageon historiques (article 4).
   conditionsAnnulation?: string | null;
+  // Pilote l'affichage de la section conditions sur la couverture générique (Option 3).
+  // true = section affichée (centre sans PDF propre) ; false/undefined = masquée.
+  afficherConditionsAnnulation?: boolean;
   // Date document
   dateDocument: string;
 }
