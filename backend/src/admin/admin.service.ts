@@ -8,6 +8,7 @@ import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
+import { calculerMontantAbonnementCents } from '../abonnements/abonnement.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -384,37 +385,67 @@ export class AdminService {
 
   async getMetriquesAbonnements() {
     const now = new Date();
-    const [totalCentres, trialActifs, trialExpires, aboPayes, aboActifsPayes] = await Promise.all([
+    // Métriques d'abonnement comptées par ORGANISATION (L3a-bis) : une org
+    // multi-centre = 1 abonnement, plus de double-comptage.
+    // Garde-fou : un compte VIREMENT est payant, jamais trial (sinon
+    // double-comptage type Choucas) → exclusion null-safe des VIREMENT sur les
+    // trials (patron cron-alertes : un `not: 'VIREMENT'` seul exclurait les
+    // NULL, c'est-à-dire les vrais essais).
+    const horsVirement = {
+      OR: [{ modePaiement: null }, { modePaiement: { not: 'VIREMENT' as const } }],
+    };
+    // Payant = mandat Mollie OU virement admin, abonnement ACTIF.
+    const wherePayant = {
+      abonnementStatut: 'ACTIF' as const,
+      OR: [{ mollieMandatId: { not: null } }, { modePaiement: 'VIREMENT' as const }],
+    };
+
+    const [totalCentres, trialActifs, trialExpires, aboPayes, orgsPayantes] = await Promise.all([
+      // Inventaire de centres (pas d'abonnements) — inchangé.
       this.prisma.centreHebergement.count({ where: { statut: 'ACTIVE' } }),
-      this.prisma.centreHebergement.count({
+      this.prisma.organisation.count({
         where: {
           abonnementStatut: 'ACTIF', trialStartedAt: { not: null }, mollieMandatId: null,
           abonnementActifJusquAu: { gte: now },
+          AND: [horsVirement],
         },
       }),
-      this.prisma.centreHebergement.count({
+      this.prisma.organisation.count({
         where: {
           trialStartedAt: { not: null }, mollieMandatId: null,
           OR: [{ abonnementActifJusquAu: { lt: now } }, { abonnementActifJusquAu: null }],
+          AND: [horsVirement],
         },
       }),
-      this.prisma.centreHebergement.count({
-        where: { mollieMandatId: { not: null }, abonnementStatut: 'ACTIF' },
-      }),
-      // MRR = somme des prix mensuels des abonnements actifs payés
-      this.prisma.centreHebergement.findMany({
-        where: { mollieMandatId: { not: null }, abonnementStatut: 'ACTIF' },
-        select: { planAbonnement: true, abonnement: true },
+      this.prisma.organisation.count({ where: wherePayant }),
+      // MRR = somme par organisation : prix du plan + supplément multi-centre
+      // (Q7 : seuls les centres ACTIVE revendiqués comptent), en centimes.
+      this.prisma.organisation.findMany({
+        where: wherePayant,
+        select: {
+          planAbonnement: true,
+          abonnement: true,
+          _count: {
+            select: {
+              centresHebergement: { where: { statut: 'ACTIVE', userId: { not: null } } },
+            },
+          },
+        },
       }),
     ]);
 
-    const PRIX_MENSUEL_MAP: Record<string, number> = { ESSENTIEL: 29, COMPLET: 49, PILOTAGE: 69 };
-    const mrr = aboActifsPayes.reduce((sum, c) => {
-      const prix = PRIX_MENSUEL_MAP[c.planAbonnement] ?? 0;
-      return sum + (c.abonnement === 'ANNUEL' ? Math.round(prix * 100 / 12) / 100 : prix);
+    const mrrCents = orgsPayantes.reduce((sum, o) => {
+      const montant = calculerMontantAbonnementCents(
+        o.planAbonnement,
+        o.abonnement ?? 'MENSUEL',
+        o._count.centresHebergement,
+      );
+      return sum + (o.abonnement === 'ANNUEL' ? Math.round(montant / 12) : montant);
     }, 0);
+    // mrr en euros (number), même clé/unité que le front (metriques.mrr.toFixed(2)).
+    const mrr = mrrCents / 100;
 
-    return { totalCentres, trialActifs, trialExpires, aboPayes, mrr: Math.round(mrr * 100) / 100 };
+    return { totalCentres, trialActifs, trialExpires, aboPayes, mrr };
   }
 
   // ─── Réseau partenaire ──────────────────────────────────────────────────────
