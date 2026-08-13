@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -1517,16 +1517,22 @@ export class AdminService {
 
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: centreId },
-      include: { user: { select: { email: true, prenom: true, nom: true } } },
+      include: {
+        user: { select: { email: true, prenom: true, nom: true } },
+        organisation: { select: { abonnementActifJusquAu: true } },
+      },
     });
     if (!centre) throw new NotFoundException('Centre introuvable');
+    if (!centre.organisationId || !centre.organisation) {
+      throw new ConflictException("Ce centre n'est rattaché à aucune organisation — facturation impossible");
+    }
 
     const montant = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
 
     // Calculer l'expiration : renouvellement = prolonger depuis la date de fin
     // actuelle si elle est encore dans le futur ; sinon repartir d'aujourd'hui.
     const now = new Date();
-    const finActuelle = centre.abonnementActifJusquAu ? new Date(centre.abonnementActifJusquAu) : null;
+    const finActuelle = centre.organisation.abonnementActifJusquAu ? new Date(centre.organisation.abonnementActifJusquAu) : null;
     const base = finActuelle && finActuelle > now ? finActuelle : now;
     const expiration = new Date(base);
     if (frequence === 'ANNUEL') {
@@ -1535,10 +1541,9 @@ export class AdminService {
       expiration.setMonth(expiration.getMonth() + 1);
     }
 
-    // Activer le plan. Chemin manuel hors Mollie → toujours VIREMENT :
-    // exclut le centre des alertes d'essai du cron (10.1a).
-    // Miroir organisation (double écriture transitoire jusqu'à la coupure des
-    // miroirs centre) : même objet data aux deux updates, dans une transaction.
+    // Activer le plan sur l'ORGANISATION, unique porteur de l'état d'abonnement
+    // (L3c). Chemin manuel hors Mollie → toujours VIREMENT : exclut le centre
+    // des alertes d'essai du cron (10.1a).
     // Supplément multi-centre = L2d (le montant reste le prix plan sec ici).
     const dataAbo = {
       planAbonnement: plan as any,
@@ -1547,15 +1552,7 @@ export class AdminService {
       abonnementActifJusquAu: expiration,
       modePaiement: 'VIREMENT' as const,
     };
-    await this.prisma.$transaction(async (tx) => {
-      await tx.centreHebergement.update({ where: { id: centreId }, data: dataAbo });
-      if (centre.organisationId) {
-        await tx.organisation.update({ where: { id: centre.organisationId }, data: dataAbo });
-      } else {
-        // Centre sans organisation (théorique, 0 en prod) : garde défensive, jamais bloquant.
-        console.log('[facturerCentre] centre', centre.id, 'sans organisation — miroir org non écrit');
-      }
-    });
+    await this.prisma.organisation.update({ where: { id: centre.organisationId }, data: dataAbo });
 
     // Émettre la facture LIAVO (PDF + email) — effet de bord, après commit.
     const facture = await this.factureLiavo.emettre(centreId, montant, plan, frequence, null, destinataire);
