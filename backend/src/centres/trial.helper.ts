@@ -15,19 +15,23 @@ export function trialExpiration(): Date {
 }
 
 /**
- * Source UNIQUE de démarrage (ou d'alignement) de l'essai gratuit 30j Pilotage.
+ * Source UNIQUE de démarrage de l'essai gratuit 30j Pilotage.
  * Appelée par les 4 chemins d'activation : login (auth.service), validation de
  * claim (claim.service), activation de centre et validation d'hébergeur
  * (admin.service).
  *
+ * L'essai est porté par l'ORGANISATION seule (« une organisation = un essai ») ;
+ * les colonnes abo des centres ne sont JAMAIS écrites (L3c) — un centre hérite
+ * de l'essai par lecture org (L3a).
+ *
  * Règles :
- * - seuls les centres ACTIVE vierges (trialStartedAt null, pas de mandat Mollie,
- *   abonnement INACTIF) sont éligibles — un centre PENDING ne consomme jamais
- *   son essai pendant l'attente de validation ;
- * - compte payant (mandat Mollie ou modePaiement VIREMENT) ou abonnement offert
- *   (ACTIF sans trial ni mandat, ex. Sauvageon) → aucun essai ;
- * - essai déjà en cours sur un autre centre → alignement sur la MÊME expiration
- *   (jamais de prolongation) ; essai terminé → aucun nouvel essai.
+ * - a) organisation payante (mandat Mollie ou modePaiement VIREMENT) → aucun essai ;
+ * - b) abonnement offert / posé à la main (ACTIF sans trial ni mandat, ex.
+ *   Sauvageon) → aucun essai ;
+ * - c) essai déjà consommé (en cours ou expiré) → no-op strict, jamais de 2e essai ;
+ * - d) organisation vierge AVEC au moins un centre ACTIVE exploité → nouvel essai
+ *   30j Pilotage sur l'org + notif admin « Nouveau trial » (un PENDING ne
+ *   consomme jamais l'essai).
  *
  * `email` typé structurellement : ce helper ne doit pas importer EmailService
  * (aucune dépendance de module, aucun cycle possible).
@@ -43,8 +47,7 @@ export async function demarrerOuAlignerTrial(
     const now = new Date();
 
     // L'essai est porté par l'ORGANISATION (Lot 2e — « une organisation = un
-    // essai », remplace « un compte = un essai » du 14/07). Les centres sont
-    // écrits en MIROIR (double écriture transitoire jusqu'à L3).
+    // essai », remplace « un compte = un essai » du 14/07).
     const org = await prisma.organisation.findUnique({
       where: { id: organisationId },
       select: {
@@ -52,7 +55,6 @@ export async function demarrerOuAlignerTrial(
         modePaiement: true,
         abonnementStatut: true,
         trialStartedAt: true,
-        abonnementActifJusquAu: true,
       },
     });
     if (!org) return;
@@ -67,71 +69,40 @@ export async function demarrerOuAlignerTrial(
       org.mollieMandatId === null
     ) return;
 
-    // c) Essai déjà présent sur l'org.
-    if (org.trialStartedAt !== null) {
-      // c-expiré : jamais de 2e essai. NO-OP strict (pas de findMany, pas d'update).
-      if (!org.abonnementActifJusquAu || org.abonnementActifJusquAu <= now) return;
-    }
+    // c) Essai déjà consommé (en cours ou expiré) → no-op strict. Un centre
+    // rejoignant une org en essai hérite de l'essai PAR LECTURE org (L3a) ;
+    // plus d'alignement miroir ni de notif « Centre ajouté » (décision 13/08,
+    // anti-spam admin : sans le tampon trialStartedAt centre, la notif
+    // repartait à chaque login).
+    if (org.trialStartedAt !== null) return;
 
-    // Centres à miroiter/notifier : ACTIVE exploités (userId non null) encore
-    // vierges d'essai. La garde trialStartedAt:null ne réécrit jamais un
-    // timestamp historique (cas YAKA, dérive de ms bénigne).
-    const centresAMiroiter = await prisma.centreHebergement.findMany({
-      where: { organisationId, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null },
+    // d) Organisation vierge : nouvel essai 30j Pilotage.
+    // Centres ACTIVE exploités (userId non null) : sert l'invariant PENDING +
+    // les destinataires de la notif « Nouveau trial ».
+    const centresExploites = await prisma.centreHebergement.findMany({
+      where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
       select: { id: true, nom: true, userId: true },
     });
 
-    let expiration: Date;
-    let trialStartedAtValue: Date;
-    let sujet: (nom: string) => string;
-    let corps: (nom: string) => string;
+    // INVARIANT : aucun centre ACTIVE exploité → aucun essai (un PENDING ne
+    // consomme jamais l'essai, porté au niveau org).
+    if (centresExploites.length === 0) return;
 
-    if (org.trialStartedAt !== null) {
-      // c-en-cours : alignement sur la MÊME expiration (pas de prolongation),
-      // AUCUN write sur l'org (l'essai y est déjà posé) — miroir seul.
-      expiration = org.abonnementActifJusquAu!;
-      trialStartedAtValue = org.trialStartedAt;
-      sujet = (nom) => `[Admin] Centre ajouté à l'essai en cours — ${nom}`;
-      corps = (nom) => `<p><strong>${nom}</strong> a été ajouté à l'essai gratuit en cours (Pilotage).</p>`;
-    } else {
-      // d) Organisation vierge : nouvel essai 30j Pilotage.
-      // INVARIANT : aucun centre ACTIVE exploité éligible → aucun essai (un
-      // PENDING ne consomme jamais l'essai, porté au niveau org).
-      if (centresAMiroiter.length === 0) return;
-      expiration = trialExpiration();
-      trialStartedAtValue = now;
-      await prisma.organisation.update({
-        where: { id: organisationId },
-        data: {
-          planAbonnement: PlanAbonnement.PILOTAGE,
-          abonnementStatut: StatutAbonnement.ACTIF,
-          trialStartedAt: now,
-          abonnementActifJusquAu: expiration,
-        },
-      });
-      sujet = (nom) => `[Admin] Nouveau trial — ${nom}`;
-      corps = (nom) => `<p><strong>${nom}</strong> a activé un essai gratuit (30 jours Pilotage).</p>`;
-    }
-
-    // c-en-cours sans nouveau centre à aligner : rien à miroiter ni notifier.
-    if (centresAMiroiter.length === 0) return;
-
-    // Miroir centres (double écriture transitoire jusqu'à L3).
-    await prisma.centreHebergement.updateMany({
-      where: { organisationId, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null },
+    const expiration = trialExpiration();
+    await prisma.organisation.update({
+      where: { id: organisationId },
       data: {
         planAbonnement: PlanAbonnement.PILOTAGE,
         abonnementStatut: StatutAbonnement.ACTIF,
-        trialStartedAt: trialStartedAtValue,
+        trialStartedAt: now,
         abonnementActifJusquAu: expiration,
       },
     });
 
-    // Notifs admin sur les centres capturés AVANT l'update (jamais de findMany
-    // post-update sur trialStartedAt : la comparaison de Date exacte est fragile).
+    // Notifs admin — une par centre exploité.
     const dateExp = expiration.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     const userCache = new Map<string, { prenom: string | null; nom: string | null; email: string } | null>();
-    for (const centre of centresAMiroiter) {
+    for (const centre of centresExploites) {
       if (centre.userId && !userCache.has(centre.userId)) {
         userCache.set(
           centre.userId,
@@ -144,8 +115,8 @@ export async function demarrerOuAlignerTrial(
       const user = centre.userId ? userCache.get(centre.userId) : null;
       await email
         .sendNotifAdmin(
-          sujet(centre.nom),
-          `${corps(centre.nom)}
+          `[Admin] Nouveau trial — ${centre.nom}`,
+          `<p><strong>${centre.nom}</strong> a activé un essai gratuit (30 jours Pilotage).</p>
            <table style="width:100%;border-collapse:collapse;margin:16px 0">
              <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
              <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user?.prenom ?? ''} ${user?.nom ?? ''} — ${user?.email ?? 'N/A'}</td></tr>

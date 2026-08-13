@@ -2,12 +2,13 @@ import type { PrismaService } from '../prisma/prisma.service';
 import { demarrerOuAlignerTrial } from './trial.helper';
 
 /**
- * Tests de la source unique de démarrage/alignement de l'essai gratuit
+ * Tests de la source unique de démarrage de l'essai gratuit
  * (demarrerOuAlignerTrial), appelée par login, validerClaim, activerCentre et
- * validerHebergeur. Lot 2e : l'essai est porté par l'ORGANISATION (double
- * écriture org + miroir centres). Prisma mocké : on vérifie les gardes (org
- * payante, offerte, essai en cours/expiré), l'invariant PENDING (aucun centre
- * exploité → aucun essai), et le NO-OP strict (zéro update) sur les retours.
+ * validerHebergeur. Lots 2e + L3c : l'essai est porté par l'ORGANISATION
+ * seule, les centres ne sont jamais écrits (héritage par lecture org).
+ * Prisma mocké : on vérifie les gardes (org payante, offerte, essai déjà
+ * consommé), l'invariant PENDING (aucun centre exploité → aucun essai), et le
+ * NO-OP strict (zéro update) sur les retours.
  */
 
 const ORG_ID = 'org-1';
@@ -97,7 +98,7 @@ describe('demarrerOuAlignerTrial (Lot 2e — essai porté par l organisation)', 
     expect(email.sendNotifAdmin).not.toHaveBeenCalled();
   });
 
-  it('(d) org vierge AVEC centre exploité → nouvel essai Pilotage 30j sur l org + miroir centre + notif « Nouveau trial »', async () => {
+  it('(d) org vierge AVEC centre exploité → nouvel essai Pilotage 30j sur l org SEULE + notif « Nouveau trial »', async () => {
     prisma.centreHebergement.findMany.mockResolvedValue([centre()]);
     await run();
 
@@ -112,39 +113,14 @@ describe('demarrerOuAlignerTrial (Lot 2e — essai porté par l organisation)', 
     expect(dureeMs).toBeGreaterThan(29 * JOUR_MS - 3600000);
     expect(dureeMs).toBeLessThanOrEqual(30 * JOUR_MS + 3600000);
 
-    // Miroir centres — garde trialStartedAt:null conservée
-    const mirArg = prisma.centreHebergement.updateMany.mock.calls[0][0];
-    expect(mirArg.where).toEqual({ organisationId: ORG_ID, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null });
-    expect(mirArg.data.trialStartedAt).toBe(orgArg.data.trialStartedAt);
-    expect(mirArg.data.abonnementActifJusquAu).toBe(orgArg.data.abonnementActifJusquAu);
+    // L3c : les centres ne sont jamais écrits
+    expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
 
     expect(email.sendNotifAdmin).toHaveBeenCalledTimes(1);
     expect(email.sendNotifAdmin.mock.calls[0][0]).toBe('[Admin] Nouveau trial — Centre A');
   });
 
-  it('(c-en-cours) essai en cours → PAS de write org, miroir seul sur l expiration existante + notif « ajouté »', async () => {
-    const trialStart = new Date(Date.now() - 10 * JOUR_MS);
-    const trialFin = new Date(Date.now() + 20 * JOUR_MS);
-    prisma.organisation.findUnique.mockResolvedValue(
-      org({ trialStartedAt: trialStart, abonnementActifJusquAu: trialFin, abonnementStatut: 'ACTIF' }),
-    );
-    prisma.centreHebergement.findMany.mockResolvedValue([centre({ id: 'second', nom: 'Centre B' })]);
-
-    await run();
-
-    // Aucun write sur l'org (l'essai y est déjà)
-    expect(prisma.organisation.update).not.toHaveBeenCalled();
-
-    const mirArg = prisma.centreHebergement.updateMany.mock.calls[0][0];
-    expect(mirArg.where).toEqual({ organisationId: ORG_ID, statut: 'ACTIVE', userId: { not: null }, trialStartedAt: null });
-    expect(mirArg.data.trialStartedAt).toBe(trialStart);
-    expect(mirArg.data.abonnementActifJusquAu).toBe(trialFin); // pas de prolongation
-
-    expect(email.sendNotifAdmin).toHaveBeenCalledTimes(1);
-    expect(email.sendNotifAdmin.mock.calls[0][0]).toBe("[Admin] Centre ajouté à l'essai en cours — Centre B");
-  });
-
-  it('(c-en-cours) essai en cours SANS nouveau centre à aligner → miroir no-op, aucune notif', async () => {
+  it('(c) essai en cours → NO-OP strict, les nouveaux centres héritent par lecture org (L3c)', async () => {
     prisma.organisation.findUnique.mockResolvedValue(
       org({
         trialStartedAt: new Date(Date.now() - 10 * JOUR_MS),
@@ -152,11 +128,9 @@ describe('demarrerOuAlignerTrial (Lot 2e — essai porté par l organisation)', 
         abonnementStatut: 'ACTIF',
       }),
     );
-    prisma.centreHebergement.findMany.mockResolvedValue([]);
     await run();
-    expect(prisma.organisation.update).not.toHaveBeenCalled();
-    expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
-    expect(email.sendNotifAdmin).not.toHaveBeenCalled();
+    expectNoOp();
+    expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
   });
 
   it('(c-expiré) essai expiré → aucun nouvel essai, NO-OP strict (pas même de findMany)', async () => {
