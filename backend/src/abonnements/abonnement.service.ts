@@ -28,11 +28,10 @@ export class AbonnementService {
   }
 
   /**
-   * Résout le centre actif (X-Centre-Id) et son organisation — porteuse de
-   * l'abonnement depuis le Lot 2a. DOUBLE ÉCRITURE transitoire jusqu'à L3 :
-   * chaque write d'état d'abonnement sur l'organisation a son MIROIR à
-   * l'identique sur le centre, dans le même flux (les guards/cron lisent
-   * encore le centre).
+   * Résout le centre actif (X-Centre-Id) et son organisation — unique porteur
+   * de l'état d'abonnement (Lot 2a puis L3c). Toutes les lectures (guards,
+   * cron, admin) sont sur l'organisation depuis L3a→L3c-0 ; les colonnes abo
+   * de CentreHebergement sont gelées (plus jamais écrites, retrait au L6+).
    */
   private async resolveOrganisation(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
@@ -75,8 +74,6 @@ export class AbonnementService {
       planAbonnement: plan,
     };
     const updated = await this.prisma.organisation.update({ where: { id: organisationId }, data });
-    // Miroir centre (double écriture transitoire jusqu'à L3)
-    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
     return updated;
   }
 
@@ -111,8 +108,6 @@ export class AbonnementService {
       trialStartedAt: now,
     };
     const updated = await this.prisma.organisation.update({ where: { id: organisationId }, data });
-    // Miroir centre (double écriture transitoire jusqu'à L3)
-    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
 
     try {
       const user = await this.prisma.user.findUnique({
@@ -170,8 +165,6 @@ export class AbonnementService {
     const nouvelleFin = new Date(base); nouvelleFin.setDate(nouvelleFin.getDate() + 14);
     const data = { abonnementActifJusquAu: nouvelleFin, abonnementStatut: StatutAbonnement.ACTIF };
     await this.prisma.organisation.update({ where: { id: organisationId }, data });
-    // Miroir centre (double écriture transitoire jusqu'à L3)
-    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data });
 
     try {
       const user = await this.prisma.user.findUnique({
@@ -285,11 +278,6 @@ export class AbonnementService {
         where: { id: organisationId },
         data: { mollieSubscriptionId: null },
       });
-      // Miroir centre (double écriture transitoire jusqu'à L3)
-      await this.prisma.centreHebergement.update({
-        where: { id: centre.id },
-        data: { mollieSubscriptionId: null },
-      });
     }
 
     // Calculer le montant : centres EXPLOITÉS de l'organisation (userId non null
@@ -352,8 +340,6 @@ export class AbonnementService {
       abonnementActifJusquAu: expiration,
     };
     await this.prisma.organisation.update({ where: { id: organisationId }, data: dataAbonnement });
-    // Miroir centre (double écriture transitoire jusqu'à L3)
-    await this.prisma.centreHebergement.update({ where: { id: centre.id }, data: dataAbonnement });
 
     await this.prisma.acceptationCgv.create({
       data: {
@@ -451,15 +437,6 @@ export class AbonnementService {
           abonnementActifJusquAu: expiration,
         },
       });
-      // Miroir centres (double écriture transitoire jusqu'à L3) : l'abonnement
-      // d'org couvre TOUS ses centres exploités.
-      await this.prisma.centreHebergement.updateMany({
-        where: { organisationId: org.id, userId: { not: null } },
-        data: {
-          abonnementStatut: StatutAbonnement.ACTIF,
-          abonnementActifJusquAu: expiration,
-        },
-      });
       console.log('[mollie-webhook] Abonnement prolongé organisation', org.id, 'jusqu\'au', expiration.toISOString());
 
       try {
@@ -550,11 +527,6 @@ export class AbonnementService {
         // abonnementStatut reste ACTIF jusqu'à expiration naturelle
         // Le cron ou une vérif au login basculera en INACTIF à l'expiration
       },
-    });
-    // Miroir centre (double écriture transitoire jusqu'à L3)
-    await this.prisma.centreHebergement.update({
-      where: { id: centre.id },
-      data: { mollieSubscriptionId: null },
     });
 
     // Fetch user UNE SEULE FOIS pour les 2 emails

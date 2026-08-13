@@ -6,8 +6,9 @@ import { mollieClient } from './mollie.client';
 import { resyncMontantOrganisation } from './resync-montant.helper';
 
 /**
- * Tests du Lot 2a : l'état d'abonnement est porté par l'ORGANISATION (résolue
- * via le centre actif), en DOUBLE ÉCRITURE transitoire org+centre jusqu'à L3.
+ * Tests des Lots 2a + L3c : l'état d'abonnement est porté par l'ORGANISATION
+ * seule (résolue via le centre actif) — plus aucune double écriture, les
+ * colonnes abo de CentreHebergement ne sont jamais écrites.
  * Mocks littéraux (patron trial.helper.spec) ; le singleton Mollie, le helper
  * resync et getCentreForUser sont mockés au niveau module.
  */
@@ -151,7 +152,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       });
     });
 
-    it('écrit mollie*/plan/statut sur l ORG et le MIROIR centre à l identique', async () => {
+    it('écrit mollie*/plan/statut sur l ORG seule (L3c)', async () => {
       await souscrire();
       const attendu = expect.objectContaining({
         mollieCustomerId: 'cst_new',
@@ -162,7 +163,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
         abonnementStatut: 'ACTIF',
       });
       expect(prisma.organisation.update).toHaveBeenCalledWith({ where: { id: 'org-1' }, data: attendu });
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({ where: { id: 'c-1' }, data: attendu });
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
 
     it('customer Mollie nommé raisonSociale ?? nom, subscription décrite par l org, montant avec supplément', async () => {
@@ -177,7 +178,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       );
     });
 
-    it('annule l ancienne subscription DE L ORG (garde anti-double-souscription) + reset org et miroir', async () => {
+    it('annule l ancienne subscription DE L ORG (garde anti-double-souscription) + reset org seule (L3c)', async () => {
       prisma.organisation.findUnique.mockResolvedValue(
         orgVierge({ mollieSubscriptionId: 'sub_old', mollieCustomerId: 'cst_old' }),
       );
@@ -187,10 +188,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
         where: { id: 'org-1' },
         data: { mollieSubscriptionId: null },
       });
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({
-        where: { id: 'c-1' },
-        data: { mollieSubscriptionId: null },
-      });
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
 
     it('AcceptationCgv porte organisationId ET centreId (trace)', async () => {
@@ -227,14 +225,13 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       expect(prisma.organisation.findFirst).toHaveBeenCalledWith({ where: { mollieCustomerId: 'cst_1' } });
     });
 
-    it('prolonge l org ET le miroir updateMany des centres exploités', async () => {
+    it('prolonge l org seule (L3c)', async () => {
       await service.handleWebhook('tr_1');
       expect(prisma.organisation.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'org-1' } }),
       );
-      expect(prisma.centreHebergement.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { organisationId: 'org-1', userId: { not: null } } }),
-      );
+      // NB : findFirst (centre représentatif facture) et count restent appelés.
+      expect(prisma.centreHebergement.updateMany).not.toHaveBeenCalled();
     });
 
     it('facture le montant RÉELLEMENT prélevé ("147.00" → 14700 cts) via emettre(centre repr., …, organisationId)', async () => {
@@ -282,7 +279,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       await expect(service.annuler(USER_ID)).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('annule la subscription DE L ORG et reset org + miroir centre', async () => {
+    it('annule la subscription DE L ORG et reset org seule (L3c)', async () => {
       prisma.organisation.findUnique.mockResolvedValue(
         orgVierge({ mollieSubscriptionId: 'sub_1', mollieCustomerId: 'cst_1', planAbonnement: 'PILOTAGE' }),
       );
@@ -291,10 +288,7 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       expect(prisma.organisation.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'org-1' }, data: expect.objectContaining({ mollieSubscriptionId: null }) }),
       );
-      expect(prisma.centreHebergement.update).toHaveBeenCalledWith({
-        where: { id: 'c-1' },
-        data: { mollieSubscriptionId: null },
-      });
+      expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
     });
   });
 });
