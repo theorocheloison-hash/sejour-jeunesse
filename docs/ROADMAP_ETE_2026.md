@@ -55,6 +55,13 @@
 
 ---
 
+## 🧾 NOTES FACTURATION UX (13/08/2026 — recette FS-2026-0070)
+
+> 1. **Nom de fichier au téléchargement des PDF facture/devis** — le lien pointe l'URL OVH en direct et le navigateur nomme le fichier d'après la clé objet, préfixée UUID (`19079550-…-FS-2026-0070.pdf`) : inutilisable pour archivage / envoi comptable. Attendu : `FS-2026-0070.pdf`. L'attribut `download` de l'ancre est inopérant en cross-origin. 3 options à instruire : (a) **`ContentDisposition: attachment; filename=…` posé à l'upload S3** (storage.uploadBuffer — zéro coût runtime, ne couvre que les PDF générés après le fix) ; (b) fetch blob côté front dans SecureFileLink + `URL.createObjectURL` + nom propre (couvre l'existant, coût bande passante double) ; (c) proxy backend `GET /factures/:id/pdf` streamant avec le header (couvre l'existant, charge serveur). Reco pressentie : (a) + fallback (b) dans SecureFileLink pour l'existant. À faire dans le chantier conformité facturation ou en quick-win isolé.
+> 2. **Régénération PDF d'une facture déjà dotée d'un pdfUrl** — aucun chemin UI (le bouton « Régénérer » n'apparaît que si pdfUrl null) ; seule voie actuelle = versement fantôme ajouté/supprimé (déclenche refreshFacturePdf). Constat né du fix croisement du 13/08 : les factures émises avant un fix de layout gardent leur rendu à vie. À trancher CONSCIEMMENT au chantier conformité : immuabilité stricte assumée (vertueux comptablement) OU régénération admin exposée. Pas de décision prise le 13/08.
+
+---
+
 ## 🗺️ IDÉE PRODUIT — Carte interactive du catalogue (backlog)
 
 > **Carte interactive du catalogue** — afficher les centres sur une carte (recherche géographique visuelle côté organisateur + actif de démo). Prérequis : coordonnées GPS en base → migration `latitude`/`longitude` sur `CentreHebergement` + backfill depuis l'API Éducation nationale (qui les expose déjà, champs `nom_du_lieu_d_accueil_latitude`/`_longitude`). Bonus : dédup GPS infaillible (2 fiches au même point = même bâtiment). Reporté en **Lot 2bis** du chantier catalogue (décision 20/07 : GPS sorti du Lot 2 pour garder le commit propre — le Lot 2 backfille identifiant EN + avis + thématiques + capacité adultes sans toucher au schéma).
