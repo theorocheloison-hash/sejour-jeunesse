@@ -128,10 +128,13 @@ const s = StyleSheet.create({
   cellText: { fontSize: 9, color: GREY_TEXT },
   // Totaux
   totauxBlock: { marginTop: 12, alignItems: 'flex-end' },
-  totauxRow: { flexDirection: 'row', justifyContent: 'space-between', width: 220, paddingVertical: 3 },
-  totauxLabel: { fontSize: 9, color: '#6B7280' },
+  // Libellés longs (« Acompte déjà encaissé (FA-… du …) », mention TVA art. 293 B) :
+  // flexShrink force le wrap dans la colonne au lieu de déborder SOUS le montant
+  // (bug croisement constaté sur FS-2026-0070 le 13/08).
+  totauxRow: { flexDirection: 'row', justifyContent: 'space-between', width: 240, paddingVertical: 3 },
+  totauxLabel: { fontSize: 9, color: '#6B7280', flexShrink: 1, paddingRight: 8 },
   totauxValue: { fontSize: 9, color: GREY_TEXT, fontWeight: 'bold' },
-  totauxTTC: { flexDirection: 'row', justifyContent: 'space-between', width: 220, paddingVertical: 6, borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4 },
+  totauxTTC: { flexDirection: 'row', justifyContent: 'space-between', width: 240, paddingVertical: 6, borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4 },
   totauxTTCLabel: { fontSize: 11, fontWeight: 'bold', color: '#111827' },
   totauxTTCValue: { fontSize: 11, fontWeight: 'bold', color: PRIMARY },
   totauxAccent: { fontSize: 10, color: ACCENT, fontWeight: 'bold' },
