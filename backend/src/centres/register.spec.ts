@@ -5,10 +5,11 @@ import type { EmailService } from '../email/email.service';
 import { CentreService } from './centre.service';
 
 /**
- * Tests de register() (invitation admin/réseau → compte hébergeur), Lot 2e-2 :
- * transaction tout-ou-rien, claimStatut VALIDE (invitation admin = pré-validée),
- * abonnement COMPLET offert sur l'ORGANISATION + miroir centre, invitation
- * consommée EN DERNIER, notif admin APRÈS le commit.
+ * Tests de register() (invitation admin/réseau → compte hébergeur), Lots 2e-2 +
+ * L3c : transaction tout-ou-rien, claimStatut VALIDE (invitation admin =
+ * pré-validée), abonnement COMPLET offert sur l'ORGANISATION seule (les
+ * colonnes abo du centre ne sont jamais écrites), invitation consommée EN
+ * DERNIER, notif admin APRÈS le commit.
  * Les helpers organisation/membership sont les VRAIS (comme create-centre.spec) :
  * les assertions portent sur les délégués Prisma du tx mocké.
  */
@@ -133,22 +134,19 @@ describe('CentreService.register (Lot 2e-2 — transaction + abo org + claim VAL
     expect(data.isPrimary).toBe(true);
   });
 
-  it('abo COMPLET offert sur l ORG et le MIROIR centre, mêmes valeurs', async () => {
+  it('abo COMPLET offert sur l ORG seule, aucun update centre ne porte d abo (L3c)', async () => {
     await register();
 
     const orgData = tx.organisation.update.mock.calls[0][0].data;
     expect(orgData).toMatchObject({ planAbonnement: 'COMPLET', abonnementStatut: 'ACTIF' });
     expect(orgData.abonnementActifJusquAu).toBeInstanceOf(Date);
-
-    // Le miroir centre = le dernier update centre (après celui qui pose organisationId).
-    const centreAboCall = tx.centreHebergement.update.mock.calls.find(
-      (c) => c[0].data.planAbonnement === 'COMPLET',
-    );
-    expect(centreAboCall).toBeDefined();
-    expect(centreAboCall![0].data).toMatchObject({ planAbonnement: 'COMPLET', abonnementStatut: 'ACTIF' });
-    expect(centreAboCall![0].data.abonnementActifJusquAu).toEqual(orgData.abonnementActifJusquAu);
     // Sémantique « offert » : jamais de trialStartedAt.
-    expect(centreAboCall![0].data.trialStartedAt).toBeUndefined();
+    expect(orgData.trialStartedAt).toBeUndefined();
+
+    // L3c : aucun update centre ne porte de champ d'abonnement.
+    expect(tx.centreHebergement.update.mock.calls.every(
+      (c) => c[0].data.planAbonnement === undefined && c[0].data.abonnementStatut === undefined,
+    )).toBe(true);
   });
 
   it('invitation.utilisedAt = DERNIER write de la transaction', async () => {

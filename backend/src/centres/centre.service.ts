@@ -966,7 +966,7 @@ export class CentreService {
     const hashed = await bcrypt.hash(dto.password, 12);
 
     // Tout ou rien (Lot 2e-2) : user → centre → organisation → membership VALIDE
-    // → abonnement offert sur l'ORG (+ miroir centre) → invitation consommée EN
+    // → abonnement offert sur l'ORG → invitation consommée EN
     // DERNIER. Un échec à mi-course ne laisse ni user à email consommé, ni centre
     // orphelin, ni invitation brûlée. Les helpers findOrCreate* acceptent le tx
     // (PrismaLike). La notif admin et le JWT sont posés APRÈS le commit.
@@ -1086,7 +1086,7 @@ export class CentreService {
             typeStructure: null,
           });
           organisationId = organisation.id;
-          await tx.centreHebergement.update({
+          createdCentre = await tx.centreHebergement.update({
             where: { id: createdCentre.id },
             data: { organisationId },
           });
@@ -1105,8 +1105,8 @@ export class CentreService {
           claimValidatedById: null,
         });
 
-        // Abonnement COMPLET offert — un SEUL bloc, sur l'ORG + miroir centre
-        // (double écriture transitoire jusqu'à L3). Sans trialStartedAt :
+        // Abonnement COMPLET offert — porté par l'ORG seule (L3c, les colonnes
+        // abo du centre ne sont plus écrites). Sans trialStartedAt :
         // sémantique « offert », garde b de demarrerOuAlignerTrial.
         const dataAbo = {
           planAbonnement: 'COMPLET' as const,
@@ -1114,10 +1114,6 @@ export class CentreService {
           abonnementActifJusquAu: trialExpiration(),
         };
         await tx.organisation.update({ where: { id: organisationId }, data: dataAbo });
-        const centreAJour = await tx.centreHebergement.update({
-          where: { id: createdCentre.id },
-          data: dataAbo,
-        });
 
         // DERNIER write : consommer l'invitation. Un échec avant ce point la
         // laisse réutilisable.
@@ -1126,7 +1122,7 @@ export class CentreService {
           data: { utilisedAt: new Date() },
         });
 
-        return { user: createdUser, centre: centreAJour };
+        return { user: createdUser, centre: createdCentre };
       }, { timeout: 10000 }));
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
