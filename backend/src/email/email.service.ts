@@ -270,7 +270,10 @@ export class EmailService {
   ): Promise<void> {
     const base64 = pdfBuffer.toString('base64');
     const html = emailLayout(subject, messageHtml, undefined, undefined, replyTo.name);
-    await this.send(to, subject, html, undefined, replyTo, [{ content: base64, name: pdfFilename }]);
+    // FROM affiché au nom du centre : le client final doit voir l'hébergeur,
+    // pas « Liavo » (risque phishing perçu / spam sur les particuliers).
+    // L'adresse d'envoi reste contact@liavo.fr (DKIM) ; aligné sur le flux devis.
+    await this.send(to, subject, html, replyTo.name, replyTo, [{ content: base64, name: pdfFilename }]);
   }
 
   /**
