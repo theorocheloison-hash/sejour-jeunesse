@@ -129,10 +129,11 @@ const s = StyleSheet.create({
   // Totaux
   totauxBlock: { marginTop: 12, alignItems: 'flex-end' },
   // Libellés longs (« Acompte déjà encaissé (FA-… du …) », mention TVA art. 293 B) :
-  // flexShrink force le wrap dans la colonne au lieu de déborder SOUS le montant
-  // (bug croisement constaté sur FS-2026-0070 le 13/08).
+  // flex: 1 (base explicite = espace restant) fait wrapper le texte dans la colonne.
+  // NB : flexShrink seul ne suffit PAS sous react-pdf/Yoga (vérifié en prod 13/08,
+  // le texte débordait toujours sous le montant — bug croisement FS-2026-0070).
   totauxRow: { flexDirection: 'row', justifyContent: 'space-between', width: 240, paddingVertical: 3 },
-  totauxLabel: { fontSize: 9, color: '#6B7280', flexShrink: 1, paddingRight: 8 },
+  totauxLabel: { fontSize: 9, color: '#6B7280', flex: 1, paddingRight: 8 },
   totauxValue: { fontSize: 9, color: GREY_TEXT, fontWeight: 'bold' },
   totauxTTC: { flexDirection: 'row', justifyContent: 'space-between', width: 240, paddingVertical: 6, borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4 },
   totauxTTCLabel: { fontSize: 11, fontWeight: 'bold', color: '#111827' },
