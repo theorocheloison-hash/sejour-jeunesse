@@ -100,6 +100,21 @@ export class AdminController {
     return this.adminService.facturerCentre(body);
   }
 
+  @Post('facturer-centre-periode')
+  facturerCentrePeriode(@Body() body: {
+    centreId: string;
+    plan: string;
+    nbMois: number;
+    periodeDebut: string;
+    periodeFin: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    return this.adminService.facturerCentrePeriode(body);
+  }
+
   @Post('devis-liavo')
   genererDevisLiavo(@Body() body: {
     centreId: string;

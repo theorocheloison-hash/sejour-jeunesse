@@ -1560,6 +1560,87 @@ export class AdminService {
     return facture;
   }
 
+  // Facturation d'une période explicite en mois (décision 10/08/2026) : une seule
+  // facture couvrant N mois au tarif mensuel, avec expiration POSÉE = fin de
+  // période (jamais max(base,now)+durée — un renouvellement relatif décalerait
+  // une base déjà alignée). Cas d'usage : Choucas 5 mois août→déc 2026 = 345€,
+  // expiration 31/12/2026. Le libellé de la facture porte la période ; nbMois
+  // n'est pas recoupé avec l'écart calendaire (outil admin, le libellé fait foi).
+  async facturerCentrePeriode(body: {
+    centreId: string;
+    plan: string;
+    nbMois: number;
+    periodeDebut: string;
+    periodeFin: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    const { centreId, plan, nbMois } = body;
+    const destinataire = body.destinataireNom ? {
+      nom: body.destinataireNom,
+      adresse: body.destinataireAdresse ?? null,
+      siret: body.destinataireSiret ?? null,
+      email: body.destinataireEmail ?? null,
+    } : null;
+
+    if (PRIX_MENSUEL[plan] === undefined) {
+      throw new BadRequestException('Plan invalide');
+    }
+    if (!Number.isInteger(nbMois) || nbMois < 1 || nbMois > 12) {
+      throw new BadRequestException('Nombre de mois invalide (entier entre 1 et 12)');
+    }
+    const periodeDebut = new Date(body.periodeDebut);
+    const periodeFin = new Date(body.periodeFin);
+    if (Number.isNaN(periodeDebut.getTime()) || Number.isNaN(periodeFin.getTime())) {
+      throw new BadRequestException('Période invalide (dates attendues au format ISO yyyy-mm-dd)');
+    }
+    if (periodeFin <= periodeDebut) {
+      throw new BadRequestException('La fin de période doit être postérieure au début');
+    }
+
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      include: {
+        user: { select: { email: true, prenom: true, nom: true } },
+        organisation: { select: { abonnementActifJusquAu: true } },
+      },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (!centre.organisationId || !centre.organisation) {
+      throw new ConflictException("Ce centre n'est rattaché à aucune organisation — facturation impossible");
+    }
+
+    const montant = nbMois * PRIX_MENSUEL[plan];
+
+    // Activer le plan sur l'ORGANISATION, unique porteur de l'état d'abonnement
+    // (L3c) — write unique, aucun write centre, trialStartedAt non touché.
+    await this.prisma.organisation.update({
+      where: { id: centre.organisationId },
+      data: {
+        planAbonnement: plan as any,
+        abonnement: 'MENSUEL' as any,
+        abonnementStatut: 'ACTIF' as const,
+        abonnementActifJusquAu: periodeFin,
+        modePaiement: 'VIREMENT' as const,
+      },
+    });
+
+    // timeZone UTC : les ISO date-only sont parsées à minuit UTC, un rendu en
+    // fuseau local pourrait afficher la veille.
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
+    const libelle = `Abonnement LIAVO ${plan} — période ${fmt(periodeDebut)} → ${fmt(periodeFin)} (${nbMois} mois)`;
+
+    // Émettre la facture LIAVO (PDF + email) — effet de bord, après commit.
+    // organisationId passé explicitement (aligné chemin webhook, pré-L4).
+    const facture = await this.factureLiavo.emettre(
+      centreId, montant, plan, 'MENSUEL', null, destinataire, centre.organisationId, libelle,
+    );
+
+    return facture;
+  }
+
   async genererDevisLiavo(body: {
     centreId: string;
     plan: string;
