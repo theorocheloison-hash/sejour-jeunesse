@@ -109,6 +109,7 @@ export class FactureLiavoService {
     molliePaymentId: string | null,
     destinataire?: { nom: string; adresse: string | null; siret: string | null; email: string | null } | null,
     organisationId?: string | null,
+    libelle?: string | null,
   ) {
     const numero = await this.genererNumero();
 
@@ -118,7 +119,7 @@ export class FactureLiavoService {
     });
 
     const frequenceLabel = type === 'ANNUEL' ? 'Annuel' : 'Mensuel';
-    const description = `Abonnement LIAVO ${plan} — ${frequenceLabel}`;
+    const description = libelle ?? `Abonnement LIAVO ${plan} — ${frequenceLabel}`;
 
     const facture = await this.prisma.factureLiavo.create({
       data: {
