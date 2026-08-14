@@ -22,6 +22,7 @@ import {
   getAdminActivite,
   genererDevisLiavo,
   facturerCentre,
+  facturerCentrePeriode,
   type AdminActivite,
   type AdminStats,
   type Hebergeur,
@@ -885,6 +886,10 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
   const [centreId, setCentreId] = useState('');
   const [plan, setPlan] = useState('COMPLET');
   const [frequence, setFrequence] = useState('MENSUEL');
+  const [mode, setMode] = useState<'STANDARD' | 'PERIODE'>('STANDARD');
+  const [nbMois, setNbMois] = useState(5);
+  const [periodeDebut, setPeriodeDebut] = useState('');
+  const [periodeFin, setPeriodeFin] = useState('');
   const [destNom, setDestNom] = useState('');
   const [destAdresse, setDestAdresse] = useState('');
   const [destSiret, setDestSiret] = useState('');
@@ -917,6 +922,27 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
   }
 
   const montant = PRIX_DEVIS_LIAVO[frequence]?.[plan] ?? 0;
+  const prixMensuel = PRIX_DEVIS_LIAVO.MENSUEL[plan] ?? 0;
+  const montantPeriode = nbMois * prixMensuel;
+
+  // Pré-calcule la fin = dernier jour du (mois de début + nbMois - 1), en UTC
+  // pour éviter le décalage de veille au rendu ISO. Modifiable ensuite.
+  function precalculerFin(debut: string, mois: number) {
+    if (!debut) return;
+    const [y, m] = debut.split('-').map(Number);
+    const fin = new Date(Date.UTC(y, m - 1 + mois, 0));
+    setPeriodeFin(fin.toISOString().slice(0, 10));
+  }
+
+  function handleNbMoisChange(n: number) {
+    setNbMois(n);
+    precalculerFin(periodeDebut, n);
+  }
+
+  function handlePeriodeDebutChange(v: string) {
+    setPeriodeDebut(v);
+    precalculerFin(v, nbMois);
+  }
 
   async function handleDevis() {
     setDevisLoading(true);
@@ -945,15 +971,29 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
     setFactureError(null);
     setFactureMessage(null);
     try {
-      await facturerCentre({
-        centreId,
-        plan,
-        frequence,
-        destinataireNom: destNom || undefined,
-        destinataireAdresse: destAdresse || undefined,
-        destinataireSiret: destSiret || undefined,
-        destinataireEmail: destEmail || undefined,
-      });
+      if (mode === 'PERIODE') {
+        await facturerCentrePeriode({
+          centreId,
+          plan,
+          nbMois,
+          periodeDebut,
+          periodeFin,
+          destinataireNom: destNom || undefined,
+          destinataireAdresse: destAdresse || undefined,
+          destinataireSiret: destSiret || undefined,
+          destinataireEmail: destEmail || undefined,
+        });
+      } else {
+        await facturerCentre({
+          centreId,
+          plan,
+          frequence,
+          destinataireNom: destNom || undefined,
+          destinataireAdresse: destAdresse || undefined,
+          destinataireSiret: destSiret || undefined,
+          destinataireEmail: destEmail || undefined,
+        });
+      }
       setFactureMessage('Facture émise et envoyée par email.');
       onFactureEmise();
     } catch (e: any) {
@@ -969,6 +1009,21 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
       <h3 className="text-base font-semibold text-gray-900">Générer un devis / une facture LIAVO</h3>
+
+      <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm font-medium">
+        <button
+          onClick={() => setMode('STANDARD')}
+          className={`px-3 py-1.5 ${mode === 'STANDARD' ? 'bg-[#1B4060] text-white' : 'bg-white text-gray-600'}`}
+        >
+          Standard (1 mois / 1 an)
+        </button>
+        <button
+          onClick={() => setMode('PERIODE')}
+          className={`px-3 py-1.5 ${mode === 'PERIODE' ? 'bg-[#1B4060] text-white' : 'bg-white text-gray-600'}`}
+        >
+          Période (N mois)
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1">
@@ -990,17 +1045,46 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
           </select>
         </div>
 
-        <div className="space-y-1">
-          <label className={labelCls}>Fréquence</label>
-          <div className="flex items-center gap-2">
-            <select className={inputCls} value={frequence} onChange={(e) => setFrequence(e.target.value)}>
-              <option value="MENSUEL">MENSUEL</option>
-              <option value="ANNUEL">ANNUEL</option>
-            </select>
-            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{montant} € HT</span>
+        {mode === 'STANDARD' ? (
+          <div className="space-y-1">
+            <label className={labelCls}>Fréquence</label>
+            <div className="flex items-center gap-2">
+              <select className={inputCls} value={frequence} onChange={(e) => setFrequence(e.target.value)}>
+                <option value="MENSUEL">MENSUEL</option>
+                <option value="ANNUEL">ANNUEL</option>
+              </select>
+              <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{montant} € HT</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <label className={labelCls}>Nombre de mois</label>
+            <div className="flex items-center gap-2">
+              <select className={inputCls} value={nbMois} onChange={(e) => handleNbMoisChange(Number(e.target.value))}>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                {montantPeriode} € HT ({nbMois} × {prixMensuel} €)
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {mode === 'PERIODE' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <label className={labelCls}>Début de période</label>
+            <input type="date" className={inputCls} value={periodeDebut} onChange={(e) => handlePeriodeDebutChange(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Fin de période</label>
+            <input type="date" className={inputCls} value={periodeFin} onChange={(e) => setPeriodeFin(e.target.value)} />
           </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-3">
         <p className={labelCls}>Destinataire</p>
@@ -1025,16 +1109,18 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
-        <button
-          onClick={handleDevis}
-          disabled={devisLoading || !centreId || !destNom}
-          className="bg-[#1B4060] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
-        >
-          {devisLoading ? 'Génération…' : 'Générer le devis (PDF)'}
-        </button>
+        {mode === 'STANDARD' && (
+          <button
+            onClick={handleDevis}
+            disabled={devisLoading || !centreId || !destNom}
+            className="bg-[#1B4060] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
+          >
+            {devisLoading ? 'Génération…' : 'Générer le devis (PDF)'}
+          </button>
+        )}
         <button
           onClick={handleFacture}
-          disabled={factureLoading || !centreId}
+          disabled={factureLoading || !centreId || (mode === 'PERIODE' && (!periodeDebut || !periodeFin))}
           className="bg-[#C87D2E] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
         >
           {factureLoading ? 'Émission…' : 'Émettre la facture'}

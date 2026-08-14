@@ -362,3 +362,18 @@ export async function facturerCentre(body: {
   const { data } = await api.post('/admin/facturer-centre', body);
   return data;
 }
+
+export async function facturerCentrePeriode(body: {
+  centreId: string;
+  plan: string;
+  nbMois: number;
+  periodeDebut: string;
+  periodeFin: string;
+  destinataireNom?: string;
+  destinataireAdresse?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+}): Promise<any> {
+  const { data } = await api.post('/admin/facturer-centre-periode', body);
+  return data;
+}
