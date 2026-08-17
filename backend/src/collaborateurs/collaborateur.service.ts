@@ -80,7 +80,7 @@ export class CollaborateurService {
         : `Vous avez été invité sur LIAVO par ${inviteurNom}. `
           + `Créez votre compte pour accéder au centre <strong>${centre.nom}</strong> : <a href="${lien}">${lien}</a>`;
       try {
-        await this.email.sendGenericNotification(dto.email, subject, message, centre.nom);
+        await this.email.sendGenericNotification(dto.email, subject, message, centre.nom, undefined, null);
       } catch (err) {
         console.error('[collaborateur.inviter] échec envoi email', err);
       }

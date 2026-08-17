@@ -184,6 +184,9 @@ export class InvitationsDirecteurService {
          <a href="${lienCompte}" style="color:#1B4060">créer un compte</a>
          pour accéder à votre espace de direction et consulter l'ensemble des séjours de votre établissement.
        </p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true, token };
@@ -268,6 +271,9 @@ export class InvitationsDirecteurService {
              Accéder à mes devis
            </a>
          </p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 

@@ -772,6 +772,9 @@ export class AuthService {
          </a>
        </p>
        <p style="color:#888;font-size:12px">Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { message: 'Si cet email existe, un lien a été envoyé.' };

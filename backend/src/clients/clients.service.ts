@@ -618,6 +618,7 @@ export class ClientsService {
       centre?.email
         ? { name: centre.nom, email: centre.email }
         : undefined,
+      null,
     );
 
     await this.prisma.activiteClient.create({

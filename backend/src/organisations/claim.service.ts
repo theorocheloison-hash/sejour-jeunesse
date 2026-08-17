@@ -112,6 +112,9 @@ export class ClaimService {
          <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})<br>
          <strong>Justificatif :</strong> ${justificatif}</p>
          <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les claims en attente →</a></p>`,
+        undefined,
+        undefined,
+        null,
       );
     } catch (err) {
       // Non bloquant pour le claim, mais on trace l'échec (sinon invisible).
@@ -410,6 +413,9 @@ export class ClaimService {
          <strong>Hébergeur :</strong> ${user.prenom} ${user.nom} (${user.email})<br>
          <strong>Justificatif :</strong> ${justificatifFourni ? 'fourni' : 'en attente'}</p>
          <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les centres à valider →</a></p>`,
+        undefined,
+        undefined,
+        null,
       );
     } catch (err) {
       console.error('[notifierAdminNouveauCentre] échec envoi email admin', err);
@@ -519,6 +525,9 @@ export class ClaimService {
        <p><strong>Structure :</strong> ${membership.organisation.nom}<br>
        <strong>Hébergeur :</strong> ${membership.user.prenom} ${membership.user.nom} (${membership.user.email})</p>
        <p><a href="${FRONTEND_URL}/dashboard/admin/claims">Voir les claims en attente →</a></p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true, claimStatut: updated.claimStatut };
@@ -631,6 +640,9 @@ export class ClaimService {
        <p>Votre revendication du centre <strong>${membership.organisation.nom}</strong> a été validée.</p>
        <p>Vous pouvez désormais accéder à toutes les fonctionnalités de votre espace hébergeur.</p>
        <p><a href="${FRONTEND_URL}/dashboard/hebergeur">Accéder à mon espace →</a></p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true };
@@ -672,6 +684,9 @@ export class ClaimService {
        </blockquote>
        <p>Si vous pensez qu'il s'agit d'une erreur, contactez-nous à
        <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true };

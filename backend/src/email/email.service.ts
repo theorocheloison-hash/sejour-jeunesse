@@ -238,18 +238,29 @@ export class EmailService {
 
   // ── g) Notification générique ────────────────────────────────────────
 
+  /**
+   * Notification générique. Sémantique du paramètre `button` :
+   * - undefined (absent) → comportement historique : bouton « Accéder à la
+   *   plateforme » vers /login (compat totale des sites non migrés) ;
+   * - null → AUCUN bouton (le corps porte déjà son propre CTA, ou le
+   *   destinataire n'a pas vocation à se connecter) ;
+   * - { text, url } → bouton custom (réservé usage futur).
+   */
   async sendGenericNotification(
     to: string,
     subject: string,
     message: string,
     fromName?: string,
     replyTo?: { name: string; email: string },
+    button?: { text: string; url: string } | null,
   ) {
+    const btnText = button === undefined ? 'Accéder à la plateforme' : button?.text;
+    const btnUrl = button === undefined ? `${FRONTEND_URL}/login` : button?.url;
     const html = emailLayout(
       subject,
       `<p>${message}</p>`,
-      'Accéder à la plateforme',
-      `${FRONTEND_URL}/login`,
+      btnText,
+      btnUrl,
       replyTo?.name,
     );
     await this.send(to, subject, html, fromName, replyTo);

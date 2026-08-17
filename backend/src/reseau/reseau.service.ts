@@ -351,6 +351,9 @@ export class ReseauService {
          </a>
        </p>
        <p style="font-size:12px;color:#666;">Ce lien est valable 30 jours. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true, email, nomCentre };

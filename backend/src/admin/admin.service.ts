@@ -225,6 +225,9 @@ export class AdminService {
                <p>Bonne nouvelle ! Le centre <strong>${invitation.nomCentre}</strong> que vous avez invité vient de rejoindre LIAVO.</p>
                <p>Une demande de devis pour le séjour <strong>${invitation.titreSejourSuggere}</strong> leur a été automatiquement transmise.</p>
                <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/organisateur" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mon tableau de bord</a></p>`,
+              undefined,
+              undefined,
+              null,
             );
           }
         } catch (err) {
@@ -1159,6 +1162,9 @@ export class AdminService {
            <p style="font-size:12px;color:#9ca3af;">
              Ce lien est personnel et valable 30 jours. Questions : <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>
            </p>`,
+          undefined,
+          undefined,
+          null,
         );
 
         sent++;
@@ -1236,6 +1242,9 @@ export class AdminService {
         `<p>Bonjour ${centre.user.prenom ?? ''},</p>
          <p>Votre centre <strong>${centre.nom}</strong> a été validé et est désormais actif sur LIAVO.</p>
          <p><a href="${ADMIN_FRONTEND_URL}/dashboard/hebergeur">Accéder à mon espace →</a></p>`,
+        undefined,
+        undefined,
+        null,
       ).catch((err) => console.error('[activerCentre] échec email hébergeur', err));
     }
 
@@ -1272,6 +1281,9 @@ export class AdminService {
          </blockquote>
          <p>Si vous pensez qu'il s'agit d'une erreur, contactez-nous à
          <a href="mailto:contact@liavo.fr">contact@liavo.fr</a>.</p>`,
+        undefined,
+        undefined,
+        null,
       ).catch((err) => console.error('[refuserCentre] échec email hébergeur', err));
     }
 

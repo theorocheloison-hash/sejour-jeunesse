@@ -68,6 +68,9 @@ export class AccompagnateurService {
              Créer mon compte LIAVO
            </a></p>
            <p style="font-size:12px;color:#9ca3af;">Si vous avez déjà un compte, connectez-vous sur liavo.fr — le séjour apparaîtra automatiquement après liaison de votre compte.</p>`,
+          undefined,
+          undefined,
+          null,
         );
       } else {
         await this.email.sendOrdreMission(

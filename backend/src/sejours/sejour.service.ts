@@ -137,6 +137,9 @@ export class SejourService {
          <strong>Nombre d'élèves :</strong> ${dto.nombreEleves}</p>
          ${dto.message ? `<p style="padding:12px;background:#f5f4f1;border-radius:8px;font-style:italic">${dto.message}</p>` : ''}
          <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à l'espace collaboratif</a></p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 
@@ -654,6 +657,9 @@ export class SejourService {
        <strong>Élèves :</strong> ${sejour.placesTotales}</p>
        <p>Vous pouvez consulter le dossier complet depuis votre tableau de bord.</p>
        <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mon tableau de bord</a></p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true, message: `Dossier transmis à ${directeur.prenom} ${directeur.nom} (${directeur.email})` };
@@ -708,6 +714,9 @@ export class SejourService {
          <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
          <strong>Élèves :</strong> ${sejour.placesTotales}</p>
          <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mon tableau de bord</a></p>`,
+        undefined,
+        undefined,
+        null,
       );
       return { found: true };
     }
@@ -763,6 +772,9 @@ export class SejourService {
        <p>Pour valider ce dossier, créez votre compte directeur sur LIAVO. Votre établissement sera pré-rempli automatiquement.</p>
        <p style="margin:24px 0"><a href="${lienInscription}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon compte et valider le dossier</a></p>
        <p style="color:#888;font-size:12px">Ce lien est valable 7 jours. Si vous n'êtes pas le(la) directeur(trice) de cet établissement, ignorez cet email.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { found: false, sent: true };
@@ -1392,6 +1404,8 @@ export class SejourService {
          </a>
        </p>`,
       centre.nom,
+      undefined,
+      null,
     );
 
     try {

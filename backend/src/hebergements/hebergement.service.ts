@@ -239,6 +239,9 @@ export class HebergementService {
        <p>Nous avons transmis votre intérêt pour le centre <strong>${centre.nom}</strong> (${centre.ville}) à ${nomReseau}.</p>
        <p>Le réseau va contacter ce centre pour l'inviter à rejoindre LIAVO. Vous serez informé dès qu'il sera disponible pour recevoir des demandes.</p>
        <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/teacher/hebergements" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Retour au catalogue</a></p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     // Email au réseau — signal enseignant
@@ -251,6 +254,9 @@ export class HebergementService {
          ${message ? `<p>Message : <em>${message}</em></p>` : ''}
          ${centre.email ? `<p>Email du centre : <a href="mailto:${centre.email}">${centre.email}</a></p>` : ''}
          <p>Ce centre n'est pas encore inscrit sur LIAVO. Nous vous suggérons de le contacter pour accélérer son onboarding.</p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 
@@ -265,6 +271,9 @@ export class HebergementService {
          ${message ? `<p>Message de l'enseignant : <em>${message}</em></p>` : ''}
          <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon espace hébergeur</a></p>
          <p style="font-size:12px;color:#666;">Vous recevez cet email car votre centre est référencé dans le réseau ${nomReseau}.</p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 

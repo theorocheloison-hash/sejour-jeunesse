@@ -101,6 +101,9 @@ export class InvitationService {
        </p>
        ${precreer}
        <p style="color:#888;font-size:12px">Ce lien est personnel et valable 30 jours.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     await this.prisma.invitationHebergement.update({

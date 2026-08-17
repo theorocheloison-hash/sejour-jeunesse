@@ -50,6 +50,9 @@ export class CollaborationService {
         sejour.createur.email,
         sujet,
         corps,
+        undefined,
+        undefined,
+        null,
       );
     } catch { /* non bloquant */ }
   }
@@ -72,7 +75,7 @@ export class CollaborationService {
     });
     if (!hebergeur?.email) return;
     try {
-      await this.email.sendGenericNotification(hebergeur.email, sujet, corps);
+      await this.email.sendGenericNotification(hebergeur.email, sujet, corps, undefined, undefined, null);
     } catch { /* non bloquant */ }
   }
 
@@ -1218,6 +1221,9 @@ export class CollaborationService {
            Voir le planning
          </a>
        </p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { success: true };
@@ -1587,6 +1593,9 @@ export class CollaborationService {
              Voir mon séjour
            </a>
          </p>`,
+        undefined,
+        undefined,
+        null,
       ).catch(() => {});
     }
 

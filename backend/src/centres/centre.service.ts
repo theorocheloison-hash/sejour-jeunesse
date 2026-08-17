@@ -426,6 +426,8 @@ export class CentreService {
       `Un justificatif a été fourni pour le centre <strong>${centre.nom}</strong> (en attente d'activation).<br><br>` +
       `<a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/admin/claims">Voir les centres à valider →</a>`,
       'LIAVO Admin',
+      undefined,
+      null,
     ).catch((err) => console.error('[uploadJustificatif] échec email admin', err));
 
     return { success: true, claimDocumentUrl: url };

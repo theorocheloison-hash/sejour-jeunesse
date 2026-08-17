@@ -155,6 +155,9 @@ export class InvitationCollaborationService {
        <p>Pour accepter cette invitation et démarrer la collaboration, cliquez sur le bouton ci-dessous.</p>
        <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accepter l'invitation</a></p>
        <p style="color:#888;font-size:12px">Vous n'avez pas encore de compte LIAVO ? Créez-en un gratuitement en cliquant sur le lien ci-dessus.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { id: invitation.id, token: invitation.token };
@@ -425,6 +428,9 @@ export class InvitationCollaborationService {
          <p><strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
          <strong>Élèves :</strong> ${invitation.nbElevesEstime}</p>
          ${devisInfo}`,
+        undefined,
+        undefined,
+        null,
       );
     }
 
@@ -484,6 +490,9 @@ export class InvitationCollaborationService {
        <p>Pour répondre à cette demande, créez votre compte gratuitement sur LIAVO. Vos informations seront pré-remplies automatiquement.</p>
        <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Créer mon compte LIAVO</a></p>
        <p style="color:#888;font-size:12px">Une fois votre compte validé par notre équipe, vous pourrez soumettre votre devis à cet enseignant.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     return { sent: true, token: invitation.token };

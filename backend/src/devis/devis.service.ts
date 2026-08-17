@@ -876,6 +876,9 @@ export class DevisService {
          <strong>Date :</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
          <p>Vous pouvez désormais émettre la facture d'acompte.</p>
          <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accéder à mes devis</a></p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 
@@ -989,6 +992,9 @@ export class DevisService {
              Accéder à mes devis
            </a>
          </p>`,
+        undefined,
+        undefined,
+        null,
       );
     }
 
@@ -1315,6 +1321,9 @@ export class DevisService {
          </a>
        </p>
        <p style="font-size:12px;color:#9ca3af;">Connectez-vous à LIAVO pour voir les détails complets.</p>`,
+      undefined,
+      undefined,
+      null,
     );
 
     // Log CRM non bloquant
@@ -1761,6 +1770,7 @@ export class DevisService {
        <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${frontendUrl}/devis/signer/${token}</p>`,
       centre.nom,
       centre.email ? { name: centre.nom, email: centre.email } : undefined,
+      null,
     );
 
     // Trace du dernier envoi — posé APRÈS le succès de l'email (un échec d'envoi
@@ -2081,6 +2091,7 @@ export class DevisService {
          <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${conventionUrl}</p>`,
         built.centreNom,
         built.centreEmail ? { name: built.centreNom, email: built.centreEmail } : undefined,
+        null,
       );
     }
 
@@ -2291,6 +2302,7 @@ export class DevisService {
           devis.centre?.email
             ? { name: devis.centre.nom, email: devis.centre.email }
             : undefined,
+          null,
         );
       } catch { /* non bloquant */ }
     }
@@ -2310,6 +2322,9 @@ export class DevisService {
                Voir le planning
              </a>
            </p>`,
+          undefined,
+          undefined,
+          null,
         );
       } catch { /* non bloquant */ }
     }
@@ -2415,6 +2430,7 @@ export class DevisService {
       devis.centre?.email
         ? { name: devis.centre.nom, email: devis.centre.email }
         : undefined,
+      null,
     );
 
     // Log CRM non bloquant
@@ -2513,6 +2529,9 @@ export class DevisService {
                Voir le planning
              </a>
            </p>`,
+          undefined,
+          undefined,
+          null,
         );
       } catch { /* non bloquant */ }
     }
