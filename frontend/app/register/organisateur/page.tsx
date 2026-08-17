@@ -179,6 +179,7 @@ function RegisterOrganisateurContent() {
         ...form,
         typeStructure: typeStructure || undefined,
         ...(accompagnateurToken ? { accompagnateurToken } : {}),
+        ...(invitationToken ? { invitationCollabToken: invitationToken } : {}),
       };
       await api.post('/auth/register/organisateur', payload);
       if (redirectAfterLogin) {
@@ -217,6 +218,11 @@ function RegisterOrganisateurContent() {
           {accompagnateurToken && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 mb-4">
               Votre accès à l&apos;espace collaboratif sera activé automatiquement après vérification de votre email.
+            </div>
+          )}
+          {invitationToken && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 mb-4">
+              Le séjour de votre invitation sera automatiquement rattaché à votre compte après vérification de votre email.
             </div>
           )}
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700 mb-6">
