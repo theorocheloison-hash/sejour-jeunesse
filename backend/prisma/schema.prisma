@@ -168,6 +168,7 @@ model User {
   magicLinkToken   String?   @map("magic_link_token") @db.Uuid
   magicLinkExpires DateTime? @map("magic_link_expires")
   accompagnateurTokenPending String? @map("accompagnateur_token_pending") @db.Uuid
+  invitationCollabTokenPending String? @map("invitation_collab_token_pending") @db.Uuid
   tokenVersion           Int       @default(0) @map("token_version")
   refreshToken           String?   @map("refresh_token") @db.Uuid
   refreshTokenExpires    DateTime? @map("refresh_token_expires")
