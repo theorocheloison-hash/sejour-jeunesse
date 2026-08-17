@@ -36,7 +36,9 @@ export default function VerifyEmailPage() {
           };
           const redirect = getCookie('liavo_post_verify_redirect');
           if (redirect) {
-            setLoginHref(`/login?redirect=${encodeURIComponent(redirect)}`);
+            if (!redirect.startsWith('/rejoindre/')) {
+              setLoginHref(`/login?redirect=${encodeURIComponent(redirect)}`);
+            }
             document.cookie = 'liavo_post_verify_redirect=;path=/;max-age=0';
           }
         }

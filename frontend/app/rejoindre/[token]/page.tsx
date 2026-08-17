@@ -76,9 +76,9 @@ export default function RejoindreInvitationPage() {
         <div style={{ maxWidth: 400, textAlign: 'center' }}>
           <Logo size="md" showTagline={false} />
           <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-success)', marginTop: 24 }}>Invitation déjà acceptée</h1>
-          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>Cette invitation a déjà été utilisée.</p>
-          <Link href="/dashboard/organisateur" style={{ display: 'inline-block', marginTop: 20, fontSize: 14, fontWeight: 500, color: 'var(--color-primary)', textDecoration: 'none' }}>
-            Aller au tableau de bord
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>Si vous venez de créer votre compte, ce séjour est déjà dans votre tableau de bord.</p>
+          <Link href="/dashboard/organisateur" style={{ display: 'inline-block', marginTop: 20, fontSize: 14, fontWeight: 500, backgroundColor: 'var(--color-accent)', color: '#FFFFFF', padding: '12px 24px', borderRadius: 'var(--radius-md)', textDecoration: 'none' }}>
+            Accéder à mon tableau de bord
           </Link>
         </div>
       </div>
