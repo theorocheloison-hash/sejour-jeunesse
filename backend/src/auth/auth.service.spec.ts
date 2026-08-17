@@ -1,8 +1,10 @@
+import { ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { EmailService } from '../email/email.service';
 import type { ClaimService } from '../organisations/claim.service';
+import type { InvitationCollaborationService } from '../invitation-collaboration/invitation-collaboration.service';
 import { AuthService } from './auth.service';
 
 /**
@@ -23,7 +25,12 @@ function mockPrisma() {
   return {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
+    },
+    consentementRgpd: {
+      create: jest.fn().mockResolvedValue({}),
     },
     organisation: {
       // Par défaut : org payante → le helper court-circuite après findUnique
@@ -82,6 +89,7 @@ describe('AuthService.login — trial première connexion (Lot 2e, scope organis
       jwt as unknown as JwtService,
       email as unknown as EmailService,
       {} as ClaimService,
+      { accepter: jest.fn().mockResolvedValue(undefined) } as unknown as InvitationCollaborationService,
     );
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -170,5 +178,155 @@ describe('AuthService.login — trial première connexion (Lot 2e, scope organis
     prisma.user.findUnique.mockResolvedValue(hebergeur({ emailVerifie: false }));
     await expect(login()).rejects.toThrow('EMAIL_NON_VERIFIE');
     expect(prisma.centreHebergement.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService — portage serveur invitation collaborative (F1)', () => {
+  let prisma: PrismaMock;
+  let invitationCollab: { accepter: jest.Mock };
+  let service: AuthService;
+  let consoleErrorSpy: jest.SpyInstance;
+
+  beforeAll(async () => {
+    PASSWORD_HASH = await bcrypt.hash(PASSWORD, 4);
+  });
+
+  beforeEach(() => {
+    prisma = mockPrisma();
+    const email = {
+      sendNotifAdmin: jest.fn().mockResolvedValue(undefined),
+      sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      notifyAdminNewAccount: jest.fn().mockResolvedValue(undefined),
+    };
+    const jwt = { sign: jest.fn().mockReturnValue('jwt-token') };
+    invitationCollab = { accepter: jest.fn().mockResolvedValue(undefined) };
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwt as unknown as JwtService,
+      email as unknown as EmailService,
+      {} as ClaimService,
+      invitationCollab as unknown as InvitationCollaborationService,
+    );
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  // Appels de purge = updates portant invitationCollabTokenPending dans data.
+  const purgeCalls = () =>
+    prisma.user.update.mock.calls.filter(
+      (c) => c[0]?.data && 'invitationCollabTokenPending' in c[0].data,
+    );
+
+  describe('registerOrganisateur', () => {
+    const registerDto = (over: Record<string, unknown> = {}) => ({
+      prenom: 'Anne',
+      nom: 'Martin',
+      email: 'anne@ecole.fr',
+      password: PASSWORD,
+      ...over,
+    });
+
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue(null); // email libre
+      prisma.user.create.mockResolvedValue({
+        id: 'user-1',
+        prenom: 'Anne',
+        nom: 'Martin',
+        email: 'anne@ecole.fr',
+        role: 'ORGANISATEUR',
+      });
+    });
+
+    it('écrit invitationCollabTokenPending quand le dto porte invitationCollabToken', async () => {
+      await service.registerOrganisateur(
+        registerDto({ invitationCollabToken: 'tok-invit-1' }) as any,
+      );
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ invitationCollabTokenPending: 'tok-invit-1' }),
+        }),
+      );
+    });
+
+    it('écrit null quand le dto ne porte pas invitationCollabToken', async () => {
+      await service.registerOrganisateur(registerDto() as any);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ invitationCollabTokenPending: null }),
+        }),
+      );
+    });
+  });
+
+  describe('verifyEmail', () => {
+    beforeEach(() => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        role: 'ORGANISATEUR',
+        compteValide: true,
+        emailVerifie: false,
+        tokenVerificationExpires: null,
+        accompagnateurTokenPending: null,
+      });
+    });
+
+    it('pending non-null → accepter appelé avec (token, {id}) puis purge', async () => {
+      prisma.user.findUnique.mockResolvedValue({ invitationCollabTokenPending: 'tok-invit-1' });
+
+      await service.verifyEmail('token-verif');
+
+      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1' });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { invitationCollabTokenPending: null },
+      });
+    });
+
+    it('accepter throw ConflictException (état terminal) → purge quand même', async () => {
+      prisma.user.findUnique.mockResolvedValue({ invitationCollabTokenPending: 'tok-invit-1' });
+      invitationCollab.accepter.mockRejectedValue(new ConflictException('déjà acceptée'));
+
+      await service.verifyEmail('token-verif');
+
+      expect(purgeCalls()).toHaveLength(1);
+    });
+
+    it('accepter throw Error générique (transitoire) → PAS de purge, filet login rejouera', async () => {
+      prisma.user.findUnique.mockResolvedValue({ invitationCollabTokenPending: 'tok-invit-1' });
+      invitationCollab.accepter.mockRejectedValue(new Error('DB down'));
+
+      await service.verifyEmail('token-verif');
+
+      expect(purgeCalls()).toHaveLength(0);
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('login (filet rejouable)', () => {
+    const login = () => service.login({ email: 'heb@centre.fr', password: PASSWORD } as any);
+
+    it('organisateur avec pending → accepter appelé', async () => {
+      prisma.user.findUnique.mockResolvedValue(
+        hebergeur({ role: 'ORGANISATEUR', invitationCollabTokenPending: 'tok-invit-1' }),
+      );
+
+      await login();
+
+      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1' });
+    });
+
+    it('hébergeur → accepter PAS appelé (filet réservé au rôle ORGANISATEUR)', async () => {
+      prisma.user.findUnique.mockResolvedValue(
+        hebergeur({ invitationCollabTokenPending: 'tok-invit-1' }),
+      );
+
+      await login();
+
+      expect(invitationCollab.accepter).not.toHaveBeenCalled();
+    });
   });
 });

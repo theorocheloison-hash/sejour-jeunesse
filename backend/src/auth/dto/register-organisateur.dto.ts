@@ -49,4 +49,8 @@ export class RegisterOrganisateurDto {
   @IsOptional()
   @IsUUID()
   accompagnateurToken?: string;
+
+  @IsOptional()
+  @IsUUID()
+  invitationCollabToken?: string;
 }

@@ -6,10 +6,12 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { OrganisationsModule } from '../organisations/organisations.module.js';
+import { InvitationCollaborationModule } from '../invitation-collaboration/invitation-collaboration.module.js';
 
 @Module({
   imports: [
     OrganisationsModule,
+    InvitationCollaborationModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

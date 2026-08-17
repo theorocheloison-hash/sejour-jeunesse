@@ -18,6 +18,7 @@ import { RegisterHebergeurDto } from './dto/register-hebergeur.dto.js';
 import { RegisterSignataireDto } from './dto/register-signataire.dto.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { ClaimService } from '../organisations/claim.service.js';
+import { InvitationCollaborationService } from '../invitation-collaboration/invitation-collaboration.service.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
 
@@ -28,6 +29,7 @@ export class AuthService {
     private jwt: JwtService,
     private email: EmailService,
     private claimService: ClaimService,
+    private invitationCollab: InvitationCollaborationService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -82,6 +84,7 @@ export class AuthService {
         tokenVerification: token,
         tokenVerificationExpires: tokenExpires,
         accompagnateurTokenPending: dto.accompagnateurToken ?? null,
+        invitationCollabTokenPending: dto.invitationCollabToken ?? null,
       },
     });
 
@@ -543,11 +546,47 @@ export class AuthService {
       } catch { /* non bloquant */ }
     }
 
+    await this.consommerInvitationCollabPending(user.id);
+
     return {
       message: 'Email vérifié avec succès. Vous pouvez maintenant vous connecter.',
       role: user.role,
       compteValide: user.compteValide,
     };
+  }
+
+  /**
+   * Consomme le token d'invitation collaborative en attente (portage serveur,
+   * miroir du pattern accompagnateurTokenPending). Auto-porteur : fait son
+   * propre select, ne dépend d'aucun select appelant. Ne throw JAMAIS.
+   */
+  private async consommerInvitationCollabPending(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { invitationCollabTokenPending: true },
+    });
+    const pending = user?.invitationCollabTokenPending;
+    if (!pending) return;
+
+    try {
+      await this.invitationCollab.accepter(pending, { id: userId });
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { invitationCollabTokenPending: null },
+      });
+    } catch (e) {
+      if (e instanceof NotFoundException || e instanceof ConflictException) {
+        // État terminal (invitation introuvable/déjà consommée) : purger,
+        // inutile de rejouer au login.
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { invitationCollabTokenPending: null },
+        }).catch(() => undefined);
+      } else {
+        // Erreur transitoire : conserver le champ, le filet login rejouera.
+        console.error('[consommerInvitationCollab]', e);
+      }
+    }
   }
 
   // ── Renvoyer l'email de vérification ─────────────────────────────────
@@ -655,6 +694,12 @@ export class AuthService {
       for (const { organisationId } of orgs) {
         if (organisationId) await demarrerOuAlignerTrial(this.prisma, this.email, organisationId);
       }
+    }
+
+    // Filet rejouable : invitation collaborative restée pending (échec
+    // transitoire à la vérification d'email, ou email vérifié sur un autre device).
+    if (user.role === 'ORGANISATEUR') {
+      await this.consommerInvitationCollabPending(user.id);
     }
 
     return this.buildAuthResponse(user);

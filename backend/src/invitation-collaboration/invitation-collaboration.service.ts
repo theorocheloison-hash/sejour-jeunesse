@@ -174,7 +174,7 @@ export class InvitationCollaborationService {
     return invitation;
   }
 
-  async accepter(token: string, user: JwtUser) {
+  async accepter(token: string, user: Pick<JwtUser, 'id'>) {
     const invitation = await this.prisma.invitationCollaboration.findUnique({
       where: { token },
       include: { centre: true },
