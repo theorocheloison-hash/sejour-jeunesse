@@ -177,6 +177,74 @@ export class InvitationCollaborationService {
     return invitation;
   }
 
+  /**
+   * Invitations collaboratives pendantes pour l'organisateur connecté (bannière
+   * dashboard). Email rechargé depuis la base (jamais celui du JWT), match
+   * insensible à la casse, invitations expirées (dateFin passée) exclues.
+   */
+  async getPendantesPourUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const email = user?.email?.trim();
+    if (!email) return [];
+
+    const aujourdHui = new Date();
+    aujourdHui.setUTCHours(0, 0, 0, 0);
+
+    const invitations = await this.prisma.invitationCollaboration.findMany({
+      where: {
+        acceptedAt: null,
+        dateFin: { gte: aujourdHui },
+        emailEnseignant: { equals: email, mode: 'insensitive' },
+      },
+      select: {
+        token: true,
+        titreSejourSuggere: true,
+        dateDebut: true,
+        dateFin: true,
+        nbElevesEstime: true,
+        sejourId: true,
+        centre: { select: { nom: true, ville: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Pas de relation Prisma InvitationCollaboration→Sejour : le filtre
+    // « séjour encore rattachable » (DIRECT, sans créateur, non supprimé)
+    // se fait en code sur une seconde requête.
+    const sejourIds = invitations
+      .map((inv) => inv.sejourId)
+      .filter((id): id is string => id !== null);
+    const sejoursById = new Map<
+      string,
+      { modeGestion: string; createurId: string | null; deletedAt: Date | null }
+    >();
+    if (sejourIds.length > 0) {
+      const sejours = await this.prisma.sejour.findMany({
+        where: { id: { in: sejourIds } },
+        select: { id: true, modeGestion: true, createurId: true, deletedAt: true },
+      });
+      for (const s of sejours) sejoursById.set(s.id, s);
+    }
+
+    return invitations
+      .filter((inv) => {
+        if (!inv.sejourId) return true;
+        const sejour = sejoursById.get(inv.sejourId);
+        return !!sejour && sejour.modeGestion === 'DIRECT' && !sejour.createurId && !sejour.deletedAt;
+      })
+      .map((inv) => ({
+        token: inv.token,
+        titreSejourSuggere: inv.titreSejourSuggere,
+        dateDebut: inv.dateDebut,
+        dateFin: inv.dateFin,
+        nbElevesEstime: inv.nbElevesEstime,
+        centre: inv.centre,
+      }));
+  }
+
   async accepter(token: string, user: Pick<JwtUser, 'id'>) {
     const invitation = await this.prisma.invitationCollaboration.findUnique({
       where: { token },
@@ -190,9 +258,9 @@ export class InvitationCollaborationService {
       if (invitation.sejourId) {
         const existingSejour = await tx.sejour.findUnique({
           where: { id: invitation.sejourId },
-          select: { id: true, modeGestion: true, createurId: true },
+          select: { id: true, modeGestion: true, createurId: true, deletedAt: true },
         });
-        if (existingSejour && existingSejour.modeGestion === 'DIRECT' && !existingSejour.createurId) {
+        if (existingSejour && !existingSejour.deletedAt && existingSejour.modeGestion === 'DIRECT' && !existingSejour.createurId) {
           // 1. Rattacher l'enseignant + passer en COLLABORATIF + CONVENTION
           await tx.sejour.update({
             where: { id: existingSejour.id },

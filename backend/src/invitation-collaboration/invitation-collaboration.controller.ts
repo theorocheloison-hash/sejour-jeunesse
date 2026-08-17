@@ -34,6 +34,15 @@ export class InvitationCollaborationController {
     return this.service.inviterCentreExterne(dto, user.id);
   }
 
+  // IMPÉRATIF : déclarée AVANT @Get(':token') — Nest matche dans l'ordre de
+  // déclaration, déclarée après elle serait avalée par :token.
+  @Get('pendantes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  getPendantes(@CurrentUser() user: JwtUser) {
+    return this.service.getPendantesPourUser(user.id);
+  }
+
   @Get(':token')
   findByToken(@Param('token') token: string) {
     return this.service.findByToken(token);
