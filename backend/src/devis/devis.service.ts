@@ -1714,11 +1714,14 @@ export class DevisService {
       await assertEnvoiExterneAutorise(this.prisma, centre, clientEmail, me?.email ?? '');
     }
 
+    // Un devis signé ou facturé ne peut plus être renvoyé : le renvoi forçait
+    // EN_ATTENTE et annulait silencieusement la signature (course UI périmée).
+    // Le lien public d'un devis signé reste consultable en lecture seule.
     if (devis.statut !== 'EN_ATTENTE') {
-      await this.prisma.devis.update({
-        where: { id: devisId },
-        data: { statut: StatutDevis.EN_ATTENTE },
-      });
+      throw new ForbiddenException(
+        'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
+        'Le lien de signature d\'origine reste consultable par le client.',
+      );
     }
 
     const token = devis.tokenSignature;
