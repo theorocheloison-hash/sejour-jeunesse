@@ -1646,7 +1646,7 @@ export class AdminService {
     // timeZone UTC : les ISO date-only sont parsées à minuit UTC, un rendu en
     // fuseau local pourrait afficher la veille.
     const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
-    const libelle = `Abonnement LIAVO ${plan} — période ${fmt(periodeDebut)} → ${fmt(periodeFin)} (${nbMois} mois)`;
+    const libelle = `Abonnement LIAVO ${plan} — période du ${fmt(periodeDebut)} au ${fmt(periodeFin)} (${nbMois} mois)`;
 
     // Émettre la facture LIAVO (PDF + email) — effet de bord, après commit.
     // organisationId passé explicitement (aligné chemin webhook, pré-L4).
