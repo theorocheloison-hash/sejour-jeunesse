@@ -4,6 +4,9 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 /** Durée de l'essai gratuit Pilotage, en jours (§4.13 — source unique du 30). */
 export const TRIAL_DUREE_JOURS = 30;
 
+/** Durée de l'extension d'essai self-service, en jours (même logique de source unique). */
+export const TRIAL_EXTENSION_JOURS = 15;
+
 /**
  * Retourne la date d'expiration du trial (now + 30 jours, minuit, date pure).
  * Utilisé à la création/validation du compte hébergeur.

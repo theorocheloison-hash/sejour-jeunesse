@@ -1,7 +1,8 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service';
 import { AbonnementService } from './abonnement.service';
 import { getCentreForUser } from '../centres/centre.helper';
+import { TRIAL_EXTENSION_JOURS } from '../centres/trial.helper';
 import { mollieClient } from './mollie.client';
 import { resyncMontantOrganisation } from './resync-montant.helper';
 
@@ -269,6 +270,42 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       prisma.organisation.findFirst.mockResolvedValue(null);
       const res = await service.handleWebhook('tr_1');
       expect(res).toEqual({ received: true });
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('demanderExtension — extension unique de TRIAL_EXTENSION_JOURS', () => {
+    it('extension autorisée sur essai frais : nouvelle fin = fin actuelle + TRIAL_EXTENSION_JOURS', async () => {
+      // Essai frais : démarré il y a 10j, fin à trialStart+30j (dans 20j, future).
+      const trialStart = new Date(); trialStart.setDate(trialStart.getDate() - 10);
+      const finActuelle = new Date(trialStart); finActuelle.setDate(finActuelle.getDate() + 30);
+      prisma.organisation.findUnique.mockResolvedValue(
+        orgVierge({
+          trialStartedAt: trialStart,
+          abonnementActifJusquAu: finActuelle,
+          planAbonnement: 'PILOTAGE',
+          abonnementStatut: 'ACTIF',
+        }),
+      );
+
+      const res = await service.demanderExtension(USER_ID, 'c-1');
+
+      const attendu = new Date(finActuelle); attendu.setDate(attendu.getDate() + TRIAL_EXTENSION_JOURS);
+      expect(prisma.organisation.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: { abonnementActifJusquAu: attendu, abonnementStatut: 'ACTIF' },
+      });
+      expect(res).toMatchObject({ success: true, actifJusquAu: attendu });
+    });
+
+    it('2e extension bloquée : fin déjà à trialStart+45j (> seuil 40j) → BadRequest, aucun update', async () => {
+      const trialStart = new Date(); trialStart.setDate(trialStart.getDate() - 10);
+      const finEtendue = new Date(trialStart); finEtendue.setDate(finEtendue.getDate() + 45);
+      prisma.organisation.findUnique.mockResolvedValue(
+        orgVierge({ trialStartedAt: trialStart, abonnementActifJusquAu: finEtendue }),
+      );
+
+      await expect(service.demanderExtension(USER_ID, 'c-1')).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.organisation.update).not.toHaveBeenCalled();
     });
   });

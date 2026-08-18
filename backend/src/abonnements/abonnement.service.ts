@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, ConflictException, ForbiddenException,
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
-import { TRIAL_DUREE_JOURS } from '../centres/trial.helper.js';
+import { TRIAL_DUREE_JOURS, TRIAL_EXTENSION_JOURS } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
 import { MandateMethod } from '@mollie/api-client';
@@ -132,9 +132,10 @@ export class AbonnementService {
   }
 
   /**
-   * Self-service : prolonge l'essai de 14 jours (10.1b-5). Une seule extension
-   * par essai — le guard est dérivé des dates existantes (essai frais = 30j,
-   * déjà étendu = 44j → seuil 40j), pas de champ dédié.
+   * Self-service : prolonge l'essai de TRIAL_EXTENSION_JOURS (15) jours
+   * (10.1b-5). Une seule extension par essai — le guard est dérivé des dates
+   * existantes (essai frais = 30j < 40, déjà étendu = 45j > 40 → seuil 40j),
+   * pas de champ dédié.
    */
   async demanderExtension(userId: string, centreId?: string | null) {
     const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
@@ -151,18 +152,19 @@ export class AbonnementService {
       throw new BadRequestException("L'extension est réservée aux comptes en période d'essai.");
     }
 
-    // Anti-abus : une seule extension. Essai frais = 30j, déjà étendu = 44j → seuil 40j.
+    // Anti-abus : une seule extension. Essai frais = 30j < 40 (autorisé),
+    // déjà étendu = 30 + 15 = 45j > 40 (2e extension bloquée) → seuil 40j.
     const trialStart = new Date(org.trialStartedAt);
     const seuil = new Date(trialStart); seuil.setDate(seuil.getDate() + 40);
     if (org.abonnementActifJusquAu && new Date(org.abonnementActifJusquAu) > seuil) {
       throw new BadRequestException('Une extension a déjà été accordée pour cet essai.');
     }
 
-    // Prolonger de 14j depuis max(aujourd'hui, fin actuelle)
+    // Prolonger de TRIAL_EXTENSION_JOURS depuis max(aujourd'hui, fin actuelle)
     const now = new Date();
     const finActuelle = org.abonnementActifJusquAu ? new Date(org.abonnementActifJusquAu) : now;
     const base = finActuelle > now ? finActuelle : now;
-    const nouvelleFin = new Date(base); nouvelleFin.setDate(nouvelleFin.getDate() + 14);
+    const nouvelleFin = new Date(base); nouvelleFin.setDate(nouvelleFin.getDate() + TRIAL_EXTENSION_JOURS);
     const data = { abonnementActifJusquAu: nouvelleFin, abonnementStatut: StatutAbonnement.ACTIF };
     await this.prisma.organisation.update({ where: { id: organisationId }, data });
 
@@ -174,7 +176,7 @@ export class AbonnementService {
       const dateExp = nouvelleFin.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
       await this.emailService.sendNotifAdmin(
         `[Admin] Extension d'essai — ${centre.nom}`,
-        `<p><strong>${centre.nom}</strong> a demandé une extension d'essai (+14 jours).</p>
+        `<p><strong>${centre.nom}</strong> a demandé une extension d'essai (+${TRIAL_EXTENSION_JOURS} jours).</p>
          <table style="width:100%;border-collapse:collapse;margin:16px 0">
            <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${centre.nom}</td></tr>
            <tr><td style="padding:8px 12px;font-size:13px;color:#666">Hébergeur</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${user?.prenom ?? ''} ${user?.nom ?? ''} — ${user?.email ?? 'N/A'}</td></tr>
