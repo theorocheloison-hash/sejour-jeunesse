@@ -1114,13 +1114,20 @@ export class CentreService {
           claimValidatedById: null,
         });
 
-        // Abonnement COMPLET offert — porté par l'ORG seule (L3c, les colonnes
-        // abo du centre ne sont plus écrites). Sans trialStartedAt :
-        // sémantique « offert », garde b de demarrerOuAlignerTrial.
+        // Invitation = même essai que tout le monde (PILOTAGE 30j, décision
+        // 18/08). trialStartedAt posé : les alertes d'expiration du cron
+        // ciblent ces orgs (relance de conversion), la garde c de
+        // demarrerOuAlignerTrial empêche tout second essai au login, et
+        // l'extension self-service devient accessible. Les orgs déjà
+        // « offertes » par d'anciennes invitations (COMPLET sans
+        // trialStartedAt) restent en l'état — pas de backfill, sémantique
+        // grand-père. Porté par l'ORG seule (L3c, les colonnes abo du centre
+        // ne sont plus écrites).
         const dataAbo = {
-          planAbonnement: 'COMPLET' as const,
+          planAbonnement: 'PILOTAGE' as const,
           abonnementStatut: 'ACTIF' as const,
           abonnementActifJusquAu: trialExpiration(),
+          trialStartedAt: new Date(),
         };
         await tx.organisation.update({ where: { id: organisationId }, data: dataAbo });
 

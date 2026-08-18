@@ -138,14 +138,15 @@ describe('CentreService.register (Lot 2e-2 — transaction + abo org + claim VAL
     expect(data.isPrimary).toBe(true);
   });
 
-  it('abo COMPLET offert sur l ORG seule, aucun update centre ne porte d abo (L3c)', async () => {
+  it('trial standard PILOTAGE 30j sur l ORG seule, aucun update centre ne porte d abo (L3c)', async () => {
     await register();
 
     const orgData = tx.organisation.update.mock.calls[0][0].data;
-    expect(orgData).toMatchObject({ planAbonnement: 'COMPLET', abonnementStatut: 'ACTIF' });
+    expect(orgData).toMatchObject({ planAbonnement: 'PILOTAGE', abonnementStatut: 'ACTIF' });
     expect(orgData.abonnementActifJusquAu).toBeInstanceOf(Date);
-    // Sémantique « offert » : jamais de trialStartedAt.
-    expect(orgData.trialStartedAt).toBeUndefined();
+    // Invitation = même essai que tout le monde (décision 18/08) :
+    // trialStartedAt posé → alertes cron + extension + garde c au login.
+    expect(orgData.trialStartedAt).toBeInstanceOf(Date);
 
     // L3c : aucun update centre ne porte de champ d'abonnement.
     expect(tx.centreHebergement.update.mock.calls.every(
