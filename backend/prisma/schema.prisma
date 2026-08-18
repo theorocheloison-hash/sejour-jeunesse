@@ -709,17 +709,17 @@ model FactureLiavo {
 
 model AcceptationCgv {
   id             String   @id @default(uuid()) @db.Uuid
-  centreId       String   @map("centre_id") @db.Uuid
+  centreId       String?  @map("centre_id") @db.Uuid
   organisationId String?  @map("organisation_id") @db.Uuid
-  userId         String   @map("user_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
   plan           String
   frequence      String
   ipAddress      String?  @map("ip_address")
   acceptedAt     DateTime @default(now()) @map("accepted_at")
 
-  centre       CentreHebergement @relation(fields: [centreId], references: [id])
-  organisation Organisation?     @relation(fields: [organisationId], references: [id], onDelete: Restrict)
-  user         User              @relation(fields: [userId], references: [id])
+  centre       CentreHebergement? @relation(fields: [centreId], references: [id], onDelete: SetNull)
+  organisation Organisation?      @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
   @@map("acceptations_cgv")

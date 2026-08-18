@@ -244,10 +244,23 @@ export class AdminService {
         id: true,
         email: true,
         prenom: true,
-        centres: { select: { nom: true } },
+        centres: { select: { id: true, nom: true } },
       },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    // Garde engagement commercial (L2d) : CGV acceptées ou facture LIAVO émise
+    // = pièces à conserver, la suppression du compte détruirait la traçabilité.
+    const centreIds = user.centres.map((c) => c.id);
+    const nbCgv = await this.prisma.acceptationCgv.count({ where: { userId: id } });
+    const nbFactures = centreIds.length > 0
+      ? await this.prisma.factureLiavo.count({ where: { centreId: { in: centreIds } } })
+      : 0;
+    if (nbCgv > 0 || nbFactures > 0) {
+      throw new ConflictException(
+        'Ce compte porte un engagement commercial (CGV acceptées ou facture émise) — suppression interdite. Suspendre le centre à la place.',
+      );
+    }
 
     try {
       const nomCentre = user.centres[0]?.nom ?? 'votre centre';
