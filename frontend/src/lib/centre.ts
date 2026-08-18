@@ -81,11 +81,6 @@ export interface RegisterCentreDto {
 
 // ─── API calls ──────────────────────────────────────────────────────────────
 
-export async function getInvitation(token: string): Promise<Invitation> {
-  const { data } = await api.get<Invitation>(`/invitations/accept/${token}`);
-  return data;
-}
-
 export async function registerCentre(dto: RegisterCentreDto) {
   const { data } = await api.post<{ access_token: string; user: { id: string; email: string; prenom: string; nom: string; role: string }; centre: Centre }>('/centres/register', dto);
   return data;
