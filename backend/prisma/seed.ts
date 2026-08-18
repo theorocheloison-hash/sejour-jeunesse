@@ -1,155 +1,177 @@
+/**
+ * Seed LOCAL LIAVO — jeu de données minimal pour le développement (liavo_dev).
+ * Remplace le vestige catalogue (10 `Hebergement` legacy, non idempotent).
+ *
+ * GARDE ANTI-PROD : refuse de tourner si DATABASE_URL ne pointe pas sur
+ * localhost/127.0.0.1 — protection définitive, avant toute connexion.
+ * IDEMPOTENT : upsert/findFirst partout, re-lançable sans doublon.
+ *
+ * Comptes créés (@test.local, aucun email réel — et BREVO_API_KEY absente du
+ * .env local = kill-switch : les envois sont seulement loggés) :
+ *   hebergeur@test.local    / Hebergeur1!     (HEBERGEUR — centre ACTIVE, org PILOTAGE ACTIF)
+ *   organisateur@test.local / Organisateur1!  (ORGANISATEUR — sans organisation, cas réel majoritaire)
+ */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
+const DATABASE_URL = process.env.DATABASE_URL ?? '';
+
+// ── Garde anti-prod : localhost obligatoire ─────────────────────────────────
+let hote = '';
+try { hote = new URL(DATABASE_URL).hostname; } catch { /* URL vide/invalide → refus */ }
+if (hote !== 'localhost' && hote !== '127.0.0.1') {
+  console.error('[seed] REFUS : DATABASE_URL ne pointe pas sur localhost — ce seed est strictement local.');
+  console.error('[seed] Hôte détecté : ' + (hote || '(URL absente ou invalide)'));
+  process.exit(1);
+}
+
+const adapter = new PrismaPg({ connectionString: DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const hebergements = [
-  {
-    nom: 'Auberge du Mont-Blanc',
-    type: 'auberge' as const,
-    adresse: '12 rue des Alpinistes, 74400 Chamonix',
-    ville: 'Chamonix',
-    capacite: 60,
-    prixParJour: 35,
-    agrement: true,
-    telephone: '04 50 12 34 56',
-    email: 'contact@auberge-montblanc.fr',
-    activites: ['randonnée', 'escalade', 'ski'],
-    description: 'Auberge de jeunesse agréée au pied du Mont-Blanc, idéale pour les séjours montagne.',
-  },
-  {
-    nom: 'Gîte des Calanques',
-    type: 'gite' as const,
-    adresse: '8 chemin de Sormiou, 13009 Marseille',
-    ville: 'Marseille',
-    capacite: 30,
-    prixParJour: 28,
-    agrement: true,
-    telephone: '04 91 23 45 67',
-    email: 'gite-calanques@orange.fr',
-    activites: ['kayak', 'plongée', 'randonnée', 'voile'],
-    description: 'Gîte agréé avec accès direct aux calanques. Activités nautiques encadrées.',
-  },
-  {
-    nom: 'Centre nature Loire',
-    type: 'autre' as const,
-    adresse: '45 route des Châteaux, 41000 Blois',
-    ville: 'Blois',
-    capacite: 80,
-    prixParJour: 22,
-    agrement: true,
-    telephone: '02 54 78 90 12',
-    email: 'centre.loire@education.fr',
-    activites: ['vélo', 'canoë', 'histoire', 'patrimoine'],
-    description: 'Centre d\'hébergement au cœur de la vallée de la Loire. Classes patrimoine et nature.',
-  },
-  {
-    nom: 'Chalet Étoile des Neiges',
-    type: 'chalet' as const,
-    adresse: '3 impasse du Téléski, 73120 Courchevel',
-    ville: 'Courchevel',
-    capacite: 40,
-    prixParJour: 45,
-    agrement: false,
-    telephone: '04 79 08 11 22',
-    email: 'etoile.neiges@montagne.fr',
-    activites: ['ski', 'raquettes', 'luge'],
-    description: 'Chalet tout confort en station. Non agréé Éducation nationale.',
-  },
-  {
-    nom: 'Camping pédagogique du Verdon',
-    type: 'tente' as const,
-    adresse: 'Lieu-dit Les Gorges, 04120 Castellane',
-    ville: 'Castellane',
-    capacite: 50,
-    prixParJour: 15,
-    agrement: true,
-    telephone: '04 92 83 67 89',
-    email: 'camping.verdon@nature.fr',
-    activites: ['rafting', 'escalade', 'spéléologie', 'bivouac'],
-    description: 'Camping agréé dans les gorges du Verdon. Encadrement sport de pleine nature.',
-  },
-  {
-    nom: 'Hôtel Côte d\'Azur Jeunesse',
-    type: 'hotel' as const,
-    adresse: '22 boulevard de la Croisette, 06400 Cannes',
-    ville: 'Cannes',
-    capacite: 100,
-    prixParJour: 42,
-    agrement: false,
-    telephone: '04 93 45 67 89',
-    email: 'hotel.jeunesse@cannes.fr',
-    activites: ['plage', 'cinéma', 'musée'],
-    description: 'Hôtel en bord de mer, capacité importante. Non agréé.',
-  },
-  {
-    nom: 'Ferme pédagogique du Pays Basque',
-    type: 'gite' as const,
-    adresse: '15 chemin d\'Etxola, 64250 Espelette',
-    ville: 'Espelette',
-    capacite: 25,
-    prixParJour: 20,
-    agrement: true,
-    telephone: '05 59 93 12 34',
-    email: 'ferme.basque@agriculture.fr',
-    activites: ['ferme', 'cuisine', 'pelote basque', 'randonnée'],
-    description: 'Ferme pédagogique agréée. Découverte du terroir et de la culture basque.',
-  },
-  {
-    nom: 'Village vacances Atlantique',
-    type: 'autre' as const,
-    adresse: '1 allée des Dunes, 40600 Biscarrosse',
-    ville: 'Biscarrosse',
-    capacite: 200,
-    prixParJour: 30,
-    agrement: true,
-    telephone: '05 58 78 90 00',
-    email: 'vva@vacances-atlantique.fr',
-    activites: ['surf', 'vélo', 'voile', 'environnement'],
-    description: 'Grand village vacances agréé en bord d\'océan. Classes de mer et environnement.',
-  },
-  {
-    nom: 'Auberge alsacienne',
-    type: 'auberge' as const,
-    adresse: '7 rue du Vignoble, 68000 Colmar',
-    ville: 'Colmar',
-    capacite: 35,
-    prixParJour: 25,
-    agrement: false,
-    telephone: '03 89 41 56 78',
-    email: 'auberge.alsace@orange.fr',
-    activites: ['patrimoine', 'gastronomie', 'marché de Noël'],
-    description: 'Auberge au cœur du vignoble alsacien. Idéale pour séjour culturel.',
-  },
-  {
-    nom: 'Centre montagnard des Pyrénées',
-    type: 'chalet' as const,
-    adresse: '20 route du Col du Tourmalet, 65120 Barèges',
-    ville: 'Barèges',
-    capacite: 45,
-    prixParJour: 32,
-    agrement: true,
-    telephone: '05 62 92 34 56',
-    email: 'centre.pyrenees@montagne.fr',
-    activites: ['ski', 'randonnée', 'astronomie', 'thermalisme'],
-    description: 'Centre agréé en altitude. Observation astronomique et découverte montagnarde.',
-  },
-];
+const MDP_HEBERGEUR = 'Hebergeur1!';
+const MDP_ORGANISATEUR = 'Organisateur1!';
 
 async function main() {
-  console.log('Seeding hébergements catalogue...');
-  for (const h of hebergements) {
-    await prisma.hebergement.create({
+  // ── 1. Hébergeur : User (les 3 gates de login() posés) ────────────────────
+  const hebergeur = await prisma.user.upsert({
+    where: { email: 'hebergeur@test.local' },
+    update: {},
+    create: {
+      prenom: 'Hugo',
+      nom: 'Test-Hébergeur',
+      email: 'hebergeur@test.local',
+      motDePasse: await bcrypt.hash(MDP_HEBERGEUR, 12), // 12 rounds, comme auth.service
+      motDePasseDefini: true, // sinon login() compare contre DUMMY_HASH
+      emailVerifie: true,     // gate 2 (EMAIL_NON_VERIFIE)
+      compteValide: true,     // gate 3 (HEBERGEUR)
+      role: 'HEBERGEUR',
+    },
+  });
+
+  // ── 2. Organisation : PORTEUR de l'abonnement (L3c) ───────────────────────
+  // PILOTAGE ACTIF « offert » : trialStartedAt null → garde b de
+  // demarrerOuAlignerTrial (aucun nouvel essai au login), hors cible du cron.
+  let organisation = await prisma.organisation.findFirst({
+    where: { nom: 'Organisation Test Locale' },
+  });
+  if (!organisation) {
+    organisation = await prisma.organisation.create({
       data: {
-        ...h,
-        sejourId: null,
+        nom: 'Organisation Test Locale',
+        emailContact: 'hebergeur@test.local',
+        planAbonnement: 'PILOTAGE',
+        abonnementStatut: 'ACTIF',
+        abonnementActifJusquAu: new Date('2099-12-31'),
       },
     });
   }
-  console.log(`${hebergements.length} hébergements créés.`);
+
+  // ── 3. Membership PROPRIETAIRE, claim VALIDE (tunnel court-circuité) ──────
+  await prisma.membership.upsert({
+    where: { userId_organisationId: { userId: hebergeur.id, organisationId: organisation.id } },
+    update: {},
+    create: {
+      userId: hebergeur.id,
+      organisationId: organisation.id,
+      role: 'PROPRIETAIRE',
+      isPrimary: true,
+      claimStatut: 'VALIDE',
+      claimValidatedAt: new Date(),
+    },
+  });
+
+  // ── 4. Centre exploité ACTIVE ─────────────────────────────────────────────
+  // Les colonnes abo du centre restent aux DEFAULTS : gelées depuis L3c,
+  // l'org est l'unique porteur — ne jamais les écrire.
+  let centre = await prisma.centreHebergement.findFirst({
+    where: { nom: 'Chalet du Test', userId: hebergeur.id },
+  });
+  if (!centre) {
+    centre = await prisma.centreHebergement.create({
+      data: {
+        nom: 'Chalet du Test',
+        adresse: '1 route du Développement',
+        ville: 'Vallorcine',
+        codePostal: '74660',
+        capacite: 40,
+        email: 'hebergeur@test.local',
+        statut: 'ACTIVE',
+        userId: hebergeur.id,
+        organisationId: organisation.id,
+      },
+    });
+  }
+
+  // ── 5. Organisateur : sans organisation ni membership (cas réel) ──────────
+  await prisma.user.upsert({
+    where: { email: 'organisateur@test.local' },
+    update: {},
+    create: {
+      prenom: 'Olivia',
+      nom: 'Test-Organisatrice',
+      email: 'organisateur@test.local',
+      motDePasse: await bcrypt.hash(MDP_ORGANISATEUR, 12),
+      motDePasseDefini: true,
+      emailVerifie: true,
+      compteValide: true, // sans effet pour ORGANISATEUR (gate 3 = HEBERGEUR seul), posé par cohérence
+      role: 'ORGANISATEUR',
+    },
+  });
+
+  // ── 6. Séjour DIRECT rattaché au centre ───────────────────────────────────
+  // createurId NULL = convention réelle des DIRECT (le discriminant est
+  // peutGererEnPropre : hebergementSelectionne.userId === userId).
+  let sejour = await prisma.sejour.findFirst({
+    where: { titre: 'Séjour test local', hebergementSelectionneId: centre.id },
+  });
+  if (!sejour) {
+    sejour = await prisma.sejour.create({
+      data: {
+        titre: 'Séjour test local',
+        lieu: 'Vallorcine',
+        dateDebut: new Date('2026-10-05'),
+        dateFin: new Date('2026-10-09'),
+        placesTotales: 40,
+        placesRestantes: 40,
+        statut: 'OPTION', // cohérent avec un devis émis EN_ATTENTE (pattern prod 05/08)
+        modeGestion: 'DIRECT',
+        natureSejour: 'SEJOUR',
+        typeContexte: 'SCOLAIRE',
+        createurId: null,
+        hebergementSelectionneId: centre.id,
+        clientPrenom: 'Claire',
+        clientNom: 'Cliente-Test',
+        clientEmail: 'client@test.local',
+        clientOrganisation: 'École du Test',
+      },
+    });
+  }
+
+  // ── 7. Devis EN_ATTENTE sur le séjour DIRECT ──────────────────────────────
+  const devisExistant = await prisma.devis.findFirst({ where: { sejourDirectId: sejour.id } });
+  if (!devisExistant) {
+    await prisma.devis.create({
+      data: {
+        sejourDirectId: sejour.id,
+        centreId: centre.id,
+        montantTotal: '8400.00',
+        montantParEleve: '210.00',
+        tauxTva: 10,
+        montantHT: 7636.36,
+        montantTVA: 763.64,
+        montantTTC: 8400,
+        statut: 'EN_ATTENTE',
+        description: 'Pension complète 4 nuits — jeu de données local',
+        numeroDevis: 'DEV-LOCAL-0001', // hors SequenceService, suffisant en local
+      },
+    });
+  }
+
+  console.log('[seed] OK — jeu minimal en place :');
+  console.log('  hebergeur@test.local    / ' + MDP_HEBERGEUR + '  (centre « Chalet du Test », org PILOTAGE ACTIF)');
+  console.log('  organisateur@test.local / ' + MDP_ORGANISATEUR);
+  console.log('  Séjour DIRECT « Séjour test local » (OPTION) + devis DEV-LOCAL-0001 (EN_ATTENTE)');
 }
 
 main()
