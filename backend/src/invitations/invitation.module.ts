@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { InvitationController } from './invitation.controller.js';
 import { InvitationService } from './invitation.service.js';
 import { EmailModule } from '../email/email.module.js';
 
+// Plus de contrôleur : les routes publiques /invitations (POST + accept/:token)
+// étaient un vestige sans appelant — le dashboard admin passe par
+// /admin/invitations (AdminController consomme InvitationService exporté).
 @Module({
   imports: [EmailModule],
-  controllers: [InvitationController],
   providers: [InvitationService],
   exports: [InvitationService],
 })

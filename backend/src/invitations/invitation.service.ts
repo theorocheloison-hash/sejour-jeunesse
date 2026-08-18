@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -35,20 +35,6 @@ export class InvitationService {
 
     await this.envoyerEmail(invitation, dto.centrePrecreerNom ?? dto.nomCentre);
 
-    return invitation;
-  }
-
-  async findByToken(token: string) {
-    const invitation = await this.prisma.invitationHebergement.findUnique({
-      where: { token },
-      include: {
-        centreExistant: {
-          select: { id: true, nom: true, ville: true, capacite: true, imageUrl: true },
-        },
-      },
-    });
-    if (!invitation) throw new NotFoundException('Invitation introuvable');
-    if (invitation.utilisedAt) throw new ConflictException('Cette invitation a déjà été utilisée');
     return invitation;
   }
 
