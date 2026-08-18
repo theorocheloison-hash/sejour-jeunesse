@@ -22,6 +22,7 @@ const INVITATION = {
   email: 'heb@centre.fr',
   nomCentre: 'Chalet Précréé',
   utilisedAt: null,
+  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   centreExistantId: null as string | null,
   centrePrecreerNom: 'Chalet Précréé',
   centrePrecreerAdresse: '1 route du Col',

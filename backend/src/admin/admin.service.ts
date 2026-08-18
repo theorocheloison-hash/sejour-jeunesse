@@ -6,6 +6,7 @@ import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
+import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
 import { calculerMontantAbonnementCents, PRIX_MENSUEL, PRIX_ANNUEL, CENTRE_SUPP_MENSUEL } from '../abonnements/abonnement.constants.js';
 
@@ -1151,7 +1152,15 @@ export class AdminService {
 
       try {
         const invitation = await this.prisma.invitationHebergement.create({
-          data: { email: centre.email, nomCentre: centre.nom },
+          data: {
+            email: centre.email,
+            nomCentre: centre.nom,
+            // Référence explicite au centre catalogue : register() passe par le
+            // CAS 1 (claim déterministe du centre invité) au lieu du matching
+            // heuristique email/nom+ville du CAS 3.
+            centreExistantId: centre.id,
+            expiresAt: new Date(Date.now() + INVITATION_VALIDITE_JOURS * 24 * 60 * 60 * 1000),
+          },
         });
 
         const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;

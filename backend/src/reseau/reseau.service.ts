@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
+import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 
 /**
  * Dashboards des réseaux partenaires (LMDJ, IDDJ…) : stats, demandes, fiche
@@ -334,7 +335,11 @@ export class ReseauService {
     if (existing) throw new Error('Une invitation est déjà en attente pour cet email');
 
     const invitation = await this.prisma.invitationHebergement.create({
-      data: { email, nomCentre },
+      data: {
+        email,
+        nomCentre,
+        expiresAt: new Date(Date.now() + INVITATION_VALIDITE_JOURS * 24 * 60 * 60 * 1000),
+      },
     });
 
     const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/register/hebergeur?token=${invitation.token}&reseau=${encodeURIComponent(reseau)}`;

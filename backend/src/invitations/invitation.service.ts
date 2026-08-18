@@ -4,6 +4,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CreateInvitationDto } from './dto/create-invitation.dto.js';
 
+// Fenêtre de validité d'une invitation hébergeur — la valeur annoncée dans les
+// emails (« valable 30 jours »). Partagée par les 3 créateurs (admin, bulk
+// Apidae, réseau) : expiresAt est NOT NULL en base.
+export const INVITATION_VALIDITE_JOURS = 30;
+
 @Injectable()
 export class InvitationService {
   constructor(
@@ -24,6 +29,7 @@ export class InvitationService {
         centrePrecreerCapacite:    dto.centrePrecreerCapacite ?? null,
         centrePrecreerSiret:       dto.centrePrecreerSiret ?? null,
         centrePrecreerDepartement: dto.centrePrecreerDepartement ?? null,
+        expiresAt: new Date(Date.now() + INVITATION_VALIDITE_JOURS * 24 * 60 * 60 * 1000),
       },
     });
 
@@ -71,6 +77,8 @@ export class InvitationService {
         utilisedAt: null,
         emailEnvoye: false,
         emailEnvoyeAt: null,
+        // Nouveau token → nouvelle fenêtre de 30 jours.
+        expiresAt: new Date(Date.now() + INVITATION_VALIDITE_JOURS * 24 * 60 * 60 * 1000),
       },
     });
 

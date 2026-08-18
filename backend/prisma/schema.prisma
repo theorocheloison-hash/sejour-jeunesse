@@ -824,6 +824,7 @@ model InvitationHebergement {
   token       String    @unique @default(uuid()) @db.Uuid
   utilisedAt  DateTime? @map("utilised_at")
   createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
 
   // Centre pré-existant à rattacher
   centreExistantId    String?   @map("centre_existant_id") @db.Uuid
