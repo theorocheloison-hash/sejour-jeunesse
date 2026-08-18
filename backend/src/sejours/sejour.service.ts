@@ -105,6 +105,8 @@ export class SejourService {
           nombreEleves: dto.nombreEleves,
           villeHebergement: centre.ville,
           statut: 'OUVERTE',
+          // Demande ciblée — visible du seul centre choisi dans findOpen, reste OUVERTE tant qu'il n'a pas répondu.
+          centreDestinataireId: centre.id,
           typePension: [],
           nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
           heureArrivee:          dto.heureArrivee ?? null,
