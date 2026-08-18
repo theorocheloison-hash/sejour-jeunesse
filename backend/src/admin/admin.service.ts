@@ -7,15 +7,12 @@ import { findOrCreateOrganisation } from '../organisations/organisation.helpers.
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
-import { calculerMontantAbonnementCents } from '../abonnements/abonnement.constants.js';
+import { calculerMontantAbonnementCents, PRIX_MENSUEL, PRIX_ANNUEL, CENTRE_SUPP_MENSUEL } from '../abonnements/abonnement.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
 // Même dataset que HebergementService.search — constante volontairement redéfinie ici.
 const EN_API = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
-
-const PRIX_MENSUEL: Record<string, number> = { ESSENTIEL: 2900, COMPLET: 4900, PILOTAGE: 6900 };
-const PRIX_ANNUEL: Record<string, number> = { ESSENTIEL: 29000, COMPLET: 49000, PILOTAGE: 69000 };
 
 @Injectable()
 export class AdminService {
@@ -1543,7 +1540,11 @@ export class AdminService {
       throw new ConflictException("Ce centre n'est rattaché à aucune organisation — facturation impossible");
     }
 
-    const montant = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
+    // Supplément multi-centre (L2d) — filtre canonique aligné souscrire/webhook.
+    const nbCentresActifs = await this.prisma.centreHebergement.count({
+      where: { organisationId: centre.organisationId, statut: 'ACTIVE', userId: { not: null } },
+    });
+    const montant = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
     // Calculer l'expiration : renouvellement = prolonger depuis la date de fin
     // actuelle si elle est encore dans le futur ; sinon repartir d'aujourd'hui.
@@ -1560,7 +1561,6 @@ export class AdminService {
     // Activer le plan sur l'ORGANISATION, unique porteur de l'état d'abonnement
     // (L3c). Chemin manuel hors Mollie → toujours VIREMENT : exclut le centre
     // des alertes d'essai du cron (10.1a).
-    // Supplément multi-centre = L2d (le montant reste le prix plan sec ici).
     const dataAbo = {
       planAbonnement: plan as any,
       abonnement: frequence as any,
@@ -1628,7 +1628,11 @@ export class AdminService {
       throw new ConflictException("Ce centre n'est rattaché à aucune organisation — facturation impossible");
     }
 
-    const montant = nbMois * PRIX_MENSUEL[plan];
+    const nbCentresActifs = await this.prisma.centreHebergement.count({
+      where: { organisationId: centre.organisationId, statut: 'ACTIVE', userId: { not: null } },
+    });
+    // Supplément multi-centre au prorata des mois — même base que calculerMontantAbonnementCents en fréquence mensuelle.
+    const montant = nbMois * (PRIX_MENSUEL[plan] + Math.max(0, nbCentresActifs - 1) * CENTRE_SUPP_MENSUEL);
 
     // Activer le plan sur l'ORGANISATION, unique porteur de l'état d'abonnement
     // (L3c) — write unique, aucun write centre, trialStartedAt non touché.
