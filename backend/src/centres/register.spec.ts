@@ -187,4 +187,14 @@ describe('CentreService.register (Lot 2e-2 — transaction + abo org + claim VAL
     await expect(register()).rejects.toThrow('déjà été utilisée');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it('invitation expirée → ConflictException, aucune transaction ouverte', async () => {
+    prisma.invitationHebergement.findUnique.mockResolvedValue({
+      ...INVITATION,
+      expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    });
+
+    await expect(register()).rejects.toThrow('expiré');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });

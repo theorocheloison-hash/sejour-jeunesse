@@ -946,6 +946,7 @@ export class CentreService {
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable');
     if (invitation.utilisedAt) throw new ConflictException('Cette invitation a déjà été utilisée');
+    if (invitation.expiresAt < new Date()) throw new ConflictException('Cette invitation a expiré. Contactez LIAVO pour recevoir un nouveau lien.');
 
     // CAS 1 (admin) — vérifier que le centre pré-existant est revendiquable AVANT de créer le User
     if (invitation.centreExistantId) {
@@ -1208,7 +1209,7 @@ export class CentreService {
       },
     });
 
-    if (!invitation || invitation.utilisedAt) {
+    if (!invitation || invitation.utilisedAt || invitation.expiresAt < new Date()) {
       return { cas: 3, isApidae: false, centre: null, centreExistantId: null, precreer: null };
     }
 
