@@ -986,6 +986,12 @@ export class CentreService {
             // Sans ce flag (défaut false), login() compare contre DUMMY_HASH :
             // reconnexion par mot de passe impossible pour ces comptes.
             motDePasseDefini: true,
+            // Le token d'invitation arrive par email à l'adresse invitée — le
+            // posséder prouve l'accès à la boîte. Sans ce flag (défaut false),
+            // le gate 2 de login() (EMAIL_NON_VERIFIE) bloquait toute
+            // reconnexion par mot de passe des comptes créés par invitation :
+            // première session OK (JWT direct), reconnexion impossible.
+            emailVerifie: true,
             role: Role.HEBERGEUR,
           },
         });

@@ -117,6 +117,9 @@ describe('CentreService.register (Lot 2e-2 — transaction + abo org + claim VAL
     const res = await register();
 
     expect(tx.user.create).toHaveBeenCalledTimes(1);
+    // Token d'invitation reçu par email = boîte prouvée → sans ce flag, le
+    // gate EMAIL_NON_VERIFIE de login() bloque toute reconnexion.
+    expect(tx.user.create.mock.calls[0][0].data.emailVerifie).toBe(true);
     expect(tx.centreHebergement.create).toHaveBeenCalledTimes(1);
     expect(tx.organisation.create).toHaveBeenCalledTimes(1); // org neuve (organisationId null)
     expect(tx.membership.create).toHaveBeenCalledTimes(1);
