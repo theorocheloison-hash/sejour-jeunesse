@@ -329,8 +329,10 @@ export class ReseauService {
   }
 
   async inviterCentreReseau(reseau: string, email: string, nomCentre: string) {
+    // Une invitation expirée ne bloque pas un nouvel envoi — le renvoi passe
+    // sinon par renvoyer() qui rouvre la fenêtre.
     const existing = await this.prisma.invitationHebergement.findFirst({
-      where: { email, utilisedAt: null },
+      where: { email, utilisedAt: null, expiresAt: { gt: new Date() } },
     });
     if (existing) throw new Error('Une invitation est déjà en attente pour cet email');
 

@@ -1131,8 +1131,10 @@ export class AdminService {
     for (const centre of centres) {
       if (!centre.email) { skipped++; continue; }
 
+      // Une invitation expirée ne bloque pas un nouvel envoi — le renvoi passe
+      // sinon par renvoyer() qui rouvre la fenêtre.
       const existingInvitation = await this.prisma.invitationHebergement.findFirst({
-        where: { email: centre.email, utilisedAt: null },
+        where: { email: centre.email, utilisedAt: null, expiresAt: { gt: new Date() } },
       });
       if (existingInvitation) {
         skipped++;
