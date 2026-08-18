@@ -121,6 +121,19 @@ export class FactureLiavoService {
     const frequenceLabel = type === 'ANNUEL' ? 'Annuel' : 'Mensuel';
     const description = libelle ?? `Abonnement LIAVO ${plan} — ${frequenceLabel}`;
 
+    // Destinataire résolu UNE fois — persisté en snapshot ET envoyé au PDF
+    // (la régénération relira le snapshot, jamais le centre).
+    const destinataireNom = destinataire?.nom ?? centre.nom;
+    const destinataireAdresse = destinataire?.adresse ?? centre.adresse ?? null;
+    const destinataireSiret = destinataire?.siret ?? centre.siret ?? null;
+    const destinataireEmail = destinataire?.email ?? centre.user?.email ?? null;
+
+    const now = new Date();
+    // Mollie (molliePaymentId) = déjà payé → échéance = émission ;
+    // facture manuelle (virement/BdC) = à régler → +30 jours.
+    const echeance = new Date(now);
+    if (!molliePaymentId) echeance.setDate(echeance.getDate() + 30);
+
     const facture = await this.prisma.factureLiavo.create({
       data: {
         centreId,
@@ -136,17 +149,17 @@ export class FactureLiavoService {
         planAbonnement: plan,
         typeAbonnement: type,
         molliePaymentId,
+        destinataireNom,
+        destinataireAdresse,
+        destinataireSiret,
+        destinataireEmail,
+        dateEcheance: echeance,
       },
     });
 
     const montantEuros = montantCentimes / 100;
-    const now = new Date();
-    // Mollie (molliePaymentId) = déjà payé → échéance = émission ;
-    // facture manuelle (virement/BdC) = à régler → +30 jours.
-    const echeance = new Date(now);
-    if (!molliePaymentId) echeance.setDate(echeance.getDate() + 30);
     const pdfBuffer = await generateFacturePdf({
-      typeFacture: 'SOLDE',
+      typeFacture: 'FACTURE',
       numero,
       dateEmission: now.toISOString(),
       dateEcheance: echeance.toISOString(),
@@ -157,10 +170,10 @@ export class FactureLiavoService {
       emetteurEmail: 'contact@liavo.fr',
       emetteurTel: null,
       emetteurIban: LIAVO_IBAN,
-      destinataireNom: destinataire?.nom ?? centre.nom,
-      destinataireAdresse: destinataire?.adresse ?? (centre as any).adresse ?? null,
-      destinataireSiret: destinataire?.siret ?? (centre as any).siret ?? null,
-      destinataireEmail: destinataire?.email ?? centre.user?.email ?? null,
+      destinataireNom,
+      destinataireAdresse,
+      destinataireSiret,
+      destinataireEmail,
       titreSejour: description,
       lignes: [{
         description,
@@ -176,6 +189,7 @@ export class FactureLiavoService {
       montantFacture: montantEuros,
       pourcentageAcompte: null,
       montantAcompteDejaFacture: null,
+      conditionsTitre: 'Conditions de paiement',
       conditionsAnnulation: molliePaymentId
         ? 'Facture acquittée par prélèvement SEPA.'
         : 'À régler par virement bancaire sous 30 jours à réception.',
@@ -209,6 +223,84 @@ export class FactureLiavoService {
     }
 
     return { ...facture, pdfUrl };
+  }
+
+  /**
+   * Régénère le PDF d'une facture LIAVO depuis la ROW seule (snapshot figé à
+   * l'émission) — même filename/folder donc même URL, écrasée. Écritures :
+   * pdfUrl uniquement. Aucun email, aucun write organisation, aucune mutation
+   * des données de la facture.
+   */
+  async regenererPdf(factureLiavoId: string): Promise<{ pdfUrl: string }> {
+    const facture = await this.prisma.factureLiavo.findUniqueOrThrow({
+      where: { id: factureLiavoId },
+    });
+
+    if (!facture.destinataireNom) {
+      throw new BadRequestException(
+        'Snapshot destinataire absent — backfill requis avant régénération',
+      );
+    }
+
+    // Rows legacy sans date_echeance : dériver comme à l'émission
+    // (Mollie = payé → échéance = émission ; manuelle → +30 jours).
+    let echeance = facture.dateEcheance;
+    if (!echeance) {
+      echeance = new Date(facture.dateEmission);
+      if (!facture.molliePaymentId) echeance.setDate(echeance.getDate() + 30);
+    }
+
+    const montantEuros = facture.montantTTC / 100;
+    const pdfBuffer = await generateFacturePdf({
+      typeFacture: 'FACTURE',
+      numero: facture.numero,
+      dateEmission: facture.dateEmission.toISOString(),
+      dateEcheance: echeance.toISOString(),
+      emetteurNom: 'LIAVO SASU',
+      emetteurAdresse: '472 Route du Mas Devant, 74440 Morillon',
+      emetteurSiret: LIAVO_SIRET,
+      emetteurTva: null,
+      emetteurEmail: 'contact@liavo.fr',
+      emetteurTel: null,
+      emetteurIban: LIAVO_IBAN,
+      destinataireNom: facture.destinataireNom,
+      destinataireAdresse: facture.destinataireAdresse,
+      destinataireSiret: facture.destinataireSiret,
+      destinataireEmail: facture.destinataireEmail,
+      titreSejour: facture.description,
+      lignes: [{
+        description: facture.description,
+        quantite: 1,
+        prixUnitaire: facture.montantHT / 100,
+        tva: 0,
+        totalHT: facture.montantHT / 100,
+        totalTTC: montantEuros,
+      }],
+      montantHT: facture.montantHT / 100,
+      montantTVA: facture.montantTVA / 100,
+      montantTTC: montantEuros,
+      montantFacture: montantEuros,
+      pourcentageAcompte: null,
+      montantAcompteDejaFacture: null,
+      conditionsTitre: 'Conditions de paiement',
+      conditionsAnnulation: facture.molliePaymentId
+        ? 'Facture acquittée par prélèvement SEPA.'
+        : 'À régler par virement bancaire sous 30 jours à réception.',
+      tauxTva: 0,
+      mentionTVA: 'TVA non applicable, art. 293 B du CGI',
+      logoUrl: null,
+    });
+
+    const pdfUrl = await this.storageService.uploadBuffer(
+      pdfBuffer, `${facture.numero}.pdf`, 'factures-liavo', 'application/pdf',
+    );
+
+    await this.prisma.factureLiavo.update({
+      where: { id: facture.id },
+      data: { pdfUrl },
+    });
+
+    return { pdfUrl };
   }
 
   async lister(centreId: string) {

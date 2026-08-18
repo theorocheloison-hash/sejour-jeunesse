@@ -77,6 +77,11 @@ export class AdminController {
     return this.adminService.getFacturesLiavo();
   }
 
+  @Post('factures-liavo/:id/regenerer-pdf')
+  regenererFactureLiavoPdf(@Param('id') id: string) {
+    return this.adminService.regenererFactureLiavoPdf(id);
+  }
+
   @Get('metriques-abonnements')
   getMetriquesAbonnements() {
     return this.adminService.getMetriquesAbonnements();

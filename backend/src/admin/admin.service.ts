@@ -427,6 +427,10 @@ export class AdminService {
     }));
   }
 
+  regenererFactureLiavoPdf(id: string) {
+    return this.factureLiavo.regenererPdf(id);
+  }
+
   async getFacturesLiavo() {
     return this.prisma.factureLiavo.findMany({
       orderBy: { dateEmission: 'desc' },

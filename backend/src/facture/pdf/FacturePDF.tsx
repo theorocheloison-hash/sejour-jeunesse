@@ -3,7 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface FacturePDFProps {
-  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR' | 'DEVIS';
+  typeFacture: 'ACOMPTE' | 'SOLDE' | 'AVOIR' | 'DEVIS' | 'FACTURE';
   logoUrl?: string | null;
   numero: string;
   dateEmission: string; // ISO
@@ -35,6 +35,8 @@ export interface FacturePDFProps {
   pourcentageAcompte: number | null;
   montantAcompteDejaFacture: number | null; // SOLDE uniquement
   conditionsAnnulation: string | null;
+  // Titre du bloc conditions — défaut « Conditions d'annulation » (flux hébergeur inchangé)
+  conditionsTitre?: string | null;
   tauxTva: number;
   mentionTVA?: string | null;
   // Avoir (Lot 3)
@@ -173,7 +175,7 @@ export default function FacturePDF(props: FacturePDFProps) {
     destinataireNom, destinataireAdresse, destinataireSiret, destinataireEmail,
     titreSejour, lignes, montantHT, montantTVA, montantTTC,
     montantFacture, pourcentageAcompte, montantAcompteDejaFacture,
-    conditionsAnnulation, versements,
+    conditionsAnnulation, conditionsTitre, versements,
     factureAnnuleeNumero, factureAnnuleeDate,
     factureAcompteNumero, factureAcompteDate,
   } = props;
@@ -182,6 +184,7 @@ export default function FacturePDF(props: FacturePDFProps) {
     typeFacture === 'DEVIS' ? 'DEVIS'
     : typeFacture === 'ACOMPTE' ? "FACTURE D'ACOMPTE"
     : typeFacture === 'SOLDE' ? 'FACTURE DE SOLDE'
+    : typeFacture === 'FACTURE' ? 'FACTURE'
     : "FACTURE D'AVOIR";
 
   const emetteurInfos = (
@@ -230,7 +233,7 @@ export default function FacturePDF(props: FacturePDFProps) {
       ) : (
         <View style={s.totauxRow}>
           <Text style={{ ...s.totauxSolde, color: '#16A34A', fontSize: 10, width: '100%', textAlign: 'right' }}>
-            Soldé ✓
+            Soldé
           </Text>
         </View>
       )
@@ -366,6 +369,14 @@ export default function FacturePDF(props: FacturePDFProps) {
           )}
           {typeFacture === 'SOLDE' && resteBlock}
 
+          {typeFacture === 'FACTURE' && (
+            <View style={s.totauxRow}>
+              <Text style={s.totauxSolde}>Montant dû</Text>
+              <Text style={s.totauxSolde}>{fmtMontant(montantFacture)} €</Text>
+            </View>
+          )}
+          {typeFacture === 'FACTURE' && resteBlock}
+
           {typeFacture === 'AVOIR' && (
             <View style={s.totauxRow}>
               <Text style={{ ...s.totauxSolde, color: '#DC2626' }}>Net à déduire</Text>
@@ -402,7 +413,7 @@ export default function FacturePDF(props: FacturePDFProps) {
         {/* Conditions d'annulation */}
         {typeFacture !== 'DEVIS' && conditionsAnnulation && (
           <View style={s.condBlock}>
-            <Text style={s.condTitle}>Conditions d'annulation</Text>
+            <Text style={s.condTitle}>{conditionsTitre ?? "Conditions d'annulation"}</Text>
             <Text style={s.condText}>{conditionsAnnulation}</Text>
           </View>
         )}

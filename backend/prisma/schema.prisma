@@ -690,6 +690,12 @@ model FactureLiavo {
   typeAbonnement  String   @map("type_abonnement") @db.VarChar(20)
   molliePaymentId String?  @map("mollie_payment_id") @db.VarChar(50)
   pdfUrl          String?  @map("pdf_url") @db.VarChar(500)
+  // Snapshot destinataire figé à l'émission — la régénération ne re-dérive jamais du centre
+  destinataireNom     String?   @map("destinataire_nom") @db.VarChar(255)
+  destinataireAdresse String?   @map("destinataire_adresse") @db.Text
+  destinataireSiret   String?   @map("destinataire_siret") @db.VarChar(14)
+  destinataireEmail   String?   @map("destinataire_email") @db.VarChar(255)
+  dateEcheance        DateTime? @map("date_echeance")
   createdAt       DateTime @default(now()) @map("created_at")
 
   centre       CentreHebergement? @relation(fields: [centreId], references: [id], onDelete: SetNull)
