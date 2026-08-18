@@ -378,6 +378,55 @@ describe('CronAlertesService', () => {
     });
   });
 
+  // ── D2 : fenêtre de relance post-expiration bornée à 15 jours ─────────
+
+  describe('envoyerAlertesExpires — fenêtre de relance bornée 15j', () => {
+    /**
+     * Même approche que matchModePaiement : le filtre vit dans le WHERE
+     * Prisma — le mock rejoue la sémantique de la fenêtre de dates
+     * { lt, gte } sur abonnementActifJusquAu.
+     */
+    const matchFenetre = (where: any, org: any): boolean => {
+      const exp = org.abonnementActifJusquAu as Date | null;
+      const f = where.abonnementActifJusquAu ?? {};
+      if (!exp) return false;
+      if (f.lt && !(exp < f.lt)) return false;
+      if (f.gte && !(exp >= f.gte)) return false;
+      return true;
+    };
+    const setOrgs = (liste: Record<string, unknown>[]) => {
+      prisma.organisation.findMany.mockImplementation(async ({ where }: any) =>
+        liste.filter((o) => matchFenetre(where, o)),
+      );
+    };
+
+    it('le WHERE borne la fenêtre : { lt: now, gte: now-15j } aux dates exactes', async () => {
+      await service.envoyerAlertesExpires();
+
+      const arg = prisma.organisation.findMany.mock.calls[0][0];
+      expect(arg.where.abonnementActifJusquAu).toEqual({ lt: NOW, gte: dansJours(-15) });
+    });
+
+    it('org expirée depuis plus de 15 jours → aucun email, aucun tampon (silence définitif)', async () => {
+      setOrgs([orgEssai({ abonnementActifJusquAu: dansJours(-16) })]);
+
+      const { expiresNotifies } = await service.envoyerAlertesExpires();
+
+      expect(expiresNotifies).toBe(0);
+      expect(emailService.sendTrialExpirationAlert).not.toHaveBeenCalled();
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+    });
+
+    it('org expirée depuis 2 jours (dans la fenêtre) → relancée (contrôle positif du mock)', async () => {
+      setOrgs([orgEssai({ abonnementActifJusquAu: dansJours(-2) })]);
+
+      const { expiresNotifies } = await service.envoyerAlertesExpires();
+
+      expect(expiresNotifies).toBe(1);
+      expect(emailService.sendTrialExpirationAlert).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('envoyerAlertesRenouvellement', () => {
     it('org mono-centre PILOTAGE annuel → montant du plan seul (690 €)', async () => {
       prisma.organisation.findMany.mockResolvedValue([

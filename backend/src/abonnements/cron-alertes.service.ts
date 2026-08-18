@@ -121,16 +121,25 @@ export class CronAlertesService {
     return { alertesEnvoyees: count };
   }
 
-  /** Alerte admin pour les essais déjà expirés non convertis (joursRestants = 0). */
+  /**
+   * Relance HÉBERGEUR (sendTrialExpirationAlert, joursRestants = 0) pour les
+   * essais déjà expirés non convertis.
+   */
   async envoyerAlertesExpires() {
     const now = new Date();
     const il_y_a_6j = new Date(now); il_y_a_6j.setDate(il_y_a_6j.getDate() - 6);
+    const il_y_a_15j = new Date(now); il_y_a_15j.setDate(il_y_a_15j.getDate() - 15);
 
     // L3b : itération par organisation (une org = un abo), regroupement 4.20 obsolète.
     const orgs = await this.prisma.organisation.findMany({
       where: {
         abonnementStatut: 'ACTIF',
-        abonnementActifJusquAu: { lt: now },
+        // Fenêtre de relance bornée (décision 18/08) : ~2 emails max
+        // post-expiration (J0 puis ~J+6 via le tampon 6j), puis silence
+        // définitif — sans borne, une org expirée non convertie recevait un
+        // email tous les 6 jours indéfiniment (rien ne bascule jamais
+        // abonnementStatut en INACTIF).
+        abonnementActifJusquAu: { lt: now, gte: il_y_a_15j },
         trialStartedAt: { not: null },
         mollieMandatId: null,
         OR: [
