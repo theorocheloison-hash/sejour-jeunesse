@@ -1281,11 +1281,24 @@ export class CollaborationService {
    * sélectionné pour ce séjour. Retourne le séjour complet + le centreId.
    * Réservé aux données privées hébergeur (notes, activités, rappels).
    */
-  private async verifyHebergeur(sejourId: string, userId: string) {
+  private async verifyHebergeur(
+    sejourId: string,
+    userId: string,
+    requiredLevel: 'READ' | 'WRITE' = 'READ',
+  ) {
+    // Baseline : accès à l'espace séjour (au moins lecture) — les données CRM se
+    // consultent depuis la page séjour.
     const sejour = await this.verifyAccess(sejourId, userId, 'HEBERGEUR');
     const centreId = sejour.hebergementSelectionneId;
-    if (!centreId || sejour.hebergementSelectionne?.userId !== userId) {
+    if (!centreId) {
       throw new ForbiddenException('Réservé à l\'hébergeur du centre');
+    }
+    // Données CRM privées (notes, activités, rappels) : gate sur le module `crm`
+    // au niveau demandé — propriétaire en WRITE via OWNER_PERMISSIONS, collaborateur
+    // selon le niveau `crm` posé à l'invitation.
+    const perms = await getUserCentrePermissions(this.prisma, userId, centreId);
+    if (!perms || !hasPermission(perms, 'crm', requiredLevel)) {
+      throw new ForbiddenException('Accès CRM requis (notes, activités et rappels du centre)');
     }
     return { sejour, centreId };
   }
@@ -1382,7 +1395,7 @@ export class CollaborationService {
   }
 
   async updateNotesInternes(sejourId: string, userId: string, notesInternes: string) {
-    await this.verifyHebergeur(sejourId, userId);
+    await this.verifyHebergeur(sejourId, userId, 'WRITE');
     return this.prisma.sejour.update({
       where: { id: sejourId },
       data: { notesInternes },
@@ -1403,7 +1416,7 @@ export class CollaborationService {
     userId: string,
     dto: { type: string; description: string; clientId?: string },
   ) {
-    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId);
+    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId, 'WRITE');
     if (!dto.type || !dto.description?.trim()) {
       throw new ForbiddenException('Type et description requis');
     }
@@ -1435,7 +1448,7 @@ export class CollaborationService {
     userId: string,
     dto: { type: string; dateRappel: string; description: string; clientId?: string },
   ) {
-    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId);
+    const { sejour, centreId } = await this.verifyHebergeur(sejourId, userId, 'WRITE');
     if (!dto.type || !dto.dateRappel || !dto.description?.trim()) {
       throw new ForbiddenException('Type, date et description requis');
     }
@@ -1481,7 +1494,13 @@ export class CollaborationService {
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.hebergementSelectionne?.userId !== userId) {
+    // Modification réservée à l'équipe hébergeur avec droit d'écriture séjour :
+    // propriétaire (OWNER_PERMISSIONS) ou collaborateur `sejours: WRITE`.
+    const hebergementId = sejour.hebergementSelectionneId;
+    const permsInfos = hebergementId
+      ? await getUserCentrePermissions(this.prisma, userId, hebergementId)
+      : null;
+    if (!permsInfos || !hasPermission(permsInfos, 'sejours', 'WRITE')) {
       throw new ForbiddenException('Seul l\'hébergeur peut modifier les informations du séjour');
     }
 
