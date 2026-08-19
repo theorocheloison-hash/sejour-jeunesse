@@ -218,7 +218,7 @@ export default function DevisPDF(props: DevisPDFProps) {
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
           <Text style={s.objetText}>
-            Séjour — {lieuSejour ?? ''} — du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
+            {['Séjour', titreSejour, lieuSejour].filter(Boolean).join(' — ')} du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
           </Text>
           <Text style={s.objetSub}>
             {nombreEleves ? formatParticipants(nombreEleves, nombreAccompagnateurs) : ''}
