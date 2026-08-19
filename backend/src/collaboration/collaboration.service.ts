@@ -415,6 +415,8 @@ export class CollaborationService {
       where: { id: sejourId },
       select: {
         titre: true,
+        lieu: true,
+        niveauClasse: true,
         dateDebut: true,
         dateFin: true,
         placesTotales: true,
