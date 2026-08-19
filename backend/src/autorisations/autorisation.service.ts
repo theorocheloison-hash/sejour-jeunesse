@@ -13,7 +13,7 @@ import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
-import { peutGererEnPropre } from '../common/sejour-ownership.js';
+import { peutEcrireSejourEnPropre } from '../common/sejour-ownership.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -494,11 +494,12 @@ export class AutorisationService {
         createurId: true,
         modeGestion: true,
         dateFin: true,
+        hebergementSelectionneId: true,
         hebergementSelectionne: { select: { userId: true } },
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId && !peutGererEnPropre(sejour, createurId)) {
+    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId))) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
 
@@ -578,10 +579,10 @@ export class AutorisationService {
   async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== createurId && !peutGererEnPropre(autorisation.sejour, createurId))
+    if (autorisation.sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     const signee = autorisation.signeeAt !== null;
@@ -638,10 +639,10 @@ export class AutorisationService {
   async deleteAutorisation(id: string, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== createurId && !peutGererEnPropre(autorisation.sejour, createurId))
+    if (autorisation.sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     if (autorisation.signeeAt !== null)
       throw new ForbiddenException('Impossible de supprimer une autorisation signée');
