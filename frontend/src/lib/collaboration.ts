@@ -76,6 +76,11 @@ export interface SejourCollabInfo {
   notesInternes?: string | null;
   // Invitation collaborative en attente (séjour DIRECT) — null si aucune / déjà acceptée.
   invitationCollab?: { email: string; createdAt: string } | null;
+  // Capacité d'écriture de l'utilisateur courant sur CE séjour (calcul serveur —
+  // source de vérité du gating UI côté hébergeur, collaborateurs d'équipe inclus).
+  monAccesEcriture?: boolean;
+  monAccesCrm?: boolean;
+  monAccesGestionPropre?: boolean;
 }
 
 export interface SejourConventionHebergeur {

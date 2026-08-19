@@ -163,6 +163,18 @@ export class CollaborationService {
     });
     if (!full) return full;
 
+    // Capacité d'écriture de l'utilisateur courant sur CE séjour (source de vérité
+    // serveur pour le gating UI — évite au frontend de deviner via le centre actif
+    // global). Propriétaire (OWNER_PERMISSIONS) ou collaborateur d'équipe selon ses
+    // niveaux. monAccesGestionPropre = geste « en propre » (DIRECT), aligné sur
+    // peutEcrireSejourEnPropre.
+    const perms = full.hebergementSelectionneId
+      ? await getUserCentrePermissions(this.prisma, userId, full.hebergementSelectionneId)
+      : null;
+    const monAccesEcriture = !!perms && hasPermission(perms, 'sejours', 'WRITE');
+    const monAccesCrm = !!perms && hasPermission(perms, 'crm', 'WRITE');
+    const monAccesGestionPropre = full.modeGestion === 'DIRECT' && monAccesEcriture;
+
     // Invitation collaborative en attente (séjour DIRECT) — alimente l'écran
     // d'invitation hébergeur : on affiche « invitation envoyée à … » plutôt qu'un
     // formulaire vierge (anti-spam).
@@ -177,6 +189,9 @@ export class CollaborationService {
       invitationCollab: invitationPending
         ? { email: invitationPending.emailEnseignant, createdAt: invitationPending.createdAt }
         : null,
+      monAccesEcriture,
+      monAccesCrm,
+      monAccesGestionPropre,
     };
   }
 

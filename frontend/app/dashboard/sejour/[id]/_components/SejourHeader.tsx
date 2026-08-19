@@ -169,7 +169,7 @@ export default function SejourHeader({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate flex items-center">
             <span className="truncate">{sejour?.titre ?? '—'}</span>
-            {isHebergeur && !editingInfos && (
+            {isHebergeur && sejour?.monAccesEcriture && !editingInfos && (
               <button
                 onClick={() => setEditingInfos(true)}
                 className="text-xs text-gray-400 hover:text-[var(--color-primary)] hover:underline ml-2 shrink-0"
@@ -177,7 +177,7 @@ export default function SejourHeader({
                 ✏️ Modifier
               </button>
             )}
-            {isHebergeur && isDirect && !editingInfos && (
+            {isHebergeur && isDirect && sejour?.monAccesEcriture && !editingInfos && (
               <button
                 onClick={async () => {
                   if (!confirm('Supprimer ce séjour ? Le client CRM sera conservé.')) return;
