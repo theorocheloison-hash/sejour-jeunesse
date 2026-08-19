@@ -19,11 +19,13 @@ import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateStatusDto }  from './dto/update-status.dto.js';
 import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 import { PlanGuard } from '../auth/guards/plan.guard.js';
 import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 
 @Controller('sejours')
-@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard, PlanGuard)
 @RequirePlan('ESSENTIEL')
 export class SejourController {
   constructor(private readonly sejourService: SejourService) {}
@@ -51,6 +53,7 @@ export class SejourController {
   /** POST /sejours/direct — Créer un séjour en gestion directe (HEBERGEUR) */
   @Post('direct')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   createDirect(
     @Body() dto: CreateSejourDirectDto,
     @CurrentUser() user: JwtUser,
@@ -62,6 +65,7 @@ export class SejourController {
   /** DELETE /sejours/:id — Soft delete d'un séjour (HEBERGEUR) */
   @Delete(':id')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   softDelete(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
@@ -73,6 +77,7 @@ export class SejourController {
   /** POST /sejours/:id/inviter-organisateur — Inviter un organisateur sur un séjour DIRECT */
   @Post(':id/inviter-organisateur')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   inviterOrganisateur(
     @Param('id') id: string,
     @Body() body: { emailOrganisateur: string },
