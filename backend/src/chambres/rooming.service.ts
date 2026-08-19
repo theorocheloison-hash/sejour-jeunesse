@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
+import { getUserCentrePermissions, hasPermission } from '../centres/permission.helper.js';
 import { peutGererEnPropre } from '../common/sejour-ownership.js';
 import { PLAN_HIERARCHY, getPlanEffectif } from '../abonnements/abonnement.constants.js';
 
@@ -119,6 +120,23 @@ export class RoomingService {
     if (sejour.hebergementSelectionne?.userId === userId) {
       if (requireEdition && !peutGererEnPropre(sejour, userId)) {
         throw new ForbiddenException('Lecture seule pour l\'hébergeur');
+      }
+      return sejour;
+    }
+
+    // Collaborateur d'équipe accepté sur le centre : accès rooming selon son niveau
+    // `sejours`. Édition alignée sur le propriétaire — seulement sur un DIRECT géré
+    // en propre par le centre (sur un COLLAB, le rooming reste la main de
+    // l'organisateur, personne côté hébergeur n'édite).
+    const centreId = sejour.hebergementSelectionneId;
+    const centrePerms = centreId
+      ? await getUserCentrePermissions(this.prisma, userId, centreId)
+      : null;
+    if (centrePerms && hasPermission(centrePerms, 'sejours', 'READ')) {
+      const peutEditer =
+        sejour.modeGestion === 'DIRECT' && hasPermission(centrePerms, 'sejours', 'WRITE');
+      if (requireEdition && !peutEditer) {
+        throw new ForbiddenException('Lecture seule pour ce collaborateur');
       }
       return sejour;
     }
