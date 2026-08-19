@@ -7,6 +7,7 @@ import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
+import { getUserCentrePermissions, hasPermission } from '../centres/permission.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_COLLABORATIFS, STATUTS_SEJOUR_DIRECT } from '../sejours/sejour-statuts.constants.js';
@@ -80,7 +81,12 @@ export class CollaborationService {
   }
 
   /** Vérifie que le séjour est en CONVENTION et que l'utilisateur y a accès */
-  async verifyAccess(sejourId: string, userId: string, role?: string) {
+  async verifyAccess(
+    sejourId: string,
+    userId: string,
+    role?: string,
+    requiredLevel: 'READ' | 'WRITE' = 'READ',
+  ) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
       include: {
@@ -95,11 +101,24 @@ export class CollaborationService {
     const isHebergeur = sejour.hebergementSelectionne?.userId === userId;
     const isCreateur = sejour.createurId === userId;
 
-    // Parties prenantes du séjour (hébergeur rattaché OU organisateur créateur) : accès dès
-    // OPTION (pré-réservation, devis émis), quel que soit le mode. Les autres (accompagnateurs,
-    // signataires) restent limités aux statuts collaboratifs (CONVENTION/SIGNE_DIRECTION).
+    // Collaborateur d'équipe accepté sur le centre du séjour (CollaborateurCentre) :
+    // partie prenante hébergeur au même titre que le propriétaire, mais borné au
+    // niveau `sejours` posé à l'invitation (READ pour consulter, WRITE pour muter).
+    // Le propriétaire est déjà couvert par isHebergeur — on ne résout les permissions
+    // que pour un non-propriétaire, et seulement si le séjour a un centre rattaché.
+    const centreId = sejour.hebergementSelectionneId;
+    const centrePerms = !isHebergeur && centreId
+      ? await getUserCentrePermissions(this.prisma, userId, centreId)
+      : null;
+    const isCollaborateurLecture = !!centrePerms && hasPermission(centrePerms, 'sejours', 'READ');
+    const isCollaborateurNiveau = !!centrePerms && hasPermission(centrePerms, 'sejours', requiredLevel);
+
+    // Parties prenantes du séjour (hébergeur rattaché/collaborateur OU organisateur
+    // créateur) : accès dès OPTION (pré-réservation, devis émis), quel que soit le mode.
+    // Les autres (accompagnateurs, signataires) restent limités aux statuts collaboratifs
+    // (CONVENTION/SIGNE_DIRECTION).
     // STATUTS_SEJOUR_DIRECT = [OPTION, CONVENTION, SIGNE_DIRECTION], réutilisé ici.
-    const statutsAutorises = (isHebergeur || isCreateur)
+    const statutsAutorises = (isHebergeur || isCreateur || isCollaborateurLecture)
       ? STATUTS_SEJOUR_DIRECT
       : STATUTS_SEJOUR_COLLABORATIFS;
 
@@ -118,7 +137,12 @@ export class CollaborationService {
       select: { roleCollaboratif: true },
     });
 
-    if (!isCreateur && !isHebergeur && !isDirector && !accompagnateurAcces) {
+    if (!isCreateur && !isHebergeur && !isDirector && !accompagnateurAcces && !isCollaborateurNiveau) {
+      // Collaborateur en lecture qui tente une écriture : message distinct (le reste
+      // de l'UI doit déjà masquer l'action, c'est le filet serveur).
+      if (isCollaborateurLecture && requiredLevel === 'WRITE') {
+        throw new ForbiddenException('Vous n\'avez pas les droits de modification sur ce séjour');
+      }
       throw new ForbiddenException('Vous n\'avez pas accès à cet espace collaboratif');
     }
 
@@ -170,7 +194,7 @@ export class CollaborationService {
   }
 
   async createMessage(sejourId: string, userId: string, dto: CreateMessageDto, role?: string) {
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role, 'WRITE');
     if (sejour.roleCollaboratif === 'LECTURE') {
       throw new ForbiddenException('Accès en lecture seule');
     }
@@ -233,7 +257,7 @@ export class CollaborationService {
   }
 
   async createPlanning(sejourId: string, userId: string, dto: CreatePlanningDto, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const item = await this.prisma.planningActivite.create({
       data: {
         sejourId,
@@ -256,7 +280,7 @@ export class CollaborationService {
   }
 
   async deletePlanning(sejourId: string, userId: string, planningId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const item = await this.prisma.planningActivite.findUnique({ where: { id: planningId } });
     if (!item || item.sejourId !== sejourId) {
       throw new NotFoundException('Activité introuvable');
@@ -278,7 +302,7 @@ export class CollaborationService {
   }
 
   async createDocument(sejourId: string, userId: string, dto: CreateDocumentDto, file?: Express.Multer.File, role?: string) {
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role, 'WRITE');
     if (sejour.roleCollaboratif === 'LECTURE') {
       throw new ForbiddenException('Accès en lecture seule');
     }
@@ -455,26 +479,26 @@ export class CollaborationService {
   }
 
   async addLigneCompl(sejourId: string, userId: string, data: { categorie: string; description: string; montant: number }, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     return this.prisma.ligneBudgetComplementaire.create({
       data: { sejourId, ...data },
     });
   }
 
   async deleteLigneCompl(sejourId: string, userId: string, ligneId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     return this.prisma.ligneBudgetComplementaire.delete({ where: { id: ligneId } });
   }
 
   async addRecette(sejourId: string, userId: string, data: { source: string; montant: number }, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     return this.prisma.recetteBudget.create({
       data: { sejourId, ...data },
     });
   }
 
   async deleteRecette(sejourId: string, userId: string, recetteId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     return this.prisma.recetteBudget.delete({ where: { id: recetteId } });
   }
 
@@ -727,7 +751,7 @@ export class CollaborationService {
     couleur: string;
     taille: number;
   }, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     return this.prisma.groupeSejour.create({
       data: { sejourId, nom: dto.nom, couleur: dto.couleur, taille: dto.taille },
       include: { eleves: true },
@@ -739,7 +763,7 @@ export class CollaborationService {
     couleur?: string;
     taille?: number;
   }, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const g = await this.prisma.groupeSejour.findUnique({ where: { id: groupeId } });
     if (!g || g.sejourId !== sejourId) throw new NotFoundException('Groupe introuvable');
     return this.prisma.groupeSejour.update({
@@ -750,14 +774,14 @@ export class CollaborationService {
   }
 
   async deleteGroupe(sejourId: string, userId: string, groupeId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const g = await this.prisma.groupeSejour.findUnique({ where: { id: groupeId } });
     if (!g || g.sejourId !== sejourId) throw new NotFoundException('Groupe introuvable');
     return this.prisma.groupeSejour.delete({ where: { id: groupeId } });
   }
 
   async affecterEleve(sejourId: string, userId: string, groupeId: string, autorisationId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     // Cloisonnement séjour : le groupe ET l'élève doivent appartenir à CE séjour.
     // verifyAccess ne valide que le sejourId de l'URL — sans ces checks, IDOR
     // cross-séjour (patron identique à updateGroupe/deleteGroupe).
@@ -777,7 +801,7 @@ export class CollaborationService {
   }
 
   async retirerEleve(sejourId: string, userId: string, autorisationId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     // Cloisonnement séjour : l'élève doit appartenir à CE séjour (sinon IDOR :
     // dégroupage cross-séjour via UUID forgé).
     const autorisation = await this.prisma.autorisationParentale.findUnique({
@@ -789,7 +813,7 @@ export class CollaborationService {
   }
 
   async proposerGroupes(sejourId: string, userId: string, role?: string) {
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role, 'WRITE');
 
     // Récupérer la demande de devis pour avoir nombreEleves et nombreAccompagnateurs
     const demande = await this.prisma.demandeDevis.findFirst({
@@ -847,7 +871,7 @@ export class CollaborationService {
   }
 
   async cloturerInscriptions(sejourId: string, userId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     return this.prisma.sejour.update({
@@ -859,7 +883,7 @@ export class CollaborationService {
   async genererPlanningIA(sejourId: string, userId: string, role?: string, debutActivites?: string, finActivites?: string): Promise<{ jobId: string }> {
     if (role !== 'HEBERGEUR') throw new ForbiddenException('Seul l\'hébergeur peut générer le planning');
 
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role, 'WRITE');
 
     if (!sejour.dateDebut || !sejour.dateFin) {
       throw new BadRequestException(
@@ -1145,7 +1169,7 @@ export class CollaborationService {
     contenu: string,
     files: Express.Multer.File[],
   ) {
-    const sejour = await this.verifyAccess(sejourId, userId, role);
+    const sejour = await this.verifyAccess(sejourId, userId, role, 'WRITE');
     if (sejour.roleCollaboratif === 'LECTURE') {
       throw new ForbiddenException('Accès en lecture seule');
     }
@@ -1205,7 +1229,7 @@ export class CollaborationService {
   }
 
   async notifierPlanningMisAJour(sejourId: string, userId: string) {
-    const sejour = await this.verifyAccess(sejourId, userId, 'HEBERGEUR');
+    const sejour = await this.verifyAccess(sejourId, userId, 'HEBERGEUR', 'WRITE');
 
     if (!sejour.createurId || !sejour.createur?.email) {
       throw new NotFoundException('Organisateur introuvable');
@@ -1232,7 +1256,7 @@ export class CollaborationService {
   }
 
   async deleteJournalPost(sejourId: string, postId: string, userId: string, role?: string) {
-    await this.verifyAccess(sejourId, userId, role);
+    await this.verifyAccess(sejourId, userId, role, 'WRITE');
     const post = await this.prisma.postJournal.findUnique({
       where: { id: postId },
       include: { photos: true },
