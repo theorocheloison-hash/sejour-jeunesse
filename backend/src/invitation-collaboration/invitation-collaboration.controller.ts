@@ -8,14 +8,17 @@ import { InvitationCollaborationService } from './invitation-collaboration.servi
 import { CreateInvitationCollaborationDto } from './dto/create-invitation.dto.js';
 import { InviterCentreExterneDto } from './dto/inviter-centre-externe.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('invitation-collaboration')
 export class InvitationCollaborationController {
   constructor(private readonly service: InvitationCollaborationService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
   create(
     @Body() dto: CreateInvitationCollaborationDto,
     @CurrentUser() user: JwtUser,

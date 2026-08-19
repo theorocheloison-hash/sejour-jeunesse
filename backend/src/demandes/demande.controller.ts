@@ -7,9 +7,11 @@ import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decor
 import { DemandeService } from './demande.service.js';
 import { CreateDemandeDto } from './dto/create-demande.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
+import { PermissionGuard } from '../auth/guards/permission.guard.js';
+import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 
 @Controller('demandes')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
 export class DemandeController {
   constructor(private readonly demandeService: DemandeService) {}
 
@@ -33,6 +35,7 @@ export class DemandeController {
 
   @Delete(':id/ignorer')
   @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
   ignorerDemande(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
