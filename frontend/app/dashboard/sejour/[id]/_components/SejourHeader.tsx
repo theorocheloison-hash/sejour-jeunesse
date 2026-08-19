@@ -203,11 +203,15 @@ export default function SejourHeader({
             )}
             {sejour?.placesTotales != null && <> · {formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs, sejour.typeContexte)}</>}
           </p>
-          {isDirect && (
+          {(isDirect || sejour?.clientNom || sejour?.clientOrganisation) && (
             <p className="text-xs text-gray-500 truncate">
               {sejour?.clientOrganisation
                 ?? ([sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || 'Client non renseigné')}
+              {(sejour?.clientAdresse || sejour?.clientVille) && (
+                <> · {[sejour.clientAdresse, [sejour.clientCodePostal, sejour.clientVille].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</>
+              )}
               {sejour?.clientEmail && <> · {sejour.clientEmail}</>}
+              {sejour?.clientTelephone && <> · {sejour.clientTelephone}</>}
             </p>
           )}
           {isHebergeur && editingInfos && (
