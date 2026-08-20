@@ -33,8 +33,8 @@ export class OrganisationsController {
    */
   @Get('search')
   @Throttle({ default: { ttl: 60000, limit: 30 } })
-  async search(@Query() dto: SearchOrganisationsDto, @Query('cp') cp?: string) {
-    const results = await this.organisationsService.searchExternal(dto.q, cp);
+  async search(@Query() dto: SearchOrganisationsDto) {
+    const results = await this.organisationsService.searchExternal(dto.q, dto.cp);
     return { results };
   }
 
