@@ -79,6 +79,11 @@ export class SejourService {
     if (!centre) throw new NotFoundException('Centre introuvable');
     if (centre.statut !== 'ACTIVE') throw new ForbiddenException('Ce centre n\'est pas disponible');
 
+    // Projection de l'identité de l'établissement dans les propres champs du séjour
+    // COLLAB-pur : org principale de l'enseignant, résolue HORS transaction (Option A).
+    // null si l'enseignant n'a aucun membership primary → on ne projette rien.
+    const org = await getOrganisationPrincipale(enseignantId, this.prisma);
+
     const result = await this.prisma.$transaction(async (tx) => {
       const sejour = await tx.sejour.create({
         data: {
@@ -92,6 +97,12 @@ export class SejourService {
           createurId: enseignantId,
           hebergementSelectionneId: centre.id,
           regionSouhaitee: `VILLE:${centre.ville}`,
+          ...(org ? {
+            clientOrganisation: org.nom,
+            clientAdresse:      org.adresse,
+            clientCodePostal:   org.codePostal,
+            clientVille:        org.ville,
+          } : {}),
         },
       });
 
