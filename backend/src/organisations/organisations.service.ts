@@ -69,14 +69,16 @@ export class OrganisationsService {
    * - Timeout réseau 3s (AbortController).
    * - Aucune erreur ne remonte au client : retourne [] en cas d'échec.
    */
-  async searchExternal(q: string): Promise<OrganisationSearchResult[]> {
-    const cacheKey = normaliserCle(q);
+  async searchExternal(q: string, cp?: string): Promise<OrganisationSearchResult[]> {
+    // cp intégré à la clé : sinon collision entre même nom / CP différents.
+    const cacheKey = normaliserCle(q) + '|' + (cp ?? '');
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
     }
 
-    const url = `${API_URL}?q=${encodeURIComponent(q)}&page=1&per_page=${PER_PAGE}`;
+    const cpParam = cp ? `&code_postal=${encodeURIComponent(cp)}` : '';
+    const url = `${API_URL}?q=${encodeURIComponent(q)}${cpParam}&page=1&per_page=${PER_PAGE}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
