@@ -9,6 +9,7 @@ import { EmailService } from '../email/email.service.js';
 import { CreateInvitationCollaborationDto } from './dto/create-invitation.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class InvitationCollaborationService {
@@ -253,6 +254,10 @@ export class InvitationCollaborationService {
     if (!invitation) throw new NotFoundException('Invitation introuvable');
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
 
+    // Projection (branche DRAFT uniquement) : org principale de l'enseignant, résolue
+    // HORS transaction (Option A). null si aucun membership primary → fallback invitation.
+    const org = await getOrganisationPrincipale(user.id, this.prisma);
+
     const result = await this.prisma.$transaction(async (tx) => {
       // ── Si l'invitation est liée à un séjour DIRECT existant → rattacher au lieu de créer ──
       if (invitation.sejourId) {
@@ -336,6 +341,12 @@ export class InvitationCollaborationService {
           createurId: user.id,
           // Pas de hebergementSelectionneId — l'hébergeur doit soumettre un devis
           regionSouhaitee: `VILLE:${invitation.centre.ville}`,
+          // Projection identité établissement : org prioritaire, invitation en fallback.
+          // L'invitation ne porte pas de code postal → clientCodePostal depuis org seule.
+          clientOrganisation: org?.nom        ?? invitation.etablissementNom     ?? null,
+          clientAdresse:      org?.adresse    ?? invitation.etablissementAdresse ?? null,
+          clientCodePostal:   org?.codePostal ?? null,
+          clientVille:        org?.ville      ?? invitation.etablissementVille   ?? null,
           niveauClasse: invitation.niveauClasse ?? null,
           thematiquesPedagogiques: invitation.thematiquesPedagogiques ?? [],
           nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
