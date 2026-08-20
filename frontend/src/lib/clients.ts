@@ -207,8 +207,8 @@ export interface EtablissementEN {
   academie: string | null;
 }
 
-export const searchEtablissement = (q: string) =>
-  api.get<EtablissementEN[]>('/clients/search-etablissement', { params: { q } }).then(r => r.data);
+export const searchEtablissement = (q: string, cp?: string) =>
+  api.get<EtablissementEN[]>('/clients/search-etablissement', { params: { q, cp } }).then(r => r.data);
 
 export const getClient = (id: string) => api.get<Client>(`/clients/${id}`).then(r => r.data);
 export const createClient = (dto: Partial<Client>) => api.post<Client>('/clients', dto).then(r => r.data);
