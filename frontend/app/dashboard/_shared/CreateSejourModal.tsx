@@ -1,11 +1,12 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { createSejourDirect } from '@/src/lib/collaboration';
 import type { SejourPlanning } from '@/src/lib/collaboration';
 import { getMesClients } from '@/src/lib/clients';
 import type { Client } from '@/src/lib/clients';
-import api from '@/src/lib/api';
+import OrganisationSearch from '@/src/components/OrganisationSearch';
+import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 // Normalisation accent-insensible — partagée avec le planning.
 export function normalise(s: string): string {
@@ -29,16 +30,6 @@ export const SOUS_TYPES_EVENEMENT = [
   { value: 'REUNION_FAMILLE', label: 'Réunion de famille' },
   { value: 'AUTRE_EVENEMENT', label: 'Autre événement' },
 ];
-
-export interface StructResult {
-  nom: string;
-  adresse: string | null;
-  codePostal: string | null;
-  ville: string | null;
-  siren: string | null;
-  siret: string | null;
-  source: string;
-}
 
 export interface CreateSejourModalProps {
   natureSejour: 'SEJOUR' | 'EVENEMENT';
@@ -89,6 +80,7 @@ export default function CreateSejourModal({
     clientPrenom: initialClient?.prenom ?? '',
     clientEmail: initialClient?.email ?? '',
     clientTelephone: initialClient?.telephone ?? '',
+    clientOrganisation: initialClient?.organisation ?? '',
     clientAdresse: initialClient?.adresse ?? '',
     clientCodePostal: initialClient?.codePostal ?? '',
     clientVille: initialClient?.ville ?? '',
@@ -115,70 +107,24 @@ export default function CreateSejourModal({
   const [crmClients, setCrmClients] = useState<Client[]>([]);
   const [showContactSuggest, setShowContactSuggest] = useState(false);
 
-  const [structNom, setStructNom] = useState('');
-  const [structVille, setStructVille] = useState('');
-  const [structCodePostal, setStructCodePostal] = useState('');
-  const [structResults, setStructResults] = useState<StructResult[]>([]);
-  const [structSearching, setStructSearching] = useState(false);
-  // Pré-sélection de l'organisation si fournie via initialClient (skip la recherche).
-  const [selectedOrg, setSelectedOrg] = useState<{ nom: string; adresse: string | null; ville: string | null } | null>(
-    initialClient?.organisation
-      ? { nom: initialClient.organisation, adresse: initialClient.adresse ?? null, ville: initialClient.ville ?? null }
-      : null
-  );
-  const structDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const structAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
-      if (structAbortRef.current) structAbortRef.current.abort();
-    };
-  }, []);
-
   // Charger les clients du CRM pour l'autocomplétion du contact
   useEffect(() => {
     getMesClients().then(setCrmClients).catch(() => {});
   }, []);
 
-  const fireStructSearch = (nom: string, ville: string, cp: string) => {
-    if (structDebounceRef.current) clearTimeout(structDebounceRef.current);
-    const q = [nom.trim(), cp.trim(), ville.trim()].filter(Boolean).join(' ');
-    if (q.length < 2) { setStructResults([]); return; }
-
-    structDebounceRef.current = setTimeout(async () => {
-      if (structAbortRef.current) structAbortRef.current.abort();
-      const controller = new AbortController();
-      structAbortRef.current = controller;
-      setStructSearching(true);
-      try {
-        const res = await api.get('/organisations/search', { params: { q }, signal: controller.signal });
-        setStructResults(res.data?.results ?? []);
-      } catch { /* aborted */ }
-      finally { if (!controller.signal.aborted) setStructSearching(false); }
-    }, 300);
-  };
-
-  const selectStruct = (r: StructResult) => {
-    setSelectedOrg({ nom: r.nom, adresse: r.adresse, ville: r.ville });
-    setStructResults([]);
-    setStructNom(r.nom);
-    setStructVille(r.ville ?? '');
-    // Pré-remplir l'adresse du destinataire depuis l'organisation trouvée
+  // Sélection d'un résultat de recherche : pré-remplit les champs. Le nom d'établissement
+  // reste porté par form.clientOrganisation (source de vérité, toujours éditable).
+  const handleSelectOrg = (org: OrganisationResult) => {
     setForm(f => ({
       ...f,
-      clientAdresse: r.adresse ?? f.clientAdresse,
-      clientCodePostal: r.codePostal ?? f.clientCodePostal,
-      clientVille: r.ville ?? f.clientVille,
+      clientOrganisation: org.nom,
+      clientAdresse: org.adresse ?? f.clientAdresse,
+      clientCodePostal: org.codePostal ?? f.clientCodePostal,
+      clientVille: org.ville ?? f.clientVille,
+      // Contact : ne remplir que si le champ est vide, pour ne pas écraser une saisie.
+      clientEmail: f.clientEmail || (org.email ?? ''),
+      clientTelephone: f.clientTelephone || (org.telephone ?? ''),
     }));
-  };
-
-  const clearStruct = () => {
-    setSelectedOrg(null);
-    setStructNom('');
-    setStructVille('');
-    setStructCodePostal('');
-    setStructResults([]);
   };
 
   // Suggestions de contacts existants (CRM) filtrées sur le nom saisi
@@ -223,10 +169,11 @@ export default function CreateSejourModal({
       clientEmail: s.email || f.clientEmail,
       clientTelephone: s.telephone || f.clientTelephone,
     }));
-    // Contact rattaché à une structure → bascule en mode Professionnel et pré-sélectionne l'organisation
+    // Contact rattaché à une structure → bascule en mode Professionnel et pré-remplit l'établissement
     if (s.organisation) {
       setClientType('PROFESSIONNEL');
-      setSelectedOrg({ nom: s.organisation, adresse: null, ville: null });
+      const orga = s.organisation;
+      setForm(f => ({ ...f, clientOrganisation: orga }));
     }
     setShowContactSuggest(false);
   };
@@ -273,7 +220,9 @@ export default function CreateSejourModal({
         clientPrenom: form.clientPrenom.trim() || undefined,
         clientEmail: form.clientEmail.trim() || undefined,
         clientTelephone: form.clientTelephone.trim() || undefined,
-        clientOrganisation: selectedOrg?.nom || undefined,
+        clientOrganisation: clientType === 'PROFESSIONNEL'
+          ? (form.clientOrganisation.trim() || undefined)
+          : undefined,
         clientAdresse: form.clientAdresse.trim() || undefined,
         clientCodePostal: form.clientCodePostal.trim() || undefined,
         clientVille: form.clientVille.trim() || undefined,
@@ -447,7 +396,7 @@ export default function CreateSejourModal({
             <div className="flex gap-2 mb-3">
               <button
                 type="button"
-                onClick={() => { setClientType('PARTICULIER'); clearStruct(); }}
+                onClick={() => { setClientType('PARTICULIER'); setForm(f => ({ ...f, clientOrganisation: '' })); }}
                 className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${clientType === 'PARTICULIER' ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
               >
                 👤 Particulier
@@ -462,43 +411,21 @@ export default function CreateSejourModal({
             </div>
           </div>
 
-          {clientType === 'PROFESSIONNEL' && (!selectedOrg ? (
+          {clientType === 'PROFESSIONNEL' && (
             <div className="space-y-2">
-              <p className="text-xs text-gray-400">Renseignez les 3 champs pour trouver plus facilement la structure.</p>
-              <div className="grid grid-cols-3 gap-2">
-                <input type="text" value={structNom} placeholder="Nom"
-                  onChange={e => { setStructNom(e.target.value); fireStructSearch(e.target.value, structVille, structCodePostal); }}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                <input type="text" value={structCodePostal} placeholder="Code postal"
-                  onChange={e => { setStructCodePostal(e.target.value); fireStructSearch(structNom, structVille, e.target.value); }}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-                <input type="text" value={structVille} placeholder="Ville"
-                  onChange={e => { setStructVille(e.target.value); fireStructSearch(structNom, e.target.value, structCodePostal); }}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
-              </div>
-              {structSearching && <p className="text-xs text-gray-400">Recherche en cours…</p>}
-              {structResults.length > 0 && (
-                <div className="rounded-lg border border-gray-200 max-h-40 overflow-y-auto">
-                  {structResults.map((r, i) => (
-                    <button key={i} type="button" onClick={() => selectStruct(r)}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0">
-                      <span className="font-medium text-gray-900">{r.nom}</span>
-                      {r.ville && <span className="text-gray-400"> — {r.ville}</span>}
-                      <span className="text-gray-300 ml-1">({r.source === 'API_SIRENE' ? 'SIRENE' : r.source})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+              <OrganisationSearch
+                placeholder="Rechercher un établissement (école, mairie, entreprise…)"
+                onSelect={handleSelectOrg}
+              />
               <div>
-                <p className="text-sm font-medium text-gray-900">{selectedOrg.nom}</p>
-                {selectedOrg.ville && <p className="text-xs text-gray-400">{selectedOrg.adresse ? `${selectedOrg.adresse}, ` : ''}{selectedOrg.ville}</p>}
+                <label className="block text-xs font-medium text-gray-700 mb-1">Établissement</label>
+                <input type="text" value={form.clientOrganisation} onChange={set('clientOrganisation')}
+                  placeholder="Nom de l'établissement"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+                <p className="text-[11px] text-gray-400 mt-1">La recherche pré-remplit ce champ ; vous pouvez aussi le saisir à la main (ex. école publique non répertoriée par les annuaires).</p>
               </div>
-              <button type="button" onClick={clearStruct} className="text-xs text-red-500 hover:underline">Changer</button>
             </div>
-          ))}
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
