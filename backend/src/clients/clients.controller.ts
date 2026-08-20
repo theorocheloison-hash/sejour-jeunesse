@@ -27,7 +27,7 @@ export class ClientsController {
   getRappelsToday(@CurrentUser() u: JwtUser, @CentreId() centreId: string | null) { return this.service.getRappelsToday(u.id, centreId); }
 
   @Get('search-etablissement')
-  searchEtablissement(@Query('q') q: string) { return this.service.searchEtablissement(q ?? ''); }
+  searchEtablissement(@Query('q') q: string, @Query('cp') cp?: string) { return this.service.searchEtablissement(q ?? '', cp); }
 
   @Get()
   getMesClients(@CurrentUser() u: JwtUser, @CentreId() centreId: string | null) { return this.service.getMesClients(u.id, centreId); }

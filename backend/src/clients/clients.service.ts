@@ -7,6 +7,7 @@ import { CreateContactDto } from './dto/create-contact.dto.js';
 import { CreateRappelDto } from './dto/create-rappel.dto.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { STATUTS_DEVIS_RETENUS } from '../devis/devis-statuts.constants.js';
+import { EtablissementsService } from '../etablissements/etablissements.service.js';
 
 const INCLUDE_FULL = {
   contacts: true,
@@ -20,7 +21,11 @@ const INCLUDE_FULL = {
 
 @Injectable()
 export class ClientsService {
-  constructor(private prisma: PrismaService, private email: EmailService) {}
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+    private etablissements: EtablissementsService,
+  ) {}
 
   private async getCentreId(userId: string, centreId?: string | null): Promise<string> {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
@@ -346,7 +351,9 @@ export class ClientsService {
     return client;
   }
 
-  async searchEtablissement(query: string): Promise<Array<{
+  // Délègue à EtablissementsService.rechercher (source ÉN unique) et remappe vers le
+  // contrat historique du CRM (commune→ville, mail→email, drop nature). cp optionnel.
+  async searchEtablissement(query: string, cp?: string): Promise<Array<{
     uai: string;
     nom: string;
     type: string;
@@ -359,40 +366,18 @@ export class ClientsService {
   }>> {
     if (!query || query.trim().length < 2) return [];
 
-    const API_BASE = 'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-annuaire-education/records';
-    const FIELDS = 'identifiant_de_l_etablissement,nom_etablissement,type_etablissement,adresse_1,code_postal,nom_commune,mail,telephone,libelle_academie';
-
-    const q = query.trim();
-    const isUai = /^[0-9A-Za-z]{7,9}$/.test(q.replace(/\s/g, ''));
-    const whereClause = isUai
-      ? `identifiant_de_l_etablissement="${q.toUpperCase()}"`
-      : `nom_etablissement LIKE "${q}%"`;
-
-    const url = `${API_BASE}?select=${FIELDS}&where=${encodeURIComponent(whereClause)}&limit=10&order_by=nom_etablissement`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5_000);
-
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) return [];
-      const data = await res.json() as { results?: Array<Record<string, string | null>> };
-      return (data.results ?? []).map(r => ({
-        uai: (r.identifiant_de_l_etablissement as string) ?? '',
-        nom: (r.nom_etablissement as string) ?? '',
-        type: (r.type_etablissement as string) ?? '',
-        adresse: (r.adresse_1 as string) ?? null,
-        codePostal: (r.code_postal as string) ?? null,
-        ville: (r.nom_commune as string) ?? null,
-        email: (r.mail as string) ?? null,
-        telephone: (r.telephone as string) ?? null,
-        academie: (r.libelle_academie as string) ?? null,
-      }));
-    } catch {
-      return [];
-    } finally {
-      clearTimeout(timeout);
-    }
+    const results = await this.etablissements.rechercher(query.trim(), cp);
+    return results.map(r => ({
+      uai: r.uai,
+      nom: r.nom,
+      type: r.type,
+      adresse: r.adresse || null,
+      codePostal: r.codePostal || null,
+      ville: r.commune || null,
+      email: r.mail,
+      telephone: r.telephone,
+      academie: r.academie || null,
+    }));
   }
 
   async importerProspects(academie: string, typesEtablissement: string[], userId: string, centreIdHeader?: string | null) {
