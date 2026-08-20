@@ -58,6 +58,37 @@ function normaliserCle(q: string): string {
   return q.toLowerCase().normalize('NFKD');
 }
 
+/** Majuscule sans accents, pour comparaison insensible casse + accents. */
+function normaliserComparaison(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+}
+
+/**
+ * geo_adresse de recherche-entreprises inclut déjà "<cp> <commune>" en fin
+ * (ex "31 PLACE DE LA MAIRIE 74440 LA RIVIERE-ENVERSE"). Comme on stocke codePostal
+ * et ville séparément, on retire cette queue à la source pour éviter la duplication.
+ * Comparaison insensible à la casse et aux accents.
+ */
+export function nettoyerAdresseSirene(
+  adresse: string | null | undefined,
+  cp: string | null | undefined,
+  commune: string | null | undefined,
+): string | null {
+  if (!adresse || !adresse.trim()) return null;
+  let out = adresse.trim();
+
+  if (cp && commune) {
+    const tail = `${cp} ${commune}`;
+    if (normaliserComparaison(out).endsWith(normaliserComparaison(tail))) {
+      out = out.slice(0, out.length - tail.length);
+    }
+  }
+
+  // Virgule / espaces résiduels en fin.
+  out = out.replace(/[\s,]+$/, '');
+  return out || null;
+}
+
 @Injectable()
 export class OrganisationsService {
   private readonly logger = new Logger(OrganisationsService.name);
@@ -114,15 +145,17 @@ export class OrganisationsService {
       const codePostal: string | null = siege?.code_postal ?? null;
       const siret: string | null = siege?.siret ?? null;
       const siren: string | null = etab?.siren ?? (siret ? siret.slice(0, 9) : null);
+      const rawAdresse: string | null = siege?.geo_adresse ?? siege?.adresse ?? null;
+      const commune: string | null = siege?.libelle_commune ?? null;
 
       results.push({
         siren,
         siret,
         nom: etab?.nom_complet ?? etab?.nom_raison_sociale ?? '',
         raisonSociale: etab?.nom_raison_sociale ?? null,
-        adresse: siege?.geo_adresse ?? siege?.adresse ?? null,
+        adresse: nettoyerAdresseSirene(rawAdresse, codePostal, commune),
         codePostal,
-        ville: siege?.libelle_commune ?? null,
+        ville: commune,
         departement: calculerDepartement(codePostal),
         typeStructure: mapperNatureJuridique(etab?.nature_juridique),
         source: SourceOrganisation.API_SIRENE,

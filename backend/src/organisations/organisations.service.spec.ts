@@ -1,6 +1,30 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeStructure, SourceOrganisation } from '@prisma/client';
-import { OrganisationsService, mapperNatureJuridique } from './organisations.service';
+import { OrganisationsService, mapperNatureJuridique, nettoyerAdresseSirene } from './organisations.service';
+
+describe('nettoyerAdresseSirene', () => {
+  it('retire la queue "<cp> <commune>" dupliquée', () => {
+    expect(
+      nettoyerAdresseSirene('31 PLACE DE LA MAIRIE 74440 LA RIVIERE-ENVERSE', '74440', 'LA RIVIERE-ENVERSE'),
+    ).toBe('31 PLACE DE LA MAIRIE');
+  });
+
+  it('comparaison insensible à la casse et aux accents', () => {
+    // adresse en MAJ sans accents, commune en minuscules accentuée : la queue est retirée.
+    expect(
+      nettoyerAdresseSirene("3 PLACE DE L'EGLISE 74440 LA RIVIERE-ENVERSE", '74440', 'la rivière-enverse'),
+    ).toBe("3 PLACE DE L'EGLISE");
+  });
+
+  it('adresse sans queue CP/commune → inchangée', () => {
+    expect(nettoyerAdresseSirene('5 RUE DU CENTRE', '75001', 'PARIS')).toBe('5 RUE DU CENTRE');
+  });
+
+  it('adresse vide / null → null', () => {
+    expect(nettoyerAdresseSirene(null, '75001', 'PARIS')).toBeNull();
+    expect(nettoyerAdresseSirene('   ', '75001', 'PARIS')).toBeNull();
+  });
+});
 
 describe('mapperNatureJuridique', () => {
   it('1000 → MICRO_ENTREPRISE', () => {
