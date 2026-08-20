@@ -5,7 +5,7 @@ import { createSejourDirect } from '@/src/lib/collaboration';
 import type { SejourPlanning } from '@/src/lib/collaboration';
 import { getMesClients } from '@/src/lib/clients';
 import type { Client } from '@/src/lib/clients';
-import OrganisationSearch from '@/src/components/OrganisationSearch';
+import RechercheOrganisation from '@/src/components/RechercheOrganisation';
 import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 // Normalisation accent-insensible — partagée avec le planning.
@@ -413,10 +413,7 @@ export default function CreateSejourModal({
 
           {clientType === 'PROFESSIONNEL' && (
             <div className="space-y-2">
-              <OrganisationSearch
-                placeholder="Rechercher un établissement (école, mairie, entreprise…)"
-                onSelect={handleSelectOrg}
-              />
+              <RechercheOrganisation onSelect={handleSelectOrg} />
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Établissement</label>
                 <input type="text" value={form.clientOrganisation} onChange={set('clientOrganisation')}
