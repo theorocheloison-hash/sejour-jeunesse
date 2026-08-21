@@ -70,8 +70,8 @@ export default function ModifierDevisPage() {
         setPourcentageAcompte(devis.pourcentageAcompte ?? 30);
         setNumeroDevis(devis.numeroDevis ?? '');
         setConditionsAnnulation(devis.conditionsAnnulation ?? c.conditionsAnnulation ?? '');
-        setNombreEleves(devis.demande?.nombreEleves ?? 0);
-        setNombreAccompagnateurs(devis.demande?.nombreAccompagnateurs ?? 0);
+        setNombreEleves(devis.demande?.nombreEleves ?? devis.sejourDirect?.placesTotales ?? 0);
+        setNombreAccompagnateurs(devis.demande?.nombreAccompagnateurs ?? devis.sejourDirect?.nombreAccompagnateurs ?? 0);
         // Pre-fill lignes
         if (devis.lignes && devis.lignes.length > 0) {
           setLignes(devis.lignes.map((l: LigneDevis) => {
@@ -317,7 +317,7 @@ export default function ModifierDevisPage() {
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => {
-                            const nbElevesInitial = devisOriginal?.demande?.nombreEleves ?? 1;
+                            const nbElevesInitial = nombreEleves > 0 ? nombreEleves : 1;
                             setLignes(prev => [...prev, makeLigneForm({
                               description: p.nom,
                               quantite: String(nbElevesInitial),

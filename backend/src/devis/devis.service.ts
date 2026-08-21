@@ -427,6 +427,7 @@ export class DevisService {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
             clientNom: true, clientEmail: true, clientOrganisation: true, modeGestion: true,
+            placesTotales: true, nombreAccompagnateurs: true,
           },
         },
       },

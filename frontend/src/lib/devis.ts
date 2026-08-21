@@ -179,6 +179,8 @@ export interface Devis {
     clientEmail: string | null;
     clientOrganisation: string | null;
     modeGestion: string;
+    placesTotales?: number | null;
+    nombreAccompagnateurs?: number | null;
     deletedAt?: string | null;
   } | null;
   versements?: VersementPaiement[];
