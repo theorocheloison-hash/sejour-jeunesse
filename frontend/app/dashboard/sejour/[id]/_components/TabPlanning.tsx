@@ -511,7 +511,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
       const activatorEvent = event.activatorEvent as PointerEvent;
       const calendarEl = calendarBodyRef.current;
       let heureDebut = '09:00';
-      const dureeCatalogue = 60;
+      const dureeCatalogue = activite.dureeMinutes ?? 60;
       if (calendarEl && activatorEvent) {
         const dropY = activatorEvent.clientY + event.delta.y;
         const rect = calendarEl.getBoundingClientRect();

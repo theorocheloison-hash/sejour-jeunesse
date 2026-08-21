@@ -415,6 +415,7 @@ export interface ActiviteCatalogue {
   description?: string;
   type: string;
   unite: string;
+  dureeMinutes?: number | null;
 }
 
 export async function getActivitesCatalogue(sejourId: string): Promise<ActiviteCatalogue[]> {

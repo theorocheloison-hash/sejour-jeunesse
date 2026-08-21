@@ -728,7 +728,7 @@ export class CollaborationService {
         type: 'ACTIVITE',
         actif: true,
       },
-      select: { id: true, nom: true, description: true, type: true, unite: true },
+      select: { id: true, nom: true, description: true, type: true, unite: true, dureeMinutes: true },
       orderBy: { nom: 'asc' },
     });
 
