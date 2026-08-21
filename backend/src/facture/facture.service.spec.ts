@@ -280,6 +280,7 @@ describe('construireDestinataire — branche COLLAB', () => {
     const f = await service.emettreAcompte('devis-1', 'user-1');
     expect(f.destinataireNom).toBe('Collège Saint-Michel');
     expect(f.destinataireSiret).toBeNull();
+    expect(f.destinataireAdresse).toBe('12 rue des Écoles||30000||Nîmes');
   });
 
   it('fallback : destinataireNom = nom enseignant quand clientOrganisation null, SIRET null', async () => {
