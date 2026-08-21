@@ -1625,8 +1625,11 @@ export default function TabDevisFacturation({
               tvaEmetteur: c?.tvaIntracommunautaire ?? undefined,
               ibanEmetteur: c?.iban ?? undefined,
               nomDestinataire: createur ? `${createur.prenom} ${createur.nom}` : '',
-              etablissementNom: createur?.memberships?.[0]?.organisation.nom ?? undefined,
-              adresseDestinataire: createur?.memberships?.[0]?.organisation.ville ?? undefined,
+              etablissementNom: sejour?.clientOrganisation ?? undefined,
+              adresseDestinataire:
+                [sejour?.clientAdresse,
+                 [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' ')]
+                  .filter(Boolean).join(', ') || undefined,
               emailDestinataire: createur?.email ?? undefined,
               telDestinataire: createur?.telephone ?? undefined,
               titreSejour: s?.titre ?? '',
