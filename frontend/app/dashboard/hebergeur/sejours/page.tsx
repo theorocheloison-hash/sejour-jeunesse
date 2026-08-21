@@ -177,7 +177,12 @@ export default function HebergeurSejoursPage() {
                     </p>
                     <p className="text-xs text-gray-400 truncate">
                       {clientLabel}{clientLabel && dateDebut ? ' · ' : ''}{dateDebut}{dateDebut && dateFin ? ' → ' : ''}{dateFin}
-                      {s.placesTotales ? ` · ${s.placesTotales} pers.` : ''}
+                      {s.placesTotales ? (() => {
+                        const acc = s.nombreAccompagnateurs ?? 0;
+                        return acc > 0
+                          ? ` · ${s.placesTotales + acc} pers. (${s.placesTotales} + ${acc})`
+                          : ` · ${s.placesTotales} pers.`;
+                      })() : ''}
                     </p>
                   </div>
 
