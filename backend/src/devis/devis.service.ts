@@ -35,6 +35,31 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Résout l'identité de l'établissement pour la convention (fonction pure, testable).
+ * DIRECT : clientOrganisation → clientNom → 'Établissement scolaire'.
+ * COLLAB : clientOrganisation → 'Établissement scolaire' (pas de repli sur un nom).
+ * L'adresse est sérialisée "rue, CP Ville" (ou null si vide), identique aux deux modes.
+ */
+export interface EtablissementInput {
+  mode: 'DIRECT' | 'COLLAB';
+  clientOrganisation?: string | null;
+  clientNom?: string | null;
+  clientAdresse?: string | null;
+  clientCodePostal?: string | null;
+  clientVille?: string | null;
+}
+export function resoudreEtablissement(input: EtablissementInput): { etablissementNom: string; etablissementAdresse: string | null } {
+  const etablissementNom =
+    input.mode === 'DIRECT'
+      ? input.clientOrganisation || input.clientNom || 'Établissement scolaire'
+      : input.clientOrganisation || 'Établissement scolaire';
+  const etablissementAdresse =
+    [input.clientAdresse, [input.clientCodePostal, input.clientVille].filter(Boolean).join(' ')]
+      .filter(Boolean).join(', ') || null;
+  return { etablissementNom, etablissementAdresse };
+}
+
 @Injectable()
 export class DevisService {
   constructor(
@@ -1906,20 +1931,22 @@ export class DevisService {
     // placesTotales = effectif élèves ; encadrants comptés séparément (nombreAccompagnateurs).
     const effectifEleves = sejour.placesTotales ?? 0;
 
-    // Contact / établissement : DIRECT → infos client portées par le séjour ;
-    // COLLABORATIF → enseignant créateur + son organisation principale.
+    // Établissement (identité) : calcul pur, indépendant du contact ci-dessous.
+    // Discriminant = devis.sejourDirect ; DIRECT lit devis.sejourDirect.*, COLLAB lit sejour.*.
+    const { etablissementNom, etablissementAdresse } = resoudreEtablissement(
+      devis.sejourDirect
+        ? { mode: 'DIRECT', clientOrganisation: devis.sejourDirect.clientOrganisation, clientNom: devis.sejourDirect.clientNom, clientAdresse: devis.sejourDirect.clientAdresse, clientCodePostal: devis.sejourDirect.clientCodePostal, clientVille: devis.sejourDirect.clientVille }
+        : { mode: 'COLLAB', clientOrganisation: sejour.clientOrganisation, clientAdresse: sejour.clientAdresse, clientCodePostal: sejour.clientCodePostal, clientVille: sejour.clientVille }
+    );
+
+    // Contact : DIRECT → infos client portées par le séjour ; COLLAB → enseignant créateur.
     let contactNom: string;
     let contactEmail: string | null;
-    let etablissementNom: string;
-    let etablissementAdresse: string | null;
 
     if (devis.sejourDirect) {
       const sd = devis.sejourDirect;
       contactNom = [sd.clientPrenom, sd.clientNom].filter(Boolean).join(' ') || 'l\'établissement';
       contactEmail = sd.clientEmail;
-      etablissementNom = sd.clientOrganisation || sd.clientNom || 'Établissement scolaire';
-      etablissementAdresse = [sd.clientAdresse, [sd.clientCodePostal, sd.clientVille].filter(Boolean).join(' ')]
-        .filter(Boolean).join(', ') || null;
     } else {
       // COLLAB pur : l'identité de l'établissement est portée par les champs du séjour
       // (clientOrganisation/Adresse/CodePostal/Ville, projetés à l'Étape 2). Le contact
@@ -1933,9 +1960,6 @@ export class DevisService {
         : null;
       contactNom = [enseignant?.prenom, enseignant?.nom].filter(Boolean).join(' ') || 'l\'établissement';
       contactEmail = enseignant?.email ?? null;
-      etablissementNom = sejour.clientOrganisation || 'Établissement scolaire';
-      etablissementAdresse = [sejour.clientAdresse, [sejour.clientCodePostal, sejour.clientVille].filter(Boolean).join(' ')]
-        .filter(Boolean).join(', ') || null;
     }
 
     // Données communes aux deux flux (couverture générique + legacy Sauvageon).
