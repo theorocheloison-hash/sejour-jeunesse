@@ -76,6 +76,36 @@ function devisDirect(over: Record<string, unknown> = {}) {
   };
 }
 
+// Fixtures COLLAB (devis rattaché à une demande) — la branche construireDestinataire
+// lit l'identité établissement sur les champs client* du séjour ; le contact reste
+// l'enseignant. Ajoutées pour couvrir la bascule Étape 3 « propriété client ».
+const ENSEIGNANT_COLLAB = { id: 'ens-1', prenom: 'Jessy', nom: 'Renaudet', email: 'ens@test.fr' };
+
+function demandeCollab(over: { clientOrganisation?: string | null } = {}) {
+  return {
+    enseignant: ENSEIGNANT_COLLAB,
+    sejour: {
+      id: 'sejour-c1',
+      titre: 'Classe verte',
+      createurId: 'ens-1',
+      clientOrganisation: over.clientOrganisation ?? null,
+      clientAdresse: '12 rue des Écoles',
+      clientCodePostal: '30000',
+      clientVille: 'Nîmes',
+    },
+  };
+}
+
+function devisCollab(over: Record<string, unknown> = {}) {
+  return devisDirect({
+    demandeId: 'demande-1',
+    sejourDirectId: null,
+    sejourDirect: null,
+    demande: demandeCollab(),
+    ...over,
+  });
+}
+
 function factureAcompte(over: Record<string, unknown> = {}) {
   return {
     id: 'fa-1',
@@ -236,6 +266,30 @@ describe('emettreAcompte — montants émis', () => {
     }));
     const f = await service.emettreAcompte('devis-1', 'user-1');
     expect(f.montantFacture).toBe(1980); // 6600 × 30 %
+  });
+});
+
+// ─── construireDestinataire — branche COLLAB (Étape 3) ──────────────────────
+
+describe('construireDestinataire — branche COLLAB', () => {
+  it('destinataireNom = clientOrganisation du séjour quand présent, SIRET null', async () => {
+    const { service } = mockDeps(initState({
+      factureAcompte: null,
+      devis: devisCollab({ demande: demandeCollab({ clientOrganisation: 'Collège Saint-Michel' }) }),
+    }));
+    const f = await service.emettreAcompte('devis-1', 'user-1');
+    expect(f.destinataireNom).toBe('Collège Saint-Michel');
+    expect(f.destinataireSiret).toBeNull();
+  });
+
+  it('fallback : destinataireNom = nom enseignant quand clientOrganisation null, SIRET null', async () => {
+    const { service } = mockDeps(initState({
+      factureAcompte: null,
+      devis: devisCollab({ demande: demandeCollab({ clientOrganisation: null }) }),
+    }));
+    const f = await service.emettreAcompte('devis-1', 'user-1');
+    expect(f.destinataireNom).toBe('Jessy Renaudet');
+    expect(f.destinataireSiret).toBeNull();
   });
 });
 
