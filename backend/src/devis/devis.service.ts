@@ -1870,6 +1870,7 @@ export class DevisService {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 placesTotales: true, nombreAccompagnateurs: true, natureSejour: true,
+                clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
               },
             },
           },
@@ -1920,6 +1921,9 @@ export class DevisService {
       etablissementAdresse = [sd.clientAdresse, [sd.clientCodePostal, sd.clientVille].filter(Boolean).join(' ')]
         .filter(Boolean).join(', ') || null;
     } else {
+      // COLLAB pur : l'identité de l'établissement est portée par les champs du séjour
+      // (clientOrganisation/Adresse/CodePostal/Ville, projetés à l'Étape 2). Le contact
+      // reste l'enseignant créateur.
       const enseignantId = devis.demande?.enseignantId ?? null;
       const enseignant = enseignantId
         ? await this.prisma.user.findUnique({
@@ -1927,15 +1931,11 @@ export class DevisService {
             select: { prenom: true, nom: true, email: true },
           })
         : null;
-      const orga = enseignantId
-        ? await getOrganisationPrincipale(enseignantId, this.prisma)
-        : null;
       contactNom = [enseignant?.prenom, enseignant?.nom].filter(Boolean).join(' ') || 'l\'établissement';
       contactEmail = enseignant?.email ?? null;
-      etablissementNom = orga?.nom || 'Établissement scolaire';
-      etablissementAdresse = orga
-        ? [orga.adresse, [orga.codePostal, orga.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null
-        : null;
+      etablissementNom = sejour.clientOrganisation || 'Établissement scolaire';
+      etablissementAdresse = [sejour.clientAdresse, [sejour.clientCodePostal, sejour.clientVille].filter(Boolean).join(' ')]
+        .filter(Boolean).join(', ') || null;
     }
 
     // Données communes aux deux flux (couverture générique + legacy Sauvageon).

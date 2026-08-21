@@ -9,7 +9,6 @@ import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
-import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertSignataireCanAccessDemande, assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 
 /** Arrondi monétaire à 2 décimales — neutralise les artéfacts float IEEE 754. */
@@ -171,7 +170,7 @@ export class FactureService {
         demande: {
           include: {
             enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
-            sejour: { select: { id: true, titre: true, createurId: true } },
+            sejour: { select: { id: true, titre: true, createurId: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true } },
           },
         },
         sejourDirect: {
@@ -271,23 +270,22 @@ export class FactureService {
     }
 
     if (devis.demandeId && devis.demande) {
+      // COLLAB pur : identité destinataire lue sur les champs du séjour (projetés à
+      // l'Étape 2), plus le nom de l'établissement. Le contact reste l'enseignant.
       const enseignant = devis.demande.enseignant;
-      const createurId = devis.demande.sejour?.createurId ?? null;
-      const orga = createurId ? await getOrganisationPrincipale(createurId, this.prisma) : null;
+      const sejourCollab = devis.demande.sejour;
       // Sérialisation structurée "adresse||codePostal||ville" pour le CII Factur-X.
-      const adresseOrga = orga
-        ? (orga.adresse && orga.codePostal && orga.ville)
-          ? `${orga.adresse}||${orga.codePostal}||${orga.ville}`
-          : [orga.adresse, orga.codePostal, orga.ville].filter(Boolean).join(', ')
-        : '';
+      const adresseSejour = (sejourCollab?.clientAdresse && sejourCollab?.clientCodePostal && sejourCollab?.clientVille)
+        ? `${sejourCollab.clientAdresse}||${sejourCollab.clientCodePostal}||${sejourCollab.clientVille}`
+        : [sejourCollab?.clientAdresse, sejourCollab?.clientCodePostal, sejourCollab?.clientVille].filter(Boolean).join(', ');
       return {
-        sejourId: devis.demande.sejour?.id ?? null,
-        destinataireNom: orga?.nom ?? (enseignant ? `${enseignant.prenom} ${enseignant.nom}` : ''),
-        destinataireAdresse: adresseOrga || null,
-        destinataireSiret: orga?.siret ?? null,
+        sejourId: sejourCollab?.id ?? null,
+        destinataireNom: sejourCollab?.clientOrganisation ?? (enseignant ? `${enseignant.prenom} ${enseignant.nom}` : ''),
+        destinataireAdresse: adresseSejour || null,
+        destinataireSiret: null,
         destinataireEmail: enseignant?.email ?? null,
         emailNotif: enseignant?.email ?? null,
-        sejourTitre: devis.demande.sejour?.titre ?? 'votre séjour',
+        sejourTitre: sejourCollab?.titre ?? 'votre séjour',
       };
     }
     // Devis direct
