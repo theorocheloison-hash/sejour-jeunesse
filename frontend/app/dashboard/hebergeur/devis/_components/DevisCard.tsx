@@ -8,6 +8,7 @@ import { resolveSejourDateFin } from '@/src/lib/devisAlertes';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Format monétaire unifié ─────────────────────────────────────────────────
 
@@ -71,10 +72,10 @@ function resolveContact(d: Devis): { nom: string; email: string | null; tel: str
 }
 
 function resolveEtablissement(d: Devis): string {
-  return d.demande?.sejour?.createur?.memberships?.[0]?.organisation?.nom
-    ?? d.demande?.enseignant?.memberships?.[0]?.organisation?.nom
-    ?? d.sejourDirect?.clientOrganisation
-    ?? '';
+  return resolveClientEtablissement(d.demande?.sejour ?? d.sejourDirect, {
+    enseignant: d.demande?.enseignant,
+    createur: d.demande?.sejour?.createur,
+  }).nom ?? '';
 }
 
 /** Date de référence de l'alerte selon la catégorie, pour la pastille « J+X ». */
@@ -99,6 +100,7 @@ function joursDepuis(iso: string): number {
 function buildPdfProps(d: Devis): DevisPDFProps {
   const ens = d.demande?.enseignant;
   const sejour = d.demande?.sejour;
+  const resolved = resolveClientEtablissement(sejour ?? d.sejourDirect, { enseignant: ens, createur: sejour?.createur });
   const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
   const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
   const tvaCalc = Number(d.montantTVA) || (d.lignes ?? []).reduce((sum, l) => sum + (Number(l.totalHT) * (Number(l.tva) / 100)), 0) || (ttcCalc - htCalc);
@@ -114,8 +116,8 @@ function buildPdfProps(d: Devis): DevisPDFProps {
     tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
     ibanEmetteur: d.centre?.iban ?? undefined,
     nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
-    etablissementNom: ens?.memberships?.[0]?.organisation.nom ?? undefined,
-    adresseDestinataire: ens?.memberships?.[0]?.organisation.ville ?? undefined,
+    etablissementNom: resolved.nom ?? undefined,
+    adresseDestinataire: resolved.ville ?? undefined,
     emailDestinataire: ens?.email ?? undefined,
     telDestinataire: ens?.telephone ?? undefined,
     titreSejour: sejour?.titre ?? d.demande?.titre ?? '',

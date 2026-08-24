@@ -34,7 +34,7 @@ export interface PersonneContact {
   nom?: string | null;
   email?: string | null;
   telephone?: string | null;
-  memberships?: Array<{ organisation: { nom: string; ville?: string | null; uai?: string | null } }>;
+  memberships?: Array<{ organisation: { nom: string | null; ville?: string | null; uai?: string | null } }>;
 }
 
 export interface ClientEtablissementResolu {

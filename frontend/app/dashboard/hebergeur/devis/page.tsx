@@ -14,6 +14,7 @@ import {
 } from '@/src/lib/devisAlertes';
 import type { CategorieAlerte } from '@/src/lib/devisAlertes';
 import DevisCard, { normalize } from './_components/DevisCard';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,12 @@ function resolveClientNom(d: Devis): string {
 function matchesSearch(d: Devis, query: string): boolean {
   if (!query || query.length < 2) return true;
   const q = normalize(query);
+  const resolved = resolveClientEtablissement(d.demande?.sejour ?? d.sejourDirect, {
+    enseignant: d.demande?.enseignant,
+    createur: d.demande?.sejour?.createur,
+  });
   const fields = [
+    resolved.nom,
     d.demande?.sejour?.createur?.prenom,
     d.demande?.sejour?.createur?.nom,
     d.demande?.sejour?.createur?.memberships?.[0]?.organisation.nom,
