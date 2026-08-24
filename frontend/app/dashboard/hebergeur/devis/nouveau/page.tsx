@@ -13,6 +13,7 @@ import { formatParticipants } from '@/src/lib/utils';
 import { round2, resolvePrixCatalogueTTC } from '@/src/lib/devis-calculs';
 import { useDevisLignes, makeLigneForm } from '@/src/hooks/useDevisLignes';
 import DevisEditor from '@/src/components/DevisEditor';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Page (Suspense wrapper) ────────────────────────────────────────────────
 
@@ -274,6 +275,7 @@ function NouveauDevisContent() {
 
   const demande = info?.demande;
   const sejour = demande?.sejour;
+  const resolvedCollab = resolveClientEtablissement(sejour, { enseignant: demande?.enseignant });
 
   const dateDevis = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dateValidite = new Date(Date.now() + validiteJours * 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -298,11 +300,11 @@ function NouveauDevisContent() {
       {demande.enseignant && (
         <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
       )}
-      {demande.enseignant?.memberships?.[0]?.organisation.nom && (
-        <p className="font-medium text-gray-600">{demande.enseignant.memberships[0].organisation.nom}</p>
+      {resolvedCollab.nom && (
+        <p className="font-medium text-gray-600">{resolvedCollab.nom}</p>
       )}
-      {demande.enseignant?.memberships?.[0]?.organisation.ville && (
-        <p className="text-gray-500">{demande.enseignant.memberships[0].organisation.ville}</p>
+      {resolvedCollab.ville && (
+        <p className="text-gray-500">{resolvedCollab.ville}</p>
       )}
       {demande.enseignant?.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
       {demande.enseignant?.telephone && <p className="text-gray-500">Pers. : {demande.enseignant.telephone}</p>}

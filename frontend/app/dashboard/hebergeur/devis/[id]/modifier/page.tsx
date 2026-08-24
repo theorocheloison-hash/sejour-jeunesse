@@ -11,6 +11,7 @@ import type { ProduitCatalogue } from '@/src/lib/centre';
 import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
 import { useDevisLignes, makeLigneForm } from '@/src/hooks/useDevisLignes';
 import DevisEditor from '@/src/components/DevisEditor';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -191,6 +192,7 @@ export default function ModifierDevisPage() {
   const demande = devisOriginal?.demande;
   const sejour = demande?.sejour;
   const sejourDirect = devisOriginal?.sejourDirect; // devis DIRECT (pas de demande/enseignant)
+  const resolvedCollab = resolveClientEtablissement(sejour, { enseignant: demande?.enseignant, createur: sejour?.createur });
 
   const dateDevis = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dateValidite = new Date(Date.now() + validiteJours * 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -205,11 +207,11 @@ export default function ModifierDevisPage() {
   const destinataireSlot = demande?.enseignant ? (
     <div className="text-sm text-gray-700 space-y-1">
       <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
-      {demande.enseignant.memberships?.[0]?.organisation.nom && (
-        <p className="font-medium text-gray-600">{demande.enseignant.memberships[0].organisation.nom}</p>
+      {resolvedCollab.nom && (
+        <p className="font-medium text-gray-600">{resolvedCollab.nom}</p>
       )}
-      {demande.enseignant.memberships?.[0]?.organisation.ville && (
-        <p className="text-gray-500">{demande.enseignant.memberships[0].organisation.ville}</p>
+      {resolvedCollab.ville && (
+        <p className="text-gray-500">{resolvedCollab.ville}</p>
       )}
       {demande.enseignant.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
     </div>

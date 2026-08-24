@@ -11,6 +11,7 @@ import type { Devis, StatutDevis } from '@/src/lib/devis';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SecureFileLink from '@/src/components/SecureFileLink';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
@@ -67,6 +68,7 @@ export default function OffresPage() {
   const buildPdfProps = (d: Devis): DevisPDFProps => {
     const ens = d.demande?.enseignant;
     const sejour = d.demande?.sejour;
+    const resolved = resolveClientEtablissement(sejour, { enseignant: ens, createur: sejour?.createur });
     const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
     const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
     const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
@@ -82,8 +84,8 @@ export default function OffresPage() {
       tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
       ibanEmetteur: d.centre?.iban ?? undefined,
       nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
-      etablissementNom: ens?.memberships?.[0]?.organisation.nom ?? undefined,
-      adresseDestinataire: ens?.memberships?.[0]?.organisation.ville ?? undefined,
+      etablissementNom: resolved.nom ?? undefined,
+      adresseDestinataire: resolved.ville ?? undefined,
       emailDestinataire: ens?.email ?? undefined,
       telDestinataire: ens?.telephone ?? undefined,
       titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
