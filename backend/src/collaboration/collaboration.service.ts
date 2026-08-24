@@ -460,6 +460,14 @@ export class CollaborationService {
         dateFin: true,
         placesTotales: true,
         nombreAccompagnateurs: true,
+        clientNom: true,
+        clientPrenom: true,
+        clientEmail: true,
+        clientTelephone: true,
+        clientOrganisation: true,
+        clientAdresse: true,
+        clientCodePostal: true,
+        clientVille: true,
         createur: {
           select: {
             id: true, prenom: true, nom: true, email: true, telephone: true,

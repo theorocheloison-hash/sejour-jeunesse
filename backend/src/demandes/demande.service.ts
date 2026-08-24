@@ -319,8 +319,9 @@ export class DemandeService {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 niveauClasse: true, statut: true,
+                clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
                 createur: {
-                  select: { prenom: true, nom: true },
+                  select: { prenom: true, nom: true, email: true, telephone: true },
                 },
               },
             },

@@ -268,7 +268,7 @@ export class DevisService {
         lignes: true,
         // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé).
         // dateDebut/dateFin/modeGestion alignés sur getDevisById() pour cohérence du type frontend.
-        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true, clientNom: true, clientEmail: true, clientOrganisation: true } },
+        sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true, clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
           include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
@@ -299,9 +299,10 @@ export class DevisService {
             sejour: {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true, niveauClasse: true, statut: true,
+                clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
                 createur: {
                   select: {
-                    prenom: true, nom: true,
+                    prenom: true, nom: true, email: true, telephone: true,
                     memberships: {
                       where: { isPrimary: true },
                       select: {
@@ -417,6 +418,7 @@ export class DevisService {
               select: {
                 titre: true, lieu: true, dateDebut: true, dateFin: true,
                 placesTotales: true, nombreAccompagnateurs: true, niveauClasse: true,
+                clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
               },
             },
           },
@@ -426,7 +428,7 @@ export class DevisService {
         sejourDirect: {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
-            clientNom: true, clientEmail: true, clientOrganisation: true, modeGestion: true,
+            clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true, modeGestion: true,
             placesTotales: true, nombreAccompagnateurs: true,
           },
         },
@@ -652,9 +654,10 @@ export class DevisService {
               select: {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 niveauClasse: true, statut: true,
+                clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
                 createur: {
                   select: {
-                    prenom: true, nom: true,
+                    prenom: true, nom: true, email: true, telephone: true,
                     memberships: {
                       where: { isPrimary: true },
                       select: {
@@ -1181,8 +1184,8 @@ export class DevisService {
         centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
         demande: {
           include: {
-            enseignant: { select: { prenom: true, nom: true } },
-            sejour: { select: { id: true, titre: true, statut: true } },
+            enseignant: { select: { prenom: true, nom: true, email: true, telephone: true } },
+            sejour: { select: { id: true, titre: true, statut: true, clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true } },
           },
         },
       },
@@ -1234,6 +1237,14 @@ export class DevisService {
             placesTotales: true,
             nombreAccompagnateurs: true,
             niveauClasse: true,
+            clientNom: true,
+            clientPrenom: true,
+            clientEmail: true,
+            clientTelephone: true,
+            clientOrganisation: true,
+            clientAdresse: true,
+            clientCodePostal: true,
+            clientVille: true,
           },
         },
       },
@@ -1277,6 +1288,14 @@ export class DevisService {
                     titre: true,
                     dateDebut: true,
                     dateFin: true,
+                    clientNom: true,
+                    clientPrenom: true,
+                    clientEmail: true,
+                    clientTelephone: true,
+                    clientOrganisation: true,
+                    clientAdresse: true,
+                    clientCodePostal: true,
+                    clientVille: true,
                     createur: {
                       select: { prenom: true, nom: true },
                     },
