@@ -11,6 +11,7 @@ import type { BudgetData, LigneCompl, RecetteBudget } from '@/src/lib/collaborat
 import type { User } from '@/src/types/auth';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
 import { formatDate } from '@/src/lib/utils';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 const CATEGORIES_COMPL =['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
 const SOURCES_RECETTES = ['Participation familles', 'Subvention collectivité', 'FSE / MDL', 'Ressources établissement', 'Don association', 'Autre'];
@@ -50,6 +51,7 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
       {!budgetLoading && budgetData && (() => {
         const s = budgetData.sejour;
         const d = budgetData.devis;
+        const resolvedCli = resolveClientEtablissement(s, { createur: s?.createur });
         const isTeacher = user.role === 'ORGANISATEUR';
 
         const lignesDevis = d?.lignes ?? [];
@@ -94,10 +96,10 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
                   <h2 className="text-lg font-semibold text-gray-900">Budget prévisionnel — {s?.titre}</h2>
                   {s?.createur && (
                     <div className="mt-2 text-sm text-gray-600 space-y-0.5">
-                      {s.createur.memberships?.[0]?.organisation.nom && (
-                        <p>{s.createur.memberships[0].organisation.nom}{s.createur.memberships[0].organisation.uai ? ` (UAI : ${s.createur.memberships[0].organisation.uai})` : ''}</p>
+                      {resolvedCli.nom && (
+                        <p>{resolvedCli.nom}{resolvedCli.uai ? ` (UAI : ${resolvedCli.uai})` : ''}</p>
                       )}
-                      <p>Enseignant : {s.createur.prenom} {s.createur.nom}</p>
+                      <p>Enseignant : {resolvedCli.contactNom}</p>
                     </div>
                   )}
                   {s && (
@@ -113,8 +115,8 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
                       dateDebut: s?.dateDebut ?? '',
                       dateFin: s?.dateFin ?? '',
                       nombreEleves: s?.placesTotales ?? 0,
-                      enseignantNom: s?.createur ? `${s.createur.prenom} ${s.createur.nom}` : undefined,
-                      etablissementNom: s?.createur?.memberships?.[0]?.organisation.nom ?? undefined,
+                      enseignantNom: resolvedCli.contactNom || undefined,
+                      etablissementNom: resolvedCli.nom ?? undefined,
                       lignesHebergeur: lignesDevis.map(l => ({ description: l.description, quantite: l.quantite, prixUnitaire: l.prixUnitaire, tva: l.tva, totalTTC: l.totalTTC })),
                       totalHebergeur,
                       lignesCompl: lignesCompl.map(l => ({ categorie: l.categorie, description: l.description, montant: l.montant })),
