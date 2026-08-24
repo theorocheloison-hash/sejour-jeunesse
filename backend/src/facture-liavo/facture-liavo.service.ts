@@ -4,17 +4,13 @@ import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { generateFacturePdf } from '../facture/pdf/facture-pdf.generator.js';
+import { PRIX_MENSUEL, PRIX_ANNUEL } from '../abonnements/abonnement.constants.js';
+import { buildLiavoPdfParams } from './liavo-pdf.helper.js';
 
 // La colonne sequence_numero.emetteur_id est de type uuid (@db.Uuid) : on ne peut pas
 // y stocker la string 'LIAVO'. UUID sentinelle dédié à la séquence de facturation LIAVO
 // (ne collisionne pas avec les UUID v4 aléatoires des centres / organisations).
 const LIAVO_EMETTEUR_ID = '00000000-0000-0000-0000-000000000000';
-
-const LIAVO_SIRET = process.env.LIAVO_SIRET ?? '102 994 910 00010';
-const LIAVO_IBAN = process.env.LIAVO_IBAN ?? null;
-
-const PRIX_MENSUEL: Record<string, number> = { ESSENTIEL: 2900, COMPLET: 4900, PILOTAGE: 6900 };
-const PRIX_ANNUEL: Record<string, number> = { ESSENTIEL: 29000, COMPLET: 49000, PILOTAGE: 69000 };
 
 @Injectable()
 export class FactureLiavoService {
@@ -49,7 +45,6 @@ export class FactureLiavoService {
 
     const montantCentimes = frequence === 'ANNUEL' ? PRIX_ANNUEL[plan] : PRIX_MENSUEL[plan];
     if (!montantCentimes) throw new BadRequestException('Plan invalide');
-    const montantEuros = montantCentimes / 100;
 
     const frequenceLabel = frequence === 'ANNUEL' ? 'Annuel' : 'Mensuel';
     const description = `Abonnement LIAVO ${plan} — ${frequenceLabel}`;
@@ -58,41 +53,16 @@ export class FactureLiavoService {
     const echeance = new Date(now);
     echeance.setDate(echeance.getDate() + 30);
 
-    const pdfBuffer = await generateFacturePdf({
+    const pdfBuffer = await generateFacturePdf(buildLiavoPdfParams({
       typeFacture: 'DEVIS',
       numero,
       dateEmission: now.toISOString(),
       dateEcheance: echeance.toISOString(),
-      emetteurNom: 'LIAVO SASU',
-      emetteurAdresse: '472 Route du Mas Devant, 74440 Morillon',
-      emetteurSiret: LIAVO_SIRET,
-      emetteurTva: null,
-      emetteurEmail: 'contact@liavo.fr',
-      emetteurTel: null,
-      emetteurIban: LIAVO_IBAN,
-      destinataireNom: destinataire.nom,
-      destinataireAdresse: destinataire.adresse,
-      destinataireSiret: destinataire.siret,
-      destinataireEmail: destinataire.email,
-      titreSejour: description,
-      lignes: [{
-        description,
-        quantite: 1,
-        prixUnitaire: montantEuros,
-        tva: 0,
-        totalHT: montantEuros,
-        totalTTC: montantEuros,
-      }],
-      montantHT: montantEuros,
-      montantTVA: 0,
-      montantTTC: montantEuros,
-      montantFacture: montantEuros,
-      pourcentageAcompte: null,
-      montantAcompteDejaFacture: null,
+      montantCents: montantCentimes,
+      destinataire,
+      libelle: description,
       conditionsAnnulation: null,
-      tauxTva: 0,
-      mentionTVA: 'TVA non applicable, art. 293 B du CGI',
-    });
+    }));
 
     const pdfUrl = await this.storageService.uploadBuffer(
       pdfBuffer, `${numero}.pdf`, 'devis-liavo', 'application/pdf',
@@ -158,45 +128,24 @@ export class FactureLiavoService {
     });
 
     const montantEuros = montantCentimes / 100;
-    const pdfBuffer = await generateFacturePdf({
+    const pdfBuffer = await generateFacturePdf(buildLiavoPdfParams({
       typeFacture: 'FACTURE',
       numero,
       dateEmission: now.toISOString(),
       dateEcheance: echeance.toISOString(),
-      emetteurNom: 'LIAVO SASU',
-      emetteurAdresse: '472 Route du Mas Devant, 74440 Morillon',
-      emetteurSiret: LIAVO_SIRET,
-      emetteurTva: null,
-      emetteurEmail: 'contact@liavo.fr',
-      emetteurTel: null,
-      emetteurIban: LIAVO_IBAN,
-      destinataireNom,
-      destinataireAdresse,
-      destinataireSiret,
-      destinataireEmail,
-      titreSejour: description,
-      lignes: [{
-        description,
-        quantite: 1,
-        prixUnitaire: montantEuros,
-        tva: 0,
-        totalHT: montantEuros,
-        totalTTC: montantEuros,
-      }],
-      montantHT: montantEuros,
-      montantTVA: 0,
-      montantTTC: montantEuros,
-      montantFacture: montantEuros,
-      pourcentageAcompte: null,
-      montantAcompteDejaFacture: null,
+      montantCents: montantCentimes,
+      destinataire: {
+        nom: destinataireNom,
+        adresse: destinataireAdresse,
+        siret: destinataireSiret,
+        email: destinataireEmail,
+      },
+      libelle: description,
       conditionsTitre: 'Conditions de paiement',
       conditionsAnnulation: molliePaymentId
         ? 'Facture acquittée par prélèvement SEPA.'
         : 'À régler par virement bancaire sous 30 jours à réception.',
-      tauxTva: 0,
-      mentionTVA: 'TVA non applicable, art. 293 B du CGI',
-      logoUrl: null,
-    });
+    }));
 
     const pdfUrl = await this.storageService.uploadBuffer(
       pdfBuffer, `${numero}.pdf`, 'factures-liavo', 'application/pdf',
@@ -250,46 +199,24 @@ export class FactureLiavoService {
       if (!facture.molliePaymentId) echeance.setDate(echeance.getDate() + 30);
     }
 
-    const montantEuros = facture.montantTTC / 100;
-    const pdfBuffer = await generateFacturePdf({
+    const pdfBuffer = await generateFacturePdf(buildLiavoPdfParams({
       typeFacture: 'FACTURE',
       numero: facture.numero,
       dateEmission: facture.dateEmission.toISOString(),
       dateEcheance: echeance.toISOString(),
-      emetteurNom: 'LIAVO SASU',
-      emetteurAdresse: '472 Route du Mas Devant, 74440 Morillon',
-      emetteurSiret: LIAVO_SIRET,
-      emetteurTva: null,
-      emetteurEmail: 'contact@liavo.fr',
-      emetteurTel: null,
-      emetteurIban: LIAVO_IBAN,
-      destinataireNom: facture.destinataireNom,
-      destinataireAdresse: facture.destinataireAdresse,
-      destinataireSiret: facture.destinataireSiret,
-      destinataireEmail: facture.destinataireEmail,
-      titreSejour: facture.description,
-      lignes: [{
-        description: facture.description,
-        quantite: 1,
-        prixUnitaire: facture.montantHT / 100,
-        tva: 0,
-        totalHT: facture.montantHT / 100,
-        totalTTC: montantEuros,
-      }],
-      montantHT: facture.montantHT / 100,
-      montantTVA: facture.montantTVA / 100,
-      montantTTC: montantEuros,
-      montantFacture: montantEuros,
-      pourcentageAcompte: null,
-      montantAcompteDejaFacture: null,
+      montantCents: facture.montantTTC,
+      destinataire: {
+        nom: facture.destinataireNom,
+        adresse: facture.destinataireAdresse,
+        siret: facture.destinataireSiret,
+        email: facture.destinataireEmail,
+      },
+      libelle: facture.description,
       conditionsTitre: 'Conditions de paiement',
       conditionsAnnulation: facture.molliePaymentId
         ? 'Facture acquittée par prélèvement SEPA.'
         : 'À régler par virement bancaire sous 30 jours à réception.',
-      tauxTva: 0,
-      mentionTVA: 'TVA non applicable, art. 293 B du CGI',
-      logoUrl: null,
-    });
+    }));
 
     const pdfUrl = await this.storageService.uploadBuffer(
       pdfBuffer, `${facture.numero}.pdf`, 'factures-liavo', 'application/pdf',

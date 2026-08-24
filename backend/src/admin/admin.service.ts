@@ -8,7 +8,7 @@ import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
-import { calculerMontantAbonnementCents, PRIX_MENSUEL, PRIX_ANNUEL, CENTRE_SUPP_MENSUEL } from '../abonnements/abonnement.constants.js';
+import { calculerMontantAbonnementCents, calculerMontantPeriodeCents, PRIX_MENSUEL } from '../abonnements/abonnement.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -1656,7 +1656,7 @@ export class AdminService {
       where: { organisationId: centre.organisationId, statut: 'ACTIVE', userId: { not: null } },
     });
     // Supplément multi-centre au prorata des mois — même base que calculerMontantAbonnementCents en fréquence mensuelle.
-    const montant = nbMois * (PRIX_MENSUEL[plan] + Math.max(0, nbCentresActifs - 1) * CENTRE_SUPP_MENSUEL);
+    const montant = calculerMontantPeriodeCents(plan, nbMois, nbCentresActifs);
 
     // Activer le plan sur l'ORGANISATION, unique porteur de l'état d'abonnement
     // (L3c) — write unique, aucun write centre, trialStartedAt non touché.

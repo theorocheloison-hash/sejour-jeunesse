@@ -42,6 +42,24 @@ export function calculerMontantAbonnementCents(
   return prixPlan + centresSupp * (annuel ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
 }
 
+/**
+ * Montant d'une facturation LIAVO sur une PÉRIODE explicite de N mois (centimes) :
+ * N × (prix mensuel du plan + supplément mensuel par centre actif au-delà du
+ * premier). Base tarifaire mensuelle uniquement (une période se compte en mois).
+ * Source unique consommée par la facture-période ET le devis-période — garantit
+ * que les deux pièces portent le même montant. Plan inconnu → 0 (le contrôle de
+ * validité du plan reste à la charge de l'appelant).
+ */
+export function calculerMontantPeriodeCents(
+  plan: string,
+  nbMois: number,
+  nbCentresActifs: number,
+): number {
+  const prixPlan = PRIX_MENSUEL[plan] ?? 0;
+  const centresSupp = Math.max(0, nbCentresActifs - 1);
+  return nbMois * (prixPlan + centresSupp * CENTRE_SUPP_MENSUEL);
+}
+
 // Hiérarchie des plans — source unique consommée par PlanGuard,
 // rooming.assertPlanCentreComplet et demande.findOpen (fin de la triple copie, L3a).
 export const PLAN_HIERARCHY: Record<string, number> = {
