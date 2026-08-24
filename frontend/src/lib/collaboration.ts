@@ -367,6 +367,14 @@ export interface BudgetData {
     dateFin: string | null;
     placesTotales: number;
     nombreAccompagnateurs?: number | null;
+    clientNom?: string | null;
+    clientPrenom?: string | null;
+    clientEmail?: string | null;
+    clientTelephone?: string | null;
+    clientOrganisation?: string | null;
+    clientAdresse?: string | null;
+    clientCodePostal?: string | null;
+    clientVille?: string | null;
     createur?: {
       prenom: string;
       nom: string;

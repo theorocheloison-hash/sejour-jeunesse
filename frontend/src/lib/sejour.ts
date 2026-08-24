@@ -95,6 +95,15 @@ export interface Sejour {
   moinsde6ans?: boolean;
   typeAccueilACM?: string | null;
   projetEducatif?: string | null;
+  // Étape 4 — identité/contact client au niveau séjour (override hébergeur). Tous optionnels.
+  clientNom?: string | null;
+  clientPrenom?: string | null;
+  clientEmail?: string | null;
+  clientTelephone?: string | null;
+  clientOrganisation?: string | null;
+  clientAdresse?: string | null;
+  clientCodePostal?: string | null;
+  clientVille?: string | null;
   demandes?: SejourDemande[];
 }
 
@@ -217,6 +226,15 @@ export interface DossierPedagogiqueData {
   placesTotales: number;
   niveauClasse: string | null;
   thematiquesPedagogiques: string[];
+  // Étape 4 — identité/contact client à plat sur le séjour (override hébergeur). Tous optionnels.
+  clientNom?: string | null;
+  clientPrenom?: string | null;
+  clientEmail?: string | null;
+  clientTelephone?: string | null;
+  clientOrganisation?: string | null;
+  clientAdresse?: string | null;
+  clientCodePostal?: string | null;
+  clientVille?: string | null;
   createur: {
     prenom: string;
     nom: string;

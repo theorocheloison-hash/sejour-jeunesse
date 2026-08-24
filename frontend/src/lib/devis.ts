@@ -176,8 +176,13 @@ export interface Devis {
     dateDebut: string;
     dateFin: string;
     clientNom: string | null;
+    clientPrenom?: string | null;
     clientEmail: string | null;
+    clientTelephone?: string | null;
     clientOrganisation: string | null;
+    clientAdresse?: string | null;
+    clientCodePostal?: string | null;
+    clientVille?: string | null;
     modeGestion: string;
     placesTotales?: number | null;
     nombreAccompagnateurs?: number | null;
@@ -208,9 +213,19 @@ export interface Devis {
       dateFin?: string;
       niveauClasse?: string | null;
       statut?: string | null;
+      clientNom?: string | null;
+      clientPrenom?: string | null;
+      clientEmail?: string | null;
+      clientTelephone?: string | null;
+      clientOrganisation?: string | null;
+      clientAdresse?: string | null;
+      clientCodePostal?: string | null;
+      clientVille?: string | null;
       createur?: {
         prenom: string;
         nom: string;
+        email?: string | null;
+        telephone?: string | null;
         memberships?: Array<{
           organisation: { nom: string | null; ville: string | null };
         }>;
@@ -285,6 +300,14 @@ export interface DemandeInfo {
       placesTotales: number;
       nombreAccompagnateurs?: number | null;
       niveauClasse?: string | null;
+      clientNom?: string | null;
+      clientPrenom?: string | null;
+      clientEmail?: string | null;
+      clientTelephone?: string | null;
+      clientOrganisation?: string | null;
+      clientAdresse?: string | null;
+      clientCodePostal?: string | null;
+      clientVille?: string | null;
     } | null;
   };
   centre: {
