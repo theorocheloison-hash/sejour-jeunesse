@@ -55,19 +55,16 @@ const CATS_ROUGES = new Set<CategorieAlerte>(['soldesARelancer', 'acomptesARelan
 // ─── Helpers d'affichage ──────────────────────────────────────────────────────
 
 function resolveContact(d: Devis): { nom: string; email: string | null; tel: string | null } {
-  const c = d.demande?.sejour?.createur;
-  const e = d.demande?.enseignant;
+  // Priorité : override séjour (sejour.client*) → enseignant → créateur (canonique),
+  // puis destinataire du devis complémentaire et clientNom du sejourDirect (fallbacks préservés).
+  const resolved = resolveClientEtablissement(d.demande?.sejour ?? d.sejourDirect, {
+    enseignant: d.demande?.enseignant,
+    createur: d.demande?.sejour?.createur,
+  });
   const sd = d.sejourDirect;
-  // Priorité : createur collab > enseignant collab > destinataire du devis (rempli à la création
-  // pour direct et complémentaire, aussi présent sur les imports Sauvageon) > clientNom du sejourDirect (fallback ultime).
-  const nom = c
-    ? `${c.prenom} ${c.nom}`
-    : e
-    ? `${e.prenom} ${e.nom}`
-    : d.destinataireNom ?? sd?.clientNom ?? '';
-  const email = e?.email ?? d.destinataireEmail ?? sd?.clientEmail ?? null;
-  // Le type Devis n'a pas de destinataireTelephone. Uniquement enseignant.telephone (collab).
-  const tel = e?.telephone ?? null;
+  const nom = resolved.contactNom || d.destinataireNom || sd?.clientNom || '';
+  const email = resolved.contactEmail || d.destinataireEmail || sd?.clientEmail || null;
+  const tel = resolved.contactTelephone || null;
   return { nom, email, tel };
 }
 
@@ -115,11 +112,11 @@ function buildPdfProps(d: Devis): DevisPDFProps {
     telEmetteur: d.telEntreprise ?? d.centre?.telephone ?? undefined,
     tvaEmetteur: d.centre?.tvaIntracommunautaire ?? undefined,
     ibanEmetteur: d.centre?.iban ?? undefined,
-    nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
+    nomDestinataire: resolved.contactNom ?? '',
     etablissementNom: resolved.nom ?? undefined,
     adresseDestinataire: resolved.ville ?? undefined,
-    emailDestinataire: ens?.email ?? undefined,
-    telDestinataire: ens?.telephone ?? undefined,
+    emailDestinataire: resolved.contactEmail ?? undefined,
+    telDestinataire: resolved.contactTelephone ?? undefined,
     titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
     lieuSejour: d.demande?.villeHebergement,
     dateDebutSejour: sejour?.dateDebut ?? undefined,

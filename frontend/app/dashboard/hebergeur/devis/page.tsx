@@ -82,13 +82,12 @@ function categorieForOnglet(d: Devis, onglet: OngletDevis): CategorieAlerte | nu
   }
 }
 
-/** Nom du client pour le tri (créateur du séjour, sinon enseignant). */
+/** Nom du client pour le tri (override séjour, sinon enseignant, sinon créateur — via le canonique). */
 function resolveClientNom(d: Devis): string {
-  const c = d.demande?.sejour?.createur;
-  if (c) return `${c.prenom} ${c.nom}`;
-  const e = d.demande?.enseignant;
-  if (e) return `${e.prenom} ${e.nom}`;
-  return '';
+  return resolveClientEtablissement(d.demande?.sejour ?? d.sejourDirect, {
+    enseignant: d.demande?.enseignant,
+    createur: d.demande?.sejour?.createur,
+  }).contactNom ?? '';
 }
 
 // ─── Recherche ────────────────────────────────────────────────────────────────
@@ -102,6 +101,7 @@ function matchesSearch(d: Devis, query: string): boolean {
   });
   const fields = [
     resolved.nom,
+    resolved.contactNom,
     d.demande?.sejour?.createur?.prenom,
     d.demande?.sejour?.createur?.nom,
     d.demande?.sejour?.createur?.memberships?.[0]?.organisation.nom,
