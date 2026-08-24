@@ -56,6 +56,10 @@ export default function SejourHeader({
   const isHebergeur = user.role === 'HEBERGEUR';
   const isDirector = user.role === 'SIGNATAIRE';
   const sejourStatut = sejour?.statut ?? 'DRAFT';
+  // Identité client éditable par l'hébergeur ayant le droit d'écriture sur CE séjour,
+  // dans les deux modes (DIRECT et COLLABORATIF). Sémantique « propriété client
+  // hébergeur » (sejour.client* fait foi). N'inclut PAS clientOrganisation (hors DTO).
+  const peutEditerClient = isHebergeur && !!sejour?.monAccesEcriture;
 
   const [editingInfos, setEditingInfos] = useState(false);
   const [infosForm, setInfosForm] = useState({
@@ -109,9 +113,9 @@ export default function SejourHeader({
         // Participants — éditables dans les deux modes (DIRECT et COLLABORATIF).
         placesTotales: infosForm.placesTotales,
         nombreAccompagnateurs: infosForm.nombreAccompagnateurs,
-        // Champs client (séjour DIRECT uniquement) — string vide → undefined
-        // pour ne pas écraser une valeur existante.
-        ...(isDirect && {
+        // Champs client — éditables par l'hébergeur en DIRECT ET COLLABORATIF.
+        // String vide → undefined pour ne pas écraser une valeur existante.
+        ...(peutEditerClient && {
           clientNom: infosForm.clientNom || undefined,
           clientPrenom: infosForm.clientPrenom || undefined,
           clientEmail: infosForm.clientEmail || undefined,
@@ -127,7 +131,7 @@ export default function SejourHeader({
         dateFin: updated.dateFin,
         placesTotales: updated.placesTotales,
         nombreAccompagnateurs: updated.nombreAccompagnateurs,
-        ...(isDirect && {
+        ...(peutEditerClient && {
           clientNom: updated.clientNom,
           clientPrenom: updated.clientPrenom,
           clientEmail: updated.clientEmail,
@@ -259,7 +263,7 @@ export default function SejourHeader({
                   />
                 </label>
               </div>
-              {isDirect && (
+              {peutEditerClient && (
                 <>
                   <p className="text-xs font-semibold text-gray-500 mt-2">Informations client</p>
                   <div className="flex gap-2">
