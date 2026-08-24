@@ -5,8 +5,57 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Logo } from '@/app/components/Logo';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
+import {
+  resolveClientEtablissement,
+  type SejourClientFields,
+  type PersonneContact,
+} from '@/src/lib/client-etablissement';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.liavo.fr';
+
+type InvitationDevis = {
+  id: string;
+  createdAt: string;
+  numeroDevis: string | null;
+  montantTotal: number | string | null;
+  montantHT: number | string | null;
+  montantTTC: number | string | null;
+  montantTVA: number | string | null;
+  montantAcompte: number | null;
+  pourcentageAcompte: number | null;
+  conditionsAnnulation: string | null;
+  signatureDirecteur: string | null;
+  nomEntreprise: string | null;
+  adresseEntreprise: string | null;
+  siretEntreprise: string | null;
+  emailEntreprise: string | null;
+  telEntreprise: string | null;
+  centre: {
+    nom: string | null; ville: string | null; adresse: string | null; codePostal: string | null;
+    siret: string | null; telephone: string | null; email: string | null; logoUrl: string | null;
+  };
+  demande: {
+    enseignant: PersonneContact | null;
+    sejour:
+      | (SejourClientFields & {
+          titre: string;
+          lieu: string;
+          dateDebut: string | null;
+          dateFin: string | null;
+          placesTotales: number;
+          niveauClasse: string | null;
+        })
+      | null;
+  } | null;
+  lignes: Array<{
+    description: string;
+    quantite: number | string;
+    prixUnitaire: number | string;
+    tva: number | string;
+    totalHT: number | string;
+    totalTTC: number | string;
+  }>;
+};
 
 type InvitationDirecteurPublic = {
   etablissementUai: string | null;
@@ -18,7 +67,7 @@ type InvitationDirecteurPublic = {
   organisation: { id: string; nom: string; uai: string | null; ville: string | null } | null;
   signeAt: string | null;
   nomSignataire: string | null;
-  devis: any | null;
+  devis: InvitationDevis | null;
 };
 
 function DevisPDFInline({ data }: { data: DevisPDFProps }) {
@@ -73,7 +122,7 @@ function buildPdfProps(invitation: InvitationDirecteurPublic): DevisPDFProps | n
   const c = d.centre ?? {};
   const enseignant = d.demande?.enseignant ?? null;
   const sejour = d.demande?.sejour ?? null;
-  const orga = enseignant?.memberships?.[0]?.organisation ?? null;
+  const resolved = resolveClientEtablissement(sejour, { enseignant });
 
   const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum: number, l: any) => sum + Number(l.totalHT ?? 0), 0);
   const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
@@ -89,15 +138,15 @@ function buildPdfProps(invitation: InvitationDirecteurPublic): DevisPDFProps | n
     siretEmetteur: d.siretEntreprise ?? c.siret ?? undefined,
     emailEmetteur: d.emailEntreprise ?? c.email ?? undefined,
     telEmetteur: d.telEntreprise ?? c.telephone ?? undefined,
-    nomDestinataire: enseignant ? `${enseignant.prenom ?? ''} ${enseignant.nom ?? ''}`.trim() : '',
-    etablissementNom: orga?.nom ?? invitation.etablissementNom ?? undefined,
-    adresseDestinataire: orga?.ville ?? undefined,
-    emailDestinataire: enseignant?.email ?? undefined,
-    telDestinataire: enseignant?.telephone ?? undefined,
+    nomDestinataire: resolved.contactNom ?? '',
+    etablissementNom: resolved.nom ?? invitation.etablissementNom ?? undefined,
+    adresseDestinataire: resolved.ville ?? undefined,
+    emailDestinataire: resolved.contactEmail ?? undefined,
+    telDestinataire: resolved.contactTelephone ?? undefined,
     titreSejour: sejour?.titre ?? invitation.sejourTitre ?? '',
     lieuSejour: sejour?.lieu ?? '',
-    dateDebutSejour: sejour?.dateDebut,
-    dateFinSejour: sejour?.dateFin,
+    dateDebutSejour: sejour?.dateDebut ?? undefined,
+    dateFinSejour: sejour?.dateFin ?? undefined,
     nombreEleves: sejour?.placesTotales,
     niveauClasse: sejour?.niveauClasse ?? undefined,
     lignes: (d.lignes ?? []).map((l: any) => ({
