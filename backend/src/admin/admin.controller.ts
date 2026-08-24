@@ -133,6 +133,21 @@ export class AdminController {
     return this.adminService.genererDevisLiavo(body);
   }
 
+  @Post('devis-liavo-periode')
+  genererDevisLiavoPeriode(@Body() body: {
+    centreId: string;
+    plan: string;
+    nbMois: number;
+    periodeDebut: string;
+    periodeFin: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    return this.adminService.genererDevisLiavoPeriode(body);
+  }
+
   @Post('cron/alertes-expiration')
   async cronAlertes() {
     const alertes = await this.cronAlertesService.envoyerAlertes();

@@ -8,7 +8,7 @@ import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
-import { calculerMontantAbonnementCents, calculerMontantPeriodeCents, PRIX_MENSUEL } from '../abonnements/abonnement.constants.js';
+import { calculerMontantAbonnementCents, calculerMontantPeriodeCents, libellePeriodeAbonnement, PRIX_MENSUEL } from '../abonnements/abonnement.constants.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -1671,10 +1671,7 @@ export class AdminService {
       },
     });
 
-    // timeZone UTC : les ISO date-only sont parsées à minuit UTC, un rendu en
-    // fuseau local pourrait afficher la veille.
-    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
-    const libelle = `Abonnement LIAVO ${plan} — période du ${fmt(periodeDebut)} au ${fmt(periodeFin)} (${nbMois} mois)`;
+    const libelle = libellePeriodeAbonnement(plan, periodeDebut, periodeFin, nbMois);
 
     // Émettre la facture LIAVO (PDF + email) — effet de bord, après commit.
     // organisationId passé explicitement (aligné chemin webhook, pré-L4).
@@ -1683,6 +1680,64 @@ export class AdminService {
     );
 
     return facture;
+  }
+
+  // Devis LIAVO (DL-) sur période explicite — miroir de facturerCentrePeriode
+  // côté devis : mêmes validations, même montant (calculerMontantPeriodeCents) et
+  // même libellé, MAIS aucune persistance/activation d'abo/email (délègue à
+  // FactureLiavoService.genererDevisLiavoPeriode). L'organisation est requise car
+  // le supplément multi-centre se compte sur ses centres actifs — comme la
+  // facture-période, un devis promet le prix que la facture émettra.
+  async genererDevisLiavoPeriode(body: {
+    centreId: string;
+    plan: string;
+    nbMois: number;
+    periodeDebut: string;
+    periodeFin: string;
+    destinataireNom?: string;
+    destinataireAdresse?: string;
+    destinataireSiret?: string;
+    destinataireEmail?: string;
+  }) {
+    const { centreId, plan, nbMois } = body;
+    const destinataire = body.destinataireNom ? {
+      nom: body.destinataireNom,
+      adresse: body.destinataireAdresse ?? null,
+      siret: body.destinataireSiret ?? null,
+      email: body.destinataireEmail ?? null,
+    } : null;
+
+    if (PRIX_MENSUEL[plan] === undefined) {
+      throw new BadRequestException('Plan invalide');
+    }
+    if (!Number.isInteger(nbMois) || nbMois < 1 || nbMois > 12) {
+      throw new BadRequestException('Nombre de mois invalide (entier entre 1 et 12)');
+    }
+    const periodeDebut = new Date(body.periodeDebut);
+    const periodeFin = new Date(body.periodeFin);
+    if (Number.isNaN(periodeDebut.getTime()) || Number.isNaN(periodeFin.getTime())) {
+      throw new BadRequestException('Période invalide (dates attendues au format ISO yyyy-mm-dd)');
+    }
+    if (periodeFin <= periodeDebut) {
+      throw new BadRequestException('La fin de période doit être postérieure au début');
+    }
+
+    const centre = await this.prisma.centreHebergement.findUnique({
+      where: { id: centreId },
+      select: { organisationId: true },
+    });
+    if (!centre) throw new NotFoundException('Centre introuvable');
+    if (!centre.organisationId) {
+      throw new ConflictException("Ce centre n'est rattaché à aucune organisation — devis impossible");
+    }
+
+    const nbCentresActifs = await this.prisma.centreHebergement.count({
+      where: { organisationId: centre.organisationId, statut: 'ACTIVE', userId: { not: null } },
+    });
+    const montant = calculerMontantPeriodeCents(plan, nbMois, nbCentresActifs);
+    const libelle = libellePeriodeAbonnement(plan, periodeDebut, periodeFin, nbMois);
+
+    return this.factureLiavo.genererDevisLiavoPeriode(centreId, montant, libelle, destinataire);
   }
 
   async genererDevisLiavo(body: {

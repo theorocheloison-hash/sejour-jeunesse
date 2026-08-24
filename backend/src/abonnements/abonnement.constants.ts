@@ -60,6 +60,22 @@ export function calculerMontantPeriodeCents(
   return nbMois * (prixPlan + centresSupp * CENTRE_SUPP_MENSUEL);
 }
 
+/**
+ * Libellé d'une pièce LIAVO sur période explicite — source unique partagée par
+ * facturerCentrePeriode (facture FL-) et genererDevisLiavoPeriode (devis DL-)
+ * pour que les deux pièces portent le même intitulé. Dates rendues en UTC : les
+ * ISO date-only sont parsées à minuit UTC, un rendu local afficherait la veille.
+ */
+export function libellePeriodeAbonnement(
+  plan: string,
+  periodeDebut: Date,
+  periodeFin: Date,
+  nbMois: number,
+): string {
+  const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { timeZone: 'UTC' });
+  return `Abonnement LIAVO ${plan} — période du ${fmt(periodeDebut)} au ${fmt(periodeFin)} (${nbMois} mois)`;
+}
+
 // Hiérarchie des plans — source unique consommée par PlanGuard,
 // rooming.assertPlanCentreComplet et demande.findOpen (fin de la triple copie, L3a).
 export const PLAN_HIERARCHY: Record<string, number> = {

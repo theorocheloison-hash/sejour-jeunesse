@@ -71,6 +71,58 @@ export class FactureLiavoService {
     return { numero, pdfUrl };
   }
 
+  /**
+   * Devis LIAVO (DL-) sur période explicite de N mois — miroir de la
+   * facture-période (facturerCentrePeriode) côté devis : même montant (calculé
+   * par l'appelant via calculerMontantPeriodeCents) et même libellé. NE PERSISTE
+   * RIEN : pas de FactureLiavo, pas d'activation d'abonnement, pas d'email —
+   * produit uniquement le PDF DL- déposé sur OVH. Le destinataire est résolu comme
+   * à l'émission (fallback centre), la résolution ne servant qu'au rendu PDF.
+   */
+  async genererDevisLiavoPeriode(
+    centreId: string,
+    montantCents: number,
+    libelle: string,
+    destinataire?: { nom: string; adresse: string | null; siret: string | null; email: string | null } | null,
+  ): Promise<{ numero: string; pdfUrl: string }> {
+    const num = await this.sequenceService.generer(LIAVO_EMETTEUR_ID, 'DEVIS_LIAVO');
+    const annee = new Date().getFullYear();
+    const numero = `DL-${annee}-${String(num).padStart(3, '0')}`;
+
+    const centre = await this.prisma.centreHebergement.findUniqueOrThrow({
+      where: { id: centreId },
+      include: { user: { select: { email: true } } },
+    });
+
+    const destinataireResolu = {
+      nom: destinataire?.nom ?? centre.nom,
+      adresse: destinataire?.adresse ?? centre.adresse ?? null,
+      siret: destinataire?.siret ?? centre.siret ?? null,
+      email: destinataire?.email ?? centre.user?.email ?? null,
+    };
+
+    const now = new Date();
+    const echeance = new Date(now);
+    echeance.setDate(echeance.getDate() + 30);
+
+    const pdfBuffer = await generateFacturePdf(buildLiavoPdfParams({
+      typeFacture: 'DEVIS',
+      numero,
+      dateEmission: now.toISOString(),
+      dateEcheance: echeance.toISOString(),
+      montantCents,
+      destinataire: destinataireResolu,
+      libelle,
+      conditionsAnnulation: null,
+    }));
+
+    const pdfUrl = await this.storageService.uploadBuffer(
+      pdfBuffer, `${numero}.pdf`, 'devis-liavo', 'application/pdf',
+    );
+
+    return { numero, pdfUrl };
+  }
+
   async emettre(
     centreId: string,
     montantCentimes: number,
