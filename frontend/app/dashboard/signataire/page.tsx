@@ -33,6 +33,7 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
 import StatutBadge from '@/src/components/StatutBadge';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -115,6 +116,8 @@ function SejourCard({
   const fmt = (n: number) => n.toLocaleString('fr-FR',
     { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const resolvedEcran = resolveClientEtablissement(sejour, { createur: sejour.createur });
+
   const devisActif = sejour.demandes?.[0]?.devis?.[0] ?? null;
   const hasDevisASign = devisActif &&
     (devisActif.statut === 'EN_ATTENTE_VALIDATION' ||
@@ -129,6 +132,7 @@ function SejourCard({
   const buildPdfProps = (dv: any): DevisPDFProps => {
     const ens = dv.demande?.enseignant;
     const sej = dv.demande?.sejour;
+    const resolvedPdf = resolveClientEtablissement(sejour, { enseignant: ens, createur: sejour.createur });
     const htCalc = Number(dv.montantHT) ||
       (dv.lignes ?? []).reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
     const ttcCalc = Number(dv.montantTTC) || Number(dv.montantTotal) || 0;
@@ -143,11 +147,11 @@ function SejourCard({
       siretEmetteur: dv.siretEntreprise ?? dv.centre?.siret ?? undefined,
       emailEmetteur: dv.emailEntreprise ?? dv.centre?.email ?? undefined,
       telEmetteur: dv.telEntreprise ?? dv.centre?.telephone ?? undefined,
-      nomDestinataire: ens ? `${ens.prenom} ${ens.nom}` : '',
-      etablissementNom: ens?.memberships?.[0]?.organisation.nom ?? undefined,
-      adresseDestinataire: ens?.memberships?.[0]?.organisation.ville ?? undefined,
-      emailDestinataire: ens?.email ?? undefined,
-      telDestinataire: ens?.telephone ?? undefined,
+      nomDestinataire: resolvedPdf.contactNom ?? '',
+      etablissementNom: resolvedPdf.nom ?? undefined,
+      adresseDestinataire: resolvedPdf.ville ?? undefined,
+      emailDestinataire: resolvedPdf.contactEmail ?? undefined,
+      telDestinataire: resolvedPdf.contactTelephone ?? undefined,
       titreSejour: sej?.titre ?? dv.demande?.titre ?? '',
       lieuSejour: dv.demande?.villeHebergement,
       dateDebutSejour: sej?.dateDebut ?? undefined,
@@ -185,9 +189,9 @@ function SejourCard({
               )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-              {sejour.createur && <span>{sejour.createur.prenom} {sejour.createur.nom}</span>}
-              {sejour.createur?.memberships?.[0]?.organisation?.nom && (
-                <span>{sejour.createur.memberships[0].organisation.nom}</span>
+              {resolvedEcran.contactNom && <span>{resolvedEcran.contactNom}</span>}
+              {resolvedEcran.nom && (
+                <span>{resolvedEcran.nom}</span>
               )}
               <span>{formatDate(sejour.dateDebut, 'court')} → {formatDate(sejour.dateFin, 'court')}</span>
               <span>{sejour.placesTotales} {estHorsScolaire(sejour) ? 'participant' : 'élève'}{sejour.placesTotales > 1 ? 's' : ''}</span>
