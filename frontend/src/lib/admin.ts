@@ -377,3 +377,18 @@ export async function facturerCentrePeriode(body: {
   const { data } = await api.post('/admin/facturer-centre-periode', body);
   return data;
 }
+
+export async function genererDevisLiavoPeriode(body: {
+  centreId: string;
+  plan: string;
+  nbMois: number;
+  periodeDebut: string;
+  periodeFin: string;
+  destinataireNom?: string;
+  destinataireAdresse?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+}): Promise<{ numero: string; pdfUrl: string }> {
+  const { data } = await api.post<{ numero: string; pdfUrl: string }>('/admin/devis-liavo-periode', body);
+  return data;
+}

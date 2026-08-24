@@ -21,6 +21,7 @@ import {
   getAdminMetriquesAbonnements,
   getAdminActivite,
   genererDevisLiavo,
+  genererDevisLiavoPeriode,
   facturerCentre,
   facturerCentrePeriode,
   type AdminActivite,
@@ -949,15 +950,27 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
     setDevisError(null);
     setDevisResult(null);
     try {
-      const result = await genererDevisLiavo({
-        centreId,
-        plan,
-        frequence,
-        destinataireNom: destNom,
-        destinataireAdresse: destAdresse || undefined,
-        destinataireSiret: destSiret || undefined,
-        destinataireEmail: destEmail || undefined,
-      });
+      const result = mode === 'PERIODE'
+        ? await genererDevisLiavoPeriode({
+            centreId,
+            plan,
+            nbMois,
+            periodeDebut,
+            periodeFin,
+            destinataireNom: destNom || undefined,
+            destinataireAdresse: destAdresse || undefined,
+            destinataireSiret: destSiret || undefined,
+            destinataireEmail: destEmail || undefined,
+          })
+        : await genererDevisLiavo({
+            centreId,
+            plan,
+            frequence,
+            destinataireNom: destNom,
+            destinataireAdresse: destAdresse || undefined,
+            destinataireSiret: destSiret || undefined,
+            destinataireEmail: destEmail || undefined,
+          });
       setDevisResult(result);
     } catch (e: any) {
       setDevisError(e?.response?.data?.message ?? 'Erreur lors de la génération du devis');
@@ -1109,15 +1122,13 @@ function DevisLiavoForm({ onFactureEmise }: { onFactureEmise: () => void }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
-        {mode === 'STANDARD' && (
-          <button
-            onClick={handleDevis}
-            disabled={devisLoading || !centreId || !destNom}
-            className="bg-[#1B4060] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            {devisLoading ? 'Génération…' : 'Générer le devis (PDF)'}
-          </button>
-        )}
+        <button
+          onClick={handleDevis}
+          disabled={devisLoading || !centreId || (mode === 'STANDARD' && !destNom) || (mode === 'PERIODE' && (!periodeDebut || !periodeFin))}
+          className="bg-[#1B4060] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50"
+        >
+          {devisLoading ? 'Génération…' : 'Générer le devis (PDF)'}
+        </button>
         <button
           onClick={handleFacture}
           disabled={factureLoading || !centreId || (mode === 'PERIODE' && (!periodeDebut || !periodeFin))}
