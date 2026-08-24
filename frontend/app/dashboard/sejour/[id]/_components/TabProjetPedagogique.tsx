@@ -6,6 +6,7 @@ import type { DossierPedagogiqueData } from '@/src/lib/sejour';
 import ProjetPedagogiquePDFButton from '@/src/components/pdf/ProjetPedagogiquePDFButton';
 import PreparationTamPDFButton from '@/src/components/pdf/PreparationTamPDFButton';
 import { formatDate } from '@/src/lib/utils';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 export interface TabProjetPedagogiqueProps {
   sejourId: string;
@@ -47,6 +48,7 @@ export default function TabProjetPedagogique({ sejourId }: TabProjetPedagogiqueP
 
       {!dossierLoading && dossier && (() => {
         const d = dossier;
+        const resolvedCli = resolveClientEtablissement(d, { createur: d.createur });
         const signedAuto = d.autorisations.filter((a) => a.signeeAt).length;
         const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 
@@ -85,15 +87,15 @@ export default function TabProjetPedagogique({ sejourId }: TabProjetPedagogiqueP
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Établissement</span>
-                  <p className="font-medium text-gray-900">{d.createur?.memberships?.[0]?.organisation.nom ?? '—'}</p>
-                  {d.createur?.memberships?.[0]?.organisation.uai && <p className="text-xs text-gray-400">UAI : {d.createur.memberships[0].organisation.uai}</p>}
-                  {d.createur?.memberships?.[0]?.organisation.ville && <p className="text-xs text-gray-500">{d.createur.memberships[0].organisation.ville}</p>}
+                  <p className="font-medium text-gray-900">{resolvedCli.nom ?? '—'}</p>
+                  {resolvedCli.uai && <p className="text-xs text-gray-400">UAI : {resolvedCli.uai}</p>}
+                  {resolvedCli.ville && <p className="text-xs text-gray-500">{resolvedCli.ville}</p>}
                 </div>
                 <div>
                   <span className="text-gray-500">Enseignant responsable</span>
-                  <p className="font-medium text-gray-900">{d.createur?.prenom} {d.createur?.nom}</p>
-                  {d.createur?.email && <p className="text-xs text-gray-500">{d.createur.email}</p>}
-                  {d.createur?.telephone && <p className="text-xs text-gray-500">{d.createur.telephone}</p>}
+                  <p className="font-medium text-gray-900">{resolvedCli.contactNom}</p>
+                  {resolvedCli.contactEmail && <p className="text-xs text-gray-500">{resolvedCli.contactEmail}</p>}
+                  {resolvedCli.contactTelephone && <p className="text-xs text-gray-500">{resolvedCli.contactTelephone}</p>}
                 </div>
               </div>
             </div>

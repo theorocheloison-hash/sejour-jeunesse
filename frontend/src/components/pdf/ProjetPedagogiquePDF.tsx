@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 const PRIMARY = '#1B4060';
 const GREY = '#374151';
@@ -61,6 +62,14 @@ export interface ProjetPedagogiqueData {
   dateFin: string;
   placesTotales: number;
   niveauClasse?: string | null;
+  clientNom?: string | null;
+  clientPrenom?: string | null;
+  clientEmail?: string | null;
+  clientTelephone?: string | null;
+  clientOrganisation?: string | null;
+  clientAdresse?: string | null;
+  clientCodePostal?: string | null;
+  clientVille?: string | null;
   description?: string | null;
   thematiquesPedagogiques?: string[];
   createur?: {
@@ -140,6 +149,7 @@ export interface ProjetPedagogiquePDFProps {
 }
 
 export default function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgrammes }: ProjetPedagogiquePDFProps) {
+  const resolvedCli = resolveClientEtablissement(data, { createur: data.createur });
   const signedAuto = data.autorisations.filter(a => a.signeeAt).length;
   const signedOM = data.accompagnateurs.filter(a => a.signeeAt).length;
 
@@ -178,15 +188,15 @@ export default function ProjetPedagogiquePDF({ data, objectifsPedago, lienProgra
           <View style={s.grid2}>
             <View style={s.gridItem}>
               <Text style={s.label}>Établissement</Text>
-              <Text style={s.value}>{data.createur?.memberships?.[0]?.organisation.nom ?? '—'}</Text>
-              {data.createur?.memberships?.[0]?.organisation.uai && <Text style={s.valueLight}>UAI : {data.createur.memberships[0].organisation.uai}</Text>}
-              {data.createur?.memberships?.[0]?.organisation.ville && <Text style={s.valueLight}>{data.createur.memberships[0].organisation.ville}</Text>}
+              <Text style={s.value}>{resolvedCli.nom ?? '—'}</Text>
+              {resolvedCli.uai && <Text style={s.valueLight}>UAI : {resolvedCli.uai}</Text>}
+              {resolvedCli.ville && <Text style={s.valueLight}>{resolvedCli.ville}</Text>}
             </View>
             <View style={s.gridItem}>
               <Text style={s.label}>Responsable du séjour</Text>
-              <Text style={s.value}>{data.createur?.prenom} {data.createur?.nom}</Text>
-              {data.createur?.email && <Text style={s.valueLight}>{data.createur.email}</Text>}
-              {data.createur?.telephone && <Text style={s.valueLight}>{data.createur.telephone}</Text>}
+              <Text style={s.value}>{resolvedCli.contactNom}</Text>
+              {resolvedCli.contactEmail && <Text style={s.valueLight}>{resolvedCli.contactEmail}</Text>}
+              {resolvedCli.contactTelephone && <Text style={s.valueLight}>{resolvedCli.contactTelephone}</Text>}
             </View>
           </View>
         </View>

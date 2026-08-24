@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { DossierPedagogiqueData } from '@/src/lib/sejour';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 const PRIMARY = '#1B4060';
 const GREY = '#374151';
@@ -55,7 +56,7 @@ export default function PreparationTamPDF({ data }: PreparationTamPDFProps) {
   const now = new Date();
   const fiDepasse = fiLimit.getTime() < now.getTime();
 
-  const orga = data.createur?.memberships?.[0]?.organisation ?? null;
+  const resolvedCli = resolveClientEtablissement(data, { createur: data.createur });
   const trancheAge =
     data.ageMin != null && data.ageMax != null ? `De ${data.ageMin} à ${data.ageMax} ans`
     : data.ageMin != null ? `À partir de ${data.ageMin} ans`
@@ -84,15 +85,15 @@ export default function PreparationTamPDF({ data }: PreparationTamPDFProps) {
           <View style={s.grid2}>
             <View style={s.gridItem}>
               <Text style={s.label}>Responsable</Text>
-              <Text style={s.value}>{data.createur ? `${data.createur.prenom} ${data.createur.nom}` : '—'}</Text>
-              {data.createur?.email && <Text style={s.valueLight}>{data.createur.email}</Text>}
-              {data.createur?.telephone && <Text style={s.valueLight}>{data.createur.telephone}</Text>}
+              <Text style={s.value}>{resolvedCli.contactNom || '—'}</Text>
+              {resolvedCli.contactEmail && <Text style={s.valueLight}>{resolvedCli.contactEmail}</Text>}
+              {resolvedCli.contactTelephone && <Text style={s.valueLight}>{resolvedCli.contactTelephone}</Text>}
             </View>
             <View style={s.gridItem}>
               <Text style={s.label}>Organisation</Text>
-              <Text style={s.value}>{orga?.nom ?? '—'}</Text>
-              {orga?.ville && <Text style={s.valueLight}>{orga.ville}</Text>}
-              {orga?.uai && <Text style={s.valueLight}>UAI : {orga.uai}</Text>}
+              <Text style={s.value}>{resolvedCli.nom ?? '—'}</Text>
+              {resolvedCli.ville && <Text style={s.valueLight}>{resolvedCli.ville}</Text>}
+              {resolvedCli.uai && <Text style={s.valueLight}>UAI : {resolvedCli.uai}</Text>}
             </View>
           </View>
         </View>
