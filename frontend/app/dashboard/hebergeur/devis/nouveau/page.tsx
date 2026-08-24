@@ -297,8 +297,8 @@ function NouveauDevisContent() {
     )
   ) : demande ? (
     <div className="text-sm text-gray-700 space-y-1">
-      {demande.enseignant && (
-        <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
+      {resolvedCollab.contactNom && (
+        <p className="font-semibold">{resolvedCollab.contactNom}</p>
       )}
       {resolvedCollab.nom && (
         <p className="font-medium text-gray-600">{resolvedCollab.nom}</p>
@@ -306,8 +306,8 @@ function NouveauDevisContent() {
       {resolvedCollab.ville && (
         <p className="text-gray-500">{resolvedCollab.ville}</p>
       )}
-      {demande.enseignant?.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
-      {demande.enseignant?.telephone && <p className="text-gray-500">Pers. : {demande.enseignant.telephone}</p>}
+      {resolvedCollab.contactEmail && <p className="text-gray-500">{resolvedCollab.contactEmail}</p>}
+      {resolvedCollab.contactTelephone && <p className="text-gray-500">Pers. : {resolvedCollab.contactTelephone}</p>}
     </div>
   ) : (
     <p className="text-sm text-gray-400">Chargement...</p>

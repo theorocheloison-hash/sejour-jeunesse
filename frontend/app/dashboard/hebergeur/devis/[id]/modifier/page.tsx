@@ -206,14 +206,14 @@ export default function ModifierDevisPage() {
 
   const destinataireSlot = demande?.enseignant ? (
     <div className="text-sm text-gray-700 space-y-1">
-      <p className="font-semibold">{demande.enseignant.prenom} {demande.enseignant.nom}</p>
+      {resolvedCollab.contactNom && <p className="font-semibold">{resolvedCollab.contactNom}</p>}
       {resolvedCollab.nom && (
         <p className="font-medium text-gray-600">{resolvedCollab.nom}</p>
       )}
       {resolvedCollab.ville && (
         <p className="text-gray-500">{resolvedCollab.ville}</p>
       )}
-      {demande.enseignant.email && <p className="text-gray-500">{demande.enseignant.email}</p>}
+      {resolvedCollab.contactEmail && <p className="text-gray-500">{resolvedCollab.contactEmail}</p>}
     </div>
   ) : sejourDirect ? (
     <div className="text-sm text-gray-700 space-y-1">
