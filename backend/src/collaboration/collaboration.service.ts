@@ -174,6 +174,8 @@ export class CollaborationService {
     const monAccesEcriture = !!perms && hasPermission(perms, 'sejours', 'WRITE');
     const monAccesCrm = !!perms && hasPermission(perms, 'crm', 'WRITE');
     const monAccesGestionPropre = full.modeGestion === 'DIRECT' && monAccesEcriture;
+    const monAccesDevis = !!perms && hasPermission(perms, 'devis', 'WRITE');
+    const monAccesFacturation = !!perms && hasPermission(perms, 'facturation', 'WRITE');
 
     // Invitation collaborative en attente (séjour DIRECT) — alimente l'écran
     // d'invitation hébergeur : on affiche « invitation envoyée à … » plutôt qu'un
@@ -192,6 +194,8 @@ export class CollaborationService {
       monAccesEcriture,
       monAccesCrm,
       monAccesGestionPropre,
+      monAccesDevis,
+      monAccesFacturation,
     };
   }
 
