@@ -98,6 +98,9 @@ export default function HebergeurProfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [showMandatModal, setShowMandatModal] = useState(false);
   const [mandatLu, setMandatLu] = useState(false);
+  const [mandatError, setMandatError] = useState<string | null>(null);
+  // Acceptation du mandat réservée au propriétaire du centre (backend renvoie 403 sinon).
+  const isOwner = !!centre && centre.userId === user?.id;
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
@@ -951,8 +954,10 @@ export default function HebergeurProfilPage() {
                       <p className="font-semibold mb-1">Mandat de facturation requis</p>
                       <p className="text-xs">Pour générer des factures au format Chorus Pro (obligatoire pour les marchés publics avec les établissements scolaires), vous devez accepter le mandat de facturation au sens de l&apos;art. 289-I-2 du Code Général des Impôts. LIAVO agit en votre nom comme émetteur technique.</p>
                     </div>
+                    {isOwner ? (
+                    <>
                     <button
-                      onClick={() => { setShowMandatModal(true); setMandatLu(false); }}
+                      onClick={() => { setShowMandatModal(true); setMandatLu(false); setMandatError(null); }}
                       className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
                     >
                       J&apos;accepte le mandat de facturation
@@ -988,9 +993,12 @@ export default function HebergeurProfilPage() {
                               J&apos;ai lu et j&apos;accepte le mandat de facturation LIAVO version 1.0
                             </span>
                           </label>
+                          {mandatError && (
+                            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{mandatError}</div>
+                          )}
                           <div className="flex gap-3">
                             <button
-                              onClick={() => setShowMandatModal(false)}
+                              onClick={() => { setShowMandatModal(false); setMandatError(null); }}
                               className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
                               Annuler
@@ -998,12 +1006,15 @@ export default function HebergeurProfilPage() {
                             <button
                               disabled={!mandatLu}
                               onClick={async () => {
+                                setMandatError(null);
                                 try {
                                   await api.patch('/centres/mandat-facturation');
                                   const updated = await api.get('/centres/mon-profil');
                                   setCentre(updated.data);
                                   setShowMandatModal(false);
-                                } catch { /* ignore */ }
+                                } catch {
+                                  setMandatError('L\'acceptation a échoué. Veuillez réessayer.');
+                                }
                               }}
                               className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
@@ -1012,6 +1023,12 @@ export default function HebergeurProfilPage() {
                           </div>
                         </div>
                       </div>
+                    )}
+                    </>
+                    ) : (
+                      <p className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                        Seul le propriétaire du centre peut accepter le mandat de facturation.
+                      </p>
                     )}
                   </div>
                 )}

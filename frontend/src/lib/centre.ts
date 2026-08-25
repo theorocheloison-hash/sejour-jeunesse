@@ -12,6 +12,8 @@ export interface Invitation {
 
 export interface Centre {
   id: string;
+  /** Propriétaire du centre (renvoyé par getMonProfil) — distingue propriétaire vs collaborateur. */
+  userId?: string | null;
   nom: string;
   adresse: string;
   ville: string;
