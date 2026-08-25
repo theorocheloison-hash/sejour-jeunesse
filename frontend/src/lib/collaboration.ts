@@ -81,6 +81,8 @@ export interface SejourCollabInfo {
   monAccesEcriture?: boolean;
   monAccesCrm?: boolean;
   monAccesGestionPropre?: boolean;
+  monAccesDevis?: boolean;
+  monAccesFacturation?: boolean;
 }
 
 export interface SejourConventionHebergeur {

@@ -486,7 +486,7 @@ export default function CollaborationPage() {
             budgetData={budgetData}
             budgetLoading={budgetLoading}
             onReload={loadBudget}
-            onError={setError}
+            onError={setMutationError}
           />
         )}
         {/* ── Projet pédagogique ─── */}
