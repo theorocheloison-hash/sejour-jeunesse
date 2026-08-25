@@ -149,7 +149,7 @@ const computePeriode = (p: Periode): { debut: string; fin: string } => {
 
 export default function DashboardGlobalPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading, isMultiCentre } = useAuth();
+  const { user, isLoading: authLoading, isMultiCentre, centres } = useAuth();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,10 +162,13 @@ export default function DashboardGlobalPage() {
 
   // Redirect si mono-centre
   useEffect(() => {
-    if (!authLoading && user && user.role === 'HEBERGEUR' && !isMultiCentre) {
+    // Ne rediriger que si l'utilisateur est CONFIRMÉ mono-centre (liste chargée : length === 1).
+    // Pendant le chargement de la liste (length 0), on ne bounce pas — sinon un multi-centre
+    // fraîchement connecté serait renvoyé avant que la liste arrive (race login → consolidé).
+    if (!authLoading && user && user.role === 'HEBERGEUR' && centres.length === 1) {
       router.replace('/dashboard/hebergeur');
     }
-  }, [authLoading, user, isMultiCentre, router]);
+  }, [authLoading, user, centres, router]);
 
   const loadData = useCallback(async (p: Periode) => {
     setLoading(true);
