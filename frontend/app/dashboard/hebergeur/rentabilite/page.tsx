@@ -269,6 +269,25 @@ export default function HebergeurRentabilitePage() {
       return;
     }
 
+    // #14 — Option B « avertir sans bloquer » : sous-ventilation.
+    // Reste calculé sur les ventilations RÉELLEMENT envoyées (ventilationsValides),
+    // pas sur totalVentile (qui compte les lignes sans séjour, non persistées).
+    // Seuil 0,01 € aligné sur le backend (getTvaSurMarge, anomalie FACTURE_SOUS_VENTILEE).
+    // AUCUN blocage : simple confirmation, l'utilisateur peut passer (charge générale légitime).
+    const totalVentileReel = ventilationsValides.reduce(
+      (sum, v) => sum + v.montantTTC,
+      0,
+    );
+    const resteNonVentile =
+      Math.round((montantTotal - totalVentileReel) * 100) / 100;
+    if (resteNonVentile > 0.01) {
+      const confirme = confirm(
+        `${fmtMontant(resteNonVentile)} de cette facture ne seront rattachés à aucun séjour ` +
+          `et n'apparaîtront dans la marge d'aucun séjour. Enregistrer quand même ?`,
+      );
+      if (!confirme) return;
+    }
+
     const dto = {
       nomPrestataire: form.nomPrestataire.trim(),
       typeCharge: form.typeCharge,
