@@ -9,6 +9,7 @@ import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { getUserCentrePermissions, hasPermission } from '../centres/permission.helper.js';
 import { assertSignataireCanAccessDemande, assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 
 /** Arrondi monétaire à 2 décimales — neutralise les artéfacts float IEEE 754. */
@@ -216,6 +217,17 @@ export class FactureService {
       } else {
         throw new ForbiddenException('Accès refusé');
       }
+    }
+  }
+
+  /** Écriture facturation par un HEBERGEUR : exige facturation:WRITE.
+   *  No-op pour SIGNATAIRE (accès borné R1/R2 en amont). Propriétaire → isOwner court-circuite. */
+  private async assertFacturationWrite(user: { id: string; role: string }, centreId?: string | null) {
+    if (user.role !== 'HEBERGEUR') return;
+    const centre = await getCentreForUser(this.prisma, user.id, centreId);
+    const perms = await getUserCentrePermissions(this.prisma, user.id, centre.id);
+    if (!perms || !hasPermission(perms, 'facturation', 'WRITE')) {
+      throw new ForbiddenException('Vous n\'avez pas les droits de modification sur la facturation');
     }
   }
 
@@ -986,6 +998,7 @@ export class FactureService {
     user: { id: string; role: string },
     centreId?: string | null,
   ) {
+    await this.assertFacturationWrite(user, centreId);
     // Ownership par rôle — HEBERGEUR via centre, SIGNATAIRE via R1/R2
     let ownerCentreId: string;
     let logoUrl: string | null = null;
@@ -1062,6 +1075,7 @@ export class FactureService {
   }
 
   async supprimerVersement(factureId: string, versementId: string, user: { id: string; role: string }, centreId?: string | null) {
+    await this.assertFacturationWrite(user, centreId);
     // Ownership par rôle
     let logoUrl: string | null = null;
 
@@ -1107,6 +1121,7 @@ export class FactureService {
 
   /** Valide le règlement d'une facture d'acompte (SIGNATAIRE/HEBERGEUR). */
   async validerAcompte(factureId: string, user: { id: string; role: string }, centreId?: string | null) {
+    await this.assertFacturationWrite(user, centreId);
     await this.assertFactureOwnership(factureId, user, centreId);
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
