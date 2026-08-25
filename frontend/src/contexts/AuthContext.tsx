@@ -155,7 +155,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }).catch(() => {});
 
-    router.push(redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard');
+    // Cible de redirection après connexion.
+    // Multi-centre : on pose l'hébergeur sur la vue consolidée à la CONNEXION.
+    // Les réouvertures de session (restauration depuis localStorage) gardent le
+    // dernier centre — ce chemin n'est emprunté que par un vrai login formulaire.
+    // Un redirectTo explicite (deep link) reste prioritaire.
+    let target = redirectTo ?? ROLE_ROUTES[user.role] ?? '/dashboard';
+    if (!redirectTo && user.role === 'HEBERGEUR') {
+      try {
+        const { data: mesCentres } = await api.get<CentreResume[]>('/centres/mes-centres');
+        if (Array.isArray(mesCentres) && mesCentres.length > 1) {
+          target = '/dashboard/hebergeur/global';
+        }
+      } catch {
+        // Échec non bloquant : on conserve la route par défaut.
+      }
+    }
+    router.push(target);
   }, [router]);
 
   const logout = useCallback(async () => {
