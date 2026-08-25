@@ -409,7 +409,21 @@ export async function getDevisDetail(id: string): Promise<{ devis: Devis; centre
   return data;
 }
 
-export async function updateDevis(id: string, dto: Omit<CreateDevisDto, 'demandeId'>): Promise<Devis> {
+/**
+ * Payload accepté par PATCH /devis/:id. Superset additif de la création (hors demandeId)
+ * + les 6 champs destinataire* d'un devis complémentaire (déjà appliqués par le backend
+ * updateDevis). N'affecte pas les appelants existants (page /devis/[id]/modifier).
+ */
+export type UpdateDevisPayload = Omit<CreateDevisDto, 'demandeId'> & {
+  destinataireNom?: string;
+  destinataireAdresse?: string;
+  destinataireCodePostal?: string;
+  destinataireVille?: string;
+  destinataireSiret?: string;
+  destinataireEmail?: string;
+};
+
+export async function updateDevis(id: string, dto: UpdateDevisPayload): Promise<Devis> {
   const { data } = await api.patch<Devis>(`/devis/${id}`, dto);
   return data;
 }

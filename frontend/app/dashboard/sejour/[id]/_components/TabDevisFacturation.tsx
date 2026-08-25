@@ -6,6 +6,7 @@ import {
   getDevisForSejour,
   getDevisComplementairesForSejour,
   createDevisComplementaire,
+  updateDevis,
   envoyerDevisDirect,
   emettreFactureAcompte,
   emettreFactureSolde,
@@ -257,6 +258,7 @@ export default function TabDevisFacturation({
   const [complementaires, setComplementaires] = useState<DevisType[]>([]);
   const [complementairesLoading, setComplementairesLoading] = useState(false);
   const [showModalComplementaire, setShowModalComplementaire] = useState(false);
+  const [editingComplementaireId, setEditingComplementaireId] = useState<string | null>(null);
   const [compForm, setCompForm] = useState({
     destinataireNom: '',
     destinataireAdresse: '',
@@ -649,8 +651,41 @@ export default function TabDevisFacturation({
       description: '',
       lignes: [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0, produitCatalogueId: undefined as string | undefined }],
     });
+    setEditingComplementaireId(null);
     setCompSelectedOrg(null);
     setCompError(null);
+  };
+
+  // Ouvre la modale en mode ÉDITION : pré-remplit compForm depuis le complémentaire.
+  // Le champ « PU TTC » est reconstitué depuis totalTTC/quantite (idempotence des arrondis,
+  // même convention que la page /devis/[id]/modifier), et NON prixUnitaire×(1+tva).
+  const openEditComplementaire = (c: DevisType) => {
+    setCompForm({
+      destinataireNom: c.destinataireNom ?? '',
+      destinataireAdresse: c.destinataireAdresse ?? '',
+      destinataireCodePostal: c.destinataireCodePostal ?? '',
+      destinataireVille: c.destinataireVille ?? '',
+      destinataireSiret: c.destinataireSiret ?? '',
+      destinataireEmail: c.destinataireEmail ?? '',
+      description: c.description ?? '',
+      lignes: (c.lignes && c.lignes.length > 0)
+        ? c.lignes.map(l => ({
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.quantite > 0
+              ? round2(l.totalTTC / l.quantite)
+              : round2(l.prixUnitaire * (1 + l.tva / 100)),
+            tva: l.tva,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+            produitCatalogueId: (l.produitCatalogueId ?? undefined) as string | undefined,
+          }))
+        : [{ description: '', quantite: 1, prixUnitaire: 0, tva: 0, totalHT: 0, totalTTC: 0, produitCatalogueId: undefined as string | undefined }],
+    });
+    setEditingComplementaireId(c.id);
+    setCompSelectedOrg(null);
+    setCompError(null);
+    setShowModalComplementaire(true);
   };
 
   const handleCreerComplementaire = async () => {
@@ -663,6 +698,17 @@ export default function TabDevisFacturation({
       setCompError('Ajoutez au moins une ligne avec un montant');
       return;
     }
+    // Robustesse : en édition, refuser un complémentaire déjà facturé. Le backend
+    // updateDevis autorise EN_ATTENTE (statut inchangé après émission d'une facture),
+    // donc le frontend est la seule protection réelle contre l'édition d'un facturé.
+    if (editingComplementaireId) {
+      const facts = compFacturesMap[editingComplementaireId] ?? [];
+      const dejaFacture = facts.some(f => f.typeFacture === 'SOLDE' || f.typeFacture === 'ACOMPTE');
+      if (dejaFacture) {
+        setCompError('Ce devis a déjà été facturé et ne peut plus être modifié.');
+        return;
+      }
+    }
     // Taux de TVA du devis dérivé en moyenne pondérée des lignes (comme le devis principal).
     const totalHT = lignesCalculees.reduce((s, l) => s + l.totalHT, 0);
     const totalTVA = lignesCalculees.reduce((s, l) => s + (l.totalTTC - l.totalHT), 0);
@@ -670,24 +716,47 @@ export default function TabDevisFacturation({
     setCompLoading(true);
     setCompError(null);
     try {
-      await createDevisComplementaire({
-        sejourDirectId: sejourId,
-        destinataireNom: compForm.destinataireNom.trim(),
-        destinataireAdresse: compForm.destinataireAdresse || undefined,
-        destinataireCodePostal: compForm.destinataireCodePostal || undefined,
-        destinataireVille: compForm.destinataireVille || undefined,
-        destinataireSiret: compForm.destinataireSiret || undefined,
-        destinataireEmail: compForm.destinataireEmail || undefined,
-        tauxTva: tauxTvaDevis,
-        description: compForm.description || undefined,
-        lignes: lignesCalculees,
-      });
+      if (editingComplementaireId) {
+        // Édition : réutilise updateDevis générique. Montants dérivés EXACTEMENT comme
+        // createDevisComplementaire (montantTotal=montantTTC, montantParEleve figé à 0,
+        // TVA = TTC − HT). demandeId=null ⇒ pas de synchro effectif ni de notif.
+        await updateDevis(editingComplementaireId, {
+          montantTotal: compTotalTTC.toFixed(2),
+          montantParEleve: '0',
+          montantHT: round2(totalHT),
+          montantTVA: round2(totalTVA),
+          montantTTC: compTotalTTC,
+          tauxTva: tauxTvaDevis,
+          typeDevis: 'COMPLEMENTAIRE',
+          description: compForm.description || undefined,
+          destinataireNom: compForm.destinataireNom.trim(),
+          destinataireAdresse: compForm.destinataireAdresse || undefined,
+          destinataireCodePostal: compForm.destinataireCodePostal || undefined,
+          destinataireVille: compForm.destinataireVille || undefined,
+          destinataireSiret: compForm.destinataireSiret || undefined,
+          destinataireEmail: compForm.destinataireEmail || undefined,
+          lignes: lignesCalculees,
+        });
+      } else {
+        await createDevisComplementaire({
+          sejourDirectId: sejourId,
+          destinataireNom: compForm.destinataireNom.trim(),
+          destinataireAdresse: compForm.destinataireAdresse || undefined,
+          destinataireCodePostal: compForm.destinataireCodePostal || undefined,
+          destinataireVille: compForm.destinataireVille || undefined,
+          destinataireSiret: compForm.destinataireSiret || undefined,
+          destinataireEmail: compForm.destinataireEmail || undefined,
+          tauxTva: tauxTvaDevis,
+          description: compForm.description || undefined,
+          lignes: lignesCalculees,
+        });
+      }
       setShowModalComplementaire(false);
       resetCompForm();
       await loadComplementaires();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message ?? 'Erreur lors de la création';
+        ?.response?.data?.message ?? (editingComplementaireId ? 'Erreur lors de la modification' : 'Erreur lors de la création');
       setCompError(msg);
     } finally {
       setCompLoading(false);
@@ -775,6 +844,14 @@ export default function TabDevisFacturation({
                           )}
                         </React.Fragment>
                       ))}
+                      {!dejaFacture && !annule && (
+                        <button
+                          onClick={() => openEditComplementaire(c)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Modifier
+                        </button>
+                      )}
                       {!dejaFacture && !annule && (
                         <button
                           onClick={() => handleFacturerComplementaire(c.id)}
@@ -2182,7 +2259,7 @@ export default function TabDevisFacturation({
       {showModalComplementaire && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">Nouveau devis complémentaire</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">{editingComplementaireId ? 'Modifier le devis complémentaire' : 'Nouveau devis complémentaire'}</h2>
             <p className="text-xs text-gray-400 mb-4">Payeur additionnel facturé à son propre nom.</p>
 
             {compError && (
@@ -2279,7 +2356,9 @@ export default function TabDevisFacturation({
             <div className="flex gap-3 mt-6">
               <button onClick={handleCreerComplementaire} disabled={compLoading}
                 className="flex-1 rounded-lg bg-[var(--color-primary)] py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
-                {compLoading ? 'Création…' : 'Créer le devis complémentaire'}
+                {compLoading
+                  ? (editingComplementaireId ? 'Enregistrement…' : 'Création…')
+                  : (editingComplementaireId ? 'Enregistrer les modifications' : 'Créer le devis complémentaire')}
               </button>
               <button onClick={() => setShowModalComplementaire(false)} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
             </div>
