@@ -60,6 +60,9 @@ export default function SejourHeader({
   // dans les deux modes (DIRECT et COLLABORATIF). Sémantique « propriété client
   // hébergeur » (sejour.client* fait foi). N'inclut PAS clientOrganisation (hors DTO).
   const peutEditerClient = isHebergeur && !!sejour?.monAccesEcriture;
+  // Droit d'écriture sur l'en-tête du séjour (titre/dates/participants + suppression).
+  // Source de vérité distincte de peutEditerClient (sémantique « champs client »).
+  const peutModifier = isHebergeur && !!sejour?.monAccesEcriture;
 
   const [editingInfos, setEditingInfos] = useState(false);
   const [infosForm, setInfosForm] = useState({
@@ -103,6 +106,7 @@ export default function SejourHeader({
 
   // ── Save infos séjour (titre + dates) ──
   const handleSaveInfos = async () => {
+    if (!peutModifier) return;
     if (!sejourId) return;
     setInfosLoading(true);
     try {
@@ -184,6 +188,7 @@ export default function SejourHeader({
             {isHebergeur && isDirect && sejour?.monAccesEcriture && !editingInfos && (
               <button
                 onClick={async () => {
+                  if (!peutModifier) return;
                   if (!confirm('Supprimer ce séjour ? Le client CRM sera conservé.')) return;
                   try {
                     await deleteSejourDirect(sejourId);
@@ -324,7 +329,7 @@ export default function SejourHeader({
                 </button>
                 <button
                   onClick={handleSaveInfos}
-                  disabled={infosLoading}
+                  disabled={infosLoading || !peutModifier}
                   className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {infosLoading ? 'Enregistrement...' : 'Enregistrer'}
