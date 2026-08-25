@@ -6,7 +6,6 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { AbonnementService } from './abonnement.service.js';
-import { SimulerAbonnementDto } from './dto/simuler-abonnement.dto.js';
 import { SouscrireAbonnementDto } from './dto/souscrire-abonnement.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 
@@ -14,12 +13,6 @@ import { CentreId } from '../centres/centre-id.decorator.js';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AbonnementController {
   constructor(private readonly abonnementService: AbonnementService) {}
-
-  @Post('simuler')
-  @Roles(Role.HEBERGEUR)
-  simuler(@CurrentUser() user: JwtUser, @Body() dto: SimulerAbonnementDto, @CentreId() centreId: string | null) {
-    return this.abonnementService.simuler(user.id, dto.type, dto.plan, centreId);
-  }
 
   @Get('statut')
   @Roles(Role.HEBERGEUR)

@@ -56,27 +56,6 @@ export class AbonnementService {
     }
   }
 
-  // ── Simuler (existant — admin/test, pas de paiement réel) ─────────────
-
-  async simuler(userId: string, type: TypeAbonnement, plan: PlanAbonnement, centreId?: string | null) {
-    const { centre, organisationId } = await this.resolveOrganisation(userId, centreId);
-    const now = new Date();
-    const expiration = new Date(now);
-    if (type === TypeAbonnement.MENSUEL) {
-      expiration.setMonth(expiration.getMonth() + 1);
-    } else {
-      expiration.setFullYear(expiration.getFullYear() + 1);
-    }
-    const data = {
-      abonnement: type,
-      abonnementStatut: StatutAbonnement.ACTIF,
-      abonnementActifJusquAu: expiration,
-      planAbonnement: plan,
-    };
-    const updated = await this.prisma.organisation.update({ where: { id: organisationId }, data });
-    return updated;
-  }
-
   // ── Trial 30j Pilotage (tout déverrouillé pour découvrir) ─────────────
 
   async activerTrial(userId: string, centreId?: string | null) {
