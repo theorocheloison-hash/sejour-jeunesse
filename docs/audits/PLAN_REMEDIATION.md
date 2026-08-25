@@ -2,6 +2,7 @@
 
 > **Rédigé le 15/06/2026** — basé sur l'audit `docs/audits/AUDIT_SECURITE_2026-06.md` (Sections A→E) et `docs/audits/REMEDIATION_IDOR_ANALYSE.md`.
 > **Dernière MAJ : 30/06/2026** — LOTs 0→5 complets. LOT 6 code complet (6a/6b/6g/6j/6k/6l/6m/6n/6i). Checklist hors-code H1-H9 fermée. Reste LOT 6 maintenance (6c/6d/6e/6f/6h/6o).
+> **MAJ 25/08/2026** — LOT 7 : audit read-only des endpoints d'écriture hébergeur (post-mise-en-service, déclenché par 1er collaborateur en prod). 3 trous d'autorisation collaborateur fermés + 1 fix UI. Voir LOT 7 ci-dessous.
 > **Méthode** : chaque lot = un ou plusieurs prompts CC dédiés. Backend et frontend séparés. `tsc --noEmit` + `npm run build` = 0 erreurs avant tout commit.
 
 ---
@@ -116,6 +117,21 @@ LOT 6 code complet. Checklist hors-code H1-H9 fermée. Reste LOT 6 maintenance (
 | 6m | CORS_ORIGIN fallback | FRONTEND_URL uniquement | ✅ 30/06 |
 | 6n | lierCompte token expiration | assertTokenNotExpired | ✅ 30/06 |
 | 6o | 3 iframes src=URL privée | Passer src par useSecureUrl | Avant données sensibles en prod |
+
+---
+
+## LOT 7 — ✅ DÉPLOYÉ (25/08/2026) — Audit endpoints hébergeur (autorisation collaborateur)
+
+**Motif** : un collaborateur de centre est un User `Role.HEBERGEUR`. Un `@Roles(HEBERGEUR)` seul ne le distingue donc pas du propriétaire — seul `@RequirePermission('module')` (PermissionGuard) ou un check `hasPermission` dans le service borne réellement une mutation. Audit read-only de tous les `*.controller.ts` : tout est gardé sauf les 3 trous ci-dessous.
+
+| # | Finding | Fix | Statut |
+|---|---------|-----|--------|
+| 7a | `POST /factures/versements` + `valider-acompte` : mutation `@Roles(HEBERGEUR)` sans check permission → collaborateur lecture pouvait enregistrer un versement | `assertFacturationWrite` (facturation:WRITE) dans `facture.service.ts` | ✅ `575abe1` |
+| 7b | `PATCH /centres/mandat-facturation` : `getCentreForUser` seul (ownership large) → un collaborateur accepté pouvait accepter le mandat Chorus Pro | `if (centre.userId !== userId) throw ForbiddenException` — propriétaire seul, avant l'idempotence | ✅ `1401fe3` |
+| 7c | `POST /abonnements/simuler` : faisait un vrai `organisation.update` (plan ACTIF +1an) sans Mollie → tout hébergeur s'octroyait un plan payant gratis (contournement facturation abonnement) | Suppression pure (route+service+DTO) ; 0 appelant front, 0 spec ; `souscrire` SEPA intact | ✅ `6068b5f` |
+| 7d | UI : bouton « accepter le mandat » affiché au collaborateur (403 après 7b) + `catch` silencieux | `isOwner` masque bouton+modale au non-propriétaire ; erreur rendue dans la modale | ✅ `7119552` |
+
+**Reste (backlog produit, non-sécurité bloquante)** : chantier « écrans hébergeur hors page séjour » — 18 écrans non gatés UI (le backend garde ; l'UI propose des gestes qui renvoient 403). Premier item : `inviter-enseignant`.
 
 ---
 
