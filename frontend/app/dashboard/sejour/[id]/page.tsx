@@ -470,6 +470,7 @@ export default function CollaborationPage() {
             invitationCollab={sejour?.invitationCollab ?? null}
             estLectureSeule={estLectureSeule}
             onError={setMutationError}
+            canWrite={canWriteSejour}
           />
         )}
 

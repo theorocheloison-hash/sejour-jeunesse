@@ -7,6 +7,7 @@ import type { User } from '@/src/types/auth';
 import SecureImage from '@/src/components/SecureImage';
 import InviteOrganisateurCard from './InviteOrganisateurCard';
 import { formatDateRelative } from '@/src/lib/utils';
+import { ReadOnlyBanner, ReadOnlyGate } from './ReadOnly';
 
 function PhotoGrid({ photos }: { photos: { id: string; url: string }[] }) {
   if (photos.length === 0) return null;
@@ -105,6 +106,7 @@ export interface TabJournalProps {
   invitationCollab: { email: string; createdAt: string } | null;
   estLectureSeule: boolean;
   onError: (message: string) => void;
+  canWrite: boolean;
 }
 
 export default function TabJournal({
@@ -114,7 +116,10 @@ export default function TabJournal({
   invitationCollab,
   estLectureSeule,
   onError,
+  canWrite,
 }: TabJournalProps) {
+  // Compose l'éventuel accès accompagnateur (estLectureSeule) avec le gate collaborateur.
+  const readOnly = estLectureSeule || !canWrite;
   const [journalPosts, setJournalPosts] = useState<PostJournal[]>([]);
   const [journalContenu, setJournalContenu] = useState('');
   const [journalPhotos, setJournalPhotos] = useState<File[]>([]);
@@ -128,6 +133,7 @@ export default function TabJournal({
   }, [isDirect, sejourId]);
 
   const handleAddJournalPhotos = (files: FileList | null) => {
+    if (readOnly) return;
     if (!files) return;
     const remaining = Math.max(0, 6 - journalPhotos.length);
     const accepted = Array.from(files).slice(0, remaining).filter((f) =>
@@ -147,6 +153,7 @@ export default function TabJournal({
   };
 
   const handlePublishJournal = async () => {
+    if (readOnly) return;
     if (!sejourId || !journalContenu.trim()) return;
     setJournalSending(true);
     try {
@@ -161,6 +168,7 @@ export default function TabJournal({
   };
 
   const handleDeleteJournalPost = async (postId: string) => {
+    if (readOnly) return;
     if (!sejourId) return;
     try {
       await deleteJournalPost(sejourId, postId);
@@ -193,11 +201,13 @@ export default function TabJournal({
       {/* Zone de publication */}
       {(user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+          {readOnly && <ReadOnlyBanner />}
           <textarea
             value={journalContenu}
             onChange={(e) => setJournalContenu(e.target.value.slice(0, 2000))}
             placeholder="Racontez la journée…"
             rows={3}
+            disabled={readOnly}
             className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none"
           />
           <div className="flex items-center justify-between mt-1.5">
@@ -226,7 +236,7 @@ export default function TabJournal({
             <button
               type="button"
               onClick={() => journalFileRef.current?.click()}
-              disabled={journalPhotos.length >= 6}
+              disabled={journalPhotos.length >= 6 || readOnly}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -242,15 +252,16 @@ export default function TabJournal({
               className="hidden"
               onChange={(e) => handleAddJournalPhotos(e.target.files)}
             />
+            <ReadOnlyGate active={readOnly}>
             <button
               type="button"
               onClick={handlePublishJournal}
-              disabled={journalSending || !journalContenu.trim() || estLectureSeule}
-              title={estLectureSeule ? 'Accès en lecture seule' : undefined}
+              disabled={journalSending || !journalContenu.trim() || readOnly}
               className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {journalSending ? 'Publication…' : 'Publier'}
             </button>
+            </ReadOnlyGate>
           </div>
         </div>
       )}
@@ -270,7 +281,7 @@ export default function TabJournal({
             <JournalPostCard
               key={post.id}
               post={post}
-              canDelete={post.auteur.id === user.id}
+              canDelete={post.auteur.id === user.id && !readOnly}
               onDelete={() => handleDeleteJournalPost(post.id)}
             />
           ))}
