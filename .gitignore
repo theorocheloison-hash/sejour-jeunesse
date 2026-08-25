@@ -105,3 +105,12 @@ LIAVO/
 # Audits sécurité — vulnérabilités détaillées, ne JAMAIS versionner
 docs/audits/
 docs/prompts/AUDIT_SECURITE_COMPLET.md
+
+# ========================
+# Dumps / sauvegardes base de données de PROD (données personnelles RGPD)
+# Conservés en local pour debug — ne JAMAIS versionner
+# ========================
+*.pgsql
+*.dump
+*-dump.tar.gz
+*_liavo_backe_*.tar.gz
