@@ -34,12 +34,14 @@ export async function getCentreForUser(
   // PENDING inclus (opérable) — seul SUSPENDED est exclu.
   const ownCentre = await prisma.centreHebergement.findFirst({
     where: { userId, statut: { not: 'SUSPENDED' } },
+    orderBy: { createdAt: 'asc' }, // défaut déterministe (centre le plus ancien) si aucun X-Centre-Id
   });
   if (ownCentre) return ownCentre;
 
   // Fallback : premier centre où l'user est collaborateur accepté
   const collab = await prisma.collaborateurCentre.findFirst({
     where: { userId, acceptedAt: { not: null }, centre: { statut: { not: 'SUSPENDED' } } },
+    orderBy: { createdAt: 'asc' }, // défaut déterministe si aucun X-Centre-Id
     include: { centre: true },
   });
   if (collab) return collab.centre;

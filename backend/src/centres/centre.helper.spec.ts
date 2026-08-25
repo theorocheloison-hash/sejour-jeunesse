@@ -326,6 +326,7 @@ describe('getCentreForUser', () => {
       });
       expect(prisma.centreHebergement.findFirst).toHaveBeenCalledWith({
         where: { userId: OWNER, statut: { not: 'SUSPENDED' } },
+        orderBy: { createdAt: 'asc' },
       });
     });
 
@@ -341,6 +342,7 @@ describe('getCentreForUser', () => {
           acceptedAt: { not: null },
           centre: { statut: { not: 'SUSPENDED' } },
         },
+        orderBy: { createdAt: 'asc' },
         include: { centre: true },
       });
     });
