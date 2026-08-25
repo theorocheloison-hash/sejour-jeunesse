@@ -65,6 +65,10 @@ export default function CollaborationPage() {
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const isDirect = sejour?.modeGestion === 'DIRECT';
+  // Gate lecture seule hébergeur : ne restreint QUE les collaborateurs de centre
+  // (role HEBERGEUR). Organisateur/signataire ont monAccesEcriture=false mais ne
+  // sont pas concernés → canWrite=true pour eux (comportement inchangé).
+  const canWriteSejour = user?.role !== 'HEBERGEUR' || (sejour?.monAccesEcriture ?? false);
   const isEvenement = sejour?.natureSejour === 'EVENEMENT';
   const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
@@ -392,6 +396,7 @@ export default function CollaborationPage() {
             isDirect={isDirect}
             invitationCollab={sejour?.invitationCollab ?? null}
             estLectureSeule={estLectureSeule}
+            canWrite={canWriteSejour}
           />
         )}
 
@@ -475,6 +480,7 @@ export default function CollaborationPage() {
             isDirector={isDirector}
             estLectureSeule={estLectureSeule}
             onError={setMutationError}
+            canWrite={canWriteSejour}
           />
         )}
 

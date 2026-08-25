@@ -5,6 +5,7 @@ import { getMessages, sendMessage } from '@/src/lib/collaboration';
 import type { MessageCollab } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import InviteOrganisateurCard from './InviteOrganisateurCard';
+import { ReadOnlyBanner, ReadOnlyGate } from './ReadOnly';
 
 export interface TabMessagesProps {
   sejourId: string;
@@ -12,6 +13,7 @@ export interface TabMessagesProps {
   isDirect: boolean;
   invitationCollab: { email: string; createdAt: string } | null;
   estLectureSeule: boolean;
+  canWrite: boolean;
 }
 
 export default function TabMessages({
@@ -20,7 +22,10 @@ export default function TabMessages({
   isDirect,
   invitationCollab,
   estLectureSeule,
+  canWrite,
 }: TabMessagesProps) {
+  // Compose l'éventuel accès accompagnateur (estLectureSeule) avec le gate collaborateur.
+  const readOnly = estLectureSeule || !canWrite;
   const [messages, setMessages] = useState<MessageCollab[]>([]);
   const [msgInput, setMsgInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -48,6 +53,7 @@ export default function TabMessages({
   }, [messages]);
 
   const handleSendMessage = async () => {
+    if (readOnly) return;
     if (!sejourId || !msgInput.trim()) return;
     setSending(true);
     try {
@@ -76,6 +82,7 @@ export default function TabMessages({
 
   return (
     <div className="flex flex-col h-[calc(100vh-220px)]">
+      {readOnly && <ReadOnlyBanner />}
       <div className="flex-1 overflow-y-auto space-y-3 pb-4">
         {messages.length === 0 && (
           <p className="text-center text-sm text-gray-400 py-12">Aucun message pour l&apos;instant. Lancez la conversation !</p>
@@ -115,18 +122,19 @@ export default function TabMessages({
           value={msgInput}
           onChange={(e) => setMsgInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-          placeholder={estLectureSeule ? 'Accès en lecture seule' : 'Votre message...'}
-          disabled={estLectureSeule}
+          placeholder={readOnly ? 'Accès en lecture seule' : 'Votre message...'}
+          disabled={readOnly}
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-border-strong)] disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
+        <ReadOnlyGate active={readOnly}>
         <button
           onClick={handleSendMessage}
-          disabled={sending || !msgInput.trim() || estLectureSeule}
-          title={estLectureSeule ? 'Accès en lecture seule' : undefined}
+          disabled={sending || !msgInput.trim() || readOnly}
           className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? '...' : 'Envoyer'}
         </button>
+        </ReadOnlyGate>
       </div>
     </div>
   );

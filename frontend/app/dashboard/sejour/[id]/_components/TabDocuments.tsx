@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { getDocuments, createDocument, getDocumentsCentre } from '@/src/lib/collaboration';
 import type { DocumentSejour, TypeDocumentSejour, DocumentCentreFiche } from '@/src/lib/collaboration';
 import SecureFileLink from '@/src/components/SecureFileLink';
+import { ReadOnlyBanner, ReadOnlyGate } from './ReadOnly';
 
 const TYPE_DOC_OPTIONS: { value: TypeDocumentSejour; label: string }[] = [
   { value: 'PROGRAMME', label: 'Programme' },
@@ -26,9 +27,12 @@ export interface TabDocumentsProps {
   isDirector: boolean;
   estLectureSeule: boolean;
   onError: (message: string) => void;
+  canWrite: boolean;
 }
 
-export default function TabDocuments({ sejourId, isDirector, estLectureSeule, onError }: TabDocumentsProps) {
+export default function TabDocuments({ sejourId, isDirector, estLectureSeule, onError, canWrite }: TabDocumentsProps) {
+  // Compose l'éventuel accès accompagnateur (estLectureSeule) avec le gate collaborateur.
+  const readOnly = estLectureSeule || !canWrite;
   const [docs, setDocs] = useState<DocumentSejour[]>([]);
   const [docsCentre, setDocsCentre] = useState<DocumentCentreFiche[]>([]);
   const [docForm, setDocForm] = useState({ nom: '', type: 'AUTRE' as TypeDocumentSejour });
@@ -70,12 +74,14 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
   };
 
   const handleDocDrop = (e: DragEvent) => {
+    if (readOnly) return;
     e.preventDefault();
     setDocDragging(false);
     handleDocFileSelect(e.dataTransfer.files[0]);
   };
 
   const handleAddDocument = async () => {
+    if (readOnly) return;
     if (!sejourId || !docForm.nom || !docFile) return;
     setDocSending(true);
     try {
@@ -133,11 +139,14 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
 
       {!isDirector && (
       <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {readOnly && <ReadOnlyBanner />}
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Ajouter un document</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <input type="text" value={docForm.nom} onChange={(e) => setDocForm((f) => ({ ...f, nom: e.target.value }))}
+            disabled={readOnly}
             placeholder="Nom du document" className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
           <select value={docForm.type} onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value as TypeDocumentSejour }))}
+            disabled={readOnly}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]">
             {TYPE_DOC_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -147,7 +156,7 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
 
         {/* Zone drag & drop */}
         <div
-          onDragOver={(e) => { e.preventDefault(); setDocDragging(true); }}
+          onDragOver={(e) => { if (readOnly) return; e.preventDefault(); setDocDragging(true); }}
           onDragLeave={() => setDocDragging(false)}
           onDrop={handleDocDrop}
           className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
@@ -183,7 +192,8 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
               <button
                 type="button"
                 onClick={() => docFileRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                disabled={readOnly}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
@@ -202,9 +212,9 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
           )}
         </div>
 
+        <ReadOnlyGate active={readOnly}>
         <button onClick={handleAddDocument}
-          disabled={!docForm.nom || !docFile || docSending || estLectureSeule}
-          title={estLectureSeule ? 'Accès en lecture seule' : undefined}
+          disabled={!docForm.nom || !docFile || docSending || readOnly}
           className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           {docSending ? (
             <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Envoi...</>
@@ -217,6 +227,7 @@ export default function TabDocuments({ sejourId, isDirector, estLectureSeule, on
             </>
           )}
         </button>
+        </ReadOnlyGate>
       </div>
       )}
 
