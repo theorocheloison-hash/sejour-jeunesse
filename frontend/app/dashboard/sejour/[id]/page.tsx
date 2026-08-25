@@ -499,6 +499,7 @@ export default function CollaborationPage() {
             sejourId={id}
             initialNotes={sejour.notesInternes ?? ''}
             onError={setMutationError}
+            canWrite={sejour.monAccesCrm ?? false}
           />
         )}
 

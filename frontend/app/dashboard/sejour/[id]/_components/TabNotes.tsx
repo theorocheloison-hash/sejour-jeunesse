@@ -11,11 +11,13 @@ import {
   type RappelSejour,
 } from '@/src/lib/collaboration';
 import { formatDateRelative } from '@/src/lib/utils';
+import { ReadOnlyBanner, ReadOnlyGate } from './ReadOnly';
 
 interface TabNotesProps {
   sejourId: string;
   initialNotes: string;
   onError: (message: string) => void;
+  canWrite: boolean;
 }
 
 // ── Types d'activité ──────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ function rappelBadge(rappel: RappelSejour): { label: string; cls: string } {
 
 // ── Composant ─────────────────────────────────────────────────────────────────
 
-export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesProps) {
+export default function TabNotes({ sejourId, initialNotes, onError, canWrite }: TabNotesProps) {
   // ── Section A : notes internes ──
   const [notes, setNotes] = useState(initialNotes);
   const [saving, setSaving] = useState(false);
@@ -112,6 +114,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
 
   // Debounce 1000ms sur la frappe
   useEffect(() => {
+    if (!canWrite) return; // filet : pas de sauvegarde en lecture seule (en plus du disabled)
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -121,7 +124,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [notes, saveNotes]);
+  }, [notes, saveNotes, canWrite]);
 
   // Nettoyage des timers au démontage
   useEffect(() => {
@@ -208,6 +211,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
 
   return (
     <div className="space-y-6">
+      {!canWrite && <ReadOnlyBanner />}
       {/* ── Section A : Notes internes ──────────────────────────────────────── */}
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-3">
@@ -230,6 +234,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
+          disabled={!canWrite}
           placeholder="Notes internes (visibles uniquement par vous)..."
           className="w-full min-h-[120px] rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] resize-y"
         />
@@ -240,13 +245,16 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Activité du dossier</h3>
           {!showActiviteForm && (
-            <button
-              type="button"
-              onClick={() => setShowActiviteForm(true)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              + Ajouter une note
-            </button>
+            <ReadOnlyGate active={!canWrite}>
+              <button
+                type="button"
+                onClick={() => setShowActiviteForm(true)}
+                disabled={!canWrite}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                + Ajouter une note
+              </button>
+            </ReadOnlyGate>
           )}
         </div>
 
@@ -271,7 +279,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
               <button
                 type="button"
                 onClick={handleAddActivite}
-                disabled={activiteSending || !activiteForm.description.trim()}
+                disabled={!canWrite || activiteSending || !activiteForm.description.trim()}
                 className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
                 {activiteSending ? 'Enregistrement…' : 'Enregistrer'}
@@ -341,13 +349,16 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-900">Rappels</h3>
           {!showRappelForm && (
-            <button
-              type="button"
-              onClick={() => setShowRappelForm(true)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              + Nouveau rappel
-            </button>
+            <ReadOnlyGate active={!canWrite}>
+              <button
+                type="button"
+                onClick={() => setShowRappelForm(true)}
+                disabled={!canWrite}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                + Nouveau rappel
+              </button>
+            </ReadOnlyGate>
           )}
         </div>
 
@@ -380,7 +391,7 @@ export default function TabNotes({ sejourId, initialNotes, onError }: TabNotesPr
               <button
                 type="button"
                 onClick={handleAddRappel}
-                disabled={rappelSending || !rappelForm.dateRappel || !rappelForm.description.trim()}
+                disabled={!canWrite || rappelSending || !rappelForm.dateRappel || !rappelForm.description.trim()}
                 className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
                 {rappelSending ? 'Enregistrement…' : 'Enregistrer'}
