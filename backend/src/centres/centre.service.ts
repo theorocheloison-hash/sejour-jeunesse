@@ -1697,6 +1697,9 @@ export class CentreService {
 
   async accepterMandatFacturation(userId: string, ipAddress: string | null = null, userAgent: string | null = null, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
+    if (centre.userId !== userId) {
+      throw new ForbiddenException('Seul le propriétaire du centre peut accepter le mandat de facturation.');
+    }
     if (centre.mandatFacturationAccepte) {
       return centre; // Déjà accepté — ne pas écraser ip/ua
     }
