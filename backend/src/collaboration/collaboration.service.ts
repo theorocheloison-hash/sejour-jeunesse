@@ -163,19 +163,14 @@ export class CollaborationService {
     });
     if (!full) return full;
 
-    // Capacité d'écriture de l'utilisateur courant sur CE séjour (source de vérité
-    // serveur pour le gating UI — évite au frontend de deviner via le centre actif
+    // Permissions serveur de l'utilisateur courant sur le centre de CE séjour (source
+    // de vérité du gating UI — évite au frontend de deviner via le centre actif
     // global). Propriétaire (OWNER_PERMISSIONS) ou collaborateur d'équipe selon ses
-    // niveaux. monAccesGestionPropre = geste « en propre » (DIRECT), aligné sur
-    // peutEcrireSejourEnPropre.
+    // niveaux ; exposées au front sous `mesPermissions` (le front en dérive son gating,
+    // dont le geste « en propre » DIRECT = modeGestion + sejours:WRITE).
     const perms = full.hebergementSelectionneId
       ? await getUserCentrePermissions(this.prisma, userId, full.hebergementSelectionneId)
       : null;
-    const monAccesEcriture = !!perms && hasPermission(perms, 'sejours', 'WRITE');
-    const monAccesCrm = !!perms && hasPermission(perms, 'crm', 'WRITE');
-    const monAccesGestionPropre = full.modeGestion === 'DIRECT' && monAccesEcriture;
-    const monAccesDevis = !!perms && hasPermission(perms, 'devis', 'WRITE');
-    const monAccesFacturation = !!perms && hasPermission(perms, 'facturation', 'WRITE');
 
     // Invitation collaborative en attente (séjour DIRECT) — alimente l'écran
     // d'invitation hébergeur : on affiche « invitation envoyée à … » plutôt qu'un
@@ -191,11 +186,6 @@ export class CollaborationService {
       invitationCollab: invitationPending
         ? { email: invitationPending.emailEnseignant, createdAt: invitationPending.createdAt }
         : null,
-      monAccesEcriture,
-      monAccesCrm,
-      monAccesGestionPropre,
-      monAccesDevis,
-      monAccesFacturation,
       mesPermissions: perms,
     };
   }
