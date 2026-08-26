@@ -67,9 +67,8 @@ function PermissionGrid({ value, onChange }: { value: PermMap; onChange: (m: Per
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
           <span aria-hidden className="shrink-0">⚠️</span>
           <span>
-            {modulesSansSejour.join(' et ')} se {modulesSansSejour.length > 1 ? 'gèrent' : 'gère'} depuis
-            la fiche d&apos;un séjour. Sans accès «&nbsp;Séjours&nbsp;» (au moins Lecture), ce
-            collaborateur ne pourra pas s&apos;en servir.
+            La fiche d&apos;un séjour permet de gérer {modulesSansSejour.join(' et ')}. Sans accès
+            «&nbsp;Séjours&nbsp;» (au moins Lecture), ce collaborateur ne pourra pas s&apos;en servir.
           </span>
         </div>
       )}
