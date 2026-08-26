@@ -9,6 +9,8 @@ import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
 import { calculerMontantAbonnementCents, calculerMontantPeriodeCents, libellePeriodeAbonnement, PRIX_MENSUEL } from '../abonnements/abonnement.constants.js';
+import { resyncMontantOrganisation } from '../abonnements/resync-montant.helper.js';
+import { mollieClient } from '../abonnements/mollie.client.js';
 
 const ADMIN_FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -157,7 +159,14 @@ export class AdminService {
       distinct: ['organisationId'],
     });
     for (const { organisationId } of orgsAActiver) {
-      if (organisationId) await demarrerOuAlignerTrial(this.prisma, this.email, organisationId);
+      if (organisationId) {
+        await demarrerOuAlignerTrial(this.prisma, this.email, organisationId);
+        // Réaligner le montant Mollie sur le nouveau nombre de centres ACTIVE.
+        // Fire-and-forget, jamais bloquant. No-op si l'org n'a pas de subscription.
+        resyncMontantOrganisation(this.prisma, mollieClient, organisationId).catch((err) =>
+          console.error('[validerHebergeur] resync montant:', err),
+        );
+      }
     }
 
     try {
@@ -1256,6 +1265,12 @@ export class AdminService {
     // d'activer. Un centre sans organisation (théorique, 0 en prod) → pas d'essai.
     if (centre.organisationId) {
       await demarrerOuAlignerTrial(this.prisma, this.email, centre.organisationId);
+      // Réaligner le montant Mollie sur le nouveau nombre de centres ACTIVE —
+      // fix prioritaire : hébergeur déjà validé/payant à qui l'admin active un
+      // centre supplémentaire. Fire-and-forget, jamais bloquant. No-op sans subscription.
+      resyncMontantOrganisation(this.prisma, mollieClient, centre.organisationId).catch((err) =>
+        console.error('[activerCentre] resync montant:', err),
+      );
     } else {
       console.log('[activerCentre] centre', centre.id, 'sans organisation — essai non démarré');
     }

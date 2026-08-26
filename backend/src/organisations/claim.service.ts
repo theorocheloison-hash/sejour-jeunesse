@@ -8,6 +8,8 @@ import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { shouldRequireKbis, findOrCreateOrganisation } from './organisation.helpers.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
+import { resyncMontantOrganisation } from '../abonnements/resync-montant.helper.js';
+import { mollieClient } from '../abonnements/mollie.client.js';
 
 const EN_CATALOGUE_API =
   'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
@@ -632,6 +634,14 @@ export class ClaimService {
     // (un centre PENDING ne doit jamais consommer son essai pendant l'attente).
     // Essai porté par l'organisation (Lot 2e) — validerClaim a déjà l'org sous la main.
     await demarrerOuAlignerTrial(this.prisma, this.email, membership.organisationId);
+
+    // Réaligner le montant de la subscription Mollie sur le nouveau nombre de
+    // centres ACTIVE (cas hébergeur déjà payant qui fait valider un centre
+    // supplémentaire). Fire-and-forget, jamais bloquant : un échec Mollie ne
+    // doit pas faire échouer la validation. No-op si l'org n'a pas de subscription.
+    resyncMontantOrganisation(this.prisma, mollieClient, membership.organisationId).catch((err) =>
+      console.error('[validerClaim] resync montant:', err),
+    );
 
     await this.email.sendGenericNotification(
       membership.user.email,
