@@ -435,6 +435,7 @@ export default function CollaborationPage() {
             onReloadSejour={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
             onError={setMutationError}
             peutGererEnPropre={(isDirect && sejour?.mesPermissions?.sejours === 'WRITE')}
+            peutGererGroupes={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.sejours === 'WRITE'}
           />
         )}
 
@@ -459,6 +460,7 @@ export default function CollaborationPage() {
               sejour={sejour}
               onError={setMutationError}
               peutGererEnPropre={(isDirect && sejour?.mesPermissions?.sejours === 'WRITE')}
+              peutEcrire={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.sejours === 'WRITE'}
             />
           ) : user.role === 'ORGANISATEUR' ? (
             <TabRooming

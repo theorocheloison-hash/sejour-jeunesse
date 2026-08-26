@@ -32,6 +32,9 @@ export interface TabGroupesProps {
   onReloadSejour: () => void;
   onError: (message: string) => void;
   peutGererEnPropre?: boolean;
+  // Gestion des groupes (créer/modifier/supprimer/proposer) : HEBERGEUR + sejours:WRITE.
+  // Distinct de l'affectation d'élèves (peutEditer) et du geste « en propre » DIRECT.
+  peutGererGroupes: boolean;
 }
 
 export default function TabGroupes({
@@ -45,6 +48,7 @@ export default function TabGroupes({
   onReloadSejour,
   onError,
   peutGererEnPropre = false,
+  peutGererGroupes,
 }: TabGroupesProps) {
   const [groupeModal, setGroupeModal] = useState<{ open: boolean; editId?: string; nom: string; couleur: string; taille: number } | null>(null);
   const [propositionGroupes, setPropositionGroupes] = useState<PropositionGroupes | null>(null);
@@ -173,21 +177,23 @@ export default function TabGroupes({
       {user.role === 'HEBERGEUR' && (
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">Groupes du séjour</h2>
-          <div className="flex gap-2">
-            <button onClick={handleProposerGroupes} disabled={loadingProposition}
-              className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] disabled:opacity-50">
-              {loadingProposition ? 'Calcul...' : '✨ Proposer automatiquement'}
-            </button>
-            <button onClick={() => setGroupeModal({ open: true, nom: '', couleur: '#16a34a', taille: 10 })}
-              className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
-              + Ajouter un groupe
-            </button>
-          </div>
+          {peutGererGroupes && (
+            <div className="flex gap-2">
+              <button onClick={handleProposerGroupes} disabled={loadingProposition}
+                className="flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] disabled:opacity-50">
+                {loadingProposition ? 'Calcul...' : '✨ Proposer automatiquement'}
+              </button>
+              <button onClick={() => setGroupeModal({ open: true, nom: '', couleur: '#16a34a', taille: 10 })}
+                className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+                + Ajouter un groupe
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Proposition automatique */}
-      {propositionGroupes && user.role === 'HEBERGEUR' && (
+      {propositionGroupes && user.role === 'HEBERGEUR' && peutGererGroupes && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -263,7 +269,7 @@ export default function TabGroupes({
         <div className={`${colonneNonAffectesVisible ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           {groupes.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
-              {user.role === 'HEBERGEUR' ? 'Créez les groupes ou utilisez la proposition automatique.' : 'Les groupes seront créés par l\'hébergeur.'}
+              {peutGererGroupes ? 'Créez les groupes ou utilisez la proposition automatique.' : user.role === 'ORGANISATEUR' ? 'Les groupes seront créés par l\'hébergeur.' : 'Aucun groupe pour le moment.'}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -280,7 +286,7 @@ export default function TabGroupes({
                       <span className="text-sm font-semibold text-gray-900">{g.nom}</span>
                       <span className="text-xs text-gray-400">({g.eleves.length}/{g.taille})</span>
                     </div>
-                    {user.role === 'HEBERGEUR' && (
+                    {peutGererGroupes && (
                       <div className="flex gap-1">
                         <button onClick={() => setGroupeModal({ open: true, editId: g.id, nom: g.nom, couleur: g.couleur, taille: g.taille })}
                           className="rounded p-1 text-gray-400 hover:text-[var(--color-primary)]">
@@ -321,7 +327,7 @@ export default function TabGroupes({
       </div>
 
       {/* Modale groupe (HEBERGEUR uniquement) */}
-      {groupeModal?.open && user.role === 'HEBERGEUR' && (
+      {groupeModal?.open && user.role === 'HEBERGEUR' && peutGererGroupes && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">{groupeModal.editId ? 'Modifier le groupe' : 'Nouveau groupe'}</h2>

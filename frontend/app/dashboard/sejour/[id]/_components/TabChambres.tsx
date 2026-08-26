@@ -71,9 +71,11 @@ export interface TabChambresProps {
   onError: (msg: string) => void;
   /** DIRECT géré en propre : layout répartition (éditeur) + attribution dépliable. */
   peutGererEnPropre?: boolean;
+  /** Mode ATTRIBUTION éditable : HEBERGEUR + sejours:WRITE (true aussi en peutGererEnPropre). */
+  peutEcrire: boolean;
 }
 
-export default function TabChambres({ sejourId, sejour, onError, peutGererEnPropre = false }: TabChambresProps) {
+export default function TabChambres({ sejourId, sejour, onError, peutGererEnPropre = false, peutEcrire }: TabChambresProps) {
   const centreId = sejour.hebergementSelectionne?.id;
   const { dateDebut, dateFin } = sejour;
 
@@ -391,57 +393,69 @@ export default function TabChambres({ sejourId, sejour, onError, peutGererEnProp
                         }`}
                       />
                     )}
-                    <select
-                      value={occ.etiquette ?? ''}
-                      onChange={(e) => setEtiquette(occ.id, e.target.value)}
-                      className="shrink-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700"
-                    >
-                      <option value="">— étiquette</option>
-                      {ETIQUETTES.map((e) => (
-                        <option key={e.label} value={e.label}>
-                          {e.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleRetirer(occ.id, occ.nbAffectations ?? 0)}
-                      className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Retirer
-                    </button>
+                    {peutEcrire ? (
+                      <select
+                        value={occ.etiquette ?? ''}
+                        onChange={(e) => setEtiquette(occ.id, e.target.value)}
+                        className="shrink-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700"
+                      >
+                        <option value="">— étiquette</option>
+                        {ETIQUETTES.map((e) => (
+                          <option key={e.label} value={e.label}>
+                            {e.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="shrink-0 text-xs text-gray-500">{occ.etiquette ?? '—'}</span>
+                    )}
+                    {peutEcrire && (
+                      <button
+                        type="button"
+                        onClick={() => handleRetirer(occ.id, occ.nbAffectations ?? 0)}
+                        className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Retirer
+                      </button>
+                    )}
                   </li>
                 );
               }
 
               return (
                 <li key={c.id}>
-                  <label
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
-                      selected
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                        : 'border-gray-200 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => toggleSelection(c.id)}
-                      className="sr-only"
-                    />
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                        selected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' : 'border-gray-300'
+                  {peutEcrire ? (
+                    <label
+                      className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                        selected
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                          : 'border-gray-200 bg-white hover:bg-gray-50'
                       }`}
                     >
-                      {selected && (
-                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                      )}
-                    </span>
-                    {infos}
-                  </label>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleSelection(c.id)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          selected ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' : 'border-gray-300'
+                        }`}
+                      >
+                        {selected && (
+                          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </span>
+                      {infos}
+                    </label>
+                  ) : (
+                    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                      {infos}
+                    </div>
+                  )}
                 </li>
               );
                   })}
@@ -451,7 +465,7 @@ export default function TabChambres({ sejourId, sejour, onError, peutGererEnProp
           </div>
         )}
 
-        {chambres.length > 0 && (
+        {chambres.length > 0 && peutEcrire && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <button
               type="button"
