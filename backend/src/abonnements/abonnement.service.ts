@@ -1,11 +1,11 @@
-import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
 import { TRIAL_DUREE_JOURS, TRIAL_EXTENSION_JOURS } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
-import { MandateMethod } from '@mollie/api-client';
+import { MandateMethod, MollieApiError, SubscriptionStatus } from '@mollie/api-client';
 import { calculerMontantAbonnementCents, centsToMollie } from './abonnement.constants.js';
 import { mollieClient } from './mollie.client.js';
 import { resyncMontantOrganisation } from './resync-montant.helper.js';
@@ -253,7 +253,40 @@ export class AbonnementService {
           { customerId: org.mollieCustomerId },
         );
       } catch (err) {
-        console.warn('[souscrire] Erreur annulation ancienne subscription:', err);
+        // Le cancel a échoué. On ne crée JAMAIS la nouvelle subscription tant
+        // qu'on n'a pas la preuve que l'ancienne n'est plus active — sinon deux
+        // subscriptions coexistent sur le même customer = double prélèvement.
+        // Fast-path : un 404 Mollie PROUVE que l'ancienne subscription n'existe
+        // plus (déjà supprimée). On teste `instanceof MollieApiError` pour ne pas
+        // prendre une erreur réseau brute (sans statusCode fiable) pour un 404.
+        const dejaDisparue = err instanceof MollieApiError && err.statusCode === 404;
+        if (!dejaDisparue) {
+          // Get de vérité : seul arbitre fiable de l'état réel de l'ancienne.
+          let ancienneInactive = false;
+          try {
+            const ancienne = await mollieClient.customerSubscriptions.get(
+              org.mollieSubscriptionId,
+              { customerId: org.mollieCustomerId },
+            );
+            ancienneInactive = ancienne.status === SubscriptionStatus.canceled;
+          } catch (getErr) {
+            // 404 au get = ancienne subscription disparue → objectif atteint.
+            // Tout autre échec (réseau/5xx) = état inconnu → on bloque.
+            ancienneInactive = getErr instanceof MollieApiError && getErr.statusCode === 404;
+          }
+          if (!ancienneInactive) {
+            // État incertain : l'ancienne subscription peut être toujours active.
+            // On bloque AVANT tout write DB / création — rien n'est modifié.
+            // Trace sans fuite : jamais l'IBAN ni le corps, seulement message/statut + org.
+            console.error(
+              '[souscrire] annulation ancienne subscription non confirmée — re-souscription bloquée',
+              { organisationId, statusCode: err instanceof MollieApiError ? err.statusCode : undefined, message: err instanceof Error ? err.message : String(err) },
+            );
+            throw new ServiceUnavailableException(
+              "L'abonnement en cours n'a pas pu être mis à jour (service de paiement momentanément indisponible). Réessayez dans quelques instants.",
+            );
+          }
+        }
       }
       await this.prisma.organisation.update({
         where: { id: organisationId },
