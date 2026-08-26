@@ -369,7 +369,8 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
     }
   };
 
-  const isHebergeur = user?.role === 'HEBERGEUR';
+  const isHebergeur = user?.role === 'HEBERGEUR';           // rôle seul → usages VUE
+  const peutEcrire = isHebergeur && sejour?.mesPermissions?.sejours === 'WRITE'; // édition
   const HOUR_START = 7;
   const HOUR_END = 22;
   const SLOT_HEIGHT = 24;
@@ -416,7 +417,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
   };
 
   const handleCellClick = (date: Date, slotIndex: number) => {
-    if (!isHebergeur) return;
+    if (!peutEcrire) return;
     const h = Math.floor(slotIndex / 2) + HOUR_START;
     const m = slotIndex % 2 === 0 ? '00' : '30';
     const hEnd = slotIndex % 2 === 0 ? h : h + 1;
@@ -435,7 +436,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    if (!isHebergeur) return;
+    if (!peutEcrire) return;
 
     const overDay = event.over?.id as string | undefined;
 
@@ -628,7 +629,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
         </select>
       )}
     </div>
-    {isHebergeur && (
+    {peutEcrire && (
       <div className="mb-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
@@ -690,7 +691,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                 filename={`planning-${sejour.titre.replace(/\s+/g, '-').toLowerCase()}.pdf`}
               />
             )}
-            {isHebergeur && (
+            {peutEcrire && (
               <button
                 onClick={async () => {
                   if (!sejourId) return;
@@ -711,7 +712,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
           </div>
       </div>
     )}
-    {!isHebergeur && planning.length > 0 && (
+    {!peutEcrire && planning.length > 0 && (
       <div className="mb-4">
         <PlanningPDFButton
           planningProps={{
@@ -730,9 +731,9 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
     <div className="flex gap-4 h-full">
     <div className="flex-1 min-w-0">
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      {!isHebergeur && (
+      {!peutEcrire && (
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
-          Lecture seule — seul l&apos;hébergeur peut modifier le planning
+          Lecture seule — vous n&apos;avez pas les droits de modification sur ce séjour.
         </div>
       )}
 
@@ -781,7 +782,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                       key={dayIdx}
                       dayIdx={dayIdx}
                       dateStr={dateStr}
-                      isHebergeur={isHebergeur}
+                      isHebergeur={peutEcrire}
                       slots={SLOTS}
                       slotHeight={SLOT_HEIGHT}
                       onCellClick={(slotIdx) => handleCellClick(day, slotIdx)}
@@ -850,7 +851,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                               act={act}
                               topPx={topPx}
                               heightPx={heightPx}
-                              isHebergeur={isHebergeur}
+                              isHebergeur={peutEcrire}
                               colWidth={colWidth}
                               slotHeight={SLOT_HEIGHT}
                               widthPct={widthPct}
@@ -875,7 +876,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                                 editId: act.id,
                               })}
                               onResize={async (newDurationSlots) => {
-                                if (!isHebergeur || !sejourId) return;
+                                if (!peutEcrire || !sejourId) return;
                                 const startMins = toMin(act.heureDebut);
                                 const newEndMins = startMins + newDurationSlots * 30;
                                 if (newEndMins <= startMins) return;
@@ -913,8 +914,8 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
     </div>
     </div>
 
-    {/* Panneau latéral activités catalogue — visible seulement pour HEBERGEUR */}
-    {isHebergeur && (
+    {/* Panneau latéral activités catalogue — visible seulement en édition (hébergeur sejours:WRITE) */}
+    {peutEcrire && (
       <div className="hidden md:block w-64 shrink-0">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sticky top-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">
@@ -1032,7 +1033,7 @@ export default function TabPlanning({ sejourId, sejour, user, groupes, onError }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 placeholder="Nom du responsable" />
             </div>
-            {user.role === 'HEBERGEUR' && (
+            {peutEcrire && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Couleur du groupe <span className="text-gray-400 font-normal">(optionnel)</span>
