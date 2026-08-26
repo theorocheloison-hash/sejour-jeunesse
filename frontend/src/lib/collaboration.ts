@@ -1,4 +1,5 @@
 import api from './api';
+import type { CentrePermissions } from '@/src/hooks/usePermissions';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,13 +77,10 @@ export interface SejourCollabInfo {
   notesInternes?: string | null;
   // Invitation collaborative en attente (séjour DIRECT) — null si aucune / déjà acceptée.
   invitationCollab?: { email: string; createdAt: string } | null;
-  // Capacité d'écriture de l'utilisateur courant sur CE séjour (calcul serveur —
-  // source de vérité du gating UI côté hébergeur, collaborateurs d'équipe inclus).
-  monAccesEcriture?: boolean;
-  monAccesCrm?: boolean;
-  monAccesGestionPropre?: boolean;
-  monAccesDevis?: boolean;
-  monAccesFacturation?: boolean;
+  // Permissions serveur de l'utilisateur courant sur le centre de CE séjour (source
+  // de vérité du gating UI côté hébergeur, collaborateurs d'équipe inclus ; null si
+  // le séjour n'a pas de centre sélectionné).
+  mesPermissions?: CentrePermissions | null;
 }
 
 export interface SejourConventionHebergeur {

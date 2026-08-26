@@ -59,10 +59,10 @@ export default function SejourHeader({
   // Identité client éditable par l'hébergeur ayant le droit d'écriture sur CE séjour,
   // dans les deux modes (DIRECT et COLLABORATIF). Sémantique « propriété client
   // hébergeur » (sejour.client* fait foi). N'inclut PAS clientOrganisation (hors DTO).
-  const peutEditerClient = isHebergeur && !!sejour?.monAccesEcriture;
+  const peutEditerClient = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
   // Droit d'écriture sur l'en-tête du séjour (titre/dates/participants + suppression).
   // Source de vérité distincte de peutEditerClient (sémantique « champs client »).
-  const peutModifier = isHebergeur && !!sejour?.monAccesEcriture;
+  const peutModifier = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
 
   const [editingInfos, setEditingInfos] = useState(false);
   const [infosForm, setInfosForm] = useState({
@@ -177,7 +177,7 @@ export default function SejourHeader({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900 truncate flex items-center">
             <span className="truncate">{sejour?.titre ?? '—'}</span>
-            {isHebergeur && sejour?.monAccesEcriture && !editingInfos && (
+            {isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE') && !editingInfos && (
               <button
                 onClick={() => setEditingInfos(true)}
                 className="text-xs text-gray-400 hover:text-[var(--color-primary)] hover:underline ml-2 shrink-0"
@@ -185,7 +185,7 @@ export default function SejourHeader({
                 ✏️ Modifier
               </button>
             )}
-            {isHebergeur && isDirect && sejour?.monAccesEcriture && !editingInfos && (
+            {isHebergeur && isDirect && (sejour?.mesPermissions?.sejours === 'WRITE') && !editingInfos && (
               <button
                 onClick={async () => {
                   if (!peutModifier) return;

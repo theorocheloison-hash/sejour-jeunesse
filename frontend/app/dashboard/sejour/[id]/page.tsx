@@ -66,9 +66,9 @@ export default function CollaborationPage() {
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const isDirect = sejour?.modeGestion === 'DIRECT';
   // Gate lecture seule hébergeur : ne restreint QUE les collaborateurs de centre
-  // (role HEBERGEUR). Organisateur/signataire ont monAccesEcriture=false mais ne
-  // sont pas concernés → canWrite=true pour eux (comportement inchangé).
-  const canWriteSejour = user?.role !== 'HEBERGEUR' || (sejour?.monAccesEcriture ?? false);
+  // (role HEBERGEUR). Organisateur/signataire n'ont pas de permissions de centre
+  // (mesPermissions null) mais ne sont pas concernés → canWrite=true pour eux.
+  const canWriteSejour = user?.role !== 'HEBERGEUR' || (sejour?.mesPermissions?.sejours === 'WRITE');
   const isEvenement = sejour?.natureSejour === 'EVENEMENT';
   const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
@@ -423,7 +423,7 @@ export default function CollaborationPage() {
             onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
             onReloadSejour={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
             onError={setMutationError}
-            peutGererEnPropre={sejour?.monAccesGestionPropre ?? false}
+            peutGererEnPropre={(isDirect && sejour?.mesPermissions?.sejours === 'WRITE')}
           />
         )}
 
@@ -447,7 +447,7 @@ export default function CollaborationPage() {
               sejourId={id}
               sejour={sejour}
               onError={setMutationError}
-              peutGererEnPropre={sejour?.monAccesGestionPropre ?? false}
+              peutGererEnPropre={(isDirect && sejour?.mesPermissions?.sejours === 'WRITE')}
             />
           ) : user.role === 'ORGANISATEUR' ? (
             <TabRooming
@@ -506,7 +506,7 @@ export default function CollaborationPage() {
             sejourId={id}
             initialNotes={sejour.notesInternes ?? ''}
             onError={setMutationError}
-            canWrite={sejour.monAccesCrm ?? false}
+            canWrite={(sejour.mesPermissions?.crm === 'WRITE')}
           />
         )}
 
