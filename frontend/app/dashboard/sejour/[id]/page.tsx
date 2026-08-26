@@ -55,6 +55,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notes', label: 'Notes & suivi' },
 ];
 
+const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'chambres', 'journal'];
+
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -74,13 +76,6 @@ export default function CollaborationPage() {
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  // ── Tracking visite onglet (notifications hébergeur) ────────
-  useEffect(() => {
-    const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
-    if (!user || user.role !== 'HEBERGEUR' || !id || !ONGLETS_TRACKING.includes(tab)) return;
-    marquerVisite(id, tab).catch(() => {});
-  }, [tab, user, id]);
-
   // Groupes (partagé avec l'onglet planning — export PDF)
   const [groupes, setGroupes] = useState<GroupeSejour[]>([]);
 
@@ -96,7 +91,43 @@ export default function CollaborationPage() {
   }, [user, accompagnateurs]);
   const estLectureSeule = monRoleCollaboratif === 'LECTURE';
   const estAccompagnateur = monRoleCollaboratif !== null && sejour?.createur?.id !== user?.id;
-  const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'chambres', 'journal'];
+
+  // Onglets réellement visibles pour l'utilisateur courant. Reprend À L'IDENTIQUE les
+  // conditions de la barre (rôle / accompagnateur / isEvenement / isDirect) et ajoute
+  // le gating permissions HEBERGEUR : Devis masqué si devis:NONE, Notes si crm:NONE.
+  const ongletsVisibles = useMemo<Tab[]>(() => {
+    const role = user?.role;
+    return TABS.filter((t) =>
+      estAccompagnateur
+        ? ACCOMPAGNATEUR_TABS.includes(t.key)
+        : (
+          (t.key !== 'projet' || role === 'ORGANISATEUR') &&
+          (t.key !== 'budget' || role === 'ORGANISATEUR' || role === 'SIGNATAIRE') &&
+          (t.key !== 'groupes' || role === 'ORGANISATEUR' || role === 'HEBERGEUR') &&
+          (t.key !== 'journal' || role === 'ORGANISATEUR' || role === 'HEBERGEUR') &&
+          (t.key !== 'notes' || (role === 'HEBERGEUR' && sejour?.mesPermissions?.crm !== 'NONE')) &&
+          (t.key !== 'chambres' || role === 'HEBERGEUR' || role === 'ORGANISATEUR') &&
+          (t.key !== 'devis' || !(role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'NONE'))
+        )
+      )
+      .filter((t) => {
+        if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants' || t.key === 'journal' || t.key === 'chambres')) return false;
+        if (isDirect && (t.key === 'budget' || t.key === 'projet')) return false;
+        return true;
+      })
+      .map((t) => t.key);
+  }, [user, sejour, estAccompagnateur, isEvenement, isDirect]);
+
+  // Onglet réellement affiché : toujours un onglet visible (l'état `tab` peut pointer
+  // sur un onglet masqué → on bascule sur le premier visible sans muter le state).
+  const activeTab: Tab = ongletsVisibles.includes(tab) ? tab : (ongletsVisibles[0] ?? tab);
+
+  // ── Tracking visite onglet (notifications hébergeur) — sur l'onglet AFFICHÉ ──
+  useEffect(() => {
+    const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
+    if (!user || user.role !== 'HEBERGEUR' || !id || !ONGLETS_TRACKING.includes(activeTab)) return;
+    marquerVisite(id, activeTab).catch(() => {});
+  }, [activeTab, user, id]);
 
   // Budget (partagé : onglet devis via TabDevisFacturation + onglet budget)
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
@@ -136,13 +167,6 @@ export default function CollaborationPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [id, user]);
 
-  useEffect(() => {
-    if (estAccompagnateur && !ACCOMPAGNATEUR_TABS.includes(tab)) {
-      setTab('planning');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estAccompagnateur, tab]);
-
   // ── Load tab data ──
   const loadParticipants = useCallback(async () => {
     if (!id) return;
@@ -167,14 +191,14 @@ export default function CollaborationPage() {
   }, [id]);
 
   useEffect(() => {
-    if (tab === 'devis' && !isDirect) loadBudget();
-    if (tab === 'groupes') {
+    if (activeTab === 'devis' && !isDirect) loadBudget();
+    if (activeTab === 'groupes') {
       getGroupes(id).then(setGroupes).catch(() => {});
       loadParticipants();
     }
-    if (tab === 'participants') loadParticipants();
-    if (tab === 'budget') loadBudget();
-  }, [tab, isDirect, id, loadParticipants, loadBudget]);
+    if (activeTab === 'participants') loadParticipants();
+    if (activeTab === 'budget') loadBudget();
+  }, [activeTab, isDirect, id, loadParticipants, loadBudget]);
 
   // ── Save thématiques ──
   const handleSaveThematiques = async () => {
@@ -335,32 +359,16 @@ export default function CollaborationPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* overflow-x-auto : sur mobile les onglets débordent et doivent rester atteignables */}
           <div className="flex gap-6 overflow-x-auto">
-            {TABS.filter((t) =>
-              estAccompagnateur
-                ? ACCOMPAGNATEUR_TABS.includes(t.key)
-                : (
-                  (t.key !== 'projet' || user.role === 'ORGANISATEUR') &&
-                  (t.key !== 'budget' || user.role === 'ORGANISATEUR' || isDirector) &&
-                  (t.key !== 'groupes' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'journal' || user.role === 'ORGANISATEUR' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'notes' || user.role === 'HEBERGEUR') &&
-                  (t.key !== 'chambres' || user.role === 'HEBERGEUR' || user.role === 'ORGANISATEUR')
-                )
-            )
-            .filter((t) => {
-              // Journal masqué pour tout EVENEMENT (quel que soit le mode de gestion).
-              if (isEvenement && (t.key === 'groupes' || t.key === 'projet' || t.key === 'participants' || t.key === 'journal' || t.key === 'chambres')) return false;
-              if (isDirect && (t.key === 'budget' || t.key === 'projet')) return false;
-              return true;
-            })
-            .map((t) => {
-              const label = t.key === 'planning' && isEvenement ? 'Programme' : t.label;
+            {ongletsVisibles.map((key) => {
+              const t = TABS.find((x) => x.key === key);
+              if (!t) return null;
+              const label = key === 'planning' && isEvenement ? 'Programme' : t.label;
               return (
                 <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
+                  key={key}
+                  onClick={() => setTab(key)}
                   className={`shrink-0 whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${
-                    tab === t.key
+                    activeTab === key
                       ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
@@ -377,7 +385,7 @@ export default function CollaborationPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {/* ── Devis & facturation (DIRECT + COLLABORATIF) ─── */}
-        {tab === 'devis' && sejour && (
+        {activeTab === 'devis' && sejour && (
           <TabDevisFacturation
             sejourId={id}
             sejour={sejour}
@@ -389,7 +397,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Messages ─── */}
-        {tab === 'messages' && (
+        {activeTab === 'messages' && (
           <TabMessages
             sejourId={id}
             user={user}
@@ -401,7 +409,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Planning ─── */}
-        {tab === 'planning' && sejour && (
+        {activeTab === 'planning' && sejour && (
           <TabPlanning
             sejourId={id}
             sejour={sejour}
@@ -412,7 +420,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Groupes ─── */}
-        {tab === 'groupes' && (
+        {activeTab === 'groupes' && (
           <TabGroupes
             sejourId={id}
             sejour={sejour}
@@ -428,7 +436,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Participants ─── */}
-        {tab === 'participants' && (
+        {activeTab === 'participants' && (
           <TabParticipantsCollab
             sejour={sejour}
             user={user}
@@ -441,7 +449,7 @@ export default function CollaborationPage() {
         {/* ── Chambres (SEJOUR uniquement) : hébergeur = attribution,
                organisateur = rooming. Ternaire EXPLICITE — un rôle imprévu
                ne doit jamais tomber sur TabRooming. ─── */}
-        {tab === 'chambres' && sejour && (
+        {activeTab === 'chambres' && sejour && (
           user.role === 'HEBERGEUR' ? (
             <TabChambres
               sejourId={id}
@@ -462,7 +470,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Journal ─── */}
-        {tab === 'journal' && (
+        {activeTab === 'journal' && (
           <TabJournal
             sejourId={id}
             user={user}
@@ -475,7 +483,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Documents ─── */}
-        {tab === 'documents' && (
+        {activeTab === 'documents' && (
           <TabDocuments
             sejourId={id}
             isDirector={isDirector}
@@ -486,7 +494,7 @@ export default function CollaborationPage() {
         )}
 
         {/* ── Budget prévisionnel ─── */}
-        {tab === 'budget' && (
+        {activeTab === 'budget' && (
           <TabBudget
             sejourId={id}
             user={user}
@@ -497,11 +505,11 @@ export default function CollaborationPage() {
           />
         )}
         {/* ── Projet pédagogique ─── */}
-        {tab === 'projet' && user.role === 'ORGANISATEUR' && (
+        {activeTab === 'projet' && user.role === 'ORGANISATEUR' && (
           <TabProjetPedagogique sejourId={id} />
         )}
         {/* ── Notes & suivi (tous modes / natures, hébergeur seul) ─── */}
-        {tab === 'notes' && sejour && (
+        {activeTab === 'notes' && sejour && (
           <TabNotes
             sejourId={id}
             initialNotes={sejour.notesInternes ?? ''}
