@@ -41,19 +41,39 @@ const DEFAULT_PERMS: PermMap = {
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 
 function PermissionGrid({ value, onChange }: { value: PermMap; onChange: (m: PermModule, l: PermLevel) => void }) {
+  // Facturation et devis se pilotent UNIQUEMENT depuis la fiche d'un séjour, dont
+  // l'accès exige au moins `sejours: READ`. Les accorder à un collaborateur qui a
+  // `sejours: NONE` produit un droit inexploitable → on avertit (sans bloquer).
+  const modulesSansSejour = [
+    ...(value.facturation !== 'NONE' ? ['la facturation'] : []),
+    ...(value.devis !== 'NONE' ? ['les devis'] : []),
+  ];
+  const avertirSejoursManquant = value.sejours === 'NONE' && modulesSansSejour.length > 0;
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {MODULES.map(({ key, label }) => (
-        <div key={key}>
-          <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
-          <select value={value[key]} onChange={(e) => onChange(key, e.target.value as PermLevel)} className={inputCls}>
-            <option value="NONE">{LEVEL_LABELS.NONE}</option>
-            <option value="READ">{LEVEL_LABELS.READ}</option>
-            <option value="WRITE">{LEVEL_LABELS.WRITE}</option>
-          </select>
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {MODULES.map(({ key, label }) => (
+          <div key={key}>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+            <select value={value[key]} onChange={(e) => onChange(key, e.target.value as PermLevel)} className={inputCls}>
+              <option value="NONE">{LEVEL_LABELS.NONE}</option>
+              <option value="READ">{LEVEL_LABELS.READ}</option>
+              <option value="WRITE">{LEVEL_LABELS.WRITE}</option>
+            </select>
+          </div>
+        ))}
+      </div>
+      {avertirSejoursManquant && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
+          <span aria-hidden className="shrink-0">⚠️</span>
+          <span>
+            {modulesSansSejour.join(' et ')} se {modulesSansSejour.length > 1 ? 'gèrent' : 'gère'} depuis
+            la fiche d&apos;un séjour. Sans accès «&nbsp;Séjours&nbsp;» (au moins Lecture), ce
+            collaborateur ne pourra pas s&apos;en servir.
+          </span>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 
