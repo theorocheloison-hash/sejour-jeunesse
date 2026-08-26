@@ -393,6 +393,9 @@ export default function CollaborationPage() {
             isDirect={isDirect}
             budgetData={budgetData}
             onError={setMutationError}
+            peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
+            peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
+            peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
           />
         )}
 

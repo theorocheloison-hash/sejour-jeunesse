@@ -45,6 +45,12 @@ interface TabDevisFacturationProps {
   isDirect: boolean;
   budgetData: BudgetData | null;
   onError: (message: string) => void;
+  // Gating UI par module (calculé côté page depuis sejour.mesPermissions).
+  // devis est toujours ≥ READ dans ce composant (l'onglet est masqué si NONE),
+  // donc peutEcrireDevis = devis:WRITE. Facturation : NONE/READ/WRITE coexistent.
+  peutEcrireDevis: boolean;
+  peutEcrireFacturation: boolean;
+  peutVoirFacturation: boolean;
 }
 
 function DevisPDFInline({ data }: { data: DevisPDFProps }) {
@@ -98,7 +104,7 @@ function DevisPDFInline({ data }: { data: DevisPDFProps }) {
  * - pdfUrl présent → lien direct vers l'URL OVH publique (pas d'auth requise).
  * - pdfUrl null (génération échouée) → bouton « Régénérer le PDF ».
  */
-function FacturePdfLink({ facture, onReload }: { facture: Facture; onReload: () => Promise<void> }) {
+function FacturePdfLink({ facture, onReload, peutEcrireFacturation = false }: { facture: Facture; onReload: () => Promise<void>; peutEcrireFacturation?: boolean }) {
   const [regenerating, setRegenerating] = useState(false);
   const label =
     facture.typeFacture === 'ACOMPTE' ? "Facture d'acompte"
@@ -116,6 +122,19 @@ function FacturePdfLink({ facture, onReload }: { facture: Facture; onReload: () 
         </svg>
         {label} — {facture.numero}
       </SecureFileLink>
+    );
+  }
+
+  // PDF absent (génération échouée) : la facture existe et reste visible en lecture.
+  // Sans droit facturation, on affiche un libellé inerte plutôt que le bouton d'action.
+  if (!peutEcrireFacturation) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-400"
+        title="Le PDF n'a pas encore été généré"
+      >
+        {label} — PDF indisponible
+      </span>
     );
   }
 
@@ -150,6 +169,9 @@ export default function TabDevisFacturation({
   isDirect,
   budgetData,
   onError,
+  peutEcrireDevis,
+  peutEcrireFacturation,
+  peutVoirFacturation,
 }: TabDevisFacturationProps) {
   // ── Devis DIRECT ────────────────────────────────────────────
   const [devis, setDevis] = useState<DevisType | null>(null);
@@ -783,12 +805,14 @@ export default function TabDevisFacturation({
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Devis complémentaires</h3>
-          <button
-            onClick={() => { resetCompForm(); setShowModalComplementaire(true); }}
-            className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
-          >
-            + Ajouter un devis
-          </button>
+          {peutEcrireDevis && (
+            <button
+              onClick={() => { resetCompForm(); setShowModalComplementaire(true); }}
+              className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+            >
+              + Ajouter un devis
+            </button>
+          )}
         </div>
         <p className="text-xs text-gray-400">
           Payeurs additionnels (Association sportive, Mairie, CE…) — chacun reçoit sa propre facture à son nom.
@@ -830,8 +854,8 @@ export default function TabDevisFacturation({
                     <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-2">
                       {facts.map((f) => (
                         <React.Fragment key={f.id}>
-                          <FacturePdfLink facture={f} onReload={loadComplementaires} />
-                          {f.pdfUrl && (
+                          <FacturePdfLink facture={f} onReload={loadComplementaires} peutEcrireFacturation={peutEcrireFacturation} />
+                          {f.pdfUrl && peutEcrireFacturation && (
                             <button
                               onClick={() => handleOpenEnvoiFacture(f)}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -844,7 +868,7 @@ export default function TabDevisFacturation({
                           )}
                         </React.Fragment>
                       ))}
-                      {!dejaFacture && !annule && (
+                      {!dejaFacture && !annule && peutEcrireDevis && (
                         <button
                           onClick={() => openEditComplementaire(c)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -852,7 +876,7 @@ export default function TabDevisFacturation({
                           Modifier
                         </button>
                       )}
-                      {!dejaFacture && !annule && (
+                      {!dejaFacture && !annule && peutEcrireFacturation && (
                         <button
                           onClick={() => handleFacturerComplementaire(c.id)}
                           disabled={compFacturerLoading === c.id}
@@ -876,7 +900,7 @@ export default function TabDevisFacturation({
   };
 
   const renderFacturationPipeline = () => {
-    if (user.role !== 'HEBERGEUR') return null;
+    if (!peutVoirFacturation) return null;
     if (!activeDevisForFacturation) return null;
     const FACTURATION_STATUTS = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'];
     if (!FACTURATION_STATUTS.includes(activeDevisForFacturation.statut)) return null;
@@ -917,8 +941,8 @@ export default function TabDevisFacturation({
               .filter((f): f is Facture => !!f)
               .map((f) => (
                 <React.Fragment key={f.id}>
-                  <FacturePdfLink facture={f} onReload={reloadFactures} />
-                  {f.pdfUrl && (
+                  <FacturePdfLink facture={f} onReload={reloadFactures} peutEcrireFacturation={peutEcrireFacturation} />
+                  {f.pdfUrl && peutEcrireFacturation && (
                     <button
                       onClick={() => handleOpenEnvoiFacture(f)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -1009,13 +1033,15 @@ export default function TabDevisFacturation({
                   )}
                   {v.reference && <span className="text-gray-400">Réf: {v.reference}</span>}
                 </div>
-                <button
-                  onClick={() => handleSupprimerVersement(v)}
-                  className="text-red-400 hover:text-red-600 transition-colors"
-                  title="Supprimer ce versement"
-                >
-                  ×
-                </button>
+                {peutEcrireFacturation && (
+                  <button
+                    onClick={() => handleSupprimerVersement(v)}
+                    className="text-red-400 hover:text-red-600 transition-colors"
+                    title="Supprimer ce versement"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1099,7 +1125,7 @@ export default function TabDevisFacturation({
         )}
 
         <div className="flex items-center gap-2 flex-wrap pt-2">
-          {factures.length > 0 && resteDu > 0 && (
+          {factures.length > 0 && resteDu > 0 && peutEcrireFacturation && (
             <button
               onClick={() => setShowAddVersement(true)}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -1107,7 +1133,7 @@ export default function TabDevisFacturation({
               + Ajouter un versement
             </button>
           )}
-          {etatFacturation === 'AUCUNE' && (
+          {etatFacturation === 'AUCUNE' && peutEcrireFacturation && (
             <>
               <button
                 onClick={handleFacturerAcompte}
@@ -1125,7 +1151,7 @@ export default function TabDevisFacturation({
               </button>
             </>
           )}
-          {etatFacturation === 'ACOMPTE' && (
+          {etatFacturation === 'ACOMPTE' && peutEcrireFacturation && (
             <button
               onClick={handleFacturerSolde}
               disabled={facturerLoading || !factureAcompte?.acompteVerse}
@@ -1137,7 +1163,7 @@ export default function TabDevisFacturation({
           )}
 
           {/* Avoir sur l'acompte — si acompte émis et pas encore d'avoir */}
-          {factureAcompte && !avoirSurAcompte && (
+          {factureAcompte && !avoirSurAcompte && peutEcrireFacturation && (
             <button
               onClick={() => openModalAvoir(factureAcompte)}
               className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
@@ -1146,7 +1172,7 @@ export default function TabDevisFacturation({
             </button>
           )}
           {/* Avoir sur le solde — si solde émis et pas encore d'avoir */}
-          {factureSolde && !avoirSurSolde && (
+          {factureSolde && !avoirSurSolde && peutEcrireFacturation && (
             <button
               onClick={() => openModalAvoir(factureSolde)}
               className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
@@ -1157,7 +1183,7 @@ export default function TabDevisFacturation({
 
           {/* Annuler le devis — DIRECT ou COLLABORATIF, devis sélectionné/signé.
               Si une facture est émise, le backend exige d'abord un avoir (boutons ci-dessus). */}
-          {activeDevisStatut && ['SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (!factureAcompte || avoirSurAcompte) && (!factureSolde || avoirSurSolde) && (
+          {peutEcrireDevis && activeDevisStatut && ['SELECTIONNE', 'SIGNE_DIRECTION'].includes(activeDevisStatut) && (!factureAcompte || avoirSurAcompte) && (!factureSolde || avoirSurSolde) && (
             <button
               onClick={() => setShowModalAnnuler(true)}
               disabled={annulerLoading}
@@ -1264,7 +1290,7 @@ export default function TabDevisFacturation({
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
                   <button
                     onClick={() => { setMessagePerso(''); setEnvoiError(null); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
@@ -1274,7 +1300,7 @@ export default function TabDevisFacturation({
                   </button>
                 )}
 
-                {!sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && !sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
                   <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                     Renseignez l&apos;email du client pour pouvoir envoyer le devis par email.
                   </p>
@@ -1378,7 +1404,7 @@ export default function TabDevisFacturation({
                   </div>
                 )}
 
-                {['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut) && !factureAcompte && (
+                {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut) && !factureAcompte && (
                   <Link
                     href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -1386,7 +1412,7 @@ export default function TabDevisFacturation({
                     Modifier le devis
                   </Link>
                 )}
-                {(devis.statut === 'EN_ATTENTE' || devis.statut === 'SELECTIONNE')
+                {peutEcrireDevis && (devis.statut === 'EN_ATTENTE' || devis.statut === 'SELECTIONNE')
                   && !devis.signatureDirecteur
                   && !devis.nomSignataireDirecteur && (
                   <>
@@ -1465,7 +1491,7 @@ export default function TabDevisFacturation({
                   </>
                 )}
                 {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
-                {factureAcompte && !factureSolde && (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') && (
+                {peutEcrireDevis && factureAcompte && !factureSolde && (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') && (
                   <Link
                     href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
                     className="rounded-lg border border-amber-300 px-4 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
@@ -1524,16 +1550,18 @@ export default function TabDevisFacturation({
                       )}
                       {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
                     </button>
-                    <button
-                      onClick={() => handleGenererConvention(devis.id, sejour?.clientEmail)}
-                      disabled={conventionLoading}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                    >
-                      {conventionLoading && (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      )}
-                      {conventionLoading ? 'Envoi…' : devis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                    </button>
+                    {peutEcrireDevis && (
+                      <button
+                        onClick={() => handleGenererConvention(devis.id, sejour?.clientEmail)}
+                        disabled={conventionLoading}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        {conventionLoading && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        )}
+                        {conventionLoading ? 'Envoi…' : devis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
+                      </button>
+                    )}
                   </div>
 
                   {conventionSuccess && (
@@ -1653,12 +1681,14 @@ export default function TabDevisFacturation({
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Devis</h3>
               <p className="text-xs text-gray-500 mb-4">Créez un devis pour ce séjour et envoyez-le au client pour signature.</p>
-              <Link
-                href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`}
-                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
-              >
-                Créer un devis
-              </Link>
+              {peutEcrireDevis && (
+                <Link
+                  href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`}
+                  className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Créer un devis
+                </Link>
+              )}
             </div>
           )}
           {renderDevisComplementaires()}
@@ -1807,7 +1837,7 @@ export default function TabDevisFacturation({
                         Voir le document signé
                       </SecureFileLink>
                     )}
-                    {user.role === 'HEBERGEUR' && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
+                    {peutEcrireDevis && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
                       <>
                         <button
                           onClick={() => { setShowMarquerSigne(true); setMarquerSigneNom(''); }}
@@ -1884,7 +1914,7 @@ export default function TabDevisFacturation({
                       </>
                     )}
                   </div>
-                  {user.role === 'HEBERGEUR' && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && !factureAcompte && (
+                  {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && !factureAcompte && (
                     <a
                       href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                       className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -1896,7 +1926,7 @@ export default function TabDevisFacturation({
                     </a>
                   )}
                   {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
-                  {user.role === 'HEBERGEUR' && factureAcompte && !factureSolde && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') && (
+                  {peutEcrireDevis && factureAcompte && !factureSolde && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') && (
                     <a
                       href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
                       className="flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
@@ -1981,16 +2011,18 @@ export default function TabDevisFacturation({
                         )}
                         {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
                       </button>
-                      <button
-                        onClick={() => handleGenererConvention(d.id, createur?.email)}
-                        disabled={conventionLoading}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        {conventionLoading && (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        )}
-                        {conventionLoading ? 'Envoi…' : d.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                      </button>
+                      {peutEcrireDevis && (
+                        <button
+                          onClick={() => handleGenererConvention(d.id, createur?.email)}
+                          disabled={conventionLoading}
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          {conventionLoading && (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          )}
+                          {conventionLoading ? 'Envoi…' : d.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
+                        </button>
+                      )}
                     </div>
 
                     {conventionSuccess && (
