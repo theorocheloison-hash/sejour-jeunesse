@@ -170,7 +170,7 @@ function DraggableActivity({
     <div
       ref={setNodeRef}
       style={style}
-      onClick={(e) => { e.stopPropagation(); if (!isDragging && !resizing && !justResized.current) onEdit(); }}
+      onClick={(e) => { e.stopPropagation(); if (isHebergeur && !isDragging && !resizing && !justResized.current) onEdit(); }}
     >
       <div
         className="h-full rounded-md text-white text-xs p-1.5 overflow-hidden shadow-sm select-none"
