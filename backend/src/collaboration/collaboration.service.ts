@@ -196,6 +196,7 @@ export class CollaborationService {
       monAccesGestionPropre,
       monAccesDevis,
       monAccesFacturation,
+      mesPermissions: perms,
     };
   }
 
