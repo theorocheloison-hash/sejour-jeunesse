@@ -2,6 +2,7 @@
 
 > **Rédigé le 11/06/2026** — Document de cadrage complet
 > **Dernière mise à jour** : 25/06/2026 — PSP tranché : Mollie. Pricing mensuel + annuel réintroduit (remise ~17%, prix ronds).
+> **Mise à jour 27/08/2026** — Supplément multi-centre révisé : **par plan** (Complet +29 €/mois ou +290 €/an, Pilotage +49 €/mois ou +490 €/an) au lieu du plat +39/+390, et **Découverte/Essentiel limités à un seul centre**. Les bases 29/49/69 (290/490/690) sont inchangées.
 > **Statut** — Grille pricing validée par Théo. Compte Mollie créé. Aucun code modifié.
 > **Référence complémentaire** — `docs/commercial/BUSINESS_MODEL.md` (modèle historique)
 > **Prochaine étape** — Intégration backend Mollie SEPA + migration Prisma PILOTAGE
@@ -25,10 +26,10 @@ L'hébergeur choisit sa fréquence (mensuel ou annuel) au moment de la souscript
 ### 1.2 Multi-centre
 
 - Disponible uniquement à partir du plan **Complet**
-- Prix : **+39 € HT/mois** ou **+390 € HT/an** par centre supplémentaire
+- Prix par centre supplémentaire (à partir du 2ᵉ), **selon le plan** : Complet **+29 € HT/mois** (+290 €/an), Pilotage **+49 € HT/mois** (+490 €/an). Découverte et Essentiel = **un seul centre** (multi-centre bloqué)
 - Le centre supplémentaire hérite du plan de l'hébergeur (Complet ou Pilotage)
 - Pas de remise dégressive pour le moment (à réévaluer à 5+ centres)
-- Exemple Pôle Montagne (Complet + 1 centre supp) : 88 €/mois ou 880 €/an
+- Exemple Pôle Montagne (Complet + 1 centre supp) : 78 €/mois (49 + 29) ou 780 €/an (490 + 290)
 
 ### 1.3 Historique tarifaire
 
@@ -73,7 +74,7 @@ L'hébergeur choisit sa fréquence (mensuel ou annuel) au moment de la souscript
 | Documents partagés | ❌ | ❌ | ✅ | ✅ |
 | Multi-utilisateur (équipe, permissions) | ❌ | ❌ | ✅ | ✅ |
 | Inscription directe participants | ❌ | ❌ | ✅ | ✅ |
-| Multi-centre | ❌ | ❌ | ✅ (+39€/centre) | ✅ (+39€/centre) |
+| Multi-centre | ❌ | ❌ | ✅ (+29€/centre) | ✅ (+49€/centre) |
 | Rentabilité / marges par séjour | ❌ | ❌ | ❌ | ✅ |
 | Tableau chiffre d'affaires | ❌ | ❌ | ❌ | ✅ |
 | Planning équipes | ❌ | ❌ | ❌ | ✅ |
@@ -199,8 +200,11 @@ Produits/Prix à créer chez le PSP (mode test puis live) :
 - LIAVO Complet annuel : 49000 centimes (490€/an)
 - LIAVO Pilotage mensuel : 6900 centimes (69€/mois)
 - LIAVO Pilotage annuel : 69000 centimes (690€/an)
-- Centre supplémentaire mensuel : 3900 centimes (39€/mois)
-- Centre supplémentaire annuel : 39000 centimes (390€/an)
+- Centre supplémentaire Complet mensuel : 2900 centimes (29€/mois)
+- Centre supplémentaire Complet annuel : 29000 centimes (290€/an)
+- Centre supplémentaire Pilotage mensuel : 4900 centimes (49€/mois)
+- Centre supplémentaire Pilotage annuel : 49000 centimes (490€/an)
+- (Découverte et Essentiel : un seul centre, pas de supplément facturable)
 
 ---
 
@@ -230,7 +234,7 @@ Produits/Prix à créer chez le PSP (mode test puis live) :
 - [x] **Durée du trial** : 30 jours en Pilotage complet.
 - [x] **Souveraineté** : EU acceptable → Mollie retenu.
 - [x] **Mode de paiement** : SEPA B2B uniquement, mandat électronique Mollie.
-- [x] **Multi-centre annuel** : +390€/an/centre supplémentaire.
+- [x] **Multi-centre** : supplément **par plan** — Complet +29€/mois (+290/an), Pilotage +49€/mois (+490/an) ; Découverte et Essentiel limités à un seul centre. *(27/08/2026 : remplace l'ancien +39/+390 plat)*
 - [x] **Fréquence** : mensuel + annuel au choix, remise ~17% sur l'annuel.
 - [x] **Upgrade mid-cycle** : nouveau prix appliqué au prélèvement suivant, pas de prorata.
 - [x] **Downgrade** : possible, sur demande manuelle uniquement (contact LIAVO). Effectif en fin de période. Données en lecture seule sur les modules désactivés.
@@ -251,6 +255,7 @@ Produits/Prix à créer chez le PSP (mode test puis live) :
 | **Complet** | **49€/mois ou 490€/an** | **25/06/2026** |
 | **Pilotage** | **69€/mois ou 690€/an** | **25/06/2026** |
 | **Centre supp** | **39€/mois ou 390€/an** | **25/06/2026** |
+| **Centre supp — révision** | **Par plan : Complet +29€/mois (+290/an), Pilotage +49€/mois (+490/an). Découverte/Essentiel = 1 centre. Remplace le +39/+390 plat.** | **27/08/2026** |
 | Remise annuelle | **~17% réintroduite** — prix annuels ronds | 25/06/2026 |
 | CRM dans Essentiel | Non. Essentiel = devis + facturation uniquement | 11/06/2026 |
 | Documents partagés dans Essentiel | Non. Uniquement avec espace collaboratif (Complet+) | 11/06/2026 |
