@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '@/src/lib/api';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { createCentre } from '@/src/lib/centre';
+import { createCentre, getMesCentres } from '@/src/lib/centre';
 import { JustificatifHint } from '@/app/components/JustificatifHint';
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -27,11 +27,34 @@ interface CentrePublic {
 
 type Mode = 'search' | 'claim' | 'manual';
 
+// Rang des plans (aligné backend PLAN_HIERARCHY) — le multi-centre exige ≥ Complet.
+const PLAN_RANK: Record<string, number> = { DECOUVERTE: 0, ESSENTIEL: 1, COMPLET: 2, PILOTAGE: 3 };
+
+// 403 PLAN_INSUFFICIENT : la modale globale (api.ts) affiche déjà le message —
+// on n'affiche PAS le message inline en double (même pattern que chambres/page.tsx).
+const isPlanError = (err: any) =>
+  err?.response?.status === 403 && err?.response?.data?.error === 'PLAN_INSUFFICIENT';
+
 // ─── Page ────────────────────────────────────────────────────────────────
 
 export default function NouveauCentrePage() {
   const router = useRouter();
   const { isMultiCentre } = useAuth();
+
+  // Plan + nombre de centres de l'org, source autoritaire (CentreResume porte
+  // planAbonnement, contrairement au résumé d'AuthContext).
+  const [planAbonnement, setPlanAbonnement] = useState<string | null>(null);
+  const [nbCentres, setNbCentres] = useState(0);
+  useEffect(() => {
+    getMesCentres()
+      .then((cs) => { setPlanAbonnement(cs[0]?.planAbonnement ?? null); setNbCentres(cs.length); })
+      .catch(() => { /* le backend reste l'autorité — pas de bandeau si la lecture échoue */ });
+  }, []);
+
+  // Cadenas informatif : une org qui exploite déjà un centre et dont le plan est
+  // < Complet ne pourra pas en ajouter un 2ᵉ (le backend tranche par un 403).
+  const multiCentreLocked =
+    nbCentres >= 1 && (PLAN_RANK[planAbonnement ?? 'DECOUVERTE'] ?? 0) < PLAN_RANK.COMPLET;
 
   const [mode, setMode] = useState<Mode>('search');
 
@@ -155,6 +178,7 @@ export default function NouveauCentrePage() {
         : 'Votre demande a été enregistrée. Ajoutez un justificatif (Kbis, récépissé RNA ou attestation) pour permettre sa validation.';
       setSuccess({ kind: 'claim', message });
     } catch (err: any) {
+      if (isPlanError(err)) return; // modale globale seule, pas de doublon inline
       setError(err?.response?.data?.message ?? 'Erreur lors de la soumission de la demande.');
     } finally {
       setSubmitting(false);
@@ -188,6 +212,7 @@ export default function NouveauCentrePage() {
         message: 'Votre centre est en attente de validation par notre équipe. Vous recevrez une notification dès qu\'il sera activé. En attendant, vous pouvez continuer à utiliser vos centres existants.',
       });
     } catch (err: any) {
+      if (isPlanError(err)) return; // modale globale seule, pas de doublon inline
       setError(err?.response?.data?.message ?? 'Erreur lors de la création du centre.');
     } finally {
       setSubmitting(false);
@@ -248,6 +273,24 @@ export default function NouveauCentrePage() {
         <p className="text-sm mb-8" style={{ color: 'var(--color-text-muted)' }}>
           Recherchez votre centre dans notre catalogue, ou créez-le manuellement.
         </p>
+
+        {multiCentreLocked && (
+          <div
+            className="mb-5 rounded-lg px-4 py-3 text-sm flex items-start gap-2.5"
+            style={{ background: 'var(--color-warning-light)', border: '1px solid var(--color-warning)', color: 'var(--color-warning)' }}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 1 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span>
+              La gestion de plusieurs centres nécessite le plan <strong>Complet</strong> ou <strong>Pilotage</strong>.
+              Vous pouvez préparer l’ajout, mais il sera refusé tant que votre organisation reste sur un plan inférieur.{' '}
+              <Link href="/dashboard/hebergeur/abonnement" className="underline" style={{ color: 'var(--color-warning)' }}>
+                Voir les plans
+              </Link>
+            </span>
+          </div>
+        )}
 
         {error && (
           <div
