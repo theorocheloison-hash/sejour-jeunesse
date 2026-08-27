@@ -23,6 +23,7 @@ import { getCentreForUser, getCentresForUser } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { matchesCapacite } from '../demandes/demande.service.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
+import { getPlanEffectif, PLAN_HIERARCHY } from '../abonnements/abonnement.constants.js';
 import { trialExpiration } from './trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
 
@@ -311,6 +312,33 @@ export class CentreService {
           } else {
             const { organisation } = await findOrCreateOrganisation(tx, orgParams);
             organisationId = organisation.id;
+          }
+        }
+
+        // Porte 1 — multi-centre réservé au plan effectif ≥ Complet. Le 1er centre
+        // d'une org passe toujours (count 0). L'essai vaut Pilotage effectif → passe.
+        // Filtre : centres exploités (userId non null) non suspendus de l'ORG.
+        const nbCentresOrg = await tx.centreHebergement.count({
+          where: { organisationId, statut: { not: 'SUSPENDED' }, userId: { not: null } },
+        });
+        if (nbCentresOrg >= 1) {
+          const org = await tx.organisation.findUnique({
+            where: { id: organisationId },
+            select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+          });
+          const effectivePlan = getPlanEffectif(
+            org?.abonnementStatut ?? null,
+            org?.abonnementActifJusquAu ?? null,
+            org?.planAbonnement ?? null,
+          );
+          if ((PLAN_HIERARCHY[effectivePlan] ?? 0) < PLAN_HIERARCHY.COMPLET) {
+            throw new ForbiddenException({
+              statusCode: 403,
+              error: 'PLAN_INSUFFICIENT',
+              planRequired: 'COMPLET',
+              planActuel: effectivePlan,
+              message: 'Le plan Complet est requis pour gérer plusieurs centres.',
+            });
           }
         }
 

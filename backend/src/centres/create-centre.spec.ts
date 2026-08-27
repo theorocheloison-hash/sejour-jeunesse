@@ -2,6 +2,7 @@ import type { JwtService } from '@nestjs/jwt';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { StorageService } from '../storage/storage.service';
 import type { EmailService } from '../email/email.service';
+import { ForbiddenException } from '@nestjs/common';
 import { CentreService } from './centre.service';
 
 /**
@@ -20,7 +21,12 @@ import { CentreService } from './centre.service';
 function mockTx() {
   return {
     centreHebergement: {
-      count: jest.fn().mockResolvedValue(2),
+      // Deux comptages distincts partagent ce mock : `centresExistants` (isPrimary,
+      // filtre par userId) → 2 ; la Porte 1 multi-centre (filtre par organisationId)
+      // → 0 par défaut = 1er centre de l'org, la garde ne se déclenche pas.
+      count: jest.fn(async ({ where }: { where: Record<string, unknown> }): Promise<number> =>
+        where?.organisationId ? 0 : 2,
+      ),
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
         id: 'centre-new',
         ...data,
@@ -171,6 +177,74 @@ describe('CentreService.createCentre', () => {
     expect(arg.where).toEqual({ userId: 'user-1', claimStatut: 'VALIDE' });
     expect(arg.orderBy).toEqual({ claimValidatedAt: 'asc' });
     expect(tx.centreHebergement.create.mock.calls[0][0].data.organisationId).toBe('org-ancienne');
+  });
+
+  // ── Porte 1 — multi-centre réservé au plan effectif ≥ Complet ──
+  describe('Porte 1 — blocage du 2ᵉ centre si plan < Complet', () => {
+    const futur = () => new Date(Date.now() + 30 * 86400000);
+
+    beforeEach(() => {
+      // Org déjà résolue via membership VALIDE (pas de création d'org), et le
+      // comptage par organisationId renvoie 1 → un centre exploité déjà présent.
+      tx.membership.findFirst.mockResolvedValue({ id: 'm-pole', organisationId: 'org-pole' });
+      tx.membership.findUnique.mockResolvedValue({ id: 'm-pole', claimStatut: 'VALIDE' });
+      tx.centreHebergement.count.mockImplementation(
+        async ({ where }: { where: Record<string, unknown> }): Promise<number> => (where?.organisationId ? 1 : 2),
+      );
+    });
+
+    it('2ᵉ centre, plan effectif Découverte → 403 PLAN_INSUFFICIENT, aucun centre créé', async () => {
+      tx.organisation.findUnique.mockResolvedValue({
+        abonnementStatut: 'INACTIF', abonnementActifJusquAu: null, planAbonnement: 'DECOUVERTE',
+      });
+
+      const err = await service.createCentre('user-1', DTO as any).catch((e) => e);
+
+      expect(err).toBeInstanceOf(ForbiddenException);
+      expect(err.getResponse()).toMatchObject({
+        error: 'PLAN_INSUFFICIENT', planRequired: 'COMPLET', planActuel: 'DECOUVERTE',
+      });
+      expect(tx.centreHebergement.create).not.toHaveBeenCalled();
+      expect(tx.membership.create).not.toHaveBeenCalled();
+    });
+
+    it('2ᵉ centre, plan effectif Essentiel actif → 403 (Essentiel < Complet)', async () => {
+      tx.organisation.findUnique.mockResolvedValue({
+        abonnementStatut: 'ACTIF', abonnementActifJusquAu: futur(), planAbonnement: 'ESSENTIEL',
+      });
+
+      await expect(service.createCentre('user-1', DTO as any)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(tx.centreHebergement.create).not.toHaveBeenCalled();
+    });
+
+    it('2ᵉ centre, plan effectif Complet actif → autorisé, centre créé', async () => {
+      tx.organisation.findUnique.mockResolvedValue({
+        abonnementStatut: 'ACTIF', abonnementActifJusquAu: futur(), planAbonnement: 'COMPLET',
+      });
+
+      await service.createCentre('user-1', DTO as any);
+
+      expect(tx.centreHebergement.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('2ᵉ centre pendant l’essai (Pilotage effectif) → autorisé', async () => {
+      tx.organisation.findUnique.mockResolvedValue({
+        abonnementStatut: 'ACTIF', abonnementActifJusquAu: futur(), planAbonnement: 'PILOTAGE',
+      });
+
+      await service.createCentre('user-1', DTO as any);
+
+      expect(tx.centreHebergement.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('plan Découverte mais expiré (fin passée) → Découverte effectif → 403', async () => {
+      tx.organisation.findUnique.mockResolvedValue({
+        abonnementStatut: 'ACTIF', abonnementActifJusquAu: new Date(Date.now() - 86400000), planAbonnement: 'COMPLET',
+      });
+
+      await expect(service.createCentre('user-1', DTO as any)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(tx.centreHebergement.create).not.toHaveBeenCalled();
+    });
   });
 
   it('échec de findOrCreateOrganisation → rollback, AUCUN centre créé', async () => {

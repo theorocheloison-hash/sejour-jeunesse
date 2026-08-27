@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,6 +11,7 @@ import { shouldRequireKbis, findOrCreateOrganisation } from './organisation.help
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { resyncMontantOrganisation } from '../abonnements/resync-montant.helper.js';
 import { mollieClient } from '../abonnements/mollie.client.js';
+import { getPlanEffectif, PLAN_HIERARCHY } from '../abonnements/abonnement.constants.js';
 
 const EN_CATALOGUE_API =
   'https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-catalogue-structures-accueil-hebergement/records';
@@ -251,6 +253,40 @@ export class ClaimService {
         sourceId: identifiantEN,
       });
       organisationId = organisation.id;
+    }
+
+    // Porte 1 — multi-centre réservé au plan effectif ≥ Complet. Le centre en
+    // cours de revendication est EXCLU du comptage (`id != existingCentreId`) :
+    // ré-revendiquer / rétro-remplir un centre déjà rattaché à l'org ne doit pas
+    // se bloquer lui-même ; seul un VRAI 2ᵉ centre (autre fiche) déclenche la garde.
+    // 1er centre → count 0 → passe. Essai = Pilotage effectif → passe.
+    const nbCentresOrg = await this.prisma.centreHebergement.count({
+      where: {
+        organisationId,
+        statut: { not: 'SUSPENDED' },
+        userId: { not: null },
+        ...(existingCentreId ? { id: { not: existingCentreId } } : {}),
+      },
+    });
+    if (nbCentresOrg >= 1) {
+      const org = await this.prisma.organisation.findUnique({
+        where: { id: organisationId },
+        select: { abonnementStatut: true, abonnementActifJusquAu: true, planAbonnement: true },
+      });
+      const effectivePlan = getPlanEffectif(
+        org?.abonnementStatut ?? null,
+        org?.abonnementActifJusquAu ?? null,
+        org?.planAbonnement ?? null,
+      );
+      if ((PLAN_HIERARCHY[effectivePlan] ?? 0) < PLAN_HIERARCHY.COMPLET) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          error: 'PLAN_INSUFFICIENT',
+          planRequired: 'COMPLET',
+          planActuel: effectivePlan,
+          message: 'Le plan Complet est requis pour gérer plusieurs centres.',
+        });
+      }
     }
 
     // ── 3. Claim piloté par le justificatif (upload optionnel) ──
