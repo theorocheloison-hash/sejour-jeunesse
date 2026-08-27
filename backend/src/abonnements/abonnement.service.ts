@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, ConflictException, ForbiddenException,
 import { TypeAbonnement, StatutAbonnement, PlanAbonnement } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getCentreForUser } from '../centres/centre.helper.js';
-import { TRIAL_DUREE_JOURS, TRIAL_EXTENSION_JOURS } from '../centres/trial.helper.js';
+import { TRIAL_DUREE_JOURS, TRIAL_EXTENSION_JOURS, estEnEssai } from '../centres/trial.helper.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { EmailService } from '../email/email.service.js';
 import { MandateMethod, MollieApiError, SubscriptionStatus } from '@mollie/api-client';
@@ -123,18 +123,19 @@ export class AbonnementService {
 
     const org = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
-      select: { trialStartedAt: true, mollieMandatId: true, abonnementActifJusquAu: true },
+      select: { trialStartedAt: true, mollieMandatId: true, modePaiement: true, abonnementActifJusquAu: true },
     });
     if (!org) throw new NotFoundException('Organisation introuvable');
 
     // Réservé aux essais (pas de mandat Mollie, pas un client payé/virement)
-    if (!org.trialStartedAt || org.mollieMandatId) {
+    if (!estEnEssai(org)) {
       throw new BadRequestException("L'extension est réservée aux comptes en période d'essai.");
     }
 
     // Anti-abus : une seule extension. Essai frais = 30j < 40 (autorisé),
     // déjà étendu = 30 + 15 = 45j > 40 (2e extension bloquée) → seuil 40j.
-    const trialStart = new Date(org.trialStartedAt);
+    // estEnEssai(org) === true garantit trialStartedAt non null (assertion sûre).
+    const trialStart = new Date(org.trialStartedAt!);
     const seuil = new Date(trialStart); seuil.setDate(seuil.getDate() + 40);
     if (org.abonnementActifJusquAu && new Date(org.abonnementActifJusquAu) > seuil) {
       throw new BadRequestException('Une extension a déjà été accordée pour cet essai.');
@@ -183,6 +184,7 @@ export class AbonnementService {
         planAbonnement: true,
         trialStartedAt: true,
         mollieMandatId: true,
+        modePaiement: true,
         mollieSubscriptionId: true,
       },
     });
@@ -200,9 +202,9 @@ export class AbonnementService {
         ? Math.ceil((expiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
-    // Distinguer trial (pas de mandat) vs abonnement payé (mandat signé)
-    const isTrial = actif && !!org.trialStartedAt && !org.mollieMandatId;
-    const trialExpire = !actif && !!org.trialStartedAt && !org.mollieMandatId;
+    // Distinguer trial (pas de mandat, pas de virement) vs abonnement payé
+    const isTrial = actif && estEnEssai(org);
+    const trialExpire = !actif && estEnEssai(org);
 
     return {
       type: org.abonnement,

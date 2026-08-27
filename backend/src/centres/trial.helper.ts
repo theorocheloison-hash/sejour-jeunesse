@@ -18,6 +18,22 @@ export function trialExpiration(): Date {
 }
 
 /**
+ * Prédicat canonique « organisation en régime d'essai gratuit ».
+ * Un essai ⟺ un trial démarré, sans mandat Mollie ET sans paiement par virement.
+ * Un client virement (facturé par l'admin, trialStartedAt résiduel) N'EST PAS en essai.
+ * Orthogonal à `actif` (ACTIF + non expiré) : les appelants combinent selon besoin.
+ */
+export function estEnEssai(org: {
+  trialStartedAt: Date | null;
+  mollieMandatId: string | null;
+  modePaiement: string | null;
+}): boolean {
+  return org.trialStartedAt !== null
+    && org.mollieMandatId === null
+    && org.modePaiement !== 'VIREMENT';
+}
+
+/**
  * Source UNIQUE de démarrage de l'essai gratuit 30j Pilotage.
  * Appelée par les 4 chemins d'activation : login (auth.service), validation de
  * claim (claim.service), activation de centre et validation d'hébergeur

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { FactureLiavoService } from '../facture-liavo/facture-liavo.service.js';
 import { findOrCreateOrganisation } from '../organisations/organisation.helpers.js';
-import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
+import { demarrerOuAlignerTrial, estEnEssai } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
@@ -1451,6 +1451,7 @@ export class AdminService {
             planAbonnement: true,
             trialStartedAt: true,
             mollieMandatId: true,
+            modePaiement: true,
             abonnementActifJusquAu: true,
             abonnementStatut: true,
           },
@@ -1489,7 +1490,7 @@ export class AdminService {
         else signal = 'rouge';
       }
 
-      const isTrial = !!c.organisation?.trialStartedAt && !c.organisation?.mollieMandatId;
+      const isTrial = c.organisation ? estEnEssai(c.organisation) : false;
       const expiration = c.organisation?.abonnementActifJusquAu ?? null;
       const joursRestants = expiration
         ? Math.ceil((new Date(expiration).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))

@@ -1,5 +1,5 @@
 import type { PrismaService } from '../prisma/prisma.service';
-import { demarrerOuAlignerTrial } from './trial.helper';
+import { demarrerOuAlignerTrial, estEnEssai } from './trial.helper';
 
 /**
  * Tests de la source unique de démarrage de l'essai gratuit
@@ -150,5 +150,25 @@ describe('demarrerOuAlignerTrial (Lot 2e — essai porté par l organisation)', 
     prisma.organisation.findUnique.mockResolvedValue(null);
     await run();
     expectNoOp();
+  });
+});
+
+describe('estEnEssai (prédicat canonique, fonction pure)', () => {
+  const trialStart = new Date(Date.now() - 10 * JOUR_MS);
+
+  it('(a) trial pur (trial démarré, sans mandat, sans virement) → true', () => {
+    expect(estEnEssai({ trialStartedAt: trialStart, mollieMandatId: null, modePaiement: null })).toBe(true);
+  });
+
+  it('(b) client virement avec trialStartedAt résiduel → false', () => {
+    expect(estEnEssai({ trialStartedAt: trialStart, mollieMandatId: null, modePaiement: 'VIREMENT' })).toBe(false);
+  });
+
+  it('(c) mandat Mollie signé → false', () => {
+    expect(estEnEssai({ trialStartedAt: trialStart, mollieMandatId: 'mdt_1', modePaiement: null })).toBe(false);
+  });
+
+  it('(d) abonnement offert (trialStartedAt null, ACTIF) → false', () => {
+    expect(estEnEssai({ trialStartedAt: null, mollieMandatId: null, modePaiement: null })).toBe(false);
   });
 });
