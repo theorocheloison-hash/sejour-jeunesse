@@ -29,7 +29,7 @@ export default function CgvHebergeurPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Conditions Générales de Vente — Hébergeurs</h1>
-          <p className="text-sm text-gray-500">Version 1.1 — En vigueur depuis juin 2026 — Applicables aux centres d&apos;hébergement</p>
+          <p className="text-sm text-gray-500">Version 1.2 — En vigueur depuis août 2026 — Applicables aux centres d&apos;hébergement</p>
         </div>
 
         <div className={infoCls}>
@@ -78,7 +78,7 @@ export default function CgvHebergeurPage() {
             <li className={liCls}><strong>Pilotage</strong> — 69 € HT/mois ou 690 € HT/an</li>
           </ul>
           <p className={pCls}>
-            Un supplément de 39 € HT/mois (ou 390 € HT/an) par centre supplémentaire est applicable à partir du deuxième centre, pour les formules Complet et Pilotage.
+            Un supplément par centre supplémentaire, applicable à partir du deuxième centre, s&apos;ajoute pour les formules Complet (29 € HT/mois ou 290 € HT/an) et Pilotage (49 € HT/mois ou 490 € HT/an). Les formules Découverte et Essentiel sont limitées à un seul centre.
           </p>
           <p className={pCls}>
             Le détail des fonctionnalités incluses dans chaque formule est accessible depuis la page Abonnement de l&apos;espace hébergeur.
