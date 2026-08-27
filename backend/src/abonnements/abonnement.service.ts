@@ -9,6 +9,7 @@ import { MandateMethod, MollieApiError, SubscriptionStatus } from '@mollie/api-c
 import { calculerMontantAbonnementCents, centsToMollie } from './abonnement.constants.js';
 import { mollieClient } from './mollie.client.js';
 import { resyncMontantOrganisation } from './resync-montant.helper.js';
+import { montantRecurrentOrganisationCents } from './montant-organisation.helper.js';
 
 @Injectable()
 export class AbonnementService {
@@ -460,12 +461,9 @@ export class AbonnementService {
         let montantFacture = Math.round(Number(payment.amount?.value) * 100);
         if (!payment.amount?.value || !Number.isFinite(montantFacture) || montantFacture <= 0) {
           console.error('[mollie-webhook] payment.amount invalide, fallback recalcul théorique:', payment.amount);
-          const nbCentresFacture = await this.prisma.centreHebergement.count({
-            where: { organisationId: org.id, statut: 'ACTIVE', userId: { not: null } },
-          });
-          montantFacture = calculerMontantAbonnementCents(
-            org.planAbonnement, frequence ?? 'MENSUEL', nbCentresFacture,
-          );
+          // Recalcul théorique via le point de calcul unique (iso-comportement :
+          // même plan, même fréquence org, même comptage ACTIVE + userId non null).
+          montantFacture = await montantRecurrentOrganisationCents(this.prisma, org.id);
         }
         // Centre représentatif (trace + fallback destinataire actuel d'emettre —
         // le destinataire raison sociale org est le Lot 4).

@@ -8,9 +8,12 @@ function mockPrisma() {
     organisation: {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
+      // Lu par montantRecurrentOrganisationCents (point de calcul unique) pour le
+      // mail de renouvellement — le where du cron a déjà filtré abonnement ANNUEL.
+      findUnique: jest.fn().mockResolvedValue({ planAbonnement: 'PILOTAGE', abonnement: 'ANNUEL' }),
     },
-    // Conservé UNIQUEMENT pour vérifier que le cron ne touche plus les centres
-    // (ni lecture, ni tampon, ni count multi-centre) depuis L3b.
+    // centreHebergement.count : re-sollicité par le point de calcul unique (même
+    // filtre ACTIVE + userId non null que l'include) ; update jamais touché (L3b).
     centreHebergement: {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
@@ -441,7 +444,7 @@ describe('CronAlertesService', () => {
       expect(corps).toContain('690 €');
     });
 
-    it("le montant inclut le supplément multi-centre +490 €/an/centre (10.5) : org à 2 centres exploités → 1180 €, SANS count séparé", async () => {
+    it("le montant inclut le supplément multi-centre +490 €/an/centre (10.5) : org à 2 centres exploités → 1180 €", async () => {
       prisma.organisation.findMany.mockResolvedValue([
         orgEssai({
           id: 'org-pm',
@@ -452,13 +455,17 @@ describe('CronAlertesService', () => {
           ],
         }),
       ]);
+      // Le point de calcul unique refait un count filtré (2 centres exploités ici).
+      prisma.centreHebergement.count.mockResolvedValue(2);
 
       const { renouvellementsNotifies } = await service.envoyerAlertesRenouvellement();
 
       expect(renouvellementsNotifies).toBe(1);
-      // Q7 : le nombre de centres facturables vient de l'include filtré de la
-      // requête org — l'ancien count par userId (faux en multi-société) a disparu.
-      expect(prisma.centreHebergement.count).not.toHaveBeenCalled();
+      // Le montant passe par montantRecurrentOrganisationCents, qui compte les
+      // centres exploités avec le MÊME filtre que l'include (ACTIVE + userId non null).
+      expect(prisma.centreHebergement.count).toHaveBeenCalledWith({
+        where: { organisationId: 'org-pm', statut: 'ACTIVE', userId: { not: null } },
+      });
       const [, , corps] = emailService.sendGenericNotification.mock.calls[0];
       expect(corps).toContain('1180 €');
       expect(corps).not.toContain('690 €');

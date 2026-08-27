@@ -219,6 +219,9 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
         amount: { currency: 'EUR', value: '147.00' },
       });
       prisma.organisation.findFirst.mockResolvedValue(orgAbonnee());
+      // Le fallback recalcul passe par montantRecurrentOrganisationCents, qui
+      // relit l'org via findUnique (par id) : même ligne que findFirst en prod.
+      prisma.organisation.findUnique.mockResolvedValue(orgAbonnee());
     });
 
     it('résout l ORGANISATION par mollieCustomerId', async () => {

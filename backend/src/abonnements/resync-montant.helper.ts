@@ -1,5 +1,6 @@
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { calculerMontantAbonnementCents, centsToMollie } from './abonnement.constants.js';
+import { centsToMollie } from './abonnement.constants.js';
+import { montantRecurrentOrganisationCents } from './montant-organisation.helper.js';
 
 /**
  * Réaligne le montant de la subscription Mollie d'une organisation sur son
@@ -56,15 +57,9 @@ export async function resyncMontantOrganisation(
       return;
     }
 
-    const nbCentresExploites = await prisma.centreHebergement.count({
-      where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
-    });
-
-    const montantCents = calculerMontantAbonnementCents(
-      org.planAbonnement,
-      org.abonnement ?? 'MENSUEL',
-      nbCentresExploites,
-    );
+    // Montant via le point de calcul unique (seam prix négocié). Iso-comportement :
+    // même plan, même fréquence, même comptage (statut ACTIVE + userId non null).
+    const montantCents = await montantRecurrentOrganisationCents(prisma, organisationId);
     if (montantCents <= 0) {
       // Plan DECOUVERTE/inconnu → 0 : ne jamais patcher une subscription à 0,00 €.
       console.error(
@@ -79,7 +74,7 @@ export async function resyncMontantOrganisation(
       amount: { currency: 'EUR', value: centsToMollie(montantCents) },
     });
     console.log(
-      `[resync] organisation ${organisationId} : ${nbCentresExploites} centre(s) exploité(s) → ${centsToMollie(montantCents)} €`,
+      `[resync] organisation ${organisationId} → subscription réalignée à ${centsToMollie(montantCents)} €`,
     );
   } catch (err) {
     console.error('[resync] échec organisation', organisationId, err);

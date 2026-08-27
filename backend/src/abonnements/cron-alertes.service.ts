@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
-import { calculerMontantAbonnementCents } from './abonnement.constants.js';
+import { montantRecurrentOrganisationCents } from './montant-organisation.helper.js';
 
 @Injectable()
 export class CronAlertesService {
@@ -218,12 +218,12 @@ export class CronAlertesService {
       const premier = centresExploites[0];
       if (!premier?.user?.email) continue;
       const dateFmt = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-      // 10.5 : même formule que la souscription et le webhook Mollie — plan +
-      // supplément par centre exploité au-delà du premier (le prélèvement réel
-      // inclut ce supplément, le mail doit annoncer le même montant).
-      // centresExploites est déjà filtré ACTIVE + userId non null (Q7) :
-      // pas de count séparé (l'ancien count par userId était faux en multi-société).
-      const prix = calculerMontantAbonnementCents(org.planAbonnement, 'ANNUEL', centresExploites.length) / 100;
+      // 10.5 : le mail annonce le montant RÉELLEMENT prélevé (plan + supplément
+      // par centre exploité). Via le point de calcul unique — le where a filtré
+      // abonnement 'ANNUEL', donc la fréquence lue par le helper est bien annuelle.
+      // Le helper refait un count (statut ACTIVE + userId non null) : même filtre
+      // que l'include ci-dessus → même nombre que centresExploites.length.
+      const prix = (await montantRecurrentOrganisationCents(this.prisma, org.id)) / 100;
       try {
         await this.emailService.sendGenericNotification(
           premier.user.email,
