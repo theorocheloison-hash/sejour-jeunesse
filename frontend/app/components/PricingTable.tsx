@@ -370,7 +370,9 @@ export default function PricingTable({ showCurrentPlan, currentStatut, onUpgrade
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--color-text-muted, #888780)', textAlign: 'center', marginTop: 8, lineHeight: 1.6 }}>
-        Multi-centre : +39€/mois par centre supplémentaire (plans Complet et Pilotage).
+        {isAnnual
+          ? 'Multi-centre : +290 €/an par centre supplémentaire en Complet, +490 €/an en Pilotage (à partir du 2ᵉ centre). Découverte et Essentiel : un seul centre.'
+          : 'Multi-centre : +29 €/mois par centre supplémentaire en Complet, +49 €/mois en Pilotage (à partir du 2ᵉ centre). Découverte et Essentiel : un seul centre.'}
         <br />
         TVA non applicable, art. 293 B du CGI.
       </p>
