@@ -1583,6 +1583,13 @@ export class AdminService {
     const nbCentresActifs = await this.prisma.centreHebergement.count({
       where: { organisationId: centre.organisationId, statut: 'ACTIVE', userId: { not: null } },
     });
+    // Porte 2 — cohérence avec souscrire : pas de facturation Essentiel sur une org
+    // qui exploite déjà plusieurs centres (Essentiel = un seul centre).
+    if (plan === 'ESSENTIEL' && nbCentresActifs >= 2) {
+      throw new BadRequestException(
+        'Le plan Essentiel ne permet qu’un seul centre. Cette organisation en exploite plusieurs : facturez en Complet ou Pilotage.',
+      );
+    }
     const montant = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
     // Calculer l'expiration : renouvellement = prolonger depuis la date de fin

@@ -300,6 +300,13 @@ export class AbonnementService {
     const nbCentresActifs = await this.prisma.centreHebergement.count({
       where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
     });
+    // Porte 2 — symétrique de la porte 1 : on n'autorise pas une org qui exploite
+    // déjà plusieurs centres à (re)descendre sur Essentiel (qui ne couvre qu'un centre).
+    if (plan === 'ESSENTIEL' && nbCentresActifs >= 2) {
+      throw new BadRequestException(
+        'Le plan Essentiel ne permet qu’un seul centre. Vous en exploitez plusieurs : choisissez Complet ou Pilotage.',
+      );
+    }
     const montantTotal = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
     // Créer ou réutiliser le customer Mollie (1 customer = 1 organisation)

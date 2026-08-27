@@ -200,6 +200,26 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
     });
   });
 
+  describe('souscrire — Porte 2 : Essentiel refusé si ≥2 centres actifs', () => {
+    const souscrireEssentiel = () =>
+      service.souscrire(USER_ID, 'ESSENTIEL', 'MENSUEL', 'FR76 3000 6000 0112 3456 7890 189', 'Jean Dupont', undefined, true, '1.2.3.4');
+
+    it('ESSENTIEL avec 2 centres actifs → 400, aucune écriture ni appel Mollie', async () => {
+      prisma.centreHebergement.count.mockResolvedValue(2);
+      await expect(souscrireEssentiel()).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.organisation.update).not.toHaveBeenCalled();
+      expect(mockedMollie.customerSubscriptions.create).not.toHaveBeenCalled();
+    });
+
+    it('ESSENTIEL avec 1 seul centre → autorisé (la porte ne bloque pas)', async () => {
+      prisma.centreHebergement.count.mockResolvedValue(1);
+      await souscrireEssentiel();
+      expect(prisma.organisation.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ planAbonnement: 'ESSENTIEL' }) }),
+      );
+    });
+  });
+
   describe('handleWebhook — résolution org, facture au montant prélevé, resync', () => {
     const orgAbonnee = () =>
       orgVierge({
