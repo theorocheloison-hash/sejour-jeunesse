@@ -467,7 +467,7 @@ export class AbonnementService {
 
       try {
         // Facture = montant RÉELLEMENT PRÉLEVÉ (payment.amount.value, chaîne
-        // décimale "147.00"). Fallback recalcul théorique si absent/invalide —
+        // décimale, ex. "167.00"). Fallback recalcul théorique si absent/invalide —
         // jamais de facture à 0 €.
         let montantFacture = Math.round(Number(payment.amount?.value) * 100);
         if (!payment.amount?.value || !Number.isFinite(montantFacture) || montantFacture <= 0) {

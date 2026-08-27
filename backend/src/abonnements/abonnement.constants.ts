@@ -29,8 +29,9 @@ export function centsToMollie(cents: number): string {
 }
 
 /**
- * Montant total d'un abonnement en centimes : prix du plan + supplément
- * par centre ACTIF au-delà du premier (39 €/mois ou 390 €/an par centre).
+ * Montant total d'un abonnement en centimes : prix du plan + supplément par
+ * centre ACTIF au-delà du premier, PAR PLAN (Complet 29 €/mois ou 290 €/an ;
+ * Pilotage 49 €/mois ou 490 €/an ; Essentiel/Découverte 0 = un seul centre).
  * Plan inconnu → 0 (comportement du webhook Mollie, `?? 0`).
  */
 export function calculerMontantAbonnementCents(
