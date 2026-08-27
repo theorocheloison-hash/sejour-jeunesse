@@ -74,7 +74,7 @@ describe('resyncMontantOrganisation', () => {
     expect(prisma.centreHebergement.count).not.toHaveBeenCalled();
   });
 
-  it('montant correct pour 3 centres exploités (PILOTAGE mensuel : 69 + 2×39 = 147.00) + where du count', async () => {
+  it('montant correct pour 3 centres exploités (PILOTAGE mensuel : 69 + 2×49 = 167.00) + where du count', async () => {
     prisma.centreHebergement.count.mockResolvedValue(3);
 
     await run();
@@ -86,7 +86,7 @@ describe('resyncMontantOrganisation', () => {
     expect(mollie.customerSubscriptions.update).toHaveBeenCalledWith('sub_123', {
       customerId: 'cst_123',
       mandateId: 'mdt_123',
-      amount: { currency: 'EUR', value: '147.00' },
+      amount: { currency: 'EUR', value: '167.00' },
     });
   });
 
@@ -102,7 +102,7 @@ describe('resyncMontantOrganisation', () => {
     );
   });
 
-  it("fréquence : abonnement ANNUEL → montant annuel (690 + 390 = 1080.00 pour 2 centres)", async () => {
+  it("fréquence : abonnement ANNUEL → montant annuel (690 + 490 = 1180.00 pour 2 centres)", async () => {
     prisma.organisation.findUnique.mockResolvedValue(orgAbonnee({ abonnement: 'ANNUEL' }));
     prisma.centreHebergement.count.mockResolvedValue(2);
 
@@ -110,7 +110,7 @@ describe('resyncMontantOrganisation', () => {
 
     expect(mollie.customerSubscriptions.update).toHaveBeenCalledWith(
       'sub_123',
-      expect.objectContaining({ amount: { currency: 'EUR', value: '1080.00' } }),
+      expect.objectContaining({ amount: { currency: 'EUR', value: '1180.00' } }),
     );
   });
 

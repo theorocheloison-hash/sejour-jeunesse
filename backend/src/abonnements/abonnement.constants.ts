@@ -14,8 +14,10 @@ export const PRIX_ANNUEL: Record<string, number> = {
   COMPLET: 49000,
   PILOTAGE: 69000,
 };
-export const CENTRE_SUPP_MENSUEL = 3900;
-export const CENTRE_SUPP_ANNUEL = 39000;
+// Supplément par centre ACTIF au-delà du premier, PAR PLAN (centimes).
+// ESSENTIEL n'ouvre pas le multi-centre facturable (0). Annuel = ×10 mensuel.
+export const CENTRE_SUPP_MENSUEL: Record<string, number> = { ESSENTIEL: 0, COMPLET: 2900, PILOTAGE: 4900 };
+export const CENTRE_SUPP_ANNUEL: Record<string, number> = { ESSENTIEL: 0, COMPLET: 29000, PILOTAGE: 49000 };
 
 /**
  * Conversion centimes → montant Mollie ("146.80"). Copie exportée de la
@@ -39,7 +41,8 @@ export function calculerMontantAbonnementCents(
   const annuel = frequence === 'ANNUEL';
   const prixPlan = (annuel ? PRIX_ANNUEL : PRIX_MENSUEL)[plan] ?? 0;
   const centresSupp = Math.max(0, nbCentresActifs - 1);
-  return prixPlan + centresSupp * (annuel ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL);
+  const suppUnitaire = (annuel ? CENTRE_SUPP_ANNUEL : CENTRE_SUPP_MENSUEL)[plan] ?? 0;
+  return prixPlan + centresSupp * suppUnitaire;
 }
 
 /**
@@ -57,7 +60,8 @@ export function calculerMontantPeriodeCents(
 ): number {
   const prixPlan = PRIX_MENSUEL[plan] ?? 0;
   const centresSupp = Math.max(0, nbCentresActifs - 1);
-  return nbMois * (prixPlan + centresSupp * CENTRE_SUPP_MENSUEL);
+  const suppUnitaire = CENTRE_SUPP_MENSUEL[plan] ?? 0;
+  return nbMois * (prixPlan + centresSupp * suppUnitaire);
 }
 
 /**

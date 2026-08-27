@@ -441,7 +441,7 @@ describe('CronAlertesService', () => {
       expect(corps).toContain('690 €');
     });
 
-    it("le montant inclut le supplément multi-centre +390 €/an/centre (10.5) : org à 2 centres exploités → 1080 €, SANS count séparé", async () => {
+    it("le montant inclut le supplément multi-centre +490 €/an/centre (10.5) : org à 2 centres exploités → 1180 €, SANS count séparé", async () => {
       prisma.organisation.findMany.mockResolvedValue([
         orgEssai({
           id: 'org-pm',
@@ -460,7 +460,7 @@ describe('CronAlertesService', () => {
       // requête org — l'ancien count par userId (faux en multi-société) a disparu.
       expect(prisma.centreHebergement.count).not.toHaveBeenCalled();
       const [, , corps] = emailService.sendGenericNotification.mock.calls[0];
-      expect(corps).toContain('1080 €');
+      expect(corps).toContain('1180 €');
       expect(corps).not.toContain('690 €');
     });
   });

@@ -168,12 +168,12 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
     });
 
     it('customer Mollie nommé raisonSociale ?? nom, subscription décrite par l org, montant avec supplément', async () => {
-      prisma.centreHebergement.count.mockResolvedValue(2); // 6900 + 3900 = 10800
+      prisma.centreHebergement.count.mockResolvedValue(2); // 6900 + 4900 = 11800
       await souscrire();
       expect(mockedMollie.customers.create).toHaveBeenCalledWith({ name: 'Pole Test', email: 'heb@test.fr' });
       expect(mockedMollie.customerSubscriptions.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: { value: '108.00', currency: 'EUR' },
+          amount: { value: '118.00', currency: 'EUR' },
           description: expect.stringContaining('— Pole Test'),
         }),
       );
@@ -246,10 +246,10 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
       mockedMollie.payments.get.mockResolvedValue({
         status: 'paid', sequenceType: 'recurring', customerId: 'cst_1', amount: undefined,
       });
-      prisma.centreHebergement.count.mockResolvedValue(2); // 6900 + 3900 = 10800
+      prisma.centreHebergement.count.mockResolvedValue(2); // 6900 + 4900 = 11800
       await service.handleWebhook('tr_1');
       expect(factureLiavo.emettre).toHaveBeenCalledWith(
-        'c-repr', 10800, 'PILOTAGE', 'MENSUEL', 'tr_1', null, 'org-1',
+        'c-repr', 11800, 'PILOTAGE', 'MENSUEL', 'tr_1', null, 'org-1',
       );
     });
 
