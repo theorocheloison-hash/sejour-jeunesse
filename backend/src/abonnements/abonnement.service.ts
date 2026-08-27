@@ -244,6 +244,21 @@ export class AbonnementService {
 
     const ibanClean = iban.replace(/\s+/g, '').toUpperCase();
 
+    // Nombre de centres EXPLOITÉS de l'organisation (userId non null exclut les
+    // fiches catalogue APIDAE/LMDJ jamais revendiquées). Calculé AVANT toute
+    // mutation Mollie : la porte 2 (downgrade Essentiel refusé) doit rejeter sans
+    // avoir annulé la subscription existante.
+    const nbCentresActifs = await this.prisma.centreHebergement.count({
+      where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
+    });
+    // Porte 2 — symétrique de la porte 1 : on n'autorise pas une org qui exploite
+    // déjà plusieurs centres à (re)descendre sur Essentiel (qui ne couvre qu'un centre).
+    if (plan === 'ESSENTIEL' && nbCentresActifs >= 2) {
+      throw new BadRequestException(
+        'Le plan Essentiel ne permet qu’un seul centre. Vous en exploitez plusieurs : choisissez Complet ou Pilotage.',
+      );
+    }
+
     // Si une subscription existe déjà SUR L'ORG, l'annuler (upgrade/changement).
     // C'est LA garde anti-double-souscription : le 2e centre d'une org abonnée
     // retombe sur la même subscription (remplacée), jamais 2 mandats.
@@ -295,18 +310,7 @@ export class AbonnementService {
       });
     }
 
-    // Calculer le montant : centres EXPLOITÉS de l'organisation (userId non null
-    // exclut les fiches catalogue APIDAE/LMDJ jamais revendiquées)
-    const nbCentresActifs = await this.prisma.centreHebergement.count({
-      where: { organisationId, statut: 'ACTIVE', userId: { not: null } },
-    });
-    // Porte 2 — symétrique de la porte 1 : on n'autorise pas une org qui exploite
-    // déjà plusieurs centres à (re)descendre sur Essentiel (qui ne couvre qu'un centre).
-    if (plan === 'ESSENTIEL' && nbCentresActifs >= 2) {
-      throw new BadRequestException(
-        'Le plan Essentiel ne permet qu’un seul centre. Vous en exploitez plusieurs : choisissez Complet ou Pilotage.',
-      );
-    }
+    // Montant total : réutilise nbCentresActifs déjà calculé avant le bloc cancel.
     const montantTotal = calculerMontantAbonnementCents(plan, frequence, nbCentresActifs);
 
     // Créer ou réutiliser le customer Mollie (1 customer = 1 organisation)

@@ -204,9 +204,24 @@ describe('AbonnementService (Lot 2a — abonnement porté par l organisation)', 
     const souscrireEssentiel = () =>
       service.souscrire(USER_ID, 'ESSENTIEL', 'MENSUEL', 'FR76 3000 6000 0112 3456 7890 189', 'Jean Dupont', undefined, true, '1.2.3.4');
 
-    it('ESSENTIEL avec 2 centres actifs → 400, aucune écriture ni appel Mollie', async () => {
+    it('ESSENTIEL avec 2 centres actifs → 400 AVANT toute mutation Mollie (cancel jamais appelé)', async () => {
+      // Org AVEC subscription existante : sans le fix d'ordre, le downgrade refusé
+      // annulerait le mandat avant le throw. On prouve que la porte 2 rejette AVANT
+      // le bloc cancel — ni annulation Mollie, ni reset mollieSubscriptionId.
+      prisma.organisation.findUnique.mockResolvedValue(
+        orgVierge({
+          mollieSubscriptionId: 'sub_old',
+          mollieCustomerId: 'cst_old',
+          planAbonnement: 'PILOTAGE',
+          abonnement: 'MENSUEL',
+          abonnementStatut: 'ACTIF',
+        }),
+      );
       prisma.centreHebergement.count.mockResolvedValue(2);
+
       await expect(souscrireEssentiel()).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(mockedMollie.customerSubscriptions.cancel).not.toHaveBeenCalled();
       expect(prisma.organisation.update).not.toHaveBeenCalled();
       expect(mockedMollie.customerSubscriptions.create).not.toHaveBeenCalled();
     });
