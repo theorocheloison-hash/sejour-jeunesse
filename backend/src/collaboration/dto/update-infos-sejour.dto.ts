@@ -22,6 +22,10 @@ export class UpdateInfosSejourDto {
   clientPrenom?: string;
 
   @IsOptional()
+  @IsString()
+  clientOrganisation?: string;
+
+  @IsOptional()
   @IsEmail()
   clientEmail?: string;
 

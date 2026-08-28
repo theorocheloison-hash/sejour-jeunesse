@@ -1493,6 +1493,7 @@ export class CollaborationService {
       dateFin?: string;
       clientNom?: string;
       clientPrenom?: string;
+      clientOrganisation?: string;
       clientEmail?: string;
       clientTelephone?: string;
       clientAdresse?: string;
@@ -1553,6 +1554,7 @@ export class CollaborationService {
           ...(dto.dateFin !== undefined && { dateFin: new Date(dto.dateFin) }),
           ...(dto.clientNom !== undefined && { clientNom: dto.clientNom }),
           ...(dto.clientPrenom !== undefined && { clientPrenom: dto.clientPrenom }),
+          ...(dto.clientOrganisation !== undefined && { clientOrganisation: dto.clientOrganisation }),
           ...(dto.clientEmail !== undefined && { clientEmail: dto.clientEmail }),
           ...(dto.clientTelephone !== undefined && { clientTelephone: dto.clientTelephone }),
           ...(dto.clientAdresse !== undefined && { clientAdresse: dto.clientAdresse }),
@@ -1590,6 +1592,7 @@ export class CollaborationService {
     const clientFieldsFournis =
       dto.clientNom !== undefined ||
       dto.clientPrenom !== undefined ||
+      dto.clientOrganisation !== undefined ||
       dto.clientEmail !== undefined ||
       dto.clientTelephone !== undefined ||
       dto.clientAdresse !== undefined ||
@@ -1616,8 +1619,8 @@ export class CollaborationService {
           if (dto.clientCodePostal !== undefined) clientData.codePostal = dto.clientCodePostal;
           if (dto.clientVille !== undefined) clientData.ville = dto.clientVille;
           // nom : même priorité qu'à la création (organisation > particulier),
-          // recalculé uniquement si nom/prénom fournis (cf. linkSejourToClient).
-          if (dto.clientNom !== undefined || dto.clientPrenom !== undefined) {
+          // recalculé si nom/prénom OU établissement fournis (cf. linkSejourToClient).
+          if (dto.clientNom !== undefined || dto.clientPrenom !== undefined || dto.clientOrganisation !== undefined) {
             const nomParticulier = [updated.clientPrenom, updated.clientNom]
               .filter(Boolean)
               .join(' ')
@@ -1644,6 +1647,9 @@ export class CollaborationService {
       if (dto.titre) changes.push(`Titre : <strong>${escapeHtml(dto.titre)}</strong>`);
       if (dto.dateDebut) changes.push(`Date de début : <strong>${new Date(dto.dateDebut).toLocaleDateString('fr-FR')}</strong>`);
       if (dto.dateFin) changes.push(`Date de fin : <strong>${new Date(dto.dateFin).toLocaleDateString('fr-FR')}</strong>`);
+      if (clientFieldsFournis) {
+        changes.push('Coordonnées ou établissement du client mis à jour');
+      }
 
       this.email.sendGenericNotification(
         sejour.createur.email,
