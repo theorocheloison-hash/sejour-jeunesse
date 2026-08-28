@@ -1641,7 +1641,10 @@ export class CollaborationService {
       }
     }
 
-    if (sejour.createur?.email) {
+    // Notifier le créateur (organisateur en COLLAB). Jamais l'auteur lui-même :
+    // en DIRECT, créateur = hébergeur → pas d'auto-notification (garde alignée sur
+    // notifierOrganisateur). Et seulement s'il y a au moins un changement à annoncer.
+    if (sejour.createur?.email && sejour.createurId !== userId) {
       const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
       const changes: string[] = [];
       if (dto.titre) changes.push(`Titre : <strong>${escapeHtml(dto.titre)}</strong>`);
@@ -1651,21 +1654,23 @@ export class CollaborationService {
         changes.push('Coordonnées ou établissement du client mis à jour');
       }
 
-      this.email.sendGenericNotification(
-        sejour.createur.email,
-        `Informations de votre séjour mises à jour — ${escapeHtml(updated.titre)}`,
-        `<p>Bonjour ${escapeHtml(sejour.createur.prenom ?? '')},</p>
-         <p>L'hébergeur a mis à jour les informations de votre séjour <strong>${escapeHtml(updated.titre)}</strong> :</p>
-         <ul>${changes.map(c => `<li>${c}</li>`).join('')}</ul>
-         <p style="margin:24px 0">
-           <a href="${frontendUrl}/dashboard/sejour/${sejourId}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-             Voir mon séjour
-           </a>
-         </p>`,
-        undefined,
-        undefined,
-        null,
-      ).catch(() => {});
+      if (changes.length > 0) {
+        this.email.sendGenericNotification(
+          sejour.createur.email,
+          `Informations de votre séjour mises à jour — ${escapeHtml(updated.titre)}`,
+          `<p>Bonjour ${escapeHtml(sejour.createur.prenom ?? '')},</p>
+           <p>L'hébergeur a mis à jour les informations de votre séjour <strong>${escapeHtml(updated.titre)}</strong> :</p>
+           <ul>${changes.map(c => `<li>${c}</li>`).join('')}</ul>
+           <p style="margin:24px 0">
+             <a href="${frontendUrl}/dashboard/sejour/${sejourId}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+               Voir mon séjour
+             </a>
+           </p>`,
+          undefined,
+          undefined,
+          null,
+        ).catch(() => {});
+      }
     }
 
     return updated;
