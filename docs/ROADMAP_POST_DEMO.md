@@ -16,10 +16,10 @@
 
 1. ~~**SC5bis /centre/[id]/claim**~~ ✅ DÉPLOYÉ 04/05
 2. ~~**SC4ter complétion**~~ ✅ DÉPLOYÉ 04/05
-3. **SC9** — `StatutDevis` étendu + backfill + simplification `matchesOnglet()` — estimé 1j ← PROCHAIN
-4. **CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale` — estimé 1j
-5. **`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()` — 0.5j
-6. **`DECLARE_TAM`** dans `StatutSejour` — 0.5j
+3. ~~**SC9** — `StatutDevis` étendu + backfill + simplification `matchesOnglet()`~~ ✅ FAIT (vérifié 2026-08-24 : `FACTURE_ACOMPTE`/`FACTURE_SOLDE` dans le type + `matchesOnglet` en place)
+4. ~~**CRM legacy** — migration `Client`/`ContactClient`/`Rappel` → `RelationCommerciale`~~ ✅ FAIT (migration `20260506_crm_legacy_pont_relation_commerciale` + `model RelationCommerciale`)
+5. ~~**`typeContexte HORS_SCOLAIRE`** dans `soumettreDemandePublique()`~~ ✅ FAIT (`public.service.ts` calcule `HORS_SCOLAIRE`)
+6. ~~**`DECLARE_TAM`** dans `StatutSejour`~~ ✅ FAIT (enum + migration `20260505_statut_sejour_declare_tam` + endpoint `POST /sejours/:id/declarer-tam`)
 
 ---
 
@@ -147,9 +147,9 @@ Objectif : un hébergeur en démo ne doit jamais voir de champ scolaire (niveau 
 - 3 patterns de layout différents actuellement
 - Estimé : 4-6 jours, risque moyen
 
-### JWT httpOnly cookie migration
-- Délibérément différée post-démo (risque régression auth)
-- Estimé : 1-2 jours
+### JWT httpOnly cookie migration — ✅ FAIT (vérifié 2026-08-24)
+- ~~Délibérément différée post-démo (risque régression auth)~~
+- Réalisée : `backend/src/auth/auth-cookies.ts` pose 2 cookies `httpOnly: true` (access + refresh).
 
 ### Chorus Pro production
 - Finaliser inscription AIFE (habilitation tiers mandaté)

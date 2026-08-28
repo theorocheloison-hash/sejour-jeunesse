@@ -78,4 +78,4 @@ Trois items ouverts, aucun bloquant, tous créés ou révélés par le chantier 
 
 `frontend/app/dashboard/hebergeur/page.tsx` est passé de ~900 lignes (45KB) à ~290 lignes. Les KPIs utilisent `useMemo`, les données chargées en un seul `Promise.all` de 5 appels (contre 8 + fire-and-forget). La logique CA/alertes est alignée avec `devisAlertes.ts` (source de vérité unique). Le planning compact réutilise `PLANNING_COULEURS` + `derivePlanningStatut` du module planning.
 
-La page Disponibilités (`frontend/app/dashboard/hebergeur/disponibilites/page.tsx`) est devenue orpheline (retirée de la sidebar). À supprimer physiquement dans un commit de nettoyage.
+La page Disponibilités (`frontend/app/dashboard/hebergeur/disponibilites/page.tsx`) est devenue orpheline (retirée de la sidebar). ~~À supprimer physiquement dans un commit de nettoyage.~~ **✅ FAIT (vérifié 2026-08-24)** — le dossier `disponibilites/` n'existe plus dans le code.

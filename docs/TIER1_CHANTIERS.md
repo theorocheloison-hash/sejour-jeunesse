@@ -3,10 +3,14 @@
 > **Date** : 28/05/2026
 > **Prérequis** : Session séjour DIRECT terminée (Phases 1-5 déployées)
 > **Objectif** : 4 chantiers à exécuter dans l'ordre, chacun indépendant
+>
+> **MAJ 2026-08-24 (vérifiée dans le code)** : Chantiers 1, 2 (sous-chantier A) et 3 sont **FAITS**. Seul le **Chantier 4 (labels universels)** reste à faire, et il a migré dans les composants extraits `_components/` (TabProjetPedagogique, RoomingPlanView, RoomingEditor, TabGroupes) plutôt que dans `page.tsx`.
 
 ---
 
-## Chantier 1 — Notifications hébergeur sur messages collaboratifs (1h)
+## Chantier 1 — Notifications hébergeur sur messages collaboratifs (1h) — ✅ FAIT (vérifié 2026-08-24)
+
+> `notifierHebergeur()` existe dans `collaboration.service.ts` et est appelé dans `createMessage()` et `createJournalPost()`.
 
 ### Problème
 Quand un organisateur poste un message dans l'espace collaboratif, l'hébergeur ne reçoit AUCUNE notification. L'email `notifierOrganisateur()` existe dans `collaboration.service.ts` mais ne notifie que l'organisateur (quand l'hébergeur écrit). Le symétrique n'existe pas.
@@ -26,7 +30,9 @@ Dans `backend/src/collaboration/collaboration.service.ts`, méthode `createMessa
 
 ---
 
-## Chantier 2 — Liaison CRM ↔ séjours collaboratifs (1j)
+## Chantier 2 — Liaison CRM ↔ séjours collaboratifs (1j) — ✅ FAIT côté code (vérifié 2026-08-24)
+
+> Sous-chantier **A** fait : `linkSejourToCRM()` dans `invitation-collaboration.service.ts` (appelé dans `accepter()`). Sous-chantier **B** (backfill SQL manuel) : à confirmer côté prod, non vérifiable par lecture de code.
 
 ### Problème
 Les séjours collaboratifs existants (François Croquette, Christophe Migevant) n'apparaissent pas dans le CRM. Le flow collaboratif et le CRM sont deux silos. Le séjour DIRECT alimente le CRM automatiquement (linkSejourToClient dans sejour.service.ts), mais le flow collaboratif non.
@@ -68,7 +74,9 @@ LIMIT 100;
 
 ---
 
-## Chantier 3 — Nettoyage code mort DevisLibres (0.5j)
+## Chantier 3 — Nettoyage code mort DevisLibres (0.5j) — ✅ FAIT (vérifié 2026-08-24)
+
+> Dossiers `backend/src/devis-libres/`, `frontend/app/devis-libre/`, `frontend/app/dashboard/hebergeur/devis-libres/` et `frontend/src/lib/devis-libres.ts` supprimés ; plus de `DevisLibresModule`. (Résidus attendus : redirect `next.config.ts`.)
 
 ### Prérequis
 Vérifier que la migration SQL Phase 5 a bien tourné en prod :
@@ -103,7 +111,9 @@ SELECT COUNT(*) FROM sejours WHERE mode_gestion = 'DIRECT' AND nature_sejour = '
 
 ---
 
-## Chantier 4 — Labels universels page sejour/[id] (1-2j)
+## Chantier 4 — Labels universels page sejour/[id] (1-2j) — ❌ RESTE À FAIRE (vérifié 2026-08-24)
+
+> ⚠️ Le fichier `page.tsx` a depuis été découpé : les libellés scolaires à universaliser vivent désormais dans `_components/TabProjetPedagogique.tsx` (« Établissement scolaire », « Enseignant responsable », « Lien avec les programmes scolaires »), `RoomingPlanView.tsx`, `RoomingEditor.tsx`, `TabGroupes.tsx` (« Élèves non affectés »). Cibler ces composants, plus `page.tsx`.
 
 ### Problème
 La page de 5000 lignes `frontend/app/dashboard/sejour/[id]/page.tsx` utilise des termes scolaires partout : "Établissement scolaire", "Enseignant responsable", "Nombre d'élèves", "Élèves non affectés", "Clôturez les inscriptions pour affecter les élèves", "Lien avec les programmes scolaires".
