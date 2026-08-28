@@ -619,6 +619,7 @@ export async function updateInfosSejour(
     dateFin?: string;
     clientNom?: string;
     clientPrenom?: string;
+    clientOrganisation?: string;
     clientEmail?: string;
     clientTelephone?: string;
     clientAdresse?: string;
@@ -634,6 +635,7 @@ export async function updateInfosSejour(
   dateFin: string;
   clientNom: string | null;
   clientPrenom: string | null;
+  clientOrganisation: string | null;
   clientEmail: string | null;
   clientTelephone: string | null;
   clientAdresse: string | null;

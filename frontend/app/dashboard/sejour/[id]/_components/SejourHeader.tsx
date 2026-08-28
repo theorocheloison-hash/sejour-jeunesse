@@ -58,7 +58,7 @@ export default function SejourHeader({
   const sejourStatut = sejour?.statut ?? 'DRAFT';
   // Identité client éditable par l'hébergeur ayant le droit d'écriture sur CE séjour,
   // dans les deux modes (DIRECT et COLLABORATIF). Sémantique « propriété client
-  // hébergeur » (sejour.client* fait foi). N'inclut PAS clientOrganisation (hors DTO).
+  // hébergeur » (sejour.client* fait foi), établissement/structure inclus (Lot 3).
   const peutEditerClient = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
   // Droit d'écriture sur l'en-tête du séjour (titre/dates/participants + suppression).
   // Source de vérité distincte de peutEditerClient (sémantique « champs client »).
@@ -69,6 +69,7 @@ export default function SejourHeader({
     titre: '',
     dateDebut: '',
     dateFin: '',
+    clientOrganisation: '',
     clientNom: '',
     clientPrenom: '',
     clientEmail: '',
@@ -87,6 +88,7 @@ export default function SejourHeader({
       titre: sejour.titre ?? '',
       dateDebut: sejour.dateDebut ? new Date(sejour.dateDebut).toISOString().substring(0, 10) : '',
       dateFin: sejour.dateFin ? new Date(sejour.dateFin).toISOString().substring(0, 10) : '',
+      clientOrganisation: sejour.clientOrganisation ?? '',
       clientNom: sejour.clientNom ?? '',
       clientPrenom: sejour.clientPrenom ?? '',
       clientEmail: sejour.clientEmail ?? '',
@@ -99,6 +101,7 @@ export default function SejourHeader({
     });
   }, [
     sejour.titre, sejour.dateDebut, sejour.dateFin,
+    sejour.clientOrganisation,
     sejour.clientNom, sejour.clientPrenom, sejour.clientEmail, sejour.clientTelephone,
     sejour.clientAdresse, sejour.clientCodePostal, sejour.clientVille,
     sejour.placesTotales, sejour.nombreAccompagnateurs,
@@ -120,6 +123,7 @@ export default function SejourHeader({
         // Champs client — éditables par l'hébergeur en DIRECT ET COLLABORATIF.
         // String vide → undefined pour ne pas écraser une valeur existante.
         ...(peutEditerClient && {
+          clientOrganisation: infosForm.clientOrganisation || undefined,
           clientNom: infosForm.clientNom || undefined,
           clientPrenom: infosForm.clientPrenom || undefined,
           clientEmail: infosForm.clientEmail || undefined,
@@ -136,6 +140,7 @@ export default function SejourHeader({
         placesTotales: updated.placesTotales,
         nombreAccompagnateurs: updated.nombreAccompagnateurs,
         ...(peutEditerClient && {
+          clientOrganisation: updated.clientOrganisation,
           clientNom: updated.clientNom,
           clientPrenom: updated.clientPrenom,
           clientEmail: updated.clientEmail,
@@ -271,6 +276,12 @@ export default function SejourHeader({
               {peutEditerClient && (
                 <>
                   <p className="text-xs font-semibold text-gray-500 mt-2">Informations client</p>
+                  <input
+                    placeholder="Établissement / structure"
+                    value={infosForm.clientOrganisation}
+                    onChange={e => setInfosForm(f => ({ ...f, clientOrganisation: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
                   <div className="flex gap-2">
                     <input
                       placeholder="Prénom"
