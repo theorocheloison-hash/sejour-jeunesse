@@ -2333,6 +2333,9 @@ export class DevisService {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
     const sejour = devis.sejourDirect;
+    const planningUrl = sejour.dateDebut
+      ? `${frontendUrl}/dashboard/hebergeur/planning?view=semaine&date=${sejour.dateDebut.toISOString().slice(0, 10)}`
+      : `${frontendUrl}/dashboard/hebergeur/planning`;
 
     if (sejour.clientEmail) {
       try {
@@ -2366,7 +2369,7 @@ export class DevisService {
            <strong>Dates :</strong> ${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}<br>
            <strong>Montant TTC :</strong> ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</p>
            <p style="margin:24px 0">
-             <a href="${frontendUrl}/dashboard/hebergeur/planning" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             <a href="${planningUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
                Voir le planning
              </a>
            </p>`,
@@ -2526,7 +2529,7 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
       include: {
-        sejourDirect: { select: { id: true, titre: true, modeGestion: true } },
+        sejourDirect: { select: { id: true, titre: true, dateDebut: true, modeGestion: true } },
         centre: { select: { nom: true, email: true } },
       },
     });
@@ -2568,12 +2571,15 @@ export class DevisService {
     if (devis.centre?.email) {
       try {
         const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+        const planningUrl = devis.sejourDirect.dateDebut
+          ? `${frontendUrl}/dashboard/hebergeur/planning?view=semaine&date=${devis.sejourDirect.dateDebut.toISOString().slice(0, 10)}`
+          : `${frontendUrl}/dashboard/hebergeur/planning`;
         await this.email.sendGenericNotification(
           devis.centre.email,
           `Document signé reçu — ${devis.sejourDirect.titre}`,
           `<p>Un document signé a été uploadé pour le devis <strong>${devis.numeroDevis}</strong>.</p>
            <p style="margin:24px 0">
-             <a href="${frontendUrl}/dashboard/hebergeur/planning" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             <a href="${planningUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
                Voir le planning
              </a>
            </p>`,
