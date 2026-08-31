@@ -17,6 +17,12 @@
 
 > **Couche VIVANTE de cette roadmap.** La table d'audit ci-dessous reste **figée** (photo du 24/08, preuve `fichier:ligne`) ; seules les corrections de verdicts FAUX y sont admises (ex. #16). Les items **livrés depuis l'audit** se loguent ICI, datés, sans muter la table. But : **une seule roadmap à maintenir**, pas dix.
 
+**31/08/2026 (sessions sparring)** — détail complet : `LIAVO_SESSION_STATE.md` entrées 31/08 (2) et (3). Nés d'un incident (spam de rappels reçu par l'hébergeur), pas du backlog audité — aucune ligne de la table à muter.
+- **Cron relance HÉBERGEUR (9h) → digest par centre** (`aeb9cbc` + `6bc2481`). 1 mail/centre au lieu d'1/devis, référentiel `dateEnvoi` (exclut les jamais-envoyés), exclusion complémentaires/supprimés, wording « vos clients », garde `ENABLE_CRON` ajoutée sur les **3** crons de `notifications.service.ts`.
+- **Cron relance ORGANISATEUR (8h30) → borné + escalade** (`0e47cd7`, migration `20260831160000_escalade_relance_organisateur`). Relance CLIENT mensuelle J+30→6 mois (direct ET collab, reply-to = centre) puis STOP + escalade hébergeur (digest, 1×) à 6 mois. Corrige un angle mort : les clients de devis DIRECTS n'étaient jamais relancés pour signer.
+- **Anti-rafale** : backfill `relance_envoyee_at`/tampons dans les migrations → zéro envoi au déploiement (vérifié : aucun devis >6 mois, plus ancien 04/06).
+- **Recoupe #85** (routage réponses emails From/Reply-To) : le reply-to hébergeur est désormais implémenté sur la relance client ; #85 reste OUVERT pour le volet conception global (List-Unsubscribe, routage entrant).
+
 **25/08/2026 (session sparring)** — détail complet : `LIAVO_SESSION_STATE.md` entrée 25/08 (2).
 - **#66 CI GitHub Actions — LIVRÉ** (`c8c5a48`, 1er run vert). `.github/workflows/ci.yml` : build backend + frontend sur push `main` / PR, Node 24, `npm ci`. Détection post-push (pas de branch protection ; Scalingo déploie indépendamment).
 - **#14 sous-ventilation — Option B « avertir sans bloquer » CODÉ + gaté, à pousser.** `frontend/app/dashboard/hebergeur/rentabilite/page.tsx` `handleSave()` : `confirm()` sur le reste non ventilé (calcul sur `ventilationsValides`, seuil 0,01 € aligné backend), AUCUN blocage. `validateMontantEtVentilations` inchangé.
