@@ -28,6 +28,8 @@ export class NotificationsService {
 
   @Cron('0 8 * * *', { timeZone: 'Europe/Paris' })
   async envoyerRappelsVeille() {
+    if (process.env.ENABLE_CRON !== 'true') return;
+
     this.logger.log('[CRON] Déclenchement rappels-veille');
 
     const demain = new Date();
@@ -91,6 +93,8 @@ export class NotificationsService {
 
   @Cron('30 8 * * *', { timeZone: 'Europe/Paris' })
   async relancerDevisEnAttente() {
+    if (process.env.ENABLE_CRON !== 'true') return;
+
     this.logger.log('[CRON] Déclenchement relance-devis');
 
     const seuilRelance = new Date();
