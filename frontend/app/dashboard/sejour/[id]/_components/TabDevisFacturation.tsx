@@ -1731,13 +1731,13 @@ export default function TabDevisFacturation({
               telEmetteur: d.telEntreprise || c?.telephone || undefined,
               tvaEmetteur: c?.tvaIntracommunautaire ?? undefined,
               ibanEmetteur: c?.iban ?? undefined,
-              nomDestinataire: createur ? `${createur.prenom} ${createur.nom}` : '',
+              nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || (createur ? `${createur.prenom} ${createur.nom}` : ''),
               etablissementNom: sejour?.clientOrganisation ?? undefined,
               adresseDestinataire:
                 [sejour?.clientAdresse,
                  [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' ')]
                   .filter(Boolean).join(', ') || undefined,
-              emailDestinataire: createur?.email ?? undefined,
+              emailDestinataire: sejour?.clientEmail ?? createur?.email ?? undefined,
               telDestinataire: createur?.telephone ?? undefined,
               titreSejour: s?.titre ?? '',
               lieuSejour: s?.lieu ?? '',
