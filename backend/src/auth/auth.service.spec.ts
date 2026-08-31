@@ -274,12 +274,12 @@ describe('AuthService — portage serveur invitation collaborative (F1)', () => 
       });
     });
 
-    it('pending non-null → accepter appelé avec (token, {id}) puis purge', async () => {
-      prisma.user.findUnique.mockResolvedValue({ invitationCollabTokenPending: 'tok-invit-1' });
+    it('pending non-null → accepter appelé avec (token, {id, email}) puis purge', async () => {
+      prisma.user.findUnique.mockResolvedValue({ invitationCollabTokenPending: 'tok-invit-1', email: 'anne@ecole.fr' });
 
       await service.verifyEmail('token-verif');
 
-      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1' });
+      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1', email: 'anne@ecole.fr' });
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { invitationCollabTokenPending: null },
@@ -316,7 +316,7 @@ describe('AuthService — portage serveur invitation collaborative (F1)', () => 
 
       await login();
 
-      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1' });
+      expect(invitationCollab.accepter).toHaveBeenCalledWith('tok-invit-1', { id: 'user-1', email: 'heb@centre.fr' });
     });
 
     it('hébergeur → accepter PAS appelé (filet réservé au rôle ORGANISATEUR)', async () => {

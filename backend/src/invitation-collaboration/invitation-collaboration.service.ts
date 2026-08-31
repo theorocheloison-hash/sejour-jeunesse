@@ -246,13 +246,20 @@ export class InvitationCollaborationService {
       }));
   }
 
-  async accepter(token: string, user: Pick<JwtUser, 'id'>) {
+  async accepter(token: string, user: Pick<JwtUser, 'id' | 'email'>) {
     const invitation = await this.prisma.invitationCollaboration.findUnique({
       where: { token },
       include: { centre: true },
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable');
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
+
+    if (user.email.trim().toLowerCase() !== invitation.emailEnseignant.trim().toLowerCase()) {
+      throw new ForbiddenException(
+        `Cette invitation a été envoyée à ${invitation.emailEnseignant}. ` +
+        `Connectez-vous ou créez votre compte avec cette adresse pour rejoindre le séjour.`
+      );
+    }
 
     // Projection (branche DRAFT uniquement) : org principale de l'enseignant, résolue
     // HORS transaction (Option A). null si aucun membership primary → fallback invitation.

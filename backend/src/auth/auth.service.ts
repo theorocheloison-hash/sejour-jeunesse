@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -563,21 +564,25 @@ export class AuthService {
   private async consommerInvitationCollabPending(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { invitationCollabTokenPending: true },
+      select: { invitationCollabTokenPending: true, email: true },
     });
     const pending = user?.invitationCollabTokenPending;
     if (!pending) return;
 
     try {
-      await this.invitationCollab.accepter(pending, { id: userId });
+      await this.invitationCollab.accepter(pending, { id: userId, email: user.email });
       await this.prisma.user.update({
         where: { id: userId },
         data: { invitationCollabTokenPending: null },
       });
     } catch (e) {
-      if (e instanceof NotFoundException || e instanceof ConflictException) {
-        // État terminal (invitation introuvable/déjà consommée) : purger,
-        // inutile de rejouer au login.
+      if (
+        e instanceof NotFoundException ||
+        e instanceof ConflictException ||
+        e instanceof ForbiddenException
+      ) {
+        // État terminal (invitation introuvable/déjà consommée, ou email du
+        // compte ≠ email d'invitation) : purger, inutile de rejouer au login.
         await this.prisma.user.update({
           where: { id: userId },
           data: { invitationCollabTokenPending: null },
