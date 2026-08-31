@@ -121,9 +121,9 @@ export default function CreateSejourModal({
       clientAdresse: org.adresse ?? f.clientAdresse,
       clientCodePostal: org.codePostal ?? f.clientCodePostal,
       clientVille: org.ville ?? f.clientVille,
-      // Contact : ne remplir que si le champ est vide, pour ne pas écraser une saisie.
-      clientEmail: f.clientEmail || (org.email ?? ''),
-      clientTelephone: f.clientTelephone || (org.telephone ?? ''),
+      // Email/téléphone JAMAIS pré-remplis depuis l'annuaire : ce sont les coordonnées
+      // de l'établissement (secrétariat), pas du contact/enseignant. L'hébergeur les saisit
+      // manuellement — clientEmail est le destinataire du devis + lien de signature.
     }));
   };
 
