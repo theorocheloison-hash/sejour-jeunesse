@@ -56,12 +56,15 @@ export default function SejourHeader({
   const isHebergeur = user.role === 'HEBERGEUR';
   const isDirector = user.role === 'SIGNATAIRE';
   const sejourStatut = sejour?.statut ?? 'DRAFT';
-  // Identité client éditable par l'hébergeur ayant le droit d'écriture sur CE séjour,
-  // dans les deux modes (DIRECT et COLLABORATIF). Sémantique « propriété client
-  // hébergeur » (sejour.client* fait foi), établissement/structure inclus (Lot 3).
-  const peutEditerClient = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
+  // Établissement (organisation/adresse) éditable par l'hébergeur ayant le droit
+  // d'écriture sur CE séjour, dans les deux modes (DIRECT et COLLABORATIF).
+  const peutEditerEtablissement = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
+  // Contact (nom/prénom/email/téléphone) : éditable en DIRECT, ou en COLLAB
+  // uniquement si un contact client est déjà porté par le séjour (cas ex-direct).
+  // Sinon le contact = le compte de l'organisateur → lecture seule (le fallback des
+  // résolveurs de documents utilise déjà ce compte).
+  const peutEditerContact = peutEditerEtablissement && (isDirect || !!sejour?.clientEmail || !!sejour?.clientNom);
   // Droit d'écriture sur l'en-tête du séjour (titre/dates/participants + suppression).
-  // Source de vérité distincte de peutEditerClient (sémantique « champs client »).
   const peutModifier = isHebergeur && (sejour?.mesPermissions?.sejours === 'WRITE');
 
   const [editingInfos, setEditingInfos] = useState(false);
@@ -120,17 +123,20 @@ export default function SejourHeader({
         // Participants — éditables dans les deux modes (DIRECT et COLLABORATIF).
         placesTotales: infosForm.placesTotales,
         nombreAccompagnateurs: infosForm.nombreAccompagnateurs,
-        // Champs client — éditables par l'hébergeur en DIRECT ET COLLABORATIF.
+        // Établissement — éditable par l'hébergeur en DIRECT ET COLLABORATIF.
         // String vide → undefined pour ne pas écraser une valeur existante.
-        ...(peutEditerClient && {
+        ...(peutEditerEtablissement && {
           clientOrganisation: infosForm.clientOrganisation || undefined,
+          clientAdresse: infosForm.clientAdresse || undefined,
+          clientCodePostal: infosForm.clientCodePostal || undefined,
+          clientVille: infosForm.clientVille || undefined,
+        }),
+        // Contact — éditable seulement quand peutEditerContact (DIRECT ou ex-direct).
+        ...(peutEditerContact && {
           clientNom: infosForm.clientNom || undefined,
           clientPrenom: infosForm.clientPrenom || undefined,
           clientEmail: infosForm.clientEmail || undefined,
           clientTelephone: infosForm.clientTelephone || undefined,
-          clientAdresse: infosForm.clientAdresse || undefined,
-          clientCodePostal: infosForm.clientCodePostal || undefined,
-          clientVille: infosForm.clientVille || undefined,
         }),
       });
       onSejourUpdate({
@@ -139,15 +145,17 @@ export default function SejourHeader({
         dateFin: updated.dateFin,
         placesTotales: updated.placesTotales,
         nombreAccompagnateurs: updated.nombreAccompagnateurs,
-        ...(peutEditerClient && {
+        ...(peutEditerEtablissement && {
           clientOrganisation: updated.clientOrganisation,
+          clientAdresse: updated.clientAdresse,
+          clientCodePostal: updated.clientCodePostal,
+          clientVille: updated.clientVille,
+        }),
+        ...(peutEditerContact && {
           clientNom: updated.clientNom,
           clientPrenom: updated.clientPrenom,
           clientEmail: updated.clientEmail,
           clientTelephone: updated.clientTelephone,
-          clientAdresse: updated.clientAdresse,
-          clientCodePostal: updated.clientCodePostal,
-          clientVille: updated.clientVille,
         }),
       });
       setEditingInfos(false);
@@ -273,7 +281,7 @@ export default function SejourHeader({
                   />
                 </label>
               </div>
-              {peutEditerClient && (
+              {peutEditerEtablissement && (
                 <>
                   <p className="text-xs font-semibold text-gray-500 mt-2">Informations client</p>
                   <input
@@ -282,33 +290,47 @@ export default function SejourHeader({
                     onChange={e => setInfosForm(f => ({ ...f, clientOrganisation: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   />
-                  <div className="flex gap-2">
-                    <input
-                      placeholder="Prénom"
-                      value={infosForm.clientPrenom}
-                      onChange={e => setInfosForm(f => ({ ...f, clientPrenom: e.target.value }))}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    />
-                    <input
-                      placeholder="Nom"
-                      value={infosForm.clientNom}
-                      onChange={e => setInfosForm(f => ({ ...f, clientNom: e.target.value }))}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    />
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={infosForm.clientEmail}
-                    onChange={e => setInfosForm(f => ({ ...f, clientEmail: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
-                  <input
-                    placeholder="Téléphone"
-                    value={infosForm.clientTelephone}
-                    onChange={e => setInfosForm(f => ({ ...f, clientTelephone: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  />
+                  {peutEditerContact ? (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          placeholder="Prénom"
+                          value={infosForm.clientPrenom}
+                          onChange={e => setInfosForm(f => ({ ...f, clientPrenom: e.target.value }))}
+                          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        />
+                        <input
+                          placeholder="Nom"
+                          value={infosForm.clientNom}
+                          onChange={e => setInfosForm(f => ({ ...f, clientNom: e.target.value }))}
+                          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        />
+                      </div>
+                      <input
+                        type="email"
+                        placeholder="Email"
+                        value={infosForm.clientEmail}
+                        onChange={e => setInfosForm(f => ({ ...f, clientEmail: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                      <input
+                        placeholder="Téléphone"
+                        value={infosForm.clientTelephone}
+                        onChange={e => setInfosForm(f => ({ ...f, clientTelephone: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                      <p className="font-medium text-gray-600">
+                        {[sejour.createur?.prenom, sejour.createur?.nom].filter(Boolean).join(' ') || 'Organisateur'}
+                      </p>
+                      {sejour.createur?.email && <p className="text-xs">{sejour.createur.email}</p>}
+                      <p className="mt-1 text-xs italic">
+                        Contact rattaché au compte de l&apos;organisateur — lui seul peut le modifier.
+                      </p>
+                    </div>
+                  )}
                   <input
                     placeholder="Adresse"
                     value={infosForm.clientAdresse}
