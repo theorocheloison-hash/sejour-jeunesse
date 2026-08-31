@@ -974,6 +974,10 @@ model Devis {
   // Tampon de la relance HÉBERGEUR (cron relancerHerbergeurDevisIgnore) —
   // distinct de relanceEnvoyeeAt (relance enseignant, cron 2, cycle 7j).
   relanceHebergeurAt DateTime? @map("relance_hebergeur_at")
+
+  // Tampon d'escalade HÉBERGEUR du cron relance organisateur : posé une seule
+  // fois quand un devis dépasse 6 mois sans réponse (stop relance client).
+  escaladeHebergeurAt DateTime? @map("escalade_hebergeur_at")
   montantVerseTotal Float @default(0) @map("montant_verse_total")
 
   // Date du dernier envoi du devis au client (null = jamais envoyé).

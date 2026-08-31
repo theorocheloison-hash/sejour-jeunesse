@@ -13,8 +13,9 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const DELAI_RELANCE_DEVIS_JOURS = 20;
-const INTERVALLE_RELANCE_JOURS = 7;
+const DELAI_RELANCE_DEVIS_JOURS = 30;   // 1re relance client à J+30
+const INTERVALLE_RELANCE_JOURS = 30;    // puis mensuelle
+const SEUIL_ESCALADE_JOURS = 180;       // 6 mois : stop client, escalade hébergeur
 const DELAI_RELANCE_HEBERGEUR_JOURS = 30;
 
 @Injectable()
@@ -97,68 +98,155 @@ export class NotificationsService {
 
     this.logger.log('[CRON] Déclenchement relance-devis');
 
-    const seuilRelance = new Date();
-    seuilRelance.setDate(seuilRelance.getDate() - DELAI_RELANCE_DEVIS_JOURS);
-
-    const seuilIntervalle = new Date();
-    seuilIntervalle.setDate(seuilIntervalle.getDate() - INTERVALLE_RELANCE_JOURS);
+    const now = Date.now();
+    const seuilPremiereRelance = new Date(now - DELAI_RELANCE_DEVIS_JOURS * 86400000);
+    const seuilIntervalle = new Date(now - INTERVALLE_RELANCE_JOURS * 86400000);
+    const seuilEscalade = new Date(now - SEUIL_ESCALADE_JOURS * 86400000);
 
     const devis = await this.prisma.devis.findMany({
       where: {
         statut: 'EN_ATTENTE',
-        createdAt: { lte: seuilRelance },
+        isComplementaire: false,
+        // NULL (jamais envoyé) exclu : NULL <= seuil vaut faux.
+        dateEnvoi: { lte: seuilPremiereRelance },
         OR: [
-          { relanceEnvoyeeAt: null },
-          { relanceEnvoyeeAt: { lte: seuilIntervalle } },
+          { sejourDirectId: null },
+          { sejourDirect: { deletedAt: null } },
         ],
       },
       include: {
         centre: {
-          include: {
-            user: { select: { email: true } },
-          },
+          select: { id: true, nom: true, email: true, user: { select: { email: true } } },
+        },
+        sejourDirect: {
+          select: { titre: true, clientNom: true, clientPrenom: true, clientEmail: true },
         },
         demande: {
-          include: {
+          select: {
+            sejour: { select: { titre: true } },
             enseignant: { select: { prenom: true, nom: true, email: true } },
-            sejour: { select: { titre: true, dateDebut: true } },
           },
         },
       },
     });
 
-    this.logger.log(`[CRON] ${devis.length} devis EN_ATTENTE à relancer`);
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+
+    // Escalade hébergeur regroupée par centre (digest, 1 mail/centre).
+    const escaladeParCentre = new Map<
+      string,
+      { hebergeurEmail: string; centreNom: string; items: typeof devis }
+    >();
+
+    let relancesClient = 0;
 
     for (const d of devis) {
-      const enseignantEmail = d.demande?.enseignant?.email;
-      const sejourTitre = d.demande?.sejour?.titre ?? 'votre séjour';
-      const centreNom = d.centre?.nom ?? "l'hébergeur";
-      const enseignantPrenom = d.demande?.enseignant?.prenom ?? '';
-      const joursEcoules = Math.floor(
-        (Date.now() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24),
-      );
+      const envoye = d.dateEnvoi ? new Date(d.dateEnvoi).getTime() : 0;
 
-      if (!enseignantEmail) continue;
+      // ── ESCALADE (≥ 6 mois) : stop relance client, 1 escalade hébergeur ──
+      if (envoye <= seuilEscalade.getTime()) {
+        if (d.escaladeHebergeurAt != null) continue; // déjà escaladé
+        const hebergeurEmail = d.centre?.user?.email;
+        if (!hebergeurEmail) continue;
+        const g = escaladeParCentre.get(d.centre.id);
+        if (g) g.items.push(d);
+        else escaladeParCentre.set(d.centre.id, { hebergeurEmail, centreNom: d.centre.nom, items: [d] });
+        continue;
+      }
+
+      // ── RELANCE CLIENT (30 j → 6 mois), cadence mensuelle ──
+      const derniere = d.relanceEnvoyeeAt ? new Date(d.relanceEnvoyeeAt) : null;
+      if (derniere && derniere > seuilIntervalle) continue; // relancé il y a < 30 j
+
+      const clientEmail = d.sejourDirect?.clientEmail ?? d.demande?.enseignant?.email ?? null;
+      if (!clientEmail) continue;
+
+      const prenom = d.sejourDirect
+        ? (d.sejourDirect.clientPrenom ?? '')
+        : (d.demande?.enseignant?.prenom ?? '');
+      const titre = d.sejourDirect?.titre ?? d.demande?.sejour?.titre ?? 'votre séjour';
+      const centreNom = d.centre?.nom ?? "l'hébergeur";
+      const replyTo = d.centre?.email ? { name: d.centre.nom, email: d.centre.email } : undefined;
+      const lienAction = d.sejourDirectId
+        ? `${frontendUrl}/devis/signer/${d.tokenSignature}`
+        : `${frontendUrl}/login`;
+      const inviteReponse = replyTo
+        ? `Et si votre projet a changé ou que vous ne comptez pas venir, répondez simplement à cet email pour en informer ${escapeHtml(centreNom)} — cela nous aide à tenir les disponibilités à jour.`
+        : `Et si votre projet a changé, n'hésitez pas à en informer directement ${escapeHtml(centreNom)}.`;
 
       try {
         await this.email.sendGenericNotification(
-          enseignantEmail,
-          `Rappel — Devis en attente de réponse pour « ${escapeHtml(sejourTitre)} »`,
-          `<p>Bonjour ${escapeHtml(enseignantPrenom)},</p>
-           <p>Le devis de <strong>${escapeHtml(centreNom)}</strong> pour votre séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> est en attente de votre réponse depuis <strong>${joursEcoules} jours</strong>.</p>
-           <p>Connectez-vous à LIAVO pour consulter le devis et prendre une décision.</p>`,
+          clientEmail,
+          `Votre devis pour « ${escapeHtml(titre)} » vous attend`,
+          `<p>Bonjour ${escapeHtml(prenom)},</p>
+           <p>Il y a quelque temps, <strong>${escapeHtml(centreNom)}</strong> vous a transmis un devis pour <strong>« ${escapeHtml(titre)} »</strong>. Nous voulions prendre de vos nouvelles à ce sujet.</p>
+           <p>Pour confirmer, vous pouvez consulter et signer le devis ci-dessous. ${inviteReponse}</p>
+           <p style="margin:24px 0"><a href="${lienAction}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir le devis</a></p>`,
+          d.centre?.nom,
+          replyTo,
+          null,
         );
-
         await this.prisma.devis.update({
           where: { id: d.id },
           data: { relanceEnvoyeeAt: new Date() },
         });
-
-        this.logger.log(`[CRON] Relance envoyée — devis: ${d.id}`);
+        relancesClient++;
       } catch (err) {
-        this.logger.error(`[CRON] Échec relance devis ${d.id}`, err);
+        this.logger.error(`[CRON] Échec relance client devis ${d.id}`, err);
       }
     }
+
+    this.logger.log(`[CRON] ${relancesClient} relance(s) client envoyée(s)`);
+
+    // ── Digests d'escalade hébergeur ──
+    let escalades = 0;
+    for (const g of escaladeParCentre.values()) {
+      const n = g.items.length;
+      const lignes = g.items
+        .map((d) => {
+          const titre = d.sejourDirect?.titre ?? d.demande?.sejour?.titre ?? 'le séjour';
+          const client =
+            [d.sejourDirect?.clientPrenom, d.sejourDirect?.clientNom].filter(Boolean).join(' ') ||
+            (d.demande?.enseignant ? `${d.demande.enseignant.prenom} ${d.demande.enseignant.nom}` : '') ||
+            'client';
+          const mois = Math.floor((now - new Date(d.dateEnvoi!).getTime()) / (30 * 86400000));
+          return `<tr>
+            <td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(titre)}</td>
+            <td style="padding:8px 12px;font-size:13px;color:#666">${escapeHtml(client)}</td>
+            <td style="padding:8px 12px;font-size:13px;color:#666">${mois} mois</td>
+          </tr>`;
+        })
+        .join('');
+
+      const message =
+        `Bonjour,<br/><br/>` +
+        `${n === 1 ? 'Un devis que vous avez envoyé est resté' : `${n} devis que vous avez envoyés sont restés`} sans réponse depuis plus de 6 mois. Les relances automatiques ${n === 1 ? 'auprès du client ont' : 'auprès des clients ont'} été arrêtées.` +
+        `<p>Une action de votre part est recommandée : relancer directement ${n === 1 ? 'le client' : 'les clients'}, ou supprimer le devis s'il n'est plus d'actualité.</p>` +
+        `<table style="width:100%;border-collapse:collapse;margin:16px 0">` +
+        `<tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:12px;color:#999">Séjour</td><td style="padding:8px 12px;font-size:12px;color:#999">Client</td><td style="padding:8px 12px;font-size:12px;color:#999">En attente</td></tr>` +
+        `${lignes}</table>` +
+        `<p style="margin:24px 0"><a href="${frontendUrl}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`;
+
+      try {
+        await this.email.sendGenericNotification(
+          g.hebergeurEmail,
+          n === 1 ? 'Un devis sans réponse depuis 6 mois — action requise' : `${n} devis sans réponse depuis 6 mois — action requise`,
+          message,
+          undefined,
+          undefined,
+          null,
+        );
+        await this.prisma.devis.updateMany({
+          where: { id: { in: g.items.map((d) => d.id) } },
+          data: { escaladeHebergeurAt: new Date() },
+        });
+        escalades++;
+      } catch (err) {
+        this.logger.error(`[CRON] Échec escalade hébergeur — centre: ${g.centreNom}`, err);
+      }
+    }
+
+    this.logger.log(`[CRON] ${escalades} digest(s) d'escalade hébergeur envoyé(s)`);
   }
 
   @Cron('0 9 * * *', { timeZone: 'Europe/Paris' })
