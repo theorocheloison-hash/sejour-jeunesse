@@ -145,6 +145,9 @@ function RegisterOrganisateurContent() {
     api.get(`/invitation-collaboration/${invitationToken}`)
       .then(res => {
         const inv = res.data;
+        // Verrou : le compte doit porter l'email de l'invitation (garde-fou
+        // backend à l'acceptation). On pré-remplit et on rend le champ readOnly.
+        setForm(f => ({ ...f, email: inv.emailEnseignant ?? '' }));
         if (inv.etablissementNom) {
           setInvitationCentre(inv.centre?.nom ?? 'votre hébergeur');
           setForm(f => ({
@@ -330,9 +333,17 @@ function RegisterOrganisateurContent() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email professionnel</label>
-              <input id="email" type="email" required disabled={isPending} value={form.email} onChange={set('email')}
+              <input id="email" type="email" required disabled={isPending} readOnly={!!invitationToken}
+                value={form.email} onChange={set('email')}
                 placeholder="votre@email.fr"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+                className={`w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50 ${
+                  invitationToken
+                    ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                    : 'text-gray-900 placeholder-gray-400'
+                }`} />
+              {invitationToken && (
+                <p className="mt-1 text-xs text-gray-400">Adresse de votre invitation — non modifiable</p>
+              )}
             </div>
 
             <div>
