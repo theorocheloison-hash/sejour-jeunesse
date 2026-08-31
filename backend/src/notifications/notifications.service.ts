@@ -159,6 +159,8 @@ export class NotificationsService {
 
   @Cron('0 9 * * *', { timeZone: 'Europe/Paris' })
   async relancerHerbergeurDevisIgnore() {
+    if (process.env.ENABLE_CRON !== 'true') return;
+
     this.logger.log('[CRON] Déclenchement relance-hebergeur-devis');
 
     const seuil = new Date();
@@ -167,66 +169,124 @@ export class NotificationsService {
     const devis = await this.prisma.devis.findMany({
       where: {
         statut: 'EN_ATTENTE',
-        createdAt: { lte: seuil },
-        // Anti-répétition : 1re relance à J+30, puis au plus 1×/30 j.
-        OR: [
-          { relanceHebergeurAt: null },
-          { relanceHebergeurAt: { lte: seuil } },
+        isComplementaire: false,
+        // NULL (jamais envoyé) exclu automatiquement : NULL <= seuil vaut faux.
+        dateEnvoi: { lte: seuil },
+        // ⚠️ Deux OR au même niveau s'écrasent en JS — les combiner via AND.
+        AND: [
+          { OR: [{ relanceHebergeurAt: null }, { relanceHebergeurAt: { lte: seuil } }] },
+          { OR: [{ sejourDirectId: null }, { sejourDirect: { deletedAt: null } }] },
         ],
       },
       include: {
         centre: {
-          include: {
+          select: {
+            id: true,
+            nom: true,
             user: { select: { email: true, prenom: true } },
           },
         },
+        sejourDirect: {
+          select: { titre: true, clientNom: true, clientPrenom: true, clientOrganisation: true },
+        },
         demande: {
-          include: {
-            sejour: { select: { titre: true, dateDebut: true } },
+          select: {
+            sejour: { select: { titre: true } },
             enseignant: { select: { prenom: true, nom: true } },
           },
         },
       },
     });
 
-    this.logger.log(`[CRON] ${devis.length} devis EN_ATTENTE sans réponse depuis 30j`);
-
+    // Regrouper par centre (destinataire = user du centre).
+    const parCentre = new Map<
+      string,
+      { email: string; prenom: string; centreNom: string; items: typeof devis }
+    >();
     for (const d of devis) {
-      const centreEmail = d.centre?.user?.email;
-      const centrePrenom = d.centre?.user?.prenom ?? '';
-      const centreNom = d.centre?.nom ?? 'votre centre';
-      const sejourTitre = d.demande?.sejour?.titre ?? 'le séjour';
-      const enseignantNom = d.demande?.enseignant
-        ? `${d.demande.enseignant.prenom} ${d.demande.enseignant.nom}`
-        : 'l\'enseignant';
-      const joursEcoules = Math.floor(
-        (Date.now() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24),
-      );
+      const email = d.centre?.user?.email;
+      if (!email) continue;
+      const key = d.centre.id;
+      const groupe = parCentre.get(key);
+      if (groupe) {
+        groupe.items.push(d);
+      } else {
+        parCentre.set(key, {
+          email,
+          prenom: d.centre.user?.prenom ?? '',
+          centreNom: d.centre.nom,
+          items: [d],
+        });
+      }
+    }
 
-      if (!centreEmail) continue;
+    this.logger.log(`[CRON] ${parCentre.size} centre(s) à relancer (digest)`);
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    let envois = 0;
+
+    for (const groupe of parCentre.values()) {
+      const n = groupe.items.length;
+
+      const lignes = groupe.items
+        .map((d) => {
+          const titre = d.sejourDirect?.titre ?? d.demande?.sejour?.titre ?? 'le séjour';
+          const client =
+            [d.sejourDirect?.clientPrenom, d.sejourDirect?.clientNom].filter(Boolean).join(' ') ||
+            d.sejourDirect?.clientOrganisation ||
+            (d.demande?.enseignant
+              ? `${d.demande.enseignant.prenom} ${d.demande.enseignant.nom}`
+              : '') ||
+            'votre client';
+          const base = d.dateEnvoi ?? d.createdAt;
+          const jours = Math.floor((Date.now() - new Date(base).getTime()) / 86400000);
+          const montant = Number(d.montantTTC ?? 0).toLocaleString('fr-FR', {
+            minimumFractionDigits: 2,
+          });
+          return `<tr>
+            <td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(titre)}</td>
+            <td style="padding:8px 12px;font-size:13px;color:#666">${escapeHtml(client)}</td>
+            <td style="padding:8px 12px;font-size:13px;color:#666">${montant} €</td>
+            <td style="padding:8px 12px;font-size:13px;color:#666">${jours} j</td>
+          </tr>`;
+        })
+        .join('');
+
+      const message =
+        `Bonjour ${escapeHtml(groupe.prenom)},<br/><br/>` +
+        `${n === 1 ? 'Un de vos devis est' : `${n} de vos devis sont`} en attente de réponse de ` +
+        `${n === 1 ? 'votre client' : 'vos clients'} depuis plus de ${DELAI_RELANCE_HEBERGEUR_JOURS} jours :` +
+        `<table style="width:100%;border-collapse:collapse;margin:16px 0">` +
+        `<tr style="background:#f5f7fa">` +
+        `<td style="padding:8px 12px;font-size:12px;color:#999">Séjour</td>` +
+        `<td style="padding:8px 12px;font-size:12px;color:#999">Client</td>` +
+        `<td style="padding:8px 12px;font-size:12px;color:#999">Montant</td>` +
+        `<td style="padding:8px 12px;font-size:12px;color:#999">En attente</td>` +
+        `</tr>${lignes}</table>` +
+        `<p>Vous pouvez les relancer directement ou consulter leur état depuis votre tableau de bord.</p>` +
+        `<p style="margin:24px 0"><a href="${frontendUrl}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`;
 
       try {
         await this.email.sendGenericNotification(
-          centreEmail,
-          `Rappel — Votre devis pour « ${escapeHtml(sejourTitre)} » n'a pas encore reçu de réponse`,
-          `<p>Bonjour ${escapeHtml(centrePrenom)},</p>
-           <p>Votre devis pour le séjour <strong>« ${escapeHtml(sejourTitre)} »</strong> envoyé à ${escapeHtml(enseignantNom)} est en attente de réponse depuis <strong>${joursEcoules} jours</strong>.</p>
-           <p>L'enseignant n'a pas encore donné suite. Vous pouvez le relancer directement ou consulter l'état de votre devis depuis votre tableau de bord.</p>
-           <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`,
+          groupe.email,
+          n === 1 ? 'Un devis en attente de réponse' : `${n} devis en attente de réponse`,
+          message,
           undefined,
           undefined,
           null,
         );
-
-        await this.prisma.devis.update({
-          where: { id: d.id },
+        // Tampon posé sur TOUT le lot, APRÈS envoi réussi (échec = réessai demain).
+        await this.prisma.devis.updateMany({
+          where: { id: { in: groupe.items.map((d) => d.id) } },
           data: { relanceHebergeurAt: new Date() },
         });
-
-        this.logger.log(`[CRON] Relance hébergeur envoyée — devis: ${d.id}, centre: ${centreNom}`);
+        envois++;
+        this.logger.log(`[CRON] Digest relance hébergeur envoyé — centre: ${groupe.centreNom}, ${n} devis`);
       } catch (err) {
-        this.logger.error(`[CRON] Échec relance hébergeur devis ${d.id}`, err);
+        this.logger.error(`[CRON] Échec digest relance hébergeur — centre: ${groupe.centreNom}`, err);
       }
     }
+
+    this.logger.log(`[CRON] ${envois} digest(s) relance hébergeur envoyé(s)`);
   }
 }
