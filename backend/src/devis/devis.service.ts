@@ -1916,6 +1916,7 @@ export class DevisService {
                 id: true, titre: true, dateDebut: true, dateFin: true,
                 placesTotales: true, nombreAccompagnateurs: true, natureSejour: true,
                 clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true,
+                clientNom: true, clientPrenom: true, clientEmail: true,
               },
             },
           },
@@ -1978,8 +1979,8 @@ export class DevisService {
             select: { prenom: true, nom: true, email: true },
           })
         : null;
-      contactNom = [enseignant?.prenom, enseignant?.nom].filter(Boolean).join(' ') || 'l\'établissement';
-      contactEmail = enseignant?.email ?? null;
+      contactNom = [sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') || [enseignant?.prenom, enseignant?.nom].filter(Boolean).join(' ') || 'l\'établissement';
+      contactEmail = sejour.clientEmail ?? enseignant?.email ?? null;
     }
 
     // Données communes aux deux flux (couverture générique + legacy Sauvageon).

@@ -171,7 +171,7 @@ export class FactureService {
         demande: {
           include: {
             enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
-            sejour: { select: { id: true, titre: true, createurId: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true } },
+            sejour: { select: { id: true, titre: true, createurId: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true, clientEmail: true } },
           },
         },
         sejourDirect: {
@@ -295,8 +295,8 @@ export class FactureService {
         destinataireNom: sejourCollab?.clientOrganisation ?? (enseignant ? `${enseignant.prenom} ${enseignant.nom}` : ''),
         destinataireAdresse: adresseSejour || null,
         destinataireSiret: null,
-        destinataireEmail: enseignant?.email ?? null,
-        emailNotif: enseignant?.email ?? null,
+        destinataireEmail: sejourCollab?.clientEmail ?? enseignant?.email ?? null,
+        emailNotif: sejourCollab?.clientEmail ?? enseignant?.email ?? null,
         sejourTitre: sejourCollab?.titre ?? 'votre séjour',
       };
     }
