@@ -273,6 +273,42 @@ export async function generateContratSauvageonPdf(data: ContratData): Promise<Bu
           La commission de sécurité compétente a émis un avis favorable à la poursuite de l&apos;activité de l&apos;établissement, classé en catégorie R4.
         </Text>
 
+        {/* CAPACITÉ MAXIMALE */}
+        <Text style={styles.sectionTitle}>CAPACITÉ MAXIMALE D&apos;ACCUEIL</Text>
+        <Text style={styles.paragraph}>
+          La capacité maximale d&apos;accueil du chalet est fixée à 120 personnes présentes simultanément, toutes personnes confondues (invités, prestataires et personnel), conformément à l&apos;effectif maximal réglementaire fixé par la commission de sécurité (établissement de type R, 4ème catégorie). Ce seuil, fixé pour des raisons de sécurité incendie, ne peut être dépassé en aucune circonstance, quel que soit l&apos;usage (repas, réception ou soirée).
+        </Text>
+        <Text style={styles.paragraph}>
+          En cas de dépassement constaté, la SAS Le Sauvageon se réserve le droit de refuser l&apos;accès aux personnes excédentaires ou d&apos;exiger leur départ immédiat. En cas de refus du locataire de s&apos;y conformer, elle pourra interrompre l&apos;événement et/ou résilier la location avec effet immédiat, sans remboursement des sommes versées. Tout dépassement constaté autorise en outre la rétention de tout ou partie de l&apos;empreinte bancaire au titre du présent manquement.
+        </Text>
+
+        {/* FEU ET FUMÉE */}
+        <Text style={styles.sectionTitle}>FEU ET FUMÉE — SÉCURITÉ INCENDIE</Text>
+        <Text style={styles.paragraph}>
+          À l&apos;extérieur : seuls les barbecues utilisant le matériel prévu et mis à disposition sont autorisés, sans demande préalable. Tout autre dispositif à flamme est interdit, notamment les braseros.
+        </Text>
+        <Text style={styles.paragraph}>
+          À l&apos;intérieur : pour des raisons de sécurité et afin de ne pas déclencher le système de détection incendie, sont formellement interdits les bougies, feux de Bengale, machines à fumée, fumigènes, cigarettes électroniques et vapoteuses, ainsi que tout dispositif produisant flamme, fumée ou vapeur.
+        </Text>
+
+        {/* STATIONNEMENT */}
+        <Text style={styles.sectionTitle}>STATIONNEMENT</Text>
+        <Text style={styles.paragraph}>
+          Le stationnement est autorisé uniquement sur le parking situé devant le city-stade, ainsi que sur le côté du bâtiment le long du muret en pierre. Il est interdit de stationner à l&apos;arrière du bâtiment, sur la zone gravillonnée au niveau du transformateur : ce terrain n&apos;appartient pas à la SAS Le Sauvageon.
+        </Text>
+
+        {/* DÉCHETS */}
+        <Text style={styles.sectionTitle}>GESTION DES DÉCHETS</Text>
+        <Text style={styles.paragraph}>
+          Le tout-venant est à déposer dans les poubelles noires situées à l&apos;arrière du chalet. Le verre et les déchets recyclables (tri sélectif) doivent être apportés par le locataire dans les conteneurs de tri du village.
+        </Text>
+
+        {/* ASSURANCE RC */}
+        <Text style={styles.sectionTitle}>ASSURANCE RESPONSABILITÉ CIVILE</Text>
+        <Text style={styles.paragraph}>
+          Le locataire s&apos;engage à être couvert par une assurance responsabilité civile garantissant les dommages qu&apos;il pourrait causer, ainsi que ses invités, tant aux biens loués qu&apos;aux tiers, pendant toute la durée de la location. Une attestation en cours de validité couvrant la période de l&apos;événement sera remise à la SAS Le Sauvageon au plus tard à la remise des clés, condition de la mise à disposition des lieux.
+        </Text>
+
         {/* CONDITIONS DÉSISTEMENT */}
         <Text style={styles.sectionTitle}>CONDITIONS DE DÉSISTEMENT</Text>
 
