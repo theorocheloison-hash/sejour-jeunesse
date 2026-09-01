@@ -5,6 +5,9 @@ import {
   IsInt,
   IsEmail,
   IsUUID,
+  IsArray,
+  IsBoolean,
+  IsNumber,
   Min,
   MinLength,
 } from 'class-validator';
@@ -103,4 +106,41 @@ export class CreateSejourDirectDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  // ── Qualification pédagogique optionnelle (§7, étape 3 « Détails ») ──
+  // Colonnes déjà présentes sur Sejour ; strictement optionnelles (l'ancien
+  // front qui ne les envoie pas produit le même séjour qu'avant).
+  @IsOptional()
+  @IsString()
+  niveauClasse?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  thematiquesPedagogiques?: string[];
+
+  @IsOptional()
+  @IsString()
+  heureArrivee?: string;
+
+  @IsOptional()
+  @IsString()
+  heureDepart?: string;
+
+  @IsOptional()
+  @IsString()
+  transportAller?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  transportSurPlace?: boolean;
+
+  @IsOptional()
+  @IsString()
+  activitesSouhaitees?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  budgetMaxParEleve?: number;
 }
