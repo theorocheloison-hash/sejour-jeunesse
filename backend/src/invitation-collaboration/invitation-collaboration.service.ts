@@ -6,9 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
-import { CreateInvitationCollaborationDto } from './dto/create-invitation.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
-import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
@@ -97,71 +95,6 @@ export class InvitationCollaborationService {
     } catch (err) {
       console.error('[CRM linkSejourToCRM] Erreur non bloquante:', err);
     }
-  }
-
-  async create(dto: CreateInvitationCollaborationDto, user: JwtUser, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, user.id, centreId);
-
-    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
-    // externe interdit, sauf vers sa propre adresse (test onboarding). Gate posé
-    // AVANT la création de l'invitation pour ne pas laisser un token orphelin.
-    // Email du user rechargé depuis la base.
-    {
-      const me = await this.prisma.user.findUnique({ where: { id: user.id }, select: { email: true } });
-      await assertEnvoiExterneAutorise(this.prisma, centre, dto.emailEnseignant, me?.email ?? '');
-    }
-
-    const invitation = await this.prisma.invitationCollaboration.create({
-      data: {
-        centreId: centre.id,
-        emailEnseignant: dto.emailEnseignant,
-        titreSejourSuggere: dto.titreSejourSuggere,
-        dateDebut: new Date(dto.dateDebut),
-        dateFin: new Date(dto.dateFin),
-        nbElevesEstime: dto.nbElevesEstime,
-        message: dto.message ?? null,
-        niveauClasse: dto.niveauClasse ?? null,
-        nombreAccompagnateurs: dto.nombreAccompagnateurs ?? null,
-        thematiquesPedagogiques: dto.thematiquesPedagogiques ?? [],
-        heureArrivee: dto.heureArrivee ?? null,
-        heureDepart: dto.heureDepart ?? null,
-        transportAller: dto.transportAller ?? null,
-        transportSurPlace: dto.transportSurPlace ?? null,
-        activitesSouhaitees: dto.activitesSouhaitees ?? null,
-        budgetMaxParEleve: dto.budgetMaxParEleve ?? null,
-        etablissementUai: dto.etablissementUai ?? null,
-        etablissementNom: dto.etablissementNom ?? null,
-        etablissementAdresse: dto.etablissementAdresse ?? null,
-        etablissementVille: dto.etablissementVille ?? null,
-        devisDraftJson: dto.devisDraftJson ?? undefined,
-      },
-    });
-
-    const dateDebut = new Date(dto.dateDebut).toLocaleDateString('fr-FR');
-    const dateFin = new Date(dto.dateFin).toLocaleDateString('fr-FR');
-    const lien = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/rejoindre/${invitation.token}`;
-
-    const msgPart = dto.message
-      ? `<p style="margin:12px 0;padding:12px;background:#f5f4f1;border-radius:8px;font-style:italic">${dto.message}</p>`
-      : '';
-
-    await this.email.sendGenericNotification(
-      dto.emailEnseignant,
-      `${centre.nom} vous invite à collaborer sur un séjour`,
-      `<p><strong>${centre.nom}</strong> souhaite organiser un séjour avec vous :</p>
-       <p><strong>Séjour :</strong> ${dto.titreSejourSuggere}<br>
-       <strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
-       <strong>Nombre d'élèves estimé :</strong> ${dto.nbElevesEstime}</p>
-       ${msgPart}
-       <p>Pour accepter cette invitation et démarrer la collaboration, cliquez sur le bouton ci-dessous.</p>
-       <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Accepter l'invitation</a></p>
-       <p style="color:#888;font-size:12px">Vous n'avez pas encore de compte LIAVO ? Créez-en un gratuitement en cliquant sur le lien ci-dessus.</p>`,
-      undefined,
-      undefined,
-      null,
-    );
-
-    return { id: invitation.id, token: invitation.token };
   }
 
   async findByToken(token: string) {
