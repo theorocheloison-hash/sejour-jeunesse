@@ -359,10 +359,11 @@ export default function TabDevisFacturation({
   // Défaut false = rien affiché si l'appel échoue (le backend reste l'autorité).
   const [envoisBloques, setEnvoisBloques] = useState(false);
   useEffect(() => {
+    if (user.role !== 'HEBERGEUR') return; // endpoint hébergeur-only ; lu seulement dans la modale d'envoi
     api.get('/centres/onboarding-status')
       .then(({ data }) => setEnvoisBloques(!!data.envoisBloques))
       .catch(() => setEnvoisBloques(false));
-  }, []);
+  }, [user.role]);
 
   useEffect(() => {
     if (isDirect) loadComplementaires();
@@ -1956,8 +1957,31 @@ export default function TabDevisFacturation({
                     </a>
                   )}
                 </div>
+                {d.documentUrl ? (
+                  <div className="space-y-3">
+                    <SecureFileLink
+                      url={d.documentUrl}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Télécharger le devis PDF
+                    </SecureFileLink>
+                    <iframe
+                      src={d.documentUrl}
+                      className="w-full rounded-2xl border border-gray-200 shadow-sm"
+                      style={{ height: '80vh', minHeight: 600 }}
+                      title="Aperçu du devis"
+                    />
+                  </div>
+                ) : (
+                  <DevisPDFInline data={pdfProps} />
+                )}
+
                 {/* C4 — Signature du devis depuis l'espace connecté (ORGANISATEUR),
-                    devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT. */}
+                    devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT.
+                    Placé APRÈS l'aperçu : on lit le devis, puis on signe. */}
                 {user.role === 'ORGANISATEUR' && d.sejourDirectId && d.statut === 'EN_ATTENTE' && (
                   <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
                     <h3 className="text-sm font-semibold text-gray-900">Signer ce devis</h3>
@@ -2004,27 +2028,6 @@ export default function TabDevisFacturation({
                       onUpload={f => uploadSignatureConnecte(d.id, f).then(() => reloadDevis())}
                     />
                   </div>
-                )}
-                {d.documentUrl ? (
-                  <div className="space-y-3">
-                    <SecureFileLink
-                      url={d.documentUrl}
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      Télécharger le devis PDF
-                    </SecureFileLink>
-                    <iframe
-                      src={d.documentUrl}
-                      className="w-full rounded-2xl border border-gray-200 shadow-sm"
-                      style={{ height: '80vh', minHeight: 600 }}
-                      title="Aperçu du devis"
-                    />
-                  </div>
-                ) : (
-                  <DevisPDFInline data={pdfProps} />
                 )}
 
                 {/* Bloc « Devis signé » — COLLABORATIF, côté hébergeur. Affiché dès
