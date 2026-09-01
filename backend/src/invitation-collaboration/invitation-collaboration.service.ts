@@ -3,11 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
-import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 
 @Injectable()
 export class InvitationCollaborationService {
@@ -194,226 +194,77 @@ export class InvitationCollaborationService {
       );
     }
 
-    // Projection (branche DRAFT uniquement) : org principale de l'enseignant, résolue
-    // HORS transaction (Option A). null si aucun membership primary → fallback invitation.
-    const org = await getOrganisationPrincipale(user.id, this.prisma);
+    // Rejoindre ≠ signer : l'invitation DOIT porter un séjour DIRECT rattachable.
+    // Toutes les conditions d'éligibilité sont des gardes AVANT la transaction ;
+    // plus aucun chemin ne crée de séjour ici.
+    if (!invitation.sejourId) {
+      throw new BadRequestException('Invitation invalide : aucun séjour associé');
+    }
+    const existingSejour = await this.prisma.sejour.findUnique({
+      where: { id: invitation.sejourId },
+      select: { id: true, modeGestion: true, createurId: true, deletedAt: true },
+    });
+    if (!existingSejour || existingSejour.deletedAt) {
+      throw new NotFoundException('Séjour introuvable ou supprimé');
+    }
+    if (existingSejour.modeGestion !== 'DIRECT' || existingSejour.createurId) {
+      throw new ConflictException('Ce séjour a déjà été rejoint');
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // ── Si l'invitation est liée à un séjour DIRECT existant → rattacher au lieu de créer ──
-      if (invitation.sejourId) {
-        const existingSejour = await tx.sejour.findUnique({
-          where: { id: invitation.sejourId },
-          select: { id: true, modeGestion: true, createurId: true, deletedAt: true },
-        });
-        if (existingSejour && !existingSejour.deletedAt && existingSejour.modeGestion === 'DIRECT' && !existingSejour.createurId) {
-          // 1. Rattacher l'enseignant + passer en COLLABORATIF + CONVENTION
-          await tx.sejour.update({
-            where: { id: existingSejour.id },
-            data: {
-              createurId: user.id,
-              modeGestion: 'COLLABORATIF',
-              statut: 'CONVENTION',
-            },
-          });
-
-          // 2. Auto-sélectionner le devis DIRECT s'il existe
-          const devisDirect = await tx.devis.findFirst({
-            where: { sejourDirectId: existingSejour.id },
-            orderBy: { createdAt: 'desc' },
-          });
-
-          if (devisDirect) {
-            if (devisDirect.statut === 'EN_ATTENTE') {
-              await tx.devis.update({
-                where: { id: devisDirect.id },
-                data: { statut: 'SELECTIONNE' },
-              });
-            }
-
-            // 3. Créer une DemandeDevis pont pour que le frontend organisateur
-            //    trouve le devis via sejour.demandes[].devis[]
-            const sejourData = await tx.sejour.findUnique({
-              where: { id: existingSejour.id },
-              select: { titre: true, dateDebut: true, dateFin: true, placesTotales: true, lieu: true },
-            });
-
-            const demande = await tx.demandeDevis.create({
-              data: {
-                sejourId: existingSejour.id,
-                enseignantId: user.id,
-                titre: sejourData?.titre ?? invitation.titreSejourSuggere,
-                dateDebut: sejourData?.dateDebut ?? invitation.dateDebut,
-                dateFin: sejourData?.dateFin ?? invitation.dateFin,
-                nombreEleves: sejourData?.placesTotales ?? invitation.nbElevesEstime,
-                villeHebergement: sejourData?.lieu ?? '',
-                statut: 'FERMEE',
-                typePension: [],
-                centreDestinataireId: devisDirect.centreId,
-              },
-            });
-
-            // 4. Rattacher le devis à la demande
-            await tx.devis.update({
-              where: { id: devisDirect.id },
-              data: { demandeId: demande.id },
-            });
-          }
-
-          await tx.invitationCollaboration.update({
-            where: { id: invitation.id },
-            data: { acceptedAt: new Date(), sejourId: existingSejour.id },
-          });
-
-          return { sejourId: existingSejour.id, devisCree: devisDirect ?? null };
-        }
-      }
-
-      // Séjour en DRAFT sans hébergeur lié — l'enseignant doit choisir via le workflow devis normal
-      const sejour = await tx.sejour.create({
+      // Rattacher l'enseignant + passer en COLLABORATIF. Le séjour reste OPTION et
+      // le devis EN_ATTENTE : la valeur contractuelle vient de la signature, pas du
+      // clic « Rejoindre ».
+      await tx.sejour.update({
+        where: { id: existingSejour.id },
         data: {
-          titre: invitation.titreSejourSuggere,
-          lieu: invitation.centre.ville,
-          dateDebut: invitation.dateDebut,
-          dateFin: invitation.dateFin,
-          placesTotales: invitation.nbElevesEstime,
-          placesRestantes: invitation.nbElevesEstime,
-          statut: 'DRAFT',
           createurId: user.id,
-          // Pas de hebergementSelectionneId — l'hébergeur doit soumettre un devis
-          regionSouhaitee: `VILLE:${invitation.centre.ville}`,
-          // Projection identité établissement : org prioritaire, invitation en fallback.
-          // L'invitation ne porte pas de code postal → clientCodePostal depuis org seule.
-          clientOrganisation: org?.nom        ?? invitation.etablissementNom     ?? null,
-          clientAdresse:      org?.adresse    ?? invitation.etablissementAdresse ?? null,
-          clientCodePostal:   org?.codePostal ?? null,
-          clientVille:        org?.ville      ?? invitation.etablissementVille   ?? null,
-          niveauClasse: invitation.niveauClasse ?? null,
-          thematiquesPedagogiques: invitation.thematiquesPedagogiques ?? [],
-          nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
-          heureArrivee: invitation.heureArrivee ?? null,
-          heureDepart: invitation.heureDepart ?? null,
-          transportAller: invitation.transportAller ?? null,
-          transportSurPlace: invitation.transportSurPlace ?? null,
-          activitesSouhaitees: invitation.activitesSouhaitees ?? null,
-          budgetMaxParEleve: invitation.budgetMaxParEleve ?? null,
+          modeGestion: 'COLLABORATIF',
         },
       });
 
-      // Demande de devis OUVERTE — visible dans les demandes reçues de l'hébergeur
-      const demande = await tx.demandeDevis.create({
-        data: {
-          sejourId: sejour.id,
-          enseignantId: user.id,
-          titre: invitation.titreSejourSuggere,
-          dateDebut: invitation.dateDebut,
-          dateFin: invitation.dateFin,
-          nombreEleves: invitation.nbElevesEstime,
-          villeHebergement: invitation.centre.ville,
-          statut: 'OUVERTE',
-          typePension: [],
-          centreDestinataireId: invitation.centreId,
-          nombreAccompagnateurs: invitation.nombreAccompagnateurs ?? null,
-          heureArrivee: invitation.heureArrivee ?? null,
-          heureDepart: invitation.heureDepart ?? null,
-          activitesSouhaitees: invitation.activitesSouhaitees ?? null,
-          budgetMaxParEleve: invitation.budgetMaxParEleve ?? null,
-          transportAller: invitation.transportAller ?? null,
-          transportSurPlace: invitation.transportSurPlace ?? null,
-        },
+      // Devis DIRECT existant → DemandeDevis pont pour que le frontend organisateur
+      // trouve le devis via sejour.demandes[].devis[]. Le devis n'est PAS
+      // auto-sélectionné : il reste EN_ATTENTE, signable depuis l'espace connecté.
+      const devisDirect = await tx.devis.findFirst({
+        where: { sejourDirectId: existingSejour.id },
+        orderBy: { createdAt: 'desc' },
       });
 
-      // Création du devis pré-rempli si l'hébergeur l'a préparé
-      let devisCree: { id: string } | null = null;
-      if (invitation.devisDraftJson && invitation.centreId) {
-        const draft = invitation.devisDraftJson as {
-          description?: string;
-          conditionsAnnulation?: string;
-          nomEntreprise?: string;
-          adresseEntreprise?: string;
-          siretEntreprise?: string;
-          emailEntreprise?: string;
-          telEntreprise?: string;
-          tauxTva?: number;
-          montantHT?: number;
-          montantTVA?: number;
-          montantTTC?: number;
-          pourcentageAcompte?: number;
-          montantAcompte?: number;
-          lignes?: Array<{
-            description: string;
-            quantite: number;
-            prixUnitaire: number;
-            tva: number;
-            totalHT: number;
-            totalTTC: number;
-          }>;
-        };
-
-        // Générer le numéro de devis inline (pas d'appel à DevisService)
-        const year = new Date().getFullYear();
-        const countDevis = await tx.devis.count({
-          where: {
-            centreId: invitation.centreId,
-            createdAt: {
-              gte: new Date(`${year}-01-01`),
-              lt: new Date(`${year + 1}-01-01`),
-            },
-          },
+      if (devisDirect) {
+        const sejourData = await tx.sejour.findUnique({
+          where: { id: existingSejour.id },
+          select: { titre: true, dateDebut: true, dateFin: true, placesTotales: true, lieu: true },
         });
-        const numeroDevis = `DEV-${year}-${String(countDevis + 1).padStart(3, '0')}`;
 
-        const montantTTC = draft.montantTTC ?? 0;
-        const nbEleves = Math.max(1, invitation.nbElevesEstime);
-        const montantParEleve = montantTTC / nbEleves;
-
-        const nouveauDevis = await tx.devis.create({
+        const demande = await tx.demandeDevis.create({
           data: {
-            demandeId: demande.id,
-            centreId: invitation.centreId,
-            montantTotal: String(montantTTC),
-            montantParEleve: String(montantParEleve),
-            description: draft.description ?? null,
-            conditionsAnnulation: draft.conditionsAnnulation ?? null,
-            nomEntreprise: draft.nomEntreprise ?? null,
-            adresseEntreprise: draft.adresseEntreprise ?? null,
-            siretEntreprise: draft.siretEntreprise ?? null,
-            emailEntreprise: draft.emailEntreprise ?? null,
-            telEntreprise: draft.telEntreprise ?? null,
-            tauxTva: draft.tauxTva ?? 0,
-            montantHT: draft.montantHT ?? null,
-            montantTVA: draft.montantTVA ?? null,
-            montantTTC: montantTTC,
-            pourcentageAcompte: draft.pourcentageAcompte ?? 30,
-            montantAcompte: draft.montantAcompte ?? null,
-            numeroDevis,
-            typeDevis: 'INVITATION',
-            statut: 'EN_ATTENTE',
+            sejourId: existingSejour.id,
+            enseignantId: user.id,
+            titre: sejourData?.titre ?? invitation.titreSejourSuggere,
+            dateDebut: sejourData?.dateDebut ?? invitation.dateDebut,
+            dateFin: sejourData?.dateFin ?? invitation.dateFin,
+            nombreEleves: sejourData?.placesTotales ?? invitation.nbElevesEstime,
+            villeHebergement: sejourData?.lieu ?? '',
+            statut: 'FERMEE',
+            typePension: [],
+            centreDestinataireId: devisDirect.centreId,
           },
         });
 
-        if (draft.lignes && draft.lignes.length > 0) {
-          await tx.ligneDevis.createMany({
-            data: draft.lignes.map(l => ({
-              devisId: nouveauDevis.id,
-              description: l.description,
-              quantite: l.quantite,
-              prixUnitaire: l.prixUnitaire,
-              tva: l.tva ?? 0,
-              totalHT: l.totalHT,
-              totalTTC: l.totalTTC,
-            })),
-          });
-        }
-
-        devisCree = nouveauDevis;
+        // Rattacher le devis à la demande pont
+        await tx.devis.update({
+          where: { id: devisDirect.id },
+          data: { demandeId: demande.id },
+        });
       }
 
       await tx.invitationCollaboration.update({
         where: { id: invitation.id },
-        data: { acceptedAt: new Date(), sejourId: sejour.id },
+        data: { acceptedAt: new Date(), sejourId: existingSejour.id },
       });
 
-      return { sejourId: sejour.id, devisCree };
+      return { sejourId: existingSejour.id, devisCree: devisDirect ?? null };
     });
 
     // ── Liaison CRM (non bloquant) ──
@@ -436,13 +287,12 @@ export class InvitationCollaborationService {
       const dateDebut = new Date(invitation.dateDebut).toLocaleDateString('fr-FR');
       const dateFin = new Date(invitation.dateFin).toLocaleDateString('fr-FR');
       const devisInfo = result.devisCree
-        ? `<p>Votre devis pré-rempli a été automatiquement soumis à l'enseignant.</p>`
-        : `<p>Une demande de devis vous attend dans votre espace.</p>
-           <p style="margin:24px 0"><a href="${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/dashboard/hebergeur/demandes" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir mes demandes</a></p>`;
+        ? `<p>Le devis est en attente de la signature de l'enseignant depuis son espace.</p>`
+        : `<p>Aucun devis n'est encore associé à ce séjour.</p>`;
 
       await this.email.sendGenericNotification(
         centreUser.email,
-        `L'enseignant a accepté votre invitation — ${invitation.titreSejourSuggere}`,
+        `L'enseignant a rejoint le séjour — ${invitation.titreSejourSuggere}`,
         `<p>L'enseignant que vous avez invité a accepté votre invitation pour le séjour <strong>${invitation.titreSejourSuggere}</strong>.</p>
          <p><strong>Dates :</strong> ${dateDebut} → ${dateFin}<br>
          <strong>Élèves :</strong> ${invitation.nbElevesEstime}</p>
