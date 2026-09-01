@@ -260,6 +260,15 @@ export async function createSejourDirect(dto: {
   anneeSouhaitee?: number;
   noteDateFlexible?: string;
   dureeNuits?: number;
+  // Qualification optionnelle (étape 3 « Détails ») — colonnes existantes sur Sejour (C5-back).
+  niveauClasse?: string;
+  thematiquesPedagogiques?: string[];
+  heureArrivee?: string;
+  heureDepart?: string;
+  transportAller?: string;
+  transportSurPlace?: boolean;
+  activitesSouhaitees?: string;
+  budgetMaxParEleve?: number;
 }): Promise<SejourPlanning> {
   const { data } = await api.post<SejourPlanning>('/sejours/direct', dto);
   return data;
