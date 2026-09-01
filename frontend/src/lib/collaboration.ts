@@ -305,6 +305,9 @@ export interface LigneDevisBudget {
 export interface DevisBudget {
   id: string;
   statut: string;
+  sejourDirectId?: string | null;
+  isComplementaire?: boolean;
+  contratUrl?: string | null;
   montantTotal: number | null;
   montantTTC: number | null;
   montantHT: number | null;
@@ -832,4 +835,35 @@ export async function uploadSignaturePublic(
     throw new Error(data.message || 'Erreur lors de l\'upload');
   }
   return res.json();
+}
+
+// ── Signature depuis l'espace connecté (ORGANISATEUR) — endpoints id-based JWT.
+// Réservés à l'espace : ne JAMAIS appeler /devis/public/:token/* depuis un écran connecté.
+
+export async function signerDevisConnecte(
+  devisId: string,
+  body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/signature/signer`, body);
+  return data;
+}
+
+export async function envoyerDirectionConnecte(
+  devisId: string,
+  body: { emailDirecteur: string; nomDirecteur?: string },
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/signature/envoyer-direction`, body);
+  return data;
+}
+
+export async function uploadSignatureConnecte(
+  devisId: string,
+  file: File,
+): Promise<{ success: boolean }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/signature/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
 }
