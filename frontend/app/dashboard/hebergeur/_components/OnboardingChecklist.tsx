@@ -303,9 +303,6 @@ export default function OnboardingChecklist() {
       <div className={`mt-4 ${!status.envoisBloques ? 'border-t border-gray-100 pt-3' : ''}`}>
         <p className="mb-2 text-xs font-semibold text-gray-500">Aller plus loin</p>
         <div className="flex flex-col gap-1.5">
-          <Link href="/dashboard/hebergeur/inviter-enseignant" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
-            Inviter un organisateur →
-          </Link>
           <Link href="/dashboard/hebergeur/equipe" className="text-xs font-medium text-[var(--color-primary)] hover:underline">
             Inviter vos collaborateurs →
           </Link>
