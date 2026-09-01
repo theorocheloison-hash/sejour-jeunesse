@@ -190,6 +190,18 @@ export default function CollaborationPage() {
     finally { setBudgetLoading(false); }
   }, [id]);
 
+  // Refresh après signature côté organisateur : budgetData (statut du devis) + séjour.
+  const reloadApresSignature = useCallback(async () => {
+    await loadBudget();
+    getSejourCollabInfo(id).then(setSejour).catch(() => {});
+  }, [loadBudget, id]);
+
+  // Bandeau « devis à signer » : charger budgetData au montage pour l'organisateur en
+  // collaboratif, indépendamment de l'onglet actif (le bandeau doit être visible partout).
+  useEffect(() => {
+    if (user?.role === 'ORGANISATEUR' && !isDirect) loadBudget();
+  }, [user?.role, isDirect, loadBudget]);
+
   useEffect(() => {
     if (activeTab === 'devis' && !isDirect) loadBudget();
     if (activeTab === 'groupes') {
@@ -354,6 +366,35 @@ export default function CollaborationPage() {
         </div>
       )}
 
+      {/* ── Bandeau devis à signer (organisateur) ──────────────────────────── */}
+      {user.role === 'ORGANISATEUR' && budgetData?.devis &&
+        (budgetData.devis.statut === 'EN_ATTENTE' || budgetData.devis.statut === 'EN_ATTENTE_VALIDATION') && (
+        <div className={`border-b print:hidden ${budgetData.devis.statut === 'EN_ATTENTE' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className={`flex items-center gap-2 text-sm ${budgetData.devis.statut === 'EN_ATTENTE' ? 'text-amber-800' : 'text-blue-800'}`}>
+                <svg className={`h-5 w-5 shrink-0 ${budgetData.devis.statut === 'EN_ATTENTE' ? 'text-amber-500' : 'text-blue-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <span>
+                  {budgetData.devis.statut === 'EN_ATTENTE'
+                    ? "Ce devis n'est pas encore signé — signez-le pour confirmer votre réservation."
+                    : 'Devis en attente de validation par votre direction.'}
+                </span>
+              </div>
+              {activeTab !== 'devis' && (
+                <button
+                  onClick={() => setTab('devis')}
+                  className={`shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors ${budgetData.devis.statut === 'EN_ATTENTE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                  Voir le devis
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -393,6 +434,7 @@ export default function CollaborationPage() {
             isDirect={isDirect}
             budgetData={budgetData}
             onError={setMutationError}
+            onReload={reloadApresSignature}
             peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
             peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
             peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
