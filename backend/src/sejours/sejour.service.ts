@@ -8,7 +8,7 @@ import { UpdateSejourDto } from './dto/update-sejour.dto.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
-import { STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
+import { STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_VISIBLES_ORGANISATEUR } from '../devis/devis-statuts.constants.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
@@ -167,7 +167,7 @@ export class SejourService {
           include: {
             _count: { select: { devis: true } },
             devis: {
-              where: { statut: { in: ['EN_ATTENTE', 'SELECTIONNE'] }, isComplementaire: false },
+              where: { statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR }, isComplementaire: false },
               orderBy: { createdAt: 'desc' },
               select: {
                 id: true,
@@ -400,7 +400,7 @@ export class SejourService {
         demandes: {
           include: {
             devis: {
-              where: { statut: { in: ['EN_ATTENTE', 'SELECTIONNE'] }, isComplementaire: false },
+              where: { statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR }, isComplementaire: false },
               orderBy: { createdAt: 'desc' },
               include: { lignes: true },
               take: 1,

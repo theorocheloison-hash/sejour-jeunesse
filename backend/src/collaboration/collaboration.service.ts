@@ -9,7 +9,7 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { getCentreIdsForUser } from '../centres/centre.helper.js';
 import { getUserCentrePermissions, hasPermission } from '../centres/permission.helper.js';
 import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
-import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
+import { STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_VISIBLES_ORGANISATEUR } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_COLLABORATIFS, STATUTS_SEJOUR_DIRECT } from '../sejours/sejour-statuts.constants.js';
 import { OccupationsService } from '../chambres/occupations.service.js';
 
@@ -421,7 +421,8 @@ export class CollaborationService {
       where: { sejourId },
       include: {
         devis: {
-          where: { statut: { in: STATUTS_DEVIS_RETENUS } },
+          where: { statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR }, isComplementaire: false },
+          orderBy: { createdAt: 'desc' },
           include: {
             lignes: true,
             centre: {

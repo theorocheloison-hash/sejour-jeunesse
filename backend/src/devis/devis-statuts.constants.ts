@@ -34,3 +34,19 @@ export const STATUTS_DEVIS_EN_COURS: StatutDevis[] = [
   StatutDevis.EN_ATTENTE_VALIDATION,
   StatutDevis.SELECTIONNE,
 ];
+
+/**
+ * Devis « visibles » côté organisateur : tout devis principal non refusé / non retenu,
+ * de l'attente de signature jusqu'au solde. Pilote les lecteurs du dashboard, du dossier
+ * pédagogique et du budget — un devis en attente (ou en cours de validation direction)
+ * doit rester visible pour être signé depuis l'espace. Inclut FACTURE_* (legacy) pour ne
+ * pas régresser sur les anciens devis facturés que RETENUS couvrait.
+ */
+export const STATUTS_DEVIS_VISIBLES_ORGANISATEUR: StatutDevis[] = [
+  StatutDevis.EN_ATTENTE,
+  StatutDevis.EN_ATTENTE_VALIDATION,
+  StatutDevis.SELECTIONNE,
+  StatutDevis.SIGNE_DIRECTION,
+  StatutDevis.FACTURE_ACOMPTE,
+  StatutDevis.FACTURE_SOLDE,
+];

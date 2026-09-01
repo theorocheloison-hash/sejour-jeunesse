@@ -278,7 +278,7 @@ export class InvitationCollaborationService {
       etablissementVille: invitation.etablissementVille,
     }).catch(() => {});
 
-    // Notifier l'hébergeur qu'une demande l'attend
+    // Notifier l'hébergeur que l'enseignant a rejoint le séjour
     const centreUser = await this.prisma.user.findUnique({
       where: { id: invitation.centre.userId! },
       select: { email: true },
