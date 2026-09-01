@@ -33,9 +33,11 @@ const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm foc
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import SecureFileLink from '@/src/components/SecureFileLink';
+import SignatureDevisPanel from '@/src/components/devis/SignatureDevisPanel';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
+import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 
 interface TabDevisFacturationProps {
@@ -45,6 +47,9 @@ interface TabDevisFacturationProps {
   isDirect: boolean;
   budgetData: BudgetData | null;
   onError: (message: string) => void;
+  // Rechargement après signature côté ORGANISATEUR (recharge budgetData depuis le parent —
+  // reloadDevis/getDevisForSejour est hébergeur-only).
+  onReload?: () => Promise<void>;
   // Gating UI par module (calculé côté page depuis sejour.mesPermissions).
   // devis est toujours ≥ READ dans ce composant (l'onglet est masqué si NONE),
   // donc peutEcrireDevis = devis:WRITE. Facturation : NONE/READ/WRITE coexistent.
@@ -169,6 +174,7 @@ export default function TabDevisFacturation({
   isDirect,
   budgetData,
   onError,
+  onReload,
   peutEcrireDevis,
   peutEcrireFacturation,
   peutVoirFacturation,
@@ -176,6 +182,8 @@ export default function TabDevisFacturation({
   // ── Devis DIRECT ────────────────────────────────────────────
   const [devis, setDevis] = useState<DevisType | null>(null);
   const [devisLoading, setDevisLoading] = useState(false);
+  // Contrat consulté (garde de la case d'acceptation dans SignatureDevisPanel côté organisateur).
+  const [contratOuvert, setContratOuvert] = useState(false);
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
   const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
@@ -322,19 +330,29 @@ export default function TabDevisFacturation({
     finally { setComplementairesLoading(false); }
   }, [isDirect, sejourId]);
 
-  /** Recharge le devis principal (DIRECT ou COLLAB) */
+  // Source du devis affiché selon le rôle : HEBERGEUR via getDevisForSejour (endpoint
+  // hébergeur) ; ORGANISATEUR via budgetData.devis (getBudgetData, inclut EN_ATTENTE
+  // depuis C2c — getDevisForSejour renverrait 403).
+  const devisAffiche = user.role === 'HEBERGEUR' ? devis : (budgetData?.devis ?? null);
+
+  /** Recharge le devis principal : HEBERGEUR → getDevisForSejour ; sinon → onReload parent. */
   const reloadDevis = async () => {
-    const d = await getDevisForSejour(sejourId);
-    setDevis(d);
+    if (user.role === 'HEBERGEUR') {
+      const d = await getDevisForSejour(sejourId);
+      setDevis(d);
+    } else {
+      await onReload?.();
+    }
   };
 
   useEffect(() => {
+    if (user.role !== 'HEBERGEUR') return; // ORGANISATEUR : le devis vient de budgetData
     setDevisLoading(true);
     getDevisForSejour(sejourId)
       .then(d => setDevis(d))
       .catch(() => {})
       .finally(() => setDevisLoading(false));
-  }, [sejourId]);
+  }, [sejourId, user.role]);
 
   // Gate anti-phishing : tant que le centre est en validation (envoisBloques),
   // le backend n'autorise l'envoi de devis que vers l'adresse du compte.
@@ -1704,14 +1722,14 @@ export default function TabDevisFacturation({
             </div>
           )}
 
-          {!devisLoading && !devis && (
+          {!devisLoading && !devisAffiche && (
             <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
               <p className="text-sm text-gray-500">Aucun devis sélectionné pour ce séjour.</p>
             </div>
           )}
 
-          {!devisLoading && devis && budgetData?.sejour && (() => {
-            const d = devis!;
+          {!devisLoading && devisAffiche && budgetData?.sejour && (() => {
+            const d = devisAffiche! as DevisType;
             const s = budgetData.sejour;
             const c = d.centre;
             const createur = s?.createur;
@@ -1824,7 +1842,7 @@ export default function TabDevisFacturation({
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                        Signé par la direction
+                        {d.statut === 'SIGNE_DIRECTION' ? 'Signé par la direction' : 'Signé'}
                         {d.nomSignataireDirecteur && <> — {d.nomSignataireDirecteur}</>}
                         {d.dateSignatureDirecteur && <> le {new Date(d.dateSignatureDirecteur).toLocaleDateString('fr-FR')}</>}
                       </span>
@@ -1938,6 +1956,55 @@ export default function TabDevisFacturation({
                     </a>
                   )}
                 </div>
+                {/* C4 — Signature du devis depuis l'espace connecté (ORGANISATEUR),
+                    devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT. */}
+                {user.role === 'ORGANISATEUR' && d.sejourDirectId && d.statut === 'EN_ATTENTE' && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-900">Signer ce devis</h3>
+                    {d.contratUrl && (
+                      <div>
+                        <span onClick={() => setContratOuvert(true)}>
+                          <SecureFileLink
+                            url={d.contratUrl}
+                            download
+                            className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Télécharger le contrat (PDF)
+                          </SecureFileLink>
+                        </span>
+                        {!contratOuvert && (
+                          <p className="mt-2 text-xs text-amber-600 font-medium">Veuillez ouvrir et lire le contrat avant de signer.</p>
+                        )}
+                        {contratOuvert && (
+                          <p className="mt-2 text-xs text-green-600 font-medium">✓ Contrat consulté</p>
+                        )}
+                      </div>
+                    )}
+                    <SignatureDevisPanel
+                      contratUrl={d.contratUrl ?? null}
+                      contratOuvert={contratOuvert}
+                      onSigner={b => signerDevisConnecte(d.id, b).then(() => reloadDevis())}
+                      onEnvoyerDirection={b => envoyerDirectionConnecte(d.id, b).then(() => reloadDevis())}
+                      onUpload={f => uploadSignatureConnecte(d.id, f).then(() => reloadDevis())}
+                    />
+                  </div>
+                )}
+                {user.role === 'ORGANISATEUR' && d.sejourDirectId && d.statut === 'EN_ATTENTE_VALIDATION' && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 space-y-4">
+                    <p className="text-sm font-medium text-blue-800">Devis en attente de validation par votre direction.</p>
+                    <SignatureDevisPanel
+                      contratUrl={d.contratUrl ?? null}
+                      contratOuvert={contratOuvert}
+                      ongletsDisponibles={['upload']}
+                      onSigner={b => signerDevisConnecte(d.id, b).then(() => reloadDevis())}
+                      onEnvoyerDirection={b => envoyerDirectionConnecte(d.id, b).then(() => reloadDevis())}
+                      onUpload={f => uploadSignatureConnecte(d.id, f).then(() => reloadDevis())}
+                    />
+                  </div>
+                )}
                 {d.documentUrl ? (
                   <div className="space-y-3">
                     <SecureFileLink
@@ -2124,12 +2191,12 @@ export default function TabDevisFacturation({
                     </button>
                     <button
                       onClick={async () => {
-                        if (!invitationEmail.trim() || !sejour || !devis) return;
+                        if (!invitationEmail.trim() || !sejour || !devisAffiche) return;
                         setInvitationSending(true);
                         try {
                           await api.post('/invitations-directeur', {
                             sejourId: sejour.id,
-                            devisId: devis.id,
+                            devisId: devisAffiche.id,
                             emailDirecteur: invitationEmail.trim(),
                             enseignantPrenom: user.firstName,
                             sejourTitre: sejour.titre,
