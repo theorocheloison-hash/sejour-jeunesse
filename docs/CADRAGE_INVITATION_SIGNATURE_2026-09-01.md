@@ -1,7 +1,7 @@
 # LIAVO — Cadrage : Unification de l'invitation, découplage « rejoindre / signer », création de séjour en 3 étapes
 
 > **Rédigé le 01/09/2026** — Cadrage issu d'une session sparring (audit code réel), puis **exécution suivie** (§13). Recette §14.
-> **Statut** — Lot backend + C4 commités en local, **rien de poussé**. Recette locale en cours.
+> **Statut** — **LOT LIVRÉ, RECETTÉ LOCAL, POUSSÉ ET DÉPLOYÉ (01/09/2026, 18 commits `286a9be`→`0823ae0`, 2 déploiements Scalingo success, recette prod : wizard visible Sauvageon + dossier COLLAB réel intact).** Backlog post-lot en §8 ; chantier suivant = #38.
 > **Roadmap** : #41 *tranché*, #40 *tranché (C3)*, #36 *connexe (T3)*, #2 *caduc*, #38 *séparé — big picture dashboard organisateur à ouvrir après ce lot*.
 > **Réf.** : `ARCHITECTURE_SEJOUR_DIRECT.md`, `ARCHITECTURE_UX_SEJOUR_FINAL.md`, `CHANTIER_RECHERCHE_ETABLISSEMENT.md`, `cc-reports/RAPPORT_DIAGNOSTIC_BOOT_SCALINGO.md`.
 
@@ -92,9 +92,15 @@ Onboarding organisateur (#38, à cadrer via la matrice §8) ; multi-org ; vidéo
 | C4f bandeau limité `sejourDirectId` | `846be82` | — |
 | C4g panneau sous l'aperçu + gate onboarding hébergeur-only | `5cee0ad` | dep `[user.role]` stable ; erreur HMR = artefact hot reload |
 | chore prisma.config (dotenv + seed) | `35278ad` | inerte en prod ; nécessaire pour la recette locale |
-| Recette locale B (invit→rejoindre→signer espace), B6, A (lien public), C2-C3 (délégation) | — | ✅ 01/09 14:24-14:55 — `PlanGuard` ORGANISATEUR OK, `EN_ATTENTE_VALIDATION` visible (bandeau bleu, panneau upload seul), emails loggés | Upload (C4) non testé, accepté ; vérifier badge bleu dashboard |
+| Recette locale B (invit→rejoindre→signer espace), B6, A (lien public), C2-C3 (délégation) | — | ✅ 01/09 14:24-14:55 — `PlanGuard` ORGANISATEUR OK, `EN_ATTENTE_VALIDATION` visible (bandeau bleu, panneau upload seul, badge bleu dashboard) | Upload (C4) non testé, accepté |
+| C5f-a lib dto 8 champs | `994dd5b` | — | — |
+| C5f-b wizard 3 étapes `CreateSejourModal` | `92c438a` | ✅ relu en entier ; niveau/classe/âge texte libre ; thématiques exclues ; « Détails → » disabled sans titre | écran CHOIX non testable en local |
+| Recette wizard 4 cas (planning 3 étapes + 7 champs en base, CRM → étape 2, événement 2 étapes, dates à définir) | — | ✅ 01/09 15:50-15:56 | — |
+| Docs cadrage | `0823ae0` | — | — |
+| **PUSH** `e8a430e..0823ae0` (18 commits) + **2 déploiements success** | — | dashboard Scalingo 16:08 | push exécuté par CC sur ordre après relecture complète |
+| Recette prod Sauvageon : wizard `1 Client · 2 Séjour · 3 Détails` + séjour COLLAB réel (Lycée les Bruyères) onglet Devis intact | — | ✅ 16:20 | parcours B en prod non fait (à suivre à la 1ʳᵉ invitation réelle) |
 
-**Rien de poussé.**
+**Lot clos.** Consignation : `LIAVO_SESSION_STATE.md` 01/09, `ROADMAP_ETE_2026.md` 01/09, `ROADMAP_CONSOLIDEE` suivi post-audit 01/09.
 
 ---
 
