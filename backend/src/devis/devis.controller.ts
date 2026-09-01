@@ -220,6 +220,48 @@ export class DevisController {
     return this.devisService.marquerDevisSigneHebergeur(id, user.id, file, body?.nomSignataire, centreId);
   }
 
+  // ── Signature du devis depuis l'espace connecté (ORGANISATEUR) — C3 ──
+  // Préfixe 'signature/' pour éviter toute collision avec :id/signer (PATCH SIGNATAIRE)
+  // et :id/upload-signature (POST ORGANISATEUR COLLAB), inchangés. Ownership R4 + trace
+  // JWT posés dans les wrappers de DevisService, qui délèguent aux méthodes publiques.
+
+  /** POST /devis/:id/signature/signer — Signer le devis directement (organisateur connecté) */
+  @Post(':id/signature/signer')
+  @Roles(Role.ORGANISATEUR)
+  signerConnecte(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
+    @Req() req: Request,
+  ) {
+    return this.devisService.signerDevisConnecte(id, user.id, body, req);
+  }
+
+  /** POST /devis/:id/signature/envoyer-direction — Déléguer la signature à la direction */
+  @Post(':id/signature/envoyer-direction')
+  @Roles(Role.ORGANISATEUR)
+  envoyerDirectionConnecte(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() body: { emailDirecteur: string; nomDirecteur?: string },
+  ) {
+    return this.devisService.envoyerADirectionConnecte(id, user.id, body);
+  }
+
+  /** POST /devis/:id/signature/upload — Uploader un scan signé (organisateur connecté) */
+  @Post(':id/signature/upload')
+  @Roles(Role.ORGANISATEUR)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSignatureConnecte(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { nomSignataire?: string },
+    @Req() req: Request,
+  ) {
+    return this.devisService.uploadSignatureConnecte(id, user.id, file, body?.nomSignataire, req);
+  }
+
   // ── Facturation migrée vers FactureModule (Lot 1) ──
   // Routes supprimées : PATCH facturer-acompte/facturer-solde/valider-acompte,
   // POST versements, PATCH versements/:vid/supprimer, GET chorus-xml.

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
 /**
@@ -162,4 +162,40 @@ export async function getSignataireSejourIds(
     : [];
 
   return [...new Set([...sejoursCollegues, ...sejourIdsInvitation, ...sejourIdsDirectOrg])];
+}
+
+/**
+ * R4 — ORGANISATEUR peut signer le devis d'un séjour dont il est createurId.
+ * Résout le créateur du séjour porteur du devis (DIRECT via sejourDirect, COLLAB
+ * via demande.sejour) et vérifie qu'il correspond à l'utilisateur connecté.
+ * Retourne le tokenSignature du devis pour déléguer aux méthodes publiques.
+ */
+export async function assertOrganisateurCanSignDevis(
+  prisma: PrismaService,
+  userId: string,
+  devisId: string,
+): Promise<{ tokenSignature: string }> {
+  const devis = await prisma.devis.findUnique({
+    where: { id: devisId },
+    select: {
+      id: true,
+      tokenSignature: true,
+      isComplementaire: true,
+      sejourDirect: { select: { createurId: true } },
+      demande: { select: { sejour: { select: { createurId: true } } } },
+    },
+  });
+  if (!devis) throw new NotFoundException('Devis introuvable');
+  if (devis.isComplementaire) {
+    throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
+  }
+  const createurId =
+    devis.sejourDirect?.createurId ?? devis.demande?.sejour?.createurId ?? null;
+  if (createurId !== userId) {
+    throw new ForbiddenException('Vous n\'avez pas accès à ce devis');
+  }
+  if (!devis.tokenSignature) {
+    throw new ForbiddenException('Token de signature manquant sur le devis');
+  }
+  return { tokenSignature: devis.tokenSignature };
 }

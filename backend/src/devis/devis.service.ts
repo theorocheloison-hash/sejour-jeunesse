@@ -23,6 +23,7 @@ import {
   assertSignataireCanAccessDemande,
   assertHebergeurCanAccessDemande,
   getSignataireSejourIds,
+  assertOrganisateurCanSignDevis,
 } from '../auth/ownership.helper.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
@@ -2272,6 +2273,7 @@ export class DevisService {
     token: string,
     body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
     req: Request,
+    signataireUserId?: string,
   ) {
     if (!body.confirmation) {
       throw new ForbiddenException('Vous devez accepter les conditions pour signer');
@@ -2300,7 +2302,7 @@ export class DevisService {
 
     const now = new Date();
     const hash = createHash('sha256')
-      .update(`${token}${body.nomSignataire}${now.toISOString()}${devis.montantTTC ?? '0'}`)
+      .update(`${token}${body.nomSignataire}${now.toISOString()}${devis.montantTTC ?? '0'}${signataireUserId ?? ''}`)
       .digest('hex');
 
     await this.prisma.$transaction(async (tx) => {
@@ -2308,7 +2310,7 @@ export class DevisService {
         where: { id: devis.id },
         data: {
           statut: StatutDevis.SELECTIONNE,
-          signatureDirecteur: `Signé électroniquement par ${body.nomSignataire}${body.fonctionSignataire ? ` (${body.fonctionSignataire})` : ''} — ${now.toLocaleDateString('fr-FR')}`,
+          signatureDirecteur: `Signé électroniquement par ${body.nomSignataire}${body.fonctionSignataire ? ` (${body.fonctionSignataire})` : ''} — ${now.toLocaleDateString('fr-FR')}${signataireUserId ? ' — compte vérifié' : ''}`,
           nomSignataireDirecteur: body.nomSignataire.trim(),
           dateSignatureDirecteur: now,
           signatureIpAddress: req.ip ?? null,
@@ -2408,6 +2410,7 @@ export class DevisService {
   async envoyerADirection(
     token: string,
     body: { emailDirecteur: string; nomDirecteur?: string },
+    signataireUserId?: string,
   ) {
     if (!body.emailDirecteur?.trim()) {
       throw new ForbiddenException('L\'email du signataire est requis');
@@ -2505,6 +2508,7 @@ export class DevisService {
               subject: `Devis à valider — ${sejour.titre}`,
               messagePreview: '',
             },
+            userId: signataireUserId,
           },
         });
       }
@@ -2521,6 +2525,7 @@ export class DevisService {
     file: Express.Multer.File,
     req: Request,
     nomSignataire?: string,
+    signataireUserId?: string,
   ) {
     if (!file || file.mimetype !== 'application/pdf') {
       throw new ForbiddenException('Un fichier PDF est requis');
@@ -2551,7 +2556,7 @@ export class DevisService {
         data: {
           statut: StatutDevis.SELECTIONNE,
           signatureDocumentUrl: documentUrl,
-          signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}`,
+          signatureDirecteur: `Document signé uploadé le ${new Date().toLocaleDateString('fr-FR')}${signataireUserId ? ' — compte vérifié' : ''}`,
           ...(nomSignataireClean ? { nomSignataireDirecteur: nomSignataireClean } : {}),
           dateSignatureDirecteur: new Date(),
           signatureIpAddress: req.ip ?? null,
@@ -2617,6 +2622,41 @@ export class DevisService {
     } catch { /* non bloquant */ }
 
     return { success: true, message: 'Document signé reçu' };
+  }
+
+  // ── Signature depuis l'espace connecté (ORGANISATEUR) — C3 ──────────────
+  // Wrappers : ownership R4 (createurId) puis délégation aux méthodes publiques
+  // via le tokenSignature persistant, en traçant l'identité JWT (signataireUserId).
+  // Les endpoints publics /devis/public/:token/* restent inchangés.
+
+  async signerDevisConnecte(
+    devisId: string,
+    userId: string,
+    body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
+    req: Request,
+  ) {
+    const { tokenSignature } = await assertOrganisateurCanSignDevis(this.prisma, userId, devisId);
+    return this.signerDevisDirect(tokenSignature, body, req, userId);
+  }
+
+  async envoyerADirectionConnecte(
+    devisId: string,
+    userId: string,
+    body: { emailDirecteur: string; nomDirecteur?: string },
+  ) {
+    const { tokenSignature } = await assertOrganisateurCanSignDevis(this.prisma, userId, devisId);
+    return this.envoyerADirection(tokenSignature, body, userId);
+  }
+
+  async uploadSignatureConnecte(
+    devisId: string,
+    userId: string,
+    file: Express.Multer.File,
+    nomSignataire: string | undefined,
+    req: Request,
+  ) {
+    const { tokenSignature } = await assertOrganisateurCanSignDevis(this.prisma, userId, devisId);
+    return this.uploadSignaturePublic(tokenSignature, file, req, nomSignataire, userId);
   }
 
   /** Annule un devis (statut → NON_RETENU). Bloque si une FA est émise sans avoir. */
