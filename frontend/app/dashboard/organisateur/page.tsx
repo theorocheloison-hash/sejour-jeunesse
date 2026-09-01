@@ -15,7 +15,7 @@ import StatutBadge from '@/src/components/StatutBadge';
 
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',   cls: 'bg-gray-100 text-gray-600' },
-  OPTION:     { label: 'Option',      cls: 'bg-amber-100 text-amber-700' },
+  OPTION:     { label: 'À confirmer', cls: 'bg-amber-100 text-amber-700' },
   SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
   CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
   SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
@@ -171,6 +171,23 @@ function SejourCard({
             );
           })()}
 
+          {/* Badge devis — pour OPTION (séjour rejoint, devis non signé) */}
+          {sejour.statut === 'OPTION' && (() => {
+            const dv = sejour.demandes?.[0]?.devis?.[0];
+            if (!dv) return null;
+            if (dv.statut === 'EN_ATTENTE') return (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                Devis à signer — {dv.centre?.nom ?? ''}
+              </span>
+            );
+            if (dv.statut === 'EN_ATTENTE_VALIDATION') return (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
+                En attente validation direction — {dv.centre?.nom ?? ''}
+              </span>
+            );
+            return null;
+          })()}
+
           {/* Bouton autorisations — pour CONVENTION et SIGNE_DIRECTION */}
           {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
             <Link
@@ -184,28 +201,30 @@ function SejourCard({
             </Link>
           )}
 
-          {/* Espace collaboratif — uniquement pour CONVENTION */}
+          {/* Espace collaboratif — dès OPTION (séjour rejoint, devis à signer) */}
+          {['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
+            <Link
+              href={`/dashboard/sejour/${sejour.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
+              </svg>
+              Espace collaboratif
+            </Link>
+          )}
+
+          {/* Documents officiels — après convention */}
           {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
-            <>
-              <Link
-                href={`/dashboard/sejour/${sejour.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
-                </svg>
-                Espace collaboratif
-              </Link>
-              <Link
-                href={`/dashboard/organisateur/documents/${sejour.id}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Documents officiels
-              </Link>
-            </>
+            <Link
+              href={`/dashboard/organisateur/documents/${sejour.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Documents officiels
+            </Link>
           )}
 
           {sejour.statut === 'SIGNE_DIRECTION' && estHorsScolaire(sejour) && (
