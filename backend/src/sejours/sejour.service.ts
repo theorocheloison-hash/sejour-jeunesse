@@ -167,7 +167,8 @@ export class SejourService {
           include: {
             _count: { select: { devis: true } },
             devis: {
-              where: { statut: 'SELECTIONNE' },
+              where: { statut: { in: ['EN_ATTENTE', 'SELECTIONNE'] }, isComplementaire: false },
+              orderBy: { createdAt: 'desc' },
               select: {
                 id: true,
                 statut: true,
@@ -399,7 +400,8 @@ export class SejourService {
         demandes: {
           include: {
             devis: {
-              where: { statut: 'SELECTIONNE' },
+              where: { statut: { in: ['EN_ATTENTE', 'SELECTIONNE'] }, isComplementaire: false },
+              orderBy: { createdAt: 'desc' },
               include: { lignes: true },
               take: 1,
             },
