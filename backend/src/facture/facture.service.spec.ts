@@ -174,6 +174,23 @@ function mockDeps(state: State) {
         }
         return null;
       }),
+      findMany: jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
+        // B2 : chargerFacturesActives / ajouterVersement — renvoie les factures du
+        // type demandé, avec la relation avoirAssocie (avoir 1-1 sur l'acompte).
+        const tf = where.typeFacture as { in?: string[] } | string | undefined;
+        const types = tf && typeof tf === 'object' && tf.in ? tf.in
+          : typeof tf === 'string' ? [tf] : null;
+        const all = [state.factureAcompte, state.factureSolde]
+          .filter(Boolean) as Array<Record<string, unknown>>;
+        const res = types ? all.filter(f => types.includes(f.typeFacture as string)) : all;
+        return res.map(f => ({
+          ...f,
+          devis: { centreId: 'centre-1' },
+          avoirAssocie: f.typeFacture === 'ACOMPTE' && state.avoir
+            ? { montantFacture: state.avoir.montantFacture }
+            : null,
+        }));
+      }),
       findUnique: jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
         if (where.factureAnnuleeId) return state.avoir;
         if (where.id) return state.byId[where.id as string] ?? null;
@@ -436,9 +453,20 @@ describe('emettreFactureTotal (§7.6)', () => {
     expect(f.factureAcompteId).toBeNull();
   });
 
-  it('refusée si une facture existe déjà', async () => {
+  it('refusée si une facture ACTIVE existe déjà', async () => {
     const { service } = mockDeps(initState());
     await expect(service.emettreFactureTotal('devis-1', 'user-1')).rejects.toThrow(ForbiddenException);
+  });
+
+  it('autorisée si la seule facture existante est intégralement annulée (ré-émission)', async () => {
+    // Acompte 2 970 annulé par un avoir PLEIN (−2 970) ⇒ facture inactive.
+    const { service, state } = mockDeps(initState({
+      factureAcompte: factureAcompte({ montantFacture: 2970 }),
+      avoir: { montantFacture: -2970 },
+    }));
+    const f = await service.emettreFactureTotal('devis-1', 'user-1');
+    expect(f.montantFacture).toBe(6600);
+    expect(state.created).toHaveLength(1);
   });
 });
 

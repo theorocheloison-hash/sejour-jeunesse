@@ -346,6 +346,29 @@ export class FactureService {
 
   // ── Émission ──────────────────────────────────────────────────────────────
 
+  /**
+   * B2 — une facture est « intégralement annulée » si son avoir 1-1 couvre
+   * exactement son montant. Un avoir PARTIEL laisse la facture ACTIVE.
+   */
+  private estIntegralementAnnulee(
+    f: { montantFacture: number; avoirAssocie?: { montantFacture: number } | null },
+  ): boolean {
+    return (
+      !!f.avoirAssocie &&
+      Math.round(Math.abs(f.avoirAssocie.montantFacture) * 100) === Math.round(f.montantFacture * 100)
+    );
+  }
+
+  /** Factures d'un devis (types demandés) qui ne sont PAS intégralement annulées. */
+  private async chargerFacturesActives(devisId: string, types: Array<'ACOMPTE' | 'SOLDE'>) {
+    const factures = await this.prisma.facture.findMany({
+      where: { devisId, typeFacture: { in: types } },
+      include: { avoirAssocie: { select: { montantFacture: true } } },
+      orderBy: { dateEmission: 'asc' },
+    });
+    return factures.filter((f) => !this.estIntegralementAnnulee(f));
+  }
+
   /** Émet la facture d'acompte (devis collab OU direct — détection automatique). NE MUTE PAS le devis. */
   async emettreAcompte(devisId: string, userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
@@ -361,11 +384,9 @@ export class FactureService {
         throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
       }
     }
-    const acompteExistant = await this.prisma.facture.findFirst({
-      where: { devisId, typeFacture: 'ACOMPTE' },
-    });
-    if (acompteExistant) {
-      throw new ForbiddenException('La facture d\'acompte a déjà été émise pour ce devis');
+    const acomptesActifs = await this.chargerFacturesActives(devisId, ['ACOMPTE']);
+    if (acomptesActifs.length > 0) {
+      throw new ForbiddenException('Une facture d\'acompte active existe déjà pour ce devis');
     }
 
     const emetteur = await this.construireEmetteur(devis);
@@ -453,20 +474,19 @@ export class FactureService {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
-    const factureAcompte = await this.prisma.facture.findFirst({
-      where: { devisId, typeFacture: 'ACOMPTE' },
-    });
+    // B2 : on raisonne sur les factures ACTIVES — un acompte intégralement annulé
+    // est ignoré (⇒ il faut ré-émettre un acompte, pas un solde).
+    const acomptesActifs = await this.chargerFacturesActives(devisId, ['ACOMPTE']);
+    const factureAcompte = acomptesActifs[acomptesActifs.length - 1] ?? null;
     if (!factureAcompte) {
       throw new ForbiddenException('La facture d\'acompte doit être émise en premier');
     }
     if (!factureAcompte.acompteVerse) {
       throw new ForbiddenException('L\'acompte doit être validé avant d\'émettre la facture de solde');
     }
-    const soldeExistant = await this.prisma.facture.findFirst({
-      where: { devisId, typeFacture: 'SOLDE' },
-    });
-    if (soldeExistant) {
-      throw new ForbiddenException('La facture de solde a déjà été émise pour ce devis');
+    const soldesActifs = await this.chargerFacturesActives(devisId, ['SOLDE']);
+    if (soldesActifs.length > 0) {
+      throw new ForbiddenException('Une facture de solde active existe déjà pour ce devis');
     }
 
     const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
@@ -614,12 +634,11 @@ export class FactureService {
         throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
       }
     }
-    // Aucune facture (acompte OU solde) ne doit déjà exister
-    const factureExistante = await this.prisma.facture.findFirst({
-      where: { devisId, typeFacture: { in: ['ACOMPTE', 'SOLDE'] } },
-    });
-    if (factureExistante) {
-      throw new ForbiddenException('Une facture a déjà été émise pour ce devis');
+    // B2 : aucune facture ACTIVE (acompte OU solde) ne doit exister. Une facture
+    // intégralement annulée par avoir n'empêche plus la ré-émission (nouveau numéro).
+    const facturesActives = await this.chargerFacturesActives(devisId, ['ACOMPTE', 'SOLDE']);
+    if (facturesActives.length > 0) {
+      throw new ForbiddenException('Une facture active (acompte ou solde) existe déjà pour ce devis');
     }
 
     const emetteur = await this.construireEmetteur(devis);
@@ -1027,7 +1046,10 @@ export class FactureService {
     // Charger toutes les factures du devis (hors avoirs)
     const factures = await this.prisma.facture.findMany({
       where: { devisId, typeFacture: { in: ['ACOMPTE', 'SOLDE'] } },
-      include: { devis: { select: { centreId: true } } },
+      include: {
+        devis: { select: { centreId: true } },
+        avoirAssocie: { select: { montantFacture: true } },
+      },
       orderBy: { dateEmission: 'asc' },
     });
     if (factures.length === 0) {
@@ -1037,9 +1059,16 @@ export class FactureService {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
 
-    // Routage : première facture avec un solde restant > 0
-    const cible = factures.find(f => (f.montantVerseTotal ?? 0) < f.montantFacture * 0.99)
-      ?? factures[factures.length - 1]; // fallback : dernière facture (trop-perçu)
+    // B2 : ne router un versement que vers une facture ACTIVE (jamais une facture
+    // intégralement annulée par un avoir).
+    const facturesActives = factures.filter(f => !this.estIntegralementAnnulee(f));
+    if (facturesActives.length === 0) {
+      throw new NotFoundException('Aucune facture active pour ce devis');
+    }
+
+    // Routage : première facture active avec un solde restant > 0
+    const cible = facturesActives.find(f => (f.montantVerseTotal ?? 0) < f.montantFacture * 0.99)
+      ?? facturesActives[facturesActives.length - 1]; // fallback : dernière facture active (trop-perçu)
 
     // Créer le versement sur la facture cible
     await this.prisma.versementPaiement.create({
