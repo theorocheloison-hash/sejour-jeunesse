@@ -2,11 +2,6 @@
 
 import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collaboration';
 
-// Le champ prix descend déjà de GET /collaboration/:id (include sans select) ;
-// le type officiel SejourCollabInfo sera enrichi en SC4 — élargissement local
-// en attendant, sans toucher lib/collaboration.ts (liste blanche SC3).
-type SejourAvecPrix = SejourCollabInfo & { prix?: number | string | null };
-
 type EtatBloc = 'fait' | 'encours' | 'afaire' | 'neutre';
 
 export interface BlocNav {
@@ -35,11 +30,11 @@ function etatInscriptions(participants: Participant[], participantsCharges: bool
   return participants.every((p) => p.signeeAt) ? 'fait' : 'encours';
 }
 
-function etatBudget(sejour: SejourAvecPrix | null): EtatBloc {
+function etatBudget(sejour: SejourCollabInfo | null): EtatBloc {
   return Number(sejour?.prix ?? 0) > 0 ? 'fait' : 'afaire';
 }
 
-function etatPedagogie(sejour: SejourAvecPrix | null): EtatBloc {
+function etatPedagogie(sejour: SejourCollabInfo | null): EtatBloc {
   return (sejour?.thematiquesPedagogiques?.length ?? 0) > 0 ? 'fait' : 'afaire';
 }
 
@@ -50,7 +45,7 @@ function etatPedagogie(sejour: SejourAvecPrix | null): EtatBloc {
  * la signature restant un rappel discret dans l'en-tête (D6/D7).
  */
 export function calculerBlocEmphase(
-  sejour: SejourAvecPrix | null,
+  sejour: SejourCollabInfo | null,
   budgetData: BudgetData | null,
   participants: Participant[],
   participantsCharges: boolean,
@@ -86,7 +81,7 @@ const PASTILLE: Record<EtatBloc, { cls: string; symbole: string; title: string }
 };
 
 export interface OrganisateurNavProps {
-  sejour: SejourAvecPrix | null;
+  sejour: SejourCollabInfo | null;
   budgetData: BudgetData | null;
   participants: Participant[];
   participantsCharges: boolean;

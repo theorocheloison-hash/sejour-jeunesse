@@ -52,6 +52,11 @@ export interface SejourCollabInfo {
   statut: string;
   inscriptionsCloturees: boolean;
   thematiquesPedagogiques: string[];
+  // Déjà renvoyés par GET /collaboration/:id (include sans select restrictif) —
+  // consommés par la nav blocs et le prix par élève (SC3/SC4). Prisma Decimal
+  // sérialisé en string.
+  prix?: number | string | null;
+  dateLimiteInscription?: string | null;
   createur?: { id: string; prenom: string; nom: string; email: string };
   hebergementSelectionne?: {
     id: string; nom: string; ville: string; userId: string;

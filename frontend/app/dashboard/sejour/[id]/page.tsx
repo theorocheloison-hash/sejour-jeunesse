@@ -38,6 +38,9 @@ import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
 import OrganisateurNav, { calculerBlocEmphase, ONGLET_PAR_BLOC } from './_components/OrganisateurNav';
 import EncartAide from './_components/EncartAide';
+import InscriptionsEleves from './_components/InscriptionsEleves';
+import Accompagnateurs from './_components/Accompagnateurs';
+import PrixParEleve from './_components/PrixParEleve';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -237,6 +240,21 @@ export default function CollaborationPage() {
     const onglet = ONGLET_PAR_BLOC[bloc]?.[0];
     if (onglet) setTab(onglet as Tab);
   }, [navBlocs, budgetData, participantsCharges, participants, sejour]);
+
+  // Mode d'inscription D14 (bloc Inscriptions, organisateur créateur) : déduit des
+  // données existantes — ≥1 participant SAISIE_DIRECTE → saisie ; ≥1 participant
+  // sinon → familles ; aucun élève → l'enseignant choisit.
+  const [modeInscriptionChoisi, setModeInscriptionChoisi] = useState<'FAMILLES' | 'SAISIE' | null>(null);
+  const modeInscriptionDetecte: 'FAMILLES' | 'SAISIE' | null = !participantsCharges || participants.length === 0
+    ? null
+    : participants.some((p) => p.sourceInscription === 'SAISIE_DIRECTE')
+      ? 'SAISIE'
+      : 'FAMILLES';
+  const modeInscription = modeInscriptionDetecte ?? modeInscriptionChoisi;
+
+  // Devis signé (D11/D12) : conditionne accompagnateurs et enregistrement du prix.
+  const devisSigne = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']
+    .includes(budgetData?.devis?.statut ?? '');
 
   // Badge d'engagement D7/D8 (organisateur créateur seulement) : dérivé du statut
   // du devis (source déjà chargée), fallback statut séjour tant que budgetData
@@ -560,6 +578,58 @@ export default function CollaborationPage() {
 
         {/* ── Participants ─── */}
         {activeTab === 'participants' && (
+          navBlocs ? (
+            /* Bloc Inscriptions (SC4) : choix du mode D14 en tête, sections
+               rapatriées de l'ancienne page autorisations, liste existante. */
+            <div className="space-y-6">
+              {modeInscription === null ? (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="text-base font-bold text-gray-900 mb-1">Comment voulez-vous inscrire vos élèves ?</h2>
+                  <p className="text-sm text-gray-500 mb-4">Deux façons de faire — vous pourrez gérer toute la liste ici.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setModeInscriptionChoisi('FAMILLES')}
+                      className="rounded-xl border border-gray-200 p-4 text-left hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">Je fais remplir par les familles</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Ajoutez vos élèves (à la main ou par CSV), puis envoyez aux parents un lien
+                        d&apos;autorisation à signer en ligne — avec suivi des signatures et paiements.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModeInscriptionChoisi('SAISIE')}
+                      className="rounded-xl border border-gray-200 p-4 text-left hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">Je saisis moi-même la liste</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Remplissez la liste directement (grille de saisie) — vous gérez les
+                        autorisations papier de votre côté.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              ) : modeInscription === 'FAMILLES' ? (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} />
+              ) : null}
+              <Accompagnateurs
+                sejourId={id}
+                devisSigne={devisSigne}
+                accompagnateurs={accompagnateurs}
+                onChanged={loadParticipants}
+              />
+              <TabParticipantsCollab
+                sejour={sejour}
+                user={user}
+                participants={participants}
+                accompagnateurs={accompagnateurs}
+                onReload={loadParticipants}
+                mode={modeInscription ?? undefined}
+              />
+            </div>
+          ) : (
           <TabParticipantsCollab
             sejour={sejour}
             user={user}
@@ -567,6 +637,7 @@ export default function CollaborationPage() {
             accompagnateurs={accompagnateurs}
             onReload={loadParticipants}
           />
+          )
         )}
 
         {/* ── Chambres (SEJOUR uniquement) : hébergeur = attribution,
@@ -619,14 +690,27 @@ export default function CollaborationPage() {
 
         {/* ── Budget prévisionnel ─── */}
         {activeTab === 'budget' && (
-          <TabBudget
-            sejourId={id}
-            user={user}
-            budgetData={budgetData}
-            budgetLoading={budgetLoading}
-            onReload={loadBudget}
-            onError={setMutationError}
-          />
+          <div className="space-y-6">
+            {/* Bloc Budget (SC4) : prix par élève + date limite rapatriés de
+                l'ancienne page autorisations, pour l'organisateur créateur. */}
+            {navBlocs && sejour && (
+              <PrixParEleve
+                sejourId={id}
+                sejour={sejour}
+                devis={budgetData?.devis ?? null}
+                nbInscrits={participants.length}
+                onSaved={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+              />
+            )}
+            <TabBudget
+              sejourId={id}
+              user={user}
+              budgetData={budgetData}
+              budgetLoading={budgetLoading}
+              onReload={loadBudget}
+              onError={setMutationError}
+            />
+          </div>
         )}
         {/* ── Projet pédagogique ─── */}
         {activeTab === 'projet' && user.role === 'ORGANISATEUR' && (

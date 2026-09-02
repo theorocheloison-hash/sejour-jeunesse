@@ -29,6 +29,11 @@ export interface TabParticipantsCollabProps {
   participants: Participant[];
   accompagnateurs: AccompagnateurMission[];
   onReload: () => void;
+  /** Mode d'inscription D14 (organisateur créateur, SC4) : 'SAISIE' masque le
+   * compteur « autorisations signées » (sans objet en saisie directe) ;
+   * 'FAMILLES' masque la grille de saisie directe (l'ajout passe par le bloc
+   * Inscriptions). Absent → comportement historique (autres rôles). */
+  mode?: 'FAMILLES' | 'SAISIE';
 }
 
 export default function TabParticipantsCollab({
@@ -37,6 +42,7 @@ export default function TabParticipantsCollab({
   participants,
   accompagnateurs,
   onReload,
+  mode,
 }: TabParticipantsCollabProps) {
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
@@ -85,7 +91,7 @@ export default function TabParticipantsCollab({
 
   return (
     <div className="space-y-4">
-      {peutSaisirParticipants && (
+      {peutSaisirParticipants && mode !== 'FAMILLES' && (
         <TabParticipantsSaisieDirecte
           sejourId={sejour.id}
           champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}
@@ -95,6 +101,7 @@ export default function TabParticipantsCollab({
       )}
       {/* Header + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {mode !== 'SAISIE' ? (
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-gray-900">
             {signedCount}/{participants.length} autorisations signées
@@ -106,6 +113,11 @@ export default function TabParticipantsCollab({
             />
           </div>
         </div>
+        ) : (
+        <span className="text-sm font-semibold text-gray-900">
+          {participants.length} élève{participants.length > 1 ? 's' : ''} dans la liste
+        </span>
+        )}
         <div className="flex items-center gap-2">
           {/* Filtres */}
           {(['all', 'signed', 'pending'] as const).map((f) => (
