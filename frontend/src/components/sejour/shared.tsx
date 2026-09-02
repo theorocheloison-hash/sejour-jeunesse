@@ -72,6 +72,11 @@ export const TYPE_ACCUEIL_ACM_OPTIONS: { value: string; label: string }[] = [
   { value: 'AUTRE',            label: 'Autre' },
 ];
 
+export const TRANSPORT_ALLER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'DEJA_TRANSPORTEUR',   label: 'Déjà un transporteur' },
+  { value: 'BESOIN_TRANSPORTEUR', label: 'Besoin d\'un transporteur' },
+];
+
 export const ZONE_OPTIONS: { value: TypeZone; emoji: string; label: string }[] = [
   { value: 'FRANCE',      emoji: '\uD83C\uDDEB\uD83C\uDDF7', label: 'France enti\u00e8re' },
   { value: 'REGION',      emoji: '\uD83D\uDCCD', label: 'R\u00e9gion' },

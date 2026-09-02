@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { updateInfosSejour } from '@/src/lib/collaboration';
+import { TRANSPORT_ALLER_OPTIONS } from '@/src/components/sejour/shared';
 
 // Les 8 champs TOUS optionnels/nullable : absorbe les deux sources hétérogènes
 // (devis.sejourDirect vs devis.demande.sejour) sans erreur d'assignabilité.
@@ -43,6 +44,7 @@ function affiche(key: keyof DetailsSejour, v: DetailsSejour[keyof DetailsSejour]
   if (key === 'transportSurPlace') return v ? 'Oui' : 'Non';
   // Colonne Decimal probable (pattern LIAVO montantTTC) : Number() puis format FR.
   if (key === 'budgetMaxParEleve') return `${Number(v).toLocaleString('fr-FR')} €`;
+  if (key === 'transportAller') return TRANSPORT_ALLER_OPTIONS.find(o => o.value === v)?.label ?? String(v);
   return String(v);
 }
 
@@ -69,7 +71,7 @@ const toForm = (d: DetailsSejour): FormState => ({
 });
 
 export default function DetailsSejourPanel({ details, sejourId, editable, onSaved }: DetailsSejourPanelProps) {
-  const [open, setOpen] = useState(false); // réduit par défaut
+  const [open, setOpen] = useState(true); // ouvert par défaut
   const [editing, setEditing] = useState(false);
   const [data, setData] = useState<DetailsSejour>(details ?? {});
   const [form, setForm] = useState<FormState>(toForm(details ?? {}));
@@ -182,7 +184,10 @@ export default function DetailsSejourPanel({ details, sejourId, editable, onSave
             </div>
             <label className="block">
               <span className="text-gray-500">Transport aller</span>
-              <input value={form.transportAller} onChange={e => set('transportAller', e.target.value)} className={inputCls} />
+              <select value={form.transportAller} onChange={e => set('transportAller', e.target.value)} className={inputCls}>
+                <option value="">— Non renseigné —</option>
+                {TRANSPORT_ALLER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.transportSurPlace} onChange={e => set('transportSurPlace', e.target.checked)} className="rounded" />
