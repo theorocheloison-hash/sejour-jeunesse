@@ -4,7 +4,7 @@ import type { FacturePDFProps } from './FacturePDF.js';
 type FactureWithLignesEtendue = Facture & {
   lignes: LigneFacture[];
   versements?: VersementPaiement[];
-  factureAnnulee?: { numero: string; dateEmission: Date } | null;
+  factureAnnulee?: { numero: string; dateEmission: Date; montantFacture: number } | null;
   // Refacto facture-solde : facture d'acompte liée (ligne « Acompte déjà
   // encaissé (FA-… du …) » du PDF de solde).
   factureAcompte?: { numero: string; dateEmission: Date; montantVerseTotal: number } | null;
@@ -69,6 +69,7 @@ export function mapFactureToPdfProps(
     // Avoir (Lot 3) : référence à la facture annulée + motif
     factureAnnuleeNumero: facture.factureAnnulee?.numero ?? null,
     factureAnnuleeDate: facture.factureAnnulee?.dateEmission?.toISOString() ?? null,
+    factureAnnuleeMontant: facture.factureAnnulee?.montantFacture ?? null,
     motifAvoir: facture.motifAvoir ?? null,
     versements: (facture.versements ?? []).map((v) => ({
       datePaiement: v.datePaiement.toISOString(),

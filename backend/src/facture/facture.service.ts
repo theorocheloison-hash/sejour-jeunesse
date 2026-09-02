@@ -51,7 +51,7 @@ export class FactureService {
     facture: Facture & {
       lignes: LigneFacture[];
       versements?: VersementPaiement[];
-      factureAnnulee?: { numero: string; dateEmission: Date } | null;
+      factureAnnulee?: { numero: string; dateEmission: Date; montantFacture: number } | null;
       // Refacto facture-solde (étape 1) : contexte du solde — facture d'acompte
       // liée et versements de TOUT le devis (optionnels, additifs).
       factureAcompte?: { numero: string; dateEmission: Date; montantVerseTotal: number } | null;

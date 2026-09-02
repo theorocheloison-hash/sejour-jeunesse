@@ -42,6 +42,7 @@ export interface FacturePDFProps {
   // Avoir (Lot 3)
   factureAnnuleeNumero?: string | null;
   factureAnnuleeDate?: string | null;
+  factureAnnuleeMontant?: number | null;
   motifAvoir?: string | null;
   versements?: Array<{
     datePaiement: string; // ISO
@@ -176,7 +177,7 @@ export default function FacturePDF(props: FacturePDFProps) {
     titreSejour, lignes, montantHT, montantTVA, montantTTC,
     montantFacture, pourcentageAcompte, montantAcompteDejaFacture,
     conditionsAnnulation, conditionsTitre, versements,
-    factureAnnuleeNumero, factureAnnuleeDate,
+    factureAnnuleeNumero, factureAnnuleeDate, factureAnnuleeMontant,
     factureAcompteNumero, factureAcompteDate,
   } = props;
 
@@ -281,8 +282,10 @@ export default function FacturePDF(props: FacturePDFProps) {
           <Text style={s.objetText}>{titreSejour}</Text>
           {typeFacture === 'AVOIR' && (
             <Text style={s.objetText}>
-              Annule et remplace la facture {factureAnnuleeNumero}
-              {factureAnnuleeDate ? ` du ${fmtDate(factureAnnuleeDate)}` : ''}
+              {factureAnnuleeMontant != null &&
+               Math.round(Math.abs(montantFacture) * 100) >= Math.round(factureAnnuleeMontant * 100)
+                ? `Annule et remplace la facture ${factureAnnuleeNumero ?? ''}${factureAnnuleeDate ? ` du ${fmtDate(factureAnnuleeDate)}` : ''}`
+                : `Avoir partiel sur la facture ${factureAnnuleeNumero ?? ''}${factureAnnuleeDate ? ` du ${fmtDate(factureAnnuleeDate)}` : ''} — rectification`}
             </Text>
           )}
         </View>
