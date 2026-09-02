@@ -80,42 +80,6 @@ export class AutorisationService {
     private storage: StorageService,
   ) {}
 
-  async create(dto: CreateAutorisationDto, createurId: string) {
-    const sejour = await this.prisma.sejour.findUnique({
-      where: { id: dto.sejourId },
-    });
-    if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId)
-      throw new ForbiddenException('Ce séjour ne vous appartient pas');
-
-    const autorisation = await this.prisma.autorisationParentale.create({
-      data: {
-        sejourId: dto.sejourId,
-        eleveNom: dto.eleveNom,
-        elevePrenom: dto.elevePrenom,
-        parentEmail: dto.parentEmail,
-        hebergementCategorie: dto.hebergementCategorie ?? null,
-        tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
-      },
-    });
-
-    // Envoyer l'email d'autorisation parentale
-    const lien = `${FRONTEND_URL}/autorisation/${autorisation.tokenAcces}`;
-    await this.email.sendAutorisationParentale(
-      dto.parentEmail,
-      `${dto.elevePrenom} ${dto.eleveNom}`,
-      sejour.titre,
-      lien,
-    );
-
-    await this.prisma.autorisationParentale.update({
-      where: { id: autorisation.id },
-      data: { emailEnvoye: true },
-    });
-
-    return autorisation;
-  }
-
   async createSansEmail(dto: CreateAutorisationDto, createurId: string) {
     const sejour = await this.prisma.sejour.findUnique({ where: { id: dto.sejourId } });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
