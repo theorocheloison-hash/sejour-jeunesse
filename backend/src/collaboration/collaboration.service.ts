@@ -1502,6 +1502,14 @@ export class CollaborationService {
       clientVille?: string;
       placesTotales?: number;
       nombreAccompagnateurs?: number;
+      niveauClasse?: string;
+      heureArrivee?: string;
+      heureDepart?: string;
+      transportAller?: string;
+      transportSurPlace?: boolean;
+      activitesSouhaitees?: string;
+      budgetMaxParEleve?: number;
+      noteDateFlexible?: string;
     },
     userId: string,
   ) {
@@ -1563,6 +1571,14 @@ export class CollaborationService {
           ...(dto.clientVille !== undefined && { clientVille: dto.clientVille }),
           ...(dto.placesTotales !== undefined && { placesTotales: dto.placesTotales }),
           ...(dto.nombreAccompagnateurs !== undefined && { nombreAccompagnateurs: dto.nombreAccompagnateurs }),
+          ...(dto.niveauClasse !== undefined && { niveauClasse: dto.niveauClasse }),
+          ...(dto.heureArrivee !== undefined && { heureArrivee: dto.heureArrivee }),
+          ...(dto.heureDepart !== undefined && { heureDepart: dto.heureDepart }),
+          ...(dto.transportAller !== undefined && { transportAller: dto.transportAller }),
+          ...(dto.transportSurPlace !== undefined && { transportSurPlace: dto.transportSurPlace }),
+          ...(dto.activitesSouhaitees !== undefined && { activitesSouhaitees: dto.activitesSouhaitees }),
+          ...(dto.budgetMaxParEleve !== undefined && { budgetMaxParEleve: dto.budgetMaxParEleve }),
+          ...(dto.noteDateFlexible !== undefined && { noteDateFlexible: dto.noteDateFlexible }),
         },
       });
 

@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString, IsEmail, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEmail, IsInt, IsBoolean, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateInfosSejourDto {
   @IsOptional()
@@ -54,4 +55,39 @@ export class UpdateInfosSejourDto {
   @IsInt()
   @Min(0)
   nombreAccompagnateurs?: number;
+
+  // ── Pense-bête détails séjour (qualification, saisie à la création) ──
+  @IsOptional()
+  @IsString()
+  niveauClasse?: string;
+
+  @IsOptional()
+  @IsString()
+  heureArrivee?: string;
+
+  @IsOptional()
+  @IsString()
+  heureDepart?: string;
+
+  @IsOptional()
+  @IsString()
+  transportAller?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  transportSurPlace?: boolean;
+
+  @IsOptional()
+  @IsString()
+  activitesSouhaitees?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  budgetMaxParEleve?: number;
+
+  @IsOptional()
+  @IsString()
+  noteDateFlexible?: string;
 }
