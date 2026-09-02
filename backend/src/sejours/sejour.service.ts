@@ -860,7 +860,29 @@ export class SejourService {
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
-    if (sejour.statut !== 'DRAFT') throw new ForbiddenException('Ce séjour ne peut plus être modifié');
+
+    // Garde séparée (S2) : les champs d'appel d'offres ne sont modifiables qu'en
+    // DRAFT ; prix et dateLimiteInscription le restent après signature
+    // (CONVENTION/SIGNE_DIRECTION — pas OPTION, l'enregistrement du prix est
+    // conditionné à la signature, D12).
+    if (sejour.statut !== 'DRAFT') {
+      const champsAppelOffres: (keyof UpdateSejourDto)[] = [
+        'niveauClasse', 'activitesSouhaitees', 'budgetMaxParEleve',
+        'nombreAccompagnateurs', 'heureArrivee', 'heureDepart',
+        'transportAller', 'transportSurPlace', 'informationsComplementaires',
+      ];
+      const statutsPrixAutorises: StatutSejour[] = [StatutSejour.CONVENTION, StatutSejour.SIGNE_DIRECTION];
+      if (
+        champsAppelOffres.some((champ) => dto[champ] !== undefined) ||
+        !statutsPrixAutorises.includes(sejour.statut)
+      ) {
+        throw new ForbiddenException('Ce séjour ne peut plus être modifié');
+      }
+    }
+
+    // Idempotence du mail « paiement disponible » : envoyé uniquement au premier
+    // passage du prix de 0/null à > 0 (l'ancien prix est lu AVANT l'update).
+    const ancienPrix = Number(sejour.prix ?? 0);
 
     const orgaCreateur = sejour.createur?.id
       ? await getOrganisationPrincipale(sejour.createur.id, this.prisma)
@@ -901,8 +923,10 @@ export class SejourService {
       });
     }
 
-    // Envoyer un email aux parents quand le prix est défini
-    if (dto.prix !== undefined && dto.prix > 0) {
+    // Envoyer un email aux parents quand le prix est défini pour la première fois
+    // (0/null → > 0). Un simple ré-enregistrement du même prix ou un ajustement
+    // ultérieur ne redéclenche pas l'envoi.
+    if (dto.prix !== undefined && dto.prix > 0 && ancienPrix <= 0) {
       const autorisations = await this.prisma.autorisationParentale.findMany({
         where: { sejourId: id },
         select: { parentEmail: true, elevePrenom: true, eleveNom: true, tokenAcces: true },
