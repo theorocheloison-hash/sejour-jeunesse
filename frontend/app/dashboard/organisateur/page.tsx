@@ -13,14 +13,31 @@ import StatutBadge from '@/src/components/StatutBadge';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
+// Vocabulaire D8 — l'enseignant ne voit que l'axe d'engagement : en attente de
+// signature / en cours de validation direction / signé / annulé. Les valeurs
+// brutes des enums ne sont jamais affichées. DRAFT/SUBMITTED (sous-processus
+// d'appel d'offres, pas d'engagement) et les jalons administratifs
+// (rectorat/TAM) gardent leur libellé propre.
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',   cls: 'bg-gray-100 text-gray-600' },
-  OPTION:     { label: 'À confirmer', cls: 'bg-amber-100 text-amber-700' },
+  OPTION:     { label: 'En attente de signature', cls: 'bg-amber-100 text-amber-700' },
   SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
-  CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  CONVENTION:      { label: 'Signé',        cls: 'bg-green-100 text-green-700' },
   SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
-  SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
+  SIGNE_DIRECTION: { label: 'Signé', cls: 'bg-green-100 text-green-700' },
   DECLARE_TAM:     { label: 'Déclaré TAM',       cls: 'bg-teal-100 text-teal-700' },
+};
+
+// D8 dérivé du DEVIS quand il est disponible (source plus fine que le statut
+// séjour : EN_ATTENTE_VALIDATION n'existe pas côté séjour).
+const DEVIS_D8: Record<string, { label: string; cls: string }> = {
+  EN_ATTENTE:            { label: 'En attente de signature', cls: 'bg-amber-100 text-amber-700' },
+  EN_ATTENTE_VALIDATION: { label: 'En cours de validation direction', cls: 'bg-blue-100 text-blue-700' },
+  SELECTIONNE:           { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  SIGNE_DIRECTION:       { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  FACTURE_ACOMPTE:       { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  FACTURE_SOLDE:         { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  NON_RETENU:            { label: 'Annulé', cls: 'bg-gray-100 text-gray-600' },
 };
 
 // ─── Carte séjour ───────────────────────────────────────────────────────────
@@ -54,7 +71,21 @@ function SejourCard({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="text-sm font-semibold text-gray-900 truncate">{sejour.titre}</h3>
-            <StatutBadge statut={sejour.statut} config={STATUT_CONFIG} fallback={STATUT_CONFIG.DRAFT} />
+            {/* D8 : libellé dérivé du devis quand disponible (statuts d'engagement
+                seulement), sinon du statut séjour. */}
+            {(() => {
+              const dv = sejour.demandes?.[0]?.devis?.[0];
+              const entry = ['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && dv && DEVIS_D8[dv.statut]
+                ? DEVIS_D8[dv.statut]
+                : undefined;
+              return (
+                <StatutBadge
+                  statut={sejour.statut}
+                  config={entry ? { [sejour.statut]: entry } : STATUT_CONFIG}
+                  fallback={STATUT_CONFIG.DRAFT}
+                />
+              );
+            })()}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>{sejour.lieu}</span>
