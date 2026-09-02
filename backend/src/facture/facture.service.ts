@@ -93,7 +93,7 @@ export class FactureService {
         include: {
           lignes: true,
           versements: { orderBy: { datePaiement: 'asc' } },
-          factureAnnulee: { select: { numero: true, dateEmission: true } },
+          factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
           factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
           devis: {
             include: {
@@ -125,7 +125,7 @@ export class FactureService {
       include: {
         lignes: true,
         versements: { orderBy: { datePaiement: 'asc' } },
-        factureAnnulee: { select: { numero: true, dateEmission: true } },
+        factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
         factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
         devis: {
           include: {
@@ -817,7 +817,7 @@ export class FactureService {
       include: {
         lignes: true,
         versements: true,
-        factureAnnulee: { select: { numero: true, dateEmission: true } },
+        factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
       },
     });
 
