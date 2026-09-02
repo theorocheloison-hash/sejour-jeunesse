@@ -74,6 +74,15 @@ export interface SejourCollabInfo {
   clientAdresse?: string | null;
   clientCodePostal?: string | null;
   clientVille?: string | null;
+  // Pense-bête détails séjour (qualification saisie à la création)
+  niveauClasse?: string | null;
+  heureArrivee?: string | null;
+  heureDepart?: string | null;
+  transportAller?: string | null;
+  transportSurPlace?: boolean | null;
+  activitesSouhaitees?: string | null;
+  budgetMaxParEleve?: number | null;
+  noteDateFlexible?: string | null;
   notesInternes?: string | null;
   // Invitation collaborative en attente (séjour DIRECT) — null si aucune / déjà acceptée.
   invitationCollab?: { email: string; createdAt: string } | null;
@@ -639,6 +648,14 @@ export async function updateInfosSejour(
     clientVille?: string;
     placesTotales?: number;
     nombreAccompagnateurs?: number;
+    niveauClasse?: string;
+    heureArrivee?: string;
+    heureDepart?: string;
+    transportAller?: string;
+    transportSurPlace?: boolean;
+    activitesSouhaitees?: string;
+    budgetMaxParEleve?: number;
+    noteDateFlexible?: string;
   },
 ): Promise<{
   id: string;
