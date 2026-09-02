@@ -41,6 +41,7 @@ import EncartAide from './_components/EncartAide';
 import InscriptionsEleves from './_components/InscriptionsEleves';
 import Accompagnateurs from './_components/Accompagnateurs';
 import PrixParEleve from './_components/PrixParEleve';
+import DocumentsOfficiels from './_components/DocumentsOfficiels';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -522,18 +523,26 @@ export default function CollaborationPage() {
 
         {/* ── Devis & facturation (DIRECT + COLLABORATIF) ─── */}
         {activeTab === 'devis' && sejour && (
-          <TabDevisFacturation
-            sejourId={id}
-            sejour={sejour}
-            user={user}
-            isDirect={isDirect}
-            budgetData={budgetData}
-            onError={setMutationError}
-            onReload={reloadApresSignature}
-            peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
-            peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
-            peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
-          />
+          <div className="space-y-8">
+            <TabDevisFacturation
+              sejourId={id}
+              sejour={sejour}
+              user={user}
+              isDirect={isDirect}
+              budgetData={budgetData}
+              onError={setMutationError}
+              onReload={reloadApresSignature}
+              peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
+              peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
+              peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
+            />
+            {/* Section Documents officiels (SC5) — après signature, dans le bloc
+                Réservation, mêmes conditions d'accès que l'ancien bouton dashboard
+                (CONVENTION/SIGNE_DIRECTION). */}
+            {navBlocs && devisSigne && (
+              <DocumentsOfficiels sejourId={id} onNaviguerOnglet={(t) => selectTab(t as Tab)} />
+            )}
+          </div>
         )}
 
         {/* ── Messages ─── */}
