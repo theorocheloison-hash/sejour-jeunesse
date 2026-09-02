@@ -11,6 +11,7 @@ import type { ProduitCatalogue } from '@/src/lib/centre';
 import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
 import { useDevisLignes, makeLigneForm } from '@/src/hooks/useDevisLignes';
 import DevisEditor from '@/src/components/DevisEditor';
+import DetailsSejourPanel from '@/src/components/DetailsSejourPanel';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -371,6 +372,13 @@ export default function ModifierDevisPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {devisOriginal && (
+        <DetailsSejourPanel
+          details={devisOriginal.sejourDirect ?? devisOriginal.demande?.sejour ?? null}
+          sejourId={devisOriginal.sejourDirect?.id}
+          editable={!!devisOriginal.sejourDirect}
+        />
+      )}
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

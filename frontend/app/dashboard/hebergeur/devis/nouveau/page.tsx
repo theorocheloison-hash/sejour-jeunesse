@@ -13,6 +13,7 @@ import { formatParticipants } from '@/src/lib/utils';
 import { round2, resolvePrixCatalogueTTC } from '@/src/lib/devis-calculs';
 import { useDevisLignes, makeLigneForm } from '@/src/hooks/useDevisLignes';
 import DevisEditor from '@/src/components/DevisEditor';
+import DetailsSejourPanel from '@/src/components/DetailsSejourPanel';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 // ─── Page (Suspense wrapper) ────────────────────────────────────────────────
@@ -79,6 +80,14 @@ function NouveauDevisContent() {
     typeContexte?: 'SCOLAIRE' | 'HORS_SCOLAIRE' | null;
     clientNom: string | null; clientEmail: string | null; clientOrganisation: string | null;
     lieu: string;
+    niveauClasse?: string | null;
+    heureArrivee?: string | null;
+    heureDepart?: string | null;
+    transportAller?: string | null;
+    transportSurPlace?: boolean | null;
+    activitesSouhaitees?: string | null;
+    budgetMaxParEleve?: number | null;
+    noteDateFlexible?: string | null;
   } | null>(null);
 
 
@@ -118,6 +127,14 @@ function NouveauDevisContent() {
           clientEmail: s.clientEmail ?? null,
           clientOrganisation: s.clientOrganisation ?? null,
           lieu: s.lieu,
+          niveauClasse: s.niveauClasse ?? null,
+          heureArrivee: s.heureArrivee ?? null,
+          heureDepart: s.heureDepart ?? null,
+          transportAller: s.transportAller ?? null,
+          transportSurPlace: s.transportSurPlace ?? null,
+          activitesSouhaitees: s.activitesSouhaitees ?? null,
+          budgetMaxParEleve: s.budgetMaxParEleve ?? null,
+          noteDateFlexible: s.noteDateFlexible ?? null,
         }))
         .catch(() => {});
       return;
@@ -459,6 +476,9 @@ function NouveauDevisContent() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {isDirect
+        ? directSejour && <DetailsSejourPanel details={directSejour} editable sejourId={sejourDirectId} />
+        : info?.demande?.sejour && <DetailsSejourPanel details={info.demande.sejour} editable={false} />}
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
