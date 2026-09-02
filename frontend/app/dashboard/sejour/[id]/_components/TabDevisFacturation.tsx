@@ -268,8 +268,9 @@ export default function TabDevisFacturation({
   const [avoirMontant, setAvoirMontant] = useState(0);
   const [avoirMotif, setAvoirMotif] = useState('');
   const [avoirLignes, setAvoirLignes] = useState<Array<{
-    description: string; quantite: number; prixUnitaire: number;
-    tva: number; totalHT: number; totalTTC: number; selected: boolean;
+    description: string; prixUnitaire: number; tva: number;
+    quantiteMax: number; quantiteAnnulee: number;
+    totalHTorig: number; totalTTCorig: number; selected: boolean;
   }>>([]);
   const [avoirLoading, setAvoirLoading] = useState(false);
   const [avoirError, setAvoirError] = useState<string | null>(null);
@@ -503,6 +504,16 @@ export default function TabDevisFacturation({
     }
   };
 
+  // Montant de l'avoir = Σ des sous-totaux TTC prorata des lignes retenues.
+  const calcMontantAvoir = (
+    lignes: Array<{ selected: boolean; quantiteMax: number; quantiteAnnulee: number; totalTTCorig: number }>,
+  ) =>
+    round2(
+      lignes
+        .filter(l => l.selected && l.quantiteMax > 0)
+        .reduce((sum, l) => sum + round2(l.totalTTCorig * l.quantiteAnnulee / l.quantiteMax), 0),
+    );
+
   const openModalAvoir = async (fa: Facture) => {
     // Si les lignes ne sont pas chargées, recharger d'abord
     let lignesSource = fa.lignes ?? [];
@@ -512,19 +523,22 @@ export default function TabDevisFacturation({
       const faUpdated = factures.find(f => f.id === fa.id);
       lignesSource = faUpdated?.lignes ?? [];
     }
-    const lignesMapped = lignesSource.map(l => ({
-      description: l.description,
-      quantite: -Math.abs(l.quantite),
-      prixUnitaire: l.prixUnitaire,
-      tva: l.tva,
-      totalHT: -Math.abs(l.totalHT),
-      totalTTC: -Math.abs(l.totalTTC),
-      selected: true,
-    }));
+    const lignesMapped = lignesSource.map(l => {
+      const quantiteMax = Math.abs(l.quantite);
+      return {
+        description: l.description,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva,
+        quantiteMax,
+        quantiteAnnulee: quantiteMax, // pré-rempli à Qmax ⇒ avoir plein par défaut
+        totalHTorig: Math.abs(l.totalHT),
+        totalTTCorig: Math.abs(l.totalTTC),
+        selected: true,
+      };
+    });
     setAvoirLignes(lignesMapped);
     setAvoirFactureSource(fa);
-    const total = lignesMapped.reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
-    setAvoirMontant(round2(total));
+    setAvoirMontant(calcMontantAvoir(lignesMapped));
     setAvoirMotif('');
     setAvoirError(null);
     setShowModalAvoir(true);
@@ -533,8 +547,20 @@ export default function TabDevisFacturation({
   const handleToggleLigneAvoir = (index: number) => {
     setAvoirLignes(prev => {
       const next = prev.map((l, i) => i === index ? { ...l, selected: !l.selected } : l);
-      const total = next.filter(l => l.selected).reduce((sum, l) => sum + Math.abs(l.totalTTC), 0);
-      setAvoirMontant(round2(total));
+      setAvoirMontant(calcMontantAvoir(next));
+      return next;
+    });
+  };
+
+  const updateQuantiteAvoir = (index: number, value: number) => {
+    setAvoirLignes(prev => {
+      const next = prev.map((l, i) => {
+        if (i !== index) return l;
+        if (l.quantiteMax <= 0) return { ...l, quantiteAnnulee: 0 }; // ligne option : non annulable
+        const v = Number.isFinite(value) ? value : 0;
+        return { ...l, quantiteAnnulee: Math.max(0, Math.min(l.quantiteMax, v)) };
+      });
+      setAvoirMontant(calcMontantAvoir(next));
       return next;
     });
   };
@@ -550,12 +576,20 @@ export default function TabDevisFacturation({
       return;
     }
     const lignesSelectionnees = avoirLignes
-      .filter(l => l.selected)
-      .map(({ selected: _, ...l }) => l);
+      .filter(l => l.selected && l.quantiteMax > 0 && l.quantiteAnnulee > 0)
+      .map(l => ({
+        description: l.description,
+        prixUnitaire: l.prixUnitaire,
+        tva: l.tva,
+        quantite: -l.quantiteAnnulee,
+        totalHT: -round2(l.totalHTorig * l.quantiteAnnulee / l.quantiteMax),
+        totalTTC: -round2(l.totalTTCorig * l.quantiteAnnulee / l.quantiteMax),
+      }));
+    const montant = calcMontantAvoir(avoirLignes);
     setAvoirLoading(true);
     setAvoirError(null);
     try {
-      await emettreAvoir(avoirFactureSource.id, avoirMontant, avoirMotif, lignesSelectionnees);
+      await emettreAvoir(avoirFactureSource.id, montant, avoirMotif, lignesSelectionnees);
       setShowModalAvoir(false);
       await reloadFactures();
       await reloadDevis();
@@ -926,8 +960,13 @@ export default function TabDevisFacturation({
 
     const ad = activeDevisForFacturation;
     const totalVerse = versements.reduce((sum, v) => sum + v.montant, 0);
-    const resteDu = ad.montantTTC - totalVerse;
-    const pctVerse = ad.montantTTC > 0 ? Math.min(100, Math.round((totalVerse / ad.montantTTC) * 100)) : 0;
+    // Base unifiée (B1/B2) : sans facture, le TTC du devis ; sinon la somme des
+    // montantFacture (les avoirs sont négatifs) = le dû réel après rectifications.
+    const base = factures.length === 0
+      ? ad.montantTTC
+      : round2(factures.reduce((sum, f) => sum + f.montantFacture, 0));
+    const resteDu = round2(base - totalVerse);
+    const pctVerse = base > 0 ? Math.min(100, Math.round((totalVerse / base) * 100)) : 0;
     const avoirSurAcompte = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureAcompte?.id) ?? null;
     const avoirSurSolde = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureSolde?.id) ?? null;
 
@@ -2285,28 +2324,43 @@ export default function TabDevisFacturation({
                 <p className="text-xs text-gray-400 italic">Aucune ligne disponible</p>
               ) : (
                 <div className="space-y-1">
-                  {avoirLignes.map((l, i) => (
-                    <label
-                      key={i}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer text-xs transition-colors ${
-                        l.selected
-                          ? 'border-red-200 bg-red-50'
-                          : 'border-gray-200 bg-gray-50 opacity-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={l.selected}
-                        onChange={() => handleToggleLigneAvoir(i)}
-                        className="rounded"
-                      />
-                      <span className="flex-1 text-gray-700">{l.description}</span>
-                      <span className="text-gray-500">{l.quantite} × {formatMontant(l.prixUnitaire)} €</span>
-                      <span className="font-semibold text-red-600 min-w-[70px] text-right">
-                        {formatMontant(l.totalTTC)} €
-                      </span>
-                    </label>
-                  ))}
+                  {avoirLignes.map((l, i) => {
+                    const sousTotal = l.quantiteMax > 0
+                      ? round2(l.totalTTCorig * l.quantiteAnnulee / l.quantiteMax)
+                      : 0;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                          l.selected
+                            ? 'border-red-200 bg-red-50'
+                            : 'border-gray-200 bg-gray-50 opacity-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={l.selected}
+                          onChange={() => handleToggleLigneAvoir(i)}
+                          className="rounded"
+                        />
+                        <span className="flex-1 text-gray-700">{l.description}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={l.quantiteMax}
+                          step="any"
+                          value={l.quantiteAnnulee}
+                          disabled={!l.selected || l.quantiteMax === 0}
+                          onChange={(e) => updateQuantiteAvoir(i, parseFloat(e.target.value))}
+                          className="w-14 rounded border border-gray-300 px-1.5 py-1 text-right text-xs disabled:opacity-40 disabled:bg-gray-100"
+                        />
+                        <span className="text-gray-400 whitespace-nowrap">/ {l.quantiteMax}</span>
+                        <span className="font-semibold text-red-600 min-w-[70px] text-right">
+                          −{formatMontant(sousTotal)} €
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
