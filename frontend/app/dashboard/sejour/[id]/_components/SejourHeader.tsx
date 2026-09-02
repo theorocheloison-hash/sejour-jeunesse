@@ -36,6 +36,9 @@ interface SejourHeaderProps {
   isDirect: boolean;
   isEvenement: boolean;
   retourHref: string;
+  /** Badge d'engagement D7/D8 (organisateur créateur) : remplace le badge de
+   * statut brut quand fourni. Absent → badge historique inchangé. */
+  badgeEngagement?: { label: string; cls: string } | null;
   onSejourUpdate: (updates: Partial<SejourCollabInfo>) => void;
   onError: (message: string) => void;
   onDeleted: () => void; // appelé après suppression, pour router.push
@@ -48,6 +51,7 @@ export default function SejourHeader({
   isDirect,
   isEvenement,
   retourHref,
+  badgeEngagement,
   onSejourUpdate,
   onError,
   onDeleted,
@@ -388,6 +392,12 @@ export default function SejourHeader({
             Vue direction
           </span>
         )}
+        {badgeEngagement ? (
+          /* Badge D7/D8 — état de signature affiché en permanence (organisateur créateur). */
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${badgeEngagement.cls}`}>
+            {badgeEngagement.label}
+          </span>
+        ) : (
         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
           isDirect && sejourStatut === 'SIGNE_DIRECTION'
             ? 'bg-green-100 text-green-700'
@@ -397,6 +407,7 @@ export default function SejourHeader({
             ? 'Signé'
             : (STATUT_LABEL[sejourStatut] ?? sejourStatut)}
         </span>
+        )}
       </div>
     </div>
   );
