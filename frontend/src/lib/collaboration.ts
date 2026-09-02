@@ -654,7 +654,7 @@ export async function updateInfosSejour(
     transportAller?: string;
     transportSurPlace?: boolean;
     activitesSouhaitees?: string;
-    budgetMaxParEleve?: number;
+    budgetMaxParEleve?: number | null;
     noteDateFlexible?: string;
   },
 ): Promise<{

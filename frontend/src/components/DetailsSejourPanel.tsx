@@ -96,8 +96,10 @@ export default function DetailsSejourPanel({ details, sejourId, editable, onSave
     setSaving(true);
     setError(null);
     const budgetStr = form.budgetMaxParEleve.trim();
-    const budget = budgetStr === '' ? undefined : Number(budgetStr);
-    const budgetValide = budget !== undefined && !Number.isNaN(budget);
+    const budgetNum = Number(budgetStr);
+    // '' → null (effacer) ; nombre valide → number ; saisie NaN → undefined (ne pas toucher)
+    const budgetPayload: number | null | undefined =
+      budgetStr === '' ? null : (Number.isNaN(budgetNum) ? undefined : budgetNum);
     try {
       await updateInfosSejour(sejourId, {
         niveauClasse: form.niveauClasse,
@@ -106,7 +108,7 @@ export default function DetailsSejourPanel({ details, sejourId, editable, onSave
         transportAller: form.transportAller,
         transportSurPlace: form.transportSurPlace,
         activitesSouhaitees: form.activitesSouhaitees,
-        ...(budgetValide ? { budgetMaxParEleve: budget } : {}),
+        ...(budgetPayload !== undefined && { budgetMaxParEleve: budgetPayload }),
         noteDateFlexible: form.noteDateFlexible,
       });
       setData({
@@ -116,7 +118,7 @@ export default function DetailsSejourPanel({ details, sejourId, editable, onSave
         transportAller: form.transportAller || null,
         transportSurPlace: form.transportSurPlace,
         activitesSouhaitees: form.activitesSouhaitees || null,
-        budgetMaxParEleve: budgetValide ? budget : null,
+        budgetMaxParEleve: budgetPayload === undefined ? (data.budgetMaxParEleve ?? null) : budgetPayload,
         noteDateFlexible: form.noteDateFlexible || null,
       });
       setEditing(false);

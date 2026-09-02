@@ -84,7 +84,6 @@ export class UpdateInfosSejourDto {
 
   @IsOptional()
   @IsNumber()
-  @Type(() => Number)
   budgetMaxParEleve?: number;
 
   @IsOptional()
