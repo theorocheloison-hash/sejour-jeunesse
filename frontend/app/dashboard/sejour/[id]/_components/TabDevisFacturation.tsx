@@ -414,14 +414,26 @@ export default function TabDevisFacturation({
   }, [activeDevisId, activeDevisStatut]);
 
   // Factures dérivées
-  const factureAcompte = factures.find(f => f.typeFacture === 'ACOMPTE') ?? null;
-  const factureSolde = factures.find(f => f.typeFacture === 'SOLDE') ?? null;
+  // B2 : une facture est « intégralement annulée » si son avoir 1-1 couvre exactement
+  // son montant (un avoir PARTIEL la laisse ACTIVE). Miroir du backend estIntegralementAnnulee.
+  const estIntegralementAnnulee = (f: Facture): boolean =>
+    !!f.avoirAssocie &&
+    Math.round(Math.abs(f.avoirAssocie.montantFacture) * 100) === Math.round(f.montantFacture * 100);
+  // Facture ACTIVE la plus récente (dateEmission) du type — après une ré-émission,
+  // l'ancienne facture intégralement annulée est ignorée.
+  const plusRecenteActive = (type: 'ACOMPTE' | 'SOLDE'): Facture | null =>
+    factures
+      .filter(f => f.typeFacture === type && !estIntegralementAnnulee(f))
+      .sort((a, b) => new Date(b.dateEmission).getTime() - new Date(a.dateEmission).getTime())[0] ?? null;
+  const factureAcompte = plusRecenteActive('ACOMPTE');
+  const factureSolde = plusRecenteActive('SOLDE');
   const etatFacturation: 'AUCUNE' | 'ACOMPTE' | 'SOLDE' =
     factureSolde ? 'SOLDE' : factureAcompte ? 'ACOMPTE' : 'AUCUNE';
-  // Facture la plus récente (solde si présent, sinon acompte) — fallback pour la suppression de versement.
+  // Facture active la plus récente (solde si présent, sinon acompte) — fallback suppression versement.
   const factureActive = factureSolde ?? factureAcompte;
-  // Cible du prochain versement — miroir du routage backend : 1re facture non soldée, sinon la dernière.
-  const facturesPayables = factures.filter(f => f.typeFacture !== 'AVOIR');
+  // Cible du prochain versement — miroir du routage backend : parmi les factures ACTIVES
+  // (hors avoirs + hors intégralement annulées), la 1re non soldée, sinon la dernière.
+  const facturesPayables = factures.filter(f => f.typeFacture !== 'AVOIR' && !estIntegralementAnnulee(f));
   const factureCibleVersement =
     facturesPayables.find(f => (f.montantVerseTotal ?? 0) < f.montantFacture * 0.99)
     ?? facturesPayables[facturesPayables.length - 1]
@@ -969,6 +981,10 @@ export default function TabDevisFacturation({
     const pctVerse = base > 0 ? Math.min(100, Math.round((totalVerse / base) * 100)) : 0;
     const avoirSurAcompte = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureAcompte?.id) ?? null;
     const avoirSurSolde = factures.find(f => f.typeFacture === 'AVOIR' && f.factureAnnuleeId === factureSolde?.id) ?? null;
+    // B2 : un bandeau rouge pour CHAQUE avoir + traçabilité des factures intégralement annulées.
+    const tousLesAvoirs = factures.filter(f => f.typeFacture === 'AVOIR');
+    const facturesAnnulees = factures.filter(f => f.typeFacture !== 'AVOIR' && estIntegralementAnnulee(f));
+    const numeroFactureParId = new Map(factures.map(f => [f.id, f.numero]));
 
     return (
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
@@ -993,9 +1009,9 @@ export default function TabDevisFacturation({
           )}
         </div>
 
-        {(factureAcompte || factureSolde || avoirSurAcompte || avoirSurSolde) && (
+        {(factureAcompte || factureSolde) && (
           <div className="flex items-center gap-2 flex-wrap">
-            {[factureAcompte, factureSolde, avoirSurAcompte, avoirSurSolde]
+            {[factureAcompte, factureSolde]
               .filter((f): f is Facture => !!f)
               .map((f) => (
                 <React.Fragment key={f.id}>
@@ -1016,18 +1032,40 @@ export default function TabDevisFacturation({
           </div>
         )}
 
-        {[avoirSurAcompte, avoirSurSolde].filter((a): a is Facture => !!a).map((avoir) => (
+        {tousLesAvoirs.map((avoir) => (
           <div key={avoir.id} className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs">
             <span className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0" />
             <span className="font-medium text-red-700">Avoir {avoir.numero}</span>
             <span className="text-red-600">
               −{formatMontant(Math.abs(avoir.montantFacture))} €
             </span>
+            {avoir.factureAnnuleeId && numeroFactureParId.get(avoir.factureAnnuleeId) && (
+              <span className="text-red-400">· sur {numeroFactureParId.get(avoir.factureAnnuleeId)}</span>
+            )}
             {avoir.motifAvoir && (
               <span className="text-red-400">· {avoir.motifAvoir}</span>
             )}
+            <span className="ml-auto">
+              <FacturePdfLink facture={avoir} onReload={reloadFactures} peutEcrireFacturation={peutEcrireFacturation} />
+            </span>
           </div>
         ))}
+
+        {facturesAnnulees.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Documents annulés</p>
+            {facturesAnnulees.map((f) => (
+              <div key={f.id} className="flex items-center gap-2 text-xs">
+                <span className="inline-flex items-center rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">annulée</span>
+                <span className="text-gray-600">{f.numero}</span>
+                <span className="text-gray-400">{formatMontant(f.montantFacture)} €</span>
+                <span className="ml-auto">
+                  <FacturePdfLink facture={f} onReload={reloadFactures} peutEcrireFacturation={peutEcrireFacturation} />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="bg-gray-50 rounded-lg p-3">
