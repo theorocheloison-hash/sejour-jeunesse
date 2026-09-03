@@ -192,3 +192,16 @@ nothing to commit, working tree clean
 `npm test` backend final : `Tests: 4 failed, 2 todo, 445 passed, 451 total` — les 4 échecs = baseline `facture.service.spec.ts` inchangée ; +3 tests P10 verts (448 → 451). **Aucun push.**
 
 Environnement pour la recette Théo : back relancé en `start:dev` (watch) sur le code de la passe, front `next dev` 3000. À regarder (doc §4) : P3 deux modes visibles, P5 bouton clôture dans Inscriptions + « Tout est prêt ✓ », P6 pastille Budget orange à solde négatif, P7/P8 sous-onglets, P10 bouton + mail loggé.
+
+---
+
+# Passe n°2 (03/09, après recette de 11h15 — `docs/AJUSTEMENT_CC_38_2026-09-03_n2.md`)
+
+## P11 — Ordre du bloc Inscriptions
+
+### Modifications
+- `page.tsx` (seul fichier) — FAMILLES : `InscriptionsEleves` → `TabParticipantsCollab` (grille + liste) → `ClotureInscriptions` → `Accompagnateurs`. SAISIE : `TabParticipantsCollab` → `ClotureInscriptions` → `InscriptionsEleves` (replié) → `Accompagnateurs`. Les accompagnateurs ferment le bloc dans les deux modes ; la clôture colle à la liste.
+
+### Gates : tsc 0 erreur, build OK.
+### Écarts : en SAISIE le doc listait « TabParticipantsCollab → InscriptionsEleves (replié) → Accompagnateurs » et, séparément, « ClotureInscriptions sous la liste, avant les accompagnateurs » — placée directement sous la liste (avant la section familles repliée), lecture la plus proche de « sous la liste ».
+### Statut : TERMINÉ

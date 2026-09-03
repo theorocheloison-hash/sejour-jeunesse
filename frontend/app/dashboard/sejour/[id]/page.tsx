@@ -629,19 +629,14 @@ export default function CollaborationPage() {
                   </div>
                 </div>
               ) : null}
-              {/* P3 : plus d'exclusivité — les deux workflows sont visibles dans
-                  les deux modes ; le mode ordonne les sections. FAMILLES : envoi
-                  aux familles en tête, grille en dessous (dans TabParticipantsCollab).
-                  SAISIE : grille en tête, section familles repliée en dessous. */}
+              {/* P3/P11 : les deux workflows sont visibles dans les deux modes ;
+                  le mode ordonne les sections, la clôture colle à la liste et
+                  les accompagnateurs ferment le bloc.
+                  FAMILLES : envoi aux familles → grille+liste → clôture → accompagnateurs.
+                  SAISIE : grille+liste → clôture → familles (replié) → accompagnateurs. */}
               {modeInscription === 'FAMILLES' && (
                 <InscriptionsEleves sejourId={id} onChanged={loadParticipants} />
               )}
-              <Accompagnateurs
-                sejourId={id}
-                devisSigne={devisSigne}
-                accompagnateurs={accompagnateurs}
-                onChanged={loadParticipants}
-              />
               <TabParticipantsCollab
                 sejour={sejour}
                 user={user}
@@ -650,11 +645,7 @@ export default function CollaborationPage() {
                 onReload={loadParticipants}
                 mode={modeInscription ?? undefined}
               />
-              {modeInscription === 'SAISIE' && (
-                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
-              )}
-              {/* Clôture des inscriptions (P5) — sous la liste, dès qu'il y a
-                  au moins un participant et tant que ce n'est pas clôturé. */}
+              {/* Clôture des inscriptions (P5) — sous la liste, avant les accompagnateurs. */}
               {participantsCharges && participants.length >= 1 && !sejour?.inscriptionsCloturees && (
                 <ClotureInscriptions
                   sejourId={id}
@@ -664,6 +655,15 @@ export default function CollaborationPage() {
                   onError={setMutationError}
                 />
               )}
+              {modeInscription === 'SAISIE' && (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
+              )}
+              <Accompagnateurs
+                sejourId={id}
+                devisSigne={devisSigne}
+                accompagnateurs={accompagnateurs}
+                onChanged={loadParticipants}
+              />
             </div>
           ) : (
           <TabParticipantsCollab
