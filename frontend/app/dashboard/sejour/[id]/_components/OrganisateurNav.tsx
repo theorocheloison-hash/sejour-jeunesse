@@ -122,6 +122,13 @@ export interface OrganisateurNavProps {
   /** Libellés des onglets (source : TABS de page.tsx, non dupliqués ici). */
   labels: Record<string, string>;
   onSelectTab: (tab: string) => void;
+  /** Sous-vue locale du bloc Réservation (P7) : 'devis' | 'documents'. Pas une
+   * key de TABS — ongletsVisibles/tracking/accompagnateur intacts. */
+  vueReservation: 'devis' | 'documents';
+  onVueReservation: (vue: 'devis' | 'documents') => void;
+  /** Documents officiels accessibles (devis signé) : sinon un seul sous-onglet,
+   * pas de barre. */
+  documentsDisponibles: boolean;
 }
 
 export default function OrganisateurNav({
@@ -133,6 +140,9 @@ export default function OrganisateurNav({
   ongletsVisibles,
   labels,
   onSelectTab,
+  vueReservation,
+  onVueReservation,
+  documentsDisponibles,
 }: OrganisateurNavProps) {
   const visibles = (onglets: string[]) => onglets.filter((o) => ongletsVisibles.includes(o));
 
@@ -159,7 +169,11 @@ export default function OrganisateurNav({
     return (
       <button
         key={bloc.key}
-        onClick={() => onSelectTab(bloc.onglets[0])}
+        onClick={() => {
+          // Ouvrir un bloc = son premier sous-onglet ; Réservation retombe sur Devis (P7).
+          if (bloc.key === 'reservation') onVueReservation('devis');
+          onSelectTab(bloc.onglets[0]);
+        }}
         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
           actif
             ? 'border-[var(--color-border-strong)] bg-[var(--color-primary-light)] text-[var(--color-primary)]'
@@ -186,7 +200,24 @@ export default function OrganisateurNav({
     );
   };
 
-  const sousOnglets = blocActif ? blocs[blocActif].onglets : [];
+  // Sous-vues du bloc actif : onglets réels (Sur place, Échanges) ou sous-vue
+  // locale Réservation (P7 : Devis | Documents officiels, si devis signé).
+  const sousVues: Array<{ key: string; label: string; actif: boolean; onSelect: () => void }> =
+    blocActif === 'reservation'
+      ? (documentsDisponibles
+          ? [
+              { key: 'devis', label: labels.devis ?? 'Devis', actif: vueReservation === 'devis', onSelect: () => onVueReservation('devis') },
+              { key: 'documents-officiels', label: 'Documents officiels', actif: vueReservation === 'documents', onSelect: () => onVueReservation('documents') },
+            ]
+          : [])
+      : blocActif
+        ? blocs[blocActif].onglets.map((key) => ({
+            key,
+            label: labels[key] ?? key,
+            actif: activeTab === key,
+            onSelect: () => onSelectTab(key),
+          }))
+        : [];
 
   return (
     <div className="bg-white border-b border-gray-200 print:hidden">
@@ -225,19 +256,19 @@ export default function OrganisateurNav({
         </div>
 
         {/* Sous-onglets du bloc actif (uniquement s'il en a plusieurs) */}
-        {sousOnglets.length > 1 && (
+        {sousVues.length > 1 && (
           <div className="flex gap-5 overflow-x-auto border-t border-gray-100 pt-2">
-            {sousOnglets.map((key) => (
+            {sousVues.map((sv) => (
               <button
-                key={key}
-                onClick={() => onSelectTab(key)}
+                key={sv.key}
+                onClick={sv.onSelect}
                 className={`shrink-0 whitespace-nowrap pb-1 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === key
+                  sv.actif
                     ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {labels[key] ?? key}
+                {sv.label}
               </button>
             ))}
           </div>

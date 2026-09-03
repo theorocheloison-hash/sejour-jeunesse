@@ -258,6 +258,10 @@ export default function CollaborationPage() {
   const devisSigne = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']
     .includes(budgetData?.devis?.statut ?? '');
 
+  // Sous-vue du bloc Réservation (P7) — état local, pas une key de TABS : le
+  // viewer PDF du devis et les documents officiels ne cohabitent plus à l'écran.
+  const [vueReservation, setVueReservation] = useState<'devis' | 'documents'>('devis');
+
   // Badge d'engagement D7/D8 (organisateur créateur seulement) : dérivé du statut
   // du devis (source déjà chargée), fallback statut séjour tant que budgetData
   // n'est pas là. null pour les autres rôles → SejourHeader garde son badge actuel.
@@ -491,6 +495,9 @@ export default function CollaborationPage() {
             ongletsVisibles={ongletsVisibles}
             labels={Object.fromEntries(TABS.map((t) => [t.key, t.label]))}
             onSelectTab={(t) => selectTab(t as Tab)}
+            vueReservation={vueReservation}
+            onVueReservation={setVueReservation}
+            documentsDisponibles={devisSigne}
           />
         </>
       ) : (
@@ -524,9 +531,13 @@ export default function CollaborationPage() {
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        {/* ── Devis & facturation (DIRECT + COLLABORATIF) ─── */}
+        {/* ── Devis & facturation (DIRECT + COLLABORATIF) — pour l'organisateur
+               créateur, le bloc Réservation est une sous-vue Devis | Documents
+               officiels (P7) : jamais les deux empilés. ─── */}
         {activeTab === 'devis' && sejour && (
-          <div className="space-y-8">
+          navBlocs && devisSigne && vueReservation === 'documents' ? (
+            <DocumentsOfficiels sejourId={id} onNaviguerOnglet={(t) => selectTab(t as Tab)} />
+          ) : (
             <TabDevisFacturation
               sejourId={id}
               sejour={sejour}
@@ -539,13 +550,7 @@ export default function CollaborationPage() {
               peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
               peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
             />
-            {/* Section Documents officiels (SC5) — après signature, dans le bloc
-                Réservation, mêmes conditions d'accès que l'ancien bouton dashboard
-                (CONVENTION/SIGNE_DIRECTION). */}
-            {navBlocs && devisSigne && (
-              <DocumentsOfficiels sejourId={id} onNaviguerOnglet={(t) => selectTab(t as Tab)} />
-            )}
-          </div>
+          )
         )}
 
         {/* ── Messages ─── */}

@@ -101,7 +101,15 @@ Bandeau localisé dans `TabRooming.tsx:101-118` (« répliqué de TabGroupes » 
 
 ## P7 — Réservation : sous-vue Devis | Documents officiels
 
-_(non commencé)_
+### Modifications
+- `page.tsx` — state local `vueReservation: 'devis' | 'documents'` (pas une key de `TABS` : `ongletsVisibles`, tracking, accompagnateur intacts). La section devis rend soit `TabDevisFacturation` seul, soit `DocumentsOfficiels` seul (`navBlocs && devisSigne && vueReservation === 'documents'`) — plus jamais empilés. Autres rôles : `TabDevisFacturation` inchangé.
+- `OrganisateurNav.tsx` — props `vueReservation` / `onVueReservation` / `documentsDisponibles` ; la sous-barre du bloc actif est généralisée en `sousVues` (onglets réels pour Sur place/Échanges, sous-vues locales pour Réservation : « Devis » / « Documents officiels » si devis signé — sinon un seul item, pas de barre). Cliquer le bloc Réservation retombe sur Devis. Les cartes internes de `DocumentsOfficiels` (→ Pédagogie/Inscriptions) fonctionnent toujours (`selectTab`).
+
+### Code mort supprimé : aucun.
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique — devis non signé : 1 seule sous-vue, pas de barre ✓ (par construction). NON TESTÉ : rendu (recette Théo P7/P8).
+### Écarts : aucun.
+### Statut : TERMINÉ
 
 ## P8 — Sous-onglets : de vrais onglets
 
