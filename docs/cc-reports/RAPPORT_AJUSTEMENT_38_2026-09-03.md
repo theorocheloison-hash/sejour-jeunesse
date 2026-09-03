@@ -68,7 +68,23 @@ SELECT … WHERE eleve_nom='SAISIEP4' → source_inscription=SAISIE_DIRECTE, a_t
 
 ## P5 — ClotureInscriptions dans le bloc Inscriptions
 
-_(non commencé)_
+### Census (collé)
+
+Bandeau localisé dans `TabRooming.tsx:101-118` (« répliqué de TabGroupes » — duplication existante avec `TabGroupes.tsx:157-174`). Appel : `cloturerInscriptions(sejourId)` (lib collaboration → `POST /collaboration/:sejourId/cloturer-inscriptions`), succès → `onSejourUpdate({ inscriptionsCloturees: true })`, échec → `onError(...)` + `onReloadSejour()`. `inscriptionsCloturees` est bien dans `SejourCollabInfo` (collaboration.ts:53) — pas de type à ajouter.
+
+### Modifications
+
+- `_components/ClotureInscriptions.tsx` (nouveau) — composant unique (bandeau ambre + bouton + appel + état ✓ vert), prop `variant: 'inscriptions' | 'groupes' | 'chambres'` (textes distincts), gestion du loading.
+- `TabRooming.tsx` — JSX inline + `handleCloturer` supprimés, remplacés par le composant (variant chambres).
+- `TabGroupes.tsx` — la COPIE dupliquée (sur le chemin, règle « fix à la source ») + `handleCloturerInscriptions` supprimés, remplacés (variant groupes). Backend clôture non touché.
+- `page.tsx` — monté dans le bloc Inscriptions sous la liste si `participantsCharges && participants.length >= 1 && !sejour.inscriptionsCloturees`, `onDone` recharge le séjour.
+- `OrganisateurNav.tsx` — `etatInscriptions` : fait = `inscriptionsCloturees` ; en cours = ≥1 participant non clôturé ; à faire = 0. `calculerBlocEmphase` réécrite (retour `string | null`) : ≥1 participant → Inscriptions tant que non clôturé, puis premier bloc phase 1 restant (Réservation → Budget → Pédagogie), sinon `null` → badge « Tout est prêt ✓ » dans la nav ; 0 participant → ordre historique. `page.tsx` : onglet par défaut ignore l'emphase nulle (reste `devis`).
+
+### Code mort supprimé : les 2 bandeaux inline + leurs 2 handlers (TabRooming, TabGroupes — mêmes commits).
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique — mêmes appels/callbacks que l'inline (diff relu) ; le contrat `cloturer-inscriptions` n'a pas changé. NON TESTÉ : clic réel de clôture + « Tout est prêt ✓ » (recette Théo).
+### Écarts : le doc demandait le remplacement dans TabRooming ; la copie de TabGroupes était sur le chemin (même JSX dupliqué) → remplacée aussi, comportement identique.
+### Statut : TERMINÉ
 
 ## P6 — Budget « fait » = bouclé
 

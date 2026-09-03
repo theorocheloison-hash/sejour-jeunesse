@@ -42,6 +42,7 @@ import InscriptionsEleves from './_components/InscriptionsEleves';
 import Accompagnateurs from './_components/Accompagnateurs';
 import PrixParEleve from './_components/PrixParEleve';
 import DocumentsOfficiels from './_components/DocumentsOfficiels';
+import ClotureInscriptions from './_components/ClotureInscriptions';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -238,7 +239,7 @@ export default function CollaborationPage() {
     if (!navBlocs || ongletChoisiRef.current || !budgetData || !participantsCharges) return;
     ongletChoisiRef.current = true;
     const bloc = calculerBlocEmphase(sejour, budgetData, participants, participantsCharges);
-    const onglet = ONGLET_PAR_BLOC[bloc]?.[0];
+    const onglet = bloc ? ONGLET_PAR_BLOC[bloc]?.[0] : undefined;
     if (onglet) setTab(onglet as Tab);
   }, [navBlocs, budgetData, participantsCharges, participants, sejour]);
 
@@ -646,6 +647,17 @@ export default function CollaborationPage() {
               />
               {modeInscription === 'SAISIE' && (
                 <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
+              )}
+              {/* Clôture des inscriptions (P5) — sous la liste, dès qu'il y a
+                  au moins un participant et tant que ce n'est pas clôturé. */}
+              {participantsCharges && participants.length >= 1 && !sejour?.inscriptionsCloturees && (
+                <ClotureInscriptions
+                  sejourId={id}
+                  cloturee={false}
+                  variant="inscriptions"
+                  onDone={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+                  onError={setMutationError}
+                />
               )}
             </div>
           ) : (

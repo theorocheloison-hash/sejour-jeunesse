@@ -24,10 +24,16 @@ function etatReservation(budgetData: BudgetData | null): EtatBloc {
   return 'neutre';
 }
 
-function etatInscriptions(participants: Participant[], participantsCharges: boolean): EtatBloc {
+function etatInscriptions(
+  sejour: SejourCollabInfo | null,
+  participants: Participant[],
+  participantsCharges: boolean,
+): EtatBloc {
+  // P5 : « fait » = inscriptions clôturées (le geste explicite de l'enseignant),
+  // « en cours » = liste entamée non clôturée, « à faire » = liste vide.
+  if (sejour?.inscriptionsCloturees) return 'fait';
   if (!participantsCharges) return 'neutre';
-  if (participants.length === 0) return 'afaire';
-  return participants.every((p) => p.signeeAt) ? 'fait' : 'encours';
+  return participants.length === 0 ? 'afaire' : 'encours';
 }
 
 function etatBudget(sejour: SejourCollabInfo | null): EtatBloc {
@@ -39,26 +45,39 @@ function etatPedagogie(sejour: SejourCollabInfo | null): EtatBloc {
 }
 
 /**
- * Bloc mis en avant à l'ouverture : la première « à faire » dans l'ordre
- * Réservation → Inscriptions → Budget → Pédagogie — SAUF si ≥ 1 participant
- * existe : l'activité a commencé, l'emphase bascule en phase 2 (Inscriptions),
- * la signature restant un rappel discret dans l'en-tête (D6/D7).
+ * Bloc mis en avant à l'ouverture (D4/D6, réécrit en P5) :
+ * — ≥ 1 participant : l'activité a commencé → Inscriptions tant que non clôturé ;
+ *   une fois clôturé, retour sur le premier bloc de phase 1 restant
+ *   (Réservation → Budget → Pédagogie) ; si plus rien → null (« Tout est prêt ✓ »).
+ * — 0 participant : premier « à faire »/« en cours » dans l'ordre historique
+ *   Réservation → Inscriptions → Budget → Pédagogie ; null si tout est fait.
  */
 export function calculerBlocEmphase(
   sejour: SejourCollabInfo | null,
   budgetData: BudgetData | null,
   participants: Participant[],
   participantsCharges: boolean,
-): string {
-  if (participantsCharges && participants.length >= 1) return 'inscriptions';
-  const ordre: Array<[string, EtatBloc]> = [
-    ['reservation', etatReservation(budgetData)],
-    ['inscriptions', etatInscriptions(participants, participantsCharges)],
-    ['budget', etatBudget(sejour)],
-    ['pedagogie', etatPedagogie(sejour)],
-  ];
-  const premierAFaire = ordre.find(([, etat]) => etat === 'afaire' || etat === 'encours');
-  return premierAFaire?.[0] ?? 'reservation';
+): string | null {
+  const etats: Record<string, EtatBloc> = {
+    reservation: etatReservation(budgetData),
+    inscriptions: etatInscriptions(sejour, participants, participantsCharges),
+    budget: etatBudget(sejour),
+    pedagogie: etatPedagogie(sejour),
+  };
+  const aTraiter = (e: EtatBloc) => e === 'afaire' || e === 'encours';
+
+  if (participantsCharges && participants.length >= 1) {
+    if (aTraiter(etats.inscriptions)) return 'inscriptions';
+    for (const k of ['reservation', 'budget', 'pedagogie']) {
+      if (aTraiter(etats[k])) return k;
+    }
+    return null;
+  }
+
+  for (const k of ['reservation', 'inscriptions', 'budget', 'pedagogie']) {
+    if (aTraiter(etats[k])) return k;
+  }
+  return null;
 }
 
 /** Onglet ouvert quand on clique un bloc (le premier onglet visible du bloc). */
@@ -108,7 +127,7 @@ export default function OrganisateurNav({
     reservation: { key: 'reservation', titre: 'Réservation', onglets: visibles(ONGLET_PAR_BLOC.reservation), etat: etatReservation(budgetData) },
     pedagogie: { key: 'pedagogie', titre: 'Pédagogie', onglets: visibles(ONGLET_PAR_BLOC.pedagogie), etat: etatPedagogie(sejour) },
     budget: { key: 'budget', titre: 'Budget', onglets: visibles(ONGLET_PAR_BLOC.budget), etat: etatBudget(sejour) },
-    inscriptions: { key: 'inscriptions', titre: 'Inscriptions', onglets: visibles(ONGLET_PAR_BLOC.inscriptions), etat: etatInscriptions(participants, participantsCharges) },
+    inscriptions: { key: 'inscriptions', titre: 'Inscriptions', onglets: visibles(ONGLET_PAR_BLOC.inscriptions), etat: etatInscriptions(sejour, participants, participantsCharges) },
     surplace: {
       key: 'surplace', titre: 'Sur place', onglets: visibles(ONGLET_PAR_BLOC.surplace), etat: 'neutre',
       attenue: !participantsCharges || participants.length === 0,
@@ -182,6 +201,14 @@ export default function OrganisateurNav({
             </p>
             <div className="flex flex-wrap gap-2">{renderBloc(blocs.echanges)}</div>
           </div>
+          {/* P5 : plus aucune étape en attente → pas d'emphase, on le dit. */}
+          {blocEmphase === null && (
+            <div className="flex items-end pb-0.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700">
+                Tout est prêt ✓
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Sous-onglets du bloc actif (uniquement s'il en a plusieurs) */}
