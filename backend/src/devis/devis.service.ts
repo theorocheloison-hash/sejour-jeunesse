@@ -1551,6 +1551,41 @@ export class DevisService {
       return d;
     });
 
+    // Séjour rejoint (createurId set) : notifier l'enseignant avec le lien PUBLIC
+    // de signature — il signe en un clic sans se reconnecter (son espace connecté
+    // reste dispo en parallèle). Non bloquant + gaté par assertEnvoiExterneAutorise
+    // (anti-phishing centre en validation → skip silencieux). DIRECT pur
+    // (createurId null) : aucune notif (le devis part au client via envoyerDevisDirect).
+    if (sejour.createurId && devis.tokenSignature) {
+      try {
+        const enseignant = await this.prisma.user.findUnique({
+          where: { id: sejour.createurId },
+          select: { email: true, prenom: true, nom: true },
+        });
+        if (enseignant) {
+          const me = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+          });
+          await assertEnvoiExterneAutorise(this.prisma, centre, enseignant.email, me?.email ?? '');
+          const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+          const lien = `${frontendUrl}/devis/signer/${devis.tokenSignature}`;
+          await this.email.sendGenericNotification(
+            enseignant.email,
+            `Un devis à signer — ${sejour.titre}`,
+            `<p>Bonjour ${enseignant.prenom},</p>
+             <p><strong>${centre.nom}</strong> a établi un devis pour le séjour <strong>${sejour.titre}</strong>.</p>
+             <p>Vous pouvez le consulter et le signer directement en ligne, ou depuis votre espace LIAVO.</p>
+             <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir et signer le devis</a></p>
+             <p style="font-size:12px;color:#9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien : ${lien}</p>`,
+            centre.nom,
+            centre.email ? { name: centre.nom, email: centre.email } : undefined,
+            null,
+          );
+        }
+      } catch { /* non bloquant */ }
+    }
+
     return this.prisma.devis.findUnique({
       where: { id: devis.id },
       include: { lignes: true },
