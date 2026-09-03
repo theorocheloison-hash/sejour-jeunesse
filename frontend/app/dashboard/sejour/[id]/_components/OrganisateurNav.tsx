@@ -210,7 +210,9 @@ export default function OrganisateurNav({
         )}
         {bloc.titre}
         {nbVues >= 2 && (
-          <span className="text-[10px] font-normal text-gray-400">· {nbVues} vues</span>
+          /* P13 : forme courte « · N » (title au survol) pour que la nav tienne
+             sur une ligne en trois colonnes à ~1280 px. */
+          <span title={`${nbVues} vues`} className="text-[10px] font-normal text-gray-400">· {nbVues}</span>
         )}
         {emphase && (
           <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
@@ -286,9 +288,9 @@ export default function OrganisateurNav({
         {/* P12.2 — aide à la première ouverture d'un bloc multi-vues, disparaît
             (pour la session) au premier clic sur un sous-onglet du bloc. */}
         {aideVisible && (
-          <p className="flex items-center gap-1.5 text-xs text-gray-500 transition-opacity duration-300">
+          <p className="flex items-center gap-1.5 text-xs text-[var(--color-accent)] transition-opacity duration-300">
             Choisissez une vue : {libellesAide}
-            <span aria-hidden className="text-gray-400">↓</span>
+            <span aria-hidden>↓</span>
           </p>
         )}
         {/* Sous-onglets du bloc actif — vrais onglets au gabarit historique (P8) */}

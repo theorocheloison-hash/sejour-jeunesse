@@ -231,3 +231,14 @@ nothing to commit, working tree clean
 ```
 
 `npm test` backend : `Tests: 4 failed, 2 todo, 445 passed, 451 total` — baseline inchangée (les 4 = `facture.service.spec.ts`). **Aucun push.** Recette Théo : ordre du bloc Inscriptions ; « · 3 vues » sur Sur place et Échanges (« · 2 vues » sur Réservation signée) ; ligne d'aide qui disparaît au clic ; Sur place s'ouvre sur Groupes.
+
+## P13 — Ligne d'aide en ocre + suffixe compact
+
+### Modifications (`OrganisateurNav.tsx` seul — `SousOnglets.tsx` non concerné, la ligne d'aide vit dans la nav)
+1. Ligne d'aide « Choisissez une vue… ↓ » : `text-gray-500` → `text-[var(--color-accent)]` (= `#C87D2E`, `app/globals.css:16`) — texte ET flèche (la flèche hérite, sa classe grise propre retirée). Aucun autre changement.
+2. Suffixe des blocs multi-vues : « · N vues » → « · N » avec `title="N vues"` au survol (~30 px gagnés par bloc, trois blocs concernés).
+
+### Gates : tsc 0 erreur, build OK.
+### NON TESTÉ : la tenue sur une ligne à ~1280 px est un rendu — le build ne la mesure pas ; à confirmer à l'écran (l'économie de largeur : 3 × « vues » supprimés ≈ 90 px sur la rangée).
+### Écarts : aucun.
+### Statut : TERMINÉ
