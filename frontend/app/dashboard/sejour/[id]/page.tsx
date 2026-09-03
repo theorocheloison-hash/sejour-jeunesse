@@ -275,6 +275,8 @@ export default function CollaborationPage() {
     if (ds === 'SELECTIONNE' || ds === 'SIGNE_DIRECTION' || ds === 'FACTURE_ACOMPTE' || ds === 'FACTURE_SOLDE') return confirme;
     if (ds === 'NON_RETENU') return { label: 'Annulé', cls: 'bg-gray-100 text-gray-600' };
     if (sejour?.statut === 'CONVENTION' || sejour?.statut === 'SIGNE_DIRECTION') return confirme;
+    if (!ds && budgetData && !budgetData.devis && sejour?.statut === 'OPTION')
+      return { label: "En attente du devis de l'hébergeur", cls: 'bg-gray-100 text-gray-600' };
     if (sejour?.statut === 'OPTION') return attente;
     return null;
   }, [navBlocs, budgetData, sejour]);
