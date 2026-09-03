@@ -222,8 +222,12 @@ Environnement pour la recette Théo : back relancé en `start:dev` (watch) sur l
 
 ```
 $ git log --oneline 51b7ff4..HEAD
-(voir les 2 commits P11/P12 + clôture ci-dessous)
+7bcda02 fix(38/ajust-P12): découverte des sous-onglets — « · N vues », ligne d'aide, Sur place → Groupes
+46dabd0 fix(38/ajust-P11): ordre du bloc Inscriptions — accompagnateurs en dernier
+
 $ git status
 On branch feat/38-dashboard-organisateur
 nothing to commit, working tree clean
 ```
+
+`npm test` backend : `Tests: 4 failed, 2 todo, 445 passed, 451 total` — baseline inchangée (les 4 = `facture.service.spec.ts`). **Aucun push.** Recette Théo : ordre du bloc Inscriptions ; « · 3 vues » sur Sur place et Échanges (« · 2 vues » sur Réservation signée) ; ligne d'aide qui disparaît au clic ; Sur place s'ouvre sur Groupes.
