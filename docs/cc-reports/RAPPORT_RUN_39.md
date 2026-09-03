@@ -31,3 +31,13 @@
 - Gates : tsc backend OK (0 erreur), build backend OK (exit 0).
 - Gardes respectées : changement strictement additif (la forme retournée gagne `contact`, tout le reste identique → `rejoindre/[token]` non affecté) ; jamais de téléphone dans `contact` ; séjour absent/supprimé → `contact: null` ; `accepter`, `getPendantesPourUser`, `inviterCentreExterne` non touchées.
 - Écarts / points laissés : aucun.
+
+## L3b — Frontend : type + pré-remplissage register
+
+- Fichiers réellement modifiés : `frontend/src/lib/invitation-collaboration.ts`, `frontend/app/register/organisateur/page.tsx`
+- Diff résumé :
+  - `invitation-collaboration.ts:22-27` — champ `contact?: { prenom, nom, organisation, typeStructure } | null` ajouté à l'interface `InvitationCollaboration`.
+  - `register/organisateur/page.tsx:151-164` — dans le useEffect d'invitation existant, après le `setForm` email : pré-remplissage `prenom`/`nom` (sans écraser une saisie, `f.prenom || …`), `etablissementNom` depuis `contact.organisation`, `setTypeStructure` avec fallback `AUTRE` si valeur inconnue.
+- Gates : tsc frontend OK (0 erreur), build frontend OK (exit 0).
+- Gardes respectées : champs pré-remplis éditables (aucun readOnly ajouté) ; verrou email existant non touché ; logique de reset du useEffect `[typeStructure, invitationToken]` non modifiée ; best-effort (contact absent/null → formulaire vide, aucune régression).
+- Écarts / points laissés : fichiers `LIAVO_SESSION_STATE.md` et `docs/ROADMAP_ETE_2026.md` trouvés modifiés dans le working tree (modifications externes au run, non commitées — add ciblé).

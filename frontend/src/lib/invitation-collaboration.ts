@@ -19,6 +19,12 @@ export interface InvitationCollaboration {
     ville: string;
     adresse: string;
   };
+  contact?: {
+    prenom: string | null;
+    nom: string | null;
+    organisation: string | null;
+    typeStructure: string | null;
+  } | null;
 }
 
 export async function getInvitation(token: string): Promise<InvitationCollaboration> {
