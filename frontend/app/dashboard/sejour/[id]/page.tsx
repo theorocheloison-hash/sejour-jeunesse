@@ -445,8 +445,10 @@ export default function CollaborationPage() {
              il est DÉPLACÉ dans la section Pédagogie (rendu plus bas), pas ici. ── */}
       {!navBlocs && bandeauThematiques}
 
-      {/* ── Bandeau devis à signer (organisateur) ──────────────────────────── */}
-      {user.role === 'ORGANISATEUR' && budgetData?.devis && budgetData.devis.sejourDirectId &&
+      {/* ── Bandeau devis à signer (organisateur) — retiré pour l'organisateur
+             créateur (navBlocs) : le badge D7/D8 du header porte le rappel (P1).
+             L'accompagnateur (navBlocs faux) le voit toujours. ──────────────── */}
+      {user.role === 'ORGANISATEUR' && !navBlocs && budgetData?.devis && budgetData.devis.sejourDirectId &&
         (budgetData.devis.statut === 'EN_ATTENTE' || budgetData.devis.statut === 'EN_ATTENTE_VALIDATION') && (
         <div className={`border-b print:hidden ${budgetData.devis.statut === 'EN_ATTENTE' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
