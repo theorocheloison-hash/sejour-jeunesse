@@ -125,7 +125,23 @@ Bandeau localisé dans `TabRooming.tsx:101-118` (« répliqué de TabGroupes » 
 
 ## P9 — Bannière onboarding : trace et décision
 
-_(non commencé)_
+### Trace (grep `onboarding=true` sur tout le repo — 2 occurrences)
+
+1. **Qui le pose** : `backend/src/auth/auth.service.ts:860` — `consommerMagicLink()` redirige TOUT magic link consommé vers `/auth/callback#token=…&onboarding=true` (+ `&needsPassword=true` si `!user.motDePasseDefini`, l.832). C'est le SEUL émetteur.
+2. **Qui le consomme** : `frontend/app/auth/callback/page.tsx:63-64` — dest = `ROLE_ROUTES[role]` (organisateur → `/dashboard/organisateur`) + `?onboarding=true` ; si `needsPassword`, le callback affiche D'ABORD un écran dédié de création de mot de passe (l.66-71) avant de rejoindre le dashboard.
+3. **Quels flux envoient des magic links** : (a) `public.service.ts:238-241` — création de demande publique self-service (le cas historique du texte « votre demande a bien été envoyée ») ; (b) `devis.service.ts:215-229` — email « nouveau devis » au client avec magicUrl ; (c) `auth.service.ts:624-633` — « renvoyer le magic link ». Le flux invité `rejoindre/[token]` (register classique par mot de passe → accepter → redirection vers le séjour, SC2) ne passe **pas** par `?onboarding=true`.
+4. **Mot de passe temporaire** : non — le compte magic-link n'a simplement PAS de mot de passe (`motDePasseDefini` faux) ; la création est proposée par l'écran du callback (pas par la bannière).
+
+### Décision
+
+Un compte **invité peut encore** atterrir au dashboard avec `?onboarding=true` : tout magic link générique (email devis b, renvoi c) le pose, quel que soit le profil du compte. La variante « vous avez rejoint le séjour » de SC6 n'est donc **pas du code mort** → **rien n'est supprimé**, `organisateur/page.tsx` inchangé.
+
+### Proposition (pour décision Théo, pas de code)
+
+L'information « définissez votre mot de passe » pour l'invité est déjà servie au bon moment par l'écran `needsPassword` du callback magic ; le rappel pour l'invité qui atterrit sur SON séjour (D2) aurait sa place dans l'encart « Comment fonctionne cet espace » de l'espace séjour (une ligne conditionnelle), plutôt que sur une bannière du dashboard qu'il ne visite pas à l'arrivée. Le flux mot de passe n'a pas été modifié.
+
+### Gates : aucun code modifié (rapport seul).
+### Statut : TERMINÉ
 
 ## P10 — Envoyer le lien du journal aux familles
 
