@@ -19,3 +19,17 @@
   - Demande-pont réutilisée si existante → pas de doublon de `DemandeDevis` (protège `getBudgetData.findFirst`).
   - NON touchés : `create()` (appel d'offres), `envoyerDevisDirect` (garde `modeGestion === 'DIRECT'` conservée), `signerDevisDirect`, `getDevisForSejour`, `getDevisById`, `buildConventionScolairePdf`, `createDevisComplementaire`, endpoints publics.
 - Écarts / points laissés : aucun.
+
+## L2 — Frontend : bouton « Créer un devis » sur un séjour rejoint (hébergeur)
+
+- Fichiers réellement modifiés : `frontend/app/dashboard/sejour/[id]/_components/TabDevisFacturation.tsx`
+- Diff résumé : `TabDevisFacturation.tsx:1803-1815` — bloc état vide de la branche `!isDirect` : libellé « Aucun devis pour ce séjour. » + `<Link>` conditionnel vers `/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`, gate `user.role === 'HEBERGEUR' && peutEcrireDevis && (sejour?.clientEmail || sejour?.clientNom)`. `Link` déjà importé (`:4`). Cible vérifiée : `hebergeur/devis/nouveau/page.tsx:39` lit `sejourDirectId` (non modifiée).
+- Gates : tsc frontend OK (0 erreur), build frontend OK (exit 0).
+- Gardes respectées : bouton HEBERGEUR + `peutEcrireDevis` + marqueur ex-direct uniquement (appel d'offres pur sans `clientEmail`/`clientNom` → pas de bouton ; organisateur → jamais) ; branche `isDirect`, pipeline facturation, signature, devis complémentaires intacts ; `hebergeur/devis/nouveau/page.tsx` non touchée.
+- Écarts / points laissés : aucun.
+
+## Recette attendue (à exécuter par Théo, pas faite en prod par ce run)
+
+1. **Non-régression DIRECT pur** — séjour DIRECT non rejoint → « Créer un devis » (branche `isDirect` inchangée) → devis `demandeId=null` + `sejourDirectId` → s'affiche, s'envoie au client, se signe par lien. Identique à avant.
+2. **Cas corrigé** — séjour DIRECT → invitation → rejoint (COLLABORATIF sans devis) → hébergeur, onglet Devis : bouton « Créer un devis » → création → devis hybride (`sejourDirectId` + demande-pont FERMEE) → visible hébergeur (`getDevisForSejour`) ET enseignant (`getBudgetData`, badge « En attente de signature », `SignatureDevisPanel`) → signature depuis l'espace enseignant.
+3. **Non-régression appel d'offres** — séjour COLLABORATIF natif → pas de bouton (marqueur absent) → réponse via `/hebergeur/demandes` comme avant.

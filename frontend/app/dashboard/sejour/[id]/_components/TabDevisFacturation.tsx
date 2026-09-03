@@ -1802,7 +1802,15 @@ export default function TabDevisFacturation({
 
           {!devisLoading && !devisAffiche && (
             <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-              <p className="text-sm text-gray-500">Aucun devis sélectionné pour ce séjour.</p>
+              <p className="text-sm text-gray-500">Aucun devis pour ce séjour.</p>
+              {user.role === 'HEBERGEUR' && peutEcrireDevis && (sejour?.clientEmail || sejour?.clientNom) && (
+                <Link
+                  href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`}
+                  className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Créer un devis
+                </Link>
+              )}
             </div>
           )}
 
