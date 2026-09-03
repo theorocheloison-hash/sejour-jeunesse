@@ -1,10 +1,16 @@
 # RAPPORT RUN CC #39 — Chantier invitation (les deux faces)
 
 > Branche : `feat/39-invitation` (créée depuis `main` = `f570e79`). **Aucun push, aucun merge.**
-> Git log (mis à jour au fil des commits) :
+> Git log final de la branche :
 > ```
-> (voir section finale)
+> (L4)  feat(rgpd): encart de réassurance données (inscriptions + page parent)
+> dd22d2f feat(register): pré-remplit prénom/nom/structure de l'organisateur invité
+> 074c597 feat(invitation): expose le contact (prénom/nom/structure) dans findByToken
+> 31cf053 feat(sejour): bloc Organisateur (inviter / renvoyer / rattaché) dans l'en-tête
+> 79a6580 fix(sejour): libellé badge « en attente du devis » sur séjour rejoint sans devis
+> f570e79 (main) docs: clôture #38
 > ```
+> Baseline tests backend vérifiée en fin de run : **4 failed / 2 todo / 445 passed** (identique au pré-existant — échecs mollie + mock facture.service.spec, hors scope, non touchés).
 
 ## L1 — Libellé badge « en attente du devis » sur séjour rejoint sans devis
 
@@ -40,4 +46,15 @@
   - `register/organisateur/page.tsx:151-164` — dans le useEffect d'invitation existant, après le `setForm` email : pré-remplissage `prenom`/`nom` (sans écraser une saisie, `f.prenom || …`), `etablissementNom` depuis `contact.organisation`, `setTypeStructure` avec fallback `AUTRE` si valeur inconnue.
 - Gates : tsc frontend OK (0 erreur), build frontend OK (exit 0).
 - Gardes respectées : champs pré-remplis éditables (aucun readOnly ajouté) ; verrou email existant non touché ; logique de reset du useEffect `[typeStructure, invitationToken]` non modifiée ; best-effort (contact absent/null → formulaire vide, aucune régression).
-- Écarts / points laissés : fichiers `LIAVO_SESSION_STATE.md` et `docs/ROADMAP_ETE_2026.md` trouvés modifiés dans le working tree (modifications externes au run, non commitées — add ciblé).
+- Écarts / points laissés : fichiers `LIAVO_SESSION_STATE.md` et `docs/ROADMAP_ETE_2026.md` trouvés modifiés dans le working tree (modifications externes au run, non commitées — add ciblé). Également présent non versionné : `docs/CHANTIER_SAISIE_CLIENT_CREATION.md` (externe au run, laissé tel quel).
+
+## L4 — Encart de réassurance données (inscriptions + page parent)
+
+- Fichiers réellement modifiés : `frontend/app/components/ReassuranceDonnees.tsx` (NOUVEAU), `frontend/app/dashboard/sejour/[id]/page.tsx`, `frontend/app/autorisation/[token]/page.tsx`
+- Diff résumé :
+  - `ReassuranceDonnees.tsx` — composant statique (aucune logique, aucun fetch), texte exact du cadrage, encart sobre `bg-gray-50` / `border-gray-200` / `text-xs text-gray-600` + icône bouclier.
+  - `page.tsx:37` import + `page.tsx:605` — montage en tête du `<div className="space-y-6">` du bloc Inscriptions (branche `navBlocs`, `activeTab === 'participants'`), avant le sélecteur de mode.
+  - `autorisation/[token]/page.tsx:37` import + `:352` — montage après la section « Votre enfant » (dernier bloc d'infos séjour), avant le bloc Formulaire/Confirmation. `RGPD_TEXT` (bloc légal distinct) conservé tel quel.
+- Gates : tsc frontend OK (0 erreur), build frontend OK (exit 0). Tests backend : 4 failed / 2 todo / 445 passed = baseline exacte.
+- Gardes respectées : composant sans état, texte non dupliqué (source unique, 2 montages) ; aucune logique existante des 2 pages modifiée (insertion JSX seule).
+- Écarts / points laissés : sur la page parent, le point « sous le bloc d'infos du séjour » a été résolu comme « après la section Votre enfant » (dernier bloc d'infos avant le formulaire) — l'encart est ainsi visible aussi dans l'état signé (confirmation), ce qui reste cohérent (réassurance sur données déjà transmises).

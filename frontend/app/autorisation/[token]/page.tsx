@@ -34,6 +34,7 @@ import {
   type AutorisationPublique,
 } from '@/src/lib/autorisation';
 import { formatDate } from '@/src/lib/utils';
+import ReassuranceDonnees from '@/app/components/ReassuranceDonnees';
 
 const THEMATIQUE_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -347,6 +348,8 @@ export default function SignerAutorisationPage() {
             </div>
           </div>
         </section>
+
+        <ReassuranceDonnees />
 
         {/* Formulaire / Confirmation */}
         {signed ? (

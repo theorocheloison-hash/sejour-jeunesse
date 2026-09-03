@@ -43,6 +43,7 @@ import Accompagnateurs from './_components/Accompagnateurs';
 import PrixParEleve from './_components/PrixParEleve';
 import DocumentsOfficiels from './_components/DocumentsOfficiels';
 import ClotureInscriptions from './_components/ClotureInscriptions';
+import ReassuranceDonnees from '@/app/components/ReassuranceDonnees';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -601,6 +602,7 @@ export default function CollaborationPage() {
             /* Bloc Inscriptions (SC4) : choix du mode D14 en tête, sections
                rapatriées de l'ancienne page autorisations, liste existante. */
             <div className="space-y-6">
+              <ReassuranceDonnees />
               {modeInscription === null ? (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                   <h2 className="text-base font-bold text-gray-900 mb-1">Comment voulez-vous inscrire vos élèves ?</h2>
