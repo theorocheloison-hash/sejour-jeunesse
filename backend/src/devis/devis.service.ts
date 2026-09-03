@@ -1435,16 +1435,21 @@ export class DevisService {
         id: true,
         modeGestion: true,
         hebergementSelectionneId: true,
+        createurId: true,
         titre: true,
+        lieu: true,
+        dateDebut: true,
+        dateFin: true,
+        placesTotales: true,
         clientNom: true,
         clientEmail: true,
         deletedAt: true,
       },
     });
     if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
-    if (sejour.modeGestion !== 'DIRECT') {
-      throw new ForbiddenException('Ce séjour n\'est pas en gestion directe');
-    }
+    // Pas de garde modeGestion : un séjour DIRECT rejoint devient COLLABORATIF mais
+    // l'hébergeur doit toujours pouvoir créer le devis. L'ownership borne l'accès
+    // (couvre DIRECT et ex-direct rejoint, exclut un appel d'offres d'un autre centre).
     if (sejour.hebergementSelectionneId !== centre.id) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
@@ -1468,47 +1473,83 @@ export class DevisService {
       documentUrl = await this.storage.upload(file, 'devis');
     }
 
-    const devis = await this.prisma.devis.create({
-      data: {
-        sejourDirectId,
-        demandeId: null,
-        centreId: centre.id,
-        emetteurId,
-        montantTotal: dto.montantTotal ?? '0',
-        montantParEleve: dto.montantParEleve ?? '0',
-        description: dto.description,
-        conditionsAnnulation: dto.conditionsAnnulation,
-        documentUrl,
-        nomEntreprise: dto.nomEntreprise,
-        adresseEntreprise: dto.adresseEntreprise,
-        siretEntreprise: dto.siretEntreprise,
-        emailEntreprise: dto.emailEntreprise,
-        telEntreprise: dto.telEntreprise,
-        tauxTva: dto.tauxTva,
-        montantHT: dto.montantHT,
-        montantTVA: dto.montantTVA,
-        montantTTC: dto.montantTTC,
-        pourcentageAcompte: dto.pourcentageAcompte,
-        montantAcompte: dto.montantAcompte,
-        numeroDevis,
-        typeDevis: 'PLATEFORME',
-      },
-    });
+    const devis = await this.prisma.$transaction(async (tx) => {
+      // Séjour rejoint (ex-DIRECT devenu COLLABORATIF) → forme hybride : le devis doit
+      // être rattaché à une DemandeDevis pont pour être visible côté enseignant
+      // (getBudgetData). Réutiliser une demande existante (évite le doublon si un devis
+      // avait déjà été annulé/recréé), sinon créer une pont FERMEE. Miroir d'accepter().
+      let demandeId: string | null = null;
+      if (sejour.createurId) {
+        const demandeExistante = await tx.demandeDevis.findFirst({
+          where: { sejourId: sejour.id, statut: { not: 'ANNULEE' } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+        if (demandeExistante) {
+          demandeId = demandeExistante.id;
+        } else {
+          const demande = await tx.demandeDevis.create({
+            data: {
+              sejourId: sejour.id,
+              enseignantId: sejour.createurId,
+              titre: sejour.titre,
+              dateDebut: sejour.dateDebut,
+              dateFin: sejour.dateFin,
+              nombreEleves: sejour.placesTotales,
+              villeHebergement: sejour.lieu,
+              statut: 'FERMEE',
+              typePension: [],
+              centreDestinataireId: centre.id,
+            },
+          });
+          demandeId = demande.id;
+        }
+      }
 
-    if (dto.lignes && dto.lignes.length > 0) {
-      await this.prisma.ligneDevis.createMany({
-        data: dto.lignes.map((l) => ({
-          devisId: devis.id,
-          description: l.description,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-          tva: l.tva ?? 0,
-          totalHT: l.totalHT,
-          totalTTC: l.totalTTC,
-          produitCatalogueId: l.produitCatalogueId ?? null,
-        })),
+      const d = await tx.devis.create({
+        data: {
+          sejourDirectId,
+          demandeId, // pont si rejoint, null si DIRECT pur
+          centreId: centre.id,
+          emetteurId,
+          montantTotal: dto.montantTotal ?? '0',
+          montantParEleve: dto.montantParEleve ?? '0',
+          description: dto.description,
+          conditionsAnnulation: dto.conditionsAnnulation,
+          documentUrl,
+          nomEntreprise: dto.nomEntreprise,
+          adresseEntreprise: dto.adresseEntreprise,
+          siretEntreprise: dto.siretEntreprise,
+          emailEntreprise: dto.emailEntreprise,
+          telEntreprise: dto.telEntreprise,
+          tauxTva: dto.tauxTva,
+          montantHT: dto.montantHT,
+          montantTVA: dto.montantTVA,
+          montantTTC: dto.montantTTC,
+          pourcentageAcompte: dto.pourcentageAcompte,
+          montantAcompte: dto.montantAcompte,
+          numeroDevis,
+          typeDevis: 'PLATEFORME',
+        },
       });
-    }
+
+      if (dto.lignes && dto.lignes.length > 0) {
+        await tx.ligneDevis.createMany({
+          data: dto.lignes.map((l) => ({
+            devisId: d.id,
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.prixUnitaire,
+            tva: l.tva ?? 0,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+            produitCatalogueId: l.produitCatalogueId ?? null,
+          })),
+        });
+      }
+
+      return d;
+    });
 
     return this.prisma.devis.findUnique({
       where: { id: devis.id },
