@@ -148,6 +148,20 @@ function RegisterOrganisateurContent() {
         // Verrou : le compte doit porter l'email de l'invitation (garde-fou
         // backend à l'acceptation). On pré-remplit et on rend le champ readOnly.
         setForm(f => ({ ...f, email: inv.emailEnseignant ?? '' }));
+        // Pré-remplissage du contact porté par le séjour (L3 — best-effort,
+        // champs éditables ; contact absent → formulaire vide comme avant).
+        if (inv.contact) {
+          setForm(f => ({
+            ...f,
+            prenom: f.prenom || inv.contact.prenom || '',
+            nom: f.nom || inv.contact.nom || '',
+            etablissementNom: inv.contact.organisation || f.etablissementNom,
+          }));
+          const knownTypes = ['COLLEGE_LYCEE', 'ECOLE_PRIMAIRE', 'MAIRIE', 'CENTRE_LOISIRS', 'ASSOCIATION', 'COMITE_ENTREPRISE', 'AUTRE'];
+          if (inv.contact.typeStructure) {
+            setTypeStructure((knownTypes.includes(inv.contact.typeStructure) ? inv.contact.typeStructure : 'AUTRE') as TypeStructure);
+          }
+        }
         if (inv.etablissementNom) {
           setInvitationCentre(inv.centre?.nom ?? 'votre hébergeur');
           setForm(f => ({

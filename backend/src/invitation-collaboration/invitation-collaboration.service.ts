@@ -108,7 +108,43 @@ export class InvitationCollaborationService {
     });
     if (!invitation) throw new NotFoundException('Invitation introuvable');
     if (invitation.acceptedAt) throw new ConflictException('Cette invitation a déjà été acceptée');
-    return invitation;
+
+    // Contact porté par le séjour (pré-remplissage du register invité) — jamais
+    // de téléphone sur cet endpoint public. Séjour absent/supprimé → contact null.
+    let contact:
+      | { prenom: string | null; nom: string | null; organisation: string | null; typeStructure: string | null }
+      | null = null;
+
+    if (invitation.sejourId) {
+      const sejour = await this.prisma.sejour.findUnique({
+        where: { id: invitation.sejourId },
+        select: {
+          deletedAt: true,
+          clientPrenom: true,
+          clientNom: true,
+          clientOrganisation: true,
+          clientOrganisationId: true,
+        },
+      });
+      if (sejour && !sejour.deletedAt) {
+        let typeStructure: string | null = null;
+        if (sejour.clientOrganisationId) {
+          const org = await this.prisma.organisation.findUnique({
+            where: { id: sejour.clientOrganisationId },
+            select: { typeStructure: true },
+          });
+          typeStructure = mapTypeStructure(org?.typeStructure ?? null);
+        }
+        contact = {
+          prenom: sejour.clientPrenom,
+          nom: sejour.clientNom,
+          organisation: sejour.clientOrganisation,
+          typeStructure,
+        };
+      }
+    }
+
+    return { ...invitation, contact };
   }
 
   /**
@@ -366,4 +402,13 @@ export class InvitationCollaborationService {
 
     return { sent: true, token: invitation.token };
   }
+}
+
+// enum Prisma TypeStructure → valeurs du select du register organisateur.
+function mapTypeStructure(t: string | null): string | null {
+  if (!t) return null;
+  const known = ['COLLEGE_LYCEE', 'ECOLE_PRIMAIRE', 'MAIRIE', 'CENTRE_LOISIRS', 'ASSOCIATION', 'COMITE_ENTREPRISE'];
+  if (known.includes(t)) return t;
+  if (t === 'COLLECTIVITE_TERRITORIALE') return 'MAIRIE';
+  return 'AUTRE'; // ENTREPRISE, MICRO_ENTREPRISE, AUTRE
 }

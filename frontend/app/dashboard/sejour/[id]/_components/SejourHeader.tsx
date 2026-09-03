@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateInfosSejour, deleteSejourDirect } from '@/src/lib/collaboration';
+import BlocOrganisateur from './BlocOrganisateur';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import { formatParticipants, formatDate } from '@/src/lib/utils';
@@ -239,6 +240,14 @@ export default function SejourHeader({
               {sejour?.clientEmail && <> · {sejour.clientEmail}</>}
               {sejour?.clientTelephone && <> · {sejour.clientTelephone}</>}
             </p>
+          )}
+          {isHebergeur && (isDirect || !!sejour?.clientEmail || !!sejour?.clientNom) && (
+            <BlocOrganisateur
+              sejourId={sejourId}
+              invitationCollab={sejour?.invitationCollab ?? null}
+              createur={sejour?.createur ?? null}
+              clientEmail={sejour?.clientEmail ?? null}
+            />
           )}
           {isHebergeur && editingInfos && (
             <div className="flex flex-col gap-2 mt-2 p-3 bg-white rounded-xl border border-gray-200 shadow-sm max-w-md">
