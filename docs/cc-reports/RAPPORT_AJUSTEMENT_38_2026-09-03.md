@@ -44,7 +44,27 @@
 
 ## P4 — Lien journal par élève + jeton saisie directe
 
-_(non commencé)_
+### Census (collé)
+
+`prisma/schema.prisma:363` : `tokenAcces String @unique @default(uuid()) @map("token_acces") @db.Uuid` — le jeton est généré par **défaut de schéma à toute création**, `createBatchDirect` (autorisation.service.ts:501-526, `create` sans `tokenAcces` explicite) inclus. **Aucun fix backend nécessaire** ; la spec « si non » du doc est sans objet — preuve par recette DB réelle ci-dessous (plus probante qu'un test unitaire à mock).
+
+### Modifications
+
+- Bouton « Copier le lien » par élève, tous modes : **endroit unique choisi = `InscriptionsEleves`** — depuis P3 il est rendu dans les deux modes (déplié en FAMILLES, repliable en SAISIE) et sa liste (`getAutorisationsBySejour`) contient TOUS les élèves, saisie directe incluse. Aucun doublon ajouté dans `TabParticipantsCollab`.
+- `TabJournal.tsx` — bloc « lien d'exemple `liavo.fr/sejour/{token}/journal` » + bouton « Copier le lien d'exemple » supprimés (gabarit inutilisable) ; remplacés par la phrase du doc. State `journalLinkCopied` devenu orphelin supprimé.
+
+### Code mort supprimé : bloc exemple + `journalLinkCopied` (TabJournal, même commit).
+### Gates : tsc 0 erreur, build OK.
+### Recette
+
+```
+POST /autorisations/batch-direct {"eleveNom":"SAISIEP4"...} → 201 {"created":1}
+SELECT … WHERE eleve_nom='SAISIEP4' → source_inscription=SAISIE_DIRECTE, a_token=true
+```
+
+### NON TESTÉ : rendu de la phrase TabJournal (§ recette Théo).
+### Écarts : pas de spec unitaire jeton (branche « si non » du doc sans objet — default de schéma, preuve DB collée).
+### Statut : TERMINÉ
 
 ## P5 — ClotureInscriptions dans le bloc Inscriptions
 

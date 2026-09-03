@@ -125,7 +125,6 @@ export default function TabJournal({
   const [journalPhotos, setJournalPhotos] = useState<File[]>([]);
   const [journalPhotosPreviews, setJournalPhotosPreviews] = useState<string[]>([]);
   const [journalSending, setJournalSending] = useState(false);
-  const [journalLinkCopied, setJournalLinkCopied] = useState(false);
   const journalFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -288,23 +287,14 @@ export default function TabJournal({
         </div>
       )}
 
-      {/* Lien parent */}
+      {/* Lien parent (P4) — le gabarit {token} inutilisable est remplacé : chaque
+          famille a son lien personnel ; l'envoi groupé arrive en P10. */}
       {user.role === 'ORGANISATEUR' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
-          <p className="text-sm text-blue-900 mb-3">
-            Les parents peuvent consulter ce journal via le lien de leur autorisation parentale. Chaque parent accède au journal depuis la page : <code className="text-xs bg-white border border-blue-200 rounded px-1.5 py-0.5">liavo.fr/sejour/&#123;token&#125;/journal</code>
+          <p className="text-sm text-blue-900">
+            Chaque famille accède au journal avec son lien d&apos;autorisation
+            (bloc Inscriptions › Copier le lien), ou envoyez-le à toutes les familles ci-dessous.
           </p>
-          <button
-            type="button"
-            onClick={async () => {
-              await navigator.clipboard.writeText('https://liavo.fr/sejour/{token}/journal');
-              setJournalLinkCopied(true);
-              setTimeout(() => setJournalLinkCopied(false), 2000);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-          >
-            {journalLinkCopied ? 'Copié !' : 'Copier le lien d\'exemple'}
-          </button>
         </div>
       )}
     </div>
