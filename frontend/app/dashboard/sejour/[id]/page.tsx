@@ -710,6 +710,8 @@ export default function CollaborationPage() {
             estLectureSeule={estLectureSeule}
             onError={setMutationError}
             canWrite={canWriteSejour}
+            peutEnvoyerLienJournal={navBlocs}
+            nbFamillesEmail={participants.filter((p) => !!p.parentEmail).length}
           />
         )}
 

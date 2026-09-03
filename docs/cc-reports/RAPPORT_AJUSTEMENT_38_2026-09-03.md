@@ -145,7 +145,29 @@ L'information « définissez votre mot de passe » pour l'invité est déjà ser
 
 ## P10 — Envoyer le lien du journal aux familles
 
-_(non commencé)_
+### Modifications
+
+- **Backend** : `AutorisationService.envoyerLienJournal(sejourId, userId)` — garde `createurId`, un mail par autorisation avec `parentEmail` ET `tokenAcces`, URL = `FRONTEND_URL/sejour/{tokenAcces}/journal` (la route publique `app/sejour/[token]/journal` existe ; aucune construction backend préexistante de cette URL → construction locale unique), `emailEnvoye` jamais touché, retour `{sent, skipped}`. Endpoint `POST /autorisations/sejour/:sejourId/envoyer-lien-journal` `@Roles(ORGANISATEUR)`. Template `sendLienJournal` calqué sur `sendAutorisationParentale` (texte du doc). Spec `autorisation-lien-journal.spec.ts` : 3 tests (sent/skipped, échec d'envoi → skipped, garde non-créateur, `update`/`updateMany` jamais appelés).
+- **Front** : `lib/autorisation.ts` → `envoyerLienJournal(sejourId)` ; `TabJournal.tsx` → bouton « Envoyer le lien du journal aux familles » dans le bloc bleu (visible même journal vide), `confirm(...)` avec le nombre de familles avec email, retour « N envoyés, M sans email ». Props `peutEnvoyerLienJournal` (= `navBlocs`) et `nbFamillesEmail` branchées depuis `page.tsx` — **hors liste blanche P10** (une ligne de branchement : le site d'appel est nécessaire pour passer les props, justifié ici avant modification).
+
+### Code mort supprimé : aucun.
+### Gates
+
+```
+backend : tsc 0 erreur, spec 3/3, build OK — frontend : tsc 0 erreur, build OK
+```
+
+### Recette (API, backend relancé en watch sur le code P10)
+
+```
+POST /autorisations/sejour/f74a15f8…(seed)/envoyer-lien-journal → 201 {"sent":1,"skipped":0}
+POST /autorisations/sejour/6016fc04…(SC2)/envoyer-lien-journal → 201 {"sent":3,"skipped":1}
+Logs : 4× subject="Le journal du séjour — …" (1 seed + 3 SC2 ; le skipped = élève saisi sans email)
+```
+
+### NON TESTÉ : rendu du bouton + confirmation navigateur (recette Théo).
+### Écarts : `page.tsx` touché hors liste blanche (branchement des 2 props — justifié ci-dessus).
+### Statut : TERMINÉ
 
 ## 8. État final
 

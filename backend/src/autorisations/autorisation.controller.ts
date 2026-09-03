@@ -78,6 +78,18 @@ export class AutorisationController {
     return this.autorisationService.envoyerInvitations(body.sejourId, user.id, body.autorisationIds);
   }
 
+  /** POST /autorisations/sejour/:sejourId/envoyer-lien-journal — Envoyer le lien
+   * personnel du journal à toutes les familles avec email (ORGANISATEUR, P10) */
+  @Post('sejour/:sejourId/envoyer-lien-journal')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  envoyerLienJournal(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.envoyerLienJournal(sejourId, user.id);
+  }
+
   /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (ORGANISATEUR/SIGNATAIRE) */
   @Patch(':id/valider-paiement')
   @UseGuards(JwtAuthGuard, RolesGuard)

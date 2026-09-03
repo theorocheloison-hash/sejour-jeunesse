@@ -141,6 +141,42 @@ export class AutorisationService {
     return { sent, total: autorisations.length, errors };
   }
 
+  /**
+   * P10 — envoie le lien PERSONNEL du journal (/sejour/{tokenAcces}/journal) à
+   * toutes les familles ayant un email, sans passer par le mail d'autorisation.
+   * Ne touche PAS emailEnvoye (flag de l'autorisation). Un lien par famille :
+   * jamais de lien unique par séjour (sécurité photos de mineurs).
+   */
+  async envoyerLienJournal(sejourId: string, createurId: string) {
+    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== createurId)
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    const autorisations = await this.prisma.autorisationParentale.findMany({
+      where: { sejourId },
+      select: { parentEmail: true, elevePrenom: true, tokenAcces: true },
+    });
+
+    let sent = 0;
+    let skipped = 0;
+    for (const aut of autorisations) {
+      if (!aut.parentEmail || !aut.tokenAcces) {
+        skipped++;
+        continue;
+      }
+      const lien = `${FRONTEND_URL}/sejour/${aut.tokenAcces}/journal`;
+      try {
+        await this.email.sendLienJournal(aut.parentEmail, aut.elevePrenom, sejour.titre, lien);
+        sent++;
+      } catch {
+        skipped++;
+      }
+    }
+
+    return { sent, skipped };
+  }
+
   async getByToken(token: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { tokenAcces: token },

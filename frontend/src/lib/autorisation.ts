@@ -108,6 +108,14 @@ export async function importAutorisationsCsv(
   return res.data;
 }
 
+/** P10 — envoie le lien personnel du journal à toutes les familles avec email. */
+export async function envoyerLienJournal(
+  sejourId: string,
+): Promise<{ sent: number; skipped: number }> {
+  const { data } = await api.post(`/autorisations/sejour/${sejourId}/envoyer-lien-journal`);
+  return data;
+}
+
 export async function getAutorisationsBySejour(
   sejourId: string,
 ): Promise<AutorisationParentale[]> {
