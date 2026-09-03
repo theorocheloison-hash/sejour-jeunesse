@@ -185,20 +185,14 @@ function SejourCard({
             );
           })()}
 
-          {/* Badge devis signé/en attente — pour CONVENTION et SIGNE_DIRECTION */}
+          {/* Nom du centre (P2) — l'ancien badge deux-niveaux « Signé direction /
+              En attente signature » contredisait le badge D8 de la carte ; seul
+              le nom du centre reste, en texte simple. */}
           {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (() => {
             const devisActif = sejour.demandes?.[0]?.devis?.[0];
-            if (!devisActif) return null;
-            const estSigne = !!devisActif.signatureDirecteur;
+            if (!devisActif?.centre?.nom) return null;
             return (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5
-                text-xs font-medium ${estSigne
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-amber-100 text-amber-700'}`}>
-                {estSigne
-                  ? `Signé direction — ${devisActif.centre?.nom ?? ''}`
-                  : `En attente signature — ${devisActif.centre?.nom ?? ''}`}
-              </span>
+              <span className="text-xs text-gray-500">{devisActif.centre.nom}</span>
             );
           })()}
 

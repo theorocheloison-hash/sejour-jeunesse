@@ -20,7 +20,14 @@
 
 ## P2 — Badge secondaire dashboard supprimé
 
-_(non commencé)_
+### Modifications
+- `organisateur/page.tsx` — le badge « Signé direction — {centre} » / « En attente signature — {centre} » (CONVENTION/SIGNE_DIRECTION, dérivé de `signatureDirecteur`) est supprimé ; à sa place, le nom du centre en `<span>` texte simple gris. Le badge « Devis à signer — {centre} » (OPTION) est conservé (action).
+
+### Code mort supprimé : le JSX du badge (dans le même commit, remplacé sur place).
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique — le bloc ne rendait que pour CONVENTION/SIGNE_DIRECTION avec devis ; le nouveau rend le nom du centre dans les mêmes conditions. NON TESTÉ : rendu (§ recette Théo).
+### Écarts : aucun.
+### Statut : TERMINÉ
 
 ## P3 — Modes d'inscription non exclusifs
 
