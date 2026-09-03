@@ -40,7 +40,9 @@ export class AutorisationController {
     return this.autorisationService.createBatchDirect(body.sejourId, body.participants, user.id);
   }
 
-  /** POST /autorisations — Créer une autorisation (ORGANISATEUR) */
+  /** POST /autorisations — Créer une autorisation SANS envoi de mail (ORGANISATEUR).
+   * D14 : l'ajout d'un élève n'envoie rien au parent ; l'envoi passe exclusivement
+   * par POST /autorisations/envoyer-invitations (bouton « Envoyer aux familles »). */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR)
@@ -48,7 +50,7 @@ export class AutorisationController {
     @Body() dto: CreateAutorisationDto,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.autorisationService.create(dto, user.id);
+    return this.autorisationService.createSansEmail(dto, user.id);
   }
 
   /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR) */
@@ -74,6 +76,18 @@ export class AutorisationController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.autorisationService.envoyerInvitations(body.sejourId, user.id, body.autorisationIds);
+  }
+
+  /** POST /autorisations/sejour/:sejourId/envoyer-lien-journal — Envoyer le lien
+   * personnel du journal à toutes les familles avec email (ORGANISATEUR, P10) */
+  @Post('sejour/:sejourId/envoyer-lien-journal')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR)
+  envoyerLienJournal(
+    @Param('sejourId') sejourId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.envoyerLienJournal(sejourId, user.id);
   }
 
   /** PATCH /autorisations/:id/valider-paiement — Valider le paiement (ORGANISATEUR/SIGNATAIRE) */

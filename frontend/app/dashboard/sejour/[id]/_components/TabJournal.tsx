@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getJournal, createJournalPost, deleteJournalPost } from '@/src/lib/collaboration';
+import { envoyerLienJournal } from '@/src/lib/autorisation';
 import type { PostJournal } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import SecureImage from '@/src/components/SecureImage';
@@ -107,6 +108,10 @@ export interface TabJournalProps {
   estLectureSeule: boolean;
   onError: (message: string) => void;
   canWrite: boolean;
+  /** P10 — envoi du lien du journal aux familles : organisateur créateur seul. */
+  peutEnvoyerLienJournal?: boolean;
+  /** Nombre de familles avec email (pour la confirmation d'envoi). */
+  nbFamillesEmail?: number;
 }
 
 export default function TabJournal({
@@ -117,15 +122,18 @@ export default function TabJournal({
   estLectureSeule,
   onError,
   canWrite,
+  peutEnvoyerLienJournal = false,
+  nbFamillesEmail = 0,
 }: TabJournalProps) {
   // Compose l'éventuel accès accompagnateur (estLectureSeule) avec le gate collaborateur.
   const readOnly = estLectureSeule || !canWrite;
   const [journalPosts, setJournalPosts] = useState<PostJournal[]>([]);
+  const [envoiLienEnCours, setEnvoiLienEnCours] = useState(false);
+  const [envoiLienResultat, setEnvoiLienResultat] = useState<{ sent: number; skipped: number } | null>(null);
   const [journalContenu, setJournalContenu] = useState('');
   const [journalPhotos, setJournalPhotos] = useState<File[]>([]);
   const [journalPhotosPreviews, setJournalPhotosPreviews] = useState<string[]>([]);
   const [journalSending, setJournalSending] = useState(false);
-  const [journalLinkCopied, setJournalLinkCopied] = useState(false);
   const journalFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -288,23 +296,43 @@ export default function TabJournal({
         </div>
       )}
 
-      {/* Lien parent */}
+      {/* Lien parent (P4/P10) — chaque famille a son lien personnel ; envoi
+          groupé pour l'organisateur créateur, visible même journal vide (c'est
+          justement le moment de l'envoyer). */}
       {user.role === 'ORGANISATEUR' && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
-          <p className="text-sm text-blue-900 mb-3">
-            Les parents peuvent consulter ce journal via le lien de leur autorisation parentale. Chaque parent accède au journal depuis la page : <code className="text-xs bg-white border border-blue-200 rounded px-1.5 py-0.5">liavo.fr/sejour/&#123;token&#125;/journal</code>
+          <p className="text-sm text-blue-900">
+            Chaque famille accède au journal avec son lien d&apos;autorisation
+            (bloc Inscriptions › Copier le lien), ou envoyez-le à toutes les familles ci-dessous.
           </p>
-          <button
-            type="button"
-            onClick={async () => {
-              await navigator.clipboard.writeText('https://liavo.fr/sejour/{token}/journal');
-              setJournalLinkCopied(true);
-              setTimeout(() => setJournalLinkCopied(false), 2000);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-          >
-            {journalLinkCopied ? 'Copié !' : 'Copier le lien d\'exemple'}
-          </button>
+          {peutEnvoyerLienJournal && (
+            <div className="mt-3">
+              <button
+                type="button"
+                disabled={envoiLienEnCours}
+                onClick={async () => {
+                  if (!confirm(`${nbFamillesEmail} famille${nbFamillesEmail > 1 ? 's' : ''} avec email recevr${nbFamillesEmail > 1 ? 'ont' : 'a'} le lien du journal. Envoyer ?`)) return;
+                  setEnvoiLienEnCours(true);
+                  setEnvoiLienResultat(null);
+                  try {
+                    setEnvoiLienResultat(await envoyerLienJournal(sejourId));
+                  } catch {
+                    onError("Erreur lors de l'envoi du lien du journal.");
+                  } finally {
+                    setEnvoiLienEnCours(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-colors disabled:opacity-50"
+              >
+                {envoiLienEnCours ? 'Envoi…' : 'Envoyer le lien du journal aux familles'}
+              </button>
+              {envoiLienResultat && (
+                <p className="mt-2 text-xs font-medium text-blue-900">
+                  {envoiLienResultat.sent} envoyé{envoiLienResultat.sent > 1 ? 's' : ''}, {envoiLienResultat.skipped} sans email
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

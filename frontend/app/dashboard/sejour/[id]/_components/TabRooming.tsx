@@ -5,11 +5,11 @@ import {
   getRoomingCollab,
   affecterChambre,
   retirerChambre,
-  cloturerInscriptions,
   type RoomingData,
   type SejourCollabInfo,
 } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
+import ClotureInscriptions from './ClotureInscriptions';
 import RoomingEditor from './RoomingEditor';
 import RoomingPlanView from './RoomingPlanView';
 import RoomingPlanPDFButton from '@/src/components/pdf/RoomingPlanPDFButton';
@@ -60,16 +60,6 @@ export default function TabRooming({
 
   useEffect(() => { load(); }, [load]);
 
-  const handleCloturer = async () => {
-    try {
-      await cloturerInscriptions(sejourId);
-      onSejourUpdate({ inscriptionsCloturees: true });
-    } catch {
-      onError('Une erreur est survenue. Veuillez réessayer.');
-      onReloadSejour();
-    }
-  };
-
   const handleAffecter = async (chambreId: string, body: { autorisationId?: string; accompagnateurId?: string }) => {
     try {
       await affecterChambre(sejourId, chambreId, body);
@@ -98,23 +88,15 @@ export default function TabRooming({
 
   return (
     <div className="space-y-6">
-      {/* Bandeau clôture inscriptions — répliqué de TabGroupes */}
-      {user.role === 'ORGANISATEUR' && !sejour?.inscriptionsCloturees && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-amber-800">Inscriptions ouvertes</p>
-            <p className="text-xs text-amber-600 mt-0.5">Clôturez les inscriptions pour répartir les participants dans les chambres.</p>
-          </div>
-          <button onClick={handleCloturer}
-            className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">
-            Clôturer les inscriptions
-          </button>
-        </div>
-      )}
-      {user.role === 'ORGANISATEUR' && sejour?.inscriptionsCloturees && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-3 text-sm text-green-700 font-medium">
-          ✓ Inscriptions clôturées — vous pouvez répartir les participants dans les chambres
-        </div>
+      {/* Bandeau clôture inscriptions — composant unique (P5) */}
+      {user.role === 'ORGANISATEUR' && (
+        <ClotureInscriptions
+          sejourId={sejourId}
+          cloturee={!!sejour?.inscriptionsCloturees}
+          variant="chambres"
+          onDone={() => onSejourUpdate({ inscriptionsCloturees: true })}
+          onError={(msg) => { onError(msg); onReloadSejour(); }}
+        />
       )}
 
       {loading ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
@@ -36,6 +36,13 @@ import TabChambres from './_components/TabChambres';
 import TabRooming from './_components/TabRooming';
 import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
+import OrganisateurNav, { calculerBlocEmphase, ONGLET_PAR_BLOC } from './_components/OrganisateurNav';
+import EncartAide from './_components/EncartAide';
+import InscriptionsEleves from './_components/InscriptionsEleves';
+import Accompagnateurs from './_components/Accompagnateurs';
+import PrixParEleve from './_components/PrixParEleve';
+import DocumentsOfficiels from './_components/DocumentsOfficiels';
+import ClotureInscriptions from './_components/ClotureInscriptions';
 
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
@@ -79,8 +86,9 @@ export default function CollaborationPage() {
   // Groupes (partagé avec l'onglet planning — export PDF)
   const [groupes, setGroupes] = useState<GroupeSejour[]>([]);
 
-  // Participants (partagé : onglets participants + groupes)
+  // Participants (partagé : onglets participants + groupes ; nav blocs organisateur)
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participantsCharges, setParticipantsCharges] = useState(false);
 
   // Accompagnateurs
   const [accompagnateurs, setAccompagnateurs] = useState<AccompagnateurMission[]>([]);
@@ -91,6 +99,15 @@ export default function CollaborationPage() {
   }, [user, accompagnateurs]);
   const estLectureSeule = monRoleCollaboratif === 'LECTURE';
   const estAccompagnateur = monRoleCollaboratif !== null && sejour?.createur?.id !== user?.id;
+
+  // Nav par blocs (D4/D10) — organisateur CRÉATEUR uniquement. « Créateur prouvé »
+  // plutôt que !estAccompagnateur : estAccompagnateur n'est vrai qu'après le fetch
+  // async des accompagnateurs, un accompagnateur verrait sinon la nav blocs le temps
+  // du chargement (vigilance §8.2). Créateur ⇒ !estAccompagnateur par définition.
+  // DIRECT et événementiel gardent la barre actuelle (pas d'organisateur créateur
+  // en DIRECT ; l'événementiel filtre la moitié des onglets).
+  const navBlocs = user?.role === 'ORGANISATEUR' && !!sejour && sejour.createur?.id === user.id
+    && !isDirect && !isEvenement;
 
   // Onglets réellement visibles pour l'utilisateur courant. Reprend À L'IDENTIQUE les
   // conditions de la barre (rôle / accompagnateur / isEvenement / isDirect) et ajoute
@@ -177,6 +194,7 @@ export default function CollaborationPage() {
       ]);
       setParticipants(p);
       setAccompagnateurs(acc);
+      setParticipantsCharges(true);
     } catch { /* ignore */ }
   }, [id]);
 
@@ -201,6 +219,65 @@ export default function CollaborationPage() {
   useEffect(() => {
     if (user?.role === 'ORGANISATEUR' && !isDirect) loadBudget();
   }, [user?.role, isDirect, loadBudget]);
+
+  // Nav blocs : le compte de participants nourrit états et emphase (D6) → charger
+  // au montage pour l'organisateur créateur (fetch existant, déclenché plus tôt).
+  useEffect(() => {
+    if (navBlocs) loadParticipants();
+  }, [navBlocs, loadParticipants]);
+
+  // Onglet par défaut = bloc en emphase, pour l'organisateur créateur seulement,
+  // posé UNE fois quand les données nécessaires sont là — sauf si l'utilisateur
+  // a déjà cliqué (selectTab). Le useState('devis') et le fallback activeTab
+  // restent inchangés pour les autres rôles.
+  const ongletChoisiRef = useRef(false);
+  const selectTab = useCallback((t: Tab) => {
+    ongletChoisiRef.current = true;
+    setTab(t);
+  }, []);
+  useEffect(() => {
+    if (!navBlocs || ongletChoisiRef.current || !budgetData || !participantsCharges) return;
+    ongletChoisiRef.current = true;
+    const bloc = calculerBlocEmphase(sejour, budgetData, participants, participantsCharges);
+    const onglet = bloc ? ONGLET_PAR_BLOC[bloc]?.[0] : undefined;
+    if (onglet) setTab(onglet as Tab);
+  }, [navBlocs, budgetData, participantsCharges, participants, sejour]);
+
+  // Mode d'inscription D14 (bloc Inscriptions, organisateur créateur) : déduit des
+  // données existantes — ≥1 participant SAISIE_DIRECTE → saisie ; ≥1 participant
+  // sinon → familles ; aucun élève → l'enseignant choisit.
+  const [modeInscriptionChoisi, setModeInscriptionChoisi] = useState<'FAMILLES' | 'SAISIE' | null>(null);
+  const modeInscriptionDetecte: 'FAMILLES' | 'SAISIE' | null = !participantsCharges || participants.length === 0
+    ? null
+    : participants.some((p) => p.sourceInscription === 'SAISIE_DIRECTE')
+      ? 'SAISIE'
+      : 'FAMILLES';
+  const modeInscription = modeInscriptionDetecte ?? modeInscriptionChoisi;
+
+  // Devis signé (D11/D12) : conditionne accompagnateurs et enregistrement du prix.
+  const devisSigne = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']
+    .includes(budgetData?.devis?.statut ?? '');
+
+  // Sous-vue du bloc Réservation (P7) — état local, pas une key de TABS : le
+  // viewer PDF du devis et les documents officiels ne cohabitent plus à l'écran.
+  const [vueReservation, setVueReservation] = useState<'devis' | 'documents'>('devis');
+
+  // Badge d'engagement D7/D8 (organisateur créateur seulement) : dérivé du statut
+  // du devis (source déjà chargée), fallback statut séjour tant que budgetData
+  // n'est pas là. null pour les autres rôles → SejourHeader garde son badge actuel.
+  const badgeEngagement = useMemo(() => {
+    if (!navBlocs) return null;
+    const confirme = { label: 'Séjour confirmé ✓', cls: 'bg-green-100 text-green-700' };
+    const attente = { label: 'En attente de signature', cls: 'bg-amber-100 text-amber-700' };
+    const ds = budgetData?.devis?.statut;
+    if (ds === 'EN_ATTENTE') return attente;
+    if (ds === 'EN_ATTENTE_VALIDATION') return { label: 'En cours de validation direction', cls: 'bg-blue-100 text-blue-700' };
+    if (ds === 'SELECTIONNE' || ds === 'SIGNE_DIRECTION' || ds === 'FACTURE_ACOMPTE' || ds === 'FACTURE_SOLDE') return confirme;
+    if (ds === 'NON_RETENU') return { label: 'Annulé', cls: 'bg-gray-100 text-gray-600' };
+    if (sejour?.statut === 'CONVENTION' || sejour?.statut === 'SIGNE_DIRECTION') return confirme;
+    if (sejour?.statut === 'OPTION') return attente;
+    return null;
+  }, [navBlocs, budgetData, sejour]);
 
   useEffect(() => {
     if (activeTab === 'devis' && !isDirect) loadBudget();
@@ -247,38 +324,10 @@ export default function CollaborationPage() {
   const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur/sejours';
   const isDirector = user.role === 'SIGNATAIRE';
 
-  return (
-    <div>
-
-      {/* ── Barre de contexte sticky (header séjour) ─── */}
-      {sejour && user && (
-        <SejourHeader
-          sejourId={id}
-          sejour={sejour}
-          user={user}
-          isDirect={isDirect}
-          isEvenement={isEvenement}
-          retourHref={retourHref}
-          onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
-          onError={setMutationError}
-          onDeleted={() => router.push('/dashboard/hebergeur/planning')}
-        />
-      )}
-
-      {mutationError && (
-        <div className="bg-red-50 border-b border-red-200 px-6 py-3 print:hidden">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 text-sm text-red-700">
-            <span>{mutationError}</span>
-            <button onClick={() => setMutationError(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Alerte capacité globale (hébergeur, séjour OPTION plus accueillable) ── */}
-      <AlertesCapacite sejourId={id} />
-
-      {/* ── Bandeau thématiques manquantes ─────────────────────────────────── */}
-      {user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) && (
+  // Bandeau « thématiques manquantes » — JSX unique (déplacé, jamais dupliqué) :
+  // rendu à sa position historique quand !navBlocs (accompagnateur et autres cas
+  // ORGANISATEUR actuels), et en tête de la section Pédagogie quand navBlocs (SC3).
+  const bandeauThematiques = user.role === 'ORGANISATEUR' && sejour && (!sejour.thematiquesPedagogiques || sejour.thematiquesPedagogiques.length === 0) ? (
         <div className="bg-amber-50 border-b border-amber-200 print:hidden">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
             {!showThematiquesForm ? (
@@ -364,10 +413,47 @@ export default function CollaborationPage() {
             )}
           </div>
         </div>
+  ) : null;
+
+  return (
+    <div>
+
+      {/* ── Barre de contexte sticky (header séjour) ─── */}
+      {sejour && user && (
+        <SejourHeader
+          sejourId={id}
+          sejour={sejour}
+          user={user}
+          isDirect={isDirect}
+          isEvenement={isEvenement}
+          retourHref={retourHref}
+          badgeEngagement={badgeEngagement}
+          onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
+          onError={setMutationError}
+          onDeleted={() => router.push('/dashboard/hebergeur/planning')}
+        />
       )}
 
-      {/* ── Bandeau devis à signer (organisateur) ──────────────────────────── */}
-      {user.role === 'ORGANISATEUR' && budgetData?.devis && budgetData.devis.sejourDirectId &&
+      {mutationError && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 print:hidden">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 text-sm text-red-700">
+            <span>{mutationError}</span>
+            <button onClick={() => setMutationError(null)} className="text-red-500 hover:text-red-700 shrink-0">×</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Alerte capacité globale (hébergeur, séjour OPTION plus accueillable) ── */}
+      <AlertesCapacite sejourId={id} />
+
+      {/* ── Bandeau thématiques manquantes — pour l'organisateur créateur (navBlocs),
+             il est DÉPLACÉ dans la section Pédagogie (rendu plus bas), pas ici. ── */}
+      {!navBlocs && bandeauThematiques}
+
+      {/* ── Bandeau devis à signer (organisateur) — retiré pour l'organisateur
+             créateur (navBlocs) : le badge D7/D8 du header porte le rappel (P1).
+             L'accompagnateur (navBlocs faux) le voit toujours. ──────────────── */}
+      {user.role === 'ORGANISATEUR' && !navBlocs && budgetData?.devis && budgetData.devis.sejourDirectId &&
         (budgetData.devis.statut === 'EN_ATTENTE' || budgetData.devis.statut === 'EN_ATTENTE_VALIDATION') && (
         <div className={`border-b print:hidden ${budgetData.devis.statut === 'EN_ATTENTE' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
@@ -384,7 +470,7 @@ export default function CollaborationPage() {
               </div>
               {activeTab !== 'devis' && (
                 <button
-                  onClick={() => setTab('devis')}
+                  onClick={() => selectTab('devis')}
                   className={`shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors ${budgetData.devis.statut === 'EN_ATTENTE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
                   Voir le devis
@@ -395,7 +481,26 @@ export default function CollaborationPage() {
         </div>
       )}
 
-      {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+      {/* ── Navigation : blocs guidés pour l'organisateur créateur (SC3),
+             barre d'onglets INCHANGÉE pour tous les autres rôles ─────────── */}
+      {navBlocs ? (
+        <>
+          <EncartAide />
+          <OrganisateurNav
+            sejour={sejour}
+            budgetData={budgetData}
+            participants={participants}
+            participantsCharges={participantsCharges}
+            activeTab={activeTab}
+            ongletsVisibles={ongletsVisibles}
+            labels={Object.fromEntries(TABS.map((t) => [t.key, t.label]))}
+            onSelectTab={(t) => selectTab(t as Tab)}
+            vueReservation={vueReservation}
+            onVueReservation={setVueReservation}
+            documentsDisponibles={devisSigne}
+          />
+        </>
+      ) : (
       <div className="bg-white border-b border-gray-200 print:hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* overflow-x-auto : sur mobile les onglets débordent et doivent rester atteignables */}
@@ -407,7 +512,7 @@ export default function CollaborationPage() {
               return (
                 <button
                   key={key}
-                  onClick={() => setTab(key)}
+                  onClick={() => selectTab(key)}
                   className={`shrink-0 whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === key
                       ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
@@ -421,24 +526,31 @@ export default function CollaborationPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        {/* ── Devis & facturation (DIRECT + COLLABORATIF) ─── */}
+        {/* ── Devis & facturation (DIRECT + COLLABORATIF) — pour l'organisateur
+               créateur, le bloc Réservation est une sous-vue Devis | Documents
+               officiels (P7) : jamais les deux empilés. ─── */}
         {activeTab === 'devis' && sejour && (
-          <TabDevisFacturation
-            sejourId={id}
-            sejour={sejour}
-            user={user}
-            isDirect={isDirect}
-            budgetData={budgetData}
-            onError={setMutationError}
-            onReload={reloadApresSignature}
-            peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
-            peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
-            peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
-          />
+          navBlocs && devisSigne && vueReservation === 'documents' ? (
+            <DocumentsOfficiels sejourId={id} onNaviguerOnglet={(t) => selectTab(t as Tab)} />
+          ) : (
+            <TabDevisFacturation
+              sejourId={id}
+              sejour={sejour}
+              user={user}
+              isDirect={isDirect}
+              budgetData={budgetData}
+              onError={setMutationError}
+              onReload={reloadApresSignature}
+              peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
+              peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
+              peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
+            />
+          )
         )}
 
         {/* ── Messages ─── */}
@@ -483,6 +595,77 @@ export default function CollaborationPage() {
 
         {/* ── Participants ─── */}
         {activeTab === 'participants' && (
+          navBlocs ? (
+            /* Bloc Inscriptions (SC4) : choix du mode D14 en tête, sections
+               rapatriées de l'ancienne page autorisations, liste existante. */
+            <div className="space-y-6">
+              {modeInscription === null ? (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="text-base font-bold text-gray-900 mb-1">Comment voulez-vous inscrire vos élèves ?</h2>
+                  <p className="text-sm text-gray-500 mb-4">Deux façons de faire — vous pourrez gérer toute la liste ici.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setModeInscriptionChoisi('FAMILLES')}
+                      className="rounded-xl border border-gray-200 p-4 text-left hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">Je fais remplir par les familles</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Ajoutez vos élèves (à la main ou par CSV), puis envoyez aux parents un lien
+                        d&apos;autorisation à signer en ligne — avec suivi des signatures et paiements.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModeInscriptionChoisi('SAISIE')}
+                      className="rounded-xl border border-gray-200 p-4 text-left hover:border-[var(--color-border-strong)] hover:bg-[var(--color-primary-light)] transition-colors"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">Je saisis moi-même la liste</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Remplissez la liste directement (grille de saisie) — vous gérez les
+                        autorisations papier de votre côté.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {/* P3/P11 : les deux workflows sont visibles dans les deux modes ;
+                  le mode ordonne les sections, la clôture colle à la liste et
+                  les accompagnateurs ferment le bloc.
+                  FAMILLES : envoi aux familles → grille+liste → clôture → accompagnateurs.
+                  SAISIE : grille+liste → clôture → familles (replié) → accompagnateurs. */}
+              {modeInscription === 'FAMILLES' && (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} />
+              )}
+              <TabParticipantsCollab
+                sejour={sejour}
+                user={user}
+                participants={participants}
+                accompagnateurs={accompagnateurs}
+                onReload={loadParticipants}
+                mode={modeInscription ?? undefined}
+              />
+              {/* Clôture des inscriptions (P5) — sous la liste, avant les accompagnateurs. */}
+              {participantsCharges && participants.length >= 1 && !sejour?.inscriptionsCloturees && (
+                <ClotureInscriptions
+                  sejourId={id}
+                  cloturee={false}
+                  variant="inscriptions"
+                  onDone={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+                  onError={setMutationError}
+                />
+              )}
+              {modeInscription === 'SAISIE' && (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
+              )}
+              <Accompagnateurs
+                sejourId={id}
+                devisSigne={devisSigne}
+                accompagnateurs={accompagnateurs}
+                onChanged={loadParticipants}
+              />
+            </div>
+          ) : (
           <TabParticipantsCollab
             sejour={sejour}
             user={user}
@@ -490,6 +673,7 @@ export default function CollaborationPage() {
             accompagnateurs={accompagnateurs}
             onReload={loadParticipants}
           />
+          )
         )}
 
         {/* ── Chambres (SEJOUR uniquement) : hébergeur = attribution,
@@ -526,6 +710,8 @@ export default function CollaborationPage() {
             estLectureSeule={estLectureSeule}
             onError={setMutationError}
             canWrite={canWriteSejour}
+            peutEnvoyerLienJournal={navBlocs}
+            nbFamillesEmail={participants.filter((p) => !!p.parentEmail).length}
           />
         )}
 
@@ -542,18 +728,36 @@ export default function CollaborationPage() {
 
         {/* ── Budget prévisionnel ─── */}
         {activeTab === 'budget' && (
-          <TabBudget
-            sejourId={id}
-            user={user}
-            budgetData={budgetData}
-            budgetLoading={budgetLoading}
-            onReload={loadBudget}
-            onError={setMutationError}
-          />
+          <div className="space-y-6">
+            {/* Bloc Budget (SC4) : prix par élève + date limite rapatriés de
+                l'ancienne page autorisations, pour l'organisateur créateur. */}
+            {navBlocs && sejour && (
+              <PrixParEleve
+                sejourId={id}
+                sejour={sejour}
+                devis={budgetData?.devis ?? null}
+                nbInscrits={participants.length}
+                onSaved={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+              />
+            )}
+            <TabBudget
+              sejourId={id}
+              user={user}
+              budgetData={budgetData}
+              budgetLoading={budgetLoading}
+              onReload={loadBudget}
+              onError={setMutationError}
+            />
+          </div>
         )}
         {/* ── Projet pédagogique ─── */}
         {activeTab === 'projet' && user.role === 'ORGANISATEUR' && (
-          <TabProjetPedagogique sejourId={id} />
+          <div className="space-y-6">
+            {/* Section thématiques : le bandeau global est déplacé ici pour
+                l'organisateur créateur (SC3) — même JSX, jamais dupliqué. */}
+            {navBlocs && bandeauThematiques}
+            <TabProjetPedagogique sejourId={id} />
+          </div>
         )}
         {/* ── Notes & suivi (tous modes / natures, hébergeur seul) ─── */}
         {activeTab === 'notes' && sejour && (

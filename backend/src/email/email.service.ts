@@ -104,6 +104,25 @@ export class EmailService {
     await this.send(to, `Autorisation parentale — ${sejourTitre}`, html);
   }
 
+  /** P10 — lien personnel du journal du séjour (structure calquée sur le mail
+   * d'autorisation ; indépendant du flux d'autorisation). */
+  async sendLienJournal(
+    to: string,
+    elevePrenom: string,
+    sejourTitre: string,
+    lienJournal: string,
+  ) {
+    const html = emailLayout(
+      'Le journal du séjour',
+      `<p>Bonjour,</p>
+       <p>Suivez le séjour de <strong>${escapeHtml(elevePrenom)}</strong> : photos et nouvelles publiées par l'équipe pendant <strong>« ${escapeHtml(sejourTitre)} »</strong>.</p>
+       <p>Ce lien est personnel, à ne pas transférer.</p>`,
+      'Ouvrir le journal',
+      lienJournal,
+    );
+    await this.send(to, `Le journal du séjour — ${sejourTitre}`, html);
+  }
+
   // ── b) Devis reçu ────────────────────────────────────────────────────
 
   async sendDevisRecu(

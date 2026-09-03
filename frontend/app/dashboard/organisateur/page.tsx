@@ -13,14 +13,31 @@ import StatutBadge from '@/src/components/StatutBadge';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
+// Vocabulaire D8 — l'enseignant ne voit que l'axe d'engagement : en attente de
+// signature / en cours de validation direction / signé / annulé. Les valeurs
+// brutes des enums ne sont jamais affichées. DRAFT/SUBMITTED (sous-processus
+// d'appel d'offres, pas d'engagement) et les jalons administratifs
+// (rectorat/TAM) gardent leur libellé propre.
 const STATUT_CONFIG: Record<StatutSejour, { label: string; cls: string }> = {
   DRAFT:      { label: 'Brouillon',   cls: 'bg-gray-100 text-gray-600' },
-  OPTION:     { label: 'À confirmer', cls: 'bg-amber-100 text-amber-700' },
+  OPTION:     { label: 'En attente de signature', cls: 'bg-amber-100 text-amber-700' },
   SUBMITTED:  { label: 'Soumis',      cls: 'bg-orange-100 text-orange-700' },
-  CONVENTION:      { label: 'Convention',        cls: 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' },
+  CONVENTION:      { label: 'Signé',        cls: 'bg-green-100 text-green-700' },
   SOUMIS_RECTORAT: { label: 'Soumis au rectorat', cls: 'bg-purple-100 text-purple-700' },
-  SIGNE_DIRECTION: { label: 'Signé direction', cls: 'bg-purple-100 text-purple-700' },
+  SIGNE_DIRECTION: { label: 'Signé', cls: 'bg-green-100 text-green-700' },
   DECLARE_TAM:     { label: 'Déclaré TAM',       cls: 'bg-teal-100 text-teal-700' },
+};
+
+// D8 dérivé du DEVIS quand il est disponible (source plus fine que le statut
+// séjour : EN_ATTENTE_VALIDATION n'existe pas côté séjour).
+const DEVIS_D8: Record<string, { label: string; cls: string }> = {
+  EN_ATTENTE:            { label: 'En attente de signature', cls: 'bg-amber-100 text-amber-700' },
+  EN_ATTENTE_VALIDATION: { label: 'En cours de validation direction', cls: 'bg-blue-100 text-blue-700' },
+  SELECTIONNE:           { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  SIGNE_DIRECTION:       { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  FACTURE_ACOMPTE:       { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  FACTURE_SOLDE:         { label: 'Signé', cls: 'bg-green-100 text-green-700' },
+  NON_RETENU:            { label: 'Annulé', cls: 'bg-gray-100 text-gray-600' },
 };
 
 // ─── Carte séjour ───────────────────────────────────────────────────────────
@@ -54,7 +71,21 @@ function SejourCard({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="text-sm font-semibold text-gray-900 truncate">{sejour.titre}</h3>
-            <StatutBadge statut={sejour.statut} config={STATUT_CONFIG} fallback={STATUT_CONFIG.DRAFT} />
+            {/* D8 : libellé dérivé du devis quand disponible (statuts d'engagement
+                seulement), sinon du statut séjour. */}
+            {(() => {
+              const dv = sejour.demandes?.[0]?.devis?.[0];
+              const entry = ['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && dv && DEVIS_D8[dv.statut]
+                ? DEVIS_D8[dv.statut]
+                : undefined;
+              return (
+                <StatutBadge
+                  statut={sejour.statut}
+                  config={entry ? { [sejour.statut]: entry } : STATUT_CONFIG}
+                  fallback={STATUT_CONFIG.DRAFT}
+                />
+              );
+            })()}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>{sejour.lieu}</span>
@@ -154,20 +185,14 @@ function SejourCard({
             );
           })()}
 
-          {/* Badge devis signé/en attente — pour CONVENTION et SIGNE_DIRECTION */}
+          {/* Nom du centre (P2) — l'ancien badge deux-niveaux « Signé direction /
+              En attente signature » contredisait le badge D8 de la carte ; seul
+              le nom du centre reste, en texte simple. */}
           {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (() => {
             const devisActif = sejour.demandes?.[0]?.devis?.[0];
-            if (!devisActif) return null;
-            const estSigne = !!devisActif.signatureDirecteur;
+            if (!devisActif?.centre?.nom) return null;
             return (
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5
-                text-xs font-medium ${estSigne
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-amber-100 text-amber-700'}`}>
-                {estSigne
-                  ? `Signé direction — ${devisActif.centre?.nom ?? ''}`
-                  : `En attente signature — ${devisActif.centre?.nom ?? ''}`}
-              </span>
+              <span className="text-xs text-gray-500">{devisActif.centre.nom}</span>
             );
           })()}
 
@@ -188,20 +213,8 @@ function SejourCard({
             return null;
           })()}
 
-          {/* Bouton autorisations — pour CONVENTION et SIGNE_DIRECTION */}
-          {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
-            <Link
-              href={`/dashboard/organisateur/sejours/${sejour.id}/autorisations`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Gérer les autorisations
-            </Link>
-          )}
-
-          {/* Espace collaboratif — dès OPTION (séjour rejoint, devis à signer) */}
+          {/* Ouvrir le séjour (D3) — bouton unique de la carte : autorisations et
+              documents officiels vivent désormais DANS l'espace (SC4/SC5). */}
           {['OPTION', 'CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
             <Link
               href={`/dashboard/sejour/${sejour.id}`}
@@ -210,20 +223,7 @@ function SejourCard({
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
               </svg>
-              Espace collaboratif
-            </Link>
-          )}
-
-          {/* Documents officiels — après convention */}
-          {['CONVENTION', 'SIGNE_DIRECTION'].includes(sejour.statut) && (
-            <Link
-              href={`/dashboard/organisateur/documents/${sejour.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] hover:bg-[var(--color-success-light)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-success)] focus:ring-offset-2"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Documents officiels
+              Ouvrir le séjour
             </Link>
           )}
 
@@ -342,6 +342,23 @@ function OrganisateurDashboardContent() {
   const searchParams = useSearchParams();
   const showOnboarding = searchParams.get('onboarding') === 'true';
 
+  // D13 : les 3 CTA (catalogue / appel d'offres / demandes) sont DÉMOTÉS — jamais
+  // supprimés — quand le compte n'a que des séjours obtenus avec un hébergeur
+  // (aucun DRAFT/SUBMITTED). Approximation assumée : un séjour non-DRAFT/SUBMITTED
+  // a toujours un hébergement sélectionné (OPTION nait de createDirect,
+  // CONVENTION/SIGNE_DIRECTION de la sélection d'un devis) — le champ
+  // hebergementSelectionneId n'est pas exposé par le type front.
+  const ctaDemotes = sejours.length > 0 && sejours.every((s) => !['DRAFT', 'SUBMITTED'].includes(s.statut));
+  const [ctaDeplies, setCtaDeplies] = useState(false);
+
+  // Bannière onboarding : texte « invité » si le compte porte un séjour REJOINT
+  // non signé (OPTION + devis via le pont DemandeDevis — profil impossible pour
+  // un séjour d'appel d'offres ou de catalogue, cf. census SC0). Sinon texte
+  // self-service historique.
+  const estCompteInvite = sejours.some(
+    (s) => s.statut === 'OPTION' && (s.demandes?.[0]?.devis?.length ?? 0) > 0,
+  );
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -361,7 +378,11 @@ function OrganisateurDashboardContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <p className="text-sm font-semibold">Bienvenue sur LIAVO — votre demande a bien été envoyée !</p>
+                <p className="text-sm font-semibold">
+                  {estCompteInvite
+                    ? 'Bienvenue sur LIAVO — vous avez rejoint le séjour !'
+                    : 'Bienvenue sur LIAVO — votre demande a bien été envoyée !'}
+                </p>
                 <p className="text-xs opacity-80 mt-0.5">
                   Pour sécuriser votre espace et accéder à toutes les fonctionnalités, définissez votre mot de passe.
                 </p>
@@ -388,6 +409,22 @@ function OrganisateurDashboardContent() {
           </p>
         </div>
 
+        {/* CTA démotés (D13) : repliés pour un compte 100 % séjours rejoints/confirmés,
+            toujours accessibles en un clic — jamais supprimés. */}
+        {ctaDemotes && !ctaDeplies ? (
+          <div style={{ marginBottom: 24 }}>
+            <button
+              type="button"
+              onClick={() => setCtaDeplies(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[var(--color-primary)] shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              Trouver un hébergement / lancer un appel d&apos;offres
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+          </div>
+        ) : (
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
           {/* Bouton 1 — Catalogue */}
           <a href="/dashboard/organisateur/hebergements"
@@ -467,6 +504,7 @@ function OrganisateurDashboardContent() {
             </span>
           </a>
         </div>
+        )}
 
         {/* Erreur de chargement */}
         {loadError && (

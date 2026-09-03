@@ -37,9 +37,16 @@ export default function RejoindreInvitationPage() {
   const handleAccept = useCallback(async () => {
     setStatus('accepting');
     try {
-      await accepterInvitation(token);
+      const { sejourId } = await accepterInvitation(token);
       setStatus('accepted');
-      setTimeout(() => router.push('/dashboard/organisateur'), 2000);
+      // D2 : l'invité atterrit sur SON séjour, pas sur le dashboard.
+      const destination = sejourId
+        ? `/dashboard/sejour/${sejourId}`
+        : '/dashboard/organisateur';
+      if (!sejourId) {
+        console.error('accepterInvitation: sejourId absent de la réponse — fallback dashboard');
+      }
+      setTimeout(() => router.push(destination), 2000);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Erreur lors de l\'acceptation');
       setStatus('error');
@@ -90,7 +97,7 @@ export default function RejoindreInvitationPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg)', padding: 24 }}>
         <div style={{ maxWidth: 400, textAlign: 'center' }}>
           <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent" />
-          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 16 }}>Création du séjour en cours...</p>
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 16 }}>Vous rejoignez le séjour…</p>
         </div>
       </div>
     );
@@ -101,8 +108,8 @@ export default function RejoindreInvitationPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg)', padding: 24 }}>
         <div style={{ maxWidth: 400, textAlign: 'center' }}>
           <Logo size="md" showTagline={false} />
-          <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-success)', marginTop: 24 }}>Séjour créé avec succès</h1>
-          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>Redirection vers votre tableau de bord...</p>
+          <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--color-success)', marginTop: 24 }}>Vous avez rejoint le séjour</h1>
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 8 }}>Redirection vers votre séjour…</p>
         </div>
       </div>
     );
@@ -242,7 +249,7 @@ export default function RejoindreInvitationPage() {
                 Je n&apos;ai pas de compte — Créer mon compte
               </Link>
               <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4, textAlign: 'center' }}>
-                Après connexion, le séjour sera automatiquement créé dans votre tableau de bord.
+                Après connexion, vous rejoindrez ce séjour et le retrouverez dans votre tableau de bord.
               </p>
             </div>
           )}

@@ -29,6 +29,12 @@ export interface TabParticipantsCollabProps {
   participants: Participant[];
   accompagnateurs: AccompagnateurMission[];
   onReload: () => void;
+  /** Mode d'inscription D14 (organisateur créateur, SC4/P3) : 'SAISIE' remplace
+   * le compteur « autorisations signées » par un compte simple (sans objet en
+   * saisie directe). Les deux workflows restent visibles dans les deux modes
+   * (familles par défaut, saisie toujours possible en complément — P3).
+   * Absent → comportement historique (autres rôles). */
+  mode?: 'FAMILLES' | 'SAISIE';
 }
 
 export default function TabParticipantsCollab({
@@ -37,6 +43,7 @@ export default function TabParticipantsCollab({
   participants,
   accompagnateurs,
   onReload,
+  mode,
 }: TabParticipantsCollabProps) {
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
@@ -95,6 +102,7 @@ export default function TabParticipantsCollab({
       )}
       {/* Header + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {mode !== 'SAISIE' ? (
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-gray-900">
             {signedCount}/{participants.length} autorisations signées
@@ -106,6 +114,11 @@ export default function TabParticipantsCollab({
             />
           </div>
         </div>
+        ) : (
+        <span className="text-sm font-semibold text-gray-900">
+          {participants.length} élève{participants.length > 1 ? 's' : ''} dans la liste
+        </span>
+        )}
         <div className="flex items-center gap-2">
           {/* Filtres */}
           {(['all', 'signed', 'pending'] as const).map((f) => (

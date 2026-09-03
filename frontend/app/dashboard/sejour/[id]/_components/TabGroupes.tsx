@@ -9,7 +9,6 @@ import {
   proposerGroupes,
   affecterEleve,
   retirerEleve,
-  cloturerInscriptions,
   getActivitesCatalogue,
 } from '@/src/lib/collaboration';
 import type {
@@ -20,6 +19,7 @@ import type {
   PropositionGroupes,
 } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
+import ClotureInscriptions from './ClotureInscriptions';
 
 export interface TabGroupesProps {
   sejourId: string;
@@ -137,40 +137,20 @@ export default function TabGroupes({
     }
   };
 
-  const handleCloturerInscriptions = async () => {
-    if (!sejourId) return;
-    try {
-      await cloturerInscriptions(sejourId);
-      onSejourUpdate({ inscriptionsCloturees: true });
-    } catch (err) {
-      console.error('[handleCloturerInscriptions]', err);
-      onError('Une erreur est survenue. Veuillez réessayer.');
-      onReloadSejour();
-    }
-  };
-
   const peutEditer = user.role === 'ORGANISATEUR' || peutGererEnPropre;
   const colonneNonAffectesVisible = !!(sejour?.inscriptionsCloturees || peutGererEnPropre);
 
   return (
     <div className="space-y-6">
-      {/* Bandeau clôture inscriptions — ORGANISATEUR uniquement */}
-      {user.role === 'ORGANISATEUR' && !sejour?.inscriptionsCloturees && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-amber-800">Inscriptions ouvertes</p>
-            <p className="text-xs text-amber-600 mt-0.5">Clôturez les inscriptions pour affecter les élèves aux groupes.</p>
-          </div>
-          <button onClick={handleCloturerInscriptions}
-            className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">
-            Clôturer les inscriptions
-          </button>
-        </div>
-      )}
-      {user.role === 'ORGANISATEUR' && sejour?.inscriptionsCloturees && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-3 text-sm text-green-700 font-medium">
-          ✓ Inscriptions clôturées — vous pouvez affecter les élèves aux groupes
-        </div>
+      {/* Bandeau clôture inscriptions — composant unique (P5), ORGANISATEUR uniquement */}
+      {user.role === 'ORGANISATEUR' && (
+        <ClotureInscriptions
+          sejourId={sejourId}
+          cloturee={!!sejour?.inscriptionsCloturees}
+          variant="groupes"
+          onDone={() => onSejourUpdate({ inscriptionsCloturees: true })}
+          onError={(msg) => { onError(msg); onReloadSejour(); }}
+        />
       )}
 
       {/* Actions HEBERGEUR */}
