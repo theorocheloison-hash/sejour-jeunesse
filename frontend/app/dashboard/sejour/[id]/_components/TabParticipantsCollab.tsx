@@ -29,10 +29,11 @@ export interface TabParticipantsCollabProps {
   participants: Participant[];
   accompagnateurs: AccompagnateurMission[];
   onReload: () => void;
-  /** Mode d'inscription D14 (organisateur créateur, SC4) : 'SAISIE' masque le
-   * compteur « autorisations signées » (sans objet en saisie directe) ;
-   * 'FAMILLES' masque la grille de saisie directe (l'ajout passe par le bloc
-   * Inscriptions). Absent → comportement historique (autres rôles). */
+  /** Mode d'inscription D14 (organisateur créateur, SC4/P3) : 'SAISIE' remplace
+   * le compteur « autorisations signées » par un compte simple (sans objet en
+   * saisie directe). Les deux workflows restent visibles dans les deux modes
+   * (familles par défaut, saisie toujours possible en complément — P3).
+   * Absent → comportement historique (autres rôles). */
   mode?: 'FAMILLES' | 'SAISIE';
 }
 
@@ -91,7 +92,7 @@ export default function TabParticipantsCollab({
 
   return (
     <div className="space-y-4">
-      {peutSaisirParticipants && mode !== 'FAMILLES' && (
+      {peutSaisirParticipants && (
         <TabParticipantsSaisieDirecte
           sejourId={sejour.id}
           champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}

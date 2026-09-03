@@ -31,7 +31,16 @@
 
 ## P3 — Modes d'inscription non exclusifs
 
-_(non commencé)_
+### Modifications
+- `TabParticipantsCollab.tsx` — la prop `mode` ne masque plus la grille de saisie directe (condition `mode !== 'FAMILLES'` retirée) ; le compteur reste conditionnel (SAISIE : « N élèves dans la liste » ; sinon « N/M signées »).
+- `InscriptionsEleves.tsx` — prop `replieParDefaut` : rendu replié sous l'intitulé « Faire remplir par les familles » (+ sous-titre « En complément… »), un clic déplie.
+- `page.tsx` — ordre par mode : FAMILLES = InscriptionsEleves → Accompagnateurs → TabParticipantsCollab (grille+liste) ; SAISIE = Accompagnateurs → TabParticipantsCollab (grille en tête) → InscriptionsEleves (replié). Le choix initial 2 cartes (0 élève) est inchangé. Rien n'est masqué dans aucun mode.
+
+### Code mort supprimé : aucun.
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique (conditions relues). NON TESTÉ : rendu des deux ordres + section repliée (recette Théo §4 du doc).
+### Écarts : la position d'Accompagnateurs n'était pas spécifiée — conservée en position intermédiaire dans les deux modes (chaque mode garde « sa » section élèves en tête de bloc).
+### Statut : TERMINÉ
 
 ## P4 — Lien journal par élève + jeton saisie directe
 

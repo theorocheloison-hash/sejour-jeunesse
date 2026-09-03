@@ -622,9 +622,14 @@ export default function CollaborationPage() {
                     </button>
                   </div>
                 </div>
-              ) : modeInscription === 'FAMILLES' ? (
-                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} />
               ) : null}
+              {/* P3 : plus d'exclusivité — les deux workflows sont visibles dans
+                  les deux modes ; le mode ordonne les sections. FAMILLES : envoi
+                  aux familles en tête, grille en dessous (dans TabParticipantsCollab).
+                  SAISIE : grille en tête, section familles repliée en dessous. */}
+              {modeInscription === 'FAMILLES' && (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} />
+              )}
               <Accompagnateurs
                 sejourId={id}
                 devisSigne={devisSigne}
@@ -639,6 +644,9 @@ export default function CollaborationPage() {
                 onReload={loadParticipants}
                 mode={modeInscription ?? undefined}
               />
+              {modeInscription === 'SAISIE' && (
+                <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
+              )}
             </div>
           ) : (
           <TabParticipantsCollab
