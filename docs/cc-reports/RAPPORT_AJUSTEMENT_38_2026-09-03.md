@@ -171,4 +171,24 @@ Logs : 4× subject="Le journal du séjour — …" (1 seed + 3 SC2 ; le skipped 
 
 ## 8. État final
 
-_(à compléter)_
+```
+$ git log --oneline cc3da82..HEAD   (la passe : 10 commits, un par point + clôture ci-dessous)
+f14b7b3 feat(38/ajust-P10): envoyer le lien du journal aux familles
+bfeabff fix(38/ajust-P9): trace onboarding=true — variante invité conservée (pas de code mort)
+3661078 fix(38/ajust-P8): sous-onglets au gabarit de la barre historique
+1e97773 fix(38/ajust-P7): bloc Réservation en sous-vue Devis | Documents officiels
+648646e fix(38/ajust-P6): Budget « fait » = solde ≥ 0, helper de calcul unique
+23c5af6 fix(38/ajust-P5): clôture des inscriptions — composant unique + états/emphase réécrits
+1ab70bd fix(38/ajust-P4): lien journal par élève — gabarit {token} remplacé, jeton saisie directe prouvé
+f4129ca fix(38/ajust-P3): modes d'inscription non exclusifs — familles par défaut, saisie en complément
+d4c697a fix(38/ajust-P2): badge deux-niveaux de la carte supprimé, nom du centre en texte
+f8c3ed6 fix(38/ajust-P1): bandeau devis retiré pour l'organisateur créateur (badge D7/D8 validé)
+
+$ git status
+On branch feat/38-dashboard-organisateur
+nothing to commit, working tree clean
+```
+
+`npm test` backend final : `Tests: 4 failed, 2 todo, 445 passed, 451 total` — les 4 échecs = baseline `facture.service.spec.ts` inchangée ; +3 tests P10 verts (448 → 451). **Aucun push.**
+
+Environnement pour la recette Théo : back relancé en `start:dev` (watch) sur le code de la passe, front `next dev` 3000. À regarder (doc §4) : P3 deux modes visibles, P5 bouton clôture dans Inscriptions + « Tout est prêt ✓ », P6 pastille Budget orange à solde négatif, P7/P8 sous-onglets, P10 bouton + mail loggé.
