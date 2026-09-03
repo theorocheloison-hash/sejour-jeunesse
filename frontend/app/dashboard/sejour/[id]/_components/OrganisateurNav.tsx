@@ -2,6 +2,7 @@
 
 import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collaboration';
 import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
+import SousOnglets from './SousOnglets';
 
 type EtatBloc = 'fait' | 'encours' | 'afaire' | 'neutre';
 
@@ -255,24 +256,8 @@ export default function OrganisateurNav({
           )}
         </div>
 
-        {/* Sous-onglets du bloc actif (uniquement s'il en a plusieurs) */}
-        {sousVues.length > 1 && (
-          <div className="flex gap-5 overflow-x-auto border-t border-gray-100 pt-2">
-            {sousVues.map((sv) => (
-              <button
-                key={sv.key}
-                onClick={sv.onSelect}
-                className={`shrink-0 whitespace-nowrap pb-1 text-sm font-medium border-b-2 transition-colors ${
-                  sv.actif
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {sv.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Sous-onglets du bloc actif — vrais onglets au gabarit historique (P8) */}
+        <SousOnglets vues={sousVues} />
       </div>
     </div>
   );

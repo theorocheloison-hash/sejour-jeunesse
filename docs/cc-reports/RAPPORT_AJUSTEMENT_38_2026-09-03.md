@@ -113,7 +113,15 @@ Bandeau localisé dans `TabRooming.tsx:101-118` (« répliqué de TabGroupes » 
 
 ## P8 — Sous-onglets : de vrais onglets
 
-_(non commencé)_
+### Modifications
+- `_components/SousOnglets.tsx` (nouveau) — composant unique, gabarit **copié** de la barre historique (py-3, bordure basse, actif souligné `var(--color-primary)`, libellés `TABS` transmis par OrganisateurNav) ; rend `null` si ≤ 1 vue. Le JSX de la barre hébergeur n'est pas touché.
+- `OrganisateurNav.tsx` — la sous-barre grise inline est remplacée par `<SousOnglets vues={sousVues} />` (Sur place, Échanges, Réservation P7).
+
+### Code mort supprimé : la sous-barre inline (remplacée, même commit).
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique. NON TESTÉ : rendu (recette Théo).
+### Écarts : aucun.
+### Statut : TERMINÉ
 
 ## P9 — Bannière onboarding : trace et décision
 
