@@ -23,3 +23,11 @@
 - Gates : tsc frontend OK (0 erreur), build frontend OK.
 - Gardes respectées : `InviteOrganisateurCard.tsx`, `TabMessages.tsx`, `TabJournal.tsx` non touchés ; aucune prop existante de `SejourHeader` modifiée, aucune signature changée ; gate `isHebergeur` (jamais affiché ORGANISATEUR/SIGNATAIRE) ; boutons de droite (Planifier visite, badge) intacts.
 - Écarts / points laissés : la date « depuis le … » de l'état rattaché est volontairement omise — elle n'est pas dans le payload `getSejourInfo` (l'invitation acceptée sort du filtre `acceptedAt:null`). L'ajouter demanderait un changement backend hors périmètre. À décider séparément.
+
+## L3a — Backend : findByToken joint le séjour (contact)
+
+- Fichiers réellement modifiés : `backend/src/invitation-collaboration/invitation-collaboration.service.ts`
+- Diff résumé : `invitation-collaboration.service.ts:111-147` — dans `findByToken`, après les deux gardes existantes (NotFound/Conflict), résolution du contact depuis le séjour (`findUnique` par scalaire `sejourId`, pas de relation Prisma) : `clientPrenom/clientNom/clientOrganisation` + `typeStructure` de l'organisation (2ᵉ `findUnique` si `clientOrganisationId`). Retour `{ ...invitation, contact }`. Helper module privé `mapTypeStructure` (`:406-413`) : enum Prisma → valeurs du select register (`COLLECTIVITE_TERRITORIALE`→`MAIRIE`, `ENTREPRISE`/`MICRO_ENTREPRISE`/inconnu→`AUTRE`).
+- Gates : tsc backend OK (0 erreur), build backend OK (exit 0).
+- Gardes respectées : changement strictement additif (la forme retournée gagne `contact`, tout le reste identique → `rejoindre/[token]` non affecté) ; jamais de téléphone dans `contact` ; séjour absent/supprimé → `contact: null` ; `accepter`, `getPendantesPourUser`, `inviterCentreExterne` non touchées.
+- Écarts / points laissés : aucun.
