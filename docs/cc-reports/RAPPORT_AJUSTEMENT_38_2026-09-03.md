@@ -205,3 +205,25 @@ Environnement pour la recette Théo : back relancé en `start:dev` (watch) sur l
 ### Gates : tsc 0 erreur, build OK.
 ### Écarts : en SAISIE le doc listait « TabParticipantsCollab → InscriptionsEleves (replié) → Accompagnateurs » et, séparément, « ClotureInscriptions sous la liste, avant les accompagnateurs » — placée directement sous la liste (avant la section familles repliée), lecture la plus proche de « sous la liste ».
 ### Statut : TERMINÉ
+
+## P12 — Découverte des sous-onglets
+
+### Modifications (`OrganisateurNav.tsx` seul — `SousOnglets.tsx` inchangé, la ligne d'aide vit au-dessus de la sous-barre)
+1. Libellé des blocs multi-vues : suffixe « · N vues » (`text-[10px] font-normal text-gray-400`, plus léger que le titre, pas un badge). Réservation : 2 vues seulement si devis signé (sinon pas de suffixe).
+2. Ligne d'aide : `useState<Record<string, boolean>>` en session (pas de localStorage) ; visible tant que l'utilisateur n'a pas cliqué un sous-onglet du bloc (« Choisissez une vue : Planning, Groupes ou Chambres » + flèche ↓ statique, `transition-opacity duration-300`, aucune animation clignotante) ; le clic marque le bloc et la fait disparaître pour la session.
+3. `ONGLET_PAR_BLOC.surplace = ['groupes', 'planning', 'chambres']` — Sur place s'ouvre sur Groupes pour l'organisateur créateur ; fallback premier visible déjà assuré par le filtre `visibles()` (événement) ; `activeTab` fallback et `ACCOMPAGNATEUR_TABS` non touchés (l'accompagnateur garde sa barre et son défaut planning).
+
+### Gates : tsc 0 erreur, build OK.
+### NON TESTÉ : rendu (recette Théo : « · 3 vues », ligne d'aide qui disparaît au clic, Sur place → Groupes).
+### Écarts : le réordonnancement d'`ONGLET_PAR_BLOC.surplace` change aussi l'ordre d'affichage de la sous-barre (Groupes, Planning, Chambres) — conséquence directe du « uniquement dans ONGLET_PAR_BLOC » du doc, cohérente avec la vue par défaut ; ligne d'aide ré-affichée si on revient sur un bloc jamais cliqué (la « première ouverture » stricte aurait caché une aide encore utile).
+### Statut : TERMINÉ
+
+## État final passe n°2
+
+```
+$ git log --oneline 51b7ff4..HEAD
+(voir les 2 commits P11/P12 + clôture ci-dessous)
+$ git status
+On branch feat/38-dashboard-organisateur
+nothing to commit, working tree clean
+```

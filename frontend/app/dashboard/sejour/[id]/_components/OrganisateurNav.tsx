@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collaboration';
 import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
 import SousOnglets from './SousOnglets';
@@ -94,13 +95,18 @@ export function calculerBlocEmphase(
   return null;
 }
 
-/** Onglet ouvert quand on clique un bloc (le premier onglet visible du bloc). */
+/** Onglet ouvert quand on clique un bloc (le premier onglet visible du bloc).
+ * P12.3 : « Sur place » s'ouvre sur Groupes pour l'organisateur (le planning est
+ * en lecture seule pour lui, sa tâche est la répartition) — l'accompagnateur
+ * garde sa barre historique (ACCOMPAGNATEUR_TABS, défaut planning, intacts).
+ * Si `groupes` n'est pas visible (événement…), le premier visible du bloc prend
+ * le relais (filtre `visibles()`). */
 export const ONGLET_PAR_BLOC: Record<string, string[]> = {
   reservation: ['devis'],
   pedagogie: ['projet'],
   budget: ['budget'],
   inscriptions: ['participants'],
-  surplace: ['planning', 'groupes', 'chambres'],
+  surplace: ['groupes', 'planning', 'chambres'],
   echanges: ['messages', 'journal', 'documents'],
 };
 
@@ -147,6 +153,13 @@ export default function OrganisateurNav({
 }: OrganisateurNavProps) {
   const visibles = (onglets: string[]) => onglets.filter((o) => ongletsVisibles.includes(o));
 
+  // P12.2 — aide à la découverte des sous-onglets : mémorise (en session, pas de
+  // localStorage) les blocs dont l'utilisateur a déjà cliqué une vue ; tant que
+  // ce n'est pas fait, une ligne d'aide s'affiche au-dessus de la sous-barre.
+  const [aideVue, setAideVue] = useState<Record<string, boolean>>({});
+  const marquerAideVue = (blocKey: string) =>
+    setAideVue((prev) => (prev[blocKey] ? prev : { ...prev, [blocKey]: true }));
+
   const blocs: Record<string, BlocNav> = {
     reservation: { key: 'reservation', titre: 'Réservation', onglets: visibles(ONGLET_PAR_BLOC.reservation), etat: etatReservation(budgetData) },
     pedagogie: { key: 'pedagogie', titre: 'Pédagogie', onglets: visibles(ONGLET_PAR_BLOC.pedagogie), etat: etatPedagogie(sejour) },
@@ -167,6 +180,10 @@ export default function OrganisateurNav({
     const actif = blocActif === bloc.key;
     const emphase = blocEmphase === bloc.key && !actif;
     const pastille = PASTILLE[bloc.etat];
+    // P12.1 — un bloc multi-vues l'annonce dans son libellé (« · N vues »).
+    const nbVues = bloc.key === 'reservation'
+      ? (documentsDisponibles ? 2 : 1)
+      : bloc.onglets.length;
     return (
       <button
         key={bloc.key}
@@ -192,6 +209,9 @@ export default function OrganisateurNav({
           </span>
         )}
         {bloc.titre}
+        {nbVues >= 2 && (
+          <span className="text-[10px] font-normal text-gray-400">· {nbVues} vues</span>
+        )}
         {emphase && (
           <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
             Prochaine étape
@@ -207,8 +227,8 @@ export default function OrganisateurNav({
     blocActif === 'reservation'
       ? (documentsDisponibles
           ? [
-              { key: 'devis', label: labels.devis ?? 'Devis', actif: vueReservation === 'devis', onSelect: () => onVueReservation('devis') },
-              { key: 'documents-officiels', label: 'Documents officiels', actif: vueReservation === 'documents', onSelect: () => onVueReservation('documents') },
+              { key: 'devis', label: labels.devis ?? 'Devis', actif: vueReservation === 'devis', onSelect: () => { marquerAideVue('reservation'); onVueReservation('devis'); } },
+              { key: 'documents-officiels', label: 'Documents officiels', actif: vueReservation === 'documents', onSelect: () => { marquerAideVue('reservation'); onVueReservation('documents'); } },
             ]
           : [])
       : blocActif
@@ -216,9 +236,16 @@ export default function OrganisateurNav({
             key,
             label: labels[key] ?? key,
             actif: activeTab === key,
-            onSelect: () => onSelectTab(key),
+            onSelect: () => { marquerAideVue(blocActif); onSelectTab(key); },
           }))
         : [];
+
+  // P12.2 — libellés « A, B ou C » pour la ligne d'aide.
+  const libellesAide = sousVues.length > 1
+    ? sousVues.map((v) => v.label).reduce((acc, label, i, arr) =>
+        i === 0 ? label : i === arr.length - 1 ? `${acc} ou ${label}` : `${acc}, ${label}`, '')
+    : '';
+  const aideVisible = sousVues.length > 1 && !!blocActif && !aideVue[blocActif];
 
   return (
     <div className="bg-white border-b border-gray-200 print:hidden">
@@ -256,6 +283,14 @@ export default function OrganisateurNav({
           )}
         </div>
 
+        {/* P12.2 — aide à la première ouverture d'un bloc multi-vues, disparaît
+            (pour la session) au premier clic sur un sous-onglet du bloc. */}
+        {aideVisible && (
+          <p className="flex items-center gap-1.5 text-xs text-gray-500 transition-opacity duration-300">
+            Choisissez une vue : {libellesAide}
+            <span aria-hidden className="text-gray-400">↓</span>
+          </p>
+        )}
         {/* Sous-onglets du bloc actif — vrais onglets au gabarit historique (P8) */}
         <SousOnglets vues={sousVues} />
       </div>
