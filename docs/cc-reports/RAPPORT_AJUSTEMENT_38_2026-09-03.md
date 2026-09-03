@@ -88,7 +88,16 @@ Bandeau localisé dans `TabRooming.tsx:101-118` (« répliqué de TabGroupes » 
 
 ## P6 — Budget « fait » = bouclé
 
-_(non commencé)_
+### Modifications
+- `src/lib/budget-solde.ts` (nouveau) — `calculerBudgetTotaux(devis, lignesCompl, recettes)` : extraction PURE du calcul de `TabBudget` (l.57-64 : totalHebergeur = Σ lignes TTC sinon montantTTC ; + compléments ; recettes ; solde).
+- `TabBudget.tsx` — importe le helper, les 7 lignes inline supprimées (une seule implémentation).
+- `OrganisateurNav.tsx` — `etatBudget(sejour, budgetData)` : fait = `solde ≥ 0` ET ≥1 donnée saisie (dépenses > 0 ou recettes > 0 ou prix posé) ; en cours = donnée saisie et solde < 0 ; à faire = rien ; neutre si `budgetData` pas chargé. Pas de nouveau fetch (`budgetData` porte devis+lignesCompl+recettes).
+
+### Code mort supprimé : calcul inline de TabBudget (remplacé par l'import, même commit).
+### Gates : tsc 0 erreur, build OK.
+### Recette : mécanique — même formule que l'affichage (source unique) ; cas Théo : devis 9 000 €, 600 € de recettes → solde −8 400 → « en cours » (orange), plus jamais vert. NON TESTÉ : rendu de la pastille (recette Théo).
+### Écarts : aucun.
+### Statut : TERMINÉ
 
 ## P7 — Réservation : sous-vue Devis | Documents officiels
 

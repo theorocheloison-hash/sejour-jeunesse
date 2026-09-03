@@ -1,6 +1,7 @@
 'use client';
 
 import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collaboration';
+import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
 
 type EtatBloc = 'fait' | 'encours' | 'afaire' | 'neutre';
 
@@ -36,8 +37,20 @@ function etatInscriptions(
   return participants.length === 0 ? 'afaire' : 'encours';
 }
 
-function etatBudget(sejour: SejourCollabInfo | null): EtatBloc {
-  return Number(sejour?.prix ?? 0) > 0 ? 'fait' : 'afaire';
+function etatBudget(sejour: SejourCollabInfo | null, budgetData: BudgetData | null): EtatBloc {
+  // P6 : « fait » = budget BOUCLÉ (solde ≥ 0 avec au moins une donnée saisie),
+  // pas simplement un prix posé. « en cours » = données saisies mais solde
+  // négatif. « à faire » = rien. Même calcul que l'affichage de TabBudget
+  // (helper unique calculerBudgetTotaux).
+  if (!budgetData) return 'neutre';
+  const { totalDepenses, totalRecettes, solde } = calculerBudgetTotaux(
+    budgetData.devis,
+    budgetData.lignesCompl ?? [],
+    budgetData.recettes ?? [],
+  );
+  const donneeSaisie = totalDepenses > 0 || totalRecettes > 0 || Number(sejour?.prix ?? 0) > 0;
+  if (!donneeSaisie) return 'afaire';
+  return solde >= 0 ? 'fait' : 'encours';
 }
 
 function etatPedagogie(sejour: SejourCollabInfo | null): EtatBloc {
@@ -61,7 +74,7 @@ export function calculerBlocEmphase(
   const etats: Record<string, EtatBloc> = {
     reservation: etatReservation(budgetData),
     inscriptions: etatInscriptions(sejour, participants, participantsCharges),
-    budget: etatBudget(sejour),
+    budget: etatBudget(sejour, budgetData),
     pedagogie: etatPedagogie(sejour),
   };
   const aTraiter = (e: EtatBloc) => e === 'afaire' || e === 'encours';
@@ -126,7 +139,7 @@ export default function OrganisateurNav({
   const blocs: Record<string, BlocNav> = {
     reservation: { key: 'reservation', titre: 'Réservation', onglets: visibles(ONGLET_PAR_BLOC.reservation), etat: etatReservation(budgetData) },
     pedagogie: { key: 'pedagogie', titre: 'Pédagogie', onglets: visibles(ONGLET_PAR_BLOC.pedagogie), etat: etatPedagogie(sejour) },
-    budget: { key: 'budget', titre: 'Budget', onglets: visibles(ONGLET_PAR_BLOC.budget), etat: etatBudget(sejour) },
+    budget: { key: 'budget', titre: 'Budget', onglets: visibles(ONGLET_PAR_BLOC.budget), etat: etatBudget(sejour, budgetData) },
     inscriptions: { key: 'inscriptions', titre: 'Inscriptions', onglets: visibles(ONGLET_PAR_BLOC.inscriptions), etat: etatInscriptions(sejour, participants, participantsCharges) },
     surplace: {
       key: 'surplace', titre: 'Sur place', onglets: visibles(ONGLET_PAR_BLOC.surplace), etat: 'neutre',

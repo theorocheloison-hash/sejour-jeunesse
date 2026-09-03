@@ -12,6 +12,7 @@ import type { User } from '@/src/types/auth';
 import BudgetPDFButton from '@/src/components/pdf/BudgetPDFButton';
 import { formatDate } from '@/src/lib/utils';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
 
 const CATEGORIES_COMPL =['Transport', 'Assurance', 'Visites et activités', 'Restauration hors forfait', 'Autre'];
 const SOURCES_RECETTES = ['Participation familles', 'Subvention collectivité', 'FSE / MDL', 'Ressources établissement', 'Don association', 'Autre'];
@@ -55,13 +56,8 @@ export default function TabBudget({ sejourId, user, budgetData, budgetLoading, o
         const isTeacher = user.role === 'ORGANISATEUR';
 
         const lignesDevis = d?.lignes ?? [];
-        const totalHebergeur = lignesDevis.length > 0
-          ? lignesDevis.reduce((sum, l) => sum + l.totalTTC, 0)
-          : (d?.montantTTC ?? 0);
-        const totalCompl = lignesCompl.reduce((sum, l) => sum + l.montant, 0);
-        const totalDepenses = totalHebergeur + totalCompl;
-        const totalRecettes = recettes.reduce((sum, r) => sum + r.montant, 0);
-        const solde = totalRecettes - totalDepenses;
+        const { totalHebergeur, totalCompl, totalDepenses, totalRecettes, solde } =
+          calculerBudgetTotaux(d, lignesCompl, recettes);
 
         const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
