@@ -28,6 +28,23 @@
 - Gardes respectées : bouton HEBERGEUR + `peutEcrireDevis` + marqueur ex-direct uniquement (appel d'offres pur sans `clientEmail`/`clientNom` → pas de bouton ; organisateur → jamais) ; branche `isDirect`, pipeline facturation, signature, devis complémentaires intacts ; `hebergeur/devis/nouveau/page.tsx` non touchée.
 - Écarts / points laissés : aucun.
 
+## Extension — Notification enseignant à la création (commits `727d9eb` + `069a6bf`)
+
+> Décision produit actée : notif **AUTO** à la création du devis sur séjour rejoint, sous forme du **lien PUBLIC de signature** (`/devis/signer/{token}`) — l'enseignant signe en un clic sans se reconnecter ; son espace connecté reste dispo en parallèle. Aucun nouveau chemin, aucun nouvel endpoint, `create()`/`envoyerDevisDirect` non modifiés.
+
+### Commit `727d9eb` — backend (notif auto enseignant)
+
+- Fichiers réellement modifiés : `backend/src/devis/devis.service.ts` (`createDirectDevis` uniquement, +35 lignes)
+- Diff résumé : `devis.service.ts:1554-1587` — bloc inséré ENTRE la fin du `$transaction` et le `return findUnique`. Gate `sejour.createurId && devis.tokenSignature` (DIRECT pur → aucune notif). Enseignant + `me` rechargés depuis la base, `assertEnvoiExterneAutorise` (anti-phishing centre en validation → skip via le catch), `sendGenericNotification` à la signature exacte d'`envoyerDevisDirect` (to, subject, html, fromName=centre.nom, replyTo centre ou undefined, null), lien `${FRONTEND_URL}/devis/signer/${devis.tokenSignature}`.
+- Propriétés : **non-bloquant zéro-écriture** — tout le bloc est dans un `try/catch` vide, aucun write (pas de `dateEnvoi`, pas de mutation devis) : un échec d'email ne fait jamais échouer la création. Infra réutilisée à l'identique, aucun nouvel import.
+- Gates : tsc backend 0 erreur, build exit 0. Relu sur fichier réel par Théo avant validation.
+
+### Commit `069a6bf` — frontend (message de succès hébergeur)
+
+- Fichiers réellement modifiés : `frontend/app/dashboard/hebergeur/devis/nouveau/page.tsx` (+5/-1)
+- Diff résumé : `modeGestion?: string;` ajouté au type inline du state `directSejour` (`:91`) ; `modeGestion: s.modeGestion,` dans le mapping `setDirectSejour` (`:139`) ; message de succès branche `isDirect` conditionné sur `directSejour?.modeGestion === 'COLLABORATIF'` (`:280-283`) → « visible par l'enseignant dans son espace + lien de signature envoyé par email », sinon message client existant (défaut null-safe). Branche collab `!isDirect`, `handleSubmit`, slots : intacts.
+- Gates : tsc frontend 0 erreur, build exit 0.
+
 ## Recette attendue (à exécuter par Théo, pas faite en prod par ce run)
 
 1. **Non-régression DIRECT pur** — séjour DIRECT non rejoint → « Créer un devis » (branche `isDirect` inchangée) → devis `demandeId=null` + `sejourDirectId` → s'affiche, s'envoie au client, se signe par lien. Identique à avant.
