@@ -42,6 +42,7 @@ import BlocContratEvenement from './devis-facturation/BlocContratEvenement';
 import BlocConvention from './devis-facturation/BlocConvention';
 import MarquerSignePanel from './devis-facturation/MarquerSignePanel';
 import DevisPdfViewer from './devis-facturation/DevisPdfViewer';
+import VueOrganisateur from './devis-facturation/VueOrganisateur';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -1192,6 +1193,22 @@ export default function TabDevisFacturation({
       </div>
     );
   };
+
+  // Découpage par rôle (étape 3a) : tout non-hébergeur est servi par VueOrganisateur.
+  // Placé APRÈS tous les hooks (règle React) — le rendu hébergeur ci-dessous est inchangé.
+  // (cast `as string` TEMPORAIRE : empêche le narrowing TS tant que les blocs organisateur
+  // morts sont encore présents plus bas — retiré au commit suivant avec ces blocs.)
+  if ((user.role as string) !== 'HEBERGEUR') {
+    return (
+      <VueOrganisateur
+        sejour={sejour}
+        user={user}
+        budgetData={budgetData}
+        onReload={onReload}
+        onError={onError}
+      />
+    );
+  }
 
   return (
     <>
