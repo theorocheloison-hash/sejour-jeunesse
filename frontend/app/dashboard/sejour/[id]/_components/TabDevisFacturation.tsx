@@ -17,8 +17,6 @@ import {
   regenererFacturePdf,
   emettreAvoir,
   annulerDevis,
-  genererConvention,
-  previewContratEvenement,
   envoyerFactureParEmail,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
@@ -39,6 +37,11 @@ import { extractApiError } from '@/src/contexts/AuthContext';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
+import BlocDevisSigne from './devis-facturation/BlocDevisSigne';
+import BlocContratEvenement from './devis-facturation/BlocContratEvenement';
+import BlocConvention from './devis-facturation/BlocConvention';
+import MarquerSignePanel from './devis-facturation/MarquerSignePanel';
+import DevisPdfViewer from './devis-facturation/DevisPdfViewer';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -56,52 +59,6 @@ interface TabDevisFacturationProps {
   peutEcrireDevis: boolean;
   peutEcrireFacturation: boolean;
   peutVoirFacturation: boolean;
-}
-
-function DevisPDFInline({ data }: { data: DevisPDFProps }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    (async () => {
-      try {
-        const { pdf } = await import('@react-pdf/renderer');
-        const { default: DevisPDF } = await import('@/src/components/pdf/DevisPDF');
-        const blob = await pdf(<DevisPDF {...data} />).toBlob();
-        if (!cancelled) {
-          objectUrl = URL.createObjectURL(blob);
-          setUrl(objectUrl);
-        }
-      } catch { /* ignore */ }
-      finally { if (!cancelled) setLoading(false); }
-    })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, []);
-
-  if (loading) return (
-    <div className="flex justify-center items-center h-48 rounded-2xl border border-gray-200 bg-white">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
-        Génération du PDF...
-      </div>
-    </div>
-  );
-
-  if (!url) return null;
-
-  return (
-    <iframe
-      src={url}
-      className="w-full rounded-2xl border border-gray-200 shadow-sm"
-      style={{ height: '80vh', minHeight: 600 }}
-      title="Aperçu du devis"
-    />
-  );
 }
 
 /**
@@ -190,69 +147,12 @@ export default function TabDevisFacturation({
   const [messagePerso, setMessagePerso] = useState('');
   const [envoiError, setEnvoiError] = useState<string | null>(null);
 
-  // ── Convention séjour scolaire ──────────────────────────────
-  const [conventionLoading, setConventionLoading] = useState(false);
-  const [conventionSuccess, setConventionSuccess] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [contratPreviewLoading, setContratPreviewLoading] = useState(false);
-
-  // Aperçu PDF sans effet de bord (pas d'envoi). Ouvre le PDF dans un nouvel onglet.
-  const handlePreviewConvention = async (devisId: string) => {
-    setPreviewLoading(true);
-    try {
-      const res = await api.get(`/devis/${devisId}/convention/preview`, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data as Blob);
-      window.open(url, '_blank');
-    } catch {
-      onError('Erreur lors de la prévisualisation de la convention');
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // Aperçu PDF du contrat événement (avant envoi du devis) — pas d'effet de bord.
-  const handlePreviewContrat = async (devisId: string) => {
-    setContratPreviewLoading(true);
-    try {
-      await previewContratEvenement(devisId);
-    } catch {
-      onError('Erreur lors de la prévisualisation du contrat');
-    } finally {
-      setContratPreviewLoading(false);
-    }
-  };
-
-  // Génère + envoie la convention par email au contact (après confirmation).
-  const handleGenererConvention = async (devisId: string, contactEmail?: string | null) => {
-    const cible = contactEmail || 'l\'établissement';
-    if (!window.confirm(`La convention sera envoyée par email à ${cible}. Continuer ?`)) return;
-    setConventionLoading(true);
-    setConventionSuccess(false);
-    try {
-      await genererConvention(devisId);
-      await reloadDevis();
-      setConventionSuccess(true);
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message ?? 'Erreur lors de la génération de la convention';
-      onError(msg);
-    } finally {
-      setConventionLoading(false);
-    }
-  };
-
   // ── Invitation direction (devis collab) ─────────────────────
   const [showInvitationDirection, setShowInvitationDirection] = useState(false);
   const [invitationEmail, setInvitationEmail] = useState('');
   const [invitationSending, setInvitationSending] = useState(false);
   const [invitationSent, setInvitationSent] = useState(false);
   const signatureFileRef = useRef<HTMLInputElement>(null);
-
-  // ── Marquer signé (hébergeur) ───────────────────────────────
-  const [showMarquerSigne, setShowMarquerSigne] = useState(false);
-  const [marquerSigneNom, setMarquerSigneNom] = useState('');
-  const [marquerSigneLoading, setMarquerSigneLoading] = useState(false);
-  const marquerSigneFileRef = useRef<HTMLInputElement>(null);
 
   // ── Pipeline facturation (Lot 1 : entités Facture immuables) ─
   const [factures, setFactures] = useState<Facture[]>([]);
@@ -1511,80 +1411,12 @@ export default function TabDevisFacturation({
                 {peutEcrireDevis && (devis.statut === 'EN_ATTENTE' || devis.statut === 'SELECTIONNE')
                   && !devis.signatureDirecteur
                   && !devis.nomSignataireDirecteur && (
-                  <>
-                    <button
-                      onClick={() => { setShowMarquerSigne(true); setMarquerSigneNom(''); }}
-                      className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {devis.statut === 'EN_ATTENTE' ? 'Enregistrer la signature du client' : 'Enregistrer la signature direction'}
-                    </button>
-                    {showMarquerSigne && (
-                      <div className="w-full mt-2 rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
-                        <p className="text-xs font-semibold text-purple-800">Enregistrer une signature reçue hors plateforme</p>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Nom du signataire</label>
-                          <input
-                            type="text"
-                            value={marquerSigneNom}
-                            onChange={(e) => setMarquerSigneNom(e.target.value)}
-                            placeholder="ex: Mme Dupont, Directrice"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Document signé (PDF, optionnel)</label>
-                          <input
-                            ref={marquerSigneFileRef}
-                            type="file"
-                            accept="application/pdf"
-                            className="block w-full text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-purple-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-purple-700 hover:file:bg-purple-200"
-                          />
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            onClick={() => setShowMarquerSigne(false)}
-                            disabled={marquerSigneLoading}
-                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            Annuler
-                          </button>
-                          <button
-                            onClick={async () => {
-                              setMarquerSigneLoading(true);
-                              try {
-                                const formData = new FormData();
-                                if (marquerSigneNom.trim()) {
-                                  formData.append('nomSignataire', marquerSigneNom.trim());
-                                }
-                                const file = marquerSigneFileRef.current?.files?.[0];
-                                if (file) {
-                                  formData.append('file', file);
-                                }
-                                await api.post(`/devis/${devis.id}/marquer-signe`, formData, {
-                                  headers: { 'Content-Type': 'multipart/form-data' },
-                                });
-                                setShowMarquerSigne(false);
-                                await reloadDevis();
-                              } catch (err) {
-                                console.error('[marquer-signe]', err);
-                                onError('Une erreur est survenue. Veuillez réessayer.');
-                              } finally {
-                                setMarquerSigneLoading(false);
-                                if (marquerSigneFileRef.current) marquerSigneFileRef.current.value = '';
-                              }
-                            }}
-                            disabled={marquerSigneLoading}
-                            className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                          >
-                            {marquerSigneLoading ? 'Enregistrement…' : 'Confirmer la signature'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <MarquerSignePanel
+                    devisId={devis.id}
+                    buttonLabel={devis.statut === 'EN_ATTENTE' ? 'Enregistrer la signature du client' : 'Enregistrer la signature direction'}
+                    onReload={reloadDevis}
+                    onError={onError}
+                  />
                 )}
                 {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
                 {peutEcrireDevis && factureAcompte && !factureSolde && (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') && (
@@ -1602,87 +1434,28 @@ export default function TabDevisFacturation({
                   signataire : on retombe alors sur la date seule. */}
               {(devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION')
                 && (devis.nomSignataireDirecteur || devis.dateSignatureDirecteur) && (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                  <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
-                  <p className="text-xs text-green-700 mt-1">
-                    {devis.nomSignataireDirecteur
-                      ? `Signé par ${devis.nomSignataireDirecteur}`
-                      : 'Document signé'}
-                    {devis.dateSignatureDirecteur && (
-                      ` le ${new Date(devis.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(devis.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                    )}
-                  </p>
-                </div>
+                <BlocDevisSigne
+                  nomSignataire={devis.nomSignataireDirecteur ?? null}
+                  dateSignature={devis.dateSignatureDirecteur ?? null}
+                />
               )}
 
               {/* Convention de séjour scolaire — DIRECT + nature SEJOUR + devis signé */}
               {sejour?.natureSejour === 'SEJOUR'
                 && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut) && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
-                  </div>
-
-                  {devis.conventionUrl && (
-                    <SecureFileLink
-                      url={devis.conventionUrl}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      📄 Télécharger la convention
-                    </SecureFileLink>
-                  )}
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                      onClick={() => handlePreviewConvention(devis.id)}
-                      disabled={previewLoading}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {previewLoading && (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                      )}
-                      {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
-                    </button>
-                    {peutEcrireDevis && (
-                      <button
-                        onClick={() => handleGenererConvention(devis.id, sejour?.clientEmail)}
-                        disabled={conventionLoading}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        {conventionLoading && (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        )}
-                        {conventionLoading ? 'Envoi…' : devis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                      </button>
-                    )}
-                  </div>
-
-                  {conventionSuccess && (
-                    <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                      ✅ Convention générée et envoyée par email
-                    </p>
-                  )}
-                </div>
+                <BlocConvention
+                  devisId={devis.id}
+                  conventionUrl={devis.conventionUrl ?? null}
+                  contactEmail={sejour?.clientEmail}
+                  peutEcrireDevis={peutEcrireDevis}
+                  onReload={reloadDevis}
+                  onError={onError}
+                />
               )}
 
               {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
               {sejour?.natureSejour === 'EVENEMENT' && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Contrat événement</h3>
-                  <button
-                    onClick={() => handlePreviewContrat(devis.id)}
-                    disabled={contratPreviewLoading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {contratPreviewLoading && (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                    )}
-                    {contratPreviewLoading ? 'Ouverture…' : '👁 Prévisualiser le contrat'}
-                  </button>
-                </div>
+                <BlocContratEvenement devisId={devis.id} onError={onError} />
               )}
 
               {/* Aperçu PDF du devis (signé ou non) — au-dessus de la section Facturation */}
@@ -1746,27 +1519,7 @@ export default function TabDevisFacturation({
                       filename={`devis-${(dd.numeroDevis ?? dd.id.substring(0, 8)).toLowerCase()}.pdf`}
                       label="Voir et imprimer le devis"
                     />
-                    {dd.documentUrl ? (
-                      <div className="space-y-3">
-                        <SecureFileLink
-                          url={dd.documentUrl}
-                          className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                          </svg>
-                          Télécharger le devis PDF
-                        </SecureFileLink>
-                        <iframe
-                          src={dd.documentUrl}
-                          className="w-full rounded-2xl border border-gray-200 shadow-sm"
-                          style={{ height: '80vh', minHeight: 600 }}
-                          title="Aperçu du devis"
-                        />
-                      </div>
-                    ) : (
-                      <DevisPDFInline data={pdfPropsDirect} />
-                    )}
+                    <DevisPdfViewer documentUrl={dd.documentUrl ?? null} pdfProps={pdfPropsDirect} />
                   </div>
                 );
               })()}
@@ -1942,80 +1695,12 @@ export default function TabDevisFacturation({
                       </SecureFileLink>
                     )}
                     {peutEcrireDevis && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
-                      <>
-                        <button
-                          onClick={() => { setShowMarquerSigne(true); setMarquerSigneNom(''); }}
-                          className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Enregistrer la signature direction
-                        </button>
-                        {showMarquerSigne && (
-                          <div className="w-full mt-2 rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
-                            <p className="text-xs font-semibold text-purple-800">Enregistrer une signature reçue hors plateforme</p>
-                            <div>
-                              <label className="block text-xs text-gray-600 mb-1">Nom du signataire</label>
-                              <input
-                                type="text"
-                                value={marquerSigneNom}
-                                onChange={(e) => setMarquerSigneNom(e.target.value)}
-                                placeholder="ex: Mme Dupont, Directrice"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-600 mb-1">Document signé (PDF, optionnel)</label>
-                              <input
-                                ref={marquerSigneFileRef}
-                                type="file"
-                                accept="application/pdf"
-                                className="block w-full text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-purple-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-purple-700 hover:file:bg-purple-200"
-                              />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => setShowMarquerSigne(false)}
-                                disabled={marquerSigneLoading}
-                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                              >
-                                Annuler
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  setMarquerSigneLoading(true);
-                                  try {
-                                    const formData = new FormData();
-                                    if (marquerSigneNom.trim()) {
-                                      formData.append('nomSignataire', marquerSigneNom.trim());
-                                    }
-                                    const file = marquerSigneFileRef.current?.files?.[0];
-                                    if (file) {
-                                      formData.append('file', file);
-                                    }
-                                    await api.post(`/devis/${d.id}/marquer-signe`, formData, {
-                                      headers: { 'Content-Type': 'multipart/form-data' },
-                                    });
-                                    setShowMarquerSigne(false);
-                                    await reloadDevis();
-                                  } catch (err) {
-                                    console.error('[marquer-signe]', err);
-                                    onError('Une erreur est survenue. Veuillez réessayer.');
-                                  } finally {
-                                    setMarquerSigneLoading(false);
-                                    if (marquerSigneFileRef.current) marquerSigneFileRef.current.value = '';
-                                  }
-                                }}
-                                disabled={marquerSigneLoading}
-                                className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                              >
-                                {marquerSigneLoading ? 'Enregistrement…' : 'Confirmer la signature'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </>
+                      <MarquerSignePanel
+                        devisId={d.id}
+                        buttonLabel="Enregistrer la signature direction"
+                        onReload={reloadDevis}
+                        onError={onError}
+                      />
                     )}
                   </div>
                   {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && !factureAcompte && (
@@ -2042,27 +1727,7 @@ export default function TabDevisFacturation({
                     </a>
                   )}
                 </div>
-                {d.documentUrl ? (
-                  <div className="space-y-3">
-                    <SecureFileLink
-                      url={d.documentUrl}
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      Télécharger le devis PDF
-                    </SecureFileLink>
-                    <iframe
-                      src={d.documentUrl}
-                      className="w-full rounded-2xl border border-gray-200 shadow-sm"
-                      style={{ height: '80vh', minHeight: 600 }}
-                      title="Aperçu du devis"
-                    />
-                  </div>
-                ) : (
-                  <DevisPDFInline data={pdfProps} />
-                )}
+                <DevisPdfViewer documentUrl={d.documentUrl ?? null} pdfProps={pdfProps} />
 
                 {/* C4 — Signature du devis depuis l'espace connecté (ORGANISATEUR),
                     devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT.
@@ -2121,88 +1786,29 @@ export default function TabDevisFacturation({
                 {user.role === 'HEBERGEUR'
                   && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION')
                   && (d.nomSignataireDirecteur || d.dateSignatureDirecteur) && (
-                  <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                    <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
-                    <p className="text-xs text-green-700 mt-1">
-                      {d.nomSignataireDirecteur
-                        ? `Signé par ${d.nomSignataireDirecteur}`
-                        : 'Document signé'}
-                      {d.dateSignatureDirecteur && (
-                        ` le ${new Date(d.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(d.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                      )}
-                    </p>
-                  </div>
+                  <BlocDevisSigne
+                    nomSignataire={d.nomSignataireDirecteur ?? null}
+                    dateSignature={d.dateSignatureDirecteur ?? null}
+                  />
                 )}
 
                 {/* Convention de séjour scolaire — COLLABORATIF + nature SEJOUR + devis signé */}
                 {sejour?.natureSejour === 'SEJOUR'
                   && user.role === 'HEBERGEUR'
                   && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(d.statut) && (
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
-                    </div>
-
-                    {d.conventionUrl && (
-                      <SecureFileLink
-                        url={d.conventionUrl}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                        📄 Télécharger la convention
-                      </SecureFileLink>
-                    )}
-
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <button
-                        onClick={() => handlePreviewConvention(d.id)}
-                        disabled={previewLoading}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        {previewLoading && (
-                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                        )}
-                        {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
-                      </button>
-                      {peutEcrireDevis && (
-                        <button
-                          onClick={() => handleGenererConvention(d.id, createur?.email)}
-                          disabled={conventionLoading}
-                          className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                        >
-                          {conventionLoading && (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          )}
-                          {conventionLoading ? 'Envoi…' : d.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                        </button>
-                      )}
-                    </div>
-
-                    {conventionSuccess && (
-                      <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                        ✅ Convention générée et envoyée par email
-                      </p>
-                    )}
-                  </div>
+                  <BlocConvention
+                    devisId={d.id}
+                    conventionUrl={d.conventionUrl ?? null}
+                    contactEmail={createur?.email}
+                    peutEcrireDevis={peutEcrireDevis}
+                    onReload={reloadDevis}
+                    onError={onError}
+                  />
                 )}
 
                 {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
                 {sejour?.natureSejour === 'EVENEMENT' && user.role === 'HEBERGEUR' && (
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Contrat événement</h3>
-                    <button
-                      onClick={() => handlePreviewContrat(d.id)}
-                      disabled={contratPreviewLoading}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {contratPreviewLoading && (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                      )}
-                      {contratPreviewLoading ? 'Ouverture…' : '👁 Prévisualiser le contrat'}
-                    </button>
-                  </div>
+                  <BlocContratEvenement devisId={d.id} onError={onError} />
                 )}
 
                 {/* Convention — lien lecture seule pour l'enseignant (ORGANISATEUR / SIGNATAIRE).
