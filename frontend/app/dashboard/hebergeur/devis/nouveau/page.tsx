@@ -88,6 +88,7 @@ function NouveauDevisContent() {
     activitesSouhaitees?: string | null;
     budgetMaxParEleve?: number | null;
     noteDateFlexible?: string | null;
+    modeGestion?: string;
   } | null>(null);
 
 
@@ -135,6 +136,7 @@ function NouveauDevisContent() {
           activitesSouhaitees: s.activitesSouhaitees ?? null,
           budgetMaxParEleve: s.budgetMaxParEleve ?? null,
           noteDateFlexible: s.noteDateFlexible ?? null,
+          modeGestion: s.modeGestion,
         }))
         .catch(() => {});
       return;
@@ -276,7 +278,9 @@ function NouveauDevisContent() {
           <h2 className="text-lg font-bold text-gray-900 mb-2">{isDirect ? 'Devis créé !' : 'Devis envoyé !'}</h2>
           <p className="text-sm text-gray-500 mb-6">
             {isDirect
-              ? `Le devis ${numeroDevis} a été créé. Vous pouvez maintenant l'envoyer au client depuis la page du séjour.`
+              ? (directSejour?.modeGestion === 'COLLABORATIF'
+                  ? `Le devis ${numeroDevis} a été créé. Il est directement visible par l'enseignant dans son espace, où il pourra le signer. Un lien de signature lui a aussi été envoyé par email.`
+                  : `Le devis ${numeroDevis} a été créé. Vous pouvez maintenant l'envoyer au client depuis la page du séjour.`)
               : `Votre devis ${numeroDevis} a été transmis à l'enseignant.`}
           </p>
           <Link

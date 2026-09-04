@@ -1435,16 +1435,21 @@ export class DevisService {
         id: true,
         modeGestion: true,
         hebergementSelectionneId: true,
+        createurId: true,
         titre: true,
+        lieu: true,
+        dateDebut: true,
+        dateFin: true,
+        placesTotales: true,
         clientNom: true,
         clientEmail: true,
         deletedAt: true,
       },
     });
     if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
-    if (sejour.modeGestion !== 'DIRECT') {
-      throw new ForbiddenException('Ce séjour n\'est pas en gestion directe');
-    }
+    // Pas de garde modeGestion : un séjour DIRECT rejoint devient COLLABORATIF mais
+    // l'hébergeur doit toujours pouvoir créer le devis. L'ownership borne l'accès
+    // (couvre DIRECT et ex-direct rejoint, exclut un appel d'offres d'un autre centre).
     if (sejour.hebergementSelectionneId !== centre.id) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
@@ -1468,46 +1473,117 @@ export class DevisService {
       documentUrl = await this.storage.upload(file, 'devis');
     }
 
-    const devis = await this.prisma.devis.create({
-      data: {
-        sejourDirectId,
-        demandeId: null,
-        centreId: centre.id,
-        emetteurId,
-        montantTotal: dto.montantTotal ?? '0',
-        montantParEleve: dto.montantParEleve ?? '0',
-        description: dto.description,
-        conditionsAnnulation: dto.conditionsAnnulation,
-        documentUrl,
-        nomEntreprise: dto.nomEntreprise,
-        adresseEntreprise: dto.adresseEntreprise,
-        siretEntreprise: dto.siretEntreprise,
-        emailEntreprise: dto.emailEntreprise,
-        telEntreprise: dto.telEntreprise,
-        tauxTva: dto.tauxTva,
-        montantHT: dto.montantHT,
-        montantTVA: dto.montantTVA,
-        montantTTC: dto.montantTTC,
-        pourcentageAcompte: dto.pourcentageAcompte,
-        montantAcompte: dto.montantAcompte,
-        numeroDevis,
-        typeDevis: 'PLATEFORME',
-      },
+    const devis = await this.prisma.$transaction(async (tx) => {
+      // Séjour rejoint (ex-DIRECT devenu COLLABORATIF) → forme hybride : le devis doit
+      // être rattaché à une DemandeDevis pont pour être visible côté enseignant
+      // (getBudgetData). Réutiliser une demande existante (évite le doublon si un devis
+      // avait déjà été annulé/recréé), sinon créer une pont FERMEE. Miroir d'accepter().
+      let demandeId: string | null = null;
+      if (sejour.createurId) {
+        const demandeExistante = await tx.demandeDevis.findFirst({
+          where: { sejourId: sejour.id, statut: { not: 'ANNULEE' } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+        if (demandeExistante) {
+          demandeId = demandeExistante.id;
+        } else {
+          const demande = await tx.demandeDevis.create({
+            data: {
+              sejourId: sejour.id,
+              enseignantId: sejour.createurId,
+              titre: sejour.titre,
+              dateDebut: sejour.dateDebut,
+              dateFin: sejour.dateFin,
+              nombreEleves: sejour.placesTotales,
+              villeHebergement: sejour.lieu,
+              statut: 'FERMEE',
+              typePension: [],
+              centreDestinataireId: centre.id,
+            },
+          });
+          demandeId = demande.id;
+        }
+      }
+
+      const d = await tx.devis.create({
+        data: {
+          sejourDirectId,
+          demandeId, // pont si rejoint, null si DIRECT pur
+          centreId: centre.id,
+          emetteurId,
+          montantTotal: dto.montantTotal ?? '0',
+          montantParEleve: dto.montantParEleve ?? '0',
+          description: dto.description,
+          conditionsAnnulation: dto.conditionsAnnulation,
+          documentUrl,
+          nomEntreprise: dto.nomEntreprise,
+          adresseEntreprise: dto.adresseEntreprise,
+          siretEntreprise: dto.siretEntreprise,
+          emailEntreprise: dto.emailEntreprise,
+          telEntreprise: dto.telEntreprise,
+          tauxTva: dto.tauxTva,
+          montantHT: dto.montantHT,
+          montantTVA: dto.montantTVA,
+          montantTTC: dto.montantTTC,
+          pourcentageAcompte: dto.pourcentageAcompte,
+          montantAcompte: dto.montantAcompte,
+          numeroDevis,
+          typeDevis: 'PLATEFORME',
+        },
+      });
+
+      if (dto.lignes && dto.lignes.length > 0) {
+        await tx.ligneDevis.createMany({
+          data: dto.lignes.map((l) => ({
+            devisId: d.id,
+            description: l.description,
+            quantite: l.quantite,
+            prixUnitaire: l.prixUnitaire,
+            tva: l.tva ?? 0,
+            totalHT: l.totalHT,
+            totalTTC: l.totalTTC,
+            produitCatalogueId: l.produitCatalogueId ?? null,
+          })),
+        });
+      }
+
+      return d;
     });
 
-    if (dto.lignes && dto.lignes.length > 0) {
-      await this.prisma.ligneDevis.createMany({
-        data: dto.lignes.map((l) => ({
-          devisId: devis.id,
-          description: l.description,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-          tva: l.tva ?? 0,
-          totalHT: l.totalHT,
-          totalTTC: l.totalTTC,
-          produitCatalogueId: l.produitCatalogueId ?? null,
-        })),
-      });
+    // Séjour rejoint (createurId set) : notifier l'enseignant avec le lien PUBLIC
+    // de signature — il signe en un clic sans se reconnecter (son espace connecté
+    // reste dispo en parallèle). Non bloquant + gaté par assertEnvoiExterneAutorise
+    // (anti-phishing centre en validation → skip silencieux). DIRECT pur
+    // (createurId null) : aucune notif (le devis part au client via envoyerDevisDirect).
+    if (sejour.createurId && devis.tokenSignature) {
+      try {
+        const enseignant = await this.prisma.user.findUnique({
+          where: { id: sejour.createurId },
+          select: { email: true, prenom: true, nom: true },
+        });
+        if (enseignant) {
+          const me = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+          });
+          await assertEnvoiExterneAutorise(this.prisma, centre, enseignant.email, me?.email ?? '');
+          const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+          const lien = `${frontendUrl}/devis/signer/${devis.tokenSignature}`;
+          await this.email.sendGenericNotification(
+            enseignant.email,
+            `Un devis à signer — ${sejour.titre}`,
+            `<p>Bonjour ${enseignant.prenom},</p>
+             <p><strong>${centre.nom}</strong> a établi un devis pour le séjour <strong>${sejour.titre}</strong>.</p>
+             <p>Vous pouvez le consulter et le signer directement en ligne, ou depuis votre espace LIAVO.</p>
+             <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir et signer le devis</a></p>
+             <p style="font-size:12px;color:#9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien : ${lien}</p>`,
+            centre.nom,
+            centre.email ? { name: centre.nom, email: centre.email } : undefined,
+            null,
+          );
+        }
+      } catch { /* non bloquant */ }
     }
 
     return this.prisma.devis.findUnique({
