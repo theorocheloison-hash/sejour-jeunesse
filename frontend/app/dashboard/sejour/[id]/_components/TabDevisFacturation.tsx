@@ -18,7 +18,6 @@ import {
   emettreAvoir,
   annulerDevis,
   genererConvention,
-  previewContratEvenement,
   envoyerFactureParEmail,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
@@ -40,6 +39,7 @@ import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import BlocDevisSigne from './devis-facturation/BlocDevisSigne';
+import BlocContratEvenement from './devis-facturation/BlocContratEvenement';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -195,7 +195,6 @@ export default function TabDevisFacturation({
   const [conventionLoading, setConventionLoading] = useState(false);
   const [conventionSuccess, setConventionSuccess] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [contratPreviewLoading, setContratPreviewLoading] = useState(false);
 
   // Aperçu PDF sans effet de bord (pas d'envoi). Ouvre le PDF dans un nouvel onglet.
   const handlePreviewConvention = async (devisId: string) => {
@@ -208,18 +207,6 @@ export default function TabDevisFacturation({
       onError('Erreur lors de la prévisualisation de la convention');
     } finally {
       setPreviewLoading(false);
-    }
-  };
-
-  // Aperçu PDF du contrat événement (avant envoi du devis) — pas d'effet de bord.
-  const handlePreviewContrat = async (devisId: string) => {
-    setContratPreviewLoading(true);
-    try {
-      await previewContratEvenement(devisId);
-    } catch {
-      onError('Erreur lors de la prévisualisation du contrat');
-    } finally {
-      setContratPreviewLoading(false);
     }
   };
 
@@ -1664,19 +1651,7 @@ export default function TabDevisFacturation({
 
               {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
               {sejour?.natureSejour === 'EVENEMENT' && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Contrat événement</h3>
-                  <button
-                    onClick={() => handlePreviewContrat(devis.id)}
-                    disabled={contratPreviewLoading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {contratPreviewLoading && (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                    )}
-                    {contratPreviewLoading ? 'Ouverture…' : '👁 Prévisualiser le contrat'}
-                  </button>
-                </div>
+                <BlocContratEvenement devisId={devis.id} onError={onError} />
               )}
 
               {/* Aperçu PDF du devis (signé ou non) — au-dessus de la section Facturation */}
@@ -2177,19 +2152,7 @@ export default function TabDevisFacturation({
 
                 {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
                 {sejour?.natureSejour === 'EVENEMENT' && user.role === 'HEBERGEUR' && (
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Contrat événement</h3>
-                    <button
-                      onClick={() => handlePreviewContrat(d.id)}
-                      disabled={contratPreviewLoading}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {contratPreviewLoading && (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                      )}
-                      {contratPreviewLoading ? 'Ouverture…' : '👁 Prévisualiser le contrat'}
-                    </button>
-                  </div>
+                  <BlocContratEvenement devisId={d.id} onError={onError} />
                 )}
 
                 {/* Convention — lien lecture seule pour l'enseignant (ORGANISATEUR / SIGNATAIRE).
