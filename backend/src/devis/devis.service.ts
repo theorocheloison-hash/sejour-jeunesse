@@ -154,9 +154,8 @@ export class DevisService {
           montantAcompte: dto.montantAcompte,
           numeroDevis,
           typeDevis: dto.typeDevis ?? 'PLATEFORME',
-          // Chemin COLLAB : la création vaut envoi (notif sendDevisRecu à
-          // l'enseignant juste après, avec magic link).
-          dateEnvoi: new Date(),
+          // La création ne vaut PLUS envoi : dateEnvoi reste null jusqu'à
+          // l'envoi manuel (envoyerDevis, bouton « Envoyer le devis au client »).
         },
       });
 
@@ -201,36 +200,18 @@ export class DevisService {
       include: { lignes: true },
     });
 
-    // Notifier l'enseignant du nouveau devis
+    // Plus de notification automatique à la création (sendDevisRecu + magic link
+    // supprimés) : l'envoi est un geste MANUEL de l'hébergeur (envoyerDevis).
     const enseignant = await this.prisma.user.findUnique({
       where: { id: demande.enseignantId! },
-      select: { email: true, prenom: true, nom: true },
+      select: { email: true },
     });
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: demande.sejourId },
       select: { titre: true },
     });
-    if (enseignant && sejour) {
-      // Magic link pour accès direct sans mot de passe (inline pour éviter une
-      // dépendance circulaire vers AuthService — logique identique à genererMagicUrl).
-      const magicToken = randomUUID();
-      const magicExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
-      await this.prisma.user.update({
-        where: { id: demande.enseignantId! },
-        data: { magicLinkToken: magicToken, magicLinkExpires: magicExpires },
-      });
-      const magicUrl = `${process.env.FRONTEND_URL ?? 'https://liavo.fr'}/auth/magic/${magicToken}`;
-      await this.email.sendDevisRecu(
-        enseignant.email,
-        `${enseignant.prenom} ${enseignant.nom}`,
-        sejour.titre,
-        centre.nom,
-        String(dto.montantTotal),
-        magicUrl,
-      );
-    }
 
-    // Log CRM non bloquant — client peut ne pas être rattaché en collab
+    // Log CRM non bloquant — la création ne vaut plus envoi (trace de soumission seule)
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({
         where: { sejourId: demande.sejourId },
@@ -546,59 +527,8 @@ export class DevisService {
       }
     }
 
-    // Notifier l'enseignant si le devis était SELECTIONNE (devis collab uniquement)
-    if (demandeId && devis.statut === 'SELECTIONNE') {
-      const demande = await this.prisma.demandeDevis.findUnique({
-        where: { id: demandeId },
-        include: {
-          enseignant: { select: { email: true, prenom: true, nom: true } },
-          sejour: { select: { titre: true } },
-        },
-      });
-      if (demande?.enseignant && demande?.sejour) {
-        // Validation non acquise (centre PENDING ou revendication en attente) :
-        // notification externe bloquée — la modification du devis (opération
-        // interne) reste permise, seul l'email vers le tiers est skippé
-        // (pas de 403 après persistance).
-        const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-        try {
-          await assertEnvoiExterneAutorise(this.prisma, centre, demande.enseignant.email, me?.email ?? '');
-        } catch {
-          return this.prisma.devis.findUnique({ where: { id }, include: { lignes: true } });
-        }
-        await this.email.sendGenericNotification(
-          demande.enseignant.email,
-          'Devis modifié par l\'hébergeur',
-          `Bonjour ${demande.enseignant.prenom},\n\nL'hébergeur a apporté des modifications au devis pour le séjour "${demande.sejour.titre}". Connectez-vous à LIAVO pour consulter les changements.\n\nCordialement,\nL'équipe LIAVO`,
-        );
-        // Log CRM non bloquant
-        try {
-          const sejourClient = await this.prisma.sejourClient.findFirst({
-            where: { sejourId: demande.sejourId },
-            select: { clientId: true },
-          });
-          if (sejourClient) {
-            await this.prisma.activiteClient.create({
-              data: {
-                clientId: sejourClient.clientId,
-                centreId: centre.id,
-                sejourId: demande.sejourId,
-                type: 'EMAIL',
-                description: `Notification modification devis — ${demande.sejour.titre}`,
-                metadata: {
-                  devisId: id,
-                  emailType: 'MODIFICATION_DEVIS_AUTO',
-                  to: demande.enseignant.email,
-                  subject: 'Devis modifié par l\'hébergeur',
-                  messagePreview: '',
-                },
-                userId,
-              },
-            });
-          }
-        } catch { /* non bloquant */ }
-      }
-    }
+    // Plus de notification automatique de modification : l'hébergeur renvoie
+    // le devis manuellement s'il veut prévenir (envoyerDevis).
 
     return this.prisma.devis.findUnique({
       where: { id },
@@ -1334,82 +1264,6 @@ export class DevisService {
     return `DEV-${annee}-${String(numero).padStart(4, '0')}`;
   }
 
-  async notifierEnseignantModification(devisId: string, userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-
-    const devis = await this.prisma.devis.findUnique({
-      where: { id: devisId },
-      include: {
-        demande: {
-          include: {
-            enseignant: { select: { email: true, prenom: true, nom: true } },
-            sejour: { select: { id: true, titre: true } },
-          },
-        },
-      },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.centreId !== centre.id) throw new ForbiddenException();
-
-    const enseignant = devis.demande?.enseignant;
-    const sejour = devis.demande?.sejour;
-    if (!enseignant || !sejour) throw new NotFoundException('Enseignant introuvable');
-
-    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
-    // externe interdit, sauf vers sa propre adresse (test onboarding).
-    // Email du user rechargé depuis la base (pas du body).
-    {
-      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      await assertEnvoiExterneAutorise(this.prisma, centre, enseignant.email, me?.email ?? '');
-    }
-
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-
-    await this.email.sendGenericNotification(
-      enseignant.email,
-      `Votre devis a été mis à jour — ${sejour.titre}`,
-      `<p>Bonjour ${enseignant.prenom},</p>
-       <p>L'hébergeur <strong>${centre.nom}</strong> a apporté des modifications au devis <strong>${devis.numeroDevis ?? ''}</strong> pour votre séjour <strong>${sejour.titre}</strong>.</p>
-       <p style="margin:24px 0">
-         <a href="${frontendUrl}/dashboard/sejour/${sejour.id}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-           Consulter le devis mis à jour
-         </a>
-       </p>
-       <p style="font-size:12px;color:#9ca3af;">Connectez-vous à LIAVO pour voir les détails complets.</p>`,
-      undefined,
-      undefined,
-      null,
-    );
-
-    // Log CRM non bloquant
-    try {
-      const sejourClient = await this.prisma.sejourClient.findFirst({
-        where: { sejourId: sejour.id },
-        select: { clientId: true },
-      });
-      if (sejourClient) {
-        await this.prisma.activiteClient.create({
-          data: {
-            clientId: sejourClient.clientId,
-            centreId: centre.id,
-            sejourId: sejour.id,
-            type: 'EMAIL',
-            description: `Notification modification envoyée — ${sejour.titre}`,
-            metadata: {
-              devisId,
-              emailType: 'MODIFICATION_DEVIS',
-              to: enseignant.email,
-              subject: `Votre devis a été mis à jour — ${sejour.titre}`,
-              messagePreview: '',
-            },
-            userId,
-          },
-        });
-      }
-    } catch { /* non bloquant */ }
-
-    return { success: true };
-  }
 
   // ── Devis DIRECT (gestion hébergeur sans DemandeDevis) ────────────────────
 
@@ -1551,91 +1405,12 @@ export class DevisService {
       return d;
     });
 
-    // Séjour rejoint (createurId set) : auto-notif de l'organisateur avec le lien
-    // PUBLIC de signature, non bloquante. Source unique : renvoyerDevisOrganisateur.
-    if (sejour.createurId && devis.tokenSignature) {
-      try { await this.renvoyerDevisOrganisateur(devis.id, userId, centreId); } catch { /* non bloquant */ }
-    }
-
     return this.prisma.devis.findUnique({
       where: { id: devis.id },
       include: { lignes: true },
     });
   }
 
-  /**
-   * (R)envoie le lien PUBLIC de signature à l'organisateur rattaché au séjour du devis.
-   * Extraction du bloc notif de createDirectDevis (source unique du template).
-   * THROW en cas d'échec : l'endpoint manuel doit remonter l'erreur (l'auto-notif de
-   * création l'enveloppe dans un try/catch non bloquant).
-   */
-  async renvoyerDevisOrganisateur(devisId: string, userId: string, centreId?: string | null) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-
-    const devis = await this.prisma.devis.findUnique({
-      where: { id: devisId },
-      select: {
-        id: true,
-        centreId: true,
-        statut: true,
-        tokenSignature: true,
-        sejourDirect: { select: { createurId: true, titre: true } },
-      },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.centreId !== centre.id) throw new ForbiddenException();
-    // createurId = compte ORGANISATEUR rattaché (jamais l'hébergeur). Cf. roadmap 04/09.
-    const organisateurId = devis.sejourDirect?.createurId ?? null;
-    if (organisateurId == null) {
-      throw new ForbiddenException("Ce séjour n'a pas d'organisateur rattaché");
-    }
-    if (devis.statut !== 'EN_ATTENTE') {
-      throw new ForbiddenException(
-        'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
-        'Le lien de signature d\'origine reste consultable par l\'organisateur.',
-      );
-    }
-    if (!devis.tokenSignature) {
-      throw new ForbiddenException('Token de signature manquant sur le devis');
-    }
-
-    const organisateur = await this.prisma.user.findUnique({
-      where: { id: organisateurId },
-      select: { email: true, prenom: true, nom: true },
-    });
-    if (!organisateur) throw new NotFoundException('Organisateur introuvable');
-
-    const me = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
-    });
-    await assertEnvoiExterneAutorise(this.prisma, centre, organisateur.email, me?.email ?? '');
-
-    const titre = devis.sejourDirect?.titre ?? '';
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const lien = `${frontendUrl}/devis/signer/${devis.tokenSignature}`;
-    await this.email.sendGenericNotification(
-      organisateur.email,
-      `Un devis à signer — ${titre}`,
-      `<p>Bonjour ${organisateur.prenom},</p>
-       <p><strong>${centre.nom}</strong> a établi un devis pour le séjour <strong>${titre}</strong>.</p>
-       <p>Vous pouvez le consulter et le signer directement en ligne, ou depuis votre espace LIAVO.</p>
-       <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir et signer le devis</a></p>
-       <p style="font-size:12px;color:#9ca3af;">Si le bouton ne fonctionne pas, copiez ce lien : ${lien}</p>`,
-      centre.nom,
-      centre.email ? { name: centre.nom, email: centre.email } : undefined,
-      null,
-    );
-
-    // Miroir d'envoyerDevisDirect : posé APRÈS le succès de l'email (un échec
-    // d'envoi ne doit pas marquer le devis comme envoyé).
-    await this.prisma.devis.update({
-      where: { id: devisId },
-      data: { dateEnvoi: new Date() },
-    });
-
-    return { success: true, message: 'Devis renvoyé à l\'organisateur' };
-  }
 
   /**
    * Envoi MANUEL unifié du devis — chemin unique pour les 3 formats (DIRECT pur,

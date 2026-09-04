@@ -151,17 +151,6 @@ export class DevisController {
     return this.devisService.updateDevis(id, dto, user.id, file, centreId);
   }
 
-  @Post(':id/notifier-enseignant')
-  @Roles(Role.HEBERGEUR)
-  @RequirePermission('devis')
-  notifierEnseignant(
-    @Param('id') id: string,
-    @CurrentUser() u: JwtUser,
-    @CentreId() centreId: string | null,
-  ) {
-    return this.devisService.notifierEnseignantModification(id, u.id, centreId);
-  }
-
   @Post(':id/annuler')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('devis')
