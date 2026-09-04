@@ -17,7 +17,6 @@ import {
   regenererFacturePdf,
   emettreAvoir,
   annulerDevis,
-  genererConvention,
   envoyerFactureParEmail,
 } from '@/src/lib/devis';
 import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/devis';
@@ -40,6 +39,7 @@ import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte 
 import type { User } from '@/src/types/auth';
 import BlocDevisSigne from './devis-facturation/BlocDevisSigne';
 import BlocContratEvenement from './devis-facturation/BlocContratEvenement';
+import BlocConvention from './devis-facturation/BlocConvention';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -190,44 +190,6 @@ export default function TabDevisFacturation({
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
   const [messagePerso, setMessagePerso] = useState('');
   const [envoiError, setEnvoiError] = useState<string | null>(null);
-
-  // ── Convention séjour scolaire ──────────────────────────────
-  const [conventionLoading, setConventionLoading] = useState(false);
-  const [conventionSuccess, setConventionSuccess] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  // Aperçu PDF sans effet de bord (pas d'envoi). Ouvre le PDF dans un nouvel onglet.
-  const handlePreviewConvention = async (devisId: string) => {
-    setPreviewLoading(true);
-    try {
-      const res = await api.get(`/devis/${devisId}/convention/preview`, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data as Blob);
-      window.open(url, '_blank');
-    } catch {
-      onError('Erreur lors de la prévisualisation de la convention');
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // Génère + envoie la convention par email au contact (après confirmation).
-  const handleGenererConvention = async (devisId: string, contactEmail?: string | null) => {
-    const cible = contactEmail || 'l\'établissement';
-    if (!window.confirm(`La convention sera envoyée par email à ${cible}. Continuer ?`)) return;
-    setConventionLoading(true);
-    setConventionSuccess(false);
-    try {
-      await genererConvention(devisId);
-      await reloadDevis();
-      setConventionSuccess(true);
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message ?? 'Erreur lors de la génération de la convention';
-      onError(msg);
-    } finally {
-      setConventionLoading(false);
-    }
-  };
 
   // ── Invitation direction (devis collab) ─────────────────────
   const [showInvitationDirection, setShowInvitationDirection] = useState(false);
@@ -1599,54 +1561,14 @@ export default function TabDevisFacturation({
               {/* Convention de séjour scolaire — DIRECT + nature SEJOUR + devis signé */}
               {sejour?.natureSejour === 'SEJOUR'
                 && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(devis.statut) && (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
-                  </div>
-
-                  {devis.conventionUrl && (
-                    <SecureFileLink
-                      url={devis.conventionUrl}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      📄 Télécharger la convention
-                    </SecureFileLink>
-                  )}
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                      onClick={() => handlePreviewConvention(devis.id)}
-                      disabled={previewLoading}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {previewLoading && (
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                      )}
-                      {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
-                    </button>
-                    {peutEcrireDevis && (
-                      <button
-                        onClick={() => handleGenererConvention(devis.id, sejour?.clientEmail)}
-                        disabled={conventionLoading}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        {conventionLoading && (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        )}
-                        {conventionLoading ? 'Envoi…' : devis.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                      </button>
-                    )}
-                  </div>
-
-                  {conventionSuccess && (
-                    <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                      ✅ Convention générée et envoyée par email
-                    </p>
-                  )}
-                </div>
+                <BlocConvention
+                  devisId={devis.id}
+                  conventionUrl={devis.conventionUrl ?? null}
+                  contactEmail={sejour?.clientEmail}
+                  peutEcrireDevis={peutEcrireDevis}
+                  onReload={reloadDevis}
+                  onError={onError}
+                />
               )}
 
               {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
@@ -2100,54 +2022,14 @@ export default function TabDevisFacturation({
                 {sejour?.natureSejour === 'SEJOUR'
                   && user.role === 'HEBERGEUR'
                   && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(d.statut) && (
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">Convention de séjour</h3>
-                    </div>
-
-                    {d.conventionUrl && (
-                      <SecureFileLink
-                        url={d.conventionUrl}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-primary)] underline hover:opacity-80"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                        📄 Télécharger la convention
-                      </SecureFileLink>
-                    )}
-
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <button
-                        onClick={() => handlePreviewConvention(d.id)}
-                        disabled={previewLoading}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        {previewLoading && (
-                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                        )}
-                        {previewLoading ? 'Ouverture…' : '👁 Prévisualiser'}
-                      </button>
-                      {peutEcrireDevis && (
-                        <button
-                          onClick={() => handleGenererConvention(d.id, createur?.email)}
-                          disabled={conventionLoading}
-                          className="inline-flex items-center gap-2 rounded-lg bg-[#1B4060] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                        >
-                          {conventionLoading && (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          )}
-                          {conventionLoading ? 'Envoi…' : d.conventionUrl ? '📤 Renvoyer au client' : '📤 Envoyer au client'}
-                        </button>
-                      )}
-                    </div>
-
-                    {conventionSuccess && (
-                      <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                        ✅ Convention générée et envoyée par email
-                      </p>
-                    )}
-                  </div>
+                  <BlocConvention
+                    devisId={d.id}
+                    conventionUrl={d.conventionUrl ?? null}
+                    contactEmail={createur?.email}
+                    peutEcrireDevis={peutEcrireDevis}
+                    onReload={reloadDevis}
+                    onError={onError}
+                  />
                 )}
 
                 {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
