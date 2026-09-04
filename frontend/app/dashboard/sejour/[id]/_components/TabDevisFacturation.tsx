@@ -7,7 +7,7 @@ import {
   getDevisComplementairesForSejour,
   createDevisComplementaire,
   updateDevis,
-  envoyerDevisDirect,
+  renvoyerDevis,
   emettreFactureAcompte,
   emettreFactureSolde,
   emettreFactureTotal,
@@ -26,6 +26,7 @@ import CatalogueSuggestionInput from '@/src/components/CatalogueSuggestionInput'
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
+import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
@@ -127,7 +128,6 @@ export default function TabDevisFacturation({
   sejourId,
   sejour,
   user,
-  isDirect,
   budgetData,
   onError,
   onReload,
@@ -198,7 +198,6 @@ export default function TabDevisFacturation({
   const [compSelectedOrg, setCompSelectedOrg] = useState<OrganisationResult | null>(null);
 
   const loadComplementaires = useCallback(async () => {
-    if (!isDirect) return;
     setComplementairesLoading(true);
     try {
       const list = await getDevisComplementairesForSejour(sejourId);
@@ -219,12 +218,7 @@ export default function TabDevisFacturation({
       setCompFacturesMap(map);
     } catch { /* ignore */ }
     finally { setComplementairesLoading(false); }
-  }, [isDirect, sejourId]);
-
-  // Source du devis affiché selon le rôle : HEBERGEUR via getDevisForSejour (endpoint
-  // hébergeur) ; ORGANISATEUR via budgetData.devis (getBudgetData, inclut EN_ATTENTE
-  // depuis C2c — getDevisForSejour renverrait 403).
-  const devisAffiche = user.role === 'HEBERGEUR' ? devis : (budgetData?.devis ?? null);
+  }, [sejourId]);
 
   /** Recharge le devis principal : HEBERGEUR → getDevisForSejour ; sinon → onReload parent. */
   const reloadDevis = async () => {
@@ -257,14 +251,13 @@ export default function TabDevisFacturation({
   }, [user.role]);
 
   useEffect(() => {
-    if (isDirect) loadComplementaires();
-  }, [isDirect, sejourId, loadComplementaires]);
+    loadComplementaires();
+  }, [sejourId, loadComplementaires]);
 
   // Catalogue produits pour l'autocomplete des lignes (HEBERGEUR uniquement, comme le devis principal).
   useEffect(() => {
-    if (!isDirect) return; // Pas de catalogue en mode collab
     getCatalogue().then(setCatalogue).catch(() => {});
-  }, [isDirect]);
+  }, []);
 
   // Devis actif (DIRECT ou COLLAB) normalisé pour le pipeline facturation
   const activeDevisForFacturation = devis
@@ -532,9 +525,7 @@ export default function TabDevisFacturation({
     const montant = facture.montantFacture < 0
       ? `−${Math.abs(facture.montantFacture).toFixed(2).replace('.', ',')} €`
       : `${facture.montantFacture.toFixed(2).replace('.', ',')} €`;
-    const titre = isDirect
-      ? (sejour as any).titre ?? 'votre séjour'
-      : budgetData?.sejour?.titre ?? 'votre séjour';
+    const titre = (sejour as any).titre ?? 'votre séjour';
     setEnvoiFactureMessage(
       `Bonjour,\n\nVeuillez trouver ci-joint ${label} n°${facture.numero} d'un montant de ${montant} relative au séjour « ${titre} ».\n\nCordialement`
     );
@@ -755,7 +746,7 @@ export default function TabDevisFacturation({
   };
 
   const renderDevisComplementaires = () => {
-    if (!isDirect || user.role !== 'HEBERGEUR') return null;
+    if (user.role !== 'HEBERGEUR') return null;
     return (
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
         <div className="flex items-center justify-between">
@@ -1197,11 +1188,15 @@ export default function TabDevisFacturation({
     );
   }
 
+  // Étape 4 (docs/CHANTIER_ETAPE4_CLIENT_HEBERGEUR.md) — bascule Lot 2 de ce lecteur, OPTION A :
+  // résolution canonique du destinataire. Fallback createur.telephone/memberships différé (le prop
+  // sejour.createur ne porte que {id,prenom,nom,email}) — complétion = Lot 2 complet, chantier séparé.
+  const clientResolu = resolveClientEtablissement(sejour, { createur: sejour?.createur ?? null });
+
   return (
     <>
-      {/* ── Devis DIRECT — rendu dynamique ─── */}
-      {isDirect && (
-        <div className="space-y-4">
+      {/* ── Vue hébergeur unifiée (DIRECT + collab/rejoint) — étape 3b ─── */}
+      <div className="space-y-4">
           {devisLoading ? (
             <div className="flex justify-center py-8">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
@@ -1231,7 +1226,7 @@ export default function TabDevisFacturation({
                     etatFacturation === 'ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
                     devis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
                     devis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
-                    devis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700') :
+                    devis.statut === 'SIGNE_DIRECTION' ? 'bg-green-100 text-green-700' :
                     devis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
@@ -1239,7 +1234,7 @@ export default function TabDevisFacturation({
                      etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
                      devis.statut === 'EN_ATTENTE' ? 'Brouillon' :
                      devis.statut === 'SELECTIONNE' ? 'Signé' :
-                     devis.statut === 'SIGNE_DIRECTION' ? (isDirect ? 'Signé' : 'Signé direction') :
+                     devis.statut === 'SIGNE_DIRECTION' ? 'Signé' :
                      devis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
                      devis.statut === 'NON_RETENU' ? 'Non retenu' :
                      devis.statut}
@@ -1290,17 +1285,17 @@ export default function TabDevisFacturation({
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {peutEcrireDevis && sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && clientResolu.contactEmail && devis.statut === 'EN_ATTENTE' && (
                   <button
                     onClick={() => { setMessagePerso(''); setEnvoiError(null); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {envoyerLoading ? 'Envoi en cours…' : `📨 Envoyer à ${sejour.clientEmail}`}
+                    {envoyerLoading ? 'Envoi en cours…' : `📨 Envoyer à ${clientResolu.contactEmail}`}
                   </button>
                 )}
 
-                {peutEcrireDevis && !sejour?.clientEmail && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && !clientResolu.contactEmail && devis.statut === 'EN_ATTENTE' && (
                   <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                     Renseignez l&apos;email du client pour pouvoir envoyer le devis par email.
                   </p>
@@ -1321,10 +1316,10 @@ export default function TabDevisFacturation({
                     >
                       <h2 className="text-base font-semibold text-gray-900">
                         Envoyer le devis à{' '}
-                        {[sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || 'votre client'}
+                        {clientResolu.contactNom || 'votre client'}
                       </h2>
-                      {sejour?.clientEmail && (
-                        <p className="text-xs text-gray-500 mt-0.5">{sejour.clientEmail}</p>
+                      {clientResolu.contactEmail && (
+                        <p className="text-xs text-gray-500 mt-0.5">{clientResolu.contactEmail}</p>
                       )}
 
                       <div className="mt-4">
@@ -1379,7 +1374,7 @@ export default function TabDevisFacturation({
                             setEnvoyerLoading(true);
                             setEnvoiError(null);
                             try {
-                              await envoyerDevisDirect(devis.id, messagePerso.trim() || undefined);
+                              await renvoyerDevis(devis.id, messagePerso.trim() || undefined);
                               setShowEnvoiModal(false);
                               setEnvoyerSuccess(true);
                               await reloadDevis();
@@ -1441,6 +1436,7 @@ export default function TabDevisFacturation({
                 <BlocDevisSigne
                   nomSignataire={devis.nomSignataireDirecteur ?? null}
                   dateSignature={devis.dateSignatureDirecteur ?? null}
+                  signatureDocumentUrl={devis.signatureDocumentUrl ?? null}
                 />
               )}
 
@@ -1450,7 +1446,7 @@ export default function TabDevisFacturation({
                 <BlocConvention
                   devisId={devis.id}
                   conventionUrl={devis.conventionUrl ?? null}
-                  contactEmail={sejour?.clientEmail}
+                  contactEmail={clientResolu.contactEmail}
                   peutEcrireDevis={peutEcrireDevis}
                   onReload={reloadDevis}
                   onError={onError}
@@ -1481,23 +1477,18 @@ export default function TabDevisFacturation({
                   telEmetteur: dd.telEntreprise || cc?.telephone || undefined,
                   tvaEmetteur: cc?.tvaIntracommunautaire ?? undefined,
                   ibanEmetteur: cc?.iban ?? undefined,
-                  nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' '),
-                  etablissementNom: sejour?.clientOrganisation ?? undefined,
-                  adresseDestinataire:
-                    [
-                      sejour?.clientAdresse,
-                      [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' '),
-                    ]
-                      .filter(Boolean)
-                      .join(', ') || undefined,
-                  emailDestinataire: sejour?.clientEmail ?? undefined,
-                  telDestinataire: sejour?.clientTelephone ?? undefined,
+                  nomDestinataire: clientResolu.contactNom ?? '',
+                  etablissementNom: clientResolu.nom ?? undefined,
+                  adresseDestinataire: [clientResolu.adresse, [clientResolu.codePostal, clientResolu.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || undefined,
+                  emailDestinataire: clientResolu.contactEmail ?? undefined,
+                  telDestinataire: clientResolu.contactTelephone ?? undefined,
                   titreSejour: sejour?.titre ?? '',
                   lieuSejour: sejour?.lieu ?? '',
                   dateDebutSejour: sejour?.dateDebut ?? undefined,
                   dateFinSejour: sejour?.dateFin ?? undefined,
                   nombreEleves: sejour?.placesTotales ?? undefined,
                   nombreAccompagnateurs: sejour?.nombreAccompagnateurs ?? undefined,
+                  niveauClasse: sejour?.niveauClasse ?? undefined,
                   lignes: (dd.lignes ?? []).map((l) => ({
                     description: l.description,
                     quantite: Number(l.quantite),
@@ -1545,186 +1536,7 @@ export default function TabDevisFacturation({
             </div>
           )}
           {renderDevisComplementaires()}
-        </div>
-      )}
-
-      {/* ── Devis collaboratif ─── */}
-      {!isDirect && (
-        <div>
-          {devisLoading && (
-            <div className="flex justify-center py-12">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
-            </div>
-          )}
-
-          {!devisLoading && !devisAffiche && (
-            <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-              <p className="text-sm text-gray-500">Aucun devis pour ce séjour.</p>
-              {user.role === 'HEBERGEUR' && peutEcrireDevis && (sejour?.clientEmail || sejour?.clientNom) && (
-                <Link
-                  href={`/dashboard/hebergeur/devis/nouveau?sejourDirectId=${sejourId}`}
-                  className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
-                >
-                  Créer un devis
-                </Link>
-              )}
-            </div>
-          )}
-
-          {!devisLoading && devisAffiche && budgetData?.sejour && (() => {
-            const d = devisAffiche! as DevisType;
-            const s = budgetData.sejour;
-            const c = d.centre;
-            const createur = s?.createur;
-            const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
-            const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
-            const tvaCalc = Number(d.montantTVA) || (ttcCalc - htCalc);
-
-            const pdfProps: DevisPDFProps = {
-              typeDocument: 'DEVIS',
-              numeroDocument: d.numeroDevis ?? `DEV-${d.id.substring(0, 8).toUpperCase()}`,
-              dateDocument: d.createdAt,
-              dateValidite: new Date(new Date(d.createdAt).getTime() + 30 * 86400000).toISOString(),
-              nomEmetteur: d.nomEntreprise || c?.nom || '',
-              adresseEmetteur: d.adresseEntreprise || [c?.adresse, c?.codePostal, c?.ville].filter(Boolean).join(', '),
-              siretEmetteur: d.siretEntreprise || c?.siret || undefined,
-              emailEmetteur: d.emailEntreprise || c?.email || undefined,
-              telEmetteur: d.telEntreprise || c?.telephone || undefined,
-              tvaEmetteur: c?.tvaIntracommunautaire ?? undefined,
-              ibanEmetteur: c?.iban ?? undefined,
-              nomDestinataire: [sejour?.clientPrenom, sejour?.clientNom].filter(Boolean).join(' ') || (createur ? `${createur.prenom} ${createur.nom}` : ''),
-              etablissementNom: sejour?.clientOrganisation ?? undefined,
-              adresseDestinataire:
-                [sejour?.clientAdresse,
-                 [sejour?.clientCodePostal, sejour?.clientVille].filter(Boolean).join(' ')]
-                  .filter(Boolean).join(', ') || undefined,
-              emailDestinataire: sejour?.clientEmail ?? createur?.email ?? undefined,
-              telDestinataire: createur?.telephone ?? undefined,
-              titreSejour: s?.titre ?? '',
-              lieuSejour: s?.lieu ?? '',
-              dateDebutSejour: s?.dateDebut ?? undefined,
-              dateFinSejour: s?.dateFin ?? undefined,
-              nombreEleves: s?.placesTotales ?? undefined,
-              nombreAccompagnateurs: s?.nombreAccompagnateurs ?? undefined,
-              niveauClasse: s?.niveauClasse ?? undefined,
-              lignes: (d.lignes ?? []).map((l: any) => ({
-                description: l.description,
-                quantite: Number(l.quantite),
-                prixUnitaire: Number(l.prixUnitaire),
-                tva: Number(l.tva),
-                totalHT: Number(l.totalHT),
-                totalTTC: Number(l.totalTTC),
-              })),
-              montantHT: htCalc,
-              montantTVA: tvaCalc,
-              montantTTC: ttcCalc,
-              montantAcompte: Number(d.montantAcompte) || undefined,
-              montantSolde: Number(d.montantSolde) || undefined,
-              pourcentageAcompte: Number(d.pourcentageAcompte) || undefined,
-              conditionsAnnulation: d.conditionsAnnulation ?? undefined,
-              signatureDirecteur: d.signatureDirecteur ?? null,
-              logoUrl: c?.logoUrl ?? null,
-            };
-
-            return (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <DevisPDFButton
-                      data={pdfProps}
-                      filename={`devis-${pdfProps.numeroDocument}.pdf`}
-                      label="Télécharger le devis"
-                    />
-                    {d.signatureDirecteur && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-xs font-medium text-purple-700">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        {d.statut === 'SIGNE_DIRECTION' ? 'Signé par la direction' : 'Signé'}
-                        {d.nomSignataireDirecteur && <> — {d.nomSignataireDirecteur}</>}
-                        {d.dateSignatureDirecteur && <> le {new Date(d.dateSignatureDirecteur).toLocaleDateString('fr-FR')}</>}
-                      </span>
-                    )}
-                    {d.signatureDocumentUrl && (
-                      <SecureFileLink
-                        url={d.signatureDocumentUrl}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 px-3 py-2 text-xs font-medium text-purple-700 hover:bg-purple-50"
-                      >
-                        Voir le document signé
-                      </SecureFileLink>
-                    )}
-                    {peutEcrireDevis && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
-                      <MarquerSignePanel
-                        devisId={d.id}
-                        buttonLabel="Enregistrer la signature direction"
-                        onReload={reloadDevis}
-                        onError={onError}
-                      />
-                    )}
-                  </div>
-                  {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(d.statut) && !factureAcompte && (
-                    <a
-                      href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
-                      className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                      </svg>
-                      Modifier le devis
-                    </a>
-                  )}
-                  {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
-                  {peutEcrireDevis && factureAcompte && !factureSolde && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION') && (
-                    <a
-                      href={`/dashboard/hebergeur/devis/${d.id}/modifier`}
-                      className="flex items-center gap-2 rounded-lg border border-amber-300 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                      </svg>
-                      Ajuster avant solde
-                    </a>
-                  )}
-                </div>
-                <DevisPdfViewer documentUrl={d.documentUrl ?? null} pdfProps={pdfProps} />
-
-                {/* Bloc « Devis signé » — COLLABORATIF, côté hébergeur. Affiché dès
-                    lors que le devis est signé (en ligne OU scan uploadé : le scan
-                    ne renseigne pas le nom → date seule). */}
-                {user.role === 'HEBERGEUR'
-                  && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION')
-                  && (d.nomSignataireDirecteur || d.dateSignatureDirecteur) && (
-                  <BlocDevisSigne
-                    nomSignataire={d.nomSignataireDirecteur ?? null}
-                    dateSignature={d.dateSignatureDirecteur ?? null}
-                  />
-                )}
-
-                {/* Convention de séjour scolaire — COLLABORATIF + nature SEJOUR + devis signé */}
-                {sejour?.natureSejour === 'SEJOUR'
-                  && user.role === 'HEBERGEUR'
-                  && ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE'].includes(d.statut) && (
-                  <BlocConvention
-                    devisId={d.id}
-                    conventionUrl={d.conventionUrl ?? null}
-                    contactEmail={createur?.email}
-                    peutEcrireDevis={peutEcrireDevis}
-                    onReload={reloadDevis}
-                    onError={onError}
-                  />
-                )}
-
-                {/* Aperçu du contrat événement AVANT envoi (nature EVENEMENT) */}
-                {sejour?.natureSejour === 'EVENEMENT' && user.role === 'HEBERGEUR' && (
-                  <BlocContratEvenement devisId={d.id} onError={onError} />
-                )}
-
-                {renderFacturationPipeline()}
-              </div>
-            );
-          })()}
-        </div>
-      )}
+      </div>
 
       {/* ── Modale avoir ─── */}
       {/* ── Modale double-confirmation annulation devis ─── */}
