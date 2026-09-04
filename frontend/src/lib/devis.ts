@@ -541,6 +541,21 @@ export async function envoyerDevisDirect(
   return data;
 }
 
+/**
+ * Point d'entrée UNIQUE de (r)envoi d'un devis à signer : le backend route seul
+ * vers l'organisateur rattaché (lien signature) ou le client externe (envoyer-direct).
+ */
+export async function renvoyerDevis(
+  devisId: string,
+  messagePersonnalise?: string,
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(
+    `/devis/${devisId}/renvoyer`,
+    { messagePersonnalise },
+  );
+  return data;
+}
+
 /** Génère (ou retourne) la convention de séjour scolaire — déclenché par l'hébergeur après signature. */
 export async function genererConvention(devisId: string): Promise<{ conventionUrl: string; success: boolean; alreadyGenerated?: boolean }> {
   const res = await api.post(`/devis/${devisId}/convention`);
