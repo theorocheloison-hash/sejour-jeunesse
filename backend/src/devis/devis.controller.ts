@@ -281,6 +281,19 @@ export class DevisController {
     return this.devisService.envoyerDevisDirect(id, user.id, centreId, body?.messagePersonnalise);
   }
 
+  /** POST /devis/:id/renvoyer — Point d'entrée unique de (r)envoi : route organisateur rattaché / client externe */
+  @Post(':id/renvoyer')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  renvoyer(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Body() body: { messagePersonnalise?: string },
+  ) {
+    return this.devisService.renvoyerDevis(id, user.id, centreId, body?.messagePersonnalise);
+  }
+
   /** POST /devis/:id/convention — Générer ET envoyer la convention de séjour scolaire (hébergeur, après signature) */
   @Post(':id/convention')
   @Roles(Role.HEBERGEUR)
