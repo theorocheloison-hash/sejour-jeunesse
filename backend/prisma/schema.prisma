@@ -982,6 +982,9 @@ model Devis {
 
   // Date du dernier envoi du devis au client (null = jamais envoyé).
   dateEnvoi DateTime? @map("date_envoi")
+  // Traçabilité d'envoi manuel : dernier destinataire + compteur (repère « 2ᵉ envoi »).
+  dernierDestinataireEnvoi String? @map("dernier_destinataire_envoi")
+  nombreEnvois             Int     @default(0) @map("nombre_envois")
 
   // ── Devis complémentaire : payeur additionnel (AS, Mairie…) avec destinataire propre ──
   isComplementaire      Boolean  @default(false) @map("is_complementaire")
