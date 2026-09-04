@@ -39,6 +39,7 @@ import { extractApiError } from '@/src/contexts/AuthContext';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
+import BlocDevisSigne from './devis-facturation/BlocDevisSigne';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -1602,17 +1603,10 @@ export default function TabDevisFacturation({
                   signataire : on retombe alors sur la date seule. */}
               {(devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION')
                 && (devis.nomSignataireDirecteur || devis.dateSignatureDirecteur) && (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                  <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
-                  <p className="text-xs text-green-700 mt-1">
-                    {devis.nomSignataireDirecteur
-                      ? `Signé par ${devis.nomSignataireDirecteur}`
-                      : 'Document signé'}
-                    {devis.dateSignatureDirecteur && (
-                      ` le ${new Date(devis.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(devis.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                    )}
-                  </p>
-                </div>
+                <BlocDevisSigne
+                  nomSignataire={devis.nomSignataireDirecteur ?? null}
+                  dateSignature={devis.dateSignatureDirecteur ?? null}
+                />
               )}
 
               {/* Convention de séjour scolaire — DIRECT + nature SEJOUR + devis signé */}
@@ -2121,17 +2115,10 @@ export default function TabDevisFacturation({
                 {user.role === 'HEBERGEUR'
                   && (d.statut === 'SELECTIONNE' || d.statut === 'SIGNE_DIRECTION')
                   && (d.nomSignataireDirecteur || d.dateSignatureDirecteur) && (
-                  <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                    <p className="text-sm font-semibold text-green-800">✅ Devis signé</p>
-                    <p className="text-xs text-green-700 mt-1">
-                      {d.nomSignataireDirecteur
-                        ? `Signé par ${d.nomSignataireDirecteur}`
-                        : 'Document signé'}
-                      {d.dateSignatureDirecteur && (
-                        ` le ${new Date(d.dateSignatureDirecteur).toLocaleDateString('fr-FR')} à ${new Date(d.dateSignatureDirecteur).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                      )}
-                    </p>
-                  </div>
+                  <BlocDevisSigne
+                    nomSignataire={d.nomSignataireDirecteur ?? null}
+                    dateSignature={d.dateSignatureDirecteur ?? null}
+                  />
                 )}
 
                 {/* Convention de séjour scolaire — COLLABORATIF + nature SEJOUR + devis signé */}
