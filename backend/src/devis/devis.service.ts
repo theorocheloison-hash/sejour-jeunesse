@@ -1638,26 +1638,192 @@ export class DevisService {
   }
 
   /**
-   * Point d'entrée UNIQUE du bouton « Renvoyer » : route vers l'organisateur rattaché
-   * (lien signature) ou vers le client externe (envoyerDevisDirect). La bifurcation
-   * de mode vit ici, à un seul endroit.
+   * Envoi MANUEL unifié du devis — chemin unique pour les 3 formats (DIRECT pur,
+   * rejoint, COLLAB pur). Email destinataire ÉDITABLE (pré-rempli côté front depuis
+   * la fiche séjour). Composition conditionnelle : lien public de signature si
+   * sejourDirectId ; bouton « Accéder à mon espace » (page de login, JAMAIS de
+   * magic link) UNIQUEMENT si l'email envoyé est celui du compte organisateur.
    */
-  async renvoyerDevis(
+  async envoyerDevis(
     devisId: string,
     userId: string,
-    centreId?: string | null,
+    centreId: string | null | undefined,
+    emailDestinataire: string,
     messagePersonnalise?: string,
   ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    // Message libre de l'hébergeur : trim + tronqué à 2000 + échappé + sauts de ligne
+    const messageEchappe = messagePersonnalise
+      ? escapeHtml(messagePersonnalise.trim().slice(0, 2000)).replace(/\n/g, '<br>')
+      : '';
+    const messageBlock = messageEchappe
+      ? `<div style="margin:16px 0; padding:16px; background:#f5f4f1; border-radius:8px; border-left:3px solid #C87D2E; font-size:14px; color:#333; line-height:1.6;">${messageEchappe}</div>`
+      : '';
+
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
-      select: { sejourDirect: { select: { createurId: true } } },
+      include: {
+        lignes: true,
+        sejourDirect: {
+          select: {
+            id: true, createurId: true, titre: true, dateDebut: true, dateFin: true,
+            placesTotales: true, nombreAccompagnateurs: true,
+            natureSejour: true, typeSejour: true,
+          },
+        },
+        demande: {
+          select: {
+            enseignantId: true, sejourId: true,
+            sejour: {
+              select: {
+                titre: true, dateDebut: true, dateFin: true,
+                placesTotales: true, nombreAccompagnateurs: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
+    }
+    // Un devis signé ou facturé ne peut plus être renvoyé : il s'ajuste avant le
+    // solde, sans notification. Le lien public d'origine reste consultable.
+    if (devis.statut !== 'EN_ATTENTE') {
+      throw new ForbiddenException(
+        'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
+        'Le lien de signature d\'origine reste consultable par le client.',
+      );
+    }
+    const emailCible = emailDestinataire?.trim() ?? '';
+    if (!emailCible || !/^\S+@\S+\.\S+$/.test(emailCible)) {
+      throw new ForbiddenException('Adresse email du destinataire invalide');
+    }
 
-    const aUnOrganisateur = devis.sejourDirect?.createurId != null;
-    return aUnOrganisateur
-      ? this.renvoyerDevisOrganisateur(devisId, userId, centreId)
-      : this.envoyerDevisDirect(devisId, userId, centreId, messagePersonnalise);
+    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
+    // externe interdit, sauf vers sa propre adresse (test onboarding).
+    // Email du user rechargé depuis la base (pas du body).
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    await assertEnvoiExterneAutorise(this.prisma, centre, emailCible, me?.email ?? '');
+
+    // createurId = compte ORGANISATEUR rattaché (jamais l'hébergeur — cf. roadmap 04/09) ;
+    // en COLLAB pur, l'organisateur est l'enseignant de la demande.
+    const organisateurId = devis.sejourDirect?.createurId ?? devis.demande?.enseignantId ?? null;
+    const organisateur = organisateurId
+      ? await this.prisma.user.findUnique({ where: { id: organisateurId }, select: { email: true } })
+      : null;
+    const estCompteOrganisateur =
+      !!organisateur && emailCible.toLowerCase() === organisateur.email.toLowerCase();
+    const sejourIdPourEspace = devis.sejourDirect?.id ?? devis.demande?.sejourId ?? null;
+
+    const sejourInfo = devis.sejourDirect ?? devis.demande?.sejour ?? null;
+    const titre = sejourInfo?.titre ?? '';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
+    const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
+
+    // ── Génération contrat PDF (si centre a un IBAN — spécifique événements) ──
+    const isEvenement = devis.sejourDirect?.natureSejour === 'EVENEMENT'
+      || devis.sejourDirect?.typeSejour?.includes('MARIAGE')
+      || devis.sejourDirect?.typeSejour?.includes('ANNIVERSAIRE')
+      || devis.sejourDirect?.typeSejour?.includes('SEMINAIRE')
+      || devis.sejourDirect?.typeSejour?.includes('TEAM_BUILDING')
+      || devis.sejourDirect?.typeSejour?.includes('REUNION_FAMILLE');
+    const isSauvageon = centre.email === 'resa@lesauvageon.com';
+    if (isEvenement && isSauvageon && centre.iban) {
+      try {
+        const { buffer, fileName } = await this.buildContratEvenementPdf(devisId, userId, centreId);
+        const contratUrl = await this.storage.uploadBuffer(buffer, fileName, 'contrats', 'application/pdf');
+        await this.prisma.devis.update({ where: { id: devisId }, data: { contratUrl } });
+      } catch (err) {
+        console.error('Erreur génération contrat PDF:', err);
+      }
+    }
+
+    // Boutons conditionnels : lien public si signature par token possible ;
+    // bouton espace (page de login, PAS de magic link) si l'email est celui du compte organisateur.
+    const lienPublicBlock = devis.sejourDirectId && devis.tokenSignature
+      ? `<p>Consultez le devis complet et signez-le en ligne :</p>
+       <p style="margin:24px 0">
+         <a href="${frontendUrl}/devis/signer/${devis.tokenSignature}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Voir et signer le devis
+         </a>
+       </p>
+       <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${frontendUrl}/devis/signer/${devis.tokenSignature}</p>`
+      : '';
+    const lienEspaceBlock = estCompteOrganisateur && sejourIdPourEspace
+      ? `<p style="font-size:13px;color:#555;">Ce devis est aussi disponible sur votre espace LIAVO (connexion requise).</p>
+       <p style="margin:16px 0">
+         <a href="${frontendUrl}/dashboard/sejour/${sejourIdPourEspace}" style="display:inline-block;background:#fff;color:#1B4060;border:1px solid #1B4060;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+           Accéder à mon espace
+         </a>
+       </p>`
+      : '';
+
+    await this.email.sendGenericNotification(
+      emailCible,
+      `Un devis à signer — ${titre}`,
+      `<p>Bonjour,</p>
+       <p>Veuillez trouver ci-joint le devis pour :</p>
+       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${titre}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejourInfo?.dateDebut ?? null)} → ${fmt(sejourInfo?.dateFin ?? null)}</td></tr>
+         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${formatParticipants(sejourInfo?.placesTotales ?? 0, sejourInfo?.nombreAccompagnateurs)}</td></tr>
+         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
+       </table>
+       ${messageBlock}
+       ${lienPublicBlock}
+       ${lienEspaceBlock}`,
+      centre.nom,
+      centre.email ? { name: centre.nom, email: centre.email } : undefined,
+      null,
+    );
+
+    // Trace du dernier envoi — posée APRÈS le succès de l'email (un échec d'envoi
+    // ne doit pas marquer le devis comme envoyé).
+    await this.prisma.devis.update({
+      where: { id: devisId },
+      data: {
+        dateEnvoi: new Date(),
+        nombreEnvois: { increment: 1 },
+        dernierDestinataireEnvoi: emailCible,
+      },
+    });
+
+    // Log CRM non bloquant
+    try {
+      const sejourIdLog = devis.sejourDirect?.id ?? devis.demande?.sejourId ?? null;
+      const sejourClient = sejourIdLog
+        ? await this.prisma.sejourClient.findFirst({
+            where: { sejourId: sejourIdLog },
+            select: { clientId: true },
+          })
+        : null;
+      if (sejourClient && sejourIdLog) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            sejourId: sejourIdLog,
+            type: 'DEVIS',
+            description: `Devis ${devis.numeroDevis ?? ''} envoyé — ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
+            metadata: {
+              devisId,
+              sejourId: sejourIdLog,
+              emailType: 'DEVIS',
+              to: emailCible,
+              subject: `Un devis à signer — ${titre}`,
+              messagePreview: messagePersonnalise?.trim().slice(0, 2000) ?? '',
+            },
+            userId,
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { success: true, message: 'Devis envoyé par email' };
   }
 
   /**
@@ -1854,163 +2020,6 @@ export class DevisService {
     return { buffer: pdfBuffer, fileName: `contrat-${devis.numeroDevis ?? devis.id}.pdf` };
   }
 
-  /**
-   * Envoie un devis DIRECT par email au client avec lien de signature.
-   */
-  async envoyerDevisDirect(
-    devisId: string,
-    userId: string,
-    centreId?: string | null,
-    messagePersonnalise?: string,
-  ) {
-    const centre = await getCentreForUser(this.prisma, userId, centreId);
-
-    // Message libre de l'hébergeur : trim + tronqué à 2000 + échappé + sauts de ligne
-    const messageEchappe = messagePersonnalise
-      ? escapeHtml(messagePersonnalise.trim().slice(0, 2000)).replace(/\n/g, '<br>')
-      : '';
-    const messageBlock = messageEchappe
-      ? `<div style="margin:16px 0; padding:16px; background:#f5f4f1; border-radius:8px; border-left:3px solid #C87D2E; font-size:14px; color:#333; line-height:1.6;">${messageEchappe}</div>`
-      : '';
-
-    const devis = await this.prisma.devis.findUnique({
-      where: { id: devisId },
-      include: {
-        lignes: true,
-        sejourDirect: {
-          select: {
-            id: true, titre: true, dateDebut: true, dateFin: true,
-            clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true,
-            clientOrganisation: true, modeGestion: true, placesTotales: true,
-            nombreAccompagnateurs: true,
-            natureSejour: true, typeSejour: true,
-          },
-        },
-      },
-    });
-    if (!devis) throw new NotFoundException('Devis introuvable');
-    if (devis.isComplementaire) {
-      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
-    }
-    if (devis.centreId !== centre.id) throw new ForbiddenException();
-    if (!devis.sejourDirectId || !devis.sejourDirect) {
-      throw new ForbiddenException('Ce devis n\'est pas un devis direct');
-    }
-    if (devis.sejourDirect.modeGestion !== 'DIRECT') {
-      throw new ForbiddenException('Le séjour n\'est pas en gestion directe');
-    }
-
-    const clientEmail = devis.sejourDirect.clientEmail;
-    if (!clientEmail) {
-      throw new ForbiddenException('L\'email du client est requis pour envoyer le devis');
-    }
-
-    // Validation non acquise (centre PENDING ou revendication en attente) : envoi
-    // externe interdit, sauf vers sa propre adresse (test onboarding).
-    // Email du user rechargé depuis la base (pas du body).
-    {
-      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-      await assertEnvoiExterneAutorise(this.prisma, centre, clientEmail, me?.email ?? '');
-    }
-
-    // Un devis signé ou facturé ne peut plus être renvoyé : le renvoi forçait
-    // EN_ATTENTE et annulait silencieusement la signature (course UI périmée).
-    // Le lien public d'un devis signé reste consultable en lecture seule.
-    if (devis.statut !== 'EN_ATTENTE') {
-      throw new ForbiddenException(
-        'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
-        'Le lien de signature d\'origine reste consultable par le client.',
-      );
-    }
-
-    const token = devis.tokenSignature;
-    if (!token) {
-      throw new ForbiddenException('Token de signature manquant sur le devis');
-    }
-
-    const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
-    const sejour = devis.sejourDirect;
-
-    // ── Génération contrat PDF (si centre a un IBAN — spécifique événements) ──
-    let contratUrl: string | null = null;
-    const isEvenement = sejour.natureSejour === 'EVENEMENT'
-      || sejour.typeSejour?.includes('MARIAGE')
-      || sejour.typeSejour?.includes('ANNIVERSAIRE')
-      || sejour.typeSejour?.includes('SEMINAIRE')
-      || sejour.typeSejour?.includes('TEAM_BUILDING')
-      || sejour.typeSejour?.includes('REUNION_FAMILLE');
-    const isSauvageon = centre.email === 'resa@lesauvageon.com';
-    if (isEvenement && isSauvageon && centre.iban) {
-      try {
-        const { buffer, fileName } = await this.buildContratEvenementPdf(devisId, userId, centreId);
-        contratUrl = await this.storage.uploadBuffer(buffer, fileName, 'contrats', 'application/pdf');
-        await this.prisma.devis.update({ where: { id: devisId }, data: { contratUrl } });
-      } catch (err) {
-        console.error('Erreur génération contrat PDF:', err);
-      }
-    }
-
-    await this.email.sendGenericNotification(
-      clientEmail,
-      `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
-      `<p>Bonjour${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ') ? ` ${[sejour.clientPrenom, sejour.clientNom].filter(Boolean).join(' ')}` : ''},</p>
-       <p>Veuillez trouver ci-joint le devis pour :</p>
-       <table style="width:100%;border-collapse:collapse;margin:16px 0">
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${sejour.titre}</td></tr>
-         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${fmt(sejour.dateDebut)} → ${fmt(sejour.dateFin)}</td></tr>
-         <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Participants</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${formatParticipants(sejour.placesTotales, sejour.nombreAccompagnateurs)}</td></tr>
-         <tr><td style="padding:8px 12px;font-size:13px;color:#666">Montant TTC</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td></tr>
-       </table>
-       ${messageBlock}
-       <p>Consultez le devis complet et signez-le en ligne :</p>
-       <p style="margin:24px 0">
-         <a href="${frontendUrl}/devis/signer/${token}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-           Voir et signer le devis
-         </a>
-       </p>
-       <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${frontendUrl}/devis/signer/${token}</p>`,
-      centre.nom,
-      centre.email ? { name: centre.nom, email: centre.email } : undefined,
-      null,
-    );
-
-    // Trace du dernier envoi — posé APRÈS le succès de l'email (un échec d'envoi
-    // ne doit pas marquer le devis comme envoyé).
-    await this.prisma.devis.update({
-      where: { id: devisId },
-      data: { dateEnvoi: new Date() },
-    });
-
-    try {
-      const sejourClient = await this.prisma.sejourClient.findFirst({
-        where: { sejourId: sejour.id },
-        select: { clientId: true },
-      });
-      if (sejourClient) {
-        await this.prisma.activiteClient.create({
-          data: {
-            clientId: sejourClient.clientId,
-            centreId: centre.id,
-            sejourId: sejour.id,
-            type: 'DEVIS',
-            description: `Devis ${devis.numeroDevis ?? ''} envoyé — ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
-            metadata: {
-              devisId,
-              sejourId: sejour.id,
-              emailType: 'DEVIS',
-              to: clientEmail,
-              subject: `Devis ${devis.numeroDevis ?? ''} — ${centre.nom}`,
-              messagePreview: messagePersonnalise?.trim().slice(0, 2000) ?? '',
-            },
-            userId,
-          },
-        });
-      }
-    } catch { /* non bloquant */ }
-
-    return { success: true, message: 'Devis envoyé par email' };
-  }
 
   /**
    * Génère la convention de séjour scolaire (phase 1 : template Sauvageon hardcodé),

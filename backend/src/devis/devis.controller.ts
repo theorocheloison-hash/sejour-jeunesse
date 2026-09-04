@@ -268,20 +268,7 @@ export class DevisController {
   // Désormais : POST /factures/acompte, POST /factures/solde,
   // POST /factures/:id/versements, PATCH /factures/:id/valider-acompte, etc.
 
-  /** POST /devis/:id/envoyer-direct — Envoyer un devis DIRECT par email */
-  @Post(':id/envoyer-direct')
-  @Roles(Role.HEBERGEUR)
-  @RequirePermission('devis')
-  envoyerDirect(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtUser,
-    @CentreId() centreId: string | null,
-    @Body() body: { messagePersonnalise?: string },
-  ) {
-    return this.devisService.envoyerDevisDirect(id, user.id, centreId, body?.messagePersonnalise);
-  }
-
-  /** POST /devis/:id/renvoyer — Point d'entrée unique de (r)envoi : route organisateur rattaché / client externe */
+  /** POST /devis/:id/renvoyer — Envoi manuel unifié (3 formats), email destinataire éditable */
   @Post(':id/renvoyer')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('devis')
@@ -289,9 +276,9 @@ export class DevisController {
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
     @CentreId() centreId: string | null,
-    @Body() body: { messagePersonnalise?: string },
+    @Body() body: { emailDestinataire: string; messagePersonnalise?: string },
   ) {
-    return this.devisService.renvoyerDevis(id, user.id, centreId, body?.messagePersonnalise);
+    return this.devisService.envoyerDevis(id, user.id, centreId, body?.emailDestinataire, body?.messagePersonnalise);
   }
 
   /** POST /devis/:id/convention — Générer ET envoyer la convention de séjour scolaire (hébergeur, après signature) */
