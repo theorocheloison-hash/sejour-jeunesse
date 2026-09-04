@@ -7,7 +7,7 @@ import {
   getDevisComplementairesForSejour,
   createDevisComplementaire,
   updateDevis,
-  renvoyerDevis,
+  envoyerDevis,
   emettreFactureAcompte,
   emettreFactureSolde,
   emettreFactureTotal,
@@ -139,7 +139,7 @@ export default function TabDevisFacturation({
   const [devis, setDevis] = useState<DevisType | null>(null);
   const [devisLoading, setDevisLoading] = useState(false);
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
-  const [envoyerSuccess, setEnvoyerSuccess] = useState(false);
+  const [emailDestinataire, setEmailDestinataire] = useState('');
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
   const [messagePerso, setMessagePerso] = useState('');
   const [envoiError, setEnvoiError] = useState<string | null>(null);
@@ -1212,12 +1212,14 @@ export default function TabDevisFacturation({
                     <p className="text-xs text-gray-400 mt-0.5">
                       Créé le {new Date(devis.createdAt).toLocaleDateString('fr-FR')}
                     </p>
-                    {devis.statut === 'EN_ATTENTE' && devis.dateEnvoi && (
-                      <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-600">
+                    {devis.dateEnvoi && (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-lg bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                        Devis envoyé le {new Date(devis.dateEnvoi).toLocaleDateString('fr-FR')}
+                        {(devis.nombreEnvois ?? 0) > 1 ? `${devis.nombreEnvois}ᵉ envoi` : 'Envoyé'}
+                        {devis.dernierDestinataireEnvoi ? ` à ${devis.dernierDestinataireEnvoi}` : ''}
+                        {` le ${new Date(devis.dateEnvoi).toLocaleDateString('fr-FR')}`}
                       </p>
                     )}
                   </div>
@@ -1285,26 +1287,14 @@ export default function TabDevisFacturation({
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {peutEcrireDevis && clientResolu.contactEmail && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && devis.statut === 'EN_ATTENTE' && (
                   <button
-                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setShowEnvoiModal(true); }}
+                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
-                    {envoyerLoading ? 'Envoi en cours…' : `📨 Envoyer à ${clientResolu.contactEmail}`}
+                    {envoyerLoading ? 'Envoi en cours…' : '📨 Envoyer le devis au client'}
                   </button>
-                )}
-
-                {peutEcrireDevis && !clientResolu.contactEmail && devis.statut === 'EN_ATTENTE' && (
-                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                    Renseignez l&apos;email du client pour pouvoir envoyer le devis par email.
-                  </p>
-                )}
-
-                {envoyerSuccess && (
-                  <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                    ✅ Devis envoyé par email ! Le client recevra un lien pour consulter et signer le devis.
-                  </p>
                 )}
 
                 {showEnvoiModal && devis && (
@@ -1318,9 +1308,19 @@ export default function TabDevisFacturation({
                         Envoyer le devis à{' '}
                         {clientResolu.contactNom || 'votre client'}
                       </h2>
-                      {clientResolu.contactEmail && (
-                        <p className="text-xs text-gray-500 mt-0.5">{clientResolu.contactEmail}</p>
-                      )}
+
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email du destinataire
+                        </label>
+                        <input
+                          type="email"
+                          value={emailDestinataire}
+                          onChange={(e) => setEmailDestinataire(e.target.value)}
+                          placeholder="client@exemple.fr"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                        />
+                      </div>
 
                       <div className="mt-4">
                         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1374,9 +1374,8 @@ export default function TabDevisFacturation({
                             setEnvoyerLoading(true);
                             setEnvoiError(null);
                             try {
-                              await renvoyerDevis(devis.id, messagePerso.trim() || undefined);
+                              await envoyerDevis(devis.id, emailDestinataire.trim(), messagePerso.trim() || undefined);
                               setShowEnvoiModal(false);
-                              setEnvoyerSuccess(true);
                               await reloadDevis();
                             } catch (err) {
                               // extractApiError parse CENTRE_EN_VALIDATION|… et n'affiche
@@ -1386,7 +1385,7 @@ export default function TabDevisFacturation({
                               setEnvoyerLoading(false);
                             }
                           }}
-                          disabled={envoyerLoading}
+                          disabled={envoyerLoading || !/^\S+@\S+\.\S+$/.test(emailDestinataire.trim())}
                           className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                         >
                           {envoyerLoading && (

@@ -134,6 +134,9 @@ export interface Devis {
   createdAt: string;
   // Date du dernier envoi du devis au client (null = jamais envoyé). Source backend : Devis.dateEnvoi.
   dateEnvoi?: string | null;
+  // Traçabilité d'envoi manuel (repère « 2e envoi » côté hébergeur).
+  dernierDestinataireEnvoi?: string | null;
+  nombreEnvois?: number;
   // Professional fields
   nomEntreprise?: string | null;
   adresseEntreprise?: string | null;
@@ -518,11 +521,6 @@ export async function regenererFacturePdf(factureId: string): Promise<{ pdfUrl: 
   return data;
 }
 
-export async function notifierEnseignantDevis(devisId: string): Promise<{ success: boolean }> {
-  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/notifier-enseignant`);
-  return data;
-}
-
 // ── Séjour DIRECT ────────────────────────────────────────────────────────
 
 export async function createDirectDevis(dto: CreateDevisDto & { sejourDirectId: string }): Promise<Devis> {
@@ -530,28 +528,18 @@ export async function createDirectDevis(dto: CreateDevisDto & { sejourDirectId: 
   return data;
 }
 
-export async function envoyerDevisDirect(
-  devisId: string,
-  messagePersonnalise?: string,
-): Promise<{ success: boolean }> {
-  const { data } = await api.post<{ success: boolean }>(
-    `/devis/${devisId}/envoyer-direct`,
-    { messagePersonnalise },
-  );
-  return data;
-}
-
 /**
- * Point d'entrée UNIQUE de (r)envoi d'un devis à signer : le backend route seul
- * vers l'organisateur rattaché (lien signature) ou le client externe (envoyer-direct).
+ * Envoi MANUEL unifié du devis (3 formats) — email destinataire éditable.
+ * Le backend compose l'email (lien public / bouton espace) selon le format.
  */
-export async function renvoyerDevis(
+export async function envoyerDevis(
   devisId: string,
+  emailDestinataire: string,
   messagePersonnalise?: string,
 ): Promise<{ success: boolean }> {
   const { data } = await api.post<{ success: boolean }>(
     `/devis/${devisId}/renvoyer`,
-    { messagePersonnalise },
+    { emailDestinataire, messagePersonnalise },
   );
   return data;
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getDevisDetail, updateDevis, notifierEnseignantDevis } from '@/src/lib/devis';
+import { getDevisDetail, updateDevis } from '@/src/lib/devis';
 import type { Devis, LigneDevis } from '@/src/lib/devis';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
@@ -50,8 +50,6 @@ export default function ModifierDevisPage() {
   // Submit state
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [notifying, setNotifying] = useState(false);
-  const [notified, setNotified] = useState(false);
   const [nombreEleves, setNombreEleves] = useState<number>(0);
   const [nombreAccompagnateurs, setNombreAccompagnateurs] = useState<number>(0);
 
@@ -162,20 +160,6 @@ export default function ModifierDevisPage() {
             <Link href="/dashboard/hebergeur/devis" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors">
               Voir mes devis
             </Link>
-            <button
-              onClick={async () => {
-                setNotifying(true);
-                try {
-                  await notifierEnseignantDevis(devisId);
-                  setNotified(true);
-                } catch { /* ignore */ }
-                finally { setNotifying(false); }
-              }}
-              disabled={notifying || notified}
-              className="rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {notified ? '✓ Enseignant notifié' : notifying ? 'Envoi...' : '📧 Notifier l\'enseignant'}
-            </button>
           </div>
         </div>
       </div>
