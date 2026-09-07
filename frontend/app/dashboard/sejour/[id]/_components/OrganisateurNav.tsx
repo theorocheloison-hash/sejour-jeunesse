@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { FileSignature, GraduationCap, MapPin, MessagesSquare, Users, Wallet } from 'lucide-react';
 import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collaboration';
 import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
 import SousOnglets from './SousOnglets';
@@ -112,6 +114,17 @@ export const ONGLET_PAR_BLOC: Record<string, string[]> = {
 
 // ─── Rendu ──────────────────────────────────────────────────────────────────
 
+/** Pictogramme de chaque bloc de nav (Lot 1 onboarding) — nav seulement, pas
+ * les sous-onglets. */
+const ICONE_BLOC: Record<string, LucideIcon> = {
+  reservation: FileSignature,
+  pedagogie: GraduationCap,
+  budget: Wallet,
+  inscriptions: Users,
+  surplace: MapPin,
+  echanges: MessagesSquare,
+};
+
 const PASTILLE: Record<EtatBloc, { cls: string; symbole: string; title: string }> = {
   fait: { cls: 'bg-[var(--color-success)] text-white', symbole: '✓', title: 'Fait' },
   encours: { cls: 'bg-blue-500 text-white', symbole: '…', title: 'En cours' },
@@ -180,6 +193,7 @@ export default function OrganisateurNav({
     const actif = blocActif === bloc.key;
     const emphase = blocEmphase === bloc.key && !actif;
     const pastille = PASTILLE[bloc.etat];
+    const Icone = ICONE_BLOC[bloc.key];
     // P12.1 — un bloc multi-vues l'annonce dans son libellé (« · N vues »).
     const nbVues = bloc.key === 'reservation'
       ? (documentsDisponibles ? 2 : 1)
@@ -192,7 +206,9 @@ export default function OrganisateurNav({
           if (bloc.key === 'reservation') onVueReservation('devis');
           onSelectTab(bloc.onglets[0]);
         }}
-        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+        /* P13 : gap-1.5/px-2.5 (au lieu de gap-2/px-3) compensent la largeur des
+           pictogrammes pour que la nav tienne toujours sur une ligne à ~1280 px. */
+        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-sm font-medium transition-colors ${
           actif
             ? 'border-[var(--color-border-strong)] bg-[var(--color-primary-light)] text-[var(--color-primary)]'
             : emphase
@@ -208,6 +224,7 @@ export default function OrganisateurNav({
             {pastille.symbole}
           </span>
         )}
+        {Icone && <Icone className="h-3.5 w-3.5 shrink-0" aria-hidden />}
         {bloc.titre}
         {nbVues >= 2 && (
           /* P13 : forme courte « · N » (title au survol) pour que la nav tienne
@@ -252,7 +269,8 @@ export default function OrganisateurNav({
   return (
     <div className="bg-white border-b border-gray-200 print:hidden">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
-        <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
+        {/* P13 : gap-x-6 (au lieu de gap-x-8) — même compensation pictogrammes. */}
+        <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               1 · Je monte mon dossier
