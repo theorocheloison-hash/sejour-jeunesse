@@ -82,9 +82,9 @@ export const FICHES_TUTO: Record<string, FicheTuto> = {
     icon: CalendarDays,
     titre: 'Planning — le déroulé du séjour',
     aQuoi: 'Consulter le programme, jour par jour, heure par heure.',
-    actions: 'Le consulter en détail.',
+    actions: 'Consulter le programme en détail, et le télécharger en PDF.',
     comment: "Le programme est construit par l'hébergeur ; vous le retrouvez ici, organisé par journée, avec les groupes concernés par chaque activité.",
-    bonASavoir: 'Vous êtes en lecture seule sur cet onglet — pour demander un ajustement, passez par les Messages.',
+    bonASavoir: "Vous êtes en lecture seule sur cet onglet — pour un ajustement, passez par les Messages. Le bouton PDF apparaît dès qu'une activité est planifiée.",
   },
   chambres: {
     icon: BedDouble,
