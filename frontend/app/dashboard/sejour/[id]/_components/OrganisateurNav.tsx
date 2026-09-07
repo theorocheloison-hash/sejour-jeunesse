@@ -273,9 +273,10 @@ export default function OrganisateurNav({
   return (
     <div className="bg-white border-b border-gray-200 print:hidden">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
-        {/* P13 : gap-x-6 (au lieu de gap-x-8) — même compensation pictogrammes. */}
-        <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-          <div>
+        {/* P13 : gap-x-4 compense le px-3 des cadres de groupe (nav sur une ligne
+            à ~1280 px ; un repli flex-wrap en deux lignes reste acceptable). */}
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               1 · Je monte mon dossier
             </p>
@@ -283,7 +284,7 @@ export default function OrganisateurNav({
               {[blocs.reservation, blocs.pedagogie, blocs.budget].map(renderBloc)}
             </div>
           </div>
-          <div>
+          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               2 · J&apos;organise le séjour
             </p>
@@ -291,7 +292,7 @@ export default function OrganisateurNav({
               {[blocs.inscriptions, blocs.surplace].map(renderBloc)}
             </div>
           </div>
-          <div>
+          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               Avec l&apos;hébergeur
             </p>
