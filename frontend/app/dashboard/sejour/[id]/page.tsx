@@ -37,6 +37,7 @@ import TabRooming from './_components/TabRooming';
 import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
 import OrganisateurNav, { calculerBlocEmphase, ONGLET_PAR_BLOC } from './_components/OrganisateurNav';
+import TutoBloc from './_components/TutoBloc';
 import EncartAide from './_components/EncartAide';
 import InscriptionsEleves from './_components/InscriptionsEleves';
 import Accompagnateurs from './_components/Accompagnateurs';
@@ -533,6 +534,10 @@ export default function CollaborationPage() {
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        {/* ── Tutoriel contextuel — organisateur créateur uniquement, une fiche
+               par onglet, monté UNE fois au-dessus du contenu (M1). ─────────── */}
+        {navBlocs && <TutoBloc activeTab={activeTab} vueReservation={vueReservation} devisSigne={devisSigne} />}
 
         {/* ── Devis & facturation (DIRECT + COLLABORATIF) — pour l'organisateur
                créateur, le bloc Réservation est une sous-vue Devis | Documents
