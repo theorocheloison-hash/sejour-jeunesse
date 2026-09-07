@@ -52,6 +52,9 @@ interface AuthContextValue {
   centreActif: string | null;
   setCentreActif: (id: string) => void;
   isMultiCentre: boolean;
+  /** Enregistre la progression du tour d'onboarding (state + localStorage +
+   * PATCH fire-and-forget — jamais bloquant). */
+  setOnboardingTourEtape: (etape: number) => void;
 }
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -146,13 +149,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(LS_USER, JSON.stringify(user));
     setUser(user);
 
-    // Enrichir avec l'organisation principale (non bloquant)
+    // Enrichir avec l'organisation principale + la progression du tour (non bloquant)
     api.get('/users/me').then(({ data }) => {
-      if (data.organisation) {
-        const enriched: User = { ...user, organisation: data.organisation as OrganisationResume };
-        localStorage.setItem(LS_USER, JSON.stringify(enriched));
-        setUser(enriched);
-      }
+      const enriched: User = {
+        ...user,
+        ...(data.organisation ? { organisation: data.organisation as OrganisationResume } : {}),
+        ...(typeof data.onboardingTourEtape === 'number'
+          ? { onboardingTourEtape: data.onboardingTourEtape }
+          : {}),
+      };
+      localStorage.setItem(LS_USER, JSON.stringify(enriched));
+      setUser(enriched);
     }).catch(() => {});
 
     // Cible de redirection après connexion.
@@ -191,10 +198,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isMultiCentre = centres.length > 1;
 
+  // Progression du tour d'onboarding : maj optimiste (state + localStorage),
+  // persistance backend fire-and-forget — un échec réseau laisse l'état local
+  // (le backend borne à l'existant, retry implicite au prochain login).
+  const setOnboardingTourEtape = useCallback((etape: number) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next: User = { ...prev, onboardingTourEtape: etape };
+      localStorage.setItem(LS_USER, JSON.stringify(next));
+      return next;
+    });
+    api.patch('/users/me/onboarding-tour', { etape }).catch(() => {});
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user, isLoading, login, logout,
       centres, centreActif, setCentreActif, isMultiCentre,
+      setOnboardingTourEtape,
     }}>
       {children}
     </AuthContext.Provider>

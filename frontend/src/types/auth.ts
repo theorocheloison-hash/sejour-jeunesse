@@ -24,6 +24,8 @@ export interface User {
   lastName: string;
   role: Role;
   organisation?: OrganisationResume | null;
+  /** Progression du tour d'onboarding organisateur (Lot 2) — absent sur les sessions antérieures. */
+  onboardingTourEtape?: number;
 }
 
 export interface LoginDto {
