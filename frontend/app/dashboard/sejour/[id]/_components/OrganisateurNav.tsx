@@ -204,6 +204,7 @@ export default function OrganisateurNav({
     return (
       <button
         key={bloc.key}
+        data-tour={bloc.key}
         onClick={() => {
           // Ouvrir un bloc = son premier sous-onglet ; Réservation retombe sur Devis (P7).
           if (bloc.key === 'reservation') onVueReservation('devis');
