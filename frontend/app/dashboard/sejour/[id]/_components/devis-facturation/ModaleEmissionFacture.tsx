@@ -199,7 +199,7 @@ export default function ModaleEmissionFacture({
                     onChange={(v) => updateLigne(i, 'description', v)}
                     catalogue={catalogue}
                     onSelect={(p) => selectProduit(i, p)}
-                    placeholder="ex: Pension complète"
+                    placeholder="Rechercher dans votre catalogue…"
                     className="w-full rounded border border-gray-300 px-2 py-1"
                   />
                 </td>
