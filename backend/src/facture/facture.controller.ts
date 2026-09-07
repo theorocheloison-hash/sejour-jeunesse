@@ -7,6 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { FactureService } from './facture.service.js';
+import { EmettreFactureDto } from './dto/emettre-facture.dto.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
 import { PlanGuard } from '../auth/guards/plan.guard.js';
@@ -18,28 +19,28 @@ import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 export class FactureController {
   constructor(private readonly factureService: FactureService) {}
 
-  /** POST /factures/acompte — émet la facture d'acompte d'un devis */
+  /** POST /factures/acompte — émet la facture d'acompte d'un devis (lignes révisées optionnelles) */
   @Post('acompte')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('facturation')
   emettreAcompte(
     @CurrentUser() user: JwtUser,
-    @Body() body: { devisId: string },
+    @Body() body: EmettreFactureDto,
     @CentreId() centreId: string | null,
   ) {
-    return this.factureService.emettreAcompte(body.devisId, user.id, centreId);
+    return this.factureService.emettreAcompte(body.devisId, user.id, centreId, body.lignes);
   }
 
-  /** POST /factures/solde — émet la facture de solde (total révisé − acompte) */
+  /** POST /factures/solde — émet la facture de solde (total facturé − acompte encaissé) */
   @Post('solde')
   @Roles(Role.HEBERGEUR)
   @RequirePermission('facturation')
   emettreSolde(
     @CurrentUser() user: JwtUser,
-    @Body() body: { devisId: string },
+    @Body() body: EmettreFactureDto,
     @CentreId() centreId: string | null,
   ) {
-    return this.factureService.emettreFactureSolde(body.devisId, user.id, centreId);
+    return this.factureService.emettreFactureSolde(body.devisId, user.id, centreId, body.lignes);
   }
 
   /** POST /factures/total — émet une facture de solde couvrant 100% (sans acompte préalable) */
@@ -48,10 +49,10 @@ export class FactureController {
   @RequirePermission('facturation')
   emettreTotal(
     @CurrentUser() user: JwtUser,
-    @Body() body: { devisId: string },
+    @Body() body: EmettreFactureDto,
     @CentreId() centreId: string | null,
   ) {
-    return this.factureService.emettreFactureTotal(body.devisId, user.id, centreId);
+    return this.factureService.emettreFactureTotal(body.devisId, user.id, centreId, body.lignes);
   }
 
   /** POST /factures/avoir — émet un avoir sur une facture existante (ACOMPTE ou SOLDE) */

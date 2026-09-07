@@ -9,6 +9,8 @@ import { EmailService } from '../email/email.service.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { chargerFacturesActives, estIntegralementAnnulee } from './facture-active.helper.js';
+import type { LigneEmissionFactureDto } from './dto/emettre-facture.dto.js';
 import { getUserCentrePermissions, hasPermission } from '../centres/permission.helper.js';
 import { assertSignataireCanAccessDemande, assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 
@@ -345,32 +347,52 @@ export class FactureService {
   }
 
   // ── Émission ──────────────────────────────────────────────────────────────
+  // estIntegralementAnnulee / chargerFacturesActives : déplacées dans
+  // facture-active.helper.ts (partagées avec DevisService.updateDevis).
 
   /**
-   * B2 — une facture est « intégralement annulée » si son avoir 1-1 couvre
-   * exactement son montant. Un avoir PARTIEL laisse la facture ACTIVE.
+   * Modèle B — lignes révisées fournies à l'émission : recalcule les agrégats du
+   * snapshot depuis elles (le devis signé, immuable, n'est jamais touché).
+   * Sans lignes : agrégats et lignes du devis, comportement historique.
    */
-  private estIntegralementAnnulee(
-    f: { montantFacture: number; avoirAssocie?: { montantFacture: number } | null },
-  ): boolean {
-    return (
-      !!f.avoirAssocie &&
-      Math.round(Math.abs(f.avoirAssocie.montantFacture) * 100) === Math.round(f.montantFacture * 100)
-    );
+  private resoudreLignesEmission(
+    devis: Awaited<ReturnType<FactureService['chargerDevisProprietaire']>>,
+    lignes?: LigneEmissionFactureDto[],
+  ) {
+    if (!lignes || lignes.length === 0) {
+      return {
+        ajuste: false,
+        lignesSnapshot: devis.lignes,
+        montantTTC: round2(devis.montantTTC ?? Number(devis.montantTotal)),
+        montantHT: round2(devis.montantHT ?? 0),
+        montantTVA: round2(devis.montantTVA ?? 0),
+        tauxTva: devis.tauxTva ?? 0,
+      };
+    }
+    const montantTTC = round2(lignes.reduce((s, l) => s + l.totalTTC, 0));
+    const montantHT = round2(lignes.reduce((s, l) => s + l.totalHT, 0));
+    const montantTVA = round2(montantTTC - montantHT);
+    // Moyenne pondérée — même formule que le builder complémentaire côté front.
+    const tauxTva = montantHT > 0 ? round2((montantTVA / montantHT) * 100) : 0;
+    return {
+      ajuste: true,
+      lignesSnapshot: lignes.map((l) => ({ ...l, tva: l.tva ?? 0 })),
+      montantTTC,
+      montantHT,
+      montantTVA,
+      tauxTva,
+    };
   }
 
-  /** Factures d'un devis (types demandés) qui ne sont PAS intégralement annulées. */
-  private async chargerFacturesActives(devisId: string, types: Array<'ACOMPTE' | 'SOLDE'>) {
-    const factures = await this.prisma.facture.findMany({
-      where: { devisId, typeFacture: { in: types } },
-      include: { avoirAssocie: { select: { montantFacture: true } } },
-      orderBy: { dateEmission: 'asc' },
-    });
-    return factures.filter((f) => !this.estIntegralementAnnulee(f));
+  /** Suffixe CRM quand le montant facturé diffère du devis (lignes ajustées). */
+  private suffixeAjustement(ajuste: boolean, devisTTC: number, factureTTC: number): string {
+    return ajuste && round2(factureTTC) !== round2(devisTTC)
+      ? ` (ajusté : devis ${devisTTC.toFixed(2)} € → facturé ${factureTTC.toFixed(2)} €)`
+      : '';
   }
 
   /** Émet la facture d'acompte (devis collab OU direct — détection automatique). NE MUTE PAS le devis. */
-  async emettreAcompte(devisId: string, userId: string, centreId?: string | null) {
+  async emettreAcompte(devisId: string, userId: string, centreId?: string | null, lignes?: LigneEmissionFactureDto[]) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
@@ -384,7 +406,7 @@ export class FactureService {
         throw new ForbiddenException('Seul un devis sélectionné ou signé peut être facturé');
       }
     }
-    const acomptesActifs = await this.chargerFacturesActives(devisId, ['ACOMPTE']);
+    const acomptesActifs = await chargerFacturesActives(this.prisma, devisId, ['ACOMPTE']);
     if (acomptesActifs.length > 0) {
       throw new ForbiddenException('Une facture d\'acompte active existe déjà pour ce devis');
     }
@@ -395,9 +417,13 @@ export class FactureService {
     const annee = new Date().getFullYear();
     const numero = `FA-${annee}-${String(await this.sequence.generer(emetteur.emetteurId, 'FACTURE')).padStart(4, '0')}`;
 
-    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
+    const emission = this.resoudreLignesEmission(devis, lignes);
+    const montantTTC = emission.montantTTC;
     const pourcentage = devis.pourcentageAcompte ?? 30;
-    const montantFacture = round2(devis.montantAcompte ?? (montantTTC * pourcentage / 100));
+    // Lignes ajustées : acompte recalculé sur le TTC révisé (jamais devis.montantAcompte, figé).
+    const montantFacture = emission.ajuste
+      ? round2(montantTTC * pourcentage / 100)
+      : round2(devis.montantAcompte ?? (montantTTC * pourcentage / 100));
 
     const facture = await this.prisma.facture.create({
       data: {
@@ -418,15 +444,15 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: round2(devis.montantHT ?? 0),
-        montantTVA: round2(devis.montantTVA ?? 0),
+        montantHT: emission.montantHT,
+        montantTVA: emission.montantTVA,
         montantTTC,
-        tauxTva: devis.tauxTva ?? 0,
+        tauxTva: emission.tauxTva,
         montantFacture,
         pourcentageAcompte: pourcentage,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: devis.lignes.map((l) => ({
+          create: emission.lignesSnapshot.map((l) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
@@ -445,7 +471,8 @@ export class FactureService {
     await this.loggerActivite(
       destinataire.sejourId,
       centre.id,
-      `Facture d'acompte ${numero} émise — ${montantFacture.toFixed(2)} €`,
+      `Facture d'acompte ${numero} émise — ${montantFacture.toFixed(2)} €` +
+        this.suffixeAjustement(emission.ajuste, round2(devis.montantTTC ?? Number(devis.montantTotal)), montantTTC),
       { factureId: facture.id, devisId, type: 'ACOMPTE' },
     );
 
@@ -469,14 +496,14 @@ export class FactureService {
     return facture;
   }
 
-  /** Émet la facture de solde sur le total RÉVISÉ du devis moins l'acompte ENCAISSÉ. NE MUTE PAS le devis. */
-  async emettreFactureSolde(devisId: string, userId: string, centreId?: string | null) {
+  /** Émet la facture de solde sur le total facturé (lignes révisées) moins l'acompte ENCAISSÉ. NE MUTE PAS le devis. */
+  async emettreFactureSolde(devisId: string, userId: string, centreId?: string | null, lignes?: LigneEmissionFactureDto[]) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
     // B2 : on raisonne sur les factures ACTIVES — un acompte intégralement annulé
     // est ignoré (⇒ il faut ré-émettre un acompte, pas un solde).
-    const acomptesActifs = await this.chargerFacturesActives(devisId, ['ACOMPTE']);
+    const acomptesActifs = await chargerFacturesActives(this.prisma, devisId, ['ACOMPTE']);
     const factureAcompte = acomptesActifs[acomptesActifs.length - 1] ?? null;
     if (!factureAcompte) {
       throw new ForbiddenException('La facture d\'acompte doit être émise en premier');
@@ -484,12 +511,13 @@ export class FactureService {
     if (!factureAcompte.acompteVerse) {
       throw new ForbiddenException('L\'acompte doit être validé avant d\'émettre la facture de solde');
     }
-    const soldesActifs = await this.chargerFacturesActives(devisId, ['SOLDE']);
+    const soldesActifs = await chargerFacturesActives(this.prisma, devisId, ['SOLDE']);
     if (soldesActifs.length > 0) {
       throw new ForbiddenException('Une facture de solde active existe déjà pour ce devis');
     }
 
-    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
+    const emission = this.resoudreLignesEmission(devis, lignes);
+    const montantTTC = emission.montantTTC;
     // Refacto facture-solde (étape 2) : on déduit l'acompte ENCAISSÉ (Σ versements
     // de la facture d'acompte, maintenu dans montantVerseTotal), plus jamais
     // l'acompte facturé seul — le client paie un TOTAL, le reste dû se calcule sur
@@ -549,10 +577,10 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: round2(devis.montantHT ?? 0),
-        montantTVA: round2(devis.montantTVA ?? 0),
+        montantHT: emission.montantHT,
+        montantTVA: emission.montantTVA,
         montantTTC,
-        tauxTva: devis.tauxTva ?? 0,
+        tauxTva: emission.tauxTva,
         montantFacture,
         pourcentageAcompte: devis.pourcentageAcompte,
         factureAcompteId: factureAcompte.id,
@@ -561,7 +589,7 @@ export class FactureService {
         montantAcompteDejaFacture: acompteNet,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: devis.lignes.map((l) => ({
+          create: emission.lignesSnapshot.map((l) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
@@ -585,7 +613,8 @@ export class FactureService {
     await this.loggerActivite(
       destinataire.sejourId,
       centre.id,
-      `Facture de solde ${numero} émise — ${montantFacture.toFixed(2)} €`,
+      `Facture de solde ${numero} émise — ${montantFacture.toFixed(2)} €` +
+        this.suffixeAjustement(emission.ajuste, round2(devis.montantTTC ?? Number(devis.montantTotal)), montantTTC),
       { factureId: facture.id, devisId, type: 'SOLDE' },
     );
 
@@ -620,7 +649,7 @@ export class FactureService {
    * Réutilise la séquence FS-YYYY-XXXX (pas de nouvelle série) et le même pattern que
    * emettreAcompte/emettreFactureSolde.
    */
-  async emettreFactureTotal(devisId: string, userId: string, centreId?: string | null) {
+  async emettreFactureTotal(devisId: string, userId: string, centreId?: string | null, lignes?: LigneEmissionFactureDto[]) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const devis = await this.chargerDevisProprietaire(devisId, centre.id);
 
@@ -636,7 +665,7 @@ export class FactureService {
     }
     // B2 : aucune facture ACTIVE (acompte OU solde) ne doit exister. Une facture
     // intégralement annulée par avoir n'empêche plus la ré-émission (nouveau numéro).
-    const facturesActives = await this.chargerFacturesActives(devisId, ['ACOMPTE', 'SOLDE']);
+    const facturesActives = await chargerFacturesActives(this.prisma, devisId, ['ACOMPTE', 'SOLDE']);
     if (facturesActives.length > 0) {
       throw new ForbiddenException('Une facture active (acompte ou solde) existe déjà pour ce devis');
     }
@@ -647,7 +676,8 @@ export class FactureService {
     const annee = new Date().getFullYear();
     const numero = `FS-${annee}-${String(await this.sequence.generer(emetteur.emetteurId, 'FACTURE')).padStart(4, '0')}`;
 
-    const montantTTC = round2(devis.montantTTC ?? Number(devis.montantTotal));
+    const emission = this.resoudreLignesEmission(devis, lignes);
+    const montantTTC = emission.montantTTC;
 
     const facture = await this.prisma.facture.create({
       data: {
@@ -668,17 +698,17 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
-        montantHT: round2(devis.montantHT ?? 0),
-        montantTVA: round2(devis.montantTVA ?? 0),
+        montantHT: emission.montantHT,
+        montantTVA: emission.montantTVA,
         montantTTC,
-        tauxTva: devis.tauxTva ?? 0,
+        tauxTva: emission.tauxTva,
         montantFacture: montantTTC,        // 100 % — pas d'acompte déduit
         pourcentageAcompte: null,
         factureAcompteId: null,
         montantAcompteDejaFacture: 0,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: devis.lignes.map((l) => ({
+          create: emission.lignesSnapshot.map((l) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
@@ -701,7 +731,8 @@ export class FactureService {
     await this.loggerActivite(
       destinataire.sejourId,
       centre.id,
-      `Facture de solde ${numero} émise (total, sans acompte) — ${montantTTC.toFixed(2)} €`,
+      `Facture de solde ${numero} émise (total, sans acompte) — ${montantTTC.toFixed(2)} €` +
+        this.suffixeAjustement(emission.ajuste, round2(devis.montantTTC ?? Number(devis.montantTotal)), montantTTC),
       { factureId: facture.id, devisId, type: 'SOLDE' },
     );
 
@@ -1061,7 +1092,7 @@ export class FactureService {
 
     // B2 : ne router un versement que vers une facture ACTIVE (jamais une facture
     // intégralement annulée par un avoir).
-    const facturesActives = factures.filter(f => !this.estIntegralementAnnulee(f));
+    const facturesActives = factures.filter(f => !estIntegralementAnnulee(f));
     if (facturesActives.length === 0) {
       throw new NotFoundException('Aucune facture active pour ce devis');
     }
