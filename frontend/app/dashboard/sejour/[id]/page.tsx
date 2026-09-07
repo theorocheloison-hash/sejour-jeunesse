@@ -38,6 +38,7 @@ import SejourHeader from './_components/SejourHeader';
 import AlertesCapacite from '../../_shared/AlertesCapacite';
 import OrganisateurNav, { calculerBlocEmphase, ONGLET_PAR_BLOC } from './_components/OrganisateurNav';
 import TutoBloc from './_components/TutoBloc';
+import EducTour, { NB_ETAPES } from './_components/EducTour';
 import EncartAide from './_components/EncartAide';
 import InscriptionsEleves from './_components/InscriptionsEleves';
 import Accompagnateurs from './_components/Accompagnateurs';
@@ -72,7 +73,7 @@ const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'cham
 export default function CollaborationPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, setOnboardingTourEtape } = useAuth();
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
   const isDirect = sejour?.modeGestion === 'DIRECT';
@@ -503,6 +504,14 @@ export default function CollaborationPage() {
             onVueReservation={setVueReservation}
             documentsDisponibles={devisSigne}
           />
+          {/* Tour de première connexion (Lot 2) — organisateur créateur, tant que
+              non terminé. Les ancres data-tour vivent dans OrganisateurNav. */}
+          {user && (user.onboardingTourEtape ?? 0) < NB_ETAPES && (
+            <EducTour
+              etapeInitiale={user.onboardingTourEtape ?? 0}
+              onEtape={(n) => setOnboardingTourEtape(n)}
+            />
+          )}
         </>
       ) : (
       <div className="bg-white border-b border-gray-200 print:hidden">
