@@ -17,6 +17,7 @@ export class UsersService {
         telephone: true,
         role: true,
         emailRectorat: true,
+        onboardingTourEtape: true,
       },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
@@ -46,6 +47,24 @@ export class UsersService {
         id: true,
         emailRectorat: true,
       },
+    });
+  }
+
+  async setOnboardingTourEtape(userId: string, etape: number) {
+    // Borne basse à l'existant : la progression du tour ne régresse jamais
+    // (un vieux client qui renvoie une étape déjà passée ne l'écrase pas).
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { onboardingTourEtape: true },
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    if (etape <= user.onboardingTourEtape) {
+      return { onboardingTourEtape: user.onboardingTourEtape };
+    }
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardingTourEtape: etape },
+      select: { onboardingTourEtape: true },
     });
   }
 
