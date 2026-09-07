@@ -181,6 +181,9 @@ model User {
   // Source réseau d'acquisition (ex: "lmdj") — 1ʳᵉ acquisition, persistée pour la fidélité
   sourceReseau           String?  @map("source_reseau") @db.VarChar(50)
 
+  // Progression du tour d'onboarding organisateur (Lot 2) — ne régresse jamais
+  onboardingTourEtape    Int      @default(0) @map("onboarding_tour_etape")
+
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
