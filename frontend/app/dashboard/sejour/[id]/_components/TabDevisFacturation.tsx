@@ -1157,6 +1157,10 @@ export default function TabDevisFacturation({
   // sejour.createur ne porte que {id,prenom,nom,email}) — complétion = Lot 2 complet, chantier séparé.
   const clientResolu = resolveClientEtablissement(sejour, { createur: sejour?.createur ?? null });
 
+  // Badge « Signé » : le statut SELECTIONNE ne prouve pas une signature (sélection
+  // COLLAB sans signature possible) — on exige une trace de signature réelle.
+  const devisReellementSigne = !!(devis?.nomSignataireDirecteur || devis?.dateSignatureDirecteur || devis?.signatureDocumentUrl);
+
   return (
     <>
       {/* ── Vue hébergeur unifiée (DIRECT + collab/rejoint) — étape 3b ─── */}
@@ -1191,16 +1195,16 @@ export default function TabDevisFacturation({
                     etatFacturation === 'SOLDE' ? 'bg-teal-100 text-teal-700' :
                     etatFacturation === 'ACOMPTE' ? 'bg-indigo-100 text-indigo-700' :
                     devis.statut === 'EN_ATTENTE' ? 'bg-orange-100 text-orange-700' :
-                    devis.statut === 'SELECTIONNE' ? 'bg-green-100 text-green-700' :
-                    devis.statut === 'SIGNE_DIRECTION' ? 'bg-green-100 text-green-700' :
+                    devis.statut === 'SELECTIONNE' && devisReellementSigne ? 'bg-green-100 text-green-700' :
+                    devis.statut === 'SIGNE_DIRECTION' && devisReellementSigne ? 'bg-green-100 text-green-700' :
                     devis.statut === 'EN_ATTENTE_VALIDATION' ? 'bg-blue-100 text-blue-700' :
                     'bg-gray-100 text-gray-600'
                   }`}>
                     {etatFacturation === 'SOLDE' ? 'Soldé' :
                      etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
                      devis.statut === 'EN_ATTENTE' ? 'Brouillon' :
-                     devis.statut === 'SELECTIONNE' ? 'Signé' :
-                     devis.statut === 'SIGNE_DIRECTION' ? 'Signé' :
+                     devis.statut === 'SELECTIONNE' && devisReellementSigne ? 'Signé' :
+                     devis.statut === 'SIGNE_DIRECTION' && devisReellementSigne ? 'Signé' :
                      devis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
                      devis.statut === 'NON_RETENU' ? 'Non retenu' :
                      devis.statut}
