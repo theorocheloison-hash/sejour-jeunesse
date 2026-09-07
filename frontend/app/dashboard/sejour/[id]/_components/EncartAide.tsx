@@ -33,12 +33,6 @@ export default function EncartAide() {
               les chambres et le devis ; vous pilotez votre dossier (signature, budget, projet pédagogique)
               et le séjour lui-même. Les onglets Messages et Documents servent à échanger avec lui.
             </p>
-            <p>
-              <strong>Les inscriptions des élèves sont votre responsabilité.</strong> Deux façons de faire,
-              au choix dans le bloc Inscriptions : <em>faire remplir par les familles</em> (vous ajoutez vos
-              élèves puis envoyez aux parents un lien d&apos;autorisation à signer en ligne) ou{' '}
-              <em>saisir vous-même la liste</em> (vous gérez les autorisations papier de votre côté).
-            </p>
           </div>
         )}
       </div>
