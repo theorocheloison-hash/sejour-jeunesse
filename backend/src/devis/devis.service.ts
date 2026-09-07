@@ -19,6 +19,7 @@ import { formatParticipants } from '../utils/format.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_EN_COURS } from './devis-statuts.constants.js';
 import { SequenceService } from '../sequence/sequence.service.js';
 import { OccupationsService } from '../chambres/occupations.service.js';
+import { chargerFacturesActives } from '../facture/facture-active.helper.js';
 import {
   assertSignataireCanAccessDemande,
   assertHebergeurCanAccessDemande,
@@ -436,12 +437,25 @@ export class DevisService {
     if (devis.centreId !== centre.id) {
       throw new ForbiddenException('Ce devis ne vous appartient pas');
     }
-    // Lot 1 : modifiable jusqu'à la signature direction incluse — les prestations
-    // changent pendant le séjour, la facture de solde se calcule sur le total révisé.
-    if (!['EN_ATTENTE', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut)) {
+    // Modèle B : un devis signé est IMMUABLE. Les ajustements (effectif qui change…)
+    // se font au moment de l'émission de la facture, qui snapshotte des lignes révisées.
+    if (!['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(devis.statut)) {
+      if (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') {
+        throw new ForbiddenException(
+          'Un devis signé est immuable. Les ajustements se font au moment de l\'émission de la facture.',
+        );
+      }
       throw new ForbiddenException('Ce devis ne peut plus être modifié à ce stade');
     }
-    // Lot 1 : les devis directs (mariages/événements) sont aussi modifiables.
+    // Un devis EN_ATTENTE avec facture active (cas des complémentaires, facturés sans
+    // signature) ne doit plus bouger : la facture est un snapshot légalement figé.
+    const facturesActives = await chargerFacturesActives(this.prisma, id, ['ACOMPTE', 'SOLDE']);
+    if (facturesActives.length > 0) {
+      throw new ForbiddenException(
+        'Ce devis a une facture active et ne peut plus être modifié. Émettez un avoir pour corriger.',
+      );
+    }
+    // Les devis directs (mariages/événements) sont aussi modifiables.
     // La vérification de propriété (centreId) ci-dessus suffit. demandeId reste optionnel.
     const demandeId: string | null = devis.demandeId;
 
@@ -456,10 +470,13 @@ export class DevisService {
       where: { devisId: id },
     });
 
-    // Mettre à jour le devis
+    // Mettre à jour le devis. Un devis parti chez la direction (EN_ATTENTE_VALIDATION)
+    // repasse EN_ATTENTE : le lien d'invitation direction en cours devient inutilisable
+    // (garde de statut dans signerSansCompte) — l'hébergeur renvoie le devis ensuite.
     const updated = await this.prisma.devis.update({
       where: { id },
       data: {
+        ...(devis.statut === 'EN_ATTENTE_VALIDATION' && { statut: StatutDevis.EN_ATTENTE }),
         montantTotal: dto.montantTotal ?? devis.montantTotal,
         montantParEleve: dto.montantParEleve ?? devis.montantParEleve,
         description: dto.description ?? devis.description,

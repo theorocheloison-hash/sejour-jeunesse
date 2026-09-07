@@ -1051,7 +1051,8 @@ model VersementPaiement {
 // ============================================================
 // MODEL : Facture (snapshot immuable — Lot 1)
 // Émise depuis un Devis, fige émetteur/destinataire/montants au moment de l'émission.
-// Le Devis reste modifiable après l'acompte ; le solde se calcule sur le total révisé − acompte.
+// Modèle B : un devis signé est immuable ; l'ajustement se fait à l'émission de la facture
+// (lignes révisées snapshotées). Le solde se calcule sur le total facturé − acompte encaissé.
 // ============================================================
 model Facture {
   id               String   @id @default(uuid()) @db.Uuid
