@@ -7,7 +7,9 @@ import type { SejourCollabInfo, BudgetData, Participant } from '@/src/lib/collab
 import { calculerBudgetTotaux } from '@/src/lib/budget-solde';
 import SousOnglets from './SousOnglets';
 
-type EtatBloc = 'fait' | 'encours' | 'afaire' | 'neutre';
+// 'optionnel' : bloc vide SANS injonction (Budget/Pédagogie — on peut, on ne
+// doit pas) ; jamais retenu par calculerBlocEmphase (ni 'afaire' ni 'encours').
+type EtatBloc = 'fait' | 'encours' | 'afaire' | 'optionnel' | 'neutre';
 
 export interface BlocNav {
   key: string;
@@ -44,8 +46,8 @@ function etatInscriptions(
 function etatBudget(sejour: SejourCollabInfo | null, budgetData: BudgetData | null): EtatBloc {
   // P6 : « fait » = budget BOUCLÉ (solde ≥ 0 avec au moins une donnée saisie),
   // pas simplement un prix posé. « en cours » = données saisies mais solde
-  // négatif. « à faire » = rien. Même calcul que l'affichage de TabBudget
-  // (helper unique calculerBudgetTotaux).
+  // négatif. Vide = « optionnel » (bloc facultatif, pas d'injonction). Même
+  // calcul que l'affichage de TabBudget (helper unique calculerBudgetTotaux).
   if (!budgetData) return 'neutre';
   const { totalDepenses, totalRecettes, solde } = calculerBudgetTotaux(
     budgetData.devis,
@@ -53,12 +55,12 @@ function etatBudget(sejour: SejourCollabInfo | null, budgetData: BudgetData | nu
     budgetData.recettes ?? [],
   );
   const donneeSaisie = totalDepenses > 0 || totalRecettes > 0 || Number(sejour?.prix ?? 0) > 0;
-  if (!donneeSaisie) return 'afaire';
+  if (!donneeSaisie) return 'optionnel';
   return solde >= 0 ? 'fait' : 'encours';
 }
 
 function etatPedagogie(sejour: SejourCollabInfo | null): EtatBloc {
-  return (sejour?.thematiquesPedagogiques?.length ?? 0) > 0 ? 'fait' : 'afaire';
+  return (sejour?.thematiquesPedagogiques?.length ?? 0) > 0 ? 'fait' : 'optionnel';
 }
 
 /**
@@ -129,6 +131,7 @@ const PASTILLE: Record<EtatBloc, { cls: string; symbole: string; title: string }
   fait: { cls: 'bg-[var(--color-success)] text-white', symbole: '✓', title: 'Fait' },
   encours: { cls: 'bg-blue-500 text-white', symbole: '…', title: 'En cours' },
   afaire: { cls: 'bg-amber-500 text-white', symbole: '!', title: 'À faire' },
+  optionnel: { cls: 'bg-gray-100 text-gray-500', symbole: '+', title: 'Optionnel — vous pouvez le compléter' },
   neutre: { cls: 'bg-gray-200 text-gray-500', symbole: '·', title: '' },
 };
 
