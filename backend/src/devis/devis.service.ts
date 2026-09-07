@@ -1482,8 +1482,8 @@ export class DevisService {
     if (devis.isComplementaire) {
       throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
     }
-    // Un devis signé ou facturé ne peut plus être renvoyé : il s'ajuste avant le
-    // solde, sans notification. Le lien public d'origine reste consultable.
+    // Un devis signé ou facturé ne peut plus être renvoyé : il est immuable (modèle B,
+    // l'ajustement se fait à l'émission de facture). Le lien public d'origine reste consultable.
     if (devis.statut !== 'EN_ATTENTE') {
       throw new ForbiddenException(
         'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
