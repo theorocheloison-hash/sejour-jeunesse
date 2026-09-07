@@ -8,8 +8,6 @@ import {
   createDevisComplementaire,
   updateDevis,
   envoyerDevis,
-  emettreFactureAcompte,
-  emettreFactureSolde,
   emettreFactureTotal,
   ajouterVersement,
   getFacturesForDevis,
@@ -42,6 +40,7 @@ import BlocConvention from './devis-facturation/BlocConvention';
 import MarquerSignePanel from './devis-facturation/MarquerSignePanel';
 import DevisPdfViewer from './devis-facturation/DevisPdfViewer';
 import VueOrganisateur from './devis-facturation/VueOrganisateur';
+import ModaleEmissionFacture from './devis-facturation/ModaleEmissionFacture';
 
 interface TabDevisFacturationProps {
   sejourId: string;
@@ -147,7 +146,8 @@ export default function TabDevisFacturation({
   // ── Pipeline facturation (Lot 1 : entités Facture immuables) ─
   const [factures, setFactures] = useState<Facture[]>([]);
   const [facturesLoading, setFacturesLoading] = useState(false);
-  const [facturerLoading, setFacturerLoading] = useState(false);
+  // Modèle B : les boutons Facturer ouvrent la modale de préparation (lignes éditables).
+  const [emissionType, setEmissionType] = useState<'ACOMPTE' | 'TOTAL' | 'SOLDE' | null>(null);
   const [showAddVersement, setShowAddVersement] = useState(false);
   const [versementForm, setVersementForm] = useState({ montant: '', datePaiement: '', reference: '', modePaiement: '' });
   const [versementSaving, setVersementSaving] = useState(false);
@@ -323,47 +323,11 @@ export default function TabDevisFacturation({
     ?? null;
   const versements: VersementPaiement[] = factures.flatMap(f => f.versements ?? []);
 
-  const handleFacturerAcompte = async () => {
-    if (!activeDevisId) return;
-    setFacturerLoading(true);
-    try {
-      await emettreFactureAcompte(activeDevisId);
-      await reloadDevis();
-      await reloadFactures();
-    } catch {
-      onError('Erreur lors de la facturation de l\'acompte');
-    } finally {
-      setFacturerLoading(false);
-    }
-  };
-
-  const handleFacturerSolde = async () => {
-    if (!activeDevisId) return;
-    setFacturerLoading(true);
-    try {
-      await emettreFactureSolde(activeDevisId);
-      await reloadDevis();
-      await reloadFactures();
-    } catch {
-      onError('Erreur lors de la facturation du solde');
-    } finally {
-      setFacturerLoading(false);
-    }
-  };
-
-  const handleFacturerTotal = async () => {
-    if (!activeDevisId) return;
-    setFacturerLoading(true);
-    try {
-      await emettreFactureTotal(activeDevisId);
-      await reloadDevis();
-      await reloadFactures();
-    } catch {
-      onError('Erreur lors de la facturation du total');
-    } finally {
-      setFacturerLoading(false);
-    }
-  };
+  // Modèle B : plus d'appel à sec — la modale de préparation (lignes pré-remplies
+  // éditables) porte l'émission. Le devis signé n'est jamais touché.
+  const handleFacturerAcompte = () => setEmissionType('ACOMPTE');
+  const handleFacturerSolde = () => setEmissionType('SOLDE');
+  const handleFacturerTotal = () => setEmissionType('TOTAL');
 
   const handleAjouterVersement = async () => {
     if (!activeDevisId || !versementForm.montant || !versementForm.datePaiement) return;
@@ -948,17 +912,19 @@ export default function TabDevisFacturation({
           </div>
         )}
 
+        {/* Modèle B : dès qu'une facture existe, on affiche les montants FACTURÉS
+            (base = Σ montantFacture, avoirs inclus), pas ceux du devis figé. */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-gray-500">Total TTC</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {formatMontant(ad.montantTTC)} €
+              {formatMontant(factures.length > 0 ? base : ad.montantTTC)} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-gray-500">Acompte ({ad.pourcentageAcompte}%)</p>
+            <p className="text-gray-500">Acompte ({factureAcompte?.pourcentageAcompte ?? ad.pourcentageAcompte}%)</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {formatMontant(ad.montantAcompte)} €
+              {formatMontant(factureAcompte ? factureAcompte.montantFacture : ad.montantAcompte)} €
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
@@ -1114,28 +1080,26 @@ export default function TabDevisFacturation({
             <>
               <button
                 onClick={handleFacturerAcompte}
-                disabled={facturerLoading}
-                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
               >
-                {facturerLoading ? 'Facturation...' : `📄 Facturer l'acompte (${ad.pourcentageAcompte}%)`}
+                📄 Facturer l&apos;acompte ({ad.pourcentageAcompte}%)
               </button>
               <button
                 onClick={handleFacturerTotal}
-                disabled={facturerLoading}
-                className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
               >
-                {facturerLoading ? 'Facturation...' : '📄 Facturer le total'}
+                📄 Facturer le total
               </button>
             </>
           )}
           {etatFacturation === 'ACOMPTE' && peutEcrireFacturation && (
             <button
               onClick={handleFacturerSolde}
-              disabled={facturerLoading || !factureAcompte?.acompteVerse}
+              disabled={!factureAcompte?.acompteVerse}
               title={!factureAcompte?.acompteVerse ? 'L\'acompte doit être validé avant la facture de solde' : undefined}
               className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {facturerLoading ? 'Facturation...' : '📄 Facturer le solde'}
+              📄 Facturer le solde
             </button>
           )}
 
@@ -1398,7 +1362,9 @@ export default function TabDevisFacturation({
                   </div>
                 )}
 
-                {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION', 'SELECTIONNE', 'SIGNE_DIRECTION'].includes(devis.statut) && !factureAcompte && (
+                {/* Modèle B : un devis signé est immuable — l'édition n'existe qu'avant
+                    signature. L'ajustement se fait dans la modale d'émission de facture. */}
+                {peutEcrireDevis && ['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(devis.statut) && (
                   <Link
                     href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -1415,15 +1381,6 @@ export default function TabDevisFacturation({
                     onReload={reloadDevis}
                     onError={onError}
                   />
-                )}
-                {/* Ajuster les lignes avant le solde (acompte figé, solde sur total révisé) */}
-                {peutEcrireDevis && factureAcompte && !factureSolde && (devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION') && (
-                  <Link
-                    href={`/dashboard/hebergeur/devis/${devis.id}/modifier`}
-                    className="rounded-lg border border-amber-300 px-4 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
-                  >
-                    Ajuster avant solde
-                  </Link>
                 )}
               </div>
 
@@ -1536,6 +1493,22 @@ export default function TabDevisFacturation({
           )}
           {renderDevisComplementaires()}
       </div>
+
+      {/* ── Modale de préparation d'émission (modèle B : lignes révisées) ─── */}
+      {emissionType && devis && (
+        <ModaleEmissionFacture
+          type={emissionType}
+          devis={devis}
+          factures={factures}
+          onEmitted={async () => {
+            setEmissionType(null);
+            await reloadDevis();
+            await reloadFactures();
+          }}
+          onClose={() => setEmissionType(null)}
+          onError={onError}
+        />
+      )}
 
       {/* ── Modale avoir ─── */}
       {/* ── Modale double-confirmation annulation devis ─── */}

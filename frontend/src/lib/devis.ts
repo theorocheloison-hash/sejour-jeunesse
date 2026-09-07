@@ -455,21 +455,31 @@ export async function updateDevis(id: string, dto: UpdateDevisPayload): Promise<
 
 // ── Facturation (Lot 1 : routes /factures, entité Facture immuable) ──────────
 
+/** Ligne révisée fournie à l'émission (modèle B : le devis signé est immuable). */
+export interface LigneEmissionFacture {
+  description: string;
+  quantite: number;
+  prixUnitaire: number;
+  tva: number;
+  totalHT: number;
+  totalTTC: number;
+}
+
 /** Émet la facture d'acompte d'un devis. Le devis n'est PAS muté. */
-export async function emettreFactureAcompte(devisId: string): Promise<Facture> {
-  const { data } = await api.post<Facture>('/factures/acompte', { devisId });
+export async function emettreFactureAcompte(devisId: string, lignes?: LigneEmissionFacture[]): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/acompte', { devisId, ...(lignes?.length ? { lignes } : {}) });
   return data;
 }
 
-/** Émet la facture de solde (total révisé du devis − acompte déjà facturé). */
-export async function emettreFactureSolde(devisId: string): Promise<Facture> {
-  const { data } = await api.post<Facture>('/factures/solde', { devisId });
+/** Émet la facture de solde (total facturé − acompte encaissé). */
+export async function emettreFactureSolde(devisId: string, lignes?: LigneEmissionFacture[]): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/solde', { devisId, ...(lignes?.length ? { lignes } : {}) });
   return data;
 }
 
 /** Émet une facture de solde couvrant 100% du devis, sans acompte préalable ("facturer le total"). */
-export async function emettreFactureTotal(devisId: string): Promise<Facture> {
-  const { data } = await api.post<Facture>('/factures/total', { devisId });
+export async function emettreFactureTotal(devisId: string, lignes?: LigneEmissionFacture[]): Promise<Facture> {
+  const { data } = await api.post<Facture>('/factures/total', { devisId, ...(lignes?.length ? { lignes } : {}) });
   return data;
 }
 
