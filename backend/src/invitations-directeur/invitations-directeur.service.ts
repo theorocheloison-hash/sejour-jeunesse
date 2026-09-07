@@ -108,6 +108,9 @@ export class InvitationsDirecteurService {
       organisation:      invitation.organisation ?? null,
       signeAt:           invitation.signeAt ?? null,
       nomSignataire:     invitation.nomSignataire ?? null,
+      // Modèle B : un devis modifié depuis l'envoi repasse EN_ATTENTE — le lien
+      // direction en cours ne doit plus permettre de signer (état dédié côté page).
+      devisModifie:      !!devis && devis.statut === 'EN_ATTENTE',
       devis,
     };
   }
@@ -221,6 +224,23 @@ export class InvitationsDirecteurService {
     if (!invitation) throw new NotFoundException('Invitation introuvable ou expirée');
     if (invitation.signeAt) throw new ForbiddenException('Cette invitation a déjà été signée');
     if (!invitation.devisId) throw new ForbiddenException('Devis introuvable pour cette invitation');
+
+    // Modèle B : le lien ne signe que le devis tel qu'il était à l'envoi de
+    // l'invitation. EN_ATTENTE_VALIDATION = flux envoyerADirection ; SELECTIONNE =
+    // flux creer() organisateur connecté. Tout autre statut (devis modifié repassé
+    // EN_ATTENTE, déjà signé par ailleurs, annulé…) invalide le lien.
+    const devisCible = await this.prisma.devis.findUnique({
+      where: { id: invitation.devisId },
+      select: { statut: true },
+    });
+    if (!devisCible || !['EN_ATTENTE_VALIDATION', 'SELECTIONNE'].includes(devisCible.statut)) {
+      if (devisCible?.statut === 'EN_ATTENTE') {
+        throw new ForbiddenException(
+          'Ce devis a été modifié depuis l\'envoi de cette invitation. Demandez un nouveau lien à l\'organisateur.',
+        );
+      }
+      throw new ForbiddenException('Ce devis ne peut plus être signé via ce lien.');
+    }
 
     await this.prisma.invitationDirecteur.update({
       where: { token },
