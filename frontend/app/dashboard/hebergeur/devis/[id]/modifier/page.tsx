@@ -8,7 +8,7 @@ import { getDevisDetail, updateDevis } from '@/src/lib/devis';
 import type { Devis, LigneDevis } from '@/src/lib/devis';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
-import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
+import { round2, resolvePrixCatalogueTTC } from '@/src/lib/devis-calculs';
 import { useDevisLignes, makeLigneForm } from '@/src/hooks/useDevisLignes';
 import DevisEditor from '@/src/components/DevisEditor';
 import DetailsSejourPanel from '@/src/components/DetailsSejourPanel';
@@ -174,6 +174,29 @@ export default function ModifierDevisPage() {
     );
   }
 
+  // Modèle B : un devis signé est immuable — la page d'édition n'est plus atteignable.
+  // Les ajustements (effectif…) se font dans la modale d'émission de facture.
+  if (devisOriginal && !['EN_ATTENTE', 'EN_ATTENTE_VALIDATION'].includes(devisOriginal.statut)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center max-w-md">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 mb-4">
+            <svg className="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Ce devis est signé et ne peut plus être modifié.</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Les ajustements se font au moment de la facturation, depuis l&apos;onglet Devis &amp; Facturation du séjour.
+          </p>
+          <Link href="/dashboard/hebergeur/devis" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors">
+            Retour aux devis
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const demande = devisOriginal?.demande;
   const sejour = demande?.sejour;
   const sejourDirect = devisOriginal?.sejourDirect; // devis DIRECT (pas de demande/enseignant)
@@ -181,11 +204,6 @@ export default function ModifierDevisPage() {
 
   const dateDevis = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const dateValidite = new Date(Date.now() + validiteJours * 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const fmt = formatMontant;
-
-  // Facture d'acompte déjà émise (figée) : ses lignes/montant ne bougent pas. Les
-  // modifications du devis n'ajustent QUE la future facture de solde (total révisé − acompte).
-  const factureAcompte = devisOriginal?.factures?.find(f => f.typeFacture === 'ACOMPTE') ?? null;
 
   // ── Slots spécifiques édition ──
 
@@ -347,13 +365,6 @@ export default function ModifierDevisPage() {
     </>
   );
 
-  const totauxExtraSlot = factureAcompte && calculs.montantTTC < factureAcompte.montantFacture ? (
-    <p className="text-red-600 text-sm mt-1">
-      ⚠️ Le nouveau total ({fmt(calculs.montantTTC)} €) est inférieur à l&apos;acompte déjà facturé ({fmt(factureAcompte.montantFacture)} €).
-      Vous devrez émettre un avoir avant de facturer le solde.
-    </p>
-  ) : null;
-
   return (
     <div className="min-h-screen bg-gray-100">
       {devisOriginal && (
@@ -380,10 +391,10 @@ export default function ModifierDevisPage() {
           <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{loadError}</div>
         )}
 
-        {factureAcompte && (
+        {devisOriginal?.statut === 'EN_ATTENTE_VALIDATION' && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 mb-6">
-            <strong>⚠️ Ce devis a une facture d&apos;acompte émise ({factureAcompte.numero} — {fmt(factureAcompte.montantFacture)} €).</strong>
-            <br />Vos modifications ajusteront le montant de la facture de solde. L&apos;acompte déjà facturé ne sera pas modifié.
+            <strong>⚠️ Ce devis est en validation chez la direction.</strong>
+            <br />Enregistrer vos modifications annulera le lien d&apos;invitation en cours — renvoyez le devis ensuite.
           </div>
         )}
 
@@ -400,7 +411,6 @@ export default function ModifierDevisPage() {
           destinataire={destinataireSlot}
           objet={objetSlot}
           catalogueActions={catalogueActionsSlot}
-          totauxExtra={totauxExtraSlot}
           devisLignes={devisLignes}
           catalogue={catalogue}
           conditionsAnnulation={conditionsAnnulation}

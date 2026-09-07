@@ -67,6 +67,9 @@ type InvitationDirecteurPublic = {
   organisation: { id: string; nom: string; uai: string | null; ville: string | null } | null;
   signeAt: string | null;
   nomSignataire: string | null;
+  // Modèle B : le devis a été modifié depuis l'envoi (repassé EN_ATTENTE) — le lien
+  // ne permet plus de signer, un nouveau lien doit être demandé à l'organisateur.
+  devisModifie?: boolean;
   devis: InvitationDevis | null;
 };
 
@@ -210,10 +213,19 @@ function InvitationDirectionContent() {
           fonctionSignataire: fonctionSignataire.trim() || undefined,
         }),
       });
-      if (!res.ok) throw new Error('failed');
+      if (!res.ok) {
+        // Message backend (ex : « Ce devis a été modifié depuis l'envoi… ») affiché tel quel.
+        const body = await res.json().catch(() => null) as { message?: string | string[] } | null;
+        const message = Array.isArray(body?.message) ? body?.message[0] : body?.message;
+        throw new Error(typeof message === 'string' && message ? message : 'failed');
+      }
       setSigned(true);
-    } catch {
-      setSignError('Une erreur est survenue. Veuillez réessayer.');
+    } catch (err) {
+      setSignError(
+        err instanceof Error && err.message && err.message !== 'failed'
+          ? err.message
+          : 'Une erreur est survenue. Veuillez réessayer.',
+      );
     } finally {
       setSigning(false);
     }
@@ -238,6 +250,32 @@ function InvitationDirectionContent() {
           </div>
           <h1 className="text-lg font-bold text-gray-900 mb-2">Lien invalide</h1>
           <p className="text-sm text-gray-500">{loadError ?? 'Cette invitation est introuvable.'}</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Modèle B : devis modifié depuis l'envoi du lien (repassé EN_ATTENTE) — on ne
+  // montre NI le formulaire NI l'aperçu du devis périmé. L'écran « déjà signé »
+  // garde la priorité (trace historique de la signature via ce lien).
+  if (data.devisModifie && !signed) {
+    return (
+      <main className="min-h-screen bg-gray-50 px-4 py-10">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex justify-center mb-6">
+            <Logo size="md" showTagline={false} />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
+              <svg className="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Ce devis a été modifié</h1>
+            <p className="text-sm text-gray-500">
+              Demandez un nouveau lien à l&apos;organisateur pour consulter et signer la version à jour.
+            </p>
+          </div>
         </div>
       </main>
     );
