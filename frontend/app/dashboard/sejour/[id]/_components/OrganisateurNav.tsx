@@ -236,8 +236,12 @@ export default function OrganisateurNav({
           <span title={`${nbVues} vues`} className="text-[10px] font-normal text-gray-400">· {nbVues}</span>
         )}
         {emphase && (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
-            Prochaine étape
+          <span
+            title="Prochaine étape"
+            aria-label="Prochaine étape"
+            className="text-sm font-bold leading-none text-[var(--color-accent)]"
+          >
+            →
           </span>
         )}
       </button>
@@ -276,7 +280,7 @@ export default function OrganisateurNav({
         {/* P13 : gap-x-4 compense le px-3 des cadres de groupe (nav sur une ligne
             à ~1280 px ; un repli flex-wrap en deux lignes reste acceptable). */}
         <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
+          <div className="rounded-xl bg-gray-100 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               1 · Je monte mon dossier
             </p>
@@ -284,7 +288,7 @@ export default function OrganisateurNav({
               {[blocs.reservation, blocs.pedagogie, blocs.budget].map(renderBloc)}
             </div>
           </div>
-          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
+          <div className="rounded-xl bg-gray-100 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               2 · J&apos;organise le séjour
             </p>
@@ -292,7 +296,7 @@ export default function OrganisateurNav({
               {[blocs.inscriptions, blocs.surplace].map(renderBloc)}
             </div>
           </div>
-          <div className="rounded-xl bg-gray-50/60 px-3 py-2">
+          <div className="rounded-xl bg-gray-100 px-3 py-2">
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               Avec l&apos;hébergeur
             </p>
