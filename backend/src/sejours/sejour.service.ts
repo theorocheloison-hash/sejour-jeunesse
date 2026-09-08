@@ -10,6 +10,7 @@ import { getOrganisationPrincipale } from '../organisations/organisation.helpers
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
 import { STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_VISIBLES_ORGANISATEUR } from '../devis/devis-statuts.constants.js';
 import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
+import { peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
 
@@ -378,7 +379,7 @@ export class SejourService {
             },
           },
         },
-        hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true, imageUrl: true } },
+        hebergementSelectionne: { select: { nom: true, ville: true, adresse: true, telephone: true, imageUrl: true, userId: true } },
         accompagnateurs: {
           select: {
             id: true, prenom: true, nom: true, email: true,
@@ -434,6 +435,11 @@ export class SejourService {
     }
     if (user.role === Role.SIGNATAIRE) {
       await assertSignataireCanAccessSejour(this.prisma, user, id);
+    }
+    // Miroir hébergeur (Lot 3) : lecture ouverte à l'hébergeur du centre
+    // (propriétaire ou collaborateur sejours:READ), tous modes confondus.
+    if (user.role === Role.HEBERGEUR && !(await peutLireSejourHebergeur(this.prisma, sejour, user.id))) {
+      throw new ForbiddenException('Accès refusé');
     }
 
     const orgaCreateur = sejour.createur?.id

@@ -136,10 +136,10 @@ export class AutorisationController {
     return this.autorisationService.deleteAutorisation(id, user.id);
   }
 
-  /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (ORGANISATEUR) */
+  /** GET /autorisations/sejour/:sejourId — Liste des autorisations d'un séjour (ORGANISATEUR + HEBERGEUR lecture) */
   @Get('sejour/:sejourId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   getBySejour(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,

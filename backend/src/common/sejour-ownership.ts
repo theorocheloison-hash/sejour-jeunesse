@@ -32,3 +32,23 @@ export async function peutEcrireSejourEnPropre(
   const perms = await getUserCentrePermissions(prisma, userId, sejour.hebergementSelectionneId);
   return !!perms && !perms.isOwner && hasPermission(perms, 'sejours', 'WRITE');
 }
+
+// Lecture d'un séjour par l'hébergeur du centre : propriétaire OU collaborateur
+// d'équipe `sejours:READ`. Indépendant du mode (collaboratif inclus) et du statut.
+// Pendant lecture de peutEcrireSejourEnPropre, sans la contrainte DIRECT.
+export async function peutLireSejourHebergeur(
+  prisma: PrismaService,
+  sejour: {
+    hebergementSelectionneId?: string | null;
+    hebergementSelectionne: { userId: string | null } | null;
+  },
+  userId: string,
+): Promise<boolean> {
+  if (
+    sejour.hebergementSelectionne?.userId != null &&
+    sejour.hebergementSelectionne.userId === userId
+  ) return true;
+  if (!sejour.hebergementSelectionneId) return false;
+  const perms = await getUserCentrePermissions(prisma, userId, sejour.hebergementSelectionneId);
+  return !!perms && hasPermission(perms, 'sejours', 'READ');
+}

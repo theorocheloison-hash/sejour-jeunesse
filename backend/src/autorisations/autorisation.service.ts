@@ -13,7 +13,7 @@ import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
-import { peutEcrireSejourEnPropre } from '../common/sejour-ownership.js';
+import { peutEcrireSejourEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -669,9 +669,12 @@ export class AutorisationService {
   async getBySejour(sejourId: string, createurId: string) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
+      include: { hebergementSelectionne: { select: { userId: true } } },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId)
+    // Miroir hébergeur (Lot 3) : lecture aussi ouverte à l'hébergeur du centre
+    // (propriétaire ou collaborateur sejours:READ) — createurId = user.id de la route.
+    if (sejour.createurId !== createurId && !(await peutLireSejourHebergeur(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     return this.prisma.autorisationParentale.findMany({

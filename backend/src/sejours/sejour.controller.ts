@@ -113,7 +113,7 @@ export class SejourController {
 
   /** GET /sejours/:id/dossier-pedagogique — Données enrichies du séjour */
   @Get(':id/dossier-pedagogique')
-  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE)
+  @Roles(Role.ORGANISATEUR, Role.SIGNATAIRE, Role.HEBERGEUR)
   getDossierPedagogique(
     @Param('id') id: string,
     @CurrentUser() user: JwtUser,
