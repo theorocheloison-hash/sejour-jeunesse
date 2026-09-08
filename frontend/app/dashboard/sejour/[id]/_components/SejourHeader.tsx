@@ -241,11 +241,13 @@ export default function SejourHeader({
               {sejour?.clientTelephone && <> · {sejour.clientTelephone}</>}
             </p>
           )}
-          {isHebergeur && (isDirect || !!sejour?.clientEmail || !!sejour?.clientNom) && (
+          {isHebergeur && (isDirect || !!sejour?.createur) && (
             <BlocOrganisateur
               sejourId={sejourId}
+              variant="compact"
               invitationCollab={sejour?.invitationCollab ?? null}
               createur={sejour?.createur ?? null}
+              hebergeurUserId={sejour?.hebergementSelectionne?.userId ?? null}
               clientEmail={sejour?.clientEmail ?? null}
             />
           )}
