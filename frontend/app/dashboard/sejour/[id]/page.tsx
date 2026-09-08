@@ -517,11 +517,14 @@ function CollaborationPageContent() {
             documentsDisponibles={devisSigne}
           />
           {/* Tour de première connexion (Lot 2) — organisateur créateur, tant que
-              non terminé. Les ancres data-tour vivent dans OrganisateurNav. */}
-          {user && (user.onboardingTourEtape ?? 0) < NB_ETAPES && !apercuOrganisateur && (
+              non terminé. Les ancres data-tour vivent dans OrganisateurNav.
+              En aperçu hébergeur : mode DÉMO débranché — rejoué à chaque entrée,
+              onEtape no-op (aucune écriture locale ni backend ; la progression est
+              par utilisateur, le flag de l'organisateur n'est jamais concerné). */}
+          {user && (apercuOrganisateur || (user.onboardingTourEtape ?? 0) < NB_ETAPES) && (
             <EducTour
-              etapeInitiale={user.onboardingTourEtape ?? 0}
-              onEtape={(n) => setOnboardingTourEtape(n)}
+              etapeInitiale={apercuOrganisateur ? 0 : (user.onboardingTourEtape ?? 0)}
+              onEtape={apercuOrganisateur ? () => {} : (n) => setOnboardingTourEtape(n)}
             />
           )}
         </>
