@@ -810,7 +810,7 @@ function CollaborationPageContent() {
       {/* B6 — bandeau fixe du mode aperçu (hors du <main> gelé) */}
       {apercuOrganisateur && (
         <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white shadow-2xl print:hidden">
-          <span>👁️ Vue de l&apos;enseignant — lecture seule</span>
+          <span>👁️ Vue de l&apos;organisateur — lecture seule</span>
           <button
             onClick={() => router.replace(pathname)}
             className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold hover:bg-white/25"

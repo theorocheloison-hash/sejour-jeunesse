@@ -398,7 +398,7 @@ export default function SejourHeader({
             onClick={() => router.push('?apercu=1')}
             className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
           >
-            👁️ Voir la vue enseignant
+            👁️ Voir la vue organisateur
           </button>
         )}
         {isDirect && user.role === 'HEBERGEUR' && sejour.hebergementSelectionne?.nom && (
