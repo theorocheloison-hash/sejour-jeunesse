@@ -266,12 +266,14 @@ export class PublicService {
     if (demande.centreDestinataireId) {
       const centre = await this.prisma.centreHebergement.findUnique({
         where: { id: demande.centreDestinataireId },
-        select: { nom: true, email: true },
+        select: { nom: true, email: true, userId: true },
       });
       if (centre?.email) {
         await this.email.sendNouvelleDemandeDevis(
           centre.email, centre.nom, demande.titre,
           demande.villeHebergement, demande.periodeLabel,
+          demande.typeContexte,
+          { id: demande.centreDestinataireId, userId: centre.userId },
         );
       }
       return;

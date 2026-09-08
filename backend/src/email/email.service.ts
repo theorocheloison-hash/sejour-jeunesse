@@ -171,25 +171,42 @@ export class EmailService {
     destination: string,
     periodeLabel: string,
     typeContexte?: string,
+    centre?: { id: string; userId: string | null },
   ) {
-    const contexteLabel = typeContexte === 'COLO'
-      ? 'Un organisateur recherche un hébergement pour une colonie de vacances'
-      : typeContexte === 'GROUPE'
-      ? 'Un organisateur recherche un hébergement pour un séjour de groupe'
+    const contexteLabel = typeContexte === 'HORS_SCOLAIRE'
+      ? 'Un organisateur recherche un hébergement pour un séjour collectif'
       : 'Un enseignant recherche un hébergement pour un séjour scolaire';
+
+    // Centre référencé NON revendiqué (user_id NULL) : le dashboard est un mur
+    // /login — le CTA doit mener à la revendication (fiche catalogue), pas au login.
+    const cible = !!centre;
+    const nonRevendique = cible && !centre!.userId;
+    const ctaText = nonRevendique ? 'Créer mon compte gratuit' : 'Voir la demande';
+    const ctaUrl = nonRevendique
+      ? `${FRONTEND_URL}/catalogue/${centre!.id}`
+      : `${FRONTEND_URL}/dashboard/hebergeur/demandes`;
+
+    const introHtml = !cible
+      ? `<p>${contexteLabel} :</p>`
+      : nonRevendique
+        ? `<p>Un groupe cherche à réserver un séjour dans votre centre. Votre établissement est déjà référencé sur Liavo : créez votre compte gratuit pour reprendre la main et consulter la demande.</p>`
+        : `<p>Vous avez reçu une demande de séjour directement adressée à votre centre.</p>`;
+    const outroHtml = nonRevendique
+      ? ''
+      : `<p>Connectez-vous pour consulter la demande et envoyer votre devis.</p>`;
 
     const html = emailLayout(
       'Nouvelle demande de devis',
-      `<p>Bonjour ${escapeHtml(centreNom)},</p>
-       <p>${contexteLabel} :</p>
-       <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      `<p>Bonjour ${escapeHtml(centreNom)},</p>` +
+      introHtml +
+      `<table style="width:100%;border-collapse:collapse;margin:16px 0">
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(sejourTitre)}</td></tr>
          <tr><td style="padding:8px 12px;font-size:13px;color:#666">Destination</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(destination)}</td></tr>
          <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Dates / Période</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${escapeHtml(periodeLabel)}</td></tr>
-       </table>
-       <p>Connectez-vous pour consulter la demande et envoyer votre devis.</p>`,
-      'Voir la demande',
-      `${FRONTEND_URL}/dashboard/hebergeur/demandes`,
+       </table>` +
+      outroHtml,
+      ctaText,
+      ctaUrl,
     );
     await this.send(to, `Nouvelle demande — ${sejourTitre}`, html);
   }
