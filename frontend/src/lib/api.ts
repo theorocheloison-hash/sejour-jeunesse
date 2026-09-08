@@ -19,6 +19,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Verrou aperçu lecture seule (miroir hébergeur) ───────────────────────────
+// En mode ?apercu=1, TOUTE requête mutante est rejetée AVANT de partir.
+// Le grisage UI est du confort ; LA sécurité vit ici (source unique, hors React).
+api.interceptors.request.use((config) => {
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('apercu') === '1' &&
+    ['post', 'put', 'patch', 'delete'].includes((config.method ?? '').toLowerCase())
+  ) {
+    return Promise.reject(
+      Object.assign(new Error('Action désactivée (aperçu lecture seule)'), { apercuBlocked: true }),
+    );
+  }
+  return config;
+});
+
 // ── Intercepteur PlanGuard : 403 PLAN_INSUFFICIENT → événement global ──
 api.interceptors.response.use(
   (response) => response,

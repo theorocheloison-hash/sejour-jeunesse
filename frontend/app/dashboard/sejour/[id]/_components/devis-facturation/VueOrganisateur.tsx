@@ -27,6 +27,10 @@ export interface VueOrganisateurProps {
   budgetData: BudgetData | null;
   onReload?: () => Promise<void>;
   onError: (m: string) => void;
+  /** Miroir hébergeur (Lot 3) : aperçu « vue enseignant » — affiche les blocs
+   * organisateur (signature…) au rendu ; gelés par l'overlay parent, endpoints
+   * ORGANISATEUR-only et verrou api.ts en filet. */
+  apercuOrganisateur?: boolean;
 }
 
 export default function VueOrganisateur({
@@ -35,6 +39,7 @@ export default function VueOrganisateur({
   budgetData,
   onReload,
   onError,
+  apercuOrganisateur = false,
 }: VueOrganisateurProps) {
   // Contrat consulté (garde de la case d'acceptation dans SignatureDevisPanel côté organisateur).
   const [contratOuvert, setContratOuvert] = useState(false);
@@ -126,7 +131,7 @@ export default function VueOrganisateur({
                     filename={`devis-${pdfProps.numeroDocument}.pdf`}
                     label="Télécharger le devis"
                   />
-                  {user.role === 'ORGANISATEUR' && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
+                  {(user.role === 'ORGANISATEUR' || apercuOrganisateur) && d.statut === 'SELECTIONNE' && !d.signatureDirecteur && (
                     <>
                       <button
                         onClick={() => { setShowInvitationDirection(true); setInvitationSent(false); setInvitationEmail(''); }}
@@ -196,7 +201,7 @@ export default function VueOrganisateur({
               {/* C4 — Signature du devis depuis l'espace connecté (ORGANISATEUR),
                   devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT.
                   Placé APRÈS l'aperçu : on lit le devis, puis on signe. */}
-              {user.role === 'ORGANISATEUR' && d.sejourDirectId && d.statut === 'EN_ATTENTE' && (
+              {(user.role === 'ORGANISATEUR' || apercuOrganisateur) && d.sejourDirectId && d.statut === 'EN_ATTENTE' && (
                 <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
                   <h3 className="text-sm font-semibold text-gray-900">Signer ce devis</h3>
                   {d.contratUrl && (
@@ -230,7 +235,7 @@ export default function VueOrganisateur({
                   />
                 </div>
               )}
-              {user.role === 'ORGANISATEUR' && d.sejourDirectId && d.statut === 'EN_ATTENTE_VALIDATION' && (
+              {(user.role === 'ORGANISATEUR' || apercuOrganisateur) && d.sejourDirectId && d.statut === 'EN_ATTENTE_VALIDATION' && (
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 space-y-4">
                   <p className="text-sm font-medium text-blue-800">Devis en attente de validation par votre direction.</p>
                   <SignatureDevisPanel
@@ -246,7 +251,7 @@ export default function VueOrganisateur({
 
               {/* Convention — lien lecture seule pour l'enseignant (ORGANISATEUR / SIGNATAIRE).
                   Affiché uniquement si l'hébergeur a déjà généré la convention. */}
-              {(user.role === 'ORGANISATEUR' || user.role === 'SIGNATAIRE') && d.conventionUrl && (
+              {(user.role === 'ORGANISATEUR' || user.role === 'SIGNATAIRE' || apercuOrganisateur) && d.conventionUrl && (
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Convention de séjour</h3>
                   <SecureFileLink

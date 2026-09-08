@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useParams, useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getSejourCollabInfo,
@@ -70,9 +70,10 @@ const ACCOMPAGNATEUR_TABS: Tab[] = ['planning', 'participants', 'groupes', 'cham
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
-export default function CollaborationPage() {
+function CollaborationPageContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, setOnboardingTourEtape } = useAuth();
 
   const [sejour, setSejour] = useState<SejourCollabInfo | null>(null);
@@ -82,6 +83,15 @@ export default function CollaborationPage() {
   // (mesPermissions null) mais ne sont pas concernés → canWrite=true pour eux.
   const canWriteSejour = user?.role !== 'HEBERGEUR' || (sejour?.mesPermissions?.sejours === 'WRITE');
   const isEvenement = sejour?.natureSejour === 'EVENEMENT';
+
+  // Miroir hébergeur (Lot 3) : mode « aperçu vue enseignant », piloté par ?apercu=1.
+  // L'URL est la source unique — le verrou de src/lib/api.ts la lit hors React.
+  const searchParams = useSearchParams();
+  const apercuOrganisateur =
+    user?.role === 'HEBERGEUR' &&
+    searchParams.get('apercu') === '1' &&
+    !isDirect && !isEvenement && !!sejour?.createur;
+
   const [tab, setTab] = useState<Tab>('devis');
   const [error, setError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -109,14 +119,15 @@ export default function CollaborationPage() {
   // du chargement (vigilance §8.2). Créateur ⇒ !estAccompagnateur par définition.
   // DIRECT et événementiel gardent la barre actuelle (pas d'organisateur créateur
   // en DIRECT ; l'événementiel filtre la moitié des onglets).
-  const navBlocs = user?.role === 'ORGANISATEUR' && !!sejour && sejour.createur?.id === user.id
-    && !isDirect && !isEvenement;
+  const navBlocs = (user?.role === 'ORGANISATEUR' && !!sejour && sejour.createur?.id === user.id
+    && !isDirect && !isEvenement) || apercuOrganisateur;
 
   // Onglets réellement visibles pour l'utilisateur courant. Reprend À L'IDENTIQUE les
   // conditions de la barre (rôle / accompagnateur / isEvenement / isDirect) et ajoute
   // le gating permissions HEBERGEUR : Devis masqué si devis:NONE, Notes si crm:NONE.
   const ongletsVisibles = useMemo<Tab[]>(() => {
-    const role = user?.role;
+    // Aperçu : les onglets sont ceux qu'un ORGANISATEUR verrait (uniquement ici).
+    const role = apercuOrganisateur ? 'ORGANISATEUR' : user?.role;
     return TABS.filter((t) =>
       estAccompagnateur
         ? ACCOMPAGNATEUR_TABS.includes(t.key)
@@ -136,7 +147,7 @@ export default function CollaborationPage() {
         return true;
       })
       .map((t) => t.key);
-  }, [user, sejour, estAccompagnateur, isEvenement, isDirect]);
+  }, [user, sejour, estAccompagnateur, isEvenement, isDirect, apercuOrganisateur]);
 
   // Onglet réellement affiché : toujours un onglet visible (l'état `tab` peut pointer
   // sur un onglet masqué → on bascule sur le premier visible sans muter le state).
@@ -145,9 +156,9 @@ export default function CollaborationPage() {
   // ── Tracking visite onglet (notifications hébergeur) — sur l'onglet AFFICHÉ ──
   useEffect(() => {
     const ONGLETS_TRACKING = ['messages', 'documents', 'journal'];
-    if (!user || user.role !== 'HEBERGEUR' || !id || !ONGLETS_TRACKING.includes(activeTab)) return;
+    if (!user || user.role !== 'HEBERGEUR' || !id || !ONGLETS_TRACKING.includes(activeTab) || apercuOrganisateur) return;
     marquerVisite(id, activeTab).catch(() => {});
-  }, [activeTab, user, id]);
+  }, [activeTab, user, id, apercuOrganisateur]);
 
   // Budget (partagé : onglet devis via TabDevisFacturation + onglet budget)
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
@@ -436,6 +447,7 @@ export default function CollaborationPage() {
           onSejourUpdate={(updates) => setSejour(prev => prev ? { ...prev, ...updates } : prev)}
           onError={setMutationError}
           onDeleted={() => router.push('/dashboard/hebergeur/planning')}
+          apercu={apercuOrganisateur}
         />
       )}
 
@@ -506,7 +518,7 @@ export default function CollaborationPage() {
           />
           {/* Tour de première connexion (Lot 2) — organisateur créateur, tant que
               non terminé. Les ancres data-tour vivent dans OrganisateurNav. */}
-          {user && (user.onboardingTourEtape ?? 0) < NB_ETAPES && (
+          {user && (user.onboardingTourEtape ?? 0) < NB_ETAPES && !apercuOrganisateur && (
             <EducTour
               etapeInitiale={user.onboardingTourEtape ?? 0}
               onEtape={(n) => setOnboardingTourEtape(n)}
@@ -542,7 +554,9 @@ export default function CollaborationPage() {
       )}
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* B5 — aperçu : contenu gelé + grisé (confort visuel ; la sécurité = verrou api.ts).
+          La nav reste cliquable pour guider. */}
+      <main className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ${apercuOrganisateur ? 'pointer-events-none opacity-60 select-none' : ''}`}>
 
         {/* ── Tutoriel contextuel — organisateur créateur uniquement, une fiche
                par onglet, monté UNE fois au-dessus du contenu (M1). ─────────── */}
@@ -566,6 +580,7 @@ export default function CollaborationPage() {
               peutEcrireDevis={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.devis === 'WRITE'}
               peutEcrireFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation === 'WRITE'}
               peutVoirFacturation={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.facturation !== 'NONE'}
+              apercuOrganisateur={apercuOrganisateur}
             />
           )
         )}
@@ -698,7 +713,7 @@ export default function CollaborationPage() {
                organisateur = rooming. Ternaire EXPLICITE — un rôle imprévu
                ne doit jamais tomber sur TabRooming. ─── */}
         {activeTab === 'chambres' && sejour && (
-          user.role === 'HEBERGEUR' ? (
+          user.role === 'HEBERGEUR' && !apercuOrganisateur ? (
             <TabChambres
               sejourId={id}
               sejour={sejour}
@@ -706,7 +721,7 @@ export default function CollaborationPage() {
               peutGererEnPropre={(isDirect && sejour?.mesPermissions?.sejours === 'WRITE')}
               peutEcrire={user.role === 'HEBERGEUR' && sejour?.mesPermissions?.sejours === 'WRITE'}
             />
-          ) : user.role === 'ORGANISATEUR' ? (
+          ) : (user.role === 'ORGANISATEUR' || apercuOrganisateur) ? (
             <TabRooming
               sejourId={id}
               sejour={sejour}
@@ -769,7 +784,7 @@ export default function CollaborationPage() {
           </div>
         )}
         {/* ── Projet pédagogique ─── */}
-        {activeTab === 'projet' && user.role === 'ORGANISATEUR' && (
+        {activeTab === 'projet' && (user.role === 'ORGANISATEUR' || apercuOrganisateur) && (
           <div className="space-y-6">
             {/* Section thématiques : le bandeau global est déplacé ici pour
                 l'organisateur créateur (SC3) — même JSX, jamais dupliqué. */}
@@ -788,6 +803,29 @@ export default function CollaborationPage() {
         )}
 
       </main>
+
+      {/* B6 — bandeau fixe du mode aperçu (hors du <main> gelé) */}
+      {apercuOrganisateur && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white shadow-2xl print:hidden">
+          <span>👁️ Vue de l&apos;enseignant — lecture seule</span>
+          <button
+            onClick={() => router.replace(pathname)}
+            className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold hover:bg-white/25"
+          >
+            Revenir à ma vue
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// useSearchParams exige une boundary Suspense au build (pattern maison :
+// cf. dashboard/organisateur/page.tsx, hebergeur/planning/page.tsx).
+export default function CollaborationPage() {
+  return (
+    <Suspense>
+      <CollaborationPageContent />
+    </Suspense>
   );
 }

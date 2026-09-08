@@ -58,6 +58,8 @@ interface TabDevisFacturationProps {
   peutEcrireDevis: boolean;
   peutEcrireFacturation: boolean;
   peutVoirFacturation: boolean;
+  /** Miroir hébergeur (Lot 3) : aperçu « vue enseignant » → déléguer à VueOrganisateur. */
+  apercuOrganisateur?: boolean;
 }
 
 /**
@@ -133,6 +135,7 @@ export default function TabDevisFacturation({
   peutEcrireDevis,
   peutEcrireFacturation,
   peutVoirFacturation,
+  apercuOrganisateur = false,
 }: TabDevisFacturationProps) {
   // ── Devis DIRECT ────────────────────────────────────────────
   const [devis, setDevis] = useState<DevisType | null>(null);
@@ -1140,7 +1143,7 @@ export default function TabDevisFacturation({
 
   // Découpage par rôle (étape 3a) : tout non-hébergeur est servi par VueOrganisateur.
   // Placé APRÈS tous les hooks (règle React) — le rendu hébergeur ci-dessous est inchangé.
-  if (user.role !== 'HEBERGEUR') {
+  if (user.role !== 'HEBERGEUR' || apercuOrganisateur) {
     return (
       <VueOrganisateur
         sejour={sejour}
@@ -1148,6 +1151,7 @@ export default function TabDevisFacturation({
         budgetData={budgetData}
         onReload={onReload}
         onError={onError}
+        apercuOrganisateur={apercuOrganisateur}
       />
     );
   }

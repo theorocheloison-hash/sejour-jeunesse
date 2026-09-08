@@ -43,6 +43,8 @@ interface SejourHeaderProps {
   onSejourUpdate: (updates: Partial<SejourCollabInfo>) => void;
   onError: (message: string) => void;
   onDeleted: () => void; // appelé après suppression, pour router.push
+  /** Mode aperçu « vue enseignant » actif (miroir hébergeur) — masque le bouton d'entrée. */
+  apercu?: boolean;
 }
 
 export default function SejourHeader({
@@ -56,6 +58,7 @@ export default function SejourHeader({
   onSejourUpdate,
   onError,
   onDeleted,
+  apercu = false,
 }: SejourHeaderProps) {
   const router = useRouter();
   const isHebergeur = user.role === 'HEBERGEUR';
@@ -388,6 +391,16 @@ export default function SejourHeader({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {/* Miroir hébergeur (Lot 3) : entrée du mode aperçu « vue enseignant » —
+            séjour collaboratif avec organisateur rattaché uniquement. */}
+        {isHebergeur && !isDirect && !isEvenement && !!sejour?.createur && !apercu && (
+          <button
+            onClick={() => router.push('?apercu=1')}
+            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            👁️ Voir la vue enseignant
+          </button>
+        )}
         {isDirect && user.role === 'HEBERGEUR' && sejour.hebergementSelectionne?.nom && (
           <a
             href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Visite ${sejour.hebergementSelectionne.nom}`)}&details=${encodeURIComponent(`Visite de ${sejour.clientNom ?? 'client'} au ${sejour.hebergementSelectionne.nom}`)}`}
