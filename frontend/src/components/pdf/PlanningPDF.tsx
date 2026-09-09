@@ -32,9 +32,10 @@ const s = StyleSheet.create({
 const DAY_LABELS = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
 const TIME_COL_WIDTH = 55;
 
-const SLOTS: { key: 'matin' | 'aprem' | 'journee'; label: string }[] = [
+const SLOTS: { key: 'matin' | 'aprem' | 'journee' | 'soir'; label: string }[] = [
   { key: 'matin', label: 'MATIN' },
   { key: 'aprem', label: 'APRÈS-MIDI' },
+  { key: 'soir', label: 'SOIRÉE' },
   { key: 'journee', label: 'JOURNÉE' },
 ];
 
@@ -62,11 +63,15 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-function classifySlot(heureDebut: string, heureFin: string): 'matin' | 'aprem' | 'journee' {
+function classifySlot(heureDebut: string, heureFin: string): 'matin' | 'aprem' | 'journee' | 'soir' {
   const start = timeToMinutes(heureDebut);
   const end = timeToMinutes(heureFin);
-  if (start < 12 * 60 && end > 13 * 60) return 'journee';
-  if (end <= 13 * 60) return 'matin';
+  // Soir : toute activité qui commence à 19h ou après.
+  if (start >= 19 * 60) return 'soir';
+  // Journée : couvre le matin ET déborde franchement l'après-midi.
+  if (start < 12 * 60 && end > 14 * 60) return 'journee';
+  // Sinon demi-journée selon l'heure de début (bascule à 13h30).
+  if (start < 13 * 60 + 30) return 'matin';
   return 'aprem';
 }
 
