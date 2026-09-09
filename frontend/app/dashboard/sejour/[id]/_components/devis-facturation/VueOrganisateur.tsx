@@ -6,7 +6,6 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import SignatureDevisPanel from '@/src/components/devis/SignatureDevisPanel';
-import api from '@/src/lib/api';
 import type { SejourCollabInfo, BudgetData } from '@/src/lib/collaboration';
 import { signerDevisConnecte, envoyerDirectionConnecte, uploadSignatureConnecte } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
@@ -19,7 +18,7 @@ import DevisPdfViewer from './DevisPdfViewer';
  * jamais getDevisForSejour (hébergeur-only). Reproduction verbatim des blocs
  * organisateur : état vide, builder pdfProps, actions signature/scan, badge signé,
  * viewer PDF, SignatureDevisPanel (EN_ATTENTE + EN_ATTENTE_VALIDATION), convention
- * lecture seule, modale invitation direction.
+ * lecture seule.
  */
 export interface VueOrganisateurProps {
   sejour: SejourCollabInfo;
@@ -43,12 +42,6 @@ export default function VueOrganisateur({
 }: VueOrganisateurProps) {
   // Contrat consulté (garde de la case d'acceptation dans SignatureDevisPanel côté organisateur).
   const [contratOuvert, setContratOuvert] = useState(false);
-
-  // ── Invitation direction (devis collab) ─────────────────────
-  const [showInvitationDirection, setShowInvitationDirection] = useState(false);
-  const [invitationEmail, setInvitationEmail] = useState('');
-  const [invitationSending, setInvitationSending] = useState(false);
-  const [invitationSent, setInvitationSent] = useState(false);
 
   const devisAffiche = budgetData?.devis ?? null;
 
@@ -157,8 +150,8 @@ export default function VueOrganisateur({
               </div>
               <DevisPdfViewer documentUrl={d.documentUrl ?? null} pdfProps={pdfProps} />
 
-              {/* C4 — Signature du devis depuis l'espace connecté (ORGANISATEUR),
-                  devis DIRECT rattaché (sejourDirectId), endpoints id-based JWT.
+              {/* Signature du devis depuis l'espace connecté (ORGANISATEUR / aperçu),
+                  tous modes, tant que le devis est « ouvert ». Endpoints id-based JWT.
                   Placé APRÈS l'aperçu : on lit le devis, puis on signe. */}
               {(user.role === 'ORGANISATEUR' || apercuOrganisateur) && devisOuvert && d.statut !== 'EN_ATTENTE_VALIDATION' && (
                 <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
@@ -229,90 +222,6 @@ export default function VueOrganisateur({
         })()}
       </div>
 
-      {/* ── Modale invitation direction ─── */}
-      {showInvitationDirection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            {invitationSent ? (
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-50">
-                  <svg className="h-7 w-7 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Invitation envoyée</h3>
-                <p className="text-sm text-gray-500 mb-6">
-                  La direction recevra un email avec un lien pour consulter et signer le devis.
-                </p>
-                <button
-                  onClick={() => setShowInvitationDirection(false)}
-                  className="w-full rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                >
-                  Fermer
-                </button>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Envoyer le devis pour signature</h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  La direction recevra un email avec un lien pour consulter et signer le devis.
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email de la direction</label>
-                    <input
-                      type="email"
-                      value={invitationEmail}
-                      onChange={(e) => setInvitationEmail(e.target.value)}
-                      placeholder="direction@etablissement.fr"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={invitationSending}
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button
-                      onClick={() => setShowInvitationDirection(false)}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      disabled={invitationSending}
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!invitationEmail.trim() || !sejour || !devisAffiche) return;
-                        setInvitationSending(true);
-                        try {
-                          await api.post('/invitations-directeur', {
-                            sejourId: sejour.id,
-                            devisId: devisAffiche.id,
-                            emailDirecteur: invitationEmail.trim(),
-                            enseignantPrenom: user.firstName,
-                            sejourTitre: sejour.titre,
-                            etablissementNom: user.organisation?.nom ?? '',
-                            etablissementUai: user.organisation?.uai ?? '',
-                            organisationId: user.organisation?.id ?? undefined,
-                            typeContexte: 'SCOLAIRE',
-                          });
-                          setInvitationSent(true);
-                        } catch (err) {
-                          console.error('[invitations-directeur]', err);
-                          onError('Une erreur est survenue. Veuillez réessayer.');
-                        } finally {
-                          setInvitationSending(false);
-                        }
-                      }}
-                      disabled={invitationSending || !invitationEmail.trim()}
-                      className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      {invitationSending ? 'Envoi...' : 'Envoyer l\'invitation'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
