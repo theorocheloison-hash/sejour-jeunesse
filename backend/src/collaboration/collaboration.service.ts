@@ -697,53 +697,38 @@ export class CollaborationService {
   async getActivitesCatalogue(sejourId: string, userId: string, role?: string) {
     await this.verifyAccess(sejourId, userId, role);
 
-    // Chercher le devis SELECTIONNE (ou SIGNE_DIRECTION) lié à ce séjour —
-    // mode COLLAB : via DemandeDevis → devis.demandeId
-    // mode DIRECT  : via devis.sejourDirectId
-    const devisSelectionne = await this.prisma.devis.findFirst({
+    // Devis principal du séjour, quel que soit l'avancement (hors complémentaire et
+    // hors NON_RETENU) — on ne gate plus sur la signature : le planning se prépare
+    // dès qu'un devis existe.
+    const devis = await this.prisma.devis.findFirst({
       where: {
-        statut: { in: STATUTS_DEVIS_ENGAGEANTS },
+        isComplementaire: false,
+        statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR },
         OR: [
           { demande: { sejourId } },
           { sejourDirectId: sejourId },
         ],
       },
-      include: { lignes: { select: { description: true } } },
+      orderBy: { createdAt: 'desc' },
+      include: { lignes: { select: { produitCatalogueId: true } } },
     });
 
-    const lignesDevis = devisSelectionne?.lignes ?? [];
-    if (lignesDevis.length === 0) return [];
+    // Lien fiable ligne → produit via produitCatalogueId (le matching par nom
+    // était fragile : cassait sur un accent, un « + », un préfixe).
+    const produitIds = Array.from(
+      new Set(
+        (devis?.lignes ?? [])
+          .map((l) => l.produitCatalogueId)
+          .filter((id): id is string => id !== null),
+      ),
+    );
+    if (produitIds.length === 0) return [];
 
-    // Descriptions des lignes du devis (noms des produits facturés)
-    const nomsLignes = lignesDevis.map(l => l.description.toLowerCase().trim());
-
-    // Récupérer les produits ACTIVITE du catalogue dont le nom
-    // correspond à une ligne du devis
-    const sejour = await this.prisma.sejour.findUnique({
-      where: { id: sejourId },
-      select: { hebergementSelectionneId: true },
-    });
-
-    if (!sejour?.hebergementSelectionneId) return [];
-
-    const produits = await this.prisma.produitCatalogue.findMany({
-      where: {
-        centreId: sejour.hebergementSelectionneId,
-        type: 'ACTIVITE',
-        actif: true,
-      },
+    return this.prisma.produitCatalogue.findMany({
+      where: { id: { in: produitIds }, type: 'ACTIVITE', actif: true },
       select: { id: true, nom: true, description: true, type: true, unite: true, dureeMinutes: true },
       orderBy: { nom: 'asc' },
     });
-
-    // Filtrer : garder seulement les produits dont le nom matche
-    // une ligne du devis (comparaison insensible à la casse)
-    return produits.filter(p =>
-      nomsLignes.some(n =>
-        n.includes(p.nom.toLowerCase().trim()) ||
-        p.nom.toLowerCase().trim().includes(n)
-      )
-    );
   }
 
   // ── Groupes séjour ────────────────────────────────────────────
