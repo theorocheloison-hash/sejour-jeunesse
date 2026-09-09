@@ -301,7 +301,7 @@ export class DemandeService {
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         centre: {
           select: {
             id: true, nom: true, ville: true, telephone: true, email: true,

@@ -44,7 +44,7 @@ export class InvitationsDirecteurService {
           tauxTva: true,
           conditionsAnnulation: true,
           createdAt: true,
-          lignes: true,
+          lignes: { orderBy: { ordre: 'asc' } },
           centre: {
             select: {
               nom: true,

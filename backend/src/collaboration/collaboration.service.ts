@@ -424,7 +424,7 @@ export class CollaborationService {
           where: { statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR }, isComplementaire: false },
           orderBy: { createdAt: 'desc' },
           include: {
-            lignes: true,
+            lignes: { orderBy: { ordre: 'asc' } },
             centre: {
               select: {
                 nom: true,

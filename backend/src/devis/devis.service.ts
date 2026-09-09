@@ -163,7 +163,7 @@ export class DevisService {
       // Create lignes if provided
       if (dto.lignes && dto.lignes.length > 0) {
         await tx.ligneDevis.createMany({
-          data: dto.lignes.map((l) => ({
+          data: dto.lignes.map((l, index) => ({
             devisId: d.id,
             description: l.description,
             quantite: l.quantite,
@@ -172,6 +172,7 @@ export class DevisService {
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
             produitCatalogueId: l.produitCatalogueId ?? null,
+            ordre: index,
           })),
         });
       }
@@ -198,7 +199,7 @@ export class DevisService {
 
     const fullDevis = await this.prisma.devis.findUnique({
       where: { id: devis.id },
-      include: { lignes: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } } },
     });
 
     // Plus de notification automatique à la création (sendDevisRecu + magic link
@@ -248,13 +249,13 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { centreId: centre.id },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         // Séjour DIRECT (titre pour l'affichage, deletedAt pour détecter un séjour supprimé).
         // dateDebut/dateFin/modeGestion alignés sur getDevisById() pour cohérence du type frontend.
         sejourDirect: { select: { id: true, titre: true, dateDebut: true, dateFin: true, modeGestion: true, natureSejour: true, deletedAt: true, clientNom: true, clientPrenom: true, clientEmail: true, clientTelephone: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         factures: {
-          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          include: { lignes: { orderBy: { ordre: 'asc' } }, versements: { orderBy: { datePaiement: 'asc' as const } } },
           orderBy: { dateEmission: 'asc' as const },
         },
         centre: {
@@ -322,7 +323,7 @@ export class DevisService {
         ],
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         sejourDirect: {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
@@ -330,7 +331,7 @@ export class DevisService {
           },
         },
         factures: {
-          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          include: { lignes: { orderBy: { ordre: 'asc' } }, versements: { orderBy: { datePaiement: 'asc' as const } } },
           orderBy: { dateEmission: 'asc' as const },
         },
         centre: {
@@ -387,9 +388,9 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { id },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         factures: {
-          include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' as const } } },
+          include: { lignes: { orderBy: { ordre: 'asc' } }, versements: { orderBy: { datePaiement: 'asc' as const } } },
           orderBy: { dateEmission: 'asc' as const },
         },
         demande: {
@@ -508,7 +509,7 @@ export class DevisService {
     // Recréer les nouvelles lignes
     if (dto.lignes && dto.lignes.length > 0) {
       await this.prisma.ligneDevis.createMany({
-        data: dto.lignes.map((l) => ({
+        data: dto.lignes.map((l, index) => ({
           devisId: id,
           description: l.description,
           quantite: l.quantite,
@@ -517,6 +518,7 @@ export class DevisService {
           totalHT: l.totalHT,
           totalTTC: l.totalTTC,
           produitCatalogueId: l.produitCatalogueId ?? null,
+          ordre: index,
         })),
       });
     }
@@ -549,7 +551,7 @@ export class DevisService {
 
     return this.prisma.devis.findUnique({
       where: { id },
-      include: { lignes: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } } },
     });
   }
 
@@ -570,7 +572,7 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { demandeId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         centre: {
           select: {
             id: true,
@@ -849,7 +851,7 @@ export class DevisService {
           .update(`${devisId}${user.id}${new Date().toISOString()}${devis.montantTTC ?? '0'}`)
           .digest('hex'),
       },
-      include: { lignes: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } } },
     });
 
     if (devis.demande?.sejour) {
@@ -1148,7 +1150,7 @@ export class DevisService {
         ],
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         centre: { select: { id: true, nom: true, ville: true, email: true, capacite: true } },
         demande: {
           include: {
@@ -1250,7 +1252,7 @@ export class DevisService {
         },
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: { orderBy: { datePaiement: 'asc' as const } },
         devis: {
           include: {
@@ -1424,7 +1426,7 @@ export class DevisService {
 
       if (dto.lignes && dto.lignes.length > 0) {
         await tx.ligneDevis.createMany({
-          data: dto.lignes.map((l) => ({
+          data: dto.lignes.map((l, index) => ({
             devisId: d.id,
             description: l.description,
             quantite: l.quantite,
@@ -1433,6 +1435,7 @@ export class DevisService {
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
             produitCatalogueId: l.produitCatalogueId ?? null,
+            ordre: index,
           })),
         });
       }
@@ -1442,7 +1445,7 @@ export class DevisService {
 
     return this.prisma.devis.findUnique({
       where: { id: devis.id },
-      include: { lignes: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } } },
     });
   }
 
@@ -1474,7 +1477,7 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         sejourDirect: {
           select: {
             id: true, createurId: true, titre: true, dateDebut: true, dateFin: true,
@@ -1691,7 +1694,7 @@ export class DevisService {
     });
 
     await this.prisma.ligneDevis.createMany({
-      data: dto.lignes.map((l) => ({
+      data: dto.lignes.map((l, index) => ({
         devisId: devis.id,
         description: l.description,
         quantite: l.quantite,
@@ -1700,13 +1703,14 @@ export class DevisService {
         totalHT: l.totalHT,
         totalTTC: l.totalTTC,
         produitCatalogueId: l.produitCatalogueId ?? null,
+        ordre: index,
       })),
     });
 
     // NE mute PAS le séjour, ne notifie pas, ne rattache pas de Client CRM.
     return this.prisma.devis.findUnique({
       where: { id: devis.id },
-      include: { lignes: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } } },
     });
   }
 
@@ -1725,8 +1729,8 @@ export class DevisService {
     return this.prisma.devis.findMany({
       where: { sejourDirectId: sejourId, isComplementaire: true },
       include: {
-        lignes: true,
-        factures: { include: { lignes: true, versements: true } },
+        lignes: { orderBy: { ordre: 'asc' } },
+        factures: { include: { lignes: { orderBy: { ordre: 'asc' } }, versements: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -1756,7 +1760,7 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         sejourDirect: {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
@@ -1867,7 +1871,7 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         sejourDirect: {
           select: {
             id: true, titre: true, dateDebut: true, dateFin: true,
@@ -2157,7 +2161,7 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         centre: {
           select: {
             nom: true, ville: true, adresse: true, codePostal: true,

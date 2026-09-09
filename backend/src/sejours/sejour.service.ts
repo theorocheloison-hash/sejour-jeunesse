@@ -277,7 +277,7 @@ export class SejourService {
                 isComplementaire: false,
               },
               include: {
-                lignes: true,
+                lignes: { orderBy: { ordre: 'asc' } },
                 centre: {
                   select: {
                     id: true, nom: true, ville: true, email: true,
@@ -346,7 +346,7 @@ export class SejourService {
           include: {
             devis: {
               include: {
-                lignes: true,
+                lignes: { orderBy: { ordre: 'asc' } },
                 centre: { select: { id: true, nom: true, ville: true, email: true, telephone: true } },
               },
             },
@@ -403,7 +403,7 @@ export class SejourService {
             devis: {
               where: { statut: { in: STATUTS_DEVIS_VISIBLES_ORGANISATEUR }, isComplementaire: false },
               orderBy: { createdAt: 'desc' },
-              include: { lignes: true },
+              include: { lignes: { orderBy: { ordre: 'asc' } } },
               take: 1,
             },
           },

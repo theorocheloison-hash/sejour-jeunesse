@@ -93,7 +93,7 @@ export class FactureService {
       const facture = await this.prisma.facture.findUnique({
         where: { id: factureId },
         include: {
-          lignes: true,
+          lignes: { orderBy: { ordre: 'asc' } },
           versements: { orderBy: { datePaiement: 'asc' } },
           factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
           factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
@@ -125,7 +125,7 @@ export class FactureService {
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: { orderBy: { datePaiement: 'asc' } },
         factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
         factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
@@ -168,7 +168,7 @@ export class FactureService {
     const devis = await this.prisma.devis.findUnique({
       where: { id: devisId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         centre: true,
         demande: {
           include: {
@@ -452,17 +452,18 @@ export class FactureService {
         pourcentageAcompte: pourcentage,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: emission.lignesSnapshot.map((l) => ({
+          create: emission.lignesSnapshot.map((l, i) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
             tva: l.tva,
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
+            ordre: i,
           })),
         },
       },
-      include: { lignes: true, versements: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } }, versements: true },
     });
 
     // Génération PDF + stockage OVH (await — le PDF doit être prêt pour un envoi manuel ultérieur)
@@ -589,18 +590,19 @@ export class FactureService {
         montantAcompteDejaFacture: acompteNet,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: emission.lignesSnapshot.map((l) => ({
+          create: emission.lignesSnapshot.map((l, i) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
             tva: l.tva,
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
+            ordre: i,
           })),
         },
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: true,
         factureAcompte: { select: { numero: true, dateEmission: true, montantVerseTotal: true } },
         devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
@@ -708,18 +710,19 @@ export class FactureService {
         montantAcompteDejaFacture: 0,
         conditionsAnnulation: devis.conditionsAnnulation,
         lignes: {
-          create: emission.lignesSnapshot.map((l) => ({
+          create: emission.lignesSnapshot.map((l, i) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
             tva: l.tva,
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
+            ordre: i,
           })),
         },
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: true,
         devis: { select: { versements: { orderBy: { datePaiement: 'asc' } } } },
       },
@@ -776,7 +779,7 @@ export class FactureService {
     const factureAnnulee = await this.prisma.facture.findUnique({
       where: { id: factureAnnuleeId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         devis: {
           select: {
             id: true,
@@ -854,18 +857,19 @@ export class FactureService {
         acompteVerse: false,
         conditionsAnnulation: factureAnnulee.conditionsAnnulation,
         lignes: {
-          create: dto.lignes.map((l) => ({
+          create: dto.lignes.map((l, i) => ({
             description: l.description,
             quantite: l.quantite,
             prixUnitaire: l.prixUnitaire,
             tva: l.tva,
             totalHT: l.totalHT,
             totalTTC: l.totalTTC,
+            ordre: i,
           })),
         },
       },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: true,
         factureAnnulee: { select: { numero: true, dateEmission: true, montantFacture: true } },
       },
@@ -1006,7 +1010,7 @@ export class FactureService {
     return this.prisma.facture.findMany({
       where: { devisId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         versements: { orderBy: { datePaiement: 'asc' } },
         // Avoir lié (Lot 3) : permet à l'UI de signaler qu'une facture a été annulée.
         // factureAnnuleeId + motifAvoir sont des scalaires déjà renvoyés par include.
@@ -1123,7 +1127,7 @@ export class FactureService {
         acompteVerse: verseComplet,
         ...(verseComplet && !cible.acompteVerse ? { dateVersement: new Date() } : {}),
       },
-      include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } } },
+      include: { lignes: { orderBy: { ordre: 'asc' } }, versements: { orderBy: { datePaiement: 'asc' } } },
     });
 
     await this.resyncMontantVerseDevis(devisId);
@@ -1168,7 +1172,7 @@ export class FactureService {
         montantVerseTotal: nouveauTotal,
         acompteVerse: nouveauTotal >= (facture?.montantFacture ?? 0) * 0.99,
       },
-      include: { lignes: true, versements: { orderBy: { datePaiement: 'asc' } } },
+      include: { lignes: { orderBy: { ordre: 'asc' } }, versements: { orderBy: { datePaiement: 'asc' } } },
     });
 
     await this.resyncMontantVerseDevis(updated.devisId);
@@ -1234,7 +1238,7 @@ export class FactureService {
         dateVersement: new Date(),
         ...(manque > 0 ? { montantVerseTotal: round2(dejaVerse + manque) } : {}),
       },
-      include: { lignes: true, versements: true },
+      include: { lignes: { orderBy: { ordre: 'asc' } }, versements: true },
     });
 
     if (manque > 0) {
@@ -1265,7 +1269,7 @@ export class FactureService {
     const facture = await this.prisma.facture.findUnique({
       where: { id: factureId },
       include: {
-        lignes: true,
+        lignes: { orderBy: { ordre: 'asc' } },
         devis: {
           include: {
             centre: { select: { mandatFacturationAccepte: true } },
