@@ -1130,6 +1130,7 @@ model LigneFacture {
   tva          Float   @default(0)
   totalHT      Float   @map("total_ht")
   totalTTC     Float   @map("total_ttc")
+  ordre        Int     @default(0)
   facture      Facture @relation(fields: [factureId], references: [id], onDelete: Cascade)
 
   @@map("lignes_facture")
@@ -1192,6 +1193,7 @@ model LigneDevisLibre {
   tva          Float      @default(0)
   totalHT      Float      @map("total_ht")
   totalTTC     Float      @map("total_ttc")
+  ordre        Int        @default(0)
 
   devisLibre DevisLibre @relation(fields: [devisLibreId], references: [id], onDelete: Cascade)
 
@@ -1228,6 +1230,7 @@ model LigneDevis {
   // même longueur que FacturePrestataire.typeCharge (clé de rapprochement vente↔achat).
   revenduTiers   Boolean @default(false) @map("revendu_tiers")
   categorieMarge String? @map("categorie_marge") @db.VarChar(50)
+  ordre          Int     @default(0)
 
   produitCatalogue ProduitCatalogue? @relation(fields: [produitCatalogueId], references: [id], onDelete: SetNull)
 
