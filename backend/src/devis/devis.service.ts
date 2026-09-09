@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Request } from 'express';
-import { StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
+import { Prisma, StatutDevis, StatutSejour, AppelOffreStatut, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -626,6 +626,47 @@ export class DevisService {
     });
   }
 
+  /**
+   * Un devis est « ouvert » tant qu'il n'est ni réellement signé (traces de
+   * signature) ni figé (facturé ou écarté) : il peut être envoyé et signé,
+   * quel que soit le mode (DIRECT, rejoint, COLLAB) ou le chemin (lien public,
+   * espace connecté).
+   */
+  private estDevisOuvertPourSignature(devis: {
+    statut: StatutDevis;
+    nomSignataireDirecteur: string | null;
+    dateSignatureDirecteur: Date | null;
+    signatureDocumentUrl: string | null;
+  }): boolean {
+    const dejaSigne = !!(devis.nomSignataireDirecteur || devis.dateSignatureDirecteur || devis.signatureDocumentUrl);
+    const figes: StatutDevis[] = [StatutDevis.FACTURE_ACOMPTE, StatutDevis.FACTURE_SOLDE, StatutDevis.NON_RETENU];
+    const fige = figes.includes(devis.statut);
+    return !dejaSigne && !fige;
+  }
+
+  /**
+   * Effets de bord communs quand un devis est retenu (sélection organisateur,
+   * signature ou upload signé) : concurrents écartés + demande fermée (COLLAB),
+   * séjour basculé en CONVENTION avec centre sélectionné. `db` accepte le client
+   * Prisma direct ou un client de transaction.
+   */
+  private async engagerDevisRetenu(
+    db: Prisma.TransactionClient,
+    params: { devisId: string; demandeId: string | null; sejourId: string; centreId: string },
+  ): Promise<void> {
+    if (params.demandeId) {
+      await db.devis.updateMany({
+        where: { demandeId: params.demandeId, id: { not: params.devisId }, statut: { not: StatutDevis.NON_RETENU } },
+        data: { statut: StatutDevis.NON_RETENU },
+      });
+      await db.demandeDevis.update({ where: { id: params.demandeId }, data: { statut: 'FERMEE' } });
+    }
+    await db.sejour.update({
+      where: { id: params.sejourId },
+      data: { appelOffreStatut: AppelOffreStatut.FERME, hebergementSelectionneId: params.centreId, statut: StatutSejour.CONVENTION },
+    });
+  }
+
   async updateStatut(id: string, statut: StatutDevis, userId: string, userRole: string) {
     const devis = await this.prisma.devis.findUnique({
       where: { id },
@@ -665,33 +706,10 @@ export class DevisService {
 
     // Workflow complet quand un devis est SELECTIONNE
     if (statut === StatutDevis.SELECTIONNE) {
-      // 1. Passer tous les autres devis de la même demande en NON_RETENU
-      await this.prisma.devis.updateMany({
-        where: {
-          demandeId: devis.demandeId,
-          id: { not: id },
-          statut: { not: StatutDevis.NON_RETENU },
-        },
-        data: { statut: StatutDevis.NON_RETENU },
-      });
+      // Concurrents NON_RETENU + demande FERMEE + séjour CONVENTION
+      await this.engagerDevisRetenu(this.prisma, { devisId: id, demandeId: devis.demandeId, sejourId: demande.sejourId, centreId: devis.centreId });
 
-      // 2. Fermer la demande de devis
-      await this.prisma.demandeDevis.update({
-        where: { id: demandeId },
-        data: { statut: 'FERMEE' },
-      });
-
-      // 3. Mettre à jour le séjour : appel d'offres fermé + centre sélectionné + statut CONVENTION
-      await this.prisma.sejour.update({
-        where: { id: demande.sejourId },
-        data: {
-          appelOffreStatut: AppelOffreStatut.FERME,
-          hebergementSelectionneId: devis.centreId,
-          statut: StatutSejour.CONVENTION,
-        },
-      });
-
-      // 4. Notifier l'hébergeur que son devis est sélectionné
+      // Notifier l'hébergeur que son devis est sélectionné
       const centre = await this.prisma.centreHebergement.findUnique({
         where: { id: devis.centreId },
         include: { user: { select: { email: true } } },
@@ -1484,11 +1502,8 @@ export class DevisService {
     }
     // Un devis signé ou facturé ne peut plus être renvoyé : il est immuable (modèle B,
     // l'ajustement se fait à l'émission de facture). Le lien public d'origine reste consultable.
-    if (devis.statut !== 'EN_ATTENTE') {
-      throw new ForbiddenException(
-        'Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé. ' +
-        'Le lien de signature d\'origine reste consultable par le client.',
-      );
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé.');
     }
     const emailCible = emailDestinataire?.trim() ?? '';
     if (!emailCible || !/^\S+@\S+\.\S+$/.test(emailCible)) {
@@ -1536,7 +1551,7 @@ export class DevisService {
 
     // Boutons conditionnels : lien public si signature par token possible ;
     // bouton espace (page de login, PAS de magic link) si l'email est celui du compte organisateur.
-    const lienPublicBlock = devis.sejourDirectId && devis.tokenSignature
+    const lienPublicBlock = devis.tokenSignature
       ? `<p>Consultez le devis complet et signez-le en ligne :</p>
        <p style="margin:24px 0">
          <a href="${frontendUrl}/devis/signer/${devis.tokenSignature}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
@@ -2162,13 +2177,24 @@ export class DevisService {
             clientAdresse: true, clientCodePostal: true, clientVille: true,
           },
         },
+        demande: {
+          select: {
+            sejour: {
+              select: {
+                id: true, titre: true, lieu: true,
+                dateDebut: true, dateFin: true, placesTotales: true,
+                nombreAccompagnateurs: true,
+                clientNom: true, clientPrenom: true, clientEmail: true,
+                clientOrganisation: true, natureSejour: true, typeSejour: true,
+                clientAdresse: true, clientCodePostal: true, clientVille: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!devis) throw new NotFoundException('Lien de signature invalide');
     if (devis.isComplementaire) throw new NotFoundException('Lien invalide');
-    if (!devis.sejourDirectId) {
-      throw new NotFoundException('Ce devis n\'utilise pas la signature par lien');
-    }
 
     const isSigned = devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION'
       || devis.statut === 'FACTURE_ACOMPTE' || devis.statut === 'FACTURE_SOLDE';
@@ -2196,7 +2222,7 @@ export class DevisService {
       documentUrl: devis.documentUrl,
       lignes: devis.lignes,
       centre: devis.centre,
-      sejour: devis.sejourDirect,
+      sejour: devis.sejourDirect ?? devis.demande?.sejour ?? null,
       isSigned,
       signatureDirecteur: devis.signatureDirecteur,
       nomSignataireDirecteur: devis.nomSignataireDirecteur,
@@ -2241,17 +2267,25 @@ export class DevisService {
       include: {
         centre: { select: { nom: true, email: true } },
         sejourDirect: { select: { id: true, titre: true, clientEmail: true, clientNom: true, clientPrenom: true, dateDebut: true, dateFin: true, modeGestion: true } },
+        demande: {
+          select: {
+            sejourId: true,
+            sejour: { select: { id: true, titre: true, clientEmail: true, clientNom: true, clientPrenom: true, dateDebut: true, dateFin: true } },
+          },
+        },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
     if (devis.isComplementaire) {
       throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
     }
-    if (!devis.sejourDirectId || !devis.sejourDirect) {
+    const sejour = devis.sejourDirect ?? devis.demande?.sejour;
+    const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+    if (!sejour || !sejourId) {
       throw new NotFoundException('Devis non éligible à la signature par lien');
     }
-    if (devis.statut !== 'EN_ATTENTE') {
-      throw new ForbiddenException('Ce devis ne peut plus être signé (statut actuel : ' + devis.statut + ')');
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis a déjà été signé ou facturé.');
     }
 
     const now = new Date();
@@ -2273,22 +2307,15 @@ export class DevisService {
         },
       });
 
-      await tx.sejour.update({
-        where: { id: devis.sejourDirect!.id },
-        data: {
-          statut: StatutSejour.CONVENTION,
-          hebergementSelectionneId: devis.centreId,
-        },
-      });
+      await this.engagerDevisRetenu(tx, { devisId: devis.id, demandeId: devis.demandeId, sejourId, centreId: devis.centreId });
     });
 
     // Sync occupations chambres (site 7 du §3.1, run-chambres-4a) — page
     // publique : jamais bloquant (D12), le wrapper Safe garantit la signature.
-    await this.occupations.syncOccupationsSejourSafe(devis.sejourDirect.id, 'devis.signerDevisDirect');
+    await this.occupations.syncOccupationsSejourSafe(sejourId, 'devis.signerDevisDirect');
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
-    const sejour = devis.sejourDirect;
     const planningUrl = sejour.dateDebut
       ? `${frontendUrl}/dashboard/hebergeur/planning?view=semaine&date=${sejour.dateDebut.toISOString().slice(0, 10)}`
       : `${frontendUrl}/dashboard/hebergeur/planning`;
@@ -2379,6 +2406,17 @@ export class DevisService {
             clientOrganisation: true, clientOrganisationId: true,
           },
         },
+        demande: {
+          select: {
+            sejourId: true,
+            sejour: {
+              select: {
+                id: true, titre: true, clientNom: true,
+                clientOrganisation: true, clientOrganisationId: true,
+              },
+            },
+          },
+        },
         centre: { select: { nom: true, email: true } },
       },
     });
@@ -2386,17 +2424,18 @@ export class DevisService {
     if (devis.isComplementaire) {
       throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
     }
-    if (!devis.sejourDirectId || !devis.sejourDirect) {
+    const sejour = devis.sejourDirect ?? devis.demande?.sejour;
+    const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+    if (!sejour || !sejourId) {
       throw new NotFoundException('Devis non éligible');
     }
-    if (devis.statut !== 'EN_ATTENTE') {
-      throw new ForbiddenException('Ce devis ne peut plus être envoyé à la direction');
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis ne peut plus être envoyé à la direction.');
     }
 
     const { randomUUID } = await import('crypto');
     const invToken = randomUUID();
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-    const sejour = devis.sejourDirect;
 
     // Résoudre l'organisationId pour le Membership signataire (SC4ter).
     // Séjour DIRECT : pas de createurId → clientOrganisationId est la source principale.
@@ -2407,7 +2446,7 @@ export class DevisService {
     await this.prisma.invitationDirecteur.create({
       data: {
         token: invToken,
-        sejourId: sejour.id,
+        sejourId,
         devisId: devis.id,
         emailDirecteur: body.emailDirecteur.trim(),
         enseignantPrenom: sejour.clientNom ?? 'L\'organisateur',
@@ -2418,10 +2457,14 @@ export class DevisService {
       },
     });
 
-    await this.prisma.devis.update({
-      where: { id: devis.id },
-      data: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
-    });
+    // Ne pas rétrograder un devis déjà retenu (SELECTIONNE…) : le passage en
+    // EN_ATTENTE_VALIDATION ne concerne qu'un devis encore en attente.
+    if (devis.statut === StatutDevis.EN_ATTENTE) {
+      await this.prisma.devis.update({
+        where: { id: devis.id },
+        data: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
+      });
+    }
 
     await this.email.sendGenericNotification(
       body.emailDirecteur.trim(),
@@ -2444,7 +2487,7 @@ export class DevisService {
     // Log CRM non bloquant
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({
-        where: { sejourId: sejour.id },
+        where: { sejourId },
         select: { clientId: true },
       });
       if (sejourClient) {
@@ -2452,7 +2495,7 @@ export class DevisService {
           data: {
             clientId: sejourClient.clientId,
             centreId: devis.centreId,
-            sejourId: sejour.id,
+            sejourId,
             type: 'EMAIL',
             description: `Invitation direction envoyée — ${sejour.titre}`,
             metadata: {
@@ -2489,15 +2532,23 @@ export class DevisService {
       where: { tokenSignature: token },
       include: {
         sejourDirect: { select: { id: true, titre: true, dateDebut: true, modeGestion: true } },
+        demande: {
+          select: {
+            sejourId: true,
+            sejour: { select: { id: true, titre: true, dateDebut: true } },
+          },
+        },
         centre: { select: { nom: true, email: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
-    if (!devis.sejourDirectId || !devis.sejourDirect) {
+    const sejour = devis.sejourDirect ?? devis.demande?.sejour;
+    const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+    if (!sejour || !sejourId) {
       throw new NotFoundException('Devis non éligible');
     }
-    if (devis.statut !== 'EN_ATTENTE' && devis.statut !== 'EN_ATTENTE_VALIDATION') {
-      throw new ForbiddenException('Ce devis ne peut plus recevoir de document signé');
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis ne peut plus recevoir de document signé.');
     }
 
     const documentUrl = await this.storage.upload(file, 'signatures');
@@ -2518,24 +2569,21 @@ export class DevisService {
         },
       });
 
-      await tx.sejour.update({
-        where: { id: devis.sejourDirect!.id },
-        data: { statut: StatutSejour.CONVENTION },
-      });
+      await this.engagerDevisRetenu(tx, { devisId: devis.id, demandeId: devis.demandeId, sejourId, centreId: devis.centreId });
     });
 
     // Sync occupations chambres (site 8 du §3.1, run-chambres-4a).
-    await this.occupations.syncOccupationsSejourSafe(devis.sejourDirect.id, 'devis.uploadSignaturePublic');
+    await this.occupations.syncOccupationsSejourSafe(sejourId, 'devis.uploadSignaturePublic');
 
     if (devis.centre?.email) {
       try {
         const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
-        const planningUrl = devis.sejourDirect.dateDebut
-          ? `${frontendUrl}/dashboard/hebergeur/planning?view=semaine&date=${devis.sejourDirect.dateDebut.toISOString().slice(0, 10)}`
+        const planningUrl = sejour.dateDebut
+          ? `${frontendUrl}/dashboard/hebergeur/planning?view=semaine&date=${sejour.dateDebut.toISOString().slice(0, 10)}`
           : `${frontendUrl}/dashboard/hebergeur/planning`;
         await this.email.sendGenericNotification(
           devis.centre.email,
-          `Document signé reçu — ${devis.sejourDirect.titre}`,
+          `Document signé reçu — ${sejour.titre}`,
           `<p>Un document signé a été uploadé pour le devis <strong>${devis.numeroDevis}</strong>.</p>
            <p style="margin:24px 0">
              <a href="${planningUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
@@ -2552,7 +2600,7 @@ export class DevisService {
     // Log CRM non bloquant
     try {
       const sejourClient = await this.prisma.sejourClient.findFirst({
-        where: { sejourId: devis.sejourDirect!.id },
+        where: { sejourId },
         select: { clientId: true },
       });
       if (sejourClient) {
@@ -2560,14 +2608,14 @@ export class DevisService {
           data: {
             clientId: sejourClient.clientId,
             centreId: devis.centreId,
-            sejourId: devis.sejourDirect!.id,
+            sejourId,
             type: 'SIGNATURE',
-            description: `Document signé uploadé — ${devis.sejourDirect!.titre}`,
+            description: `Document signé uploadé — ${sejour.titre}`,
             metadata: {
               devisId: devis.id,
               emailType: 'SIGNATURE_UPLOAD',
               to: devis.centre?.email ?? '',
-              subject: `Document signé reçu — ${devis.sejourDirect!.titre}`,
+              subject: `Document signé reçu — ${sejour.titre}`,
               messagePreview: '',
             },
           },

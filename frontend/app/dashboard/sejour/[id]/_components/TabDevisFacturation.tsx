@@ -1259,7 +1259,7 @@ export default function TabDevisFacturation({
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {peutEcrireDevis && devis.statut === 'EN_ATTENTE' && (
+                {peutEcrireDevis && !devisReellementSigne && !['FACTURE_ACOMPTE','FACTURE_SOLDE','NON_RETENU'].includes(devis.statut) && (
                   <button
                     onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
