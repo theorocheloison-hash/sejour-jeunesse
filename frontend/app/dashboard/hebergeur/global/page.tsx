@@ -62,15 +62,6 @@ interface FactureImpayee {
   demande: { titre: string } | null;
 }
 
-interface DevisLibreImpayee {
-  id: string;
-  centreId: string;
-  montantTTC: number | null;
-  montantVerseTotal: number;
-  numeroDevis: string | null;
-  client: { nom: string } | null;
-}
-
 interface SejourPlanning {
   id: string;
   titre: string;
@@ -104,7 +95,7 @@ interface DashboardData {
   };
   aTraiterDetail: { demandes: DemandeATraiter[]; devis: DevisATraiter[] };
   aFacturerDetail: { acomptes: DevisAFacturer[]; soldes: DevisAFacturer[] };
-  paiementsDetail: { factures: FactureImpayee[]; devisLibres: DevisLibreImpayee[] };
+  paiementsDetail: { factures: FactureImpayee[] };
   planning: { sejours: SejourPlanning[]; options: OptionPlanning[] };
 }
 
@@ -715,7 +706,7 @@ export default function DashboardGlobalPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.paiementsDetail.factures.length === 0 && data.paiementsDetail.devisLibres.length === 0 && (
+                  {data.paiementsDetail.factures.length === 0 && (
                     <tr><td colSpan={6} className="text-center py-6 text-xs" style={{ color: 'var(--color-text-muted)' }}>Aucune facture en attente.</td></tr>
                   )}
                   {data.paiementsDetail.factures.map(f => {
@@ -732,16 +723,6 @@ export default function DashboardGlobalPage() {
                       </tr>
                     );
                   })}
-                  {data.paiementsDetail.devisLibres.map(dl => (
-                    <tr key={`dl-${dl.id}`} className="hover:bg-gray-50" style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <Td>{centreById.get(dl.centreId)?.nom ?? '—'}</Td>
-                      <Td>{dl.numeroDevis ?? '—'}</Td>
-                      <Td>{dl.client?.nom ?? '—'}</Td>
-                      <Td align="right">{fmtEUR((dl.montantTTC ?? 0) - dl.montantVerseTotal)}</Td>
-                      <Td>—</Td>
-                      <Td>—</Td>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             </div>

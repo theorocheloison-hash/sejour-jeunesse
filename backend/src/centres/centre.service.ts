@@ -620,31 +620,10 @@ export class CentreService {
       }));
     const montantEnAttente = facturesImpayees.reduce((sum, f) => sum + (f.montantTTC - f.montantVerseTotal), 0);
 
-    const devisLibresImpayees = await this.prisma.devisLibre.findMany({
-      where: {
-        centreId: { in: centreIds },
-        statut: 'ACCEPTE',
-      },
-      select: {
-        id: true, centreId: true, montantTTC: true, montantVerseTotal: true, numeroDevis: true,
-        client: { select: { nom: true } },
-      },
-    });
-    const dlImpayees = devisLibresImpayees.filter(d => (d.montantVerseTotal ?? 0) < (d.montantTTC ?? 0));
-    const montantDLEnAttente = dlImpayees.reduce((sum, d) => sum + ((d.montantTTC ?? 0) - (d.montantVerseTotal ?? 0)), 0);
-
     // KPI 4 : CA
     const caEncaisse = await this.prisma.versementPaiement.aggregate({
       where: {
         devis: { centreId: { in: centreIds } },
-        datePaiement: { gte: debut, lte: fin },
-      },
-      _sum: { montant: true },
-    });
-
-    const caEncaisseDL = await this.prisma.versementDevisLibre.aggregate({
-      where: {
-        devisLibre: { centreId: { in: centreIds } },
         datePaiement: { gte: debut, lte: fin },
       },
       _sum: { montant: true },
@@ -759,12 +738,12 @@ export class CentreService {
           description: 'Séjours à facturer (acompte ou solde)',
         },
         paiementsEnAttente: {
-          total: facturesImpayees.length + dlImpayees.length,
-          montant: Math.round((montantEnAttente + montantDLEnAttente) * 100) / 100,
+          total: facturesImpayees.length,
+          montant: Math.round(montantEnAttente * 100) / 100,
           description: 'Factures émises en attente de règlement',
         },
         chiffreAffaires: {
-          encaisse: Math.round(((caEncaisse._sum.montant ?? 0) + (caEncaisseDL._sum.montant ?? 0)) * 100) / 100,
+          encaisse: Math.round((caEncaisse._sum.montant ?? 0) * 100) / 100,
           previsionnel: Math.round(caPrevisionnel * 100) / 100,
           caViaReseau: Math.round(caViaReseau * 100) / 100,
           reseauNom,
@@ -780,7 +759,7 @@ export class CentreService {
       },
       aTraiterDetail: { demandes: demandesOuvertes, devis: devisEnAttenteReponse },
       aFacturerDetail: { acomptes: aFacturerAcompte, soldes: aFacturerSolde },
-      paiementsDetail: { factures: facturesImpayees, devisLibres: dlImpayees },
+      paiementsDetail: { factures: facturesImpayees },
       planning: { sejours: sejoursPlanning, options: optionsPlanning },
     };
   }
