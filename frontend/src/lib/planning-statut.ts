@@ -32,6 +32,11 @@ export function statutDevisLePlusAvance(statuts: string[]): string | null {
 interface DevisPourCouleur {
   statut: string;
   isComplementaire?: boolean;
+  // Lot ENCAISSEMENT (socle) : montants remontés par les projections planning,
+  // pas encore consommés par la logique couleur. montantTotal (Decimal) arrive sérialisé en string.
+  montantTTC?: number | null;
+  montantVerseTotal?: number | null;
+  montantTotal?: string | null;
   factures?: Array<{ typeFacture: string }> | null;
 }
 

@@ -105,6 +105,7 @@ export class ClientsService {
       isComplementaire: true,
       montantTotal: true,
       montantTTC: true,
+      montantVerseTotal: true,
       montantAcompte: true,
       montantSolde: true,
       acompteVerse: true,

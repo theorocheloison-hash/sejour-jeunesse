@@ -581,13 +581,21 @@ export class CollaborationService {
         // Tous les devis du centre — la couleur planning dérive du devis le PLUS AVANCÉ.
         // Lot 1 : on inclut les factures liées (la facturation ne mute plus le statut du devis).
         devisDirect: {
-          select: { statut: true, isComplementaire: true, factures: { select: { typeFacture: true } } },
+          select: {
+            statut: true, isComplementaire: true,
+            montantTTC: true, montantVerseTotal: true, montantTotal: true,
+            factures: { select: { typeFacture: true } },
+          },
         },
         demandes: {
           select: {
             devis: {
               where: { centreId: { in: centreIds } },
-              select: { statut: true, isComplementaire: true, factures: { select: { typeFacture: true } } },
+              select: {
+                statut: true, isComplementaire: true,
+                montantTTC: true, montantVerseTotal: true, montantTotal: true,
+                factures: { select: { typeFacture: true } },
+              },
             },
           },
         },

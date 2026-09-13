@@ -92,6 +92,7 @@ export interface DevisClient {
   isComplementaire?: boolean;
   montantTotal: string;
   montantTTC?: number | null;
+  montantVerseTotal?: number | null;
   montantAcompte?: number | null;
   montantSolde?: number | null;
   acompteVerse: boolean;

@@ -683,13 +683,21 @@ export class CentreService {
         // Lot 1 : factures incluses (la facturation ne mute plus le statut du devis).
         devisDirect: {
           where: { centreId: { in: centreIds } },
-          select: { statut: true, factures: { select: { typeFacture: true } } },
+          select: {
+            statut: true,
+            montantTTC: true, montantVerseTotal: true, montantTotal: true,
+            factures: { select: { typeFacture: true } },
+          },
         },
         demandes: {
           select: {
             devis: {
               where: { centreId: { in: centreIds } },
-              select: { statut: true, factures: { select: { typeFacture: true } } },
+              select: {
+                statut: true,
+                montantTTC: true, montantVerseTotal: true, montantTotal: true,
+                factures: { select: { typeFacture: true } },
+              },
             },
           },
         },
