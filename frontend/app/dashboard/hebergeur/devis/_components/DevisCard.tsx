@@ -158,11 +158,17 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
   const fa = getFactureAcompte(d);
   const fs = getFactureSolde(d);
 
-  // Badge dérivé des factures liées (le devis reste SELECTIONNE/SIGNE_DIRECTION).
+  // Badge dérivé de l'ENCAISSEMENT (Lot 4) — même seuil 0.99 que la ligne d'état plus bas.
+  const soldePaye = !!fs && (fs.montantVerseTotal ?? 0) >= fs.montantFacture * 0.99;
+  const acomptePaye = !!fa && ((fa.montantVerseTotal ?? 0) > 0 || fa.acompteVerse);
   const badge = fs
-    ? { label: 'Soldé', cls: 'bg-teal-100 text-teal-700' }
+    ? (soldePaye
+      ? { label: 'Soldé', cls: 'bg-teal-100 text-teal-700' }
+      : { label: 'En attente de paiement', cls: 'bg-amber-100 text-amber-700' })
     : fa
-    ? { label: 'Acompte facturé', cls: 'bg-indigo-100 text-indigo-700' }
+    ? (acomptePaye
+      ? { label: 'Acompte versé', cls: 'bg-[var(--color-success-light)] text-[var(--color-success)]' }
+      : { label: 'En attente de paiement', cls: 'bg-amber-100 text-amber-700' })
     : (STATUT_BADGE[d.statut] ?? STATUT_BADGE.EN_ATTENTE);
 
   // Titre + résolution du séjour (soft-delete pris en compte).
