@@ -37,7 +37,8 @@ interface DevisPourCouleur {
   montantTTC?: number | null;
   montantVerseTotal?: number | null;
   montantTotal?: string | null;
-  factures?: Array<{ typeFacture: string }> | null;
+  // montantFacture : NÉGATIF pour les AVOIR (total net d'avoir côté Lot 2).
+  factures?: Array<{ typeFacture: string; montantFacture?: number }> | null;
 }
 
 // Type structurel minimal — accepté par le SejourPlanning mono ET le type local global

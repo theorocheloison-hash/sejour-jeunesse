@@ -144,8 +144,8 @@ export interface SejourPlanning {
     responsable: string | null;
     couleur: string | null;
   }[];
-  devisDirect?: Array<{ statut: string; isComplementaire?: boolean; factures?: Array<{ typeFacture: string }> }>;
-  demandes?: Array<{ devis?: Array<{ statut: string; isComplementaire?: boolean; factures?: Array<{ typeFacture: string }> }> }>;
+  devisDirect?: Array<{ statut: string; isComplementaire?: boolean; factures?: Array<{ typeFacture: string; montantFacture?: number }> }>;
+  demandes?: Array<{ devis?: Array<{ statut: string; isComplementaire?: boolean; factures?: Array<{ typeFacture: string; montantFacture?: number }> }> }>;
 }
 
 export interface Participant {

@@ -584,7 +584,7 @@ export class CollaborationService {
           select: {
             statut: true, isComplementaire: true,
             montantTTC: true, montantVerseTotal: true, montantTotal: true,
-            factures: { select: { typeFacture: true } },
+            factures: { select: { typeFacture: true, montantFacture: true } },
           },
         },
         demandes: {
@@ -594,7 +594,7 @@ export class CollaborationService {
               select: {
                 statut: true, isComplementaire: true,
                 montantTTC: true, montantVerseTotal: true, montantTotal: true,
-                factures: { select: { typeFacture: true } },
+                factures: { select: { typeFacture: true, montantFacture: true } },
               },
             },
           },

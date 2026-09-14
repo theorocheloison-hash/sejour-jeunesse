@@ -686,7 +686,7 @@ export class CentreService {
           select: {
             statut: true,
             montantTTC: true, montantVerseTotal: true, montantTotal: true,
-            factures: { select: { typeFacture: true } },
+            factures: { select: { typeFacture: true, montantFacture: true } },
           },
         },
         demandes: {
@@ -696,7 +696,7 @@ export class CentreService {
               select: {
                 statut: true,
                 montantTTC: true, montantVerseTotal: true, montantTotal: true,
-                factures: { select: { typeFacture: true } },
+                factures: { select: { typeFacture: true, montantFacture: true } },
               },
             },
           },
