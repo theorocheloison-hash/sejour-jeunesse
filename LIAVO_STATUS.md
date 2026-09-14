@@ -1,5 +1,5 @@
 # LIAVO — État du projet
-> Dernière mise à jour : 16/06/2026 (découplage émission/envoi factures + routage versements)
+> Dernière mise à jour : 14/09/2026 (statut d'encaissement + deux brochures + suppression documents de conformité)
 
 ---
 
@@ -82,6 +82,39 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 ---
 
 ## Chantiers récents livrés
+
+### 14/09/2026 — Statut d'encaissement + Lot A deux brochures + Lot B suppression documents
+
+> Détail complet dans LIAVO_SESSION_STATE.md (entrées 14/09).
+
+**Statut d'encaissement (5 commits d5507a9→05f516e)**
+- Couleur planning (mono + global), statut CRM et badge du module Devis & Facturation
+  dérivés du paiement RÉEL net d'avoir (montantVerseTotal vs total − avoirs) au lieu de
+  l'émission de facture. Corrige « Soldé alors qu'il reste du dû ».
+- Source unique `frontend/src/lib/encaissement.ts` (etatEncaissement, partagée planning +
+  CRM). Legacy FACTURE_* purgé du front (etatFacturationDevis, replis, RANG_FACTURATION,
+  statutDevisLePlusAvance, repli typeDocument CRM — 0 ligne legacy en base, vérifié prod).
+- Recetté prod : contrôle avant/après sur les 73 dossiers versés, 14 bascules toutes justes.
+
+**Lot A « deux brochures » (commit 5b7064c, déployé 14/09)**
+- `brochure_url` (unique) séparée en 2 slots typés `brochure_url_sejour` /
+  `brochure_url_evenement` sur centres_hebergement. Migration additive
+  `20260914154028_brochure_deux_slots` — backfill : Sauvageon → événement, 5 autres
+  centres → séjour. `brochure_url` conservée NON LUE (filet rollback, drop lot ultérieur).
+- Discriminant front : helper `estEvenement(sejour)` dans src/lib/sejour.ts. Page de
+  signature : slot selon la nature du séjour, slot vide → aucun bloc (répare le bug
+  « brochure mariage vue par les profs scolaires », remonté par Maeva). CRM
+  envoyer-brochure : choix explicite séjour/événement (erreur claire si slot vide).
+  Profil hébergeur : upload + suppression par slot.
+- Routage vérifié en prod (Sauvageon seul en événement).
+- **À FAIRE Théo : uploader la brochure collège dans le slot SÉJOUR du Sauvageon.**
+
+**Lot B « suppression documents de conformité » (commit 18cc693, déployé 14/09)**
+- Endpoint `DELETE /centres/documents/:id` (service deleteDocument : ownership + purge du
+  fichier OVH + delete) + bouton Supprimer avec confirmation dans l'onglet Documents —
+  la suppression manquait complètement (c'était le « on est bloqué »). Aucune migration.
+- Périmètre : modèle Document (conformité centre) uniquement ; DocumentSejour et
+  convention non touchés.
 
 ### 16/06/2026 — Découplage émission/envoi factures + routage versements
 
@@ -337,6 +370,8 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 - [x] Flux direction ✅ — page publique /invitation-direction/[token] complète, 3 chemins signature (directe/direction/upload), SC4ter Membership signataire (01/06/2026)
 - [x] PDF préparation TAM ✅ — bouton conditionnel HORS_SCOLAIRE dans onglet Projet pédagogique, 5 sections (organisateur, accueil ACM, encadrants + qualifications, projet éducatif, checklist délais FI J-60 / FC J-8) (01/06/2026)
 - SejourHeader : adapter lien retour au rôle de l'utilisateur (mineur)
+- État « impayé / en retard » pour séjour passé non réglé — à cadrer (suite naturelle du chantier statut d'encaissement 14/09, non ouvert)
+- Refonte saisie client à la création de séjour (remontées Anne + Maeva, cadrage non figé dans docs/CHANTIER_SAISIE_CLIENT_CREATION.md)
 
 ### Commercial
 - Visio LMDJ à caler (Anaïtis/Isabelle/Marie) — adapter pitch au positionnement post-mise-en-relation
@@ -373,7 +408,8 @@ Onboarding /centre/[id]/claim + facturation multi-centre. Levier commercial fort
 ### Dette technique
 - [x] StatutSejour nettoyé ✅ — APPROVED et REJECTED supprimés (enum DDL + 13 fichiers, 0 ligne affectée en prod, 01/06/2026)
 - DashboardShell : migrer toutes les pages (teacher, director, sejour) — estimé 4-6j, risque régression
-- DevisLibre : DROP tables (devis_libres, lignes_devis_libre, versements_devis_libre) + retirer model Prisma — migration données faite le 28/05, tables vides en prod, code ne les utilise plus. DDL + schema à nettoyer (~0.5j, risque nul)
+- [x] DevisLibre : PURGÉ le 10/09/2026 — 3 tables droppées (migration 20260910140000_drop_devis_libre) + 3 modèles Prisma retirés (DevisLibre/LigneDevisLibre/VersementDevisLibre) + 2 relations inverses. ⚠️ La note « tables vides / risque nul » était FAUSSE : il restait 1 devis de test (DL-2026-001, Sauvageon) ET un pan de lecture oublié dans getDashboardGlobal (double comptage du CA encaissé + impayés fantômes). Corrigé AVANT le DROP (commit c6575d1), puis DROP (commit 9e2006e). Preuves : grep back+front = 0 hit, backup manuel pré-DROP, tables absentes en prod confirmé (pg_tables = 0 row). Leçon : ne jamais qualifier un DROP de « risque nul » sans grep exhaustif des lectures + vérif prod.
+- Drop de `brochure_url` (colonne legacy conservée non lue depuis le Lot A deux brochures du 14/09) — lot ultérieur, après recette complète
 - DTO cleanup : retirer `numeroDevis` du front (envoyé mais ignoré)
 - Migration GitHub → forge française (non prioritaire tant que solo)
 - JWT httpOnly cookie migration
