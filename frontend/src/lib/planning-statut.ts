@@ -14,19 +14,7 @@ export const COULEUR_DEMANDE_ATTENTE = {
   bg: '#FBBF24', text: '#fff', hachures: true, label: 'Demande en attente',
 };
 
-// Rang de "facturation" : plus le devis est avancé, plus le rang est élevé.
-const RANG_FACTURATION: Record<string, number> = {
-  FACTURE_SOLDE: 4, FACTURE_ACOMPTE: 3,
-  SIGNE_DIRECTION: 2, SELECTIONNE: 2,
-  EN_ATTENTE_VALIDATION: 1, EN_ATTENTE: 1, NON_RETENU: 0,
-};
-
-export function statutDevisLePlusAvance(statuts: string[]): string | null {
-  if (!statuts.length) return null;
-  return statuts.reduce((best, s) =>
-    (RANG_FACTURATION[s] ?? -1) > (RANG_FACTURATION[best] ?? -1) ? s : best
-  );
-}
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // Lot 1 : la facturation vit dans l'entité Facture (le devis ne mute plus vers FACTURE_*).
 interface DevisPourCouleur {
@@ -48,12 +36,17 @@ interface SejourPourCouleur {
   demandes?: Array<{ devis?: Array<DevisPourCouleur> }>;
 }
 
-// Détecte le type de facture le plus avancé parmi les factures d'un devis,
-// avec repli legacy sur l'ancien statut FACTURE_* (données antérieures au Lot 1).
-function etatFacturationDevis(d: DevisPourCouleur): 'SOLDE' | 'ACOMPTE' | null {
-  const types = (d.factures ?? []).map(f => f.typeFacture);
-  if (types.includes('SOLDE') || d.statut === 'FACTURE_SOLDE') return 'SOLDE';
-  if (types.includes('ACOMPTE') || d.statut === 'FACTURE_ACOMPTE') return 'ACOMPTE';
+// Lot 2 : la couleur dérive de l'ENCAISSEMENT réel, plus du type de facture émise.
+// SOLDE = reste dû ≤ 0,01 sur le total NET D'AVOIR ; ACOMPTE_VERSE = au moins un versement.
+function etatEncaissement(d: DevisPourCouleur): 'SOLDE' | 'ACOMPTE_VERSE' | null {
+  const totalBrut = d.montantTTC ?? (d.montantTotal != null ? Number(d.montantTotal) : 0);
+  const avoirs = (d.factures ?? [])
+    .filter(f => f.typeFacture === 'AVOIR')
+    .reduce((s, f) => s + (f.montantFacture ?? 0), 0); // négatifs
+  const totalNet = round2(totalBrut + avoirs);
+  const verse = d.montantVerseTotal ?? 0;
+  if (totalNet > 0 && round2(totalNet - verse) <= 0.01) return 'SOLDE';
+  if (verse > 0) return 'ACOMPTE_VERSE';
   return null;
 }
 
@@ -67,15 +60,12 @@ export function derivePlanningStatut(sejour: SejourPourCouleur): string {
   // sont des payeurs additionnels et ne pilotent pas la couleur du séjour).
   const devisListe = tousDevis.filter(d => !d.isComplementaire);
 
-  // 1. Facturation (Facture liée) — rang max
-  const etats = devisListe.map(etatFacturationDevis);
+  // 1. Encaissement (rang max : soldé > acompte versé)
+  const etats = devisListe.map(etatEncaissement);
   if (etats.includes('SOLDE')) return 'SOLDE';
-  if (etats.includes('ACOMPTE')) return 'ACOMPTE_VERSE';
+  if (etats.includes('ACOMPTE_VERSE')) return 'ACOMPTE_VERSE';
 
-  // 2. Sinon, statut devis le plus avancé (signé/sélectionné → Confirmé)
-  const best = statutDevisLePlusAvance(devisListe.map(d => d.statut));
-  if (best === 'FACTURE_SOLDE') return 'SOLDE';        // ceinture+bretelles legacy
-  if (best === 'FACTURE_ACOMPTE') return 'ACOMPTE_VERSE';
+  // 2. Sinon, statut de signature (signé/sélectionné → Confirmé)
   if (sejour.statut === 'OPTION') return 'OPTION';
   return 'CONFIRME'; // CONVENTION/SIGNE_DIRECTION/SOUMIS_RECTORAT/DECLARE_TAM/SUBMITTED
 }

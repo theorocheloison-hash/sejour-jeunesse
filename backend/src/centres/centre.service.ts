@@ -684,7 +684,7 @@ export class CentreService {
         devisDirect: {
           where: { centreId: { in: centreIds } },
           select: {
-            statut: true,
+            statut: true, isComplementaire: true,
             montantTTC: true, montantVerseTotal: true, montantTotal: true,
             factures: { select: { typeFacture: true, montantFacture: true } },
           },
@@ -694,7 +694,7 @@ export class CentreService {
             devis: {
               where: { centreId: { in: centreIds } },
               select: {
-                statut: true,
+                statut: true, isComplementaire: true,
                 montantTTC: true, montantVerseTotal: true, montantTotal: true,
                 factures: { select: { typeFacture: true, montantFacture: true } },
               },
