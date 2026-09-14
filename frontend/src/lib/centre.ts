@@ -134,6 +134,10 @@ export async function createDocument(dto: {
   return data;
 }
 
+export async function deleteCentreDocument(id: string): Promise<void> {
+  await api.delete(`/centres/documents/${id}`);
+}
+
 export async function uploadCentreImage(file: File): Promise<Centre> {
   const formData = new FormData();
   formData.append('file', file);

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getDocuments, uploadCentreDocument } from '@/src/lib/centre';
+import { getDocuments, uploadCentreDocument, deleteCentreDocument } from '@/src/lib/centre';
 import type { DocumentCentre } from '@/src/lib/centre';
 import SecureFileLink from '@/src/components/SecureFileLink';
 
@@ -43,6 +43,7 @@ export default function DocumentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
 
   const fetchDocs = useCallback(async () => {
@@ -67,6 +68,15 @@ export default function DocumentsPage() {
       await fetchDocs();
     } catch { setError('Erreur lors de l\'ajout.'); }
     finally { setSubmitting(false); }
+  };
+
+  const handleDelete = async (id: string, nom: string) => {
+    if (!window.confirm(`Supprimer le document « ${nom} » ? Cette action est définitive.`)) return;
+    setDeletingId(id);
+    setError(null);
+    try { await deleteCentreDocument(id); await fetchDocs(); }
+    catch { setError('Erreur lors de la suppression.'); }
+    finally { setDeletingId(null); }
   };
 
   if (isLoading) return null;
@@ -151,6 +161,14 @@ export default function DocumentsPage() {
                       </SecureFileLink>
                     )}
                     {expirationBadge(d.dateExpiration)}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(d.id, d.nom)}
+                      disabled={deletingId === d.id}
+                      className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === d.id ? 'Suppression...' : 'Supprimer'}
+                    </button>
                   </div>
                 </div>
               );

@@ -392,6 +392,18 @@ export class CentreController {
     return this.centreService.createDocument(user.id, dto, centreId);
   }
 
+  @Delete('documents/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  deleteDocument(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.deleteDocument(user.id, id, centreId);
+  }
+
   @Get('catalogue')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
   @Roles(Role.HEBERGEUR)

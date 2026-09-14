@@ -1607,6 +1607,21 @@ export class CentreService {
     });
   }
 
+  async deleteDocument(userId: string, documentId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc || doc.centreId !== centre.id) {
+      throw new ForbiddenException('Document introuvable ou non autorisé');
+    }
+    // url peut être null (document créé sans fichier via createDocument) → delete conditionnel.
+    // storage.delete est no-op si l'URL ne pointe pas le bucket (cf. supprimerImage).
+    if (doc.url) {
+      await this.storage.delete(doc.url);
+    }
+    await this.prisma.document.delete({ where: { id: documentId } });
+    return { success: true };
+  }
+
   async getProduitsCatalogue(userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
