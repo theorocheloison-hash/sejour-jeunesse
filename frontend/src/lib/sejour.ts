@@ -40,6 +40,13 @@ export function estHorsScolaire(sejour: { typeContexte?: string | null }): boole
   return sejour.typeContexte === 'HORS_SCOLAIRE';
 }
 
+// Lot A "deux brochures" : détecte un dossier ÉVÉNEMENT (mariage, séminaire…) pour
+// choisir le slot de brochure. Helper pur, distinct du isEvenement inline du back.
+export function estEvenement(sejour: { natureSejour?: string | null; typeSejour?: string | null }): boolean {
+  const EVENT = ['MARIAGE','ANNIVERSAIRE','SEMINAIRE','TEAM_BUILDING','REUNION_FAMILLE','AUTRE_EVENEMENT'];
+  return sejour.natureSejour === 'EVENEMENT' || (sejour.typeSejour != null && EVENT.includes(sejour.typeSejour));
+}
+
 export interface DevisSelectionne {
   id: string;
   statut: string;

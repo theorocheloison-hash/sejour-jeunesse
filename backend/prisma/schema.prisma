@@ -632,6 +632,9 @@ model CentreHebergement {
   // (couverture), maintenu par uploadImage / supprimerImage / reordonnerImages.
   imagesUrls          String[]          @default([]) @map("images_urls")
   brochureUrl         String?           @map("brochure_url") @db.VarChar(500)
+  // Lot A "deux brochures" : slots typés ; brochure_url conservée non lue (filet rollback).
+  brochureUrlSejour    String?          @map("brochure_url_sejour") @db.VarChar(500)
+  brochureUrlEvenement String?          @map("brochure_url_evenement") @db.VarChar(500)
   logoUrl             String?           @map("logo_url") @db.VarChar(500)
   conventionPdfUrl    String?           @map("convention_pdf_url") @db.VarChar(500)
   // Template de convention hardcodé historique (Sauvageon uniquement) — les autres

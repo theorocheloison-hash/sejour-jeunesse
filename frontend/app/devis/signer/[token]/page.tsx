@@ -14,6 +14,7 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SignatureDevisPanel from '@/src/components/devis/SignatureDevisPanel';
 import { formatParticipants } from '@/src/lib/utils';
+import { estEvenement } from '@/src/lib/sejour';
 
 const fmt = (d: string | null) => !d ? 'Dates à définir' : new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
   day: '2-digit', month: 'long', year: 'numeric',
@@ -137,6 +138,11 @@ export default function SignerDevisPage() {
   const estSigne = devis.isSigned || signed || uploaded;
   const sejour = devis.sejour;
   const centre = devis.centre;
+
+  // Lot A "deux brochures" : slot selon la nature du dossier (événement vs séjour/groupe).
+  const brochureCible = sejour
+    ? (estEvenement(sejour) ? centre?.brochureUrlEvenement : centre?.brochureUrlSejour)
+    : null;
 
   // Données du PDF devis (génération client si aucun PDF n'a été uploadé par l'hébergeur).
   const pdfProps: DevisPDFProps = {
@@ -338,11 +344,11 @@ export default function SignerDevisPage() {
           </div>
         )}
 
-        {centre?.brochureUrl && (
+        {brochureCible && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">Documents</h2>
             <a
-              href={centre.brochureUrl}
+              href={brochureCible}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-[#1B4060] px-4 py-2 text-sm font-semibold text-[#1B4060] hover:bg-blue-50"
@@ -350,7 +356,7 @@ export default function SignerDevisPage() {
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              Brochure {centre.nom}
+              Brochure {centre?.nom}
             </a>
           </div>
         )}

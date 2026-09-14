@@ -26,6 +26,9 @@ export interface Centre {
   /** Galerie multi-photos — imageUrl est toujours la couverture (imagesUrls[0]). */
   imagesUrls?: string[];
   brochureUrl?: string | null;
+  // Lot A "deux brochures" : slots typés (brochureUrl legacy conservée, non lue).
+  brochureUrlSejour?: string | null;
+  brochureUrlEvenement?: string | null;
   logoUrl?: string | null;
   conventionPdfUrl?: string | null;
   statut: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
@@ -260,14 +263,19 @@ export async function updateCapacitesProduit(id: string, dto: {
   return data;
 }
 
-export async function uploadBrochure(file: File): Promise<{ brochureUrl: string }> {
+export async function uploadBrochure(file: File, type: 'SEJOUR' | 'EVENEMENT'): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await api.post<{ brochureUrl: string }>(
-    '/centres/brochure-upload',
+  const { data } = await api.post<{ url: string }>(
+    `/centres/brochure-upload?type=${type}`,
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
+  return data;
+}
+
+export async function supprimerBrochure(type: 'SEJOUR' | 'EVENEMENT'): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/centres/brochure-upload/supprimer?type=${type}`);
   return data;
 }
 

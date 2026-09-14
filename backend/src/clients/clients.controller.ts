@@ -57,8 +57,8 @@ export class ClientsController {
   deleteRappel(@Param('rid') rid: string, @CurrentUser() u: JwtUser, @CentreId() centreId: string | null) { return this.service.deleteRappel(rid, u.id, centreId); }
 
   @Post(':id/envoyer-brochure')
-  envoyerBrochure(@Param('id') id: string, @CurrentUser() u: JwtUser, @CentreId() centreId: string | null) {
-    return this.service.envoyerBrochure(id, u.id, centreId);
+  envoyerBrochure(@Param('id') id: string, @Body('type') type: string, @CurrentUser() u: JwtUser, @CentreId() centreId: string | null) {
+    return this.service.envoyerBrochure(id, u.id, type as 'SEJOUR' | 'EVENEMENT', centreId);
   }
 
   // ── Routes paramétrées :id en dernier ────────────────────────────────────

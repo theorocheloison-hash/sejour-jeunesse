@@ -1398,7 +1398,16 @@ export class CentreService {
     });
   }
 
-  async uploadBrochure(userId: string, file: Express.Multer.File, centreId?: string | null) {
+  // Lot A "deux brochures" : slots typés SEJOUR/EVENEMENT (brochureUrl legacy non écrite).
+  async uploadBrochure(
+    userId: string,
+    file: Express.Multer.File,
+    type: 'SEJOUR' | 'EVENEMENT',
+    centreId?: string | null,
+  ) {
+    if (type !== 'SEJOUR' && type !== 'EVENEMENT') {
+      throw new BadRequestException('Type de brochure invalide (SEJOUR ou EVENEMENT attendu)');
+    }
     if (!file) throw new BadRequestException('Fichier manquant');
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Seuls les fichiers PDF sont acceptés');
@@ -1409,14 +1418,40 @@ export class CentreService {
 
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
-    const brochureUrl = await this.storage.upload(file, `centres/${centre.id}/brochures`);
+    // Supprimer l'ancien fichier DU MÊME SLOT s'il existe.
+    const ancienneUrl = type === 'SEJOUR' ? centre.brochureUrlSejour : centre.brochureUrlEvenement;
+    if (ancienneUrl) {
+      await this.storage.delete(ancienneUrl);
+    }
+
+    const url = await this.storage.upload(file, `centres/${centre.id}/brochures`);
 
     await this.prisma.centreHebergement.update({
       where: { id: centre.id },
-      data: { brochureUrl },
+      data: type === 'SEJOUR' ? { brochureUrlSejour: url } : { brochureUrlEvenement: url },
     });
 
-    return { brochureUrl };
+    return { url };
+  }
+
+  async supprimerBrochure(userId: string, type: 'SEJOUR' | 'EVENEMENT', centreId?: string | null) {
+    if (type !== 'SEJOUR' && type !== 'EVENEMENT') {
+      throw new BadRequestException('Type de brochure invalide (SEJOUR ou EVENEMENT attendu)');
+    }
+
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const url = type === 'SEJOUR' ? centre.brochureUrlSejour : centre.brochureUrlEvenement;
+    if (url) {
+      await this.storage.delete(url);
+    }
+
+    await this.prisma.centreHebergement.update({
+      where: { id: centre.id },
+      data: type === 'SEJOUR' ? { brochureUrlSejour: null } : { brochureUrlEvenement: null },
+    });
+
+    return { success: true };
   }
 
   async uploadConventionPdf(userId: string, file: Express.Multer.File, centreId?: string | null) {

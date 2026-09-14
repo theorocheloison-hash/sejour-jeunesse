@@ -260,10 +260,23 @@ export class CentreController {
   uploadBrochure(
     @CurrentUser() user: JwtUser,
     @UploadedFile() file: Express.Multer.File,
+    @Query('type') type: string,
     @CentreId() centreId: string | null,
   ) {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    return this.centreService.uploadBrochure(user.id, file, centreId);
+    return this.centreService.uploadBrochure(user.id, file, type as 'SEJOUR' | 'EVENEMENT', centreId);
+  }
+
+  @Post('brochure-upload/supprimer')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  supprimerBrochure(
+    @CurrentUser() user: JwtUser,
+    @Query('type') type: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.supprimerBrochure(user.id, type as 'SEJOUR' | 'EVENEMENT', centreId);
   }
 
   @Post('convention-pdf')

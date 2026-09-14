@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
-import { getMonProfil, updateMonProfil, uploadCentreImage, supprimerCentreImage, reordonnerCentreImages, uploadBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
+import { getMonProfil, updateMonProfil, uploadCentreImage, supprimerCentreImage, reordonnerCentreImages, uploadBrochure, supprimerBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
 
 // Aligné sur MAX_PHOTOS_CENTRE côté backend.
@@ -105,9 +105,13 @@ export default function HebergeurProfilPage() {
   const [imageError, setImageError] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [imageBusy, setImageBusy] = useState(false); // suppression / réordonnancement en cours
-  const [brochureUrl, setBrochureUrl] = useState<string | null>(null);
-  const [brochureUploading, setBrochureUploading] = useState(false);
-  const [brochureError, setBrochureError] = useState<string | null>(null);
+  // Lot A "deux brochures" : un state par slot (séjour / événement).
+  const [brochureSejourUrl, setBrochureSejourUrl] = useState<string | null>(null);
+  const [brochureSejourUploading, setBrochureSejourUploading] = useState(false);
+  const [brochureSejourError, setBrochureSejourError] = useState<string | null>(null);
+  const [brochureEvenementUrl, setBrochureEvenementUrl] = useState<string | null>(null);
+  const [brochureEvenementUploading, setBrochureEvenementUploading] = useState(false);
+  const [brochureEvenementError, setBrochureEvenementError] = useState<string | null>(null);
   const [conventionPdfUrl, setConventionPdfUrl] = useState<string | null>(null);
   const [conventionUploading, setConventionUploading] = useState(false);
   const [conventionError, setConventionError] = useState<string | null>(null);
@@ -124,7 +128,8 @@ export default function HebergeurProfilPage() {
         setCentre(c);
         // Centre importé (APIDAE) : imageUrl posée sans galerie → on l'affiche comme 1ère photo.
         setImages(c.imagesUrls?.length ? c.imagesUrls : c.imageUrl ? [c.imageUrl] : []);
-        setBrochureUrl(c.brochureUrl ?? null);
+        setBrochureSejourUrl(c.brochureUrlSejour ?? null);
+        setBrochureEvenementUrl(c.brochureUrlEvenement ?? null);
         setConventionPdfUrl(c.conventionPdfUrl ?? null);
         setLogoUrl(c.logoUrl ?? null);
         setForm({
@@ -290,27 +295,48 @@ export default function HebergeurProfilPage() {
     }
   };
 
-  const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Lot A "deux brochures" : setters du slot visé (séjour ou événement).
+  const brochureSetters = (type: 'SEJOUR' | 'EVENEMENT') =>
+    type === 'SEJOUR'
+      ? { setUrl: setBrochureSejourUrl, setUploading: setBrochureSejourUploading, setError: setBrochureSejourError }
+      : { setUrl: setBrochureEvenementUrl, setUploading: setBrochureEvenementUploading, setError: setBrochureEvenementError };
+
+  const handleBrochureUpload = async (type: 'SEJOUR' | 'EVENEMENT', e: React.ChangeEvent<HTMLInputElement>) => {
+    const { setUrl, setUploading, setError } = brochureSetters(type);
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== 'application/pdf') {
-      setBrochureError('Seuls les fichiers PDF sont acceptés.');
+      setError('Seuls les fichiers PDF sont acceptés.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setBrochureError('Fichier trop lourd. Maximum 10 Mo.');
+      setError('Fichier trop lourd. Maximum 10 Mo.');
       return;
     }
-    setBrochureUploading(true);
-    setBrochureError(null);
+    setUploading(true);
+    setError(null);
     try {
-      const result = await uploadBrochure(file);
-      setBrochureUrl(result.brochureUrl);
+      const result = await uploadBrochure(file, type);
+      setUrl(result.url);
     } catch {
-      setBrochureError("Erreur lors de l'upload. Réessayez.");
+      setError("Erreur lors de l'upload. Réessayez.");
     } finally {
-      setBrochureUploading(false);
+      setUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleBrochureDelete = async (type: 'SEJOUR' | 'EVENEMENT') => {
+    const { setUrl, setUploading, setError } = brochureSetters(type);
+    setUploading(true);
+    setError(null);
+    try {
+      await supprimerBrochure(type);
+      setUrl(null);
+    } catch {
+      setError('Erreur lors de la suppression. Réessayez.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -589,31 +615,39 @@ export default function HebergeurProfilPage() {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-1">Brochure de présentation</h2>
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Brochure séjours (scolaires &amp; groupes)</h2>
               <p className="text-sm text-gray-500 mb-4">
-                Cette brochure sera envoyée automatiquement à vos prospects depuis le CRM.
-                Format PDF uniquement, maximum 10 Mo.
+                Envoyée au client avec le devis à signer et depuis le CRM, pour les séjours
+                de groupe et scolaires. Format PDF uniquement, maximum 10 Mo.
               </p>
-              {brochureError && (
-                <p className="text-sm text-red-600 mb-3">{brochureError}</p>
+              {brochureSejourError && (
+                <p className="text-sm text-red-600 mb-3">{brochureSejourError}</p>
               )}
-              {brochureUrl && (
+              {brochureSejourUrl && (
                 <div className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 mb-3">
                   <svg className="h-5 w-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                   </svg>
                   <a
-                    href={brochureUrl}
+                    href={brochureSejourUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-[var(--color-primary)] hover:underline flex-1 truncate"
                   >
                     Brochure en ligne — voir le PDF
                   </a>
+                  <button
+                    type="button"
+                    onClick={() => handleBrochureDelete('SEJOUR')}
+                    disabled={brochureSejourUploading}
+                    className="text-sm text-red-600 hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
                 </div>
               )}
-              <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${brochureUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                {brochureUploading ? (
+              <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${brochureSejourUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {brochureSejourUploading ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
                     Upload en cours...
@@ -623,15 +657,71 @@ export default function HebergeurProfilPage() {
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                     </svg>
-                    {brochureUrl ? 'Remplacer la brochure' : 'Uploader la brochure PDF'}
+                    {brochureSejourUrl ? 'Remplacer la brochure' : 'Uploader la brochure PDF'}
                   </>
                 )}
                 <input
                   type="file"
                   accept="application/pdf"
                   className="hidden"
-                  disabled={brochureUploading}
-                  onChange={handleBrochureUpload}
+                  disabled={brochureSejourUploading}
+                  onChange={(e) => handleBrochureUpload('SEJOUR', e)}
+                />
+              </label>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-900 mb-1">Brochure événements (mariages, séminaires…)</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Envoyée au client avec le devis à signer et depuis le CRM, pour les mariages
+                et événements. Format PDF uniquement, maximum 10 Mo.
+              </p>
+              {brochureEvenementError && (
+                <p className="text-sm text-red-600 mb-3">{brochureEvenementError}</p>
+              )}
+              {brochureEvenementUrl && (
+                <div className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 mb-3">
+                  <svg className="h-5 w-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                  </svg>
+                  <a
+                    href={brochureEvenementUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[var(--color-primary)] hover:underline flex-1 truncate"
+                  >
+                    Brochure en ligne — voir le PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleBrochureDelete('EVENEMENT')}
+                    disabled={brochureEvenementUploading}
+                    className="text-sm text-red-600 hover:underline shrink-0 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              )}
+              <label className={`inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer ${brochureEvenementUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {brochureEvenementUploading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    Upload en cours...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    {brochureEvenementUrl ? 'Remplacer la brochure' : 'Uploader la brochure PDF'}
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={brochureEvenementUploading}
+                  onChange={(e) => handleBrochureUpload('EVENEMENT', e)}
                 />
               </label>
             </div>

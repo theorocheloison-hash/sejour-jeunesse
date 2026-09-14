@@ -121,6 +121,8 @@ function ClientsPage() {
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteForm, setNoteForm] = useState({ type: 'NOTE', description: '' });
   const [sendingBrochure, setSendingBrochure] = useState(false);
+  // Lot A "deux brochures" : choix explicite du slot à l'envoi (pas de getMonProfil ici).
+  const [showBrochureMenu, setShowBrochureMenu] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
@@ -393,11 +395,12 @@ function ClientsPage() {
     setNoteForm({ type: 'NOTE', description: '' });
   };
 
-  const handleEnvoyerBrochure = async () => {
+  const handleEnvoyerBrochure = async (type: 'SEJOUR' | 'EVENEMENT') => {
     if (!selectedId) return;
+    setShowBrochureMenu(false);
     setSendingBrochure(true);
     try {
-      await envoyerBrochureClient(selectedId);
+      await envoyerBrochureClient(selectedId, type);
       const updated = await getActivitesClient(selectedId);
       setActivites(updated);
     } catch (e: unknown) {
@@ -958,13 +961,31 @@ function ClientsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-gray-900">Activité</h3>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleEnvoyerBrochure}
-                        disabled={sendingBrochure}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        {sendingBrochure ? '...' : '📬 Envoyer la brochure'}
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowBrochureMenu(v => !v)}
+                          disabled={sendingBrochure}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          {sendingBrochure ? '...' : '📬 Envoyer la brochure'}
+                        </button>
+                        {showBrochureMenu && !sendingBrochure && (
+                          <div className="absolute right-0 top-full mt-1 z-10 w-44 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                            <button
+                              onClick={() => handleEnvoyerBrochure('SEJOUR')}
+                              className="block w-full px-3 py-1.5 text-left text-xs font-medium text-gray-600 hover:bg-gray-50"
+                            >
+                              Brochure séjour
+                            </button>
+                            <button
+                              onClick={() => handleEnvoyerBrochure('EVENEMENT')}
+                              className="block w-full px-3 py-1.5 text-left text-xs font-medium text-gray-600 hover:bg-gray-50"
+                            >
+                              Brochure événement
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <a
                         href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Visite — ${selected?.nom ?? ''}`)}&details=${encodeURIComponent(`Visite de ${centreNom}`)}`}
                         target="_blank"

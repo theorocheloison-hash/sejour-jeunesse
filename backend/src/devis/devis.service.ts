@@ -2167,7 +2167,7 @@ export class DevisService {
             nom: true, ville: true, adresse: true, codePostal: true,
             siret: true, telephone: true, email: true,
             tvaIntracommunautaire: true, iban: true,
-            brochureUrl: true, conditionsAnnulation: true,
+            brochureUrlSejour: true, brochureUrlEvenement: true, conditionsAnnulation: true,
             logoUrl: true,
           },
         },

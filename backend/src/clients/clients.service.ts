@@ -562,7 +562,16 @@ export class ClientsService {
     return { imported, skipped, clientNotFound, total: lignes.length };
   }
 
-  async envoyerBrochure(clientId: string, userId: string, centreIdHeader?: string | null) {
+  async envoyerBrochure(
+    clientId: string,
+    userId: string,
+    type: 'SEJOUR' | 'EVENEMENT',
+    centreIdHeader?: string | null,
+  ) {
+    if (type !== 'SEJOUR' && type !== 'EVENEMENT') {
+      throw new BadRequestException('Type de brochure invalide (SEJOUR ou EVENEMENT attendu)');
+    }
+
     const centreId = await this.getCentreId(userId, centreIdHeader);
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
@@ -577,12 +586,19 @@ export class ClientsService {
 
     const centre = await this.prisma.centreHebergement.findUnique({
       where: { id: centreId },
-      select: { brochureUrl: true, nom: true, email: true, statut: true, organisationId: true, userId: true },
+      select: {
+        brochureUrlSejour: true, brochureUrlEvenement: true,
+        nom: true, email: true, statut: true, organisationId: true, userId: true,
+      },
     });
 
-    const brochureUrl = centre?.brochureUrl ?? null;
+    const brochureUrl = (type === 'SEJOUR' ? centre?.brochureUrlSejour : centre?.brochureUrlEvenement) ?? null;
     if (!brochureUrl) {
-      throw new BadRequestException('Brochure non configurée — contactez l\'administrateur');
+      throw new BadRequestException(
+        type === 'SEJOUR'
+          ? 'Brochure séjour non configurée pour ce centre'
+          : 'Brochure événement non configurée pour ce centre',
+      );
     }
 
     // Validation non acquise (centre PENDING ou revendication en attente) : envoi

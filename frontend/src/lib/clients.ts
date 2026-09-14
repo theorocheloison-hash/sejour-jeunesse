@@ -320,7 +320,7 @@ export async function createActiviteClient(
   return data;
 }
 
-export async function envoyerBrochureClient(clientId: string): Promise<{ success: boolean }> {
-  const { data } = await api.post<{ success: boolean }>(`/clients/${clientId}/envoyer-brochure`);
+export async function envoyerBrochureClient(clientId: string, type: 'SEJOUR' | 'EVENEMENT'): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/clients/${clientId}/envoyer-brochure`, { type });
   return data;
 }
