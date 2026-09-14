@@ -1,4 +1,5 @@
 import api from './api';
+import { etatEncaissement } from './encaissement';
 
 // Statuts legacy en base (Client.statut) \u2014 conserv\u00e9s pour l'import CSV historique
 export const STATUT_CLIENT_LABELS: Record<string, { label: string; cls: string }> = {
@@ -155,21 +156,18 @@ export function deriveClientStatus(client: Client): string {
   const devisPrincipaux = client.devis.filter(d => !d.isComplementaire);
 
   const devisStatuts = devisPrincipaux.map(d => d.statut);
-  // Lot 1 : la facturation vient des Factures liées (le devis ne mute plus vers FACTURE_*).
-  // Repli legacy : ancien typeDocument FACTURE_* (données antérieures au Lot 1).
-  const aFactureType = (d: DevisClient, type: 'ACOMPTE' | 'SOLDE') =>
-    (d.factures ?? []).some(f => f.typeFacture === type)
-    || d.typeDocument === `FACTURE_${type}`;
-  const devisAvecSolde = devisPrincipaux.some(d => aFactureType(d, 'SOLDE'));
-  const devisAvecAcompte = devisPrincipaux.some(d => aFactureType(d, 'ACOMPTE'));
+  // Lot 3 : SOLDE/ACOMPTE_VERSE dérivent de l'ENCAISSEMENT réel (net d'avoir), source
+  // unique partagée avec le planning. (Repli legacy typeDocument FACTURE_* retiré —
+  // 0 ligne en base, vérifié prod 14/09.)
+  const etats = devisPrincipaux.map(etatEncaissement);
 
   // Du plus avancé au moins avancé
-  if (devisAvecSolde) {
+  if (etats.includes('SOLDE')) {
     // Tous soldés ou non retenus → Soldé ; sinon le statut actif prime (plus bas)
-    const activeDevis = devisPrincipaux.filter(d => !aFactureType(d, 'SOLDE') && d.statut !== 'NON_RETENU');
+    const activeDevis = devisPrincipaux.filter((d, i) => etats[i] !== 'SOLDE' && d.statut !== 'NON_RETENU');
     if (activeDevis.length === 0) return 'SOLDE';
   }
-  if (devisAvecAcompte) return 'ACOMPTE_VERSE';
+  if (etats.includes('ACOMPTE_VERSE')) return 'ACOMPTE_VERSE';
   if (devisStatuts.some(s => s === 'SELECTIONNE' || s === 'SIGNE_DIRECTION')) return 'CONFIRME';
   if (devisStatuts.some(s => s === 'EN_ATTENTE' || s === 'EN_ATTENTE_VALIDATION')) return 'DEVIS_ENVOYE';
 

@@ -1,3 +1,5 @@
+import { etatEncaissement } from './encaissement';
+
 // Palette planning par statut (convention PMS — docs/ARCHITECTURE_UX_SEJOUR_FINAL.md §4)
 // EXACTEMENT 5 états : la légende du planning mono itère cet objet.
 export const PLANNING_COULEURS: Record<string, { bg: string; text: string; hachures?: boolean; label: string }> = {
@@ -13,8 +15,6 @@ export const PLANNING_COULEURS: Record<string, { bg: string; text: string; hachu
 export const COULEUR_DEMANDE_ATTENTE = {
   bg: '#FBBF24', text: '#fff', hachures: true, label: 'Demande en attente',
 };
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // Lot 1 : la facturation vit dans l'entité Facture (le devis ne mute plus vers FACTURE_*).
 interface DevisPourCouleur {
@@ -34,20 +34,6 @@ interface SejourPourCouleur {
   statut: string;
   devisDirect?: Array<DevisPourCouleur>;
   demandes?: Array<{ devis?: Array<DevisPourCouleur> }>;
-}
-
-// Lot 2 : la couleur dérive de l'ENCAISSEMENT réel, plus du type de facture émise.
-// SOLDE = reste dû ≤ 0,01 sur le total NET D'AVOIR ; ACOMPTE_VERSE = au moins un versement.
-function etatEncaissement(d: DevisPourCouleur): 'SOLDE' | 'ACOMPTE_VERSE' | null {
-  const totalBrut = d.montantTTC ?? (d.montantTotal != null ? Number(d.montantTotal) : 0);
-  const avoirs = (d.factures ?? [])
-    .filter(f => f.typeFacture === 'AVOIR')
-    .reduce((s, f) => s + (f.montantFacture ?? 0), 0); // négatifs
-  const totalNet = round2(totalBrut + avoirs);
-  const verse = d.montantVerseTotal ?? 0;
-  if (totalNet > 0 && round2(totalNet - verse) <= 0.01) return 'SOLDE';
-  if (verse > 0) return 'ACOMPTE_VERSE';
-  return null;
 }
 
 export function derivePlanningStatut(sejour: SejourPourCouleur): string {
