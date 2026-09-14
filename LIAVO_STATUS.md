@@ -106,8 +106,8 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
   « brochure mariage vue par les profs scolaires », remonté par Maeva). CRM
   envoyer-brochure : choix explicite séjour/événement (erreur claire si slot vide).
   Profil hébergeur : upload + suppression par slot.
-- Routage vérifié en prod (Sauvageon seul en événement).
-- **À FAIRE Théo : uploader la brochure collège dans le slot SÉJOUR du Sauvageon.**
+- Routage vérifié en prod (Sauvageon seul en événement). Brochure collège uploadée
+  dans le slot SÉJOUR du Sauvageon (14/09) — les deux slots sont servis, chantier clos.
 
 **Lot B « suppression documents de conformité » (commit 18cc693, déployé 14/09)**
 - Endpoint `DELETE /centres/documents/:id` (service deleteDocument : ownership + purge du
