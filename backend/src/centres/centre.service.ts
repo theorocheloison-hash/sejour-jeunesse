@@ -26,6 +26,7 @@ import { findOrCreateOrganisation, findOrCreateMembership } from '../organisatio
 import { getPlanEffectif, PLAN_HIERARCHY } from '../abonnements/abonnement.constants.js';
 import { trialExpiration } from './trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
+import { CLES_BLOC_B } from '../common/champs-inscription.constants.js';
 
 // ── Configuration des champs d'inscription (saisie directe participants) ──
 export const CHAMPS_STANDARD_INSCRIPTION = [
@@ -226,6 +227,105 @@ export class CentreService {
     });
 
     return champsInscription;
+  }
+
+  // ── Modèles d'inscription (Lot 3 refonte inscriptions) ──────────────────
+  // CRUD de la bibliothèque de modèles du centre (modeles_inscription, Lot 1),
+  // validé sur le vocabulaire canonique CLES_BLOC_B (Lot 2). Endpoints non
+  // consommés à ce stade — l'écran d'ouverture au séjour les câblera (Lot 4).
+
+  /** Valide et normalise champsActifs : clés Bloc B uniquement, dédup, ordre canonique. */
+  private validerChampsActifs(input: unknown): string[] {
+    if (!Array.isArray(input)) {
+      throw new BadRequestException('champsActifs doit être un tableau');
+    }
+    const set = new Set<string>();
+    for (const c of input) {
+      if (typeof c !== 'string' || !CLES_BLOC_B.includes(c)) {
+        throw new BadRequestException(`Champ invalide : ${String(c)}`);
+      }
+      set.add(c);
+    }
+    return CLES_BLOC_B.filter((k) => set.has(k));
+  }
+
+  /** Valide le nom d'un modèle : non vide après trim, 100 caractères max. */
+  private validerNomModele(input: unknown): string {
+    if (typeof input !== 'string' || input.trim().length === 0 || input.trim().length > 100) {
+      throw new BadRequestException('Nom de modèle invalide (1-100 caractères)');
+    }
+    return input.trim();
+  }
+
+  async listModelesInscription(userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    return this.prisma.modeleInscription.findMany({
+      where: { centreId: centre.id },
+      orderBy: { nom: 'asc' },
+    });
+  }
+
+  async createModeleInscription(
+    userId: string,
+    body: { nom?: unknown; champsActifs?: unknown },
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const nom = this.validerNomModele(body.nom);
+    const champsActifs = this.validerChampsActifs(body.champsActifs);
+
+    const count = await this.prisma.modeleInscription.count({ where: { centreId: centre.id } });
+    if (count >= 20) {
+      throw new BadRequestException('Maximum 20 modèles par centre');
+    }
+
+    try {
+      return await this.prisma.modeleInscription.create({
+        data: { centreId: centre.id, nom, champsActifs },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Un modèle porte déjà ce nom');
+      }
+      throw err;
+    }
+  }
+
+  async updateModeleInscription(
+    userId: string,
+    id: string,
+    body: { nom?: unknown; champsActifs?: unknown },
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const modele = await this.prisma.modeleInscription.findUnique({ where: { id } });
+    if (!modele || modele.centreId !== centre.id) {
+      throw new NotFoundException('Modèle introuvable');
+    }
+
+    const data: { nom?: string; champsActifs?: string[] } = {};
+    if (body.nom !== undefined) data.nom = this.validerNomModele(body.nom);
+    if (body.champsActifs !== undefined) data.champsActifs = this.validerChampsActifs(body.champsActifs);
+    if (Object.keys(data).length === 0) return modele;
+
+    try {
+      return await this.prisma.modeleInscription.update({ where: { id }, data });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Un modèle porte déjà ce nom');
+      }
+      throw err;
+    }
+  }
+
+  async deleteModeleInscription(userId: string, id: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    const modele = await this.prisma.modeleInscription.findUnique({ where: { id } });
+    if (!modele || modele.centreId !== centre.id) {
+      throw new NotFoundException('Modèle introuvable');
+    }
+    await this.prisma.modeleInscription.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async getMesCentres(userId: string) {

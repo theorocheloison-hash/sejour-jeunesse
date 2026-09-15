@@ -156,6 +156,61 @@ export class CentreController {
     return this.centreService.updateConfigInscription(user.id, body, centreId);
   }
 
+  // ── Modèles d'inscription (Lot 3 refonte inscriptions) — même stack que
+  // config-inscription ; routes statiques, déclarées avant toute route :param. ──
+
+  /** GET /centres/modeles-inscription — Bibliothèque de modèles du centre (HEBERGEUR). */
+  @Get('modeles-inscription')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  listModelesInscription(
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.listModelesInscription(user.id, centreId);
+  }
+
+  /** POST /centres/modeles-inscription — Créer un modèle (HEBERGEUR). */
+  @Post('modeles-inscription')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  createModeleInscription(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { nom: string; champsActifs: string[] },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.createModeleInscription(user.id, body, centreId);
+  }
+
+  /** PATCH /centres/modeles-inscription/:id — Renommer / rééditer un modèle (HEBERGEUR). */
+  @Patch('modeles-inscription/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  updateModeleInscription(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body() body: { nom?: string; champsActifs?: string[] },
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.updateModeleInscription(user.id, id, body, centreId);
+  }
+
+  /** DELETE /centres/modeles-inscription/:id — Supprimer un modèle (HEBERGEUR). */
+  @Delete('modeles-inscription/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('parametres')
+  deleteModeleInscription(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.centreService.deleteModeleInscription(user.id, id, centreId);
+  }
+
   /** POST /centres — Créer un centre additionnel sur un compte HEBERGEUR existant. */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
