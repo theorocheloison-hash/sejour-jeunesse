@@ -164,6 +164,9 @@ export interface Participant {
   regimeAlimentaire: string | null;
   niveauSki: string | null;
   infosMedicales: string | null;
+  // Lot 5b : santé structurée + statut d'attestation aquatique (refonte inscriptions)
+  allergies?: string | null;
+  attestationAquatique?: string | null;
   documentMedicalUrl?: string | null;
   nomParent?: string | null;
   telephoneUrgence?: string | null;

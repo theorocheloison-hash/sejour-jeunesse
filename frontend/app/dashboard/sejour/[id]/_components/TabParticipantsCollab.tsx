@@ -95,7 +95,7 @@ export default function TabParticipantsCollab({
       {peutSaisirParticipants && (
         <TabParticipantsSaisieDirecte
           sejourId={sejour.id}
-          champsInscription={sejour.hebergementSelectionne?.champsInscription ?? null}
+          champsInscription={sejour.champsInscription ?? null}
           participants={participants}
           onReload={onReload}
         />

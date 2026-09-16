@@ -8,46 +8,41 @@ import {
   deleteAutorisation,
   type ParticipantDirectInput,
 } from '@/src/lib/autorisation';
+import {
+  CHAMP_PAR_CLE,
+  CLES_BLOC_B,
+  type ChampInscription,
+} from '@/src/lib/champs-inscription';
 
-type ChampType = 'text' | 'number' | 'select';
-interface ChampCustom {
-  nom: string;
-  type: ChampType;
-  obligatoire: boolean;
-  options?: string[];
-}
-interface ChampsInscription {
-  champsActifs: string[];
-  champsCustom: ChampCustom[];
-}
+/**
+ * Grille de saisie directe (Lot 5b) — pilotée par le SNAPSHOT du séjour
+ * (sejour.champsInscription, figé à l'ouverture par l'hébergeur) et par la
+ * constante CHAMPS_INSCRIPTION (libellés, types, bornes, options, aide).
+ * Colonnes : Bloc A fixe à gauche (Nom, Prénom, Naissance), Bloc B configurable
+ * au centre (ordre canonique), contact fixe à droite. Plus de champs custom,
+ * plus de défaut à 9 colonnes : snapshot null (séjour non ouvert — cas
+ * organisateur invité DIRECT) → colonnes fixes seules.
+ */
 
 interface Props {
   sejourId: string;
-  champsInscription: ChampsInscription | null;
+  champsInscription: { champsActifs: string[] } | null;
   participants: Participant[];
   onReload: () => void;
 }
 
-const DEFAULT_CHAMPS_ACTIFS = [
-  'taille', 'poids', 'pointure', 'niveauSki', 'regimeAlimentaire',
-  'eleveDateNaissance', 'nomParent', 'telephoneUrgence', 'infosMedicales',
-];
+// Colonnes DB du Bloc B (ordre canonique) + accès au champ par colonne.
+const COLONNES_B = CLES_BLOC_B.map((k) => CHAMP_PAR_CLE[k].colonne);
+const COLONNE_VERS_CHAMP: Record<string, ChampInscription> = Object.fromEntries(
+  CLES_BLOC_B.map((k) => [CHAMP_PAR_CLE[k].colonne, CHAMP_PAR_CLE[k]]),
+);
 
-const LABELS: Record<string, string> = {
-  taille: 'Taille', poids: 'Poids', pointure: 'Pointure',
-  niveauSki: 'Ski', regimeAlimentaire: 'Régime',
-  eleveDateNaissance: 'Naissance', nomParent: 'Parent',
-  telephoneUrgence: 'Tél. urgence', infosMedicales: 'Médical',
-};
-
-const NUMBER_FIELDS = new Set(['taille', 'poids', 'pointure']);
-const DATE_FIELDS = new Set(['eleveDateNaissance']);
-
-// Champs scalaires comparés pour la détection de modification
+// Champs scalaires comparés pour la détection de modification :
+// Bloc A + toutes les colonnes Bloc B (dont allergies, attestationAquatique) + contact.
 const COMPARE_KEYS = [
-  'eleveNom', 'elevePrenom', 'parentEmail', 'hebergementCategorie',
-  'taille', 'poids', 'pointure', 'niveauSki', 'regimeAlimentaire',
-  'eleveDateNaissance', 'nomParent', 'telephoneUrgence', 'infosMedicales',
+  'eleveNom', 'elevePrenom', 'eleveDateNaissance',
+  ...COLONNES_B,
+  'nomParent', 'telephoneUrgence', 'parentEmail',
 ];
 
 interface Row {
@@ -71,12 +66,10 @@ const cls = {
 function extractValues(row: Row): Record<string, any> {
   const o: Record<string, any> = {};
   for (const k of COMPARE_KEYS) o[k] = row[k] ?? '';
-  o.champsPersonnalises = row.champsPersonnalises ?? {};
   return o;
 }
 
 function participantToRow(p: Participant): Row {
-  const custom = p.champsPersonnalises ?? {};
   const row: Row = {
     _localId: crypto.randomUUID(),
     _status: 'existing',
@@ -84,38 +77,34 @@ function participantToRow(p: Participant): Row {
     id: p.id,
     eleveNom: p.eleveNom ?? '',
     elevePrenom: p.elevePrenom ?? '',
-    parentEmail: p.parentEmail ?? '',
+    eleveDateNaissance: p.eleveDateNaissance ? p.eleveDateNaissance.split('T')[0] : '',
     hebergementCategorie: p.hebergementCategorie ?? '',
     taille: p.taille != null ? String(p.taille) : '',
     poids: p.poids != null ? String(p.poids) : '',
     pointure: p.pointure != null ? String(p.pointure) : '',
     niveauSki: p.niveauSki ?? '',
+    attestationAquatique: p.attestationAquatique ?? '',
     regimeAlimentaire: p.regimeAlimentaire ?? '',
-    eleveDateNaissance: p.eleveDateNaissance ? p.eleveDateNaissance.split('T')[0] : '',
+    allergies: p.allergies ?? '',
+    infosMedicales: p.infosMedicales ?? '',
     nomParent: p.nomParent ?? '',
     telephoneUrgence: p.telephoneUrgence ?? '',
-    infosMedicales: p.infosMedicales ?? '',
-    champsPersonnalises: Object.fromEntries(
-      Object.entries(custom as Record<string, unknown>).map(([k, v]) => [
-        k,
-        v == null ? '' : String(v),
-      ]),
-    ),
+    parentEmail: p.parentEmail ?? '',
   };
   row._original = extractValues(row);
   return row;
 }
 
 function emptyRow(): Row {
-  return {
+  const row: Row = {
     _localId: crypto.randomUUID(),
     _status: 'new',
     _original: null,
-    eleveNom: '', elevePrenom: '', parentEmail: '', hebergementCategorie: '',
-    taille: '', poids: '', pointure: '', niveauSki: '', regimeAlimentaire: '',
-    eleveDateNaissance: '', nomParent: '', telephoneUrgence: '', infosMedicales: '',
-    champsPersonnalises: {},
+    eleveNom: '', elevePrenom: '', eleveDateNaissance: '',
+    nomParent: '', telephoneUrgence: '', parentEmail: '',
   };
+  for (const c of COLONNES_B) row[c] = '';
+  return row;
 }
 
 function numOrNull(v: any): number | null {
@@ -134,8 +123,12 @@ export default function TabParticipantsSaisieDirecte({
   participants,
   onReload,
 }: Props) {
-  const champsActifs = champsInscription?.champsActifs ?? DEFAULT_CHAMPS_ACTIFS;
-  const champsCustom = champsInscription?.champsCustom ?? [];
+  // Bloc B actif : filter sur CLES_BLOC_B → ordre canonique garanti.
+  // Snapshot null → aucune colonne Bloc B (fallback sobre, pas de défaut).
+  const actifs = champsInscription?.champsActifs ?? [];
+  const colonnesB: ChampInscription[] = CLES_BLOC_B
+    .filter((k) => actifs.includes(k))
+    .map((k) => CHAMP_PAR_CLE[k]);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [saving, setSaving] = useState(false);
@@ -155,14 +148,12 @@ export default function TabParticipantsSaisieDirecte({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants]);
 
-  function updateCell(localId: string, field: string, value: any, isCustom = false) {
+  function updateCell(localId: string, field: string, value: any) {
     setBanner(null);
     setRows((prev) =>
       prev.map((r) => {
         if (r._localId !== localId) return r;
-        const next: Row = isCustom
-          ? { ...r, champsPersonnalises: { ...(r.champsPersonnalises ?? {}), [field]: value } }
-          : { ...r, [field]: value };
+        const next: Row = { ...r, [field]: value };
         if (next._status === 'new' || next._status === 'deleted') return next;
         const changed =
           JSON.stringify(extractValues(next)) !== JSON.stringify(next._original);
@@ -189,15 +180,10 @@ export default function TabParticipantsSaisieDirecte({
   }
 
   function rowToCreateInput(r: Row): ParticipantDirectInput {
-    const custom: Record<string, any> = {};
-    for (const c of champsCustom) {
-      const v = r.champsPersonnalises?.[c.nom];
-      if (v !== undefined && v !== '') custom[c.nom] = v;
-    }
     return {
       eleveNom: r.eleveNom.trim(),
       elevePrenom: r.elevePrenom.trim(),
-      parentEmail: strOrNull(r.parentEmail),
+      eleveDateNaissance: r.eleveDateNaissance || null,
       // Le select ne produit que '', FILLE, GARCON, AUTRE → cast sûr
       hebergementCategorie: strOrNull(r.hebergementCategorie) as
         | 'FILLE' | 'GARCON' | 'AUTRE' | null,
@@ -205,19 +191,22 @@ export default function TabParticipantsSaisieDirecte({
       poids: numOrNull(r.poids),
       pointure: numOrNull(r.pointure),
       niveauSki: strOrNull(r.niveauSki),
+      // Les selects envoient null pour l'option vide, jamais ''
+      attestationAquatique: strOrNull(r.attestationAquatique),
       regimeAlimentaire: strOrNull(r.regimeAlimentaire),
-      eleveDateNaissance: r.eleveDateNaissance || null,
+      allergies: strOrNull(r.allergies),
+      infosMedicales: strOrNull(r.infosMedicales),
       nomParent: strOrNull(r.nomParent),
       telephoneUrgence: strOrNull(r.telephoneUrgence),
-      infosMedicales: strOrNull(r.infosMedicales),
-      champsPersonnalises: Object.keys(custom).length ? custom : null,
+      parentEmail: strOrNull(r.parentEmail),
     };
   }
 
+  // Conversion vers l'API, pilotée par le type du champ dans la constante
   function apiValue(field: string, raw: any): any {
-    if (NUMBER_FIELDS.has(field)) return numOrNull(raw);
-    if (DATE_FIELDS.has(field)) return raw || null;
     if (field === 'eleveNom' || field === 'elevePrenom') return (raw ?? '').toString().trim();
+    if (field === 'eleveDateNaissance') return raw || null;
+    if (COLONNE_VERS_CHAMP[field]?.type === 'number') return numOrNull(raw);
     return strOrNull(raw);
   }
 
@@ -229,12 +218,6 @@ export default function TabParticipantsSaisieDirecte({
       if (JSON.stringify(r[k] ?? '') !== JSON.stringify(orig[k] ?? '')) {
         diff[k] = apiValue(k, r[k]);
       }
-    }
-    if (
-      JSON.stringify(r.champsPersonnalises ?? {}) !==
-      JSON.stringify(orig.champsPersonnalises ?? {})
-    ) {
-      diff.champsPersonnalises = r.champsPersonnalises ?? {};
     }
     return diff;
   }
@@ -304,13 +287,16 @@ export default function TabParticipantsSaisieDirecte({
     }
   }
 
-  // Export CSV — lecture pure des props (TOUS les participants, signés inclus)
+  // Export CSV — lecture pure des props (TOUS les participants, signés inclus).
+  // Colonnes = Bloc A + Bloc B actifs + contact (mêmes colonnes que la grille).
   function handleExport() {
     const columns: { key: string; label: string }[] = [
       { key: 'eleveNom', label: 'Nom' },
       { key: 'elevePrenom', label: 'Prénom' },
-      ...champsActifs.map((f) => ({ key: f, label: LABELS[f] ?? f })),
-      ...champsCustom.map((c) => ({ key: `custom:${c.nom}`, label: c.nom })),
+      { key: 'eleveDateNaissance', label: 'Date de naissance' },
+      ...colonnesB.map((champ) => ({ key: champ.colonne, label: champ.libelle })),
+      { key: 'nomParent', label: 'Nom du parent / responsable' },
+      { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
       { key: 'parentEmail', label: 'Email parent' },
     ];
     const headerLine = columns.map((c) => c.label).join(';');
@@ -318,16 +304,10 @@ export default function TabParticipantsSaisieDirecte({
       columns
         .map((c) => {
           let val = '';
-          if (c.key === 'eleveNom') val = p.eleveNom;
-          else if (c.key === 'elevePrenom') val = p.elevePrenom;
-          else if (c.key === 'parentEmail') val = p.parentEmail ?? '';
-          else if (c.key === 'eleveDateNaissance') {
+          if (c.key === 'eleveDateNaissance') {
             val = p.eleveDateNaissance
               ? new Date(p.eleveDateNaissance).toLocaleDateString('fr-FR')
               : '';
-          } else if (c.key.startsWith('custom:')) {
-            const raw = p.champsPersonnalises?.[c.key.replace('custom:', '')];
-            val = raw == null ? '' : String(raw);
           } else {
             const raw = (p as any)[c.key];
             val = raw == null ? '' : String(raw);
@@ -351,63 +331,48 @@ export default function TabParticipantsSaisieDirecte({
 
   const visibleRows = rows.filter((r) => r._status !== 'deleted');
 
-  function renderStandardCell(row: Row, field: string) {
+  // Rendu d'une cellule Bloc B, piloté par le type du champ (constante)
+  function renderChampCell(row: Row, champ: ChampInscription) {
+    const field = champ.colonne;
     const val = row[field] ?? '';
     const onChange = (v: string) => updateCell(row._localId, field, v);
-    if (NUMBER_FIELDS.has(field)) {
+    if (champ.type === 'number') {
       return (
         <input
           type="number"
+          min={champ.min}
+          max={champ.max}
           className={`${cls.input} w-16`}
           value={val}
           onChange={(e) => onChange(e.target.value)}
         />
       );
     }
-    if (DATE_FIELDS.has(field)) {
-      return (
-        <input
-          type="date"
-          className={`${cls.input} w-32`}
-          value={val}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    }
-    return (
-      <input
-        type="text"
-        className={cls.input}
-        value={val}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    );
-  }
-
-  function renderCustomCell(row: Row, champ: ChampCustom) {
-    const val = row.champsPersonnalises?.[champ.nom] ?? '';
-    const onChange = (v: string) => updateCell(row._localId, champ.nom, v, true);
     if (champ.type === 'select') {
       return (
         <select
-          className={`${cls.input} w-full`}
+          className={`${cls.input} ${champ.cle === 'sexe' ? 'w-24' : 'w-full'}`}
           value={val}
           onChange={(e) => onChange(e.target.value)}
+          title={champ.aide}
         >
           <option value="">—</option>
           {(champ.options ?? []).map((o) => (
-            <option key={o} value={o}>
-              {o}
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
       );
     }
+    // text — colonne large pour allergies / infosMedicales, texte complet au survol
+    const large = champ.cle === 'allergies' || champ.cle === 'infosMedicales';
     return (
       <input
-        type={champ.type === 'number' ? 'number' : 'text'}
-        className={`${cls.input} ${champ.type === 'number' ? 'w-16' : ''}`}
+        type="text"
+        className={`${cls.input} ${large ? 'min-w-[180px]' : ''}`}
         value={val}
+        title={val || undefined}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -460,20 +425,19 @@ export default function TabParticipantsSaisieDirecte({
         <table className="w-full border-collapse">
           <thead>
             <tr>
+              {/* Bloc A fixe */}
               <th className={`${cls.th} sticky left-0 bg-gray-50 z-10`}>Nom</th>
               <th className={`${cls.th} sticky left-0 bg-gray-50 z-10`}>Prénom</th>
-              <th className={cls.th}>Sexe</th>
-              {champsActifs.map((f) => (
-                <th key={f} className={cls.th}>
-                  {LABELS[f] ?? f}
+              <th className={cls.th}>Date de naissance</th>
+              {/* Bloc B configurable — ordre canonique */}
+              {colonnesB.map((champ) => (
+                <th key={champ.cle} className={cls.th} title={champ.aide}>
+                  {champ.libelle}
                 </th>
               ))}
-              {champsCustom.map((c) => (
-                <th key={c.nom} className={cls.th}>
-                  {c.nom}
-                  {c.obligatoire ? ' *' : ''}
-                </th>
-              ))}
+              {/* Contact fixe */}
+              <th className={cls.th}>Nom du parent</th>
+              <th className={cls.th}>Tél. urgence</th>
               <th className={cls.th}>Email parent</th>
               <th className={cls.th} />
             </tr>
@@ -483,7 +447,7 @@ export default function TabParticipantsSaisieDirecte({
               <tr>
                 <td
                   className="px-2 py-4 text-center text-sm text-gray-400"
-                  colSpan={4 + champsActifs.length + champsCustom.length + 1}
+                  colSpan={3 + colonnesB.length + 3 + 1}
                 >
                   Aucun participant. Cliquez sur « + Ajouter une ligne ».
                 </td>
@@ -510,27 +474,34 @@ export default function TabParticipantsSaisieDirecte({
                     />
                   </td>
                   <td className={cls.cell}>
-                    <select
-                      className={`${cls.input} w-24`}
-                      value={row.hebergementCategorie ?? ''}
-                      onChange={(e) => updateCell(row._localId, 'hebergementCategorie', e.target.value)}
-                    >
-                      <option value="">—</option>
-                      <option value="FILLE">Fille</option>
-                      <option value="GARCON">Garçon</option>
-                      <option value="AUTRE">Autre</option>
-                    </select>
+                    <input
+                      type="date"
+                      className={`${cls.input} w-32`}
+                      value={row.eleveDateNaissance}
+                      onChange={(e) => updateCell(row._localId, 'eleveDateNaissance', e.target.value)}
+                    />
                   </td>
-                  {champsActifs.map((f) => (
-                    <td key={f} className={cls.cell}>
-                      {renderStandardCell(row, f)}
+                  {colonnesB.map((champ) => (
+                    <td key={champ.cle} className={cls.cell}>
+                      {renderChampCell(row, champ)}
                     </td>
                   ))}
-                  {champsCustom.map((c) => (
-                    <td key={c.nom} className={cls.cell}>
-                      {renderCustomCell(row, c)}
-                    </td>
-                  ))}
+                  <td className={cls.cell}>
+                    <input
+                      type="text"
+                      className={cls.input}
+                      value={row.nomParent}
+                      onChange={(e) => updateCell(row._localId, 'nomParent', e.target.value)}
+                    />
+                  </td>
+                  <td className={cls.cell}>
+                    <input
+                      type="text"
+                      className={cls.input}
+                      value={row.telephoneUrgence}
+                      onChange={(e) => updateCell(row._localId, 'telephoneUrgence', e.target.value)}
+                    />
+                  </td>
                   <td className={cls.cell}>
                     <input
                       type="text"

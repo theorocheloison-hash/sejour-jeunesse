@@ -396,6 +396,11 @@ export class CollaborationService {
         regimeAlimentaire: true,
         niveauSki: true,
         infosMedicales: true,
+        // Lot 5b : la grille de saisie affiche/édite ces 2 champs (écrits via
+        // batch-direct/update-fields depuis 5a/5a-bis) — sans eux le select
+        // explicite rendrait invisibles des valeurs pourtant persistées.
+        allergies: true,
+        attestationAquatique: true,
         documentMedicalUrl: true,
         nomParent: true,
         telephoneUrgence: true,
