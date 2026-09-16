@@ -17,6 +17,7 @@ export interface ChampInscription {
   cle: string; libelle: string; bloc: BlocInscription; type: TypeChampInscription;
   colonne: string; sante: boolean; contactParent?: boolean;
   min?: number; max?: number; options?: OptionChamp[];
+  aide?: string;
 }
 
 export const CHAMPS_INSCRIPTION: ChampInscription[] = [
@@ -35,7 +36,10 @@ export const CHAMPS_INSCRIPTION: ChampInscription[] = [
   { cle: 'pointure',           libelle: 'Pointure',                    bloc: 'B', type: 'number',  colonne: 'pointure', sante: false, min: 20, max: 50 },
   { cle: 'niveauSki',          libelle: 'Niveau de ski',               bloc: 'B', type: 'select',  colonne: 'niveauSki', sante: false,
     options: [ { value: 'DEBUTANT', label: 'Débutant' }, { value: 'INTERMEDIAIRE', label: 'Intermédiaire' }, { value: 'CONFIRME', label: 'Confirmé' }, { value: 'HORS_PISTE', label: 'Hors-piste' } ] },
-  { cle: 'saitNager',          libelle: 'Aisance aquatique (sait nager)', bloc: 'B', type: 'boolean', colonne: 'saitNager', sante: false },
+  { cle: 'attestationAquatique', libelle: 'Attestation aquatique', bloc: 'B', type: 'select',
+    colonne: 'attestationAquatique', sante: false,
+    aide: "Pass-nautique, Savoir-nager (ASNS), Sauv'nage, aisance aquatique ou équivalent — requis pour les activités aquatiques et nautiques.",
+    options: [ { value: 'FOURNIE', label: 'Fournie' }, { value: 'NON_FOURNIE', label: 'Non fournie' }, { value: 'NON_CONCERNE', label: 'Non concerné' } ] },
   { cle: 'regimeAlimentaire',  libelle: 'Régime alimentaire',          bloc: 'B', type: 'select',  colonne: 'regimeAlimentaire', sante: false,
     options: [ { value: 'Aucun régime particulier', label: 'Aucun régime particulier' }, { value: 'Végétarien', label: 'Végétarien' }, { value: 'Végétalien/Vegan', label: 'Végétalien/Vegan' }, { value: 'Sans porc', label: 'Sans porc' }, { value: 'Sans gluten', label: 'Sans gluten' }, { value: 'Autre', label: 'Autre' } ] },
   { cle: 'allergies',          libelle: 'Allergies / intolérances',    bloc: 'B', type: 'text', colonne: 'allergies',      sante: true },

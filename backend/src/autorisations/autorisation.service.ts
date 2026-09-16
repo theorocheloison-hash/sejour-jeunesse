@@ -31,6 +31,10 @@ export interface ParticipantDirectInput {
   nomParent?: string | null;
   telephoneUrgence?: string | null;
   infosMedicales?: string | null;
+  // Lot 5a refonte inscriptions : champs santé structurés (colonnes Lot 1)
+  allergies?: string | null;
+  // Lot 5a-bis : FOURNIE | NON_FOURNIE | NON_CONCERNE (validé par le DTO)
+  attestationAquatique?: string | null;
   champsPersonnalises?: Record<string, unknown> | null;
   // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
@@ -547,6 +551,8 @@ export class AutorisationService {
             niveauSki: p.niveauSki ?? null,
             regimeAlimentaire: p.regimeAlimentaire ?? null,
             infosMedicales: p.infosMedicales ?? null,
+            allergies: p.allergies ?? null,
+            attestationAquatique: p.attestationAquatique ?? null,
             nomParent: p.nomParent ?? null,
             telephoneUrgence: p.telephoneUrgence ?? null,
             // Cascade 2 : date invalide → null (jamais d'Invalid Date)
@@ -591,6 +597,8 @@ export class AutorisationService {
     const CHAMPS_VERROUILLES = [
       'eleveNom', 'elevePrenom', 'parentEmail', 'eleveDateNaissance',
       'nomParent', 'telephoneUrgence', 'infosMedicales',
+      // Lot 5a : donnée de santé, même régime qu'infosMedicales (consentement parent)
+      'allergies',
     ] as const;
     if (signee) {
       const b = body as Record<string, unknown>;
@@ -612,6 +620,9 @@ export class AutorisationService {
     if (body.pointure !== undefined) data.pointure = body.pointure ?? null;
     if (body.niveauSki !== undefined) data.niveauSki = body.niveauSki ?? null;
     if (body.regimeAlimentaire !== undefined) data.regimeAlimentaire = body.regimeAlimentaire ?? null;
+    // Lot 5a-bis : attestation aquatique = logistique (comme taille/pointure),
+    // modifiable après signature — PAS dans CHAMPS_VERROUILLES
+    if (body.attestationAquatique !== undefined) data.attestationAquatique = body.attestationAquatique ?? null;
     // SC7 : organisation interne, pas de consentement parent → jamais verrouillé
     if (body.hebergementCategorie !== undefined) data.hebergementCategorie = body.hebergementCategorie ?? null;
     if (body.champsPersonnalises !== undefined) {
@@ -628,6 +639,8 @@ export class AutorisationService {
     if (body.nomParent !== undefined) data.nomParent = body.nomParent ?? null;
     if (body.telephoneUrgence !== undefined) data.telephoneUrgence = body.telephoneUrgence ?? null;
     if (body.infosMedicales !== undefined) data.infosMedicales = body.infosMedicales ?? null;
+    // Lot 5a : santé, verrouillé après signature (dans CHAMPS_VERROUILLES)
+    if (body.allergies !== undefined) data.allergies = body.allergies ?? null;
     if (body.eleveDateNaissance !== undefined) {
       data.eleveDateNaissance = parseDateOrNull(body.eleveDateNaissance);
     }

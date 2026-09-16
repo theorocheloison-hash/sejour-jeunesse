@@ -77,6 +77,16 @@ export class ParticipantDirectDto {
   @IsString()
   infosMedicales?: string | null;
 
+  // Lot 5a : santé structurée (Text — pas de MaxLength, comme infosMedicales)
+  @IsOptional()
+  @IsString()
+  allergies?: string | null;
+
+  // Lot 5a-bis : statut d'attestation aquatique — null passe, hors liste → 400
+  @IsOptional()
+  @IsIn(['FOURNIE', 'NON_FOURNIE', 'NON_CONCERNE'])
+  attestationAquatique?: string | null;
+
   // Objet libre : la whitelist ne descend pas dans un objet non typé — les
   // clés custom sont préservées telles quelles.
   @IsOptional()

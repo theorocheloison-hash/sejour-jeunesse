@@ -26,6 +26,8 @@ const PAYLOAD_COMPLET = {
   nomParent: 'Marie Dupont',
   telephoneUrgence: '0601020304',
   infosMedicales: 'RAS',
+  allergies: 'Arachide',
+  attestationAquatique: 'FOURNIE',
   champsPersonnalises: { 'Taille casque': 'M' },
   hebergementCategorie: 'FILLE',
 };
@@ -52,6 +54,8 @@ describe('ParticipantDirectDto (update-fields)', () => {
       nomParent: null,
       telephoneUrgence: null,
       infosMedicales: null,
+      allergies: null,
+      attestationAquatique: null,
       champsPersonnalises: null,
       hebergementCategorie: null,
     };
