@@ -183,6 +183,23 @@ export class SejourController {
     return this.sejourService.updateThematiques(id, user.id, body.thematiques);
   }
 
+  /**
+   * PATCH /sejours/:id/champs-inscription — Ouvrir/éditer les inscriptions du séjour
+   * (HEBERGEUR, Lot 4a) : écrit le snapshot figé champs_inscription (clés Bloc B).
+   * Dormant : aucun appelant front avant le Lot 4b.
+   */
+  @Patch(':id/champs-inscription')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
+  updateChampsInscription(
+    @Param('id') id: string,
+    @Body() body: { champsActifs: string[] },
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.updateChampsInscription(id, body.champsActifs, user.id, centreId);
+  }
+
   /** PATCH /sejours/:id — Mettre à jour prix / dateLimiteInscription */
   @Patch(':id')
   @Roles(Role.ORGANISATEUR)

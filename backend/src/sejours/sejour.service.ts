@@ -13,6 +13,7 @@ import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
+import { CLES_BLOC_B, CHAMP_PAR_CLE } from '../common/champs-inscription.constants.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -1271,6 +1272,85 @@ export class SejourService {
         metadata: { sejourId: sejour.id },
       },
     });
+  }
+
+  // ── Ouverture / édition des inscriptions (Lot 4a refonte inscriptions) ──
+
+  /**
+   * Écrit le snapshot figé `sejours.champs_inscription` ({ champsActifs }, clés
+   * Bloc B en ordre canonique). Première écriture = ouverture des inscriptions
+   * (B1, pas de flag séparé) ; ré-écriture = modification, gardée contre le
+   * retrait d'un champ déjà rempli par au moins un inscrit.
+   * Endpoint dormant : aucun appelant front avant le Lot 4b.
+   */
+  async updateChampsInscription(
+    sejourId: string,
+    champsActifsInput: unknown,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: {
+        id: true,
+        hebergementSelectionneId: true,
+        natureSejour: true,
+        deletedAt: true,
+        champsInscription: true,
+      },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+    if (sejour.natureSejour !== 'SEJOUR') {
+      throw new BadRequestException('Les inscriptions ne concernent que les séjours');
+    }
+
+    // Validation + normalisation : Bloc B uniquement, dédup, ordre canonique.
+    if (!Array.isArray(champsActifsInput)) {
+      throw new BadRequestException('champsActifs doit être un tableau');
+    }
+    for (const c of champsActifsInput) {
+      if (typeof c !== 'string' || !CLES_BLOC_B.includes(c)) {
+        throw new BadRequestException(`Champ invalide : ${String(c)}`);
+      }
+    }
+    const demande = new Set(champsActifsInput as string[]);
+    const champsActifs = CLES_BLOC_B.filter((k) => demande.has(k));
+
+    // Garde-fou retrait : un champ déjà rempli par un inscrit ne peut pas disparaître
+    // du formulaire (les données saisies deviendraient invisibles/incohérentes).
+    const ancien =
+      (sejour.champsInscription as { champsActifs?: string[] } | null)?.champsActifs ?? [];
+    const retirees = ancien.filter((k) => !champsActifs.includes(k));
+    const bloquees: { libelle: string; n: number }[] = [];
+    for (const cle of retirees) {
+      const champ = CHAMP_PAR_CLE[cle];
+      if (!champ) continue; // clé hors vocabulaire (legacy) : retrait libre
+      const n = await this.prisma.autorisationParentale.count({
+        where: { sejourId, [champ.colonne]: { not: null } } as Prisma.AutorisationParentaleWhereInput,
+      });
+      if (n > 0) bloquees.push({ libelle: champ.libelle, n });
+    }
+    if (bloquees.length === 1) {
+      throw new BadRequestException(
+        `Impossible de retirer « ${bloquees[0].libelle} » : ${bloquees[0].n} inscrit(s) ont déjà rempli ce champ.`,
+      );
+    }
+    if (bloquees.length > 1) {
+      throw new BadRequestException(
+        `Impossible de retirer ${bloquees.map((b) => `« ${b.libelle} » (${b.n} inscrit(s))`).join(', ')} : des inscrits ont déjà rempli ces champs.`,
+      );
+    }
+
+    await this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { champsInscription: { champsActifs } },
+    });
+    return { champsInscription: { champsActifs } };
   }
 
   async softDeleteSejour(sejourId: string, userId: string, centreId?: string | null) {
