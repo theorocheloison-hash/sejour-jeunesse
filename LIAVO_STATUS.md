@@ -83,6 +83,33 @@ L'hébergeur invite l'enseignant. LIAVO n'est pas un remplacement de la centrale
 
 ## Chantiers récents livrés
 
+### 16/09/2026 — Refonte inscriptions, lots 1-5b — 🔥 PRIORITAIRE À FINIR (campagne hiver)
+
+> Détail complet + backlog ordonné dans LIAVO_SESSION_STATE.md (entrée 16/09).
+
+**Livré en prod le 16/09** (commits `69755a5` lot 4b, `7032f8a` lots 5a/5a-bis, `0b694e2` lot 5b,
+après les socles lots 1-4a `749cfd4`/`a4cb328`/`65f4f4c`/`e5de161`) :
+- Socle données : table `modeles_inscription` (bibliothèque de modèles par centre),
+  `Sejour.champsInscription` (snapshot figé par séjour — la grille ne lit plus la config
+  live du centre), colonnes `allergies` + `attestation_aquatique`.
+- Constante `CHAMPS_INSCRIPTION` = source de vérité unique du vocabulaire des champs
+  (backend + miroir front strict), dérivés CLES_BLOC_B / CHAMP_PAR_CLE / CLES_SANTE.
+- CRUD modèles par centre + endpoint d'ouverture `PATCH /sejours/:id/champs-inscription`
+  (1ʳᵉ écriture = ouverture, garde-fou : impossible de retirer un champ déjà rempli).
+- Écran d'ouverture hébergeur (cases Bloc B, appliquer/définir un modèle) + gate
+  organisateur « fermé d'office » tant que l'hébergeur n'a pas ouvert.
+- Grille de saisie pilotée par le snapshot : selects canoniques (ski, régime, sexe,
+  attestation aquatique avec infobulle), allergies/attestation de bout en bout,
+  purge du custom et du défaut 9 colonnes.
+- Migration `20260916110000_attestation_aquatique` appliquée (DROP `sait_nager` →
+  ADD `attestation_aquatique` VARCHAR(20)). Recetté prod.
+
+**Backlog à finir (ordre)** : 5c raffinement grille (contact selon mode, « Autre →
+préciser », griser champs verrouillés) → 6 import CSV (snapshot + re-routage
+« allergie ») → 7 formulaire parent dynamique → 8 consultation/modale/export →
+Lot DIRECT colo en propre (BtoC Pulse trail = post-hiver, séparé) → nettoyage
+(`parametres/inscription`, custom legacy, fusion validerChampsActifs).
+
 ### 14/09/2026 — Statut d'encaissement + Lot A deux brochures + Lot B suppression documents
 
 > Détail complet dans LIAVO_SESSION_STATE.md (entrées 14/09).
