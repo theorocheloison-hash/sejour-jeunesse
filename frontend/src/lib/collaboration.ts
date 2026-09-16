@@ -58,6 +58,10 @@ export interface SejourCollabInfo {
   prix?: number | string | null;
   dateLimiteInscription?: string | null;
   createur?: { id: string; prenom: string; nom: string; email: string };
+  // Snapshot figé des champs d'inscription du séjour (Lot 4a) — null/absent =
+  // inscriptions pas encore ouvertes par l'hébergeur. À ne pas confondre avec
+  // hebergementSelectionne.champsInscription (config live du centre, legacy).
+  champsInscription?: { champsActifs: string[] } | null;
   hebergementSelectionne?: {
     id: string; nom: string; ville: string; userId: string;
     email?: string | null;

@@ -31,6 +31,8 @@ import TabBudget from './_components/TabBudget';
 import TabProjetPedagogique from './_components/TabProjetPedagogique';
 import TabJournal from './_components/TabJournal';
 import TabParticipantsCollab from './_components/TabParticipantsCollab';
+import BlocParticipantsHebergeur from './_components/BlocParticipantsHebergeur';
+import GateInscriptionsFermees from './_components/GateInscriptionsFermees';
 import TabNotes from './_components/TabNotes';
 import TabChambres from './_components/TabChambres';
 import TabRooming from './_components/TabRooming';
@@ -635,6 +637,13 @@ function CollaborationPageContent() {
                rapatriées de l'ancienne page autorisations, liste existante. */
             <div className="space-y-6">
               <ReassuranceDonnees />
+              {/* Gate Lot 4b — « fermé d'office » : tant que l'hébergeur n'a pas ouvert
+                  les inscriptions (snapshot séjour null), l'organisateur voit le gate.
+                  ReassuranceDonnees (au-dessus) et Accompagnateurs (en pied) restent visibles. */}
+              {!sejour?.champsInscription ? (
+                <GateInscriptionsFermees />
+              ) : (
+              <>
               {modeInscription === null ? (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                   <h2 className="text-base font-bold text-gray-900 mb-1">Comment voulez-vous inscrire vos élèves ?</h2>
@@ -694,6 +703,8 @@ function CollaborationPageContent() {
               {modeInscription === 'SAISIE' && (
                 <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
               )}
+              </>
+              )}
               <Accompagnateurs
                 sejourId={id}
                 devisSigne={devisSigne}
@@ -701,6 +712,19 @@ function CollaborationPageContent() {
                 onChanged={loadParticipants}
               />
             </div>
+          ) : user.role === 'HEBERGEUR' && canWriteSejour ? (
+          /* Lot 4b : l'hébergeur (WRITE) ouvre/édite les champs d'inscription,
+             puis retrouve le rendu historique — logique isolée dans le wrapper. */
+          <BlocParticipantsHebergeur
+            sejourId={id}
+            sejour={sejour}
+            champsInscription={sejour?.champsInscription ?? null}
+            onOpened={() => getSejourCollabInfo(id).then(setSejour).catch(() => {})}
+            participants={participants}
+            accompagnateurs={accompagnateurs}
+            user={user}
+            onReload={loadParticipants}
+          />
           ) : (
           <TabParticipantsCollab
             sejour={sejour}
