@@ -309,6 +309,41 @@ export default function TabParticipantsSaisieDirecte({
       );
     }
     if (champ.type === 'select') {
+      // Lot 5c-A — régime alimentaire UNIQUEMENT : « Autre » ouvre un champ
+      // « préciser ». Mode Autre détecté par la VALEUR (non vide, hors options
+      // canoniques) — aucun état React, la valeur libre vit dans regimeAlimentaire.
+      if (champ.cle === 'regimeAlimentaire') {
+        const canoniquesHorsAutre = (champ.options ?? [])
+          .map((o) => o.value)
+          .filter((v) => v !== 'Autre');
+        const modeAutre = val !== '' && !canoniquesHorsAutre.includes(val);
+        return (
+          <div className="flex items-center gap-1">
+            <select
+              className={`${cls.input} w-full`}
+              value={modeAutre ? 'Autre' : val}
+              onChange={(e) => onChange(e.target.value)}
+            >
+              <option value="">—</option>
+              {(champ.options ?? []).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {modeAutre && (
+              <input
+                type="text"
+                className={`${cls.input} w-28`}
+                placeholder="préciser"
+                value={val === 'Autre' ? '' : val}
+                title={val === 'Autre' ? undefined : val}
+                onChange={(e) => onChange(e.target.value || 'Autre')}
+              />
+            )}
+          </div>
+        );
+      }
       return (
         <select
           className={`${cls.input} ${champ.cle === 'sexe' ? 'w-24' : 'w-full'}`}
@@ -394,9 +429,8 @@ export default function TabParticipantsSaisieDirecte({
                   {champ.libelle}
                 </th>
               ))}
-              {/* Contact fixe */}
-              <th className={cls.th}>Nom du parent</th>
-              <th className={cls.th}>Tél. urgence</th>
+              {/* Contact fixe — nom/tél retirés de la grille (Lot 5c-A) : le
+                  parent les renseigne via son formulaire ; données préservées */}
               <th className={cls.th}>Email parent</th>
               <th className={cls.th} />
             </tr>
@@ -406,7 +440,7 @@ export default function TabParticipantsSaisieDirecte({
               <tr>
                 <td
                   className="px-2 py-4 text-center text-sm text-gray-400"
-                  colSpan={3 + colonnesB.length + 3 + 1}
+                  colSpan={3 + colonnesB.length + 1 + 1}
                 >
                   Aucun participant. Cliquez sur « + Ajouter une ligne ».
                 </td>
@@ -445,22 +479,6 @@ export default function TabParticipantsSaisieDirecte({
                       {renderChampCell(row, champ)}
                     </td>
                   ))}
-                  <td className={cls.cell}>
-                    <input
-                      type="text"
-                      className={cls.input}
-                      value={row.nomParent}
-                      onChange={(e) => updateCell(row._localId, 'nomParent', e.target.value)}
-                    />
-                  </td>
-                  <td className={cls.cell}>
-                    <input
-                      type="text"
-                      className={cls.input}
-                      value={row.telephoneUrgence}
-                      onChange={(e) => updateCell(row._localId, 'telephoneUrgence', e.target.value)}
-                    />
-                  </td>
                   <td className={cls.cell}>
                     <input
                       type="text"
