@@ -37,7 +37,13 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
     try {
       const result = await importAutorisationsCsv(sejourId, importFile);
       setImportResult(result);
-      if (result.created > 0) onImported();
+      // ≥1 ligne créée → recharge puis fermeture (les nouveaux inscrits
+      // apparaissent dans la grille). created === 0 → la modale reste ouverte
+      // pour montrer le récap (doublons, erreurs, colonnes détectées).
+      if (result.created > 0) {
+        onImported();
+        onClose();
+      }
     } catch (e: any) {
       setImportError(e?.response?.data?.message ?? "Erreur lors de l'import du fichier.");
     } finally {
