@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { CHAMPS_INSCRIPTION } from '@/src/lib/champs-inscription';
 import {
   createModeleInscription,
+  getChampsVerrouillesSejour,
   listModelesInscription,
   updateChampsInscriptionSejour,
   type ModeleInscription,
@@ -29,6 +30,9 @@ export default function OuvertureInscriptions({ sejourId, champsInscription, onO
     () => new Set(champsInscription?.champsActifs ?? []),
   );
   const [modeles, setModeles] = useState<ModeleInscription[]>([]);
+  // Clés Bloc B déjà remplies par ≥1 inscrit (Lot 5c-B) : grisées, indécochables.
+  // Échec de chargement silencieux → comportement d'avant (garde-fou au save).
+  const [verrouilles, setVerrouilles] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -37,9 +41,19 @@ export default function OuvertureInscriptions({ sejourId, champsInscription, onO
 
   useEffect(() => {
     listModelesInscription().then(setModeles).catch(() => {});
+    getChampsVerrouillesSejour(sejourId)
+      .then((res) => {
+        setVerrouilles(new Set(res));
+        // Un champ verrouillé est forcément demandé : l'affichage coché et
+        // l'ensemble envoyé au save restent alignés.
+        setCoches((prev) => new Set([...prev, ...res]));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = (cle: string) => {
+    if (verrouilles.has(cle)) return; // garde en plus du disabled
     setError(null);
     setSuccess(null);
     setCoches((prev) => {
@@ -55,7 +69,8 @@ export default function OuvertureInscriptions({ sejourId, champsInscription, onO
     if (!modele) return;
     setError(null);
     setSuccess(null);
-    setCoches(new Set(modele.champsActifs));
+    // Un modèle ne peut jamais décocher un champ verrouillé.
+    setCoches(new Set([...modele.champsActifs, ...verrouilles]));
   };
 
   const messageErreur = (err: unknown, fallback: string) =>
@@ -127,22 +142,32 @@ export default function OuvertureInscriptions({ sejourId, champsInscription, onO
         </div>
       )}
 
-      {/* Cases Bloc B — ordre canonique */}
+      {/* Cases Bloc B — ordre canonique ; champs déjà remplis = verrouillés */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-        {BLOC_B.map((champ) => (
-          <label
-            key={champ.cle}
-            className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 cursor-pointer hover:bg-gray-50"
-          >
-            <input
-              type="checkbox"
-              checked={coches.has(champ.cle)}
-              onChange={() => toggle(champ.cle)}
-              className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-            />
-            <span className="text-sm text-gray-700">{champ.libelle}</span>
-          </label>
-        ))}
+        {BLOC_B.map((champ) => {
+          const locked = verrouilles.has(champ.cle);
+          return (
+            <label
+              key={champ.cle}
+              title={locked ? 'Déjà renseigné par des inscrits — ne peut plus être retiré' : undefined}
+              className={`flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 ${
+                locked ? 'cursor-not-allowed bg-gray-50' : 'cursor-pointer hover:bg-gray-50'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={locked || coches.has(champ.cle)}
+                disabled={locked}
+                onChange={() => toggle(champ.cle)}
+                className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)] disabled:opacity-60"
+              />
+              <span className={`text-sm ${locked ? 'text-gray-400' : 'text-gray-700'}`}>
+                {champ.libelle}
+                {locked && <span className="ml-1 text-xs" aria-hidden>🔒</span>}
+              </span>
+            </label>
+          );
+        })}
       </div>
 
       {error && (

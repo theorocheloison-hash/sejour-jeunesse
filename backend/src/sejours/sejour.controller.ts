@@ -200,6 +200,21 @@ export class SejourController {
     return this.sejourService.updateChampsInscription(id, body.champsActifs, user.id, centreId);
   }
 
+  /**
+   * GET /sejours/:id/champs-inscription/verrouilles — Clés Bloc B déjà remplies
+   * par ≥1 inscrit (HEBERGEUR, Lot 5c-B) : l'écran d'ouverture les grise en amont.
+   */
+  @Get(':id/champs-inscription/verrouilles')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
+  getChampsVerrouilles(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.getChampsVerrouilles(id, user.id, centreId);
+  }
+
   /** PATCH /sejours/:id — Mettre à jour prix / dateLimiteInscription */
   @Patch(':id')
   @Roles(Role.ORGANISATEUR)

@@ -1353,6 +1353,38 @@ export class SejourService {
     return { champsInscription: { champsActifs } };
   }
 
+  /**
+   * Clés Bloc B déjà remplies par au moins un inscrit du séjour (valeur non
+   * nulle sur la colonne — MÊME sémantique que le garde-fou de retrait
+   * d'updateChampsInscription). Consommé par l'écran d'ouverture (Lot 5c-B)
+   * pour griser en amont ; le garde-fou au save reste le filet.
+   */
+  async getChampsVerrouilles(sejourId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { id: true, hebergementSelectionneId: true, natureSejour: true, deletedAt: true },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+    // Lecture tolérante : pas d'inscriptions sur un événement → rien de verrouillé.
+    if (sejour.natureSejour !== 'SEJOUR') return [];
+
+    // Une seule requête : les colonnes Bloc B de tous les inscrits, calcul en mémoire.
+    const colonnes = CLES_BLOC_B.map((cle) => CHAMP_PAR_CLE[cle].colonne);
+    const inscrits = (await this.prisma.autorisationParentale.findMany({
+      where: { sejourId },
+      select: Object.fromEntries(colonnes.map((c) => [c, true])) as Prisma.AutorisationParentaleSelect,
+    })) as Array<Record<string, unknown>>;
+
+    return CLES_BLOC_B.filter((cle) =>
+      inscrits.some((i) => i[CHAMP_PAR_CLE[cle].colonne] != null),
+    );
+  }
+
   async softDeleteSejour(sejourId: string, userId: string, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 

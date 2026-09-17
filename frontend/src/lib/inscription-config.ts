@@ -23,6 +23,13 @@ export async function updateChampsInscriptionSejour(
   return data;
 }
 
+/** GET /sejours/:id/champs-inscription/verrouilles — clés Bloc B déjà remplies
+ * par ≥1 inscrit (grisage de l'écran d'ouverture, Lot 5c-B). */
+export async function getChampsVerrouillesSejour(sejourId: string): Promise<string[]> {
+  const { data } = await api.get<string[]>(`/sejours/${sejourId}/champs-inscription/verrouilles`);
+  return data;
+}
+
 /** GET /centres/modeles-inscription — modèles du centre actif. */
 export async function listModelesInscription(): Promise<ModeleInscription[]> {
   const { data } = await api.get<ModeleInscription[]>('/centres/modeles-inscription');
