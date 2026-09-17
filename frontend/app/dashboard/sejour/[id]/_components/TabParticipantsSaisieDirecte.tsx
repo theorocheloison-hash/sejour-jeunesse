@@ -13,6 +13,7 @@ import {
   CLES_BLOC_B,
   type ChampInscription,
 } from '@/src/lib/champs-inscription';
+import ImportCsvModal from './ImportCsvModal';
 
 /**
  * Grille de saisie directe (Lot 5b) — pilotée par le SNAPSHOT du séjour
@@ -134,6 +135,7 @@ export default function TabParticipantsSaisieDirecte({
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [showReadOnly, setShowReadOnly] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const rowsRef = useRef<Row[]>([]);
   rowsRef.current = rows;
@@ -287,48 +289,6 @@ export default function TabParticipantsSaisieDirecte({
     }
   }
 
-  // Export CSV — lecture pure des props (TOUS les participants, signés inclus).
-  // Colonnes = Bloc A + Bloc B actifs + contact (mêmes colonnes que la grille).
-  function handleExport() {
-    const columns: { key: string; label: string }[] = [
-      { key: 'eleveNom', label: 'Nom' },
-      { key: 'elevePrenom', label: 'Prénom' },
-      { key: 'eleveDateNaissance', label: 'Date de naissance' },
-      ...colonnesB.map((champ) => ({ key: champ.colonne, label: champ.libelle })),
-      { key: 'nomParent', label: 'Nom du parent / responsable' },
-      { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
-      { key: 'parentEmail', label: 'Email parent' },
-    ];
-    const headerLine = columns.map((c) => c.label).join(';');
-    const dataLines = participants.map((p) =>
-      columns
-        .map((c) => {
-          let val = '';
-          if (c.key === 'eleveDateNaissance') {
-            val = p.eleveDateNaissance
-              ? new Date(p.eleveDateNaissance).toLocaleDateString('fr-FR')
-              : '';
-          } else {
-            const raw = (p as any)[c.key];
-            val = raw == null ? '' : String(raw);
-          }
-          if (val.includes(';') || val.includes('"') || val.includes('\n')) {
-            val = '"' + val.replace(/"/g, '""') + '"';
-          }
-          return val;
-        })
-        .join(';'),
-    );
-    const csv = [headerLine, ...dataLines].join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `participants-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const visibleRows = rows.filter((r) => r._status !== 'deleted');
 
   // Rendu d'une cellule Bloc B, piloté par le type du champ (constante)
@@ -390,11 +350,10 @@ export default function TabParticipantsSaisieDirecte({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleExport}
-            disabled={participants.length === 0}
-            className="rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setShowImport(true)}
+            className="rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            📥 Exporter CSV
+            📥 Importer une liste remplie
           </button>
           <button
             onClick={handleSave}
@@ -570,6 +529,16 @@ export default function TabParticipantsSaisieDirecte({
             </div>
           )}
         </div>
+      )}
+
+      {/* Modale d'import CSV (liste complète, modèle vide téléchargeable) */}
+      {showImport && (
+        <ImportCsvModal
+          sejourId={sejourId}
+          champsActifs={champsInscription?.champsActifs ?? []}
+          onImported={onReload}
+          onClose={() => setShowImport(false)}
+        />
       )}
     </div>
   );

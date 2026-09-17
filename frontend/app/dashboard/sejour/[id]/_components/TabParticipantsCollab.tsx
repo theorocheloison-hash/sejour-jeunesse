@@ -7,6 +7,7 @@ import { validerPaiement } from '@/src/lib/autorisation';
 import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
+import { exportInscriptionsCsv } from '@/src/lib/inscription-csv';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -48,28 +49,15 @@ export default function TabParticipantsCollab({
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
-  // ── CSV Export ──
+  // ── CSV Export — format unifié piloté par le snapshot (Lot 6, src/lib/inscription-csv) ──
   const exportCSV = () => {
-    const headers = ['Prénom', 'Nom', 'Statut', 'Taille (cm)', 'Poids (kg)', 'Pointure', 'Régime alimentaire', 'Niveau ski', 'Infos médicales'];
-    const rows = participants.map((p) => [
-      p.elevePrenom,
-      p.eleveNom,
-      p.signeeAt ? 'Signée' : 'En attente',
-      p.taille?.toString() ?? '',
-      p.poids?.toString() ?? '',
-      p.pointure?.toString() ?? '',
-      p.regimeAlimentaire ?? '',
-      p.niveauSki ? (NIVEAU_SKI_LABEL[p.niveauSki] ?? p.niveauSki) : '',
-      p.infosMedicales ?? '',
-    ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `participants-${sejour?.titre ?? 'sejour'}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // La lib lit par clé sans coupler le type Participant (interface sans index
+    // signature → cast structurel requis par TS).
+    exportInscriptionsCsv(
+      participants as unknown as Array<Record<string, unknown>>,
+      sejour?.champsInscription?.champsActifs ?? [],
+      sejour?.titre ?? 'sejour',
+    );
   };
 
   // ── Filter participants ──
