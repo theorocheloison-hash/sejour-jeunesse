@@ -63,6 +63,42 @@ function mapSexeToCategorie(val: string): 'FILLE' | 'GARCON' | null {
   return null;
 }
 
+// Lot 6 — normalisation commune des valeurs CSV : majuscules, sans accents,
+// underscores/tirets → espaces (reconnaît à la fois les valeurs canoniques
+// d'un ré-import d'export et les libellés humains).
+function normaliserValeurCsv(val: string): string {
+  return val
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Lot 6 — mappe PRUDEMMENT une valeur CSV d'attestation aquatique vers l'enum
+// applicative. Toute valeur non reconnue → null (jamais une valeur hors enum).
+function mapAttestation(val: string): 'FOURNIE' | 'NON_FOURNIE' | 'NON_CONCERNE' | null {
+  const n = normaliserValeurCsv(val);
+  if (['FOURNIE', 'OUI'].includes(n)) return 'FOURNIE';
+  if (['NON FOURNIE', 'NON'].includes(n)) return 'NON_FOURNIE';
+  if (['NON CONCERNE', 'NA'].includes(n)) return 'NON_CONCERNE';
+  return null;
+}
+
+// Lot 6 — idem pour le niveau de ski : la grille affiche un select sur les
+// valeurs canoniques ; un texte brut (« Débutant ») serait stocké mais
+// invisible dans le select. Non reconnu → null.
+function mapNiveauSki(val: string): string | null {
+  const n = normaliserValeurCsv(val);
+  if (n === 'DEBUTANT') return 'DEBUTANT';
+  if (n === 'INTERMEDIAIRE') return 'INTERMEDIAIRE';
+  if (n === 'CONFIRME') return 'CONFIRME';
+  if (n === 'HORS PISTE') return 'HORS_PISTE';
+  return null;
+}
+
 // Parse une date CSV en gérant le format français JJ/MM/AAAA (sinon ISO en fallback)
 function parseDateFR(val: string): Date | null {
   const trimmed = val.trim();
@@ -357,9 +393,16 @@ export class AutorisationService {
   }
 
   async importCsv(file: Express.Multer.File, sejourId: string, createurId: string) {
-    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      include: { hebergementSelectionne: { select: { userId: true } } },
+    });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId) throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    // Lot 6 : même double-motif que createBatchDirect/updateFields — créateur
+    // OU hébergeur en propre (DIRECT, propriétaire ou collaborateur sejours:WRITE).
+    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId))) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
 
     let content = file.buffer.toString('utf-8');
     if (/Ã[©¨ª«]|Ã|Ã©/.test(content)) {
@@ -378,14 +421,24 @@ export class AutorisationService {
     const findCol = (keywords: string[]): number =>
       headers.findIndex((h) => keywords.some((k) => h.includes(k)));
 
-    const colNom = findCol(['nom']);
+    // Lot 6 : « nom » est une sous-chaîne de « prénom » ET de « nom du parent » —
+    // la colonne nom-élève = un header contenant « nom » sans être prénom/parent.
+    const colNom = headers.findIndex(
+      (h) =>
+        h.includes('nom') &&
+        !h.includes('prénom') && !h.includes('prenom') &&
+        !h.includes('parent') && !h.includes('responsable'),
+    );
     const colPrenom = findCol(['prénom', 'prenom']);
     const colEmail = findCol(['email', 'mail', 'courriel', 'e-mail']);
     const colTaille = findCol(['taille', 'taille (cm)', 'taille cm']);
     const colPoids = findCol(['poids', 'poids (kg)', 'poids kg']);
     const colPointure = findCol(['pointure', 'pointure ski', 'taille chaussure']);
     const colNiveauSki = findCol(['ski', 'niveau ski', 'niveau de ski']);
-    const colRegime = findCol(['régime', 'regime', 'régime alimentaire', 'regime alimentaire', 'allergie', 'allergies']);
+    // Lot 6 : allergies séparées du régime (colonne dédiée depuis 5a)
+    const colRegime = findCol(['régime', 'regime', 'régime alimentaire', 'regime alimentaire']);
+    const colAllergies = findCol(['allergie', 'allergies', 'intolérance', 'intolerance']);
+    const colAttestation = findCol(['attestation', 'aquatique', 'savoir-nager', 'aisance aquatique']);
     const colDateNaissance = findCol(['naissance', 'date de naissance', 'date naissance', 'né(e) le', 'née le']);
     const colNomParent = findCol(['parent', 'nom parent', 'nom du parent', 'responsable', 'nom responsable']);
     const colTelUrgence = findCol(['urgence', 'tel urgence', 'téléphone urgence', 'telephone urgence', 'tel. urgence']);
@@ -443,8 +496,18 @@ export class AutorisationService {
         const v = parseInt(cols[colPointure].trim(), 10);
         if (!isNaN(v)) data.pointure = v;
       }
-      if (colNiveauSki !== -1 && cols[colNiveauSki]?.trim()) data.niveauSki = cols[colNiveauSki].trim();
+      if (colNiveauSki !== -1 && cols[colNiveauSki]?.trim()) {
+        // Lot 6 : valeur canonique uniquement (le select de la grille n'affiche
+        // pas un texte brut) ; non reconnu → rien d'écrit
+        const niveauSki = mapNiveauSki(cols[colNiveauSki]);
+        if (niveauSki) data.niveauSki = niveauSki;
+      }
       if (colRegime !== -1 && cols[colRegime]?.trim()) data.regimeAlimentaire = cols[colRegime].trim();
+      if (colAllergies !== -1 && cols[colAllergies]?.trim()) data.allergies = cols[colAllergies].trim();
+      if (colAttestation !== -1 && cols[colAttestation]?.trim()) {
+        const attestation = mapAttestation(cols[colAttestation]);
+        if (attestation) data.attestationAquatique = attestation;
+      }
       if (colDateNaissance !== -1 && cols[colDateNaissance]?.trim()) {
         const d = parseDateFR(cols[colDateNaissance].trim());
         if (d) data.eleveDateNaissance = d;
@@ -475,7 +538,9 @@ export class AutorisationService {
       colPoids !== -1 && 'Poids',
       colPointure !== -1 && 'Pointure',
       colNiveauSki !== -1 && 'Niveau ski',
+      colAttestation !== -1 && 'Attestation aquatique',
       colRegime !== -1 && 'Régime',
+      colAllergies !== -1 && 'Allergies',
       colDateNaissance !== -1 && 'Date naissance',
       colNomParent !== -1 && 'Nom parent',
       colTelUrgence !== -1 && 'Tél. urgence',

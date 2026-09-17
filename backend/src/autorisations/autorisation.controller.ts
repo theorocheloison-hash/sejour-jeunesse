@@ -53,10 +53,10 @@ export class AutorisationController {
     return this.autorisationService.createSansEmail(dto, user.id);
   }
 
-  /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR) */
+  /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
   @Post('import-csv')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async importCsv(
     @UploadedFile() file: Express.Multer.File,
