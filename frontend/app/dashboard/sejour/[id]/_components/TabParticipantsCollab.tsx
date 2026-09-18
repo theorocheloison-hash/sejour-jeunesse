@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { SejourCollabInfo, Participant } from '@/src/lib/collaboration';
 import { getOrdreMissionHtml, type AccompagnateurMission } from '@/src/lib/accompagnateur';
-import { validerPaiement, validerSignatureManuelle, annulerSignatureManuelle } from '@/src/lib/autorisation';
+import { validerPaiement, validerSignatureManuelle, annulerSignatureManuelle, validerSignaturesBatch } from '@/src/lib/autorisation';
 import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
@@ -49,6 +49,7 @@ export default function TabParticipantsCollab({
 }: TabParticipantsCollabProps) {
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+  const [isValidatingBatch, setIsValidatingBatch] = useState(false);
 
   // ── CSV Export — format unifié piloté par le snapshot (Lot 6, src/lib/inscription-csv) ──
   const exportCSV = () => {
@@ -69,6 +70,7 @@ export default function TabParticipantsCollab({
   });
 
   const signedCount = participants.filter((p) => p.signeeAt).length;
+  const pendingCount = participants.filter((p) => !p.signeeAt).length;
 
   // Lot 8 — colonnes pilotées par le SNAPSHOT du séjour (même dérivation que la
   // grille de saisie) : attributs en colonnes, santé regroupée derrière une icône.
@@ -158,6 +160,30 @@ export default function TabParticipantsCollab({
           </button>
         </div>
       </div>
+
+      {peutSaisirParticipants && pendingCount > 0 && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+          <input
+            type="checkbox"
+            id="batch-valider-signatures"
+            checked={false}
+            disabled={isValidatingBatch}
+            onChange={async () => {
+              if (!window.confirm(`Marquer les ${pendingCount} autorisation${pendingCount > 1 ? 's' : ''} en attente comme reçues (papier signé) ?\n\nÀ faire uniquement une fois tous les papiers physiquement en main, et après avoir terminé la saisie — les champs identité et santé seront verrouillés. Annulable élève par élève.`)) return;
+              setIsValidatingBatch(true);
+              try {
+                await validerSignaturesBatch(sejour.id);
+                await onReload();
+              } catch { /* ignore */ }
+              finally { setIsValidatingBatch(false); }
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] cursor-pointer disabled:opacity-50"
+          />
+          <label htmlFor="batch-valider-signatures" className="text-xs font-medium text-amber-800 cursor-pointer">
+            {isValidatingBatch ? 'Validation…' : `Marquer les ${pendingCount} autorisation${pendingCount > 1 ? 's' : ''} en attente comme reçues`}
+          </label>
+        </div>
+      )}
 
       {/* Tableau */}
       {filteredParticipants.length === 0 ? (

@@ -202,6 +202,16 @@ export async function annulerSignatureManuelle(autorisationId: string): Promise<
   await api.patch(`/autorisations/${autorisationId}/annuler-signature`);
 }
 
+/** Validation manuelle en masse — marque « papier reçu » toutes les autorisations
+ * EN ATTENTE (signeeAt null) du séjour, ou la sélection autorisationIds. */
+export async function validerSignaturesBatch(
+  sejourId: string,
+  autorisationIds?: string[],
+): Promise<{ count: number }> {
+  const { data } = await api.patch('/autorisations/valider-signatures', { sejourId, autorisationIds });
+  return data;
+}
+
 export async function validerPaiementPartiel(autorisationId: string, montant: number): Promise<void> {
   await api.patch(`/autorisations/${autorisationId}/valider-paiement-partiel`, { montant });
 }
