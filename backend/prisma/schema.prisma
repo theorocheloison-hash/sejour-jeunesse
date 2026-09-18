@@ -372,6 +372,9 @@ model AutorisationParentale {
   signeeAt          DateTime? @map("signee_at")
   signatureIpAddress  String?  @map("signature_ip_address") @db.VarChar(45)
   signatureHash       String?  @map("signature_hash") @db.VarChar(64)
+  // Validation manuelle « papier signé reçu » (organisateur/hébergeur) —
+  // distincte de la signature électronique : pas de hash, pas d'IP, annulable.
+  signeeManuellement  Boolean  @default(false) @map("signee_manuellement")
   taille            Int?
   poids             Int?
   pointure          Int?

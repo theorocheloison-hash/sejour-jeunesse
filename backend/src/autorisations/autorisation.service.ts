@@ -719,6 +719,46 @@ export class AutorisationService {
     return this.prisma.autorisationParentale.update({ where: { id }, data });
   }
 
+  /**
+   * Validation manuelle « papier signé reçu » (organisateur/hébergeur en propre).
+   * Pas de signatureHash ni d'IP : ce N'EST PAS une signature électronique —
+   * juste un signeeAt posé + le flag signeeManuellement (annulable).
+   */
+  async validerSignatureManuelle(id: string, userId: string) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id },
+      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, userId)))
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    if (autorisation.signeeAt !== null)
+      throw new ConflictException('Autorisation déjà signée');
+
+    return this.prisma.autorisationParentale.update({
+      where: { id },
+      data: { signeeAt: new Date(), signeeManuellement: true },
+    });
+  }
+
+  /** Annulation d'une validation manuelle — les signatures en ligne sont protégées. */
+  async annulerSignatureManuelle(id: string, userId: string) {
+    const autorisation = await this.prisma.autorisationParentale.findUnique({
+      where: { id },
+      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+    });
+    if (!autorisation) throw new NotFoundException('Autorisation introuvable');
+    if (autorisation.sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, userId)))
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    if (autorisation.signeeManuellement !== true)
+      throw new ForbiddenException('Seule une validation manuelle peut être annulée');
+
+    return this.prisma.autorisationParentale.update({
+      where: { id },
+      data: { signeeAt: null, signeeManuellement: false },
+    });
+  }
+
   /** Suppression d'un participant (ORGANISATEUR) — interdite si signée. */
   async deleteAutorisation(id: string, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({

@@ -125,6 +125,28 @@ export class AutorisationController {
     return this.autorisationService.updateFields(id, body, user.id);
   }
 
+  /** PATCH /autorisations/:id/valider-signature — Marquer « papier signé reçu » (validation manuelle) */
+  @Patch(':id/valider-signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
+  validerSignatureManuelle(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.validerSignatureManuelle(id, user.id);
+  }
+
+  /** PATCH /autorisations/:id/annuler-signature — Annuler une validation manuelle (jamais une signature en ligne) */
+  @Patch(':id/annuler-signature')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
+  annulerSignatureManuelle(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.annulerSignatureManuelle(id, user.id);
+  }
+
   /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR) */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
