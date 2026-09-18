@@ -46,6 +46,13 @@ const COMPARE_KEYS = [
   'nomParent', 'telephoneUrgence', 'parentEmail',
 ];
 
+// Rappel d'unité dans les champs numériques vides (lisibilité grille)
+const PLACEHOLDER_NUMBER: Record<string, string> = {
+  taille: 'cm',
+  poids: 'kg',
+  pointure: 'pointure',
+};
+
 interface Row {
   _localId: string;
   _status: 'existing' | 'new' | 'modified' | 'deleted';
@@ -58,8 +65,10 @@ interface Row {
 }
 
 const cls = {
+  // Champ visible au repos (fond + bordure fine), focus net — partagé par tous
+  // les inputs/selects de la grille.
   input:
-    'border-0 bg-transparent focus:bg-blue-50 focus:outline-none w-full px-1 py-0.5 text-sm',
+    'bg-gray-50 border border-gray-200 rounded focus:bg-white focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] focus:outline-none w-full px-1 py-0.5 text-sm',
   cell: 'px-2 py-1.5 text-sm border-b border-gray-100',
   th: 'px-2 py-1.5 text-left bg-gray-50 text-xs text-gray-500 font-medium uppercase tracking-wider border-b border-gray-200 whitespace-nowrap',
 };
@@ -304,6 +313,7 @@ export default function TabParticipantsSaisieDirecte({
           max={champ.max}
           className={`${cls.input} w-16`}
           value={val}
+          placeholder={PLACEHOLDER_NUMBER[champ.cle]}
           onChange={(e) => onChange(e.target.value)}
         />
       );
@@ -352,11 +362,22 @@ export default function TabParticipantsSaisieDirecte({
           title={champ.aide}
         >
           <option value="">—</option>
-          {(champ.options ?? []).map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
+          {(champ.options ?? [])
+            // Attestation : « Non concerné » retiré de la saisie — conservé
+            // seulement si c'est la valeur existante de la ligne (affichage).
+            .filter(
+              (o) =>
+                !(
+                  champ.cle === 'attestationAquatique' &&
+                  o.value === 'NON_CONCERNE' &&
+                  val !== 'NON_CONCERNE'
+                ),
+            )
+            .map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
         </select>
       );
     }
@@ -451,7 +472,7 @@ export default function TabParticipantsSaisieDirecte({
                   <td className={`${cls.cell} sticky left-0 bg-white`}>
                     <input
                       type="text"
-                      className={cls.input}
+                      className={`${cls.input} font-medium`}
                       value={row.eleveNom}
                       onChange={(e) => updateCell(row._localId, 'eleveNom', e.target.value)}
                       placeholder="Nom"
@@ -460,7 +481,7 @@ export default function TabParticipantsSaisieDirecte({
                   <td className={`${cls.cell} sticky left-0 bg-white`}>
                     <input
                       type="text"
-                      className={cls.input}
+                      className={`${cls.input} font-medium`}
                       value={row.elevePrenom}
                       onChange={(e) => updateCell(row._localId, 'elevePrenom', e.target.value)}
                       placeholder="Prénom"
