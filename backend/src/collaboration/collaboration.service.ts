@@ -390,6 +390,9 @@ export class CollaborationService {
         elevePrenom: true,
         parentEmail: true,
         signeeAt: true,
+        // Lot 2a « valider signé » : le front n'affiche « Annuler » que sur une
+        // validation manuelle (jamais sur une signature en ligne)
+        signeeManuellement: true,
         taille: true,
         poids: true,
         pointure: true,
