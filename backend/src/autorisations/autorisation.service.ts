@@ -759,6 +759,29 @@ export class AutorisationService {
     });
   }
 
+  /** Validation manuelle en masse — mêmes permissions que l'unitaire, même flag.
+   * Le filtre signeeAt: null est OBLIGATOIRE : ne jamais retoucher une ligne déjà
+   * signée (en ligne OU manuelle). */
+  async validerSignaturesBatch(sejourId: string, userId: string, autorisationIds?: string[]) {
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } },
+    });
+    if (!sejour) throw new NotFoundException('Séjour introuvable');
+    if (sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, userId)))
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    const { count } = await this.prisma.autorisationParentale.updateMany({
+      where: {
+        sejourId,
+        signeeAt: null,
+        ...(autorisationIds?.length ? { id: { in: autorisationIds } } : {}),
+      },
+      data: { signeeAt: new Date(), signeeManuellement: true },
+    });
+    return { count };
+  }
+
   /** Suppression d'un participant (ORGANISATEUR) — interdite si signée. */
   async deleteAutorisation(id: string, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({

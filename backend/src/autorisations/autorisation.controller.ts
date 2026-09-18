@@ -147,6 +147,18 @@ export class AutorisationController {
     return this.autorisationService.annulerSignatureManuelle(id, user.id);
   }
 
+  /** PATCH /autorisations/valider-signatures — Marquer « papier signé reçu » en masse
+   * (toutes les EN ATTENTE du séjour, ou la sélection autorisationIds) */
+  @Patch('valider-signatures')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
+  validerSignaturesBatch(
+    @Body() body: { sejourId: string; autorisationIds?: string[] },
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.autorisationService.validerSignaturesBatch(body.sejourId, user.id, body.autorisationIds);
+  }
+
   /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR) */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
