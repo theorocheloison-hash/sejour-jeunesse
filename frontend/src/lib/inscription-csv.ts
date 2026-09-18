@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { CLES_BLOC_B, CHAMP_PAR_CLE } from './champs-inscription';
 
 /**
@@ -8,7 +9,10 @@ import { CLES_BLOC_B, CHAMP_PAR_CLE } from './champs-inscription';
  * Lecture des participants par clé, valeur brute (aucune logique d'affichage).
  */
 
-export function colonnesInscription(champsActifs: string[]): { key: string; label: string }[] {
+export function colonnesInscription(
+  champsActifs: string[],
+  contactComplet = true,
+): { key: string; label: string }[] {
   return [
     { key: 'eleveNom', label: 'Nom' },
     { key: 'elevePrenom', label: 'Prénom' },
@@ -17,11 +21,27 @@ export function colonnesInscription(champsActifs: string[]): { key: string; labe
       key: CHAMP_PAR_CLE[k].colonne,
       label: CHAMP_PAR_CLE[k].libelle,
     })),
-    { key: 'nomParent', label: 'Nom du parent / responsable' },
-    { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
-    { key: 'parentEmail', label: 'Email parent' },
+    // contactComplet=false (modèle) : nom/tél parent omis — le parent les
+    // renseignera via son formulaire ; l'export garde le contact complet.
+    ...(contactComplet
+      ? [
+          { key: 'nomParent', label: 'Nom du parent / responsable' },
+          { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
+        ]
+      : []),
+    // Modèle : « Email » sans « parent » — sinon le colNomParent du back
+    // (findCol par includes) capterait cette colonne et y rangerait l'email.
+    { key: 'parentEmail', label: contactComplet ? 'Email parent' : 'Email' },
   ];
 }
+
+// Guidage de valeurs pour les colonnes à liste — MODÈLE uniquement, jamais
+// l'export ; les suffixes restent reconnus par le findCol du back (includes).
+const GUIDAGE_MODELE: Record<string, string> = {
+  hebergementCategorie: ' (Fille / Garçon)',
+  niveauSki: ' (Débutant / Intermédiaire / Confirmé / Hors-piste)',
+  attestationAquatique: ' (Fournie / Non fournie)',
+};
 
 function echapper(val: string): string {
   if (val.includes(';') || val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -65,10 +85,36 @@ export function exportInscriptionsCsv(
   telecharger([headerLine, ...dataLines].join('\n'), `participants-${titre}.csv`);
 }
 
-/** Modèle vide — même en-tête que l'export, zéro ligne. */
-export function modeleInscriptionCsv(champsActifs: string[]): void {
-  const headerLine = colonnesInscription(champsActifs)
-    .map((c) => c.label)
-    .join(';');
-  telecharger(headerLine, 'modele-inscriptions.csv');
+/** Modèle vide .xlsx — en-têtes guidées (contact réduit à l'email), zéro ligne. */
+export function modeleInscriptionXlsx(champsActifs: string[]): void {
+  const headers = colonnesInscription(champsActifs, false).map(
+    (c) => c.label + (GUIDAGE_MODELE[c.key] ?? ''),
+  );
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  ws['!cols'] = headers.map((h) => ({ wch: Math.max(18, Math.min(44, h.length + 2)) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inscriptions');
+  XLSX.writeFile(wb, 'modele-inscriptions.xlsx');
+}
+
+/**
+ * .xlsx/.xls → File .csv (séparateur ;, même échappement que l'export) pour le
+ * parser back inchangé. PAS sheet_to_csv (virgule + guillemets RFC que le back
+ * gère mal). Tout autre fichier repart inchangé.
+ */
+export async function fichierVersCsv(file: File): Promise<File> {
+  if (!/\.(xlsx|xls)$/i.test(file.name)) return file;
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const lignes = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    raw: false,
+    dateNF: 'dd/mm/yyyy',
+    defval: '',
+  });
+  const csv = lignes
+    .map((row) => row.map((v) => echapper(String(v ?? ''))).join(';'))
+    .join('\n');
+  return new File([csv], file.name.replace(/\.(xlsx|xls)$/i, '.csv'), { type: 'text/csv' });
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { importAutorisationsCsv } from '@/src/lib/autorisation';
-import { modeleInscriptionCsv } from '@/src/lib/inscription-csv';
+import { fichierVersCsv, modeleInscriptionXlsx } from '@/src/lib/inscription-csv';
 
 /**
  * Modale d'import CSV d'une liste COMPLÈTE d'inscrits (grille de saisie
@@ -35,7 +35,9 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
     setImportError(null);
     setImportResult(null);
     try {
-      const result = await importAutorisationsCsv(sejourId, importFile);
+      // .xlsx/.xls → converti en CSV ; côté back rien ne change
+      const fichier = await fichierVersCsv(importFile);
+      const result = await importAutorisationsCsv(sejourId, fichier);
       setImportResult(result);
       // ≥1 ligne créée → recharge puis fermeture (les nouveaux inscrits
       // apparaissent dans la grille). created === 0 → la modale reste ouverte
@@ -55,7 +57,7 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h3 className="text-base font-bold text-gray-900">Importer une liste remplie (CSV)</h3>
+          <h3 className="text-base font-bold text-gray-900">Importer une liste remplie (CSV ou Excel)</h3>
           <button
             type="button"
             onClick={onClose}
@@ -77,7 +79,7 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
             </p>
             <button
               type="button"
-              onClick={() => modeleInscriptionCsv(champsActifs)}
+              onClick={() => modeleInscriptionXlsx(champsActifs)}
               className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-900 hover:bg-blue-100 transition-colors whitespace-nowrap"
             >
               Télécharger le modèle vide
@@ -108,13 +110,13 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
             {importFile ? (
               <p className="text-sm text-gray-900 font-medium">{importFile.name}</p>
             ) : (
-              <p className="text-sm text-gray-500">Glissez-déposez votre fichier CSV ici</p>
+              <p className="text-sm text-gray-500">Glissez-déposez votre fichier CSV ou Excel ici</p>
             )}
             <label className="inline-block mt-3 cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors">
               Parcourir
               <input
                 type="file"
-                accept=".csv,.txt,.tsv"
+                accept=".csv,.txt,.tsv,.xlsx,.xls"
                 onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
                 className="hidden"
               />
