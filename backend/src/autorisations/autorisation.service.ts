@@ -232,6 +232,8 @@ export class AutorisationService {
             thematiquesPedagogiques: true,
             placesTotales: true,
             prix: true,
+            // Lot 7a : snapshot des champs d'inscription (formulaire parent dynamique)
+            champsInscription: true,
             hebergements: {
               select: {
                 nom: true,
@@ -283,6 +285,7 @@ export class AutorisationService {
         thematiquesPedagogiques: sejour.thematiquesPedagogiques,
         placesTotales: sejour.placesTotales,
         montantParEleve,
+        champsInscription: sejour.champsInscription,
       },
       hebergement,
     };
@@ -317,6 +320,9 @@ export class AutorisationService {
         regimeAlimentaire: dto.regimeAlimentaire ?? null,
         niveauSki: dto.niveauSki ?? null,
         infosMedicales: dto.infosMedicales ?? null,
+        // Lot 7a : santé structurée + attestation (formulaire parent dynamique)
+        allergies: dto.allergies ?? null,
+        attestationAquatique: dto.attestationAquatique ?? null,
         nomParent: dto.nomParent ?? null,
         telephoneUrgence: dto.telephoneUrgence ?? null,
         eleveDateNaissance: dto.eleveDateNaissance ? new Date(dto.eleveDateNaissance) : null,

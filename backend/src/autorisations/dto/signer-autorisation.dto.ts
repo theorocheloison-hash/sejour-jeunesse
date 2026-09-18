@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 
 export class SignerAutorisationDto {
   @IsOptional()
@@ -27,6 +27,15 @@ export class SignerAutorisationDto {
   @IsOptional()
   @IsString()
   infosMedicales?: string;
+
+  // Lot 7a : santé structurée + statut d'attestation (formulaire parent dynamique)
+  @IsOptional()
+  @IsString()
+  allergies?: string;
+
+  @IsOptional()
+  @IsIn(['FOURNIE', 'NON_FOURNIE', 'NON_CONCERNE'])
+  attestationAquatique?: string;
 
   @IsOptional()
   @IsString()
