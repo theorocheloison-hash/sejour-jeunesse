@@ -8,6 +8,7 @@ import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
 import { exportInscriptionsCsv } from '@/src/lib/inscription-csv';
+import { CLES_BLOC_B, CHAMP_PAR_CLE, type ChampInscription } from '@/src/lib/champs-inscription';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -69,8 +70,34 @@ export default function TabParticipantsCollab({
 
   const signedCount = participants.filter((p) => p.signeeAt).length;
 
-  // Check if ski column relevant
-  const showSkiColumn = participants.some((p) => p.niveauSki);
+  // Lot 8 — colonnes pilotées par le SNAPSHOT du séjour (même dérivation que la
+  // grille de saisie) : attributs en colonnes, santé regroupée derrière une icône.
+  const colonnesB: ChampInscription[] = CLES_BLOC_B
+    .filter((k) => (sejour?.champsInscription?.champsActifs ?? []).includes(k))
+    .map((k) => CHAMP_PAR_CLE[k]);
+  const attributs = colonnesB.filter((c) => !c.sante);
+  const champsSante = colonnesB.filter((c) => c.sante);
+
+  const LIBELLE_SANTE: Record<string, string> = { allergies: 'Allergies', infosMedicales: 'Médical' };
+
+  // Cellule attribut en lecture seule : label d'option pour les selects (?? val
+  // couvre le régime « Autre » libre), unité pour taille/poids, texte tronqué + survol.
+  function renderAttribut(p: Participant, champ: ChampInscription) {
+    const val = (p as any)[champ.colonne];
+    if (val == null || val === '') return <span className="text-gray-300">—</span>;
+    if (champ.type === 'select') {
+      return <>{champ.options?.find((o) => o.value === val)?.label ?? val}</>;
+    }
+    if (champ.type === 'number') {
+      const unite = champ.cle === 'taille' ? ' cm' : champ.cle === 'poids' ? ' kg' : '';
+      return <>{val}{unite}</>;
+    }
+    return (
+      <span className="block max-w-[160px] truncate" title={String(val)}>
+        {val}
+      </span>
+    );
+  }
 
   const peutSaisirParticipants =
     sejour != null &&
@@ -144,14 +171,17 @@ export default function TabParticipantsCollab({
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-3 font-semibold text-gray-700">Élève</th>
                 <th className="text-left py-3 px-3 font-semibold text-gray-700">Statut</th>
-                <th className="text-center py-3 px-3 font-semibold text-gray-700">Taille</th>
-                <th className="text-center py-3 px-3 font-semibold text-gray-700">Poids</th>
-                <th className="text-center py-3 px-3 font-semibold text-gray-700">Pointure</th>
-                <th className="text-left py-3 px-3 font-semibold text-gray-700">Régime</th>
-                {showSkiColumn && (
-                  <th className="text-left py-3 px-3 font-semibold text-gray-700">Ski</th>
+                {attributs.map((champ) => (
+                  <th
+                    key={champ.cle}
+                    className={`${champ.type === 'number' ? 'text-center' : 'text-left'} py-3 px-3 font-semibold text-gray-700`}
+                  >
+                    {champ.libelle}
+                  </th>
+                ))}
+                {champsSante.length > 0 && (
+                  <th className="text-center py-3 px-3 font-semibold text-gray-700">Santé</th>
                 )}
-                <th className="text-center py-3 px-3 font-semibold text-gray-700">Médical</th>
                 {user.role !== 'HEBERGEUR' && <th className="text-center py-3 px-3 font-semibold text-gray-700">Paiement</th>}
               </tr>
             </thead>
@@ -172,36 +202,36 @@ export default function TabParticipantsCollab({
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-3 text-center text-gray-600">
-                    {p.taille ? `${p.taille} cm` : '—'}
-                  </td>
-                  <td className="py-3 px-3 text-center text-gray-600">
-                    {p.poids ? `${p.poids} kg` : '—'}
-                  </td>
-                  <td className="py-3 px-3 text-center text-gray-600">
-                    {p.pointure ?? '—'}
-                  </td>
-                  <td className="py-3 px-3 text-gray-600">
-                    {p.regimeAlimentaire ?? '—'}
-                  </td>
-                  {showSkiColumn && (
-                    <td className="py-3 px-3 text-gray-600">
-                      {p.niveauSki ? (NIVEAU_SKI_LABEL[p.niveauSki] ?? p.niveauSki) : '—'}
+                  {attributs.map((champ) => (
+                    <td
+                      key={champ.cle}
+                      className={`py-3 px-3 text-gray-600 ${champ.type === 'number' ? 'text-center' : ''}`}
+                    >
+                      {renderAttribut(p, champ)}
+                    </td>
+                  ))}
+                  {champsSante.length > 0 && (
+                    <td className="py-3 px-3 text-center">
+                      {(() => {
+                        const presentes = champsSante
+                          .map((champ) => ({ champ, val: (p as any)[champ.colonne] }))
+                          .filter(({ val }) => val != null && val !== '');
+                        if (presentes.length === 0) return <span className="text-gray-300">—</span>;
+                        const resume = presentes
+                          .map(({ champ, val }) => `${LIBELLE_SANTE[champ.cle] ?? champ.libelle} : ${val}`)
+                          .join('\n');
+                        return (
+                          <span className="relative group cursor-help">
+                            <span className="text-base" title={resume}>&#127973;</span>
+                            <span className="invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-lg bg-gray-900 text-white text-xs p-3 shadow-lg whitespace-pre-line">
+                              {resume}
+                              <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </td>
                   )}
-                  <td className="py-3 px-3 text-center">
-                    {p.infosMedicales ? (
-                      <span className="relative group cursor-help">
-                        <span className="text-base" title={p.infosMedicales}>&#127973;</span>
-                        <span className="invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-lg bg-gray-900 text-white text-xs p-3 shadow-lg">
-                          {p.infosMedicales}
-                          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
                   {user.role !== 'HEBERGEUR' && (
                   <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                     {p.paiementValide ? (
@@ -388,6 +418,26 @@ export default function TabParticipantsCollab({
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Niveau ski</p>
                 <p className="text-sm text-gray-700">{NIVEAU_SKI_LABEL[selectedParticipant.niveauSki] ?? selectedParticipant.niveauSki}</p>
+              </div>
+            )}
+
+            {/* Attestation aquatique — libellé via les options de la constante */}
+            {selectedParticipant.attestationAquatique && (
+              <div className="bg-gray-50 rounded-xl p-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Attestation aquatique</p>
+                <p className="text-sm text-gray-700">
+                  {CHAMP_PAR_CLE['attestationAquatique'].options?.find(
+                    (o) => o.value === selectedParticipant.attestationAquatique,
+                  )?.label ?? selectedParticipant.attestationAquatique}
+                </p>
+              </div>
+            )}
+
+            {/* Allergies — donnée de santé, même style qu'Infos médicales */}
+            {selectedParticipant.allergies && (
+              <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Allergies</p>
+                <p className="text-sm text-gray-700">{selectedParticipant.allergies}</p>
               </div>
             )}
 
