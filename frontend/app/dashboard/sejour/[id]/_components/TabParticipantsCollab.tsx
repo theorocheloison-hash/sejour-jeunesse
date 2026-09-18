@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { SejourCollabInfo, Participant } from '@/src/lib/collaboration';
 import { getOrdreMissionHtml, type AccompagnateurMission } from '@/src/lib/accompagnateur';
-import { validerPaiement } from '@/src/lib/autorisation';
+import { validerPaiement, validerSignatureManuelle, annulerSignatureManuelle } from '@/src/lib/autorisation';
 import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
@@ -192,15 +192,48 @@ export default function TabParticipantsCollab({
                     <p className="font-medium text-gray-900">{p.elevePrenom} {p.eleveNom}</p>
                   </td>
                   <td className="py-3 px-3">
-                    {p.signeeAt ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
-                        Signée
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        En attente
-                      </span>
-                    )}
+                    <div className="flex flex-col items-start gap-1">
+                      {p.signeeAt ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-success-light)] border border-[var(--color-success)]/20 px-2 py-0.5 text-xs font-medium text-[var(--color-success)]">
+                          Signée
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          En attente
+                        </span>
+                      )}
+                      {/* Validation manuelle « papier reçu » (Lot 2b) — en ligne = badge seul */}
+                      {!p.signeeAt && peutSaisirParticipants && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm('Confirmer que l’autorisation parentale papier a bien été reçue et signée ?')) return;
+                            try {
+                              await validerSignatureManuelle(p.id);
+                              await onReload();
+                            } catch { /* ignore */ }
+                          }}
+                          className="text-xs text-[var(--color-primary)] hover:underline font-medium"
+                        >
+                          Autorisation reçue
+                        </button>
+                      )}
+                      {p.signeeAt && p.signeeManuellement && peutSaisirParticipants && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm('Annuler cette validation ? L’élève repassera « en attente » et redeviendra modifiable.')) return;
+                            try {
+                              await annulerSignatureManuelle(p.id);
+                              await onReload();
+                            } catch { /* ignore */ }
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+                        >
+                          Annuler
+                        </button>
+                      )}
+                    </div>
                   </td>
                   {attributs.map((champ) => (
                     <td

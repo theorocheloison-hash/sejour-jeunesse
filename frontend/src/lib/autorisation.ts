@@ -192,6 +192,16 @@ export async function validerPaiement(autorisationId: string): Promise<void> {
   await api.patch(`/autorisations/${autorisationId}/valider-paiement`);
 }
 
+/** Validation manuelle « papier signé reçu » (organisateur/hébergeur). */
+export async function validerSignatureManuelle(autorisationId: string): Promise<void> {
+  await api.patch(`/autorisations/${autorisationId}/valider-signature`);
+}
+
+/** Annule une validation manuelle (jamais une signature en ligne — 403 back). */
+export async function annulerSignatureManuelle(autorisationId: string): Promise<void> {
+  await api.patch(`/autorisations/${autorisationId}/annuler-signature`);
+}
+
 export async function validerPaiementPartiel(autorisationId: string, montant: number): Promise<void> {
   await api.patch(`/autorisations/${autorisationId}/valider-paiement-partiel`, { montant });
 }

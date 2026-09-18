@@ -158,6 +158,8 @@ export interface Participant {
   elevePrenom: string;
   parentEmail: string;
   signeeAt: string | null;
+  // Validation manuelle « papier signé reçu » (annulable) vs signature en ligne
+  signeeManuellement?: boolean;
   taille: number | null;
   poids: number | null;
   pointure: number | null;
