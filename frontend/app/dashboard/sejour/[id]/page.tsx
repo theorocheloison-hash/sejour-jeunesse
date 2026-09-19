@@ -568,7 +568,7 @@ function CollaborationPageContent() {
       {/* B5 — aperçu : contenu gelé + grisé (confort visuel ; la sécurité = verrou api.ts).
           La nav reste cliquable pour guider. */}
       <main className={`${CADRE} mx-auto px-4 sm:px-6 lg:px-8 py-6 ${apercuOrganisateur ? 'pointer-events-none opacity-60 select-none' : ''}`}>
-        <div className={contenuLarge ? 'w-full' : 'max-w-5xl'}>
+        <div className={contenuLarge ? 'w-full' : 'max-w-5xl mx-auto'}>
 
         {/* ── Tutoriel contextuel — organisateur créateur uniquement, une fiche
                par onglet, monté UNE fois au-dessus du contenu (M1). ─────────── */}
