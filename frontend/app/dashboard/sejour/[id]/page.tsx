@@ -341,6 +341,12 @@ function CollaborationPageContent() {
 
   const retourHref = user.role === 'ORGANISATEUR' ? '/dashboard/organisateur' : user.role === 'SIGNATAIRE' ? '/dashboard/signataire' : '/dashboard/hebergeur/sejours';
   const isDirector = user.role === 'SIGNATAIRE';
+  // Largeur par nature d'onglet (chantier largeur, O2) — source unique.
+  // Cadre 1600 constant centré ; onglets denses = plein cadre, onglets de lecture
+  // = 5xl ancré à gauche du cadre. Barre d'onglets et contenu alignés, sans saut.
+  const CADRE = 'max-w-[1600px]';
+  const ONGLETS_LARGES: Tab[] = ['participants', 'planning', 'groupes'];
+  const contenuLarge = !navBlocs && ONGLETS_LARGES.includes(activeTab);
 
   // Bandeau « thématiques manquantes » — JSX unique (déplacé, jamais dupliqué) :
   // rendu à sa position historique quand !navBlocs (accompagnateur et autres cas
@@ -532,7 +538,7 @@ function CollaborationPageContent() {
         </>
       ) : (
       <div className="bg-white border-b border-gray-200 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={`${CADRE} mx-auto px-4 sm:px-6 lg:px-8`}>
           {/* overflow-x-auto : sur mobile les onglets débordent et doivent rester atteignables */}
           <div className="flex gap-6 overflow-x-auto">
             {ongletsVisibles.map((key) => {
@@ -561,7 +567,8 @@ function CollaborationPageContent() {
       {/* ── Content ────────────────────────────────────────────────────────── */}
       {/* B5 — aperçu : contenu gelé + grisé (confort visuel ; la sécurité = verrou api.ts).
           La nav reste cliquable pour guider. */}
-      <main className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ${apercuOrganisateur ? 'pointer-events-none opacity-60 select-none' : ''}`}>
+      <main className={`${CADRE} mx-auto px-4 sm:px-6 lg:px-8 py-6 ${apercuOrganisateur ? 'pointer-events-none opacity-60 select-none' : ''}`}>
+        <div className={contenuLarge ? 'w-full' : 'max-w-5xl'}>
 
         {/* ── Tutoriel contextuel — organisateur créateur uniquement, une fiche
                par onglet, monté UNE fois au-dessus du contenu (M1). ─────────── */}
@@ -829,6 +836,7 @@ function CollaborationPageContent() {
           />
         )}
 
+        </div>
       </main>
 
       {/* B6 — bandeau fixe du mode aperçu (hors du <main> gelé) */}
