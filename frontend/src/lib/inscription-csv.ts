@@ -91,8 +91,11 @@ export function exportInscriptionsCsv(
   telecharger([headerLine, ...dataLines].join('\n'), `participants-${titre}.csv`);
 }
 
-/** Modèle vide .xlsx — en-têtes guidées (contact réduit à l'email), zéro ligne. */
-export function modeleInscriptionXlsx(champsActifs: string[]): void {
+/** Modèle vide .xlsx — en-têtes guidées (contact réduit à l'email), zéro ligne.
+ *  Tamponné pour CE séjour : feuille masquée « _liavo » (A1 = JSON {v, sejourId,
+ *  champsActifs}) relue par lireTamponModele au réimport. 'Inscriptions' reste
+ *  SheetNames[0] — fichierVersCsv (1ère feuille seule) est insensible au tampon. */
+export function modeleInscriptionXlsx(sejourId: string, champsActifs: string[]): void {
   const headers = colonnesInscription(champsActifs, false).map(
     (c) => c.label + (GUIDAGE_MODELE[c.key] ?? ''),
   );
@@ -100,7 +103,30 @@ export function modeleInscriptionXlsx(champsActifs: string[]): void {
   ws['!cols'] = headers.map((h) => ({ wch: Math.max(18, Math.min(44, h.length + 2)) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Inscriptions');
+  const wsTampon = XLSX.utils.aoa_to_sheet([[JSON.stringify({ v: 1, sejourId, champsActifs })]]);
+  XLSX.utils.book_append_sheet(wb, wsTampon, '_liavo');
+  wb.Workbook = { Sheets: [{ Hidden: 0 }, { Hidden: 1 }] };
   XLSX.writeFile(wb, 'modele-inscriptions.xlsx');
+}
+
+export interface TamponModele {
+  v: number;
+  sejourId: string;
+  champsActifs: string[];
+}
+
+/** Lit le tampon de la feuille masquée « _liavo ». null si absent/illisible. */
+export async function lireTamponModele(file: File): Promise<TamponModele | null> {
+  try {
+    const wb = XLSX.read(await file.arrayBuffer());
+    const cell = wb.Sheets['_liavo']?.['A1'];
+    if (!cell?.v) return null;
+    const t = JSON.parse(String(cell.v));
+    if (typeof t?.sejourId !== 'string' || !Array.isArray(t?.champsActifs)) return null;
+    return t;
+  } catch {
+    return null;
+  }
 }
 
 /**

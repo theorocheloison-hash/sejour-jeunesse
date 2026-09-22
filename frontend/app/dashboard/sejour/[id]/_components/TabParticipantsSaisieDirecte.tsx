@@ -407,10 +407,10 @@ export default function TabParticipantsSaisieDirecte({
           <button
             type="button"
             onClick={() => setShowImport(true)}
-            title="Importer un fichier CSV/Excel rempli — le modèle vierge se télécharge dans cette fenêtre"
+            title="Ajoutez plusieurs participants d'un coup. Téléchargez d'abord notre modèle dans la fenêtre, remplissez-le, puis déposez-le — c'est ce qui garantit que toutes vos données soient reconnues."
             className="rounded-lg bg-white border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            📥 Importer une liste remplie
+            📥 Importer des participants
           </button>
           <button
             onClick={handleSave}
@@ -576,6 +576,7 @@ export default function TabParticipantsSaisieDirecte({
         <ImportCsvModal
           sejourId={sejourId}
           champsActifs={champsInscription?.champsActifs ?? []}
+          nbInscrits={participants.length}
           onImported={onReload}
           onClose={() => setShowImport(false)}
         />
