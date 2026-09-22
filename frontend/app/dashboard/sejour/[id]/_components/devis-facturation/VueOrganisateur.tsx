@@ -127,7 +127,6 @@ export default function VueOrganisateur({
                   <DevisPDFButton
                     data={pdfProps}
                     filename={`devis-${pdfProps.numeroDocument}.pdf`}
-                    label="Télécharger le devis"
                   />
                   {d.signatureDirecteur && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-xs font-medium text-purple-700">

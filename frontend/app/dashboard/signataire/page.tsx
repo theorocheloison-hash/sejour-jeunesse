@@ -227,7 +227,6 @@ function SejourCard({
               <DevisPDFButton
                 data={buildPdfProps(devisActif)}
                 filename={nomFichierDocument(devisActif.numeroDevis, devisActif.id)}
-                label="Voir le devis"
               />
               <button type="button" onClick={() => onRefuse(devisActif.id)} disabled={isActing}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors">

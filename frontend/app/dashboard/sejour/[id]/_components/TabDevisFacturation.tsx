@@ -1479,7 +1479,6 @@ export default function TabDevisFacturation({
                     <DevisPDFButton
                       data={pdfPropsDirect}
                       filename={nomFichierDocument(dd.numeroDevis, dd.id)}
-                      label="Voir et imprimer le devis"
                     />
                     <DevisPdfViewer documentUrl={dd.documentUrl ?? null} pdfProps={pdfPropsDirect} />
                   </div>

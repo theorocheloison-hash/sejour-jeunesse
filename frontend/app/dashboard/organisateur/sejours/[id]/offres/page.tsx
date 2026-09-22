@@ -311,7 +311,6 @@ export default function OffresPage() {
                     <DevisPDFButton
                       data={buildPdfProps(selectedDevis)}
                       filename={nomFichierDocument(selectedDevis.numeroDevis, selectedDevis.id)}
-                      label="Voir / Imprimer le devis PDF"
                     />
                   ) : null}
                 </div>

@@ -245,7 +245,6 @@ export default function OrganisateurDemandesPage() {
                                   <DevisPDFButton
                                     data={buildPdfProps(dv)}
                                     filename={nomFichierDocument(dv.numeroDevis, dv.id)}
-                                    label="Voir le détail"
                                   />
                                   {dv.statut === 'EN_ATTENTE' && (
                                     <button

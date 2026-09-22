@@ -233,7 +233,6 @@ export default function SignerDevisPage() {
               <DevisPDFButton
                 data={pdfProps}
                 filename={nomFichierDocument(devis.numeroDevis, devis.id)}
-                label="Télécharger le devis (PDF)"
               />
             )}
           </div>

@@ -356,7 +356,6 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
               key={`pdf-${d.id}-${d.demande?.nombreEleves ?? 0}-${d.demande?.nombreAccompagnateurs ?? 0}`}
               data={buildPdfProps(d)}
               filename={nomFichierDocument(d.numeroDevis, d.id)}
-              label="PDF"
             />
           )}
 
