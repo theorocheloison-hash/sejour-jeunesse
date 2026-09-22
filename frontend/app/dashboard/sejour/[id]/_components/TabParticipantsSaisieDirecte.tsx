@@ -451,8 +451,9 @@ export default function TabParticipantsSaisieDirecte({
                   {champ.libelle}
                 </th>
               ))}
-              {/* Contact fixe — nom/tél retirés de la grille (Lot 5c-A) : le
-                  parent les renseigne via son formulaire ; données préservées */}
+              {/* Contact fixe — saisissable dans la grille (B2) : nom, tél d'urgence, email */}
+              <th className={cls.th}>Nom du parent</th>
+              <th className={cls.th}>Tél. d'urgence</th>
               <th className={cls.th}>Email parent</th>
               <th className={cls.th} />
             </tr>
@@ -462,7 +463,7 @@ export default function TabParticipantsSaisieDirecte({
               <tr>
                 <td
                   className="px-2 py-4 text-center text-sm text-gray-400"
-                  colSpan={3 + colonnesB.length + 1 + 1}
+                  colSpan={3 + colonnesB.length + 3 + 1}
                 >
                   Aucun participant. Cliquez sur « + Ajouter une ligne ».
                 </td>
@@ -501,6 +502,24 @@ export default function TabParticipantsSaisieDirecte({
                       {renderChampCell(row, champ)}
                     </td>
                   ))}
+                  <td className={cls.cell}>
+                    <input
+                      type="text"
+                      className={cls.input}
+                      value={row.nomParent}
+                      onChange={(e) => updateCell(row._localId, 'nomParent', e.target.value)}
+                      placeholder="nom (optionnel)"
+                    />
+                  </td>
+                  <td className={cls.cell}>
+                    <input
+                      type="tel"
+                      className={`${cls.input} w-28`}
+                      value={row.telephoneUrgence}
+                      onChange={(e) => updateCell(row._localId, 'telephoneUrgence', e.target.value)}
+                      placeholder="tél (optionnel)"
+                    />
+                  </td>
                   <td className={cls.cell}>
                     <input
                       type="text"

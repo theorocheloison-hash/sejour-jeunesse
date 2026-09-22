@@ -91,12 +91,13 @@ export function exportInscriptionsCsv(
   telecharger([headerLine, ...dataLines].join('\n'), `participants-${titre}.csv`);
 }
 
-/** Modèle vide .xlsx — en-têtes guidées (contact réduit à l'email), zéro ligne.
+/** Modèle vide .xlsx — en-têtes guidées, contact complet (nom parent + tél
+ *  d'urgence + email — B2), zéro ligne.
  *  Tamponné pour CE séjour : feuille masquée « _liavo » (A1 = JSON {v, sejourId,
  *  champsActifs}) relue par lireTamponModele au réimport. 'Inscriptions' reste
  *  SheetNames[0] — fichierVersCsv (1ère feuille seule) est insensible au tampon. */
 export function modeleInscriptionXlsx(sejourId: string, champsActifs: string[]): void {
-  const headers = colonnesInscription(champsActifs, false).map(
+  const headers = colonnesInscription(champsActifs, true).map(
     (c) => c.label + (GUIDAGE_MODELE[c.key] ?? ''),
   );
   const ws = XLSX.utils.aoa_to_sheet([headers]);
