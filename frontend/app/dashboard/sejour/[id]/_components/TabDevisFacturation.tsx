@@ -25,6 +25,7 @@ import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
@@ -78,6 +79,7 @@ function FacturePdfLink({ facture, onReload, peutEcrireFacturation = false }: { 
     return (
       <SecureFileLink
         url={facture.pdfUrl}
+        filename={nomFichierDocument(facture.numero)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1446,10 +1448,11 @@ export default function TabDevisFacturation({
                   adresseDestinataire: [clientResolu.adresse, [clientResolu.codePostal, clientResolu.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || undefined,
                   emailDestinataire: clientResolu.contactEmail ?? undefined,
                   telDestinataire: clientResolu.contactTelephone ?? undefined,
-                  titreSejour: sejour?.titre ?? '',
+                  titreSejour: sejour?.titre ?? dd.sejourDirect?.titre ?? '',
                   lieuSejour: sejour?.lieu ?? '',
-                  dateDebutSejour: sejour?.dateDebut ?? undefined,
-                  dateFinSejour: sejour?.dateFin ?? undefined,
+                  dateDebutSejour: sejour?.dateDebut ?? dd.sejourDirect?.dateDebut ?? undefined,
+                  dateFinSejour: sejour?.dateFin ?? dd.sejourDirect?.dateFin ?? undefined,
+                  natureSejour: (sejour?.natureSejour ?? dd.sejourDirect?.natureSejour) === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
                   nombreEleves: sejour?.placesTotales ?? undefined,
                   nombreAccompagnateurs: sejour?.nombreAccompagnateurs ?? undefined,
                   niveauClasse: sejour?.niveauClasse ?? undefined,
@@ -1475,7 +1478,7 @@ export default function TabDevisFacturation({
                   <div className="space-y-3">
                     <DevisPDFButton
                       data={pdfPropsDirect}
-                      filename={`devis-${(dd.numeroDevis ?? dd.id.substring(0, 8)).toLowerCase()}.pdf`}
+                      filename={nomFichierDocument(dd.numeroDevis, dd.id)}
                       label="Voir et imprimer le devis"
                     />
                     <DevisPdfViewer documentUrl={dd.documentUrl ?? null} pdfProps={pdfPropsDirect} />

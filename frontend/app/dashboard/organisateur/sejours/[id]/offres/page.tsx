@@ -12,6 +12,7 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
@@ -68,6 +69,8 @@ export default function OffresPage() {
   const buildPdfProps = (d: Devis): DevisPDFProps => {
     const ens = d.demande?.enseignant;
     const sejour = d.demande?.sejour;
+    // Fallback DIRECT (séjour rejoint) : un devis sans demande porte son séjour sur sejourDirect
+    const sej = sejour ?? d.sejourDirect;
     const resolved = resolveClientEtablissement(sejour, { enseignant: ens, createur: sejour?.createur });
     const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
     const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
@@ -88,10 +91,11 @@ export default function OffresPage() {
       adresseDestinataire: resolved.ville ?? undefined,
       emailDestinataire: resolved.contactEmail ?? undefined,
       telDestinataire: resolved.contactTelephone ?? undefined,
-      titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
+      titreSejour: sej?.titre ?? d.demande?.titre ?? '',
       lieuSejour: d.demande?.villeHebergement,
-      dateDebutSejour: sejour?.dateDebut ?? undefined,
-      dateFinSejour: sejour?.dateFin ?? undefined,
+      dateDebutSejour: sej?.dateDebut ?? undefined,
+      dateFinSejour: sej?.dateFin ?? undefined,
+      natureSejour: d.sejourDirect?.natureSejour === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
       nombreEleves: d.demande?.nombreEleves,
       niveauClasse: sejour?.niveauClasse ?? undefined,
       lignes: (d.lignes ?? []).map(l => ({
@@ -306,7 +310,7 @@ export default function OffresPage() {
                   ) : (selectedDevis.lignes ?? []).length > 0 ? (
                     <DevisPDFButton
                       data={buildPdfProps(selectedDevis)}
-                      filename={`devis-${(selectedDevis.numeroDevis ?? selectedDevis.id).substring(0, 8)}.pdf`}
+                      filename={nomFichierDocument(selectedDevis.numeroDevis, selectedDevis.id)}
                       label="Voir / Imprimer le devis PDF"
                     />
                   ) : null}

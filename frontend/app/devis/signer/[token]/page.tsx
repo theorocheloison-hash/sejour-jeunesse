@@ -15,6 +15,7 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SignatureDevisPanel from '@/src/components/devis/SignatureDevisPanel';
 import { formatParticipants } from '@/src/lib/utils';
 import { estEvenement } from '@/src/lib/sejour';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 const fmt = (d: string | null) => !d ? 'Dates à définir' : new Date(d + (d.includes('T') ? '' : 'T12:00:00')).toLocaleDateString('fr-FR', {
   day: '2-digit', month: 'long', year: 'numeric',
@@ -171,6 +172,7 @@ export default function SignerDevisPage() {
     lieuSejour: sejour?.lieu ?? '',
     dateDebutSejour: sejour?.dateDebut ?? undefined,
     dateFinSejour: sejour?.dateFin ?? undefined,
+    natureSejour: sejour?.natureSejour === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
     nombreEleves: sejour?.placesTotales ?? undefined,
     nombreAccompagnateurs: sejour?.nombreAccompagnateurs ?? undefined,
     lignes: devis.lignes.map((l) => ({
@@ -230,7 +232,7 @@ export default function SignerDevisPage() {
             ) : (
               <DevisPDFButton
                 data={pdfProps}
-                filename={`devis-${(devis.numeroDevis ?? devis.id).substring(0, 12)}.pdf`}
+                filename={nomFichierDocument(devis.numeroDevis, devis.id)}
                 label="Télécharger le devis (PDF)"
               />
             )}

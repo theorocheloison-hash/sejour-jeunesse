@@ -25,6 +25,7 @@ export interface DevisPDFProps {
   lieuSejour?: string;
   dateDebutSejour?: string;
   dateFinSejour?: string;
+  natureSejour?: 'SEJOUR' | 'EVENEMENT';
   nombreEleves?: number;
   nombreAccompagnateurs?: number | null;
   niveauClasse?: string;
@@ -157,11 +158,18 @@ export default function DevisPDF(props: DevisPDFProps) {
     typeDocument, numeroDocument, dateDocument, dateValidite,
     nomEmetteur, adresseEmetteur, siretEmetteur, emailEmetteur, telEmetteur, tvaEmetteur, ibanEmetteur,
     nomDestinataire, etablissementNom, adresseDestinataire, emailDestinataire, telDestinataire,
-    titreSejour, lieuSejour, dateDebutSejour, dateFinSejour, nombreEleves, nombreAccompagnateurs, niveauClasse,
+    titreSejour, lieuSejour, dateDebutSejour, dateFinSejour, natureSejour, nombreEleves, nombreAccompagnateurs, niveauClasse,
     lignes, montantHT, montantTVA, montantTTC,
     montantAcompte, pourcentageAcompte, montantSolde,
     conditionsAnnulation, validationDirection,
   } = props;
+
+  // Objet : préfixe selon la nature, période seulement si les deux dates existent
+  // (évite le littéral « du  au  » des séjours sans dates).
+  const prefixe = natureSejour === 'EVENEMENT' ? 'Événement' : 'Séjour';
+  const periode = (dateDebutSejour && dateFinSejour)
+    ? `du ${fmtDate(dateDebutSejour)} au ${fmtDate(dateFinSejour)}`
+    : 'dates à définir';
 
   const emetteurInfo = (
     <>
@@ -218,7 +226,7 @@ export default function DevisPDF(props: DevisPDFProps) {
         <View style={s.objetBlock}>
           <Text style={s.objetLabel}>Objet</Text>
           <Text style={s.objetText}>
-            {['Séjour', titreSejour, lieuSejour].filter(Boolean).join(' — ')} du {fmtDate(dateDebutSejour)} au {fmtDate(dateFinSejour)}
+            {[prefixe, titreSejour, lieuSejour].filter(Boolean).join(' — ')} — {periode}
           </Text>
           <Text style={s.objetSub}>
             {nombreEleves ? formatParticipants(nombreEleves, nombreAccompagnateurs) : ''}

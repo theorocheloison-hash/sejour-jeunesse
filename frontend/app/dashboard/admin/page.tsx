@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/src/contexts/AuthContext';
 import SecureFileLink from '@/src/components/SecureFileLink';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 import {
   getAdminStats,
   getHebergeurs,
@@ -1219,7 +1220,7 @@ function FacturesLiavoTab() {
                         <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(f.dateEmission, 'numeric')}</td>
                         <td className="px-4 py-3 text-sm whitespace-nowrap">
                           {f.pdfUrl ? (
-                            <SecureFileLink url={f.pdfUrl} className="text-[var(--color-primary)] hover:underline">Télécharger</SecureFileLink>
+                            <SecureFileLink url={f.pdfUrl} filename={nomFichierDocument(f.numero)} className="text-[var(--color-primary)] hover:underline">Télécharger</SecureFileLink>
                           ) : '—'}
                         </td>
                       </tr>

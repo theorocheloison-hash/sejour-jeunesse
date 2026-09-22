@@ -187,6 +187,8 @@ export interface Devis {
     clientCodePostal?: string | null;
     clientVille?: string | null;
     modeGestion: string;
+    // Renvoyé par getMesDevis/getDevisById (select backend) — 'SEJOUR' | 'EVENEMENT'
+    natureSejour?: string | null;
     placesTotales?: number | null;
     nombreAccompagnateurs?: number | null;
     niveauClasse?: string | null;

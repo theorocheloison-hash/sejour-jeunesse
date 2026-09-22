@@ -34,6 +34,7 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
 import StatutBadge from '@/src/components/StatutBadge';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 // ─── Badge statut ───────────────────────────────────────────────────────────
 
@@ -131,7 +132,8 @@ function SejourCard({
 
   const buildPdfProps = (dv: any): DevisPDFProps => {
     const ens = dv.demande?.enseignant;
-    const sej = dv.demande?.sejour;
+    // Fallback DIRECT : un devis sans demande porte son séjour sur sejourDirect
+    const sej = dv.demande?.sejour ?? dv.sejourDirect;
     const resolvedPdf = resolveClientEtablissement(sejour, { enseignant: ens, createur: sejour.createur });
     const htCalc = Number(dv.montantHT) ||
       (dv.lignes ?? []).reduce((sum: number, l: any) => sum + Number(l.totalHT), 0);
@@ -156,6 +158,7 @@ function SejourCard({
       lieuSejour: dv.demande?.villeHebergement,
       dateDebutSejour: sej?.dateDebut ?? undefined,
       dateFinSejour: sej?.dateFin ?? undefined,
+      natureSejour: dv.sejourDirect?.natureSejour === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
       nombreEleves: dv.demande?.nombreEleves,
       niveauClasse: sej?.niveauClasse ?? undefined,
       lignes: (dv.lignes ?? []).map((l: any) => ({
@@ -223,7 +226,7 @@ function SejourCard({
             <div className="flex items-center gap-2 flex-wrap">
               <DevisPDFButton
                 data={buildPdfProps(devisActif)}
-                filename={`devis-${(devisActif.numeroDevis ?? devisActif.id).substring(0, 8)}.pdf`}
+                filename={nomFichierDocument(devisActif.numeroDevis, devisActif.id)}
                 label="Voir le devis"
               />
               <button type="button" onClick={() => onRefuse(devisActif.id)} disabled={isActing}

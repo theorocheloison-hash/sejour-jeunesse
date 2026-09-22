@@ -9,6 +9,7 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 // ─── Format monétaire unifié ─────────────────────────────────────────────────
 
@@ -97,6 +98,8 @@ function joursDepuis(iso: string): number {
 function buildPdfProps(d: Devis): DevisPDFProps {
   const ens = d.demande?.enseignant;
   const sejour = d.demande?.sejour;
+  // Fallback DIRECT : un devis sans demande porte son séjour sur sejourDirect
+  const sej = sejour ?? d.sejourDirect;
   const resolved = resolveClientEtablissement(sejour ?? d.sejourDirect, { enseignant: ens, createur: sejour?.createur });
   const htCalc = Number(d.montantHT) || (d.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
   const ttcCalc = Number(d.montantTTC) || Number(d.montantTotal) || 0;
@@ -117,10 +120,11 @@ function buildPdfProps(d: Devis): DevisPDFProps {
     adresseDestinataire: resolved.ville ?? undefined,
     emailDestinataire: resolved.contactEmail ?? undefined,
     telDestinataire: resolved.contactTelephone ?? undefined,
-    titreSejour: sejour?.titre ?? d.demande?.titre ?? '',
+    titreSejour: sej?.titre ?? d.demande?.titre ?? '',
     lieuSejour: d.demande?.villeHebergement,
-    dateDebutSejour: sejour?.dateDebut ?? undefined,
-    dateFinSejour: sejour?.dateFin ?? undefined,
+    dateDebutSejour: sej?.dateDebut ?? undefined,
+    dateFinSejour: sej?.dateFin ?? undefined,
+    natureSejour: d.sejourDirect?.natureSejour === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
     nombreEleves: d.demande?.nombreEleves,
     niveauClasse: sejour?.niveauClasse ?? undefined,
     lignes: (d.lignes ?? []).map(l => ({
@@ -351,7 +355,7 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
             <DevisPDFButton
               key={`pdf-${d.id}-${d.demande?.nombreEleves ?? 0}-${d.demande?.nombreAccompagnateurs ?? 0}`}
               data={buildPdfProps(d)}
-              filename={`devis-${(d.numeroDevis ?? d.id).substring(0, 8)}.pdf`}
+              filename={nomFichierDocument(d.numeroDevis, d.id)}
               label="PDF"
             />
           )}

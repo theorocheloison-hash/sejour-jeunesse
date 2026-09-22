@@ -8,10 +8,12 @@ interface SecureFileLinkProps {
   children: ReactNode;
   className?: string;
   download?: boolean;
+  /** Nom imposé au téléchargement (Content-Disposition signé côté S3). */
+  filename?: string;
 }
 
-export default function SecureFileLink({ url, children, className, download }: SecureFileLinkProps) {
-  const signedUrl = useSecureUrl(url);
+export default function SecureFileLink({ url, children, className, download, filename }: SecureFileLinkProps) {
+  const signedUrl = useSecureUrl(url, filename);
 
   if (!signedUrl) {
     return (

@@ -13,6 +13,7 @@ import DevisPDFButton from '@/src/components/pdf/DevisPDFButton';
 import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { afficherDatesDemande } from '@/src/lib/utils';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
+import { nomFichierDocument } from '@/src/lib/nom-fichier';
 
 const STATUT_DEVIS_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',          cls: 'bg-orange-100 text-orange-700' },
@@ -87,6 +88,8 @@ export default function OrganisateurDemandesPage() {
   const buildPdfProps = (dv: Devis): DevisPDFProps => {
     const ens = dv.demande?.enseignant;
     const sejour = dv.demande?.sejour;
+    // Fallback DIRECT (séjour rejoint) : un devis sans demande porte son séjour sur sejourDirect
+    const sej = sejour ?? dv.sejourDirect;
     const resolved = resolveClientEtablissement(sejour, { enseignant: ens, createur: sejour?.createur });
     const htCalc = Number(dv.montantHT) || (dv.lignes ?? []).reduce((sum, l) => sum + Number(l.totalHT), 0);
     const ttcCalc = Number(dv.montantTTC) || Number(dv.montantTotal) || 0;
@@ -106,10 +109,11 @@ export default function OrganisateurDemandesPage() {
       adresseDestinataire: resolved.ville ?? undefined,
       emailDestinataire: resolved.contactEmail ?? undefined,
       telDestinataire: resolved.contactTelephone ?? undefined,
-      titreSejour: sejour?.titre ?? dv.demande?.titre ?? '',
+      titreSejour: sej?.titre ?? dv.demande?.titre ?? '',
       lieuSejour: dv.demande?.villeHebergement,
-      dateDebutSejour: sejour?.dateDebut ?? undefined,
-      dateFinSejour: sejour?.dateFin ?? undefined,
+      dateDebutSejour: sej?.dateDebut ?? undefined,
+      dateFinSejour: sej?.dateFin ?? undefined,
+      natureSejour: dv.sejourDirect?.natureSejour === 'EVENEMENT' ? 'EVENEMENT' : 'SEJOUR',
       nombreEleves: dv.demande?.nombreEleves,
       niveauClasse: sejour?.niveauClasse ?? undefined,
       lignes: (dv.lignes ?? []).map(l => ({
@@ -240,7 +244,7 @@ export default function OrganisateurDemandesPage() {
                                 <div className="flex flex-col gap-2 shrink-0">
                                   <DevisPDFButton
                                     data={buildPdfProps(dv)}
-                                    filename={`devis-${dv.numeroDevis ?? dv.id.substring(0, 8)}.pdf`}
+                                    filename={nomFichierDocument(dv.numeroDevis, dv.id)}
                                     label="Voir le détail"
                                   />
                                   {dv.statut === 'EN_ATTENTE' && (
