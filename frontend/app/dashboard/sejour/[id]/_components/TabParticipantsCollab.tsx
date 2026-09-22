@@ -7,6 +7,7 @@ import { validerPaiement, validerSignatureManuelle, annulerSignatureManuelle, va
 import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
+import ExportColonnesModal from './ExportColonnesModal';
 import { exportInscriptionsCsv } from '@/src/lib/inscription-csv';
 import { CLES_BLOC_B, CHAMP_PAR_CLE, type ChampInscription } from '@/src/lib/champs-inscription';
 
@@ -50,15 +51,18 @@ export default function TabParticipantsCollab({
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [isValidatingBatch, setIsValidatingBatch] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
-  // ── CSV Export — format unifié piloté par le snapshot (Lot 6, src/lib/inscription-csv) ──
-  const exportCSV = () => {
+  // ── CSV Export — format unifié piloté par le snapshot (Lot 6, src/lib/inscription-csv),
+  // colonnes choisies dans ExportColonnesModal (B1) dont ceci est le callback ──
+  const exportCSV = (cles: string[]) => {
     // La lib lit par clé sans coupler le type Participant (interface sans index
     // signature → cast structurel requis par TS).
     exportInscriptionsCsv(
       participants as unknown as Array<Record<string, unknown>>,
       sejour?.champsInscription?.champsActifs ?? [],
       sejour?.titre ?? 'sejour',
+      cles,
     );
   };
 
@@ -152,8 +156,9 @@ export default function TabParticipantsCollab({
             </button>
           ))}
           <button
-            onClick={exportCSV}
+            onClick={() => setShowExport(true)}
             disabled={participants.length === 0}
+            title="Télécharger la liste des inscrits — vous choisissez les colonnes avant l'export"
             className="rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Exporter CSV
@@ -566,6 +571,15 @@ export default function TabParticipantsCollab({
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Modale de sélection des colonnes avant export (B1) ── */}
+      {showExport && (
+        <ExportColonnesModal
+          champsActifs={sejour?.champsInscription?.champsActifs ?? []}
+          onExport={exportCSV}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );

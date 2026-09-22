@@ -80,6 +80,7 @@ export default function ImportCsvModal({ sejourId, champsActifs, onImported, onC
             <button
               type="button"
               onClick={() => modeleInscriptionXlsx(champsActifs)}
+              title="Modèle vierge à remplir puis réimporter — colonnes = champs demandés pour ce séjour"
               className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-900 hover:bg-blue-100 transition-colors whitespace-nowrap"
             >
               Télécharger le modèle vide

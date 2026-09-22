@@ -60,13 +60,19 @@ function telecharger(csv: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Export rempli — séparateur ;, BOM UTF-8, date fr-FR, valeurs brutes. */
+/** Export rempli — séparateur ;, BOM UTF-8, date fr-FR, valeurs brutes.
+ *  `clesRetenues` (optionnel) : sous-ensemble de colonnes à exporter (key) —
+ *  absent = toutes les colonnes, comportement historique. */
 export function exportInscriptionsCsv(
   participants: Array<Record<string, unknown>>,
   champsActifs: string[],
   titre: string,
+  clesRetenues?: string[],
 ): void {
-  const columns = colonnesInscription(champsActifs);
+  const toutes = colonnesInscription(champsActifs);
+  const columns = clesRetenues
+    ? toutes.filter((c) => clesRetenues.includes(c.key))
+    : toutes;
   const headerLine = columns.map((c) => c.label).join(';');
   const dataLines = participants.map((p) =>
     columns
