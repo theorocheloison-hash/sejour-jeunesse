@@ -13,6 +13,9 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 import { nomFichierDocument } from '@/src/lib/nom-fichier';
+import { useSecureUrl } from '@/src/hooks/useSecureUrl';
+import { PDF_SANS_BARRE } from '@/src/lib/pdf-apercu';
+import ChargementPdf from '@/src/components/pdf/ChargementPdf';
 
 const STATUT_BADGE: Record<StatutDevis, { label: string; cls: string }> = {
   EN_ATTENTE:            { label: 'En attente',            cls: 'bg-orange-100 text-orange-700' },
@@ -35,6 +38,9 @@ export default function OffresPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedDevis, setSelectedDevis] = useState<Devis | null>(null);
+  // Le dossier `devis` n'est pas public : l'apercu d'un devis televerse doit
+  // passer par une URL signee. Hook appele inconditionnellement (regle des hooks).
+  const documentUrlSigne = useSecureUrl(selectedDevis?.documentUrl ?? null);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'ORGANISATEUR')) router.push('/login');
@@ -294,6 +300,7 @@ export default function OffresPage() {
                     <>
                       <SecureFileLink
                         url={selectedDevis.documentUrl}
+                        filename={nomFichierDocument(selectedDevis.numeroDevis, selectedDevis.id)}
                         className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-colors"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -301,11 +308,15 @@ export default function OffresPage() {
                         </svg>
                         Télécharger le devis PDF
                       </SecureFileLink>
-                      <iframe
-                        src={selectedDevis.documentUrl}
-                        style={{ width: '100%', height: '60vh', minHeight: 400, border: 'none', borderRadius: 8 }}
-                        title="Aperçu du devis PDF"
-                      />
+                      {documentUrlSigne ? (
+                        <iframe
+                          src={`${documentUrlSigne}${PDF_SANS_BARRE}`}
+                          style={{ width: '100%', height: '60vh', minHeight: 400, border: 'none', borderRadius: 8 }}
+                          title="Aperçu du devis PDF"
+                        />
+                      ) : (
+                        <ChargementPdf texte="Chargement du document..." />
+                      )}
                     </>
                   ) : (selectedDevis.lignes ?? []).length > 0 ? (
                     <DevisPDFButton

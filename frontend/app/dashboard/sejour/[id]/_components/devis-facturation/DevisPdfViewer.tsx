@@ -5,27 +5,8 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import { useSecureUrl } from '@/src/hooks/useSecureUrl';
 import { nomFichierDocument } from '@/src/lib/nom-fichier';
-
-/**
- * Suffixe de fragment du lecteur PDF de Chrome : masque sa barre d'outils.
- * Son bouton de telechargement natif ignore le nom de fichier que nous posons
- * (il sort l'identifiant interne du blob / la cle S3) — on ne laisse donc que
- * nos propres boutons comme chemin de telechargement.
- * ATTENTION : fragment, doit rester en TOUTE FIN d'URL (apres la signature S3).
- */
-const PDF_SANS_BARRE = '#toolbar=0';
-
-/** Bloc de chargement partage par les deux branches du viewer. */
-function ChargementPdf() {
-  return (
-    <div className="flex justify-center items-center h-48 rounded-2xl border border-gray-200 bg-white">
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-transparent" />
-        Génération du PDF...
-      </div>
-    </div>
-  );
-}
+import { PDF_SANS_BARRE } from '@/src/lib/pdf-apercu';
+import ChargementPdf from '@/src/components/pdf/ChargementPdf';
 
 function DevisPDFInline({ data }: { data: DevisPDFProps }) {
   const [url, setUrl] = useState<string | null>(null);
