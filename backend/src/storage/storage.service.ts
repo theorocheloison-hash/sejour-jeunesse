@@ -116,11 +116,17 @@ export class StorageService {
   /**
    * Génère une URL signée S3 (TTL par défaut 15 min).
    * Si l'URL ne correspond pas au bucket, retourne l'URL originale (asset public / URL externe).
+   * `filename` (optionnel) : force le nom du fichier au téléchargement via
+   * Content-Disposition signé (le navigateur ignore l'attribut `download` en cross-origin).
    */
-  async generateSignedUrl(url: string, ttl = 900): Promise<string> {
+  async generateSignedUrl(url: string, ttl = 900, filename?: string): Promise<string> {
     const key = this.getKeyFromUrl(url);
     if (!key) return url;
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ...(filename ? { ResponseContentDisposition: `attachment; filename="${filename}"` } : {}),
+    });
     // Cast : drift de versions @aws-sdk/client-s3 vs s3-request-presigner
     // (double déclaration du type Client @smithy) — incompatibilité structurelle, pas runtime.
     return s3GetSignedUrl(this.client as never, command, { expiresIn: ttl });

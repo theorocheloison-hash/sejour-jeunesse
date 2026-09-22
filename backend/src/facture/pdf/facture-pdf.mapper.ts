@@ -2,6 +2,10 @@ import type { Facture, LigneFacture, VersementPaiement } from '@prisma/client';
 import type { FacturePDFProps } from './FacturePDF.js';
 
 type FactureWithLignesEtendue = Facture & {
+  // Snapshot séjour figé à l'émission (colonnes factures, backfillées)
+  sejourDateDebut: Date | null;
+  sejourDateFin: Date | null;
+  sejourNature: string | null;
   lignes: LigneFacture[];
   versements?: VersementPaiement[];
   factureAnnulee?: { numero: string; dateEmission: Date; montantFacture: number } | null;
@@ -15,6 +19,13 @@ type FactureWithLignesEtendue = Facture & {
  * structurée "adresse||codePostal||ville" (cf. construireEmetteur/Destinataire).
  * Fallback : adresse brute (anciennes factures / champ pro libre).
  */
+/** JJ/MM/AAAA en UTC (colonnes @db.Date : minuit UTC, ne pas décaler au fuseau local). */
+function fmt(d: Date): string {
+  const jj = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${jj}/${mm}/${d.getUTCFullYear()}`;
+}
+
 function formatAdressePdf(raw: string | null): string | null {
   if (!raw) return null;
   const parts = raw.split('||');
@@ -31,6 +42,12 @@ export function mapFactureToPdfProps(
   // dateEcheance = dateEmission + 30 jours
   const dateEcheance = new Date(facture.dateEmission);
   dateEcheance.setDate(dateEcheance.getDate() + 30);
+
+  // Objet de la facture depuis le snapshot séjour figé (jamais le séjour courant)
+  const prefixe = facture.sejourNature === 'EVENEMENT' ? 'Événement' : 'Séjour';
+  const periode = (facture.sejourDateDebut && facture.sejourDateFin)
+    ? `du ${fmt(facture.sejourDateDebut)} au ${fmt(facture.sejourDateFin)}`
+    : 'dates à définir';
 
   return {
     typeFacture: facture.typeFacture as 'ACOMPTE' | 'SOLDE' | 'AVOIR',
@@ -49,7 +66,7 @@ export function mapFactureToPdfProps(
     destinataireAdresse: formatAdressePdf(facture.destinataireAdresse),
     destinataireSiret: facture.destinataireSiret,
     destinataireEmail: facture.destinataireEmail,
-    titreSejour: `Séjour — ${titreSejour || 'Non renseigné'}`,
+    titreSejour: `${prefixe} — ${titreSejour || 'Non renseigné'} — ${periode}`,
     lignes: facture.lignes.map((l) => ({
       description: l.description,
       quantite: l.quantite,

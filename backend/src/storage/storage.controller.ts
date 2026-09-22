@@ -7,11 +7,16 @@ import { StorageService } from './storage.service.js';
 export class StorageController {
   constructor(private readonly storage: StorageService) {}
 
-  /** GET /storage/signed-url?url=... — retourne une URL signée (15 min) pour un fichier S3. */
+  /** GET /storage/signed-url?url=...&filename=... — retourne une URL signée (15 min) pour un fichier S3.
+   *  `filename` (optionnel) force le nom au téléchargement (Content-Disposition). */
   @Get('signed-url')
-  async getSignedUrl(@Query('url') url: string) {
+  async getSignedUrl(@Query('url') url: string, @Query('filename') filename?: string) {
     if (!url) throw new BadRequestException('Paramètre url requis');
-    const signedUrl = await this.storage.generateSignedUrl(url);
+    // Nettoyage anti-injection d'en-tête : caractères sûrs uniquement, longueur bornée
+    const safeFilename = filename
+      ? filename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120)
+      : undefined;
+    const signedUrl = await this.storage.generateSignedUrl(url, undefined, safeFilename);
     return { signedUrl };
   }
 }

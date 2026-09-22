@@ -173,7 +173,7 @@ export class FactureService {
         demande: {
           include: {
             enseignant: { select: { id: true, prenom: true, nom: true, email: true } },
-            sejour: { select: { id: true, titre: true, createurId: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true, clientEmail: true } },
+            sejour: { select: { id: true, titre: true, createurId: true, clientOrganisation: true, clientAdresse: true, clientCodePostal: true, clientVille: true, clientEmail: true, dateDebut: true, dateFin: true, natureSejour: true } },
           },
         },
         sejourDirect: {
@@ -181,6 +181,7 @@ export class FactureService {
             id: true, titre: true, clientNom: true, clientPrenom: true,
             clientEmail: true, clientOrganisation: true,
             clientAdresse: true, clientCodePostal: true, clientVille: true,
+            dateDebut: true, dateFin: true, natureSejour: true,
           },
         },
       },
@@ -280,6 +281,9 @@ export class FactureService {
         destinataireEmail: devis.destinataireEmail ?? null,
         emailNotif: devis.destinataireEmail ?? null,
         sejourTitre: devis.sejourDirect?.titre ?? 'votre séjour',
+        sejourDateDebut: devis.sejourDirect?.dateDebut ?? null,
+        sejourDateFin: devis.sejourDirect?.dateFin ?? null,
+        sejourNature: devis.sejourDirect?.natureSejour ?? null,
       };
     }
 
@@ -300,6 +304,9 @@ export class FactureService {
         destinataireEmail: sejourCollab?.clientEmail ?? enseignant?.email ?? null,
         emailNotif: sejourCollab?.clientEmail ?? enseignant?.email ?? null,
         sejourTitre: sejourCollab?.titre ?? 'votre séjour',
+        sejourDateDebut: sejourCollab?.dateDebut ?? null,
+        sejourDateFin: sejourCollab?.dateFin ?? null,
+        sejourNature: sejourCollab?.natureSejour ?? null,
       };
     }
     // Devis direct
@@ -320,6 +327,9 @@ export class FactureService {
       destinataireEmail: sejour?.clientEmail ?? null,
       emailNotif: sejour?.clientEmail ?? null,
       sejourTitre: sejour?.titre ?? 'votre séjour',
+      sejourDateDebut: sejour?.dateDebut ?? null,
+      sejourDateFin: sejour?.dateFin ?? null,
+      sejourNature: sejour?.natureSejour ?? null,
     };
   }
 
@@ -444,6 +454,9 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
+        sejourDateDebut: destinataire.sejourDateDebut,
+        sejourDateFin: destinataire.sejourDateFin,
+        sejourNature: destinataire.sejourNature,
         montantHT: emission.montantHT,
         montantTVA: emission.montantTVA,
         montantTTC,
@@ -578,6 +591,9 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
+        sejourDateDebut: destinataire.sejourDateDebut,
+        sejourDateFin: destinataire.sejourDateFin,
+        sejourNature: destinataire.sejourNature,
         montantHT: emission.montantHT,
         montantTVA: emission.montantTVA,
         montantTTC,
@@ -700,6 +716,9 @@ export class FactureService {
         destinataireAdresse: destinataire.destinataireAdresse,
         destinataireSiret: destinataire.destinataireSiret,
         destinataireEmail: destinataire.destinataireEmail,
+        sejourDateDebut: destinataire.sejourDateDebut,
+        sejourDateFin: destinataire.sejourDateFin,
+        sejourNature: destinataire.sejourNature,
         montantHT: emission.montantHT,
         montantTVA: emission.montantTVA,
         montantTTC,
@@ -848,6 +867,10 @@ export class FactureService {
         destinataireAdresse: factureAnnulee.destinataireAdresse,
         destinataireSiret: factureAnnulee.destinataireSiret,
         destinataireEmail: factureAnnulee.destinataireEmail,
+        // Snapshot séjour repris de la facture annulée (pas du séjour courant)
+        sejourDateDebut: factureAnnulee.sejourDateDebut,
+        sejourDateFin: factureAnnulee.sejourDateFin,
+        sejourNature: factureAnnulee.sejourNature,
         montantHT,
         montantTVA,
         montantTTC,

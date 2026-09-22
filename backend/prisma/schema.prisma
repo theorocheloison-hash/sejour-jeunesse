@@ -1136,6 +1136,10 @@ model Facture {
   // Conditions
   conditionsAnnulation String? @map("conditions_annulation") @db.Text
   pdfUrl           String?  @map("pdf_url") @db.VarChar(500)
+  // Snapshot séjour (figé à l'émission — l'objet de la facture ne bouge plus si le séjour change)
+  sejourDateDebut DateTime? @map("sejour_date_debut") @db.Date
+  sejourDateFin   DateTime? @map("sejour_date_fin")   @db.Date
+  sejourNature    String?   @map("sejour_nature")     @db.VarChar(20)
   // Avoir (note de crédit) — Lot 3
   factureAnnuleeId String?  @unique @map("facture_annulee_id") @db.Uuid
   motifAvoir       String?  @map("motif_avoir") @db.Text
