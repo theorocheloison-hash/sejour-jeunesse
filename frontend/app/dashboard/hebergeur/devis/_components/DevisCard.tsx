@@ -10,6 +10,7 @@ import type { DevisPDFProps } from '@/src/components/pdf/DevisPDF';
 import { formatDate } from '@/src/lib/utils';
 import { resolveClientEtablissement } from '@/src/lib/client-etablissement';
 import { nomFichierDocument } from '@/src/lib/nom-fichier';
+import SecureFileLink from '@/src/components/SecureFileLink';
 
 // ─── Format monétaire unifié ─────────────────────────────────────────────────
 
@@ -204,6 +205,7 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
 
   // Facture émise → PDF Factur-X stocké (le solde prime sur l'acompte).
   const facturePdfUrl = fs?.pdfUrl ?? fa?.pdfUrl ?? null;
+  const numeroFacture = fs?.numero ?? fa?.numero;
 
   return (
     <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm p-5 ${borderCls}`}>
@@ -326,10 +328,8 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
         <div className="shrink-0 flex flex-row flex-wrap sm:flex-col items-start sm:items-end gap-2">
           {facturePdfUrl ? (
             <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-              <a
-                href={facturePdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <SecureFileLink
+                url={facturePdfUrl}
                 title="Afficher le PDF"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors border-r border-gray-300"
               >
@@ -338,10 +338,10 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 Voir
-              </a>
-              <a
-                href={facturePdfUrl}
-                download
+              </SecureFileLink>
+              <SecureFileLink
+                url={facturePdfUrl}
+                filename={nomFichierDocument(numeroFacture)}
                 title="Télécharger le PDF"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
@@ -349,7 +349,7 @@ export default function DevisCard({ devis: d, categorieAlerte, searchQuery }: De
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
                 PDF
-              </a>
+              </SecureFileLink>
             </div>
           ) : (
             <DevisPDFButton

@@ -10,14 +10,15 @@ interface SecureFileLinkProps {
   download?: boolean;
   /** Nom imposé au téléchargement (Content-Disposition signé côté S3). */
   filename?: string;
+  title?: string;
 }
 
-export default function SecureFileLink({ url, children, className, download, filename }: SecureFileLinkProps) {
+export default function SecureFileLink({ url, children, className, download, filename, title }: SecureFileLinkProps) {
   const signedUrl = useSecureUrl(url, filename);
 
   if (!signedUrl) {
     return (
-      <span className={className} style={{ opacity: 0.5, cursor: 'wait' }}>
+      <span className={className} title={title} style={{ opacity: 0.5, cursor: 'wait' }}>
         {children}
       </span>
     );
@@ -29,6 +30,7 @@ export default function SecureFileLink({ url, children, className, download, fil
       target="_blank"
       rel="noopener noreferrer"
       className={className}
+      title={title}
       {...(download ? { download: true } : {})}
     >
       {children}
