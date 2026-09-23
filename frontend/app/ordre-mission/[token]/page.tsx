@@ -627,7 +627,7 @@ export default function SignerOrdreMissionPage() {
 
       <footer className="max-w-4xl mx-auto px-4 sm:px-6 py-6 text-center">
         <p className="text-xs text-gray-400">
-          Liavo — Plateforme de gestion des séjours scolaires
+          Liavo — Plateforme de gestion des séjours
         </p>
       </footer>
     </div>
