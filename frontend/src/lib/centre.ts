@@ -25,8 +25,7 @@ export interface Centre {
   imageUrl: string | null;
   /** Galerie multi-photos — imageUrl est toujours la couverture (imagesUrls[0]). */
   imagesUrls?: string[];
-  brochureUrl?: string | null;
-  // Lot A "deux brochures" : slots typés (brochureUrl legacy conservée, non lue).
+  // Lot A "deux brochures" : slots typés SEJOUR / EVENEMENT.
   brochureUrlSejour?: string | null;
   brochureUrlEvenement?: string | null;
   logoUrl?: string | null;

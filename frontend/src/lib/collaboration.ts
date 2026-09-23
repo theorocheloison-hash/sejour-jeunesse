@@ -803,7 +803,7 @@ export interface DevisPublic {
     nom: string; ville: string; adresse: string; codePostal: string | null;
     siret: string | null; telephone: string | null; email: string | null;
     tvaIntracommunautaire: string | null; iban: string | null;
-    brochureUrl: string | null; conditionsAnnulation: string | null;
+    conditionsAnnulation: string | null;
     brochureUrlSejour: string | null; brochureUrlEvenement: string | null;
     logoUrl?: string | null;
   } | null;
