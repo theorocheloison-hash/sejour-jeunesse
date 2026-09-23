@@ -8,6 +8,7 @@ import {
   createDevisComplementaire,
   updateDevis,
   envoyerDevis,
+  marquerEnvoye,
   emettreFactureTotal,
   ajouterVersement,
   getFacturesForDevis,
@@ -147,6 +148,19 @@ export default function TabDevisFacturation({
   const [showEnvoiModal, setShowEnvoiModal] = useState(false);
   const [messagePerso, setMessagePerso] = useState('');
   const [envoiError, setEnvoiError] = useState<string | null>(null);
+  // ── Mode « copier le lien » de la modale d'envoi (marquer-envoye) ──
+  const [envoiMode, setEnvoiMode] = useState<'EMAIL' | 'LIEN'>('EMAIL');
+  const [lienCopie, setLienCopie] = useState(false);
+  const [clipboardKo, setClipboardKo] = useState(false);
+  const [lienDestinataire, setLienDestinataire] = useState('');
+  const [marquerLoading, setMarquerLoading] = useState(false);
+  // Timer du feedback « ✓ Lien copié » — nettoyé à la fermeture/réouverture pour
+  // ne pas déclencher de setState après fermeture de la modale.
+  const lienCopieTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearLienCopieTimer = () => {
+    if (lienCopieTimer.current) { clearTimeout(lienCopieTimer.current); lienCopieTimer.current = null; }
+  };
+  useEffect(() => clearLienCopieTimer, []);
 
   // ── Pipeline facturation (Lot 1 : entités Facture immuables) ─
   const [factures, setFactures] = useState<Facture[]>([]);
@@ -1167,6 +1181,12 @@ export default function TabDevisFacturation({
   // COLLAB sans signature possible) — on exige une trace de signature réelle.
   const devisReellementSigne = !!(devis?.nomSignataireDirecteur || devis?.dateSignatureDirecteur || devis?.signatureDocumentUrl);
 
+  // Lien public de signature (mode « copier le lien » de la modale d'envoi).
+  // Garde window : la modale n'est rendue que côté client, mais ce const est évalué au SSR.
+  const lienSignature = devis?.tokenSignature && typeof window !== 'undefined'
+    ? `${window.location.origin}/devis/signer/${devis.tokenSignature}`
+    : null;
+
   return (
     <>
       {/* ── Vue hébergeur unifiée (DIRECT + collab/rejoint) — étape 3b ─── */}
@@ -1191,7 +1211,7 @@ export default function TabDevisFacturation({
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                        {(devis.nombreEnvois ?? 0) > 1 ? `${devis.nombreEnvois}ᵉ envoi` : 'Envoyé'}
+                        {(devis.nombreEnvois ?? 0) > 1 ? `${devis.nombreEnvois}ᵉ envoi` : (devis.dernierDestinataireEnvoi ? 'Envoyé' : 'Transmis')}
                         {devis.dernierDestinataireEnvoi ? ` à ${devis.dernierDestinataireEnvoi}` : ''}
                         {` le ${new Date(devis.dateEnvoi).toLocaleDateString('fr-FR')}`}
                       </p>
@@ -1208,7 +1228,7 @@ export default function TabDevisFacturation({
                   }`}>
                     {etatFacturation === 'SOLDE' ? 'Soldé' :
                      etatFacturation === 'ACOMPTE' ? 'Acompte facturé' :
-                     devis.statut === 'EN_ATTENTE' ? 'Brouillon' :
+                     devis.statut === 'EN_ATTENTE' ? (devis.dateEnvoi ? 'En attente de signature' : 'Brouillon') :
                      devis.statut === 'SELECTIONNE' && devisReellementSigne ? 'Signé' :
                      devis.statut === 'SIGNE_DIRECTION' && devisReellementSigne ? 'Signé' :
                      devis.statut === 'EN_ATTENTE_VALIDATION' ? 'En attente direction' :
@@ -1263,7 +1283,7 @@ export default function TabDevisFacturation({
               <div className="flex items-center gap-3 flex-wrap">
                 {peutEcrireDevis && !devisReellementSigne && !['FACTURE_ACOMPTE','FACTURE_SOLDE','NON_RETENU'].includes(devis.statut) && (
                   <button
-                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setShowEnvoiModal(true); }}
+                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setEnvoiMode('EMAIL'); setLienDestinataire(''); setLienCopie(false); setClipboardKo(false); clearLienCopieTimer(); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
@@ -1283,42 +1303,122 @@ export default function TabDevisFacturation({
                         {clientResolu.contactNom || 'votre client'}
                       </h2>
 
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Email du destinataire
-                        </label>
-                        <input
-                          type="email"
-                          value={emailDestinataire}
-                          onChange={(e) => setEmailDestinataire(e.target.value)}
-                          placeholder="client@exemple.fr"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-                        />
-                      </div>
+                      {!envoisBloques && lienSignature && (
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => { setEnvoiMode('EMAIL'); setEnvoiError(null); }}
+                            className={envoiMode === 'EMAIL'
+                              ? 'rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white'
+                              : 'rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50'}
+                          >
+                            Envoyer par email
+                          </button>
+                          <button
+                            onClick={() => { setEnvoiMode('LIEN'); setEnvoiError(null); }}
+                            className={envoiMode === 'LIEN'
+                              ? 'rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-semibold text-white'
+                              : 'rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50'}
+                          >
+                            Copier le lien et l&apos;envoyer moi-même
+                          </button>
+                        </div>
+                      )}
 
-                      <div className="mt-4">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Message (optionnel)
-                        </label>
-                        <textarea
-                          autoFocus
-                          rows={5}
-                          maxLength={2000}
-                          value={messagePerso}
-                          onChange={(e) => setMessagePerso(e.target.value)}
-                          placeholder={`Bonjour ${sejour?.clientPrenom ?? ''},\nVeuillez trouver ci-joint notre devis...`}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-                        />
-                        <p className="text-xs text-gray-400 mt-1 text-right">
-                          {messagePerso.length} / 2000 caractères
-                        </p>
-                      </div>
+                      {envoiMode === 'EMAIL' && (
+                        <>
+                          <div className="mt-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Email du destinataire
+                            </label>
+                            <input
+                              type="email"
+                              value={emailDestinataire}
+                              onChange={(e) => setEmailDestinataire(e.target.value)}
+                              placeholder="client@exemple.fr"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            />
+                          </div>
 
-                      {sejour?.hebergementSelectionne?.email && (
-                        <p className="mt-2 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-                          ℹ️ {sejour?.clientPrenom || 'Le client'} pourra répondre directement par
-                          email à {sejour.hebergementSelectionne.email}
-                        </p>
+                          <div className="mt-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Message (optionnel)
+                            </label>
+                            <textarea
+                              autoFocus
+                              rows={5}
+                              maxLength={2000}
+                              value={messagePerso}
+                              onChange={(e) => setMessagePerso(e.target.value)}
+                              placeholder={`Bonjour ${sejour?.clientPrenom ?? ''},\nVeuillez trouver ci-joint notre devis...`}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-400 mt-1 text-right">
+                              {messagePerso.length} / 2000 caractères
+                            </p>
+                          </div>
+
+                          {sejour?.hebergementSelectionne?.email && (
+                            <p className="mt-2 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                              ℹ️ {sejour?.clientPrenom || 'Le client'} pourra répondre directement par
+                              email à {sejour.hebergementSelectionne.email}
+                            </p>
+                          )}
+                        </>
+                      )}
+
+                      {envoiMode === 'LIEN' && lienSignature && (
+                        <div className="mt-4">
+                          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                            Utile quand l&apos;email n&apos;arrive pas (adresses académiques @ac-…).
+                            Envoyez ce lien par SMS, WhatsApp ou depuis votre messagerie, puis
+                            confirmez ci-dessous.
+                          </p>
+                          <div className="mt-3">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(lienSignature);
+                                  setClipboardKo(false);
+                                  setLienCopie(true);
+                                  clearLienCopieTimer();
+                                  lienCopieTimer.current = setTimeout(() => setLienCopie(false), 2000);
+                                } catch {
+                                  setClipboardKo(true);
+                                }
+                              }}
+                              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                            >
+                              {lienCopie ? '✓ Lien copié' : 'Copier le lien'}
+                            </button>
+                          </div>
+                          {clipboardKo && (
+                            <div className="mt-2">
+                              <input
+                                readOnly
+                                autoFocus
+                                value={lienSignature}
+                                onFocus={(e) => e.target.select()}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-gray-50 text-gray-600"
+                              />
+                              <p className="mt-1 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                                La copie automatique a été refusée — sélectionnez le lien ci-dessus
+                                puis faites Ctrl+C.
+                              </p>
+                            </div>
+                          )}
+                          <div className="mt-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              À qui l&apos;envoyez-vous ? (facultatif)
+                            </label>
+                            <input
+                              type="email"
+                              value={lienDestinataire}
+                              onChange={(e) => setLienDestinataire(e.target.value)}
+                              placeholder="client@exemple.fr"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            />
+                          </div>
+                        </div>
                       )}
 
                       {envoisBloques && (
@@ -1337,37 +1437,68 @@ export default function TabDevisFacturation({
 
                       <div className="mt-5 flex justify-end gap-2">
                         <button
-                          onClick={() => setShowEnvoiModal(false)}
-                          disabled={envoyerLoading}
+                          onClick={() => { clearLienCopieTimer(); setShowEnvoiModal(false); }}
+                          disabled={envoyerLoading || marquerLoading}
                           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
                           Annuler
                         </button>
-                        <button
-                          onClick={async () => {
-                            setEnvoyerLoading(true);
-                            setEnvoiError(null);
-                            try {
-                              await envoyerDevis(devis.id, emailDestinataire.trim(), messagePerso.trim() || undefined);
-                              setShowEnvoiModal(false);
-                              await reloadDevis();
-                            } catch (err) {
-                              // extractApiError parse CENTRE_EN_VALIDATION|… et n'affiche
-                              // que la partie lisible du message backend.
-                              setEnvoiError(extractApiError(err));
-                            } finally {
-                              setEnvoyerLoading(false);
-                            }
-                          }}
-                          disabled={envoyerLoading || !/^\S+@\S+\.\S+$/.test(emailDestinataire.trim())}
-                          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {envoyerLoading && (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          )}
-                          {envoyerLoading ? 'Envoi en cours…' : 'Envoyer le devis'}
-                        </button>
+                        {envoiMode === 'EMAIL' ? (
+                          <button
+                            onClick={async () => {
+                              setEnvoyerLoading(true);
+                              setEnvoiError(null);
+                              try {
+                                await envoyerDevis(devis.id, emailDestinataire.trim(), messagePerso.trim() || undefined);
+                                setShowEnvoiModal(false);
+                                await reloadDevis();
+                              } catch (err) {
+                                // extractApiError parse CENTRE_EN_VALIDATION|… et n'affiche
+                                // que la partie lisible du message backend.
+                                setEnvoiError(extractApiError(err));
+                              } finally {
+                                setEnvoyerLoading(false);
+                              }
+                            }}
+                            disabled={envoyerLoading || !/^\S+@\S+\.\S+$/.test(emailDestinataire.trim())}
+                            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {envoyerLoading && (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            )}
+                            {envoyerLoading ? 'Envoi en cours…' : 'Envoyer le devis'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              setMarquerLoading(true);
+                              setEnvoiError(null);
+                              try {
+                                await marquerEnvoye(devis.id, lienDestinataire.trim() || undefined);
+                                clearLienCopieTimer();
+                                setShowEnvoiModal(false);
+                                await reloadDevis();
+                              } catch (err) {
+                                setEnvoiError(extractApiError(err));
+                              } finally {
+                                setMarquerLoading(false);
+                              }
+                            }}
+                            disabled={marquerLoading || (lienDestinataire.trim() !== '' && !/^\S+@\S+\.\S+$/.test(lienDestinataire.trim()))}
+                            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {marquerLoading && (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            )}
+                            {marquerLoading ? 'Enregistrement…' : 'J’ai transmis le lien'}
+                          </button>
+                        )}
                       </div>
+                      {envoiMode === 'LIEN' && (
+                        <p className="mt-2 text-xs text-gray-400 text-right">
+                          Le devis sera marqué comme envoyé.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}

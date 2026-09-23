@@ -556,6 +556,22 @@ export async function envoyerDevis(
   return data;
 }
 
+/**
+ * Trace de transmission hors email (lien de signature copié) — zéro email envoyé.
+ * Mêmes gardes backend que l'envoi email ; destinataire facultatif (lien remis
+ * par SMS, WhatsApp, main propre…).
+ */
+export async function marquerEnvoye(
+  devisId: string,
+  destinataire?: string,
+): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(
+    `/devis/${devisId}/marquer-envoye`,
+    destinataire ? { destinataire } : {},
+  );
+  return data;
+}
+
 /** Génère (ou retourne) la convention de séjour scolaire — déclenché par l'hébergeur après signature. */
 export async function genererConvention(devisId: string): Promise<{ conventionUrl: string; success: boolean; alreadyGenerated?: boolean }> {
   const res = await api.post(`/devis/${devisId}/convention`);
