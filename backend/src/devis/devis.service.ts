@@ -12,6 +12,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
+import { MarquerEnvoyeDto } from './dto/marquer-envoye.dto.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
@@ -1535,22 +1536,7 @@ export class DevisService {
     const fmt = (d: Date | null) => d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Dates à confirmer';
 
     // ── Génération contrat PDF (si centre a un IBAN — spécifique événements) ──
-    const isEvenement = devis.sejourDirect?.natureSejour === 'EVENEMENT'
-      || devis.sejourDirect?.typeSejour?.includes('MARIAGE')
-      || devis.sejourDirect?.typeSejour?.includes('ANNIVERSAIRE')
-      || devis.sejourDirect?.typeSejour?.includes('SEMINAIRE')
-      || devis.sejourDirect?.typeSejour?.includes('TEAM_BUILDING')
-      || devis.sejourDirect?.typeSejour?.includes('REUNION_FAMILLE');
-    const isSauvageon = centre.email === 'resa@lesauvageon.com';
-    if (isEvenement && isSauvageon && centre.iban) {
-      try {
-        const { buffer, fileName } = await this.buildContratEvenementPdf(devisId, userId, centreId);
-        const contratUrl = await this.storage.uploadBuffer(buffer, fileName, 'contrats', 'application/pdf');
-        await this.prisma.devis.update({ where: { id: devisId }, data: { contratUrl } });
-      } catch (err) {
-        console.error('Erreur génération contrat PDF:', err);
-      }
-    }
+    await this.assurerContratEvenement(devis, centre, devisId, userId, centreId);
 
     // Boutons conditionnels : lien public si signature par token possible ;
     // bouton espace (page de login, PAS de magic link) si l'email est celui du compte organisateur.
@@ -1593,12 +1579,76 @@ export class DevisService {
 
     // Trace du dernier envoi — posée APRÈS le succès de l'email (un échec d'envoi
     // ne doit pas marquer le devis comme envoyé).
+    await this.enregistrerEnvoi(devis, centre.id, userId, {
+      destinataire: emailCible,
+      canal: 'EMAIL',
+      emailType: 'DEVIS',
+      subject: `Un devis à signer — ${titre}`,
+      messagePreview: messagePersonnalise?.trim().slice(0, 2000) ?? '',
+    });
+
+    return { success: true, message: 'Devis envoyé par email' };
+  }
+
+  /**
+   * Contrat PDF événement (spécifique Sauvageon) : généré, uploadé et attaché au
+   * devis (contratUrl) en best-effort — un échec ne bloque jamais la transmission.
+   */
+  private async assurerContratEvenement(
+    devis: { sejourDirect: { natureSejour: string; typeSejour: string | null } | null },
+    centre: { email: string | null; iban: string | null },
+    devisId: string,
+    userId: string,
+    centreId: string | null | undefined,
+  ): Promise<void> {
+    const isEvenement = devis.sejourDirect?.natureSejour === 'EVENEMENT'
+      || devis.sejourDirect?.typeSejour?.includes('MARIAGE')
+      || devis.sejourDirect?.typeSejour?.includes('ANNIVERSAIRE')
+      || devis.sejourDirect?.typeSejour?.includes('SEMINAIRE')
+      || devis.sejourDirect?.typeSejour?.includes('TEAM_BUILDING')
+      || devis.sejourDirect?.typeSejour?.includes('REUNION_FAMILLE');
+    const isSauvageon = centre.email === 'resa@lesauvageon.com';
+    if (isEvenement && isSauvageon && centre.iban) {
+      try {
+        const { buffer, fileName } = await this.buildContratEvenementPdf(devisId, userId, centreId);
+        const contratUrl = await this.storage.uploadBuffer(buffer, fileName, 'contrats', 'application/pdf');
+        await this.prisma.devis.update({ where: { id: devisId }, data: { contratUrl } });
+      } catch (err) {
+        console.error('Erreur génération contrat PDF:', err);
+      }
+    }
+  }
+
+  /**
+   * Trace commune de transmission d'un devis (email ou lien copié) : dateEnvoi et
+   * compteur toujours, dernierDestinataireEnvoi seulement si un destinataire est
+   * connu (on n'écrase pas la trace précédente), puis log CRM non bloquant si le
+   * séjour est relié à une fiche client.
+   */
+  private async enregistrerEnvoi(
+    devis: {
+      id: string;
+      numeroDevis: string | null;
+      montantTTC: number | null;
+      sejourDirect: { id: string } | null;
+      demande: { sejourId: string } | null;
+    },
+    centreId: string,
+    userId: string,
+    params: {
+      destinataire: string | null;
+      canal: 'EMAIL' | 'LIEN';
+      emailType: string;
+      subject?: string;
+      messagePreview?: string;
+    },
+  ): Promise<void> {
     await this.prisma.devis.update({
-      where: { id: devisId },
+      where: { id: devis.id },
       data: {
         dateEnvoi: new Date(),
         nombreEnvois: { increment: 1 },
-        dernierDestinataireEnvoi: emailCible,
+        ...(params.destinataire !== null ? { dernierDestinataireEnvoi: params.destinataire } : {}),
       },
     });
 
@@ -1612,28 +1662,75 @@ export class DevisService {
           })
         : null;
       if (sejourClient && sejourIdLog) {
+        const montant = Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 });
         await this.prisma.activiteClient.create({
           data: {
             clientId: sejourClient.clientId,
-            centreId: centre.id,
+            centreId,
             sejourId: sejourIdLog,
             type: 'DEVIS',
-            description: `Devis ${devis.numeroDevis ?? ''} envoyé — ${Number(devis.montantTTC ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`,
+            description: params.canal === 'EMAIL'
+              ? `Devis ${devis.numeroDevis ?? ''} envoyé — ${montant} €`
+              : `Devis ${devis.numeroDevis ?? ''} transmis par lien — ${montant} €`,
             metadata: {
-              devisId,
+              devisId: devis.id,
               sejourId: sejourIdLog,
-              emailType: 'DEVIS',
-              to: emailCible,
-              subject: `Un devis à signer — ${titre}`,
-              messagePreview: messagePersonnalise?.trim().slice(0, 2000) ?? '',
+              emailType: params.emailType,
+              to: params.destinataire,
+              ...(params.subject !== undefined ? { subject: params.subject } : {}),
+              ...(params.messagePreview !== undefined ? { messagePreview: params.messagePreview } : {}),
+              canal: params.canal,
             },
             userId,
           },
         });
       }
     } catch { /* non bloquant */ }
+  }
 
-    return { success: true, message: 'Devis envoyé par email' };
+  /**
+   * Marque un devis comme transmis SANS email (lien de signature copié — chantier
+   * délivrabilité @ac-*.fr) : mêmes gardes et mêmes traces que l'envoi email
+   * (dateEnvoi, compteur, contrat événement, log CRM), zéro email envoyé.
+   * Aucune mutation de devis.statut ni du séjour.
+   */
+  async marquerEnvoye(
+    devisId: string,
+    dto: MarquerEnvoyeDto,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      include: {
+        sejourDirect: { select: { id: true, natureSejour: true, typeSejour: true } },
+        demande: { select: { sejourId: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
+    }
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé.');
+    }
+
+    // Même gate que l'envoi email — un destinataire absent (lien remis hors email)
+    // ne matche pas l'auto-envoi : un centre non validé reste bloqué.
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    await assertEnvoiExterneAutorise(this.prisma, centre, dto.destinataire ?? null, me?.email ?? '');
+
+    await this.assurerContratEvenement(devis, centre, devisId, userId, centreId);
+    await this.enregistrerEnvoi(devis, centre.id, userId, {
+      destinataire: dto.destinataire ?? null,
+      canal: 'LIEN',
+      emailType: 'DEVIS_LIEN',
+    });
+
+    return { success: true, message: 'Devis marqué comme transmis par lien' };
   }
 
   /**

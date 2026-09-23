@@ -11,6 +11,7 @@ import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
+import { MarquerEnvoyeDto } from './dto/marquer-envoye.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
@@ -268,6 +269,19 @@ export class DevisController {
     @Body() body: { emailDestinataire: string; messagePersonnalise?: string },
   ) {
     return this.devisService.envoyerDevis(id, user.id, centreId, body?.emailDestinataire, body?.messagePersonnalise);
+  }
+
+  /** POST /devis/:id/marquer-envoye — Trace d'envoi sans email (lien de signature copié) */
+  @Post(':id/marquer-envoye')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  marquerEnvoye(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+    @Body() dto: MarquerEnvoyeDto,
+  ) {
+    return this.devisService.marquerEnvoye(id, dto, user.id, centreId);
   }
 
   /** POST /devis/:id/convention — Générer ET envoyer la convention de séjour scolaire (hébergeur, après signature) */
