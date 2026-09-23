@@ -596,7 +596,7 @@ export class AutorisationService {
     return { ...results, emailColumnFound: colEmail !== -1, columnsDetected };
   }
 
-  /** Création batch de participants en mode saisie directe (ORGANISATEUR). */
+  /** Création batch de participants en mode saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6). */
   async createBatchDirect(
     sejourId: string,
     participants: ParticipantDirectInput[],
@@ -687,7 +687,7 @@ export class AutorisationService {
   }
 
   /**
-   * Mise à jour inline d'un participant (ORGANISATEUR).
+   * Mise à jour inline d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6).
    * Après signature : seuls les champs logistiques restent modifiables
    * (taille, poids, pointure, niveauSki, regimeAlimentaire, champsPersonnalises,
    * hebergementCategorie — donnée d'organisation interne, hors consentement parent).
@@ -821,7 +821,7 @@ export class AutorisationService {
     return { count };
   }
 
-  /** Suppression d'un participant (ORGANISATEUR) — interdite si signée. */
+  /** Suppression d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) — interdite si signée. */
   async deleteAutorisation(id: string, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },

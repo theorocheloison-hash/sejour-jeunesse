@@ -29,7 +29,7 @@ import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 export class AutorisationController {
   constructor(private readonly autorisationService: AutorisationService) {}
 
-  /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR) */
+  /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
   @Post('batch-direct')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
@@ -113,7 +113,7 @@ export class AutorisationController {
     return this.autorisationService.validerPaiementPartiel(id, body.montant, user.id);
   }
 
-  /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR) */
+  /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
   @Patch(':id/update-fields')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
@@ -159,7 +159,7 @@ export class AutorisationController {
     return this.autorisationService.validerSignaturesBatch(body.sejourId, user.id, body.autorisationIds);
   }
 
-  /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR) */
+  /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
