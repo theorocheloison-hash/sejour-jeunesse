@@ -179,7 +179,7 @@ export default function ImportCsvModal({ sejourId, champsActifs, nbInscrits, onI
               )}
               {importResult.skipped > 0 && (
                 <p className="text-sm text-gray-500">
-                  {importResult.skipped} ignoré{importResult.skipped > 1 ? 's' : ''} (doublons ou lignes vides)
+                  {importResult.skipped} ignoré{importResult.skipped > 1 ? 's' : ''} (doublons ou lignes sans nom)
                 </p>
               )}
               {importResult.errors.length > 0 && (

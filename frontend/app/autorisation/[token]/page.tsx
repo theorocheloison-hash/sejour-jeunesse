@@ -388,7 +388,7 @@ export default function SignerAutorisationPage() {
                   Suivez le séjour de {autorisation.elevePrenom} en temps réel
                 </p>
                 <p className="text-xs text-blue-800 mt-0.5">
-                  Photos, activités et nouvelles publiées par l&apos;enseignant et l&apos;hébergeur
+                  Photos, activités et nouvelles publiées par l&apos;équipe encadrante
                 </p>
               </div>
               <a
@@ -752,7 +752,7 @@ export default function SignerAutorisationPage() {
               {(!montantParEleve || montantParEleve === 0) && (
                 <div className="rounded-xl bg-[var(--color-primary-light)] border border-blue-200 px-5 py-4 mb-6 text-center">
                   <p className="text-sm text-blue-800">
-                    Le prix du séjour sera communiqué prochainement par l&apos;établissement scolaire.
+                    Le prix du séjour vous sera communiqué prochainement.
                   </p>
                 </div>
               )}
@@ -1002,7 +1002,7 @@ export default function SignerAutorisationPage() {
 
       <footer className="max-w-3xl mx-auto px-4 sm:px-6 py-6 text-center">
         <p className="text-xs text-gray-400">
-          Liavo — Plateforme de gestion des séjours scolaires
+          Liavo — Plateforme de gestion des séjours
         </p>
       </footer>
     </div>
