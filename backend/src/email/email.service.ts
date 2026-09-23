@@ -87,21 +87,27 @@ export class EmailService {
 
   // ── a) Autorisation parentale ─────────────────────────────────────────
 
+  /** B3b : séjour géré en propre par le centre → fromName/replyTo au nom du
+   *  centre (emailLayout bascule alors son pied de page sur « vous pouvez
+   *  répondre directement »). Absents → expéditeur « Liavo », inchangé. */
   async sendAutorisationParentale(
     to: string,
     eleveNom: string,
     sejourTitre: string,
     lienAutorisation: string,
+    fromName?: string,
+    replyTo?: { name: string; email: string },
   ) {
     const html = emailLayout(
       'Autorisation parentale requise',
       `<p>Bonjour,</p>
-       <p>Votre enfant <strong>${escapeHtml(eleveNom)}</strong> est inscrit au séjour scolaire <strong>« ${escapeHtml(sejourTitre)} »</strong>.</p>
+       <p>Votre enfant <strong>${escapeHtml(eleveNom)}</strong> est inscrit au séjour <strong>« ${escapeHtml(sejourTitre)} »</strong>.</p>
        <p>Nous avons besoin de votre autorisation parentale pour que votre enfant puisse participer à ce séjour. Veuillez cliquer sur le bouton ci-dessous pour consulter les détails et signer l'autorisation en ligne.</p>`,
       'Signer l\'autorisation',
       lienAutorisation,
+      replyTo?.name,
     );
-    await this.send(to, `Autorisation parentale — ${sejourTitre}`, html);
+    await this.send(to, `Autorisation parentale — ${sejourTitre}`, html, fromName, replyTo);
   }
 
   /** P10 — lien personnel du journal du séjour (structure calquée sur le mail

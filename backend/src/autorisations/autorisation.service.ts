@@ -13,7 +13,7 @@ import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
-import { peutEcrireSejourEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
+import { peutEcrireSejourEnPropre, peutGererEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -141,11 +141,24 @@ export class AutorisationService {
   async envoyerInvitations(sejourId: string, createurId: string, autorisationIds?: string[]) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
-      select: { createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } },
+      select: { createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true, nom: true, email: true } } },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    // B3b : séjour géré en propre → l'email part au nom du centre, réponse au
+    // centre. Refus net AVANT toute boucle si le centre n'a pas d'email de
+    // contact — aucun envoi partiel, et jamais d'email auquel on ne peut pas répondre.
+    const enPropre = peutGererEnPropre(sejour, createurId);
+    if (enPropre && !sejour.hebergementSelectionne?.email?.trim()) {
+      throw new BadRequestException(
+        'Renseignez l\'email de contact de votre centre avant d\'envoyer aux familles : les parents doivent pouvoir vous répondre.',
+      );
+    }
+    const identiteCentre = enPropre && sejour.hebergementSelectionne?.email
+      ? { name: sejour.hebergementSelectionne.nom, email: sejour.hebergementSelectionne.email }
+      : undefined;
 
     const where: {
       sejourId: string;
@@ -170,6 +183,8 @@ export class AutorisationService {
           `${auth.elevePrenom} ${auth.eleveNom}`,
           sejour.titre,
           lien,
+          identiteCentre?.name,
+          identiteCentre,
         );
         await this.prisma.autorisationParentale.update({
           where: { id: auth.id },
@@ -237,6 +252,11 @@ export class AutorisationService {
             prix: true,
             // Lot 7a : snapshot des champs d'inscription (formulaire parent dynamique)
             champsInscription: true,
+            // B3b : dérivation « géré en propre » + contact du centre — lus pour le
+            // CALCUL uniquement, jamais renvoyés bruts (route publique sans guard)
+            modeGestion: true,
+            createurId: true,
+            hebergementSelectionne: { select: { nom: true, email: true } },
             hebergements: {
               select: {
                 nom: true,
@@ -273,6 +293,11 @@ export class AutorisationService {
     const montantParEleve = devisSelectionne?.montantParEleve
       ?? (Number(sejour.prix) > 0 ? String(sejour.prix) : null);
 
+    // B3b : « géré en propre par le centre » (colo/stage du centre, sans
+    // organisateur) — calculé ici, le front ne re-dérive pas la règle métier.
+    const gereParLeCentre =
+      sejour.modeGestion === 'DIRECT' && sejour.createurId === null && sejour.hebergementSelectionne != null;
+
     return {
       eleveNom: autorisation.eleveNom,
       elevePrenom: autorisation.elevePrenom,
@@ -291,6 +316,12 @@ export class AutorisationService {
         champsInscription: sejour.champsInscription,
       },
       hebergement,
+      gereParLeCentre,
+      // Contact du centre : exposé UNIQUEMENT en propre (en scolaire, le
+      // responsable de traitement est l'établissement — rien à afficher)
+      centreContact: gereParLeCentre && sejour.hebergementSelectionne
+        ? { nom: sejour.hebergementSelectionne.nom, email: sejour.hebergementSelectionne.email }
+        : null,
     };
   }
 
