@@ -79,7 +79,7 @@ export interface SignerAutorisationDto {
   consentementMedical?: boolean;
 }
 
-// ─── Appels protégés (enseignant) ──────────────────────────────────────────
+// ─── Appels protégés (organisateur / hébergeur selon la route) ─────────────
 
 export async function createAutorisation(
   dto: CreateAutorisationDto,
@@ -130,7 +130,7 @@ export async function getAutorisationsBySejour(
   return data;
 }
 
-// ─── Saisie directe (organisateur) ─────────────────────────────────────────
+// ─── Saisie directe (organisateur ou hébergeur en propre) ──────────────────
 
 export interface ParticipantDirectInput {
   eleveNom: string;
