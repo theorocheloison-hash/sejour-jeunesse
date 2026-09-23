@@ -151,7 +151,7 @@ export interface Participant {
   id: string;
   eleveNom: string;
   elevePrenom: string;
-  parentEmail: string;
+  parentEmail: string | null;
   signeeAt: string | null;
   // Validation manuelle « papier signé reçu » (annulable) vs signature en ligne
   signeeManuellement?: boolean;

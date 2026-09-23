@@ -447,7 +447,9 @@ export default function TabParticipantsCollab({
               {selectedParticipant.nomParent && (
                 <p className="text-sm font-medium text-gray-900">{selectedParticipant.nomParent}</p>
               )}
-              <p className="text-sm text-gray-700">{selectedParticipant.parentEmail}</p>
+              {selectedParticipant.parentEmail && (
+                <p className="text-sm text-gray-700">{selectedParticipant.parentEmail}</p>
+              )}
               {selectedParticipant.telephoneUrgence && (
                 <p className="text-sm text-gray-700 font-semibold">{selectedParticipant.telephoneUrgence}</p>
               )}
