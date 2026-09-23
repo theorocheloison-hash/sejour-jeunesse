@@ -3,7 +3,7 @@ import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo
 import { escapeHtml } from '../utils/escape-html.js';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
-const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'theo.rocheloison@gmail.com';
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || '';
 const SENDER_NAME = process.env.BREVO_SENDER_NAME ?? 'Liavo';
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -50,6 +50,9 @@ export class EmailService {
   constructor() {
     this.api = new TransactionalEmailsApi();
     if (BREVO_API_KEY) {
+      if (!SENDER_EMAIL) {
+        throw new Error('BREVO_SENDER_EMAIL manquante alors que BREVO_API_KEY est configurée.');
+      }
       this.api.setApiKey(TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
     }
   }
