@@ -20,7 +20,7 @@ export class DevisPublicController {
   /** GET /devis/public/:token — Données publiques du devis pour la page de signature */
   @Get(':token')
   getDevisPublic(@Param('token') token: string) {
-    return this.devisService.getDevisPublicByToken(token);
+    return this.devisService.getDevisPublicByToken(token, { verifierExpiration: true });
   }
 
   /** GET /devis/public/:token/contrat — PDF du contrat événement (public, pas de JWT) */
@@ -29,7 +29,7 @@ export class DevisPublicController {
     @Param('token') token: string,
     @Res() res: Response,
   ) {
-    const buffer = await this.devisService.getContratPdfByToken(token);
+    const buffer = await this.devisService.getContratPdfByToken(token, { verifierExpiration: true });
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline; filename="contrat.pdf"',
@@ -45,7 +45,7 @@ export class DevisPublicController {
     @Body() body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
     @Req() req: Request,
   ) {
-    return this.devisService.signerDevisDirect(token, body, req);
+    return this.devisService.signerDevisDirect(token, body, req, undefined, { verifierExpiration: true });
   }
 
   /** POST /devis/public/:token/envoyer-direction — Déléguer la signature à la direction */
@@ -54,7 +54,7 @@ export class DevisPublicController {
     @Param('token') token: string,
     @Body() body: { emailDirecteur: string; nomDirecteur?: string },
   ) {
-    return this.devisService.envoyerADirection(token, body);
+    return this.devisService.envoyerADirection(token, body, undefined, { verifierExpiration: true });
   }
 
   /** POST /devis/public/:token/upload-signature — Upload scan signé */
@@ -66,6 +66,6 @@ export class DevisPublicController {
     @Body() body: { nomSignataire?: string },
     @Req() req: Request,
   ) {
-    return this.devisService.uploadSignaturePublic(token, file, req, body?.nomSignataire);
+    return this.devisService.uploadSignaturePublic(token, file, req, body?.nomSignataire, undefined, { verifierExpiration: true });
   }
 }

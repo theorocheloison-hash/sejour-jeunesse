@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { prochaineLienSignatureExpiration } from '../devis/lien-signature.constants.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -188,7 +189,12 @@ export class NotificationsService {
         );
         await this.prisma.devis.update({
           where: { id: d.id },
-          data: { relanceEnvoyeeAt: new Date() },
+          data: {
+            relanceEnvoyeeAt: new Date(),
+            // La relance DIRECT contient le lien public : elle le prolonge
+            // (expiration glissante — sinon toute relance > J+30 serait morte).
+            ...(d.sejourDirectId ? { lienSignatureExpiresAt: prochaineLienSignatureExpiration() } : {}),
+          },
         });
         relancesClient++;
       } catch (err) {

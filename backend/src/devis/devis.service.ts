@@ -1,6 +1,7 @@
 import {
   Injectable,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
@@ -13,6 +14,7 @@ import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { MarquerEnvoyeDto } from './dto/marquer-envoye.dto.js';
+import { prochaineLienSignatureExpiration } from './lien-signature.constants.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
 import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
@@ -65,6 +67,8 @@ export function resoudreEtablissement(input: EtablissementInput): { etablissemen
 
 @Injectable()
 export class DevisService {
+  private readonly logger = new Logger(DevisService.name);
+
   constructor(
     private prisma: PrismaService,
     private email: EmailService,
@@ -158,6 +162,7 @@ export class DevisService {
           typeDevis: dto.typeDevis ?? 'PLATEFORME',
           // La création ne vaut PLUS envoi : dateEnvoi reste null jusqu'à
           // l'envoi manuel (envoyerDevis, bouton « Envoyer le devis au client »).
+          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
         },
       });
 
@@ -1422,6 +1427,7 @@ export class DevisService {
           montantAcompte: dto.montantAcompte,
           numeroDevis,
           typeDevis: 'PLATEFORME',
+          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
         },
       });
 
@@ -1650,6 +1656,8 @@ export class DevisService {
         dateEnvoi: new Date(),
         nombreEnvois: { increment: 1 },
         dernierDestinataireEnvoi: params.destinataire,
+        // Expiration glissante : toute transmission redonne 30 j au lien public.
+        lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
       },
     });
 
@@ -1735,6 +1743,77 @@ export class DevisService {
   }
 
   /**
+   * Révoque le lien public de signature : nouveau tokenSignature + expiration
+   * réarmée, et suppression des invitations direction PENDANTES du devis (elles
+   * resteraient sinon un accès de contournement). Autorisé aussi sur devis signé
+   * (révocation d'accès en lecture). Ne vaut PAS transmission : dateEnvoi,
+   * nombreEnvois et dernierDestinataireEnvoi restent intacts.
+   */
+  async regenererLienSignature(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({
+      where: { id: devisId },
+      select: {
+        id: true,
+        centreId: true,
+        isComplementaire: true,
+        numeroDevis: true,
+        sejourDirectId: true,
+        demande: { select: { sejourId: true } },
+      },
+    });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.devis.update({
+        where: { id: devisId },
+        data: {
+          tokenSignature: randomUUID(),
+          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
+        },
+      });
+      await tx.invitationDirecteur.deleteMany({
+        where: { devisId, signeAt: null, utilisedAt: null },
+      });
+    });
+
+    // Log CRM non bloquant
+    try {
+      const sejourIdLog = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
+      const sejourClient = sejourIdLog
+        ? await this.prisma.sejourClient.findFirst({
+            where: { sejourId: sejourIdLog },
+            select: { clientId: true },
+          })
+        : null;
+      if (sejourClient && sejourIdLog) {
+        await this.prisma.activiteClient.create({
+          data: {
+            clientId: sejourClient.clientId,
+            centreId: centre.id,
+            sejourId: sejourIdLog,
+            type: 'DEVIS',
+            description: `Lien de signature régénéré — devis ${devis.numeroDevis ?? ''}`,
+            metadata: {
+              devisId,
+              sejourId: sejourIdLog,
+              emailType: 'DEVIS_LIEN_REGENERE',
+            },
+            userId,
+          },
+        });
+      }
+    } catch { /* non bloquant */ }
+
+    return { success: true };
+  }
+
+  /**
    * Crée un devis COMPLÉMENTAIRE sur un séjour direct : payeur additionnel (AS, Mairie…)
    * avec destinataire propre. N'impacte ni le séjour, ni le devis principal, ni le CRM.
    */
@@ -1784,6 +1863,7 @@ export class DevisService {
         conditionsAnnulation: dto.conditionsAnnulation,
         statut: StatutDevis.EN_ATTENTE,
         typeDevis: 'COMPLEMENTAIRE',
+        lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
         // Pas d'acompte : les complémentaires sont facturés directement (facture totale).
         pourcentageAcompte: null,
         montantAcompte: null,
@@ -2253,9 +2333,38 @@ export class DevisService {
   }
 
   /**
+   * Garde d'expiration du lien PUBLIC — appliquée uniquement quand le contrôleur
+   * public passe { verifierExpiration: true } : les chemins connectés organisateur
+   * (ownership.helper → mêmes méthodes via le token) ne sont PAS concernés.
+   * Un devis signé/figé n'est pas gardé (consultation illimitée, POST déjà
+   * refusés par estDevisOuvertPourSignature). NULL = lien legacy, autorisé + warn.
+   * Le 404 est IDENTIQUE au token inconnu pour ne pas révéler l'existence du devis.
+   */
+  private assertLienPublicNonExpire(
+    devis: {
+      id: string;
+      statut: StatutDevis;
+      nomSignataireDirecteur: string | null;
+      dateSignatureDirecteur: Date | null;
+      signatureDocumentUrl: string | null;
+      lienSignatureExpiresAt: Date | null;
+    },
+    messageNotFound: string,
+  ): void {
+    if (!this.estDevisOuvertPourSignature(devis)) return;
+    if (devis.lienSignatureExpiresAt === null) {
+      this.logger.warn(`[lien-signature] devis ${devis.id} : lien legacy sans expiration (autorisé)`);
+      return;
+    }
+    if (devis.lienSignatureExpiresAt < new Date()) {
+      throw new NotFoundException(messageNotFound);
+    }
+  }
+
+  /**
    * Retourne les données publiques d'un devis via son token de signature.
    */
-  async getDevisPublicByToken(token: string) {
+  async getDevisPublicByToken(token: string, opts?: { verifierExpiration?: boolean }) {
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
       include: {
@@ -2297,6 +2406,9 @@ export class DevisService {
     });
     if (!devis) throw new NotFoundException('Lien de signature invalide');
     if (devis.isComplementaire) throw new NotFoundException('Lien invalide');
+    if (opts?.verifierExpiration) {
+      this.assertLienPublicNonExpire(devis, 'Lien de signature invalide');
+    }
 
     const isSigned = devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION'
       || devis.statut === 'FACTURE_ACOMPTE' || devis.statut === 'FACTURE_SOLDE';
@@ -2338,12 +2450,18 @@ export class DevisService {
    * Récupère le PDF du contrat événement via le token de signature.
    * Endpoint public (pas de JWT) — le token sert d'authentification implicite.
    */
-  async getContratPdfByToken(token: string): Promise<Buffer> {
+  async getContratPdfByToken(token: string, opts?: { verifierExpiration?: boolean }): Promise<Buffer> {
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
-      select: { contratUrl: true },
+      select: {
+        id: true, contratUrl: true, statut: true, lienSignatureExpiresAt: true,
+        nomSignataireDirecteur: true, dateSignatureDirecteur: true, signatureDocumentUrl: true,
+      },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
+    if (opts?.verifierExpiration) {
+      this.assertLienPublicNonExpire(devis, 'Lien invalide');
+    }
     if (!devis.contratUrl) throw new NotFoundException('Contrat non disponible');
     return this.storage.fetchAsBuffer(devis.contratUrl);
   }
@@ -2356,6 +2474,7 @@ export class DevisService {
     body: { nomSignataire: string; fonctionSignataire?: string; confirmation: boolean },
     req: Request,
     signataireUserId?: string,
+    opts?: { verifierExpiration?: boolean },
   ) {
     if (!body.confirmation) {
       throw new ForbiddenException('Vous devez accepter les conditions pour signer');
@@ -2380,6 +2499,9 @@ export class DevisService {
     if (!devis) throw new NotFoundException('Lien invalide');
     if (devis.isComplementaire) {
       throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
+    }
+    if (opts?.verifierExpiration) {
+      this.assertLienPublicNonExpire(devis, 'Lien invalide');
     }
     const sejour = devis.sejourDirect ?? devis.demande?.sejour;
     const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
@@ -2494,6 +2616,7 @@ export class DevisService {
     token: string,
     body: { emailDirecteur: string; nomDirecteur?: string },
     signataireUserId?: string,
+    opts?: { verifierExpiration?: boolean },
   ) {
     if (!body.emailDirecteur?.trim()) {
       throw new ForbiddenException('L\'email du signataire est requis');
@@ -2526,6 +2649,9 @@ export class DevisService {
     if (devis.isComplementaire) {
       throw new ForbiddenException('Un devis complémentaire ne peut pas être signé');
     }
+    if (opts?.verifierExpiration) {
+      this.assertLienPublicNonExpire(devis, 'Lien invalide');
+    }
     const sejour = devis.sejourDirect ?? devis.demande?.sejour;
     const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
     if (!sejour || !sejourId) {
@@ -2535,7 +2661,8 @@ export class DevisService {
       throw new ForbiddenException('Ce devis ne peut plus être envoyé à la direction.');
     }
 
-    const { randomUUID } = await import('crypto');
+    // randomUUID importé en tête de fichier (node:crypto) — l'import dynamique
+    // historique cassait Jest (CJS sans --experimental-vm-modules).
     const invToken = randomUUID();
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -2625,6 +2752,7 @@ export class DevisService {
     req: Request,
     nomSignataire?: string,
     signataireUserId?: string,
+    opts?: { verifierExpiration?: boolean },
   ) {
     if (!file || file.mimetype !== 'application/pdf') {
       throw new ForbiddenException('Un fichier PDF est requis');
@@ -2644,6 +2772,9 @@ export class DevisService {
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
+    if (opts?.verifierExpiration) {
+      this.assertLienPublicNonExpire(devis, 'Lien invalide');
+    }
     const sejour = devis.sejourDirect ?? devis.demande?.sejour;
     const sejourId = devis.sejourDirectId ?? devis.demande?.sejourId ?? null;
     if (!sejour || !sejourId) {

@@ -1019,6 +1019,10 @@ model Devis {
   // Traçabilité d'envoi manuel : dernier destinataire + compteur (repère « 2ᵉ envoi »).
   dernierDestinataireEnvoi String? @map("dernier_destinataire_envoi")
   nombreEnvois             Int     @default(0) @map("nombre_envois")
+  // Expiration glissante du lien public de signature (NULL = legacy non armé,
+  // autorisé avec warn). Repoussée à chaque transmission : envoi email,
+  // marquer-envoye, relance cron portant le lien. Sans effet sur un devis signé.
+  lienSignatureExpiresAt   DateTime? @map("lien_signature_expires_at")
 
   // ── Devis complémentaire : payeur additionnel (AS, Mairie…) avec destinataire propre ──
   isComplementaire      Boolean  @default(false) @map("is_complementaire")
