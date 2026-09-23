@@ -7,6 +7,7 @@ import BlocOrganisateur from './BlocOrganisateur';
 import type { SejourCollabInfo } from '@/src/lib/collaboration';
 import type { User } from '@/src/types/auth';
 import { formatParticipants, formatDate } from '@/src/lib/utils';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 
 // ─── Statut sejour (barre contexte) ────────────────────────────────────────
 
@@ -331,6 +332,7 @@ export default function SejourHeader({
                         onChange={e => setInfosForm(f => ({ ...f, clientEmail: e.target.value }))}
                         className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                       />
+                      <AvertissementEmail email={infosForm.clientEmail} />
                       <input
                         placeholder="Téléphone"
                         value={infosForm.clientTelephone}

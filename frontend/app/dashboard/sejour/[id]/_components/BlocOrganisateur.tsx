@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { inviterOrganisateurDirect } from '@/src/lib/collaboration';
 import { formatDate } from '@/src/lib/utils';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 
 /**
  * Bloc « Organisateur » unifié (hébergeur) — source unique pour :
@@ -183,6 +184,7 @@ export default function BlocOrganisateur({
               Annuler
             </button>
           </div>
+          <AvertissementEmail email={email} />
         </div>
       )}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}

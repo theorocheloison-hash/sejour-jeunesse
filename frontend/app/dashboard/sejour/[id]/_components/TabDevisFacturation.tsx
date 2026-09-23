@@ -22,6 +22,7 @@ import type { Devis as DevisType, Facture, VersementPaiement } from '@/src/lib/d
 import OrganisationSearch from '@/src/components/OrganisationSearch';
 import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 import CatalogueSuggestionInput from '@/src/components/CatalogueSuggestionInput';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 import { getCatalogue } from '@/src/lib/centre';
 import type { ProduitCatalogue } from '@/src/lib/centre';
 import { round2, resolvePrixCatalogueTTC, formatMontant } from '@/src/lib/devis-calculs';
@@ -1336,6 +1337,12 @@ export default function TabDevisFacturation({
                               onChange={(e) => setEmailDestinataire(e.target.value)}
                               placeholder="client@exemple.fr"
                               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            />
+                            <AvertissementEmail
+                              email={emailDestinataire}
+                              {...(!envoisBloques && lienSignature
+                                ? { onUtiliserLien: () => { setEnvoiMode('LIEN'); setEnvoiError(null); } }
+                                : {})}
                             />
                           </div>
 

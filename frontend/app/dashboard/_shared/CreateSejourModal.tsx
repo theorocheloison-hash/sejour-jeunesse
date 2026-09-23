@@ -6,6 +6,7 @@ import type { SejourPlanning } from '@/src/lib/collaboration';
 import { getMesClients } from '@/src/lib/clients';
 import type { Client } from '@/src/lib/clients';
 import RechercheOrganisation from '@/src/components/RechercheOrganisation';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 import type { OrganisationResult } from '@/src/components/OrganisationSearch';
 
 // Normalisation accent-insensible — partagée avec le planning.
@@ -434,6 +435,7 @@ export default function CreateSejourModal({
               <input type="email" value={form.clientEmail} onChange={set('clientEmail')}
                 className={inputCls} />
               <p className="text-[11px] text-gray-400 mt-1">Destinataire du devis et du lien de signature.</p>
+              <AvertissementEmail email={form.clientEmail} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
