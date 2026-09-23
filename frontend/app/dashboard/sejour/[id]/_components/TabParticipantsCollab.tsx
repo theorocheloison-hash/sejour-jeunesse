@@ -7,6 +7,7 @@ import { validerPaiement, validerSignatureManuelle, annulerSignatureManuelle, va
 import type { User } from '@/src/types/auth';
 import SecureFileLink from '@/src/components/SecureFileLink';
 import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
+import EnvoiInvitationsFamilles from './EnvoiInvitationsFamilles';
 import ExportColonnesModal from './ExportColonnesModal';
 import { exportInscriptionsCsv } from '@/src/lib/inscription-csv';
 import { CLES_BLOC_B, CHAMP_PAR_CLE, type ChampInscription } from '@/src/lib/champs-inscription';
@@ -120,6 +121,11 @@ export default function TabParticipantsCollab({
           participants={participants}
           onReload={onReload}
         />
+      )}
+      {/* B3a : envoi des invitations familles — hébergeur EN PROPRE uniquement
+          (l'organisateur a déjà InscriptionsEleves ; collab → gate faux) */}
+      {peutSaisirParticipants && user.role === 'HEBERGEUR' && (
+        <EnvoiInvitationsFamilles sejourId={sejour.id} />
       )}
       {/* Header + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
