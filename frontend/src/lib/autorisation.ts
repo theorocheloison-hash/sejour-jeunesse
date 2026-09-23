@@ -7,7 +7,7 @@ export interface AutorisationParentale {
   sejourId: string;
   eleveNom: string;
   elevePrenom: string;
-  parentEmail: string;
+  parentEmail: string | null;
   tokenAcces: string;
   signeeAt: string | null;
   taille: number | null;
