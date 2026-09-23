@@ -149,7 +149,6 @@ export interface ParticipantDirectInput {
   // (FOURNIE | NON_FOURNIE | NON_CONCERNE) — acceptés par le back depuis 5a/5a-bis
   allergies?: string | null;
   attestationAquatique?: string | null;
-  champsPersonnalises?: Record<string, any> | null;
   // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }

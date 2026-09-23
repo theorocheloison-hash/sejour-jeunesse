@@ -59,16 +59,11 @@ export interface SejourCollabInfo {
   dateLimiteInscription?: string | null;
   createur?: { id: string; prenom: string; nom: string; email: string };
   // Snapshot figé des champs d'inscription du séjour (Lot 4a) — null/absent =
-  // inscriptions pas encore ouvertes par l'hébergeur. À ne pas confondre avec
-  // hebergementSelectionne.champsInscription (config live du centre, legacy).
+  // inscriptions pas encore ouvertes par l'hébergeur.
   champsInscription?: { champsActifs: string[] } | null;
   hebergementSelectionne?: {
     id: string; nom: string; ville: string; userId: string;
     email?: string | null;
-    champsInscription?: {
-      champsActifs: string[];
-      champsCustom: Array<{ nom: string; type: 'text' | 'number' | 'select'; obligatoire: boolean; options?: string[] }>;
-    } | null;
   };
   modeGestion?: string;
   natureSejour?: string;
@@ -180,7 +175,6 @@ export interface Participant {
   datePaiement?: string | null;
   montantVerseTotal?: number | null;
   nombreVersementsEffectues?: number | null;
-  champsPersonnalises?: Record<string, unknown> | null;
   sourceInscription?: string | null;
   // SC7 : donnée d'organisation interne (organisateur), null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
