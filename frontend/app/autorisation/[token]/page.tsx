@@ -78,6 +78,16 @@ const ACCEPTED_DOC_TYPES = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
 
 const RGPD_TEXT = `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par l'établissement scolaire responsable du séjour, en qualité de responsable de traitement. Elles sont transmises uniquement à l'hébergement accueillant votre enfant, en qualité de sous-traitant, dans le strict cadre de l'organisation du séjour scolaire. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Conformément à vos droits, vous pouvez accéder, rectifier ou supprimer vos données en contactant l'établissement scolaire. Les données sont conservées pour la durée légale applicable aux archives scolaires (5 ans).`;
 
+/** B3b : texte RGPD dérivé À L'AFFICHAGE. Séjour géré en propre → le centre
+ *  est responsable de traitement ; sinon (ou back pas encore déployé /
+ *  champs absents) → variante scolaire historique, mot pour mot. */
+function rgpdTextPour(a: AutorisationPublique): string {
+  if (!a.gereParLeCentre || !a.centreContact) return RGPD_TEXT;
+  const { nom, email } = a.centreContact;
+  const contact = email ? `en écrivant à ${email}` : `en contactant ${nom}`;
+  return `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par ${nom}, organisateur du séjour, en qualité de responsable de traitement. Elles servent uniquement à l'accueil et au suivi sanitaire de votre enfant pendant le séjour, et ne sont accessibles qu'aux membres de l'équipe qui en ont besoin. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Vous pouvez à tout moment accéder à vos données, les rectifier ou en demander la suppression ${contact}. Elles sont conservées le temps nécessaire à l'organisation et au suivi du séjour, puis supprimées.`;
+}
+
 export default function SignerAutorisationPage() {
   const { token } = useParams<{ token: string }>();
 
@@ -349,7 +359,7 @@ export default function SignerAutorisationPage() {
           </div>
         </section>
 
-        <ReassuranceDonnees />
+        <ReassuranceDonnees centreNom={autorisation.gereParLeCentre ? autorisation.centreContact?.nom : undefined} />
 
         {/* Formulaire / Confirmation */}
         {signed ? (
@@ -915,7 +925,7 @@ export default function SignerAutorisationPage() {
 
               <div className="rounded-xl bg-gray-50 border border-gray-200 px-5 py-4 mb-5 max-h-48 overflow-y-auto">
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  {RGPD_TEXT}
+                  {rgpdTextPour(autorisation)}
                 </p>
               </div>
 

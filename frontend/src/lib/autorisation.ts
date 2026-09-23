@@ -49,6 +49,11 @@ export interface AutorisationPublique {
     type: string;
     capacite: number;
   } | null;
+  // B3b : séjour géré en propre par le centre (colo/stage sans organisateur).
+  // Optionnels : un back antérieur à B3b ne les renvoie pas (déploiement
+  // parallèle) → undefined = variante scolaire, dégradation sûre.
+  gereParLeCentre?: boolean;
+  centreContact?: { nom: string; email: string | null } | null;
 }
 
 export interface CreateAutorisationDto {

@@ -1,8 +1,11 @@
 /**
- * Encart de réassurance données (RGPD) — statique, aucune logique, aucun fetch.
- * Source unique du texte, réutilisé bloc Inscriptions + page parent.
+ * Encart de réassurance données (RGPD) — source unique du texte, réutilisé
+ * bloc Inscriptions + page parent.
+ * `centreNom` (optionnel, B3b) : séjour géré en propre → variante « équipe du
+ * centre ». Absent → texte historique strictement identique (montage bloc
+ * Inscriptions inchangé).
  */
-export default function ReassuranceDonnees() {
+export default function ReassuranceDonnees({ centreNom }: { centreNom?: string | null } = {}) {
   return (
     <div className="flex items-start gap-2 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
       <svg
@@ -21,9 +24,12 @@ export default function ReassuranceDonnees() {
       </svg>
       <p className="text-xs text-gray-600">
         Vos données sont hébergées en France (Paris et Gravelines) et ne quittent jamais le
-        territoire. LIAVO est édité par un hébergeur de séjours. Ces informations ne sont
-        accessibles qu&apos;à l&apos;hébergeur qui accueille le séjour, à l&apos;enseignant
-        organisateur et aux accompagnateurs qu&apos;il autorise.
+        territoire. LIAVO est édité par un hébergeur de séjours.{' '}
+        {centreNom ? (
+          <>Ces informations ne sont accessibles qu&apos;à l&apos;équipe de {centreNom} qui accueille votre enfant.</>
+        ) : (
+          <>Ces informations ne sont accessibles qu&apos;à l&apos;hébergeur qui accueille le séjour, à l&apos;enseignant organisateur et aux accompagnateurs qu&apos;il autorise.</>
+        )}
       </p>
     </div>
   );

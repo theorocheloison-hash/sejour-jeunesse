@@ -50,7 +50,10 @@ export default function EnvoiInvitationsFamilles({ sejourId }: Props) {
       const r = await envoyerInvitations(sejourId, eligibles.map((a) => a.id));
       setResultat(`${r.sent} invitation${r.sent > 1 ? 's' : ''} envoyée${r.sent > 1 ? 's' : ''}${r.errors.length ? ` — ${r.errors.length} échec(s)` : ''}`);
       await charger();
-    } catch { setErreur("L'envoi a échoué. Réessayez."); }
+    } catch (e: any) {
+      // 400 actionnable du back (ex. email de centre manquant) → montré tel quel
+      setErreur(e?.response?.data?.message ?? "L'envoi a échoué. Réessayez.");
+    }
     finally { setSending(false); }
   };
 
