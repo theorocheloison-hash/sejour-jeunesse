@@ -448,7 +448,12 @@ export class AutorisationService {
     if (/Ã[©¨ª«]|Ã|Ã©/.test(content)) {
       content = Array.from(file.buffer).map((b) => String.fromCharCode(b)).join('');
     }
-    const lines = content.split(/\r?\n/).filter((l) => l.trim());
+    // Une ligne sans donnée n'est pas « vide » au sens trim (Google Sheets
+    // produit des « ;;;;;; » sur toute la plage utilisée). On ne garde que les
+    // lignes portant au moins un caractère de donnée — hors séparateurs,
+    // guillemets et blancs, le séparateur n'étant détecté que plus bas — AVANT
+    // les gardes : le plafond des 200 compte des élèves, pas des séparateurs.
+    const lines = content.split(/\r?\n/).filter((l) => /[^;,\t"\s]/.test(l));
 
     if (lines.length < 2) throw new BadRequestException('Le fichier doit contenir au moins un en-tête et une ligne de données');
     if (lines.length > 201) throw new BadRequestException('Le fichier ne peut pas contenir plus de 200 élèves');

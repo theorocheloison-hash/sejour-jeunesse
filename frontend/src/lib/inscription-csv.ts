@@ -147,6 +147,9 @@ export async function fichierVersCsv(file: File): Promise<File> {
     defval: '',
   });
   const csv = lignes
+    // Google Sheets exporte toute la plage utilisée (~1000 lignes) : une ligne
+    // sans aucune donnée deviendrait « ;;;;;; » et gonflerait le compteur back.
+    .filter((row) => row.some((v) => String(v ?? '').trim() !== ''))
     .map((row) => row.map((v) => echapper(String(v ?? ''))).join(';'))
     .join('\n');
   return new File([csv], file.name.replace(/\.(xlsx|xls)$/i, '.csv'), { type: 'text/csv' });
