@@ -3,7 +3,6 @@ import {
   IsArray,
   IsIn,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -86,12 +85,6 @@ export class ParticipantDirectDto {
   @IsOptional()
   @IsIn(['FOURNIE', 'NON_FOURNIE', 'NON_CONCERNE'])
   attestationAquatique?: string | null;
-
-  // Objet libre : la whitelist ne descend pas dans un objet non typé — les
-  // clés custom sont préservées telles quelles.
-  @IsOptional()
-  @IsObject()
-  champsPersonnalises?: Record<string, unknown> | null;
 
   // Le champ de la faille : null passe (@IsOptional), hors liste → 400
   // (couvre aussi le VarChar(10) — plus de 500 Postgres possible).

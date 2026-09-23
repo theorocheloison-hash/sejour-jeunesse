@@ -35,7 +35,6 @@ export interface ParticipantDirectInput {
   allergies?: string | null;
   // Lot 5a-bis : FOURNIE | NON_FOURNIE | NON_CONCERNE (validé par le DTO)
   attestationAquatique?: string | null;
-  champsPersonnalises?: Record<string, unknown> | null;
   // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }
@@ -671,9 +670,6 @@ export class AutorisationService {
             sourceInscription: 'SAISIE_DIRECTE',
             emailEnvoye: false,
             tokenExpiresAt: computeTokenExpiresAt(sejour.dateFin),
-            ...(p.champsPersonnalises != null
-              ? { champsPersonnalises: p.champsPersonnalises as Prisma.InputJsonValue }
-              : {}),
           },
         });
         existingSet.add(key);
@@ -689,7 +685,7 @@ export class AutorisationService {
   /**
    * Mise à jour inline d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6).
    * Après signature : seuls les champs logistiques restent modifiables
-   * (taille, poids, pointure, niveauSki, regimeAlimentaire, champsPersonnalises,
+   * (taille, poids, pointure, niveauSki, regimeAlimentaire,
    * hebergementCategorie — donnée d'organisation interne, hors consentement parent).
    */
   async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
@@ -735,12 +731,6 @@ export class AutorisationService {
     if (body.attestationAquatique !== undefined) data.attestationAquatique = body.attestationAquatique ?? null;
     // SC7 : organisation interne, pas de consentement parent → jamais verrouillé
     if (body.hebergementCategorie !== undefined) data.hebergementCategorie = body.hebergementCategorie ?? null;
-    if (body.champsPersonnalises !== undefined) {
-      data.champsPersonnalises =
-        body.champsPersonnalises === null
-          ? Prisma.JsonNull
-          : (body.champsPersonnalises as Prisma.InputJsonValue);
-    }
 
     // Verrouillés (seulement si non signée — garanti par le check ci-dessus)
     if (body.eleveNom !== undefined) data.eleveNom = (body.eleveNom ?? '').trim();

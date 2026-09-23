@@ -158,7 +158,7 @@ export class CollaborationService {
       where: { id: sejourId },
       include: {
         createur: { select: { id: true, prenom: true, nom: true, email: true } },
-        hebergementSelectionne: { select: { id: true, nom: true, ville: true, email: true, userId: true, champsInscription: true } },
+        hebergementSelectionne: { select: { id: true, nom: true, ville: true, email: true, userId: true } },
       },
     });
     if (!full) return full;
@@ -412,7 +412,6 @@ export class CollaborationService {
         moyenPaiement: true,
         paiementValide: true,
         datePaiement: true,
-        champsPersonnalises: true,
         sourceInscription: true,
         createdAt: true,
       },

@@ -292,9 +292,8 @@ model Sejour {
   // + signés chevauchants) — l'alerte se réarme si l'empreinte courante diverge.
   capaciteAlerteSituation   String?   @map("capacite_alerte_situation") @db.VarChar(64)
 
-  // ── Lot 1 « refonte inscriptions » : config d'inscription FIGÉE par séjour
-  // ({champsActifs}) — socle données, encore aucun consommateur (les lecteurs
-  // restent sur centres_hebergement.champs_inscription en live). ──
+  // Lot 1 refonte inscriptions : config FIGÉE par séjour ({champsActifs}) — source unique
+  // de la grille, du formulaire parent et de l'export.
   champsInscription Json?     @map("champs_inscription")
 
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
@@ -403,7 +402,6 @@ model AutorisationParentale {
   attestationAssuranceUrl String?  @map("attestation_assurance_url") @db.VarChar(500)
   eleveDateNaissance DateTime? @map("eleve_date_naissance") @db.Date
   emailEnvoye       Boolean   @default(false) @map("email_envoye")
-  champsPersonnalises Json?   @map("champs_personnalises")
   sourceInscription String?   @map("source_inscription") @db.VarChar(20)
   // SC7 : catégorie d'hébergement (FILLE | GARCON | AUTRE | null = pas encore
   // catégorisé) — donnée d'organisation interne posée par l'organisateur,
@@ -653,7 +651,6 @@ model CentreHebergement {
   // Template de convention hardcodé historique (Sauvageon uniquement) — les autres
   // centres sans conventionPdfUrl reçoivent la couverture générique seule.
   conventionTemplateLegacy Boolean      @default(false) @map("convention_template_legacy")
-  champsInscription   Json?             @map("champs_inscription")
   // Justificatif de revendication propre à CE centre (hébergeur déjà validé qui
   // ajoute un centre) — distinct de Membership.claimDocumentUrl (1er claim société).
   claimDocumentUrl    String?           @map("claim_document_url") @db.VarChar(500)

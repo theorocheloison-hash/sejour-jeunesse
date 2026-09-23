@@ -128,36 +128,8 @@ export class CentreController {
     return this.centreService.getDashboardGlobal(user.id, periodeDebut, periodeFin);
   }
 
-  /** GET /centres/config-inscription — Config des champs d'inscription (HEBERGEUR). MUST be before any :param route. */
-  @Get('config-inscription')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
-  @Roles(Role.HEBERGEUR)
-  @RequirePermission('parametres')
-  getConfigInscription(
-    @CurrentUser() user: JwtUser,
-    @CentreId() centreId: string | null,
-  ) {
-    return this.centreService.getConfigInscription(user.id, centreId);
-  }
-
-  /** PATCH /centres/config-inscription — Mise à jour de la config d'inscription (HEBERGEUR). */
-  @Patch('config-inscription')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionGuard)
-  @Roles(Role.HEBERGEUR)
-  @RequirePermission('parametres')
-  updateConfigInscription(
-    @CurrentUser() user: JwtUser,
-    @Body() body: {
-      champsActifs: string[];
-      champsCustom: Array<{ nom: string; type: 'text' | 'number' | 'select'; obligatoire: boolean; options?: string[] }>;
-    },
-    @CentreId() centreId: string | null,
-  ) {
-    return this.centreService.updateConfigInscription(user.id, body, centreId);
-  }
-
-  // ── Modèles d'inscription (Lot 3 refonte inscriptions) — même stack que
-  // config-inscription ; routes statiques, déclarées avant toute route :param. ──
+  // ── Modèles d'inscription (Lot 3 refonte inscriptions) — routes statiques,
+  // déclarées avant toute route :param. ──
 
   /** GET /centres/modeles-inscription — Bibliothèque de modèles du centre (HEBERGEUR). */
   @Get('modeles-inscription')

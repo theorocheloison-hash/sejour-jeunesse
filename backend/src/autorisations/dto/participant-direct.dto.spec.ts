@@ -28,7 +28,6 @@ const PAYLOAD_COMPLET = {
   infosMedicales: 'RAS',
   allergies: 'Arachide',
   attestationAquatique: 'FOURNIE',
-  champsPersonnalises: { 'Taille casque': 'M' },
   hebergementCategorie: 'FILLE',
 };
 
@@ -56,7 +55,6 @@ describe('ParticipantDirectDto (update-fields)', () => {
       infosMedicales: null,
       allergies: null,
       attestationAquatique: null,
-      champsPersonnalises: null,
       hebergementCategorie: null,
     };
     const res = await transforme(payload);
