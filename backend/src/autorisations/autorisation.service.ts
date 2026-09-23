@@ -139,9 +139,12 @@ export class AutorisationService {
   }
 
   async envoyerInvitations(sejourId: string, createurId: string, autorisationIds?: string[]) {
-    const sejour = await this.prisma.sejour.findUnique({ where: { id: sejourId } });
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: { createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } },
+    });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId)
+    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     const where: {

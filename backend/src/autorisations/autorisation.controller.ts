@@ -67,10 +67,10 @@ export class AutorisationController {
     return this.autorisationService.importCsv(file, sejourId, user.id);
   }
 
-  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (ORGANISATEUR) */
+  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (ORGANISATEUR, ou HEBERGEUR en propre — B3a) */
   @Post('envoyer-invitations')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ORGANISATEUR)
+  @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
   envoyerInvitations(
     @Body() body: { sejourId: string; autorisationIds?: string[] },
     @CurrentUser() user: JwtUser,
