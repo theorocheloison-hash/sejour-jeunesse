@@ -129,10 +129,11 @@ export async function lireTamponModele(file: File): Promise<TamponModele | null>
 /**
  * .xlsx/.xls → File .csv (séparateur ;, même échappement que l'export) pour le
  * parser back inchangé. PAS sheet_to_csv (virgule + guillemets RFC que le back
- * gère mal). Tout autre fichier repart inchangé.
+ * gère mal). Tout autre fichier est refusé (erreur) : l'unique appelant
+ * (ImportCsvModal) n'y envoie que le modèle .xlsx/.xls déjà validé par lireTamponModele.
  */
 export async function fichierVersCsv(file: File): Promise<File> {
-  if (!/\.(xlsx|xls)$/i.test(file.name)) return file;
+  if (!/\.(xlsx|xls)$/i.test(file.name)) throw new Error('fichierVersCsv : fichier Excel (.xlsx/.xls) attendu');
   const data = await file.arrayBuffer();
   const wb = XLSX.read(data);
   const ws = wb.Sheets[wb.SheetNames[0]];
