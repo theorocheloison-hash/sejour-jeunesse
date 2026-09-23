@@ -1406,7 +1406,7 @@ export class CentreService {
     });
   }
 
-  // Lot A "deux brochures" : slots typés SEJOUR/EVENEMENT (brochureUrl legacy non écrite).
+  // Lot A "deux brochures" : slots typés SEJOUR/EVENEMENT.
   async uploadBrochure(
     userId: string,
     file: Express.Multer.File,
