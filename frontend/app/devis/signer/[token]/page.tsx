@@ -137,6 +137,9 @@ export default function SignerDevisPage() {
   if (!devis) return null;
 
   const estSigne = devis.isSigned || signed || uploaded;
+  // NON_RETENU : devis écarté — plus signable (le backend refuse déjà les POST),
+  // la page bascule hors signature avec un message dédié, PAS « signé ».
+  const estNonRetenu = devis.statut === 'NON_RETENU';
   const sejour = devis.sejour;
   const centre = devis.centre;
 
@@ -198,6 +201,12 @@ export default function SignerDevisPage() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
 
+        {estNonRetenu && (
+          <div className="rounded-xl bg-gray-100 border border-gray-200 text-gray-700 px-4 py-3 text-sm font-medium">
+            Ce devis n&apos;est plus d&apos;actualité. Contactez {centre?.nom ?? 'votre hébergeur'} pour
+            plus d&apos;informations.
+          </div>
+        )}
         {estSigne && (
           <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm font-medium">
             ✓ Devis signé
@@ -334,7 +343,7 @@ export default function SignerDevisPage() {
               </svg>
               Télécharger le contrat (PDF)
             </a>
-            {!contratOuvert && !estSigne && (
+            {!contratOuvert && !estSigne && !estNonRetenu && (
               <p className="mt-2 text-xs text-amber-600 font-medium">
                 Veuillez ouvrir et lire le contrat avant de signer.
               </p>
@@ -366,7 +375,7 @@ export default function SignerDevisPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
-        {!estSigne && (
+        {!estSigne && !estNonRetenu && (
           <SignatureDevisPanel
             contratUrl={devis.contratUrl}
             contratOuvert={contratOuvert}

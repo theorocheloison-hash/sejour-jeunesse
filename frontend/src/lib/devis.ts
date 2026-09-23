@@ -572,6 +572,18 @@ export async function marquerEnvoye(
   return data;
 }
 
+/** Réarme l'expiration glissante du lien public sans enregistrer d'envoi (copie du lien). */
+export async function prolongerLien(devisId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/prolonger-lien`, {});
+  return data;
+}
+
+/** Révoque le lien public : nouveau token + purge des invitations direction pendantes. */
+export async function regenererLien(devisId: string): Promise<{ success: boolean }> {
+  const { data } = await api.post<{ success: boolean }>(`/devis/${devisId}/regenerer-lien`, {});
+  return data;
+}
+
 /** Génère (ou retourne) la convention de séjour scolaire — déclenché par l'hébergeur après signature. */
 export async function genererConvention(devisId: string): Promise<{ conventionUrl: string; success: boolean; alreadyGenerated?: boolean }> {
   const res = await api.post(`/devis/${devisId}/convention`);

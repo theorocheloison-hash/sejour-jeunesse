@@ -9,6 +9,8 @@ import {
   updateDevis,
   envoyerDevis,
   marquerEnvoye,
+  prolongerLien,
+  regenererLien,
   emettreFactureTotal,
   ajouterVersement,
   getFacturesForDevis,
@@ -155,6 +157,8 @@ export default function TabDevisFacturation({
   const [clipboardKo, setClipboardKo] = useState(false);
   const [lienDestinataire, setLienDestinataire] = useState('');
   const [marquerLoading, setMarquerLoading] = useState(false);
+  const [prolongationKo, setProlongationKo] = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
   // Timer du feedback « ✓ Lien copié » — nettoyé à la fermeture/réouverture pour
   // ne pas déclencher de setState après fermeture de la modale.
   const lienCopieTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1284,7 +1288,7 @@ export default function TabDevisFacturation({
               <div className="flex items-center gap-3 flex-wrap">
                 {peutEcrireDevis && !devisReellementSigne && !['FACTURE_ACOMPTE','FACTURE_SOLDE','NON_RETENU'].includes(devis.statut) && (
                   <button
-                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setEnvoiMode('EMAIL'); setLienDestinataire(''); setLienCopie(false); setClipboardKo(false); clearLienCopieTimer(); setShowEnvoiModal(true); }}
+                    onClick={() => { setMessagePerso(''); setEnvoiError(null); setEmailDestinataire(clientResolu.contactEmail ?? ''); setEnvoiMode('EMAIL'); setLienDestinataire(''); setLienCopie(false); setClipboardKo(false); setProlongationKo(false); clearLienCopieTimer(); setShowEnvoiModal(true); }}
                     disabled={envoyerLoading}
                     className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
                   >
@@ -1383,6 +1387,8 @@ export default function TabDevisFacturation({
                           <div className="mt-3">
                             <button
                               onClick={async () => {
+                                // Copie EN PREMIER, synchrone dans le geste utilisateur
+                                // (aucun await réseau avant writeText, sinon refus navigateur).
                                 try {
                                   await navigator.clipboard.writeText(lienSignature);
                                   setClipboardKo(false);
@@ -1392,12 +1398,26 @@ export default function TabDevisFacturation({
                                 } catch {
                                   setClipboardKo(true);
                                 }
+                                // PUIS prolongation de la validité du lien copié.
+                                try {
+                                  await prolongerLien(devis.id);
+                                  setProlongationKo(false);
+                                } catch {
+                                  setProlongationKo(true);
+                                }
                               }}
                               className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                             >
                               {lienCopie ? '✓ Lien copié' : 'Copier le lien'}
                             </button>
                           </div>
+                          {prolongationKo && (
+                            <p className="mt-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                              Le lien a été copié, mais sa validité n&apos;a pas pu être prolongée —
+                              il risque d&apos;avoir expiré. Réessayez ou cliquez sur
+                              «&nbsp;J&apos;ai transmis le lien&nbsp;».
+                            </p>
+                          )}
                           {clipboardKo && (
                             <div className="mt-2">
                               <input
@@ -1618,6 +1638,26 @@ export default function TabDevisFacturation({
                       data={pdfPropsDirect}
                       filename={nomFichierDocument(dd.numeroDevis, dd.id)}
                     />
+                    {peutEcrireDevis && devis.tokenSignature && !envoisBloques && (
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm('Régénérer le lien de signature ? L\'ancien lien ne fonctionnera plus : vous devrez envoyer le nouveau au client.')) return;
+                          setRegenLoading(true);
+                          try {
+                            await regenererLien(devis.id);
+                            await reloadDevis();
+                          } catch (err) {
+                            onError(extractApiError(err));
+                          } finally {
+                            setRegenLoading(false);
+                          }
+                        }}
+                        disabled={regenLoading}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {regenLoading ? 'Régénération…' : '🔄 Régénérer le lien de signature'}
+                      </button>
+                    )}
                     <DevisPdfViewer documentUrl={dd.documentUrl ?? null} pdfProps={pdfPropsDirect} />
                   </div>
                 );
