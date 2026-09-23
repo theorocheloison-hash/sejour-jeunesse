@@ -11,7 +11,6 @@ import { CLES_BLOC_B, CHAMP_PAR_CLE } from './champs-inscription';
 
 export function colonnesInscription(
   champsActifs: string[],
-  contactComplet = true,
 ): { key: string; label: string }[] {
   return [
     { key: 'eleveNom', label: 'Nom' },
@@ -21,17 +20,14 @@ export function colonnesInscription(
       key: CHAMP_PAR_CLE[k].colonne,
       label: CHAMP_PAR_CLE[k].libelle,
     })),
-    // contactComplet=false (modèle) : nom/tél parent omis — le parent les
-    // renseignera via son formulaire ; l'export garde le contact complet.
-    ...(contactComplet
-      ? [
-          { key: 'nomParent', label: 'Nom du parent / responsable' },
-          { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
-        ]
-      : []),
-    // Modèle : « Email » sans « parent » — sinon le colNomParent du back
-    // (findCol par includes) capterait cette colonne et y rangerait l'email.
-    { key: 'parentEmail', label: contactComplet ? 'Email parent' : 'Email' },
+    // ORDRE IMPOSÉ : « Nom du parent / responsable » AVANT « Email parent ».
+    // L'import back (colNomParent) prend la PREMIÈRE colonne dont l'en-tête
+    // contient « parent » ou « responsable » : inverser ces deux colonnes ferait
+    // atterrir l'email dans le nom du parent. Ne protège pas un fichier SANS
+    // colonne nom parent (dette consignée, fix à faire côté back).
+    { key: 'nomParent', label: 'Nom du parent / responsable' },
+    { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
+    { key: 'parentEmail', label: 'Email parent' },
   ];
 }
 
@@ -97,7 +93,7 @@ export function exportInscriptionsCsv(
  *  champsActifs}) relue par lireTamponModele au réimport. 'Inscriptions' reste
  *  SheetNames[0] — fichierVersCsv (1ère feuille seule) est insensible au tampon. */
 export function modeleInscriptionXlsx(sejourId: string, champsActifs: string[]): void {
-  const headers = colonnesInscription(champsActifs, true).map(
+  const headers = colonnesInscription(champsActifs).map(
     (c) => c.label + (GUIDAGE_MODELE[c.key] ?? ''),
   );
   const ws = XLSX.utils.aoa_to_sheet([headers]);

@@ -21,7 +21,7 @@ const CLES_IDENTITE = ['eleveNom', 'elevePrenom', 'eleveDateNaissance'];
 const CLES_CONTACT = ['nomParent', 'telephoneUrgence', 'parentEmail'];
 
 export default function ExportColonnesModal({ champsActifs, onExport, onClose }: Props) {
-  const colonnes = colonnesInscription(champsActifs, true);
+  const colonnes = colonnesInscription(champsActifs);
 
   // Bloc B = tout ce qui n'est ni identité ni contact ; santé séparée via le
   // flag métier (mapping key→champ par la colonne, garde ?. si clé inconnue).
