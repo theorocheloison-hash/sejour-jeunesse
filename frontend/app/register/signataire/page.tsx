@@ -7,6 +7,7 @@ import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 
 function RegisterSignataireContent() {
   const searchParams = useSearchParams();
@@ -270,10 +271,12 @@ function RegisterSignataireContent() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email professionnel</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input id="email" type="email" required disabled={isPending} value={form.email} onChange={set('email')}
                 placeholder="votre@email.fr"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent disabled:opacity-50" />
+              <p className="mt-1 text-xs text-gray-400">Une adresse personnelle est recommandée.</p>
+              <AvertissementEmail email={form.email} contexte="COMPTE" />
             </div>
 
             <div>

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 
 type TypeStructure = 'COLLEGE_LYCEE' | 'ECOLE_PRIMAIRE' | 'MAIRIE' | 'CENTRE_LOISIRS' | 'ASSOCIATION' | 'COMITE_ENTREPRISE' | 'AUTRE';
 
@@ -346,7 +347,7 @@ function RegisterOrganisateurContent() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email professionnel</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
               <input id="email" type="email" required disabled={isPending} readOnly={!!invitationToken}
                 value={form.email} onChange={set('email')}
                 placeholder="votre@email.fr"
@@ -355,8 +356,16 @@ function RegisterOrganisateurContent() {
                     ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
                     : 'text-gray-900 placeholder-gray-400'
                 }`} />
-              {invitationToken && (
-                <p className="mt-1 text-xs text-gray-400">Adresse de votre invitation — non modifiable</p>
+              {invitationToken ? (
+                <>
+                  <p className="mt-1 text-xs text-gray-400">Adresse de votre invitation — non modifiable</p>
+                  <AvertissementEmail email={form.email} contexte="INVITATION" />
+                </>
+              ) : (
+                <>
+                  <p className="mt-1 text-xs text-gray-400">Une adresse personnelle est recommandée.</p>
+                  <AvertissementEmail email={form.email} contexte="COMPTE" />
+                </>
               )}
             </div>
 

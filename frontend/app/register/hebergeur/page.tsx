@@ -7,6 +7,7 @@ import api from '@/src/lib/api';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import StructureSearch from '@/app/components/StructureSearch';
 import { JustificatifHint } from '@/app/components/JustificatifHint';
+import AvertissementEmail from '@/src/components/AvertissementEmail';
 
 interface InvitationInfo {
   cas: 1 | 2 | 3;
@@ -544,6 +545,7 @@ function RegisterHebergeurContent() {
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                   <input id="email" type="email" required value={form.email} onChange={set('email')} placeholder="contact@moncentre.fr" className={inputCls} />
+                  <AvertissementEmail email={form.email} contexte="COMPTE" />
                 </div>
               )}
               <div>
