@@ -135,7 +135,7 @@ describe('DevisService.marquerEnvoye', () => {
     expect(email.sendGenericNotification).not.toHaveBeenCalled();
   });
 
-  it('destinataire absent → dateEnvoi + nombreEnvois écrits, dernierDestinataireEnvoi NON écrit, aucun email', async () => {
+  it('destinataire absent → dateEnvoi + nombreEnvois écrits, dernierDestinataireEnvoi effacé (null), aucun email', async () => {
     prisma.devis.findUnique.mockResolvedValue(devisOuvert());
 
     const res = await service.marquerEnvoye('devis-1', {}, 'user-heb');
@@ -146,7 +146,8 @@ describe('DevisService.marquerEnvoye', () => {
     expect(where).toEqual({ id: 'devis-1' });
     expect(data.dateEnvoi).toBeInstanceOf(Date);
     expect(data.nombreEnvois).toEqual({ increment: 1 });
-    expect(data).not.toHaveProperty('dernierDestinataireEnvoi');
+    // null volontaire : « Envoyé à X » ne doit pas attribuer un envoi par lien à l'ancienne adresse.
+    expect(data.dernierDestinataireEnvoi).toBeNull();
     expect(email.sendGenericNotification).not.toHaveBeenCalled();
   });
 

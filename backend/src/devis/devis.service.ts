@@ -1620,9 +1620,10 @@ export class DevisService {
   }
 
   /**
-   * Trace commune de transmission d'un devis (email ou lien copié) : dateEnvoi et
-   * compteur toujours, dernierDestinataireEnvoi seulement si un destinataire est
-   * connu (on n'écrase pas la trace précédente), puis log CRM non bloquant si le
+   * Trace commune de transmission d'un devis (email ou lien copié) : dateEnvoi,
+   * compteur et dernierDestinataireEnvoi toujours écrits — un envoi par lien sans
+   * destinataire le met à null (l'affichage « Envoyé à X » ne doit pas attribuer
+   * cette transmission à l'ancienne adresse), puis log CRM non bloquant si le
    * séjour est relié à une fiche client.
    */
   private async enregistrerEnvoi(
@@ -1648,7 +1649,7 @@ export class DevisService {
       data: {
         dateEnvoi: new Date(),
         nombreEnvois: { increment: 1 },
-        ...(params.destinataire !== null ? { dernierDestinataireEnvoi: params.destinataire } : {}),
+        dernierDestinataireEnvoi: params.destinataire,
       },
     });
 
