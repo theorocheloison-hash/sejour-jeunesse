@@ -284,6 +284,18 @@ export class DevisController {
     return this.devisService.marquerEnvoye(id, dto, user.id, centreId);
   }
 
+  /** POST /devis/:id/prolonger-lien — Réarme l'expiration du lien public sans trace d'envoi */
+  @Post(':id/prolonger-lien')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('devis')
+  prolongerLien(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.devisService.prolongerLien(id, user.id, centreId);
+  }
+
   /** POST /devis/:id/regenerer-lien — Révoque le lien public (nouveau token, invitations direction pendantes supprimées) */
   @Post(':id/regenerer-lien')
   @Roles(Role.HEBERGEUR)

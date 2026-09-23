@@ -1743,6 +1743,38 @@ export class DevisService {
   }
 
   /**
+   * Réarme l'expiration glissante du lien public SANS enregistrer d'envoi —
+   * garantit qu'un lien copié (modale, mode LIEN) fonctionne même si l'expiration
+   * était dépassée, avant le clic « J'ai transmis le lien ». Mêmes gardes que
+   * marquerEnvoye ; aucun effet sur dateEnvoi/nombreEnvois/dernierDestinataireEnvoi,
+   * pas de log CRM, pas de rotation de token.
+   */
+  async prolongerLien(devisId: string, userId: string, centreId?: string | null) {
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const devis = await this.prisma.devis.findUnique({ where: { id: devisId } });
+    if (!devis) throw new NotFoundException('Devis introuvable');
+    if (devis.centreId !== centre.id) throw new ForbiddenException('Ce devis ne vous appartient pas');
+    if (devis.isComplementaire) {
+      throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
+    }
+    if (!this.estDevisOuvertPourSignature(devis)) {
+      throw new ForbiddenException('Ce devis a déjà été signé ou facturé et ne peut plus être renvoyé.');
+    }
+
+    // Même gate que le mode lien (destinataire null) : centre non validé bloqué.
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    await assertEnvoiExterneAutorise(this.prisma, centre, null, me?.email ?? '');
+
+    await this.prisma.devis.update({
+      where: { id: devisId },
+      data: { lienSignatureExpiresAt: prochaineLienSignatureExpiration() },
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Révoque le lien public de signature : nouveau tokenSignature + expiration
    * réarmée, et suppression des invitations direction PENDANTES du devis (elles
    * resteraient sinon un accès de contournement). Autorisé aussi sur devis signé

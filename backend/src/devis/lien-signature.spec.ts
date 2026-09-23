@@ -301,6 +301,56 @@ describe('lien de signature — expiration + régénération', () => {
     });
   });
 
+  describe('prolongerLien', () => {
+    it('devis introuvable → 404', async () => {
+      prisma.devis.findUnique.mockResolvedValue(null);
+      await expect(service.prolongerLien('inconnu', 'user-heb')).rejects.toThrow(NotFoundException);
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it("devis d'un autre centre → 403", async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({ centreId: 'centre-2' }));
+      await expect(service.prolongerLien('devis-1', 'user-heb')).rejects.toThrow(ForbiddenException);
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it('devis complémentaire → refus', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({ isComplementaire: true }));
+      await expect(service.prolongerLien('devis-1', 'user-heb')).rejects.toThrow(ForbiddenException);
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it('devis signé → refus', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({ nomSignataireDirecteur: 'M. Dupont' }));
+      await expect(service.prolongerLien('devis-1', 'user-heb')).rejects.toThrow(ForbiddenException);
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it('centre PENDING → refus (assertEnvoiExterneAutorise, destinataire null)', async () => {
+      getCentreForUserMock.mockResolvedValue(centreActive({ statut: 'PENDING' }));
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      await expect(service.prolongerLien('devis-1', 'user-heb')).rejects.toThrow(ForbiddenException);
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it("succès → SEULE lienSignatureExpiresAt écrite, aucun log CRM ni email", async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({ lienSignatureExpiresAt: EXPIRE() }));
+
+      const res = await service.prolongerLien('devis-1', 'user-heb');
+
+      expect(res).toEqual({ success: true });
+      expect(prisma.devis.update).toHaveBeenCalledTimes(1);
+      const { where, data } = prisma.devis.update.mock.calls[0][0];
+      expect(where).toEqual({ id: 'devis-1' });
+      // Objet data EXACT : une seule clé, l'expiration réarmée.
+      expect(Object.keys(data)).toEqual(['lienSignatureExpiresAt']);
+      expect(data.lienSignatureExpiresAt).toBeInstanceOf(Date);
+      expect(data.lienSignatureExpiresAt.getTime()).toBeGreaterThan(Date.now());
+      expect(prisma.activiteClient.create).not.toHaveBeenCalled();
+      expect(email.sendGenericNotification).not.toHaveBeenCalled();
+    });
+  });
+
   describe('regenererLienSignature', () => {
     it('devis introuvable → 404', async () => {
       prisma.devis.findUnique.mockResolvedValue(null);
