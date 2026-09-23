@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getAutorisationsBySejour, envoyerInvitations, type AutorisationParentale } from '@/src/lib/autorisation';
+import type { Participant } from '@/src/lib/collaboration';
 
 /**
  * B3a — envoi des liens d'autorisation aux familles par l'hébergeur EN PROPRE.
@@ -10,9 +11,15 @@ import { getAutorisationsBySejour, envoyerInvitations, type AutorisationParental
  * qu'InscriptionsEleves (organisateur) : !signeeAt && !emailEnvoye && parentEmail.
  * Rien à envoyer et rien d'envoyé → null (la grille + le papier suffisent).
  */
-interface Props { sejourId: string }
+interface Props {
+  sejourId: string;
+  /** Signal de rechargement : identité changée par le parent à chaque refetch
+   *  (setParticipants après save/import de la grille) — jamais sur un simple
+   *  re-render. Le bloc refait alors son propre fetch (emailEnvoye). */
+  participants: Participant[];
+}
 
-export default function EnvoiInvitationsFamilles({ sejourId }: Props) {
+export default function EnvoiInvitationsFamilles({ sejourId, participants }: Props) {
   const [autorisations, setAutorisations] = useState<AutorisationParentale[] | null>(null);
   const [sending, setSending] = useState(false);
   const [resultat, setResultat] = useState<string | null>(null);
@@ -26,7 +33,7 @@ export default function EnvoiInvitationsFamilles({ sejourId }: Props) {
     }
   }, [sejourId]);
 
-  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => { charger(); }, [charger, participants]);
 
   if (!autorisations) return null;
   const eligibles = autorisations.filter((a) => !a.signeeAt && !a.emailEnvoye && a.parentEmail);

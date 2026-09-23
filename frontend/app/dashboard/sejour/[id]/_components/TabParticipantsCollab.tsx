@@ -125,7 +125,7 @@ export default function TabParticipantsCollab({
       {/* B3a : envoi des invitations familles — hébergeur EN PROPRE uniquement
           (l'organisateur a déjà InscriptionsEleves ; collab → gate faux) */}
       {peutSaisirParticipants && user.role === 'HEBERGEUR' && (
-        <EnvoiInvitationsFamilles sejourId={sejour.id} />
+        <EnvoiInvitationsFamilles sejourId={sejour.id} participants={participants} />
       )}
       {/* Header + actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
