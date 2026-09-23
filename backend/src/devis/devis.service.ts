@@ -1676,7 +1676,7 @@ export class DevisService {
               devisId: devis.id,
               sejourId: sejourIdLog,
               emailType: params.emailType,
-              to: params.destinataire,
+              ...(params.destinataire !== null ? { to: params.destinataire } : {}),
               ...(params.subject !== undefined ? { subject: params.subject } : {}),
               ...(params.messagePreview !== undefined ? { messagePreview: params.messagePreview } : {}),
               canal: params.canal,

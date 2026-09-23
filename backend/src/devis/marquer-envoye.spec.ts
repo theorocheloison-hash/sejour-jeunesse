@@ -175,6 +175,8 @@ describe('DevisService.marquerEnvoye', () => {
     expect(data.metadata.canal).toBe('LIEN');
     expect(data.metadata.emailType).toBe('DEVIS_LIEN');
     expect(data.metadata).not.toHaveProperty('subject');
+    // Destinataire absent : pas de clé `to` (jamais de null en metadata).
+    expect(data.metadata).not.toHaveProperty('to');
   });
 
   it('pas de fiche client → aucun log ActiviteClient', async () => {
