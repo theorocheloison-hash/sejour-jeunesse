@@ -253,14 +253,15 @@ export default function SignerAutorisationPage() {
         setChoixAucune((prev) => ({ ...prev, [champ.cle]: c }));
       return (
         <div key={champ.cle}>
-          <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
+          <p id={`${id}-libelle`} className="block text-sm font-medium text-gray-700 mb-1.5">
             <Icone className="inline h-4 w-4 mr-1 text-gray-400" />
             {champ.libelle} <span className="text-red-500">*</span>
-          </label>
-          <div className="flex gap-2">
+          </p>
+          <div role="radiogroup" aria-labelledby={`${id}-libelle`} className="flex gap-2">
             <button
-              id={id}
               type="button"
+              role="radio"
+              aria-checked={choix === 'AUCUNE'}
               onClick={() => setChoix('AUCUNE')}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 choix === 'AUCUNE'
@@ -272,6 +273,8 @@ export default function SignerAutorisationPage() {
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={choix === 'OUI'}
               onClick={() => setChoix('OUI')}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 choix === 'OUI'
@@ -288,14 +291,17 @@ export default function SignerAutorisationPage() {
             </p>
           )}
           {choix === 'OUI' && (
-            <textarea
-              id={`${id}-detail`}
-              rows={3}
-              value={brut}
-              onChange={(e) => setVal(e.target.value)}
-              placeholder="Précisez..."
-              className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-            />
+            <>
+              <label htmlFor={`${id}-detail`} className="sr-only">Précisez</label>
+              <textarea
+                id={`${id}-detail`}
+                rows={3}
+                value={brut}
+                onChange={(e) => setVal(e.target.value)}
+                placeholder="Précisez..."
+                className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
+              />
+            </>
           )}
         </div>
       );
@@ -1049,9 +1055,9 @@ export default function SignerAutorisationPage() {
                 )}
               </button>
 
-              {!rgpdAccepte && (
+              {!formValid && !signing && (
                 <p className="mt-2 text-xs text-amber-600 text-center">
-                  Vous devez accepter les conditions RGPD pour pouvoir signer.
+                  Complétez les champs marqués * pour pouvoir signer.
                 </p>
               )}
 
