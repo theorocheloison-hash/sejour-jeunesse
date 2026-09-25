@@ -49,6 +49,15 @@ function parseDateOrNull(value?: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Snapshot d'inscription du séjour : lisible = { champsActifs: tableau de
+// chaînes } ; null ou malformé = pas de snapshot (le séjour n'a rien demandé).
+function lireChampsActifs(json: unknown): string[] | null {
+  const brut = (json as { champsActifs?: unknown } | null)?.champsActifs;
+  return Array.isArray(brut) && brut.every((c) => typeof c === 'string')
+    ? (brut as string[])
+    : null;
+}
+
 // SC7 — mappe PRUDEMMENT une valeur CSV de sexe/genre vers la catégorie
 // d'hébergement. Matching sur la valeur normalisée COMPLÈTE (jamais includes,
 // pour éviter que « Féminin » matche « M ») ; toute autre valeur — y compris
@@ -300,11 +309,41 @@ export class AutorisationService {
     const gereParLeCentre =
       sejour.modeGestion === 'DIRECT' && sejour.createurId === null && sejour.hebergementSelectionne != null;
 
+    // Pré-remplissage (Back 2) — route publique : exposition limitée aux champs
+    // que le séjour demande, uniquement tant que l'autorisation n'est pas signée.
+    // La santé (allergies, infosMedicales) ET les champs sensibles (régime
+    // alimentaire : convictions) ne sont JAMAIS renvoyés ici — le parent les
+    // déclare toujours lui-même ; un lien mal adressé ne doit exposer aucune
+    // donnée de catégorie particulière d'un enfant.
+    let valeurs: Record<string, unknown> | null = null;
+    if (!autorisation.signeeAt) {
+      valeurs = {
+        // Bloc A (hors parentEmail, jamais exposé)
+        nomParent: autorisation.nomParent,
+        telephoneUrgence: autorisation.telephoneUrgence,
+        eleveDateNaissance: autorisation.eleveDateNaissance
+          ? autorisation.eleveDateNaissance.toISOString().slice(0, 10)
+          : null,
+      };
+      const champsActifs = lireChampsActifs(sejour.champsInscription);
+      if (champsActifs) {
+        const colonnes = autorisation as unknown as Record<string, unknown>;
+        for (const cle of CLES_BLOC_B) {
+          const champ = CHAMP_PAR_CLE[cle];
+          if (champ.sante || champ.sensible) continue;
+          if (!champsActifs.includes(cle)) continue;
+          // Exposé sous la CLÉ du snapshot : « sexe » se lit en hebergementCategorie
+          valeurs[cle] = colonnes[champ.colonne];
+        }
+      }
+    }
+
     return {
       eleveNom: autorisation.eleveNom,
       elevePrenom: autorisation.elevePrenom,
       signeeAt: autorisation.signeeAt,
       attestationAssuranceUrl: autorisation.attestationAssuranceUrl,
+      valeurs,
       sejour: {
         titre: sejour.titre,
         lieu: sejour.lieu,
@@ -345,14 +384,8 @@ export class AutorisationService {
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
     assertTokenNotExpired(autorisation.tokenExpiresAt, 'Autorisation');
 
-    // Snapshot lisible = { champsActifs: tableau de chaînes } ; null ou malformé
-    // = PAS de snapshot → AUCUN champ du Bloc B écrit (le séjour n'a rien demandé).
-    const brut = (autorisation.sejour.champsInscription as { champsActifs?: unknown } | null)
-      ?.champsActifs;
-    const champsActifs: string[] | null =
-      Array.isArray(brut) && brut.every((c) => typeof c === 'string')
-        ? (brut as string[])
-        : null;
+    // Pas de snapshot lisible → AUCUN champ du Bloc B écrit (cf. lireChampsActifs).
+    const champsActifs = lireChampsActifs(autorisation.sejour.champsInscription);
 
     // « Fourni » : undefined → non fourni ; chaîne vide après trim → non fournie.
     // Une valeur existante (saisie/import organisateur ou hébergeur) n'est

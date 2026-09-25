@@ -17,6 +17,13 @@ export interface ChampInscription {
   colonne: string; sante: boolean; contactParent?: boolean;
   min?: number; max?: number; options?: OptionChamp[];
   aide?: string;
+  // Valeur canonique enregistrée quand le parent répond « aucune » — distingue
+  // « rien à signaler » (cette valeur) de « non renseigné » (= null).
+  valeurAucune?: string;
+  // Donnée pouvant révéler une information de catégorie particulière RGPD
+  // (santé, conviction) sans relever du consentement médical ; jamais renvoyée
+  // par une route publique de pré-remplissage.
+  sensible?: boolean;
 }
 
 export const CHAMPS_INSCRIPTION: ChampInscription[] = [
@@ -39,10 +46,10 @@ export const CHAMPS_INSCRIPTION: ChampInscription[] = [
     colonne: 'attestationAquatique', sante: false,
     aide: "Pass-nautique, Savoir-nager (ASNS), Sauv'nage, aisance aquatique ou équivalent — requis pour les activités aquatiques et nautiques.",
     options: [ { value: 'FOURNIE', label: 'Fournie' }, { value: 'NON_FOURNIE', label: 'Non fournie' }, { value: 'NON_CONCERNE', label: 'Non concerné' } ] },
-  { cle: 'regimeAlimentaire',  libelle: 'Régime alimentaire',          bloc: 'B', type: 'select',  colonne: 'regimeAlimentaire', sante: false,
+  { cle: 'regimeAlimentaire',  libelle: 'Régime alimentaire',          bloc: 'B', type: 'select',  colonne: 'regimeAlimentaire', sante: false, sensible: true,
     options: [ { value: 'Aucun régime particulier', label: 'Aucun régime particulier' }, { value: 'Végétarien', label: 'Végétarien' }, { value: 'Végétalien/Vegan', label: 'Végétalien/Vegan' }, { value: 'Sans porc', label: 'Sans porc' }, { value: 'Sans gluten', label: 'Sans gluten' }, { value: 'Autre', label: 'Autre' } ] },
-  { cle: 'allergies',          libelle: 'Allergies / intolérances',    bloc: 'B', type: 'text', colonne: 'allergies',      sante: true },
-  { cle: 'infosMedicales',     libelle: 'Informations médicales',      bloc: 'B', type: 'text', colonne: 'infosMedicales', sante: true },
+  { cle: 'allergies',          libelle: 'Allergies / intolérances',    bloc: 'B', type: 'text', colonne: 'allergies',      sante: true, valeurAucune: 'Aucune' },
+  { cle: 'infosMedicales',     libelle: 'Informations médicales',      bloc: 'B', type: 'text', colonne: 'infosMedicales', sante: true, valeurAucune: 'Aucune' },
 ];
 
 export const CHAMP_PAR_CLE: Record<string, ChampInscription> =
