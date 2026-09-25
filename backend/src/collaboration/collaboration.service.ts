@@ -404,6 +404,11 @@ export class CollaborationService {
         // explicite rendrait invisibles des valeurs pourtant persistées.
         allergies: true,
         attestationAquatique: true,
+        // SC7 : la grille et le tableau affichent le sexe (posé par
+        // l'organisateur/hébergeur, et désormais déclaré par le parent à la
+        // signature) — sans lui le select explicite le rend invisible alors
+        // qu'il est persisté.
+        hebergementCategorie: true,
         documentMedicalUrl: true,
         nomParent: true,
         telephoneUrgence: true,
