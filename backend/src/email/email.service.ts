@@ -298,6 +298,9 @@ export class EmailService {
     fromName?: string,
     replyTo?: { name: string; email: string },
     button?: { text: string; url: string } | null,
+    // LOT CONV : pièce jointe optionnelle (passe-plat vers send) — les dossiers
+    // OVH sensibles étant privés, un document s'envoie EN PJ, jamais par URL brute.
+    attachment?: Array<{ content: string; name: string }>,
   ) {
     const btnText = button === undefined ? 'Accéder à la plateforme' : button?.text;
     const btnUrl = button === undefined ? `${FRONTEND_URL}/login` : button?.url;
@@ -308,7 +311,7 @@ export class EmailService {
       btnUrl,
       replyTo?.name,
     );
-    await this.send(to, subject, html, fromName, replyTo);
+    await this.send(to, subject, html, fromName, replyTo, attachment);
   }
 
   /**

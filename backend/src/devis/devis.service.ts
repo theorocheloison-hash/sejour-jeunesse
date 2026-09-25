@@ -36,6 +36,12 @@ import {
 const MSG_CENTRE_EN_VERIFICATION =
   "Ce devis n'est pas encore signable : le centre est en cours de vérification par l'équipe LIAVO.";
 
+// LOT CONV — la convention part EN PIÈCE JOINTE (le dossier OVH `conventions`
+// est privé : une URL brute donne AccessDenied). Brevo plafonne les pièces
+// jointes (~10 Mo, +33 % d'encodage base64) : au-delà de 7 Mo de PDF on refuse
+// avec un message actionnable plutôt que d'échouer silencieusement chez Brevo.
+const TAILLE_MAX_PJ_CONVENTION = 7 * 1024 * 1024;
+
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
   return str
@@ -2295,6 +2301,14 @@ export class DevisService {
     const sujetConvention = `Convention de séjour — ${built.sejourTitre} · ${built.centreNom}`;
 
     if (built.contactEmail) {
+      // LOT CONV — garde-fou taille AVANT tout envoi : la PJ base64 (+33 %)
+      // doit passer sous la limite Brevo. L'upload OVH et conventionUrl sont
+      // déjà posés : le PDF reste téléchargeable depuis LIAVO.
+      if (built.buffer.length > TAILLE_MAX_PJ_CONVENTION) {
+        throw new BadRequestException(
+          'La convention fait plus de 7 Mo (le modèle PDF du centre est trop lourd pour être envoyé par email). Téléchargez-la depuis LIAVO et envoyez-la vous-même, ou allégez le modèle dans votre profil.',
+        );
+      }
       // Validation non acquise (centre PENDING ou revendication en attente) :
       // envoi externe interdit, sauf vers sa propre adresse (test onboarding).
       // La génération/l'upload restent autorisés.
@@ -2310,27 +2324,26 @@ export class DevisService {
         built.contactEmail,
         me?.email ?? '',
       );
+      // LOT CONV — le PDF part EN PIÈCE JOINTE (buffer déjà construit, aucun
+      // re-téléchargement OVH) : le dossier `conventions` est privé, une URL
+      // brute donnait AccessDenied chez le destinataire depuis le 19/06.
       await this.email.sendGenericNotification(
         built.contactEmail,
         sujetConvention,
         `<p>Bonjour${built.contactNom !== 'l\'établissement' ? ` ${built.contactNom}` : ''},</p>
-         <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe au Chalet ${built.centreNom}.</p>
+         <p>Veuillez trouver ci-dessous la convention de séjour scolaire pour votre groupe chez ${built.centreNom}.</p>
          <table style="width:100%;border-collapse:collapse;margin:16px 0">
            <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Séjour</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.sejourTitre}</td></tr>
            <tr><td style="padding:8px 12px;font-size:13px;color:#666">Dates</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.dateDebutFmt} → ${built.dateFinFmt}</td></tr>
            <tr style="background:#f5f7fa"><td style="padding:8px 12px;font-size:13px;color:#666">Effectif</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.effectifEleves} élèves · ${built.effectifEncadrants} encadrants</td></tr>
            <tr><td style="padding:8px 12px;font-size:13px;color:#666">Centre</td><td style="padding:8px 12px;font-size:13px;font-weight:600">${built.centreNom}</td></tr>
          </table>
-         <p>Merci de nous retourner un exemplaire signé, précédé de la mention « lu et approuvé ».</p>
-         <p style="margin:24px 0">
-           <a href="${conventionUrl}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-             Télécharger la convention
-           </a>
-         </p>
-         <p style="font-size:12px;color:#9ca3af;">Si vous ne pouvez pas cliquer sur le bouton, copiez ce lien : ${conventionUrl}</p>`,
+         <p>Vous trouverez la convention de séjour en pièce jointe.</p>
+         <p>Merci de nous retourner un exemplaire signé, précédé de la mention « lu et approuvé ».</p>`,
         built.centreNom,
         built.centreEmail ? { name: built.centreNom, email: built.centreEmail } : undefined,
         null,
+        [{ content: built.buffer.toString('base64'), name: built.fileName }],
       );
     }
 
