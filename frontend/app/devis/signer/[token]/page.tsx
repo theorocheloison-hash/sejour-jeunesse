@@ -375,6 +375,15 @@ export default function SignerDevisPage() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
+        {/* S1 : centre en cours de vérification → aperçu seul, signature bloquée
+            (le backend refuse de toute façon — le bandeau explique pourquoi). */}
+        {!estSigne && !estNonRetenu && devis.centreEnValidation && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            Aperçu — ce centre est en cours de vérification par l&apos;équipe LIAVO.
+            Ce devis ne peut pas encore être signé.
+          </div>
+        )}
+
         {!estSigne && !estNonRetenu && (
           <SignatureDevisPanel
             contratUrl={devis.contratUrl}
@@ -382,6 +391,7 @@ export default function SignerDevisPage() {
             onSigner={handleSign}
             onEnvoyerDirection={handleSendDirection}
             onUpload={handleUpload}
+            desactive={!!devis.centreEnValidation}
           />
         )}
 

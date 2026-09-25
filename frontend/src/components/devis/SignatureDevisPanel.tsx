@@ -13,6 +13,9 @@ interface SignatureDevisPanelProps {
   onSigner: (body: { nomSignataire: string; fonctionSignataire?: string; confirmation: true }) => Promise<void>;
   onEnvoyerDirection: (body: { emailDirecteur: string }) => Promise<void>;
   onUpload: (file: File) => Promise<void>;
+  /** S1 : centre en cours de vérification → les 3 gestes de signature sont bloqués
+   *  (le backend refuse de toute façon ; le bandeau explicatif vit chez le parent). */
+  desactive?: boolean;
 }
 
 /**
@@ -27,6 +30,7 @@ export default function SignatureDevisPanel({
   onSigner,
   onEnvoyerDirection,
   onUpload,
+  desactive = false,
 }: SignatureDevisPanelProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>(ongletsDisponibles[0]);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +146,7 @@ export default function SignatureDevisPanel({
               </span>
             </label>
             <button onClick={handleSign}
-              disabled={signing || !nomSignataire.trim() || !accepted}
+              disabled={desactive || signing || !nomSignataire.trim() || !accepted}
               className="w-full rounded-lg bg-[#1B4060] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {signing ? 'Signature en cours…' : '✍️ Signer le devis'}
             </button>
@@ -162,7 +166,7 @@ export default function SignatureDevisPanel({
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4060]" />
             </div>
             <button onClick={handleSendDirection}
-              disabled={sendingDirection || !emailDirecteur.trim()}
+              disabled={desactive || sendingDirection || !emailDirecteur.trim()}
               className="w-full rounded-lg bg-[#1B4060] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {sendingDirection ? 'Envoi en cours…' : '📨 Envoyer pour signature'}
             </button>
@@ -198,7 +202,7 @@ export default function SignatureDevisPanel({
                 onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
             </div>
             <button onClick={handleUpload}
-              disabled={uploading || !uploadFile}
+              disabled={desactive || uploading || !uploadFile}
               className="w-full rounded-lg bg-[#1B4060] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
               {uploading ? 'Envoi en cours…' : '📄 Envoyer le document signé'}
             </button>

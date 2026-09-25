@@ -795,6 +795,9 @@ export interface DevisPublic {
   createdAt: string;
   documentUrl: string | null;
   isSigned: boolean;
+  // S1 : centre en cours de vérification → aperçu seul, signature bloquée.
+  // Optionnel : un back antérieur ne le renvoie pas (déploiement parallèle).
+  centreEnValidation?: boolean;
   signatureDirecteur: string | null;
   nomSignataireDirecteur: string | null;
   dateSignatureDirecteur: string | null;
