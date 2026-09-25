@@ -14,6 +14,7 @@ import { peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
 import { CLES_BLOC_B, CHAMP_PAR_CLE } from '../common/champs-inscription.constants.js';
+import { escapeHtml } from '../utils/escape-html.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
 
@@ -1373,6 +1374,110 @@ export class SejourService {
       data: { champsInscription: { champsActifs } },
     });
     return { champsInscription: { champsActifs } };
+  }
+
+  /**
+   * B4 — « qui tient la main » sur les inscriptions d'un séjour COLLABORATIF
+   * (PATCH /sejours/:id/responsable-inscriptions, HEBERGEUR sejours:WRITE).
+   * Posé TOUJOURS par l'hébergeur, exclusif et réversible, après l'ouverture des
+   * inscriptions (champs demandés choisis). Ne touche AUCUNE donnée d'inscription :
+   * inscrits, liens déjà envoyés et signatures restent en place, seuls les droits
+   * d'écriture changent (cf. peutEcrireInscriptions). Sans effet possible sur un
+   * DIRECT (l'hébergeur y tient la main d'office) → refusé.
+   * Changement effectif → email à l'organisateur rattaché + message de trace dans
+   * l'espace collaboratif (non bloquants). Même valeur → no-op, rien n'est notifié.
+   */
+  async updateResponsableInscriptions(
+    sejourId: string,
+    responsableInput: unknown,
+    userId: string,
+    centreId?: string | null,
+  ) {
+    if (responsableInput !== 'ORGANISATEUR' && responsableInput !== 'HEBERGEUR') {
+      throw new BadRequestException('responsable doit valoir ORGANISATEUR ou HEBERGEUR');
+    }
+    const responsable = responsableInput;
+
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: sejourId },
+      select: {
+        id: true,
+        titre: true,
+        deletedAt: true,
+        natureSejour: true,
+        modeGestion: true,
+        champsInscription: true,
+        responsableInscriptions: true,
+        hebergementSelectionneId: true,
+        hebergementSelectionne: { select: { nom: true } },
+        createur: { select: { email: true, prenom: true } },
+      },
+    });
+    if (!sejour || sejour.deletedAt) throw new NotFoundException('Séjour introuvable');
+    if (sejour.hebergementSelectionneId !== centre.id) {
+      throw new ForbiddenException('Ce séjour ne vous appartient pas');
+    }
+    if (sejour.natureSejour !== 'SEJOUR') {
+      throw new BadRequestException('Les inscriptions ne concernent que les séjours');
+    }
+    if (sejour.modeGestion !== 'COLLABORATIF') {
+      throw new BadRequestException(
+        'Ce choix ne concerne que les séjours partagés avec un organisateur : sur un séjour géré par votre centre, vous gérez déjà les inscriptions.',
+      );
+    }
+    if (!sejour.champsInscription) {
+      throw new BadRequestException(
+        'Choisissez d\'abord les informations demandées aux familles (ouverture des inscriptions).',
+      );
+    }
+
+    if (sejour.responsableInscriptions === responsable) {
+      return { responsableInscriptions: responsable };
+    }
+
+    await this.prisma.sejour.update({
+      where: { id: sejourId },
+      data: { responsableInscriptions: responsable },
+    });
+
+    const nomCentre = sejour.hebergementSelectionne?.nom ?? 'Le centre';
+    const texteTrace = responsable === 'HEBERGEUR'
+      ? `[Information automatique] ${nomCentre} gère désormais la liste des inscrits de ce séjour. L'organisateur garde l'accès en lecture.`
+      : `[Information automatique] ${nomCentre} a rendu la main à l'organisateur sur les inscriptions de ce séjour.`;
+    try {
+      await this.prisma.message.create({ data: { sejourId, auteurId: userId, contenu: texteTrace } });
+    } catch { /* trace non bloquante */ }
+
+    const orga = sejour.createur;
+    if (orga?.email) {
+      const lien = `${FRONTEND_URL}/dashboard/sejour/${sejour.id}`;
+      const titre = escapeHtml(sejour.titre);
+      const centreHtml = escapeHtml(nomCentre);
+      const corps = responsable === 'HEBERGEUR'
+        ? `<p>Bonjour ${escapeHtml(orga.prenom ?? '')},</p>
+         <p><strong>${centreHtml}</strong> prend en charge la liste des inscrits de votre séjour <strong>${titre}</strong> (saisie des élèves, import de la liste).</p>
+         <p>Vous gardez l'accès à la liste et aux fiches des élèves, en lecture. L'ajout d'élèves et l'envoi des liens d'autorisation aux familles ne sont plus disponibles de votre côté tant que le centre gère les inscriptions : pour reprendre la main, demandez-le au centre.</p>`
+        : `<p>Bonjour ${escapeHtml(orga.prenom ?? '')},</p>
+         <p><strong>${centreHtml}</strong> vous rend la main sur les inscriptions de votre séjour <strong>${titre}</strong>.</p>
+         <p>Vous pouvez à nouveau ajouter et modifier les élèves et envoyer les liens d'autorisation aux familles. La liste déjà constituée est conservée.</p>`;
+      this.email
+        .sendGenericNotification(
+          orga.email,
+          responsable === 'HEBERGEUR'
+            ? `Inscriptions — ${sejour.titre} : le centre prend le relais`
+            : `Inscriptions — ${sejour.titre} : vous reprenez la main`,
+          `${corps}
+         <p style="margin:24px 0"><a href="${lien}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">Voir le séjour</a></p>`,
+          undefined,
+          undefined,
+          null,
+        )
+        .catch(() => {});
+    }
+
+    return { responsableInscriptions: responsable };
   }
 
   /**

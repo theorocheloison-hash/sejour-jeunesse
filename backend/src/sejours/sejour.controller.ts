@@ -202,6 +202,23 @@ export class SejourController {
   }
 
   /**
+   * PATCH /sejours/:id/responsable-inscriptions — B4 « qui tient la main » sur les
+   * inscriptions d'un séjour COLLABORATIF (HEBERGEUR sejours:WRITE) :
+   * { responsable: 'ORGANISATEUR' | 'HEBERGEUR' }.
+   */
+  @Patch(':id/responsable-inscriptions')
+  @Roles(Role.HEBERGEUR)
+  @RequirePermission('sejours')
+  updateResponsableInscriptions(
+    @Param('id') id: string,
+    @Body() body: { responsable: string },
+    @CurrentUser() user: JwtUser,
+    @CentreId() centreId: string | null,
+  ) {
+    return this.sejourService.updateResponsableInscriptions(id, body?.responsable, user.id, centreId);
+  }
+
+  /**
    * GET /sejours/:id/champs-inscription/verrouilles — Clés Bloc B déjà remplies
    * par ≥1 inscrit (HEBERGEUR, Lot 5c-B) : l'écran d'ouverture les grise en amont.
    */
