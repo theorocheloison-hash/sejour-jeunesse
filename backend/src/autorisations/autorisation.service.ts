@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
+import { CHAMP_PAR_CLE, CLES_BLOC_B } from '../common/champs-inscription.constants.js';
 import { peutEcrireSejourEnPropre, peutGererEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -35,7 +36,9 @@ export interface ParticipantDirectInput {
   allergies?: string | null;
   // Lot 5a-bis : FOURNIE | NON_FOURNIE | NON_CONCERNE (validé par le DTO)
   attestationAquatique?: string | null;
-  // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
+  // SC7 : catégorie d'hébergement — déclarée par le parent à la signature si le
+  // séjour demande « sexe », sinon posée par l'organisateur/hébergeur ; reste
+  // modifiable après signature. null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }
 
@@ -333,41 +336,78 @@ export class AutorisationService {
 
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { tokenAcces: token },
+      select: {
+        id: true,
+        tokenExpiresAt: true,
+        sejour: { select: { champsInscription: true } },
+      },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
     assertTokenNotExpired(autorisation.tokenExpiresAt, 'Autorisation');
-    if (autorisation.signeeAt)
-      throw new ConflictException('Cette autorisation a déjà été signée');
 
-    return this.prisma.autorisationParentale.update({
-      where: { tokenAcces: token },
-      data: {
-        signeeAt: new Date(),
-        signatureIpAddress: ipAddress ?? null,
-        signatureHash: createHash('sha256')
-          .update(`${autorisation.id}${token}${new Date().toISOString()}`)
-          .digest('hex'),
-        taille: dto.taille ?? null,
-        poids: dto.poids ?? null,
-        pointure: dto.pointure ?? null,
-        regimeAlimentaire: dto.regimeAlimentaire ?? null,
-        niveauSki: dto.niveauSki ?? null,
-        infosMedicales: dto.infosMedicales ?? null,
-        // Lot 7a : santé structurée + attestation (formulaire parent dynamique)
-        allergies: dto.allergies ?? null,
-        attestationAquatique: dto.attestationAquatique ?? null,
-        nomParent: dto.nomParent ?? null,
-        telephoneUrgence: dto.telephoneUrgence ?? null,
-        eleveDateNaissance: dto.eleveDateNaissance ? new Date(dto.eleveDateNaissance) : null,
-        rgpdAccepte: true,
-        rgpdAccepteAt: new Date(),
-        rgpdVersionCgu: process.env.CGU_VERSION ?? '1.0',
-        consentementMedical: dto.consentementMedical ?? false,
-        consentementMedicalAt: dto.consentementMedical ? new Date() : null,
-        nombreMensualites: dto.nombreMensualites ?? 1,
-        moyenPaiement: dto.moyenPaiement ?? null,
-      },
+    // Snapshot lisible = { champsActifs: tableau de chaînes } ; null ou malformé
+    // = PAS de snapshot → AUCUN champ du Bloc B écrit (le séjour n'a rien demandé).
+    const brut = (autorisation.sejour.champsInscription as { champsActifs?: unknown } | null)
+      ?.champsActifs;
+    const champsActifs: string[] | null =
+      Array.isArray(brut) && brut.every((c) => typeof c === 'string')
+        ? (brut as string[])
+        : null;
+
+    // « Fourni » : undefined → non fourni ; chaîne vide après trim → non fournie.
+    // Une valeur existante (saisie/import organisateur ou hébergeur) n'est
+    // JAMAIS remise à null par la signature.
+    const estFourni = (v: unknown): boolean =>
+      v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
+
+    const now = new Date();
+    // Construction EXPLICITE — jamais de spread du dto : seules les colonnes
+    // listées ici (+ Bloc A/B gérés ci-dessous) peuvent être touchées.
+    const data: Prisma.AutorisationParentaleUpdateManyMutationInput = {
+      signeeAt: now,
+      signatureIpAddress: ipAddress ?? null,
+      signatureHash: createHash('sha256')
+        .update(`${autorisation.id}${token}${now.toISOString()}`)
+        .digest('hex'),
+      rgpdAccepte: true,
+      rgpdAccepteAt: now,
+      rgpdVersionCgu: process.env.CGU_VERSION ?? '1.0',
+      consentementMedical: dto.consentementMedical ?? false,
+      consentementMedicalAt: dto.consentementMedical ? now : null,
+      nombreMensualites: dto.nombreMensualites ?? 1,
+      moyenPaiement: dto.moyenPaiement ?? null,
+    };
+
+    // Bloc A (contact/identité) : écrit SEULEMENT si fourni, avec ou sans snapshot.
+    if (estFourni(dto.nomParent)) data.nomParent = dto.nomParent!.trim();
+    if (estFourni(dto.telephoneUrgence)) data.telephoneUrgence = dto.telephoneUrgence!.trim();
+    const dateNaissance = parseDateOrNull(dto.eleveDateNaissance);
+    if (dateNaissance) data.eleveDateNaissance = dateNaissance;
+
+    // Bloc B : écrit SEULEMENT si fourni ET demandé par le séjour (cle ∈
+    // champsActifs). « sexe » s'écrit en hebergementCategorie via CHAMP_PAR_CLE ;
+    // les colonnes viennent de la constante, jamais du payload.
+    if (champsActifs) {
+      const valeurs = dto as unknown as Record<string, unknown>;
+      const cible = data as Record<string, unknown>;
+      for (const cle of CLES_BLOC_B) {
+        const valeur = valeurs[cle];
+        if (!estFourni(valeur)) continue;
+        if (!champsActifs.includes(cle)) continue;
+        cible[CHAMP_PAR_CLE[cle].colonne] = typeof valeur === 'string' ? valeur.trim() : valeur;
+      }
+    }
+
+    // Atomicité : le filtre signeeAt: null fait le check-and-set en UNE requête
+    // (plus de fenêtre entre lecture et écriture).
+    const { count } = await this.prisma.autorisationParentale.updateMany({
+      where: { tokenAcces: token, signeeAt: null },
+      data,
     });
+    if (count === 0) throw new ConflictException('Cette autorisation a déjà été signée');
+
+    // Route publique : ne jamais renvoyer la ligne (IP, hash, token, santé).
+    return { signeeAt: now };
   }
 
   async uploadDocumentMedical(token: string, file: Express.Multer.File, type?: string) {
@@ -686,7 +726,8 @@ export class AutorisationService {
    * Mise à jour inline d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6).
    * Après signature : seuls les champs logistiques restent modifiables
    * (taille, poids, pointure, niveauSki, regimeAlimentaire,
-   * hebergementCategorie — donnée d'organisation interne, hors consentement parent).
+   * hebergementCategorie — hors consentement parent, aussi déclarable par le
+   * parent à la signature).
    */
   async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
@@ -729,7 +770,8 @@ export class AutorisationService {
     // Lot 5a-bis : attestation aquatique = logistique (comme taille/pointure),
     // modifiable après signature — PAS dans CHAMPS_VERROUILLES
     if (body.attestationAquatique !== undefined) data.attestationAquatique = body.attestationAquatique ?? null;
-    // SC7 : organisation interne, pas de consentement parent → jamais verrouillé
+    // SC7 : hors consentement parent (même si le parent peut le déclarer à la
+    // signature) → jamais verrouillé, l'organisateur/hébergeur peut recatégoriser
     if (body.hebergementCategorie !== undefined) data.hebergementCategorie = body.hebergementCategorie ?? null;
 
     // Verrouillés (seulement si non signée — garanti par le check ci-dessus)

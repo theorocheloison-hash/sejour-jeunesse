@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, Max } from 'class-validator';
 
 export class SignerAutorisationDto {
   @IsOptional()
@@ -18,10 +18,12 @@ export class SignerAutorisationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   regimeAlimentaire?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   niveauSki?: string;
 
   @IsOptional()
@@ -37,12 +39,20 @@ export class SignerAutorisationDto {
   @IsIn(['FOURNIE', 'NON_FOURNIE', 'NON_CONCERNE'])
   attestationAquatique?: string;
 
+  // Bloc B « sexe » (décision 25/09) : le parent le déclare si le séjour l'a
+  // demandé — écrit en hebergementCategorie par signer() via CHAMP_PAR_CLE.
+  @IsOptional()
+  @IsIn(['FILLE', 'GARCON', 'AUTRE'])
+  sexe?: 'FILLE' | 'GARCON' | 'AUTRE';
+
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   nomParent?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   telephoneUrgence?: string;
 
   @IsOptional()
@@ -60,6 +70,7 @@ export class SignerAutorisationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   moyenPaiement?: string;
 
   @IsOptional()

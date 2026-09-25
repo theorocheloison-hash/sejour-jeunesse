@@ -15,7 +15,8 @@ export class CreateAutorisationDto {
   @IsEmail()
   parentEmail!: string;
 
-  // SC7 : donnée d'organisation interne (organisateur), jamais côté parent.
+  // SC7 : posée ici par l'organisateur ; le parent peut aussi la déclarer à la
+  // signature si le séjour demande « sexe ».
   @IsOptional()
   @IsIn(['FILLE', 'GARCON', 'AUTRE'])
   hebergementCategorie?: string;
