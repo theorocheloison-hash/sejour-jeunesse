@@ -96,10 +96,11 @@ export async function assertEnvoiExterneAutorise(
     return;
   }
 
-  if (await estCentreValide(prisma, centre)) return;
+  const cause = await statutValidationCentre(prisma, centre);
+  if (cause === 'VALIDE') return;
 
   // Message selon la cause (règles 2 et 3 historiques, comportement inchangé).
-  if (centre.statut !== 'ACTIVE') {
+  if (cause === 'CENTRE_EN_ATTENTE') {
     // 2. Centre non validé (PENDING) — inscription ex-nihilo.
     throw new ForbiddenException(
       `CENTRE_EN_VALIDATION|Votre centre est en cours de validation par l'équipe LIAVO. En attendant, vous pouvez tester tous les envois vers votre propre adresse email (${userEmail}).`,
@@ -111,21 +112,26 @@ export async function assertEnvoiExterneAutorise(
   );
 }
 
+/** Cause de non-validation d'un centre (S4) — 'VALIDE' | centre pas encore
+ *  activé | revendication du propriétaire en attente/refusée. */
+export type StatutValidationCentre = 'VALIDE' | 'CENTRE_EN_ATTENTE' | 'REVENDICATION_EN_ATTENTE';
+
 /**
- * Prédicat UNIQUE de validation d'un centre (S1) — source de vérité des règles
- * 2 et 3 d'assertEnvoiExterneAutorise, consommé aussi par la surface publique
- * de signature (devis.service) et la relance cron. Ne pas dupliquer la règle.
- * - statut ACTIVE requis (PENDING → non validé ; SUSPENDED n'arrive pas ici,
- *   filtré en amont par getCentreForUser) ;
- * - centre revendiqué (organisationId + userId) : claimStatut du propriétaire
- *   hors EN_ATTENTE_DOCUMENT / EN_ATTENTE_VALIDATION / REFUSE ;
- * - membership absent, NON_APPLICABLE ou centre legacy sans organisation → validé.
+ * Source UNIQUE de la cause de non-validation d'un centre (S1 → S4) — règles
+ * consommées par assertEnvoiExterneAutorise, la surface publique de signature
+ * (devis.service), la relance cron et le verrou coordonnées (updateMonProfil).
+ * Ne pas dupliquer la règle.
+ * - statut ≠ ACTIVE → CENTRE_EN_ATTENTE (PENDING, inscription ex-nihilo ;
+ *   SUSPENDED n'arrive pas ici, filtré en amont par getCentreForUser) ;
+ * - centre revendiqué (organisationId + userId) avec claimStatut du propriétaire
+ *   EN_ATTENTE_DOCUMENT / EN_ATTENTE_VALIDATION / REFUSE → REVENDICATION_EN_ATTENTE ;
+ * - membership absent, NON_APPLICABLE ou centre legacy sans organisation → VALIDE.
  */
-export async function estCentreValide(
+export async function statutValidationCentre(
   prisma: PrismaService,
   centre: { statut: string; organisationId: string | null; userId: string | null },
-): Promise<boolean> {
-  if (centre.statut !== 'ACTIVE') return false;
+): Promise<StatutValidationCentre> {
+  if (centre.statut !== 'ACTIVE') return 'CENTRE_EN_ATTENTE';
   if (centre.organisationId && centre.userId) {
     const membership = await prisma.membership.findUnique({
       where: {
@@ -140,10 +146,18 @@ export async function estCentreValide(
       membership &&
       ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION', 'REFUSE'].includes(membership.claimStatut)
     ) {
-      return false;
+      return 'REVENDICATION_EN_ATTENTE';
     }
   }
-  return true;
+  return 'VALIDE';
+}
+
+/** Prédicat S1 (signature inchangée) — wrapper de statutValidationCentre. */
+export async function estCentreValide(
+  prisma: PrismaService,
+  centre: { statut: string; organisationId: string | null; userId: string | null },
+): Promise<boolean> {
+  return (await statutValidationCentre(prisma, centre)) === 'VALIDE';
 }
 
 export async function getCentresForUser(prisma: PrismaService, userId: string) {

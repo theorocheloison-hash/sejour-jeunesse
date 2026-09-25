@@ -19,13 +19,57 @@ import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_CONFIRMES } from '../sejours/sejour-statuts.constants.js';
-import { getCentreForUser, getCentresForUser } from './centre.helper.js';
+import { getCentreForUser, getCentresForUser, statutValidationCentre } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { matchesCapacite } from '../demandes/demande.service.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
 import { getPlanEffectif, PLAN_HIERARCHY } from '../abonnements/abonnement.constants.js';
 import { trialExpiration } from './trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
+
+// ── S4 : verrou des coordonnées d'un centre ACTIF revendiqué non validé ──────
+// Ces 10 champs identifient/paient le centre : tant que la revendication du
+// propriétaire n'est pas validée par l'équipe LIAVO, ils ne peuvent pas être
+// modifiés via updateMonProfil (anti-détournement IBAN/SIRET/email d'un centre
+// catalogue). Le reste du profil (description, capacités, images…) reste libre.
+export const CHAMPS_COORDONNEES_VERROUILLES = [
+  'nom', 'adresse', 'codePostal', 'ville', 'telephone', 'email',
+  'siteWeb', 'siret', 'tvaIntracommunautaire', 'iban',
+] as const;
+
+export const LIBELLES_COORDONNEES: Record<string, string> = {
+  nom: 'nom', adresse: 'adresse', codePostal: 'code postal', ville: 'ville',
+  telephone: 'téléphone', email: 'email', siteWeb: 'site web', siret: 'SIRET',
+  tvaIntracommunautaire: 'TVA intracommunautaire', iban: 'IBAN',
+};
+
+/**
+ * S4 — normalisation COMMUNE pour comparer « valeur reçue » et « valeur
+ * stockée » sans faux positifs : l'écran renvoie tout le formulaire à chaque
+ * save, et les valeurs stockées (imports LMDJ/APIDAE, saisies historiques)
+ * ne sont pas normalisées. null/undefined/'' sont équivalents ; le DTO ajoute
+ * https:// au siteWeb → la même règle est appliquée à la valeur stockée.
+ * Fonction pure, testée dans verrou-coordonnees.spec.ts.
+ */
+export function normaliserChampCoordonnee(champ: string, valeur: unknown): string {
+  if (valeur === null || valeur === undefined) return '';
+  const brut = String(valeur).trim();
+  if (brut === '') return '';
+  switch (champ) {
+    case 'iban':
+    case 'siret':
+    case 'tvaIntracommunautaire':
+      return brut.replace(/[\s.\-]/g, '').toUpperCase();
+    case 'email':
+      return brut.toLowerCase();
+    case 'telephone':
+      return brut.replace(/[^0-9+]/g, '');
+    case 'siteWeb':
+      return /^https?:\/\//i.test(brut) ? brut : `https://${brut}`;
+    default:
+      return brut;
+  }
+}
 import { CLES_BLOC_B } from '../common/champs-inscription.constants.js';
 
 // Garde-fou galerie multi-photos (§3.11).
@@ -1310,21 +1354,56 @@ export class CentreService {
   }
 
   async getMonProfil(userId: string, centreId?: string | null) {
-    return getCentreForUser(this.prisma, userId, centreId);
+    const centre = await getCentreForUser(this.prisma, userId, centreId);
+    // S4 : le front grise les coordonnées tant que la revendication n'est pas
+    // validée (le verrou serveur d'updateMonProfil reste l'autorité).
+    const coordonneesVerrouillees =
+      (await statutValidationCentre(this.prisma, centre)) === 'REVENDICATION_EN_ATTENTE';
+    return { ...centre, coordonneesVerrouillees };
   }
 
   async updateMonProfil(userId: string, dto: UpdateCentreDto, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
 
+    // S4 — verrou À LA SOURCE : un centre ACTIF dont la revendication du
+    // propriétaire n'est pas validée ne peut pas changer ses coordonnées
+    // (anti-détournement : IBAN/SIRET/email d'un centre catalogue revendiqué).
+    // Le formulaire renvoie TOUT à chaque save → on compare après normalisation
+    // et on RETIRE les champs présents-mais-inchangés ; seule une VRAIE
+    // modification est refusée. PENDING ex-nihilo et VALIDE : inchangés.
+    let dtoEffectif: UpdateCentreDto = dto;
+    if ((await statutValidationCentre(this.prisma, centre)) === 'REVENDICATION_EN_ATTENTE') {
+      const stocke = centre as unknown as Record<string, unknown>;
+      const recu = dto as unknown as Record<string, unknown>;
+      const modifies: string[] = [];
+      dtoEffectif = { ...dto };
+      for (const champ of CHAMPS_COORDONNEES_VERROUILLES) {
+        if (recu[champ] === undefined) continue;
+        if (
+          normaliserChampCoordonnee(champ, recu[champ]) !==
+          normaliserChampCoordonnee(champ, stocke[champ])
+        ) {
+          modifies.push(LIBELLES_COORDONNEES[champ]);
+        } else {
+          delete (dtoEffectif as Record<string, unknown>)[champ];
+        }
+      }
+      if (modifies.length > 0) {
+        throw new ForbiddenException(
+          `Ces informations (${modifies.join(', ')}) seront modifiables dès que l'équipe LIAVO aura validé votre revendication du centre.`,
+        );
+      }
+    }
+
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
-        ...dto,
+        ...dtoEffectif,
         // departement normalisé vers le code INSEE (override le ...dto brut).
-        ...(dto.departement !== undefined && { departement: normaliserDepartement(dto.departement) }),
-        ...(dto.equipements !== undefined && { equipements: { set: dto.equipements } }),
-        ...(dto.thematiquesCentre !== undefined && { thematiquesCentre: { set: dto.thematiquesCentre } }),
-        ...(dto.activitesCentre !== undefined && { activitesCentre: { set: dto.activitesCentre } }),
+        ...(dtoEffectif.departement !== undefined && { departement: normaliserDepartement(dtoEffectif.departement) }),
+        ...(dtoEffectif.equipements !== undefined && { equipements: { set: dtoEffectif.equipements } }),
+        ...(dtoEffectif.thematiquesCentre !== undefined && { thematiquesCentre: { set: dtoEffectif.thematiquesCentre } }),
+        ...(dtoEffectif.activitesCentre !== undefined && { activitesCentre: { set: dtoEffectif.activitesCentre } }),
       },
     });
   }
