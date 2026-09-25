@@ -58,8 +58,12 @@ export default function EnvoiInvitationsFamilles({ sejourId, participants }: Pro
       setResultat(`${r.sent} invitation${r.sent > 1 ? 's' : ''} envoyée${r.sent > 1 ? 's' : ''}${r.errors.length ? ` — ${r.errors.length} échec(s)` : ''}`);
       await charger();
     } catch (e: any) {
-      // 400 actionnable du back (ex. email de centre manquant) → montré tel quel
-      setErreur(e?.response?.data?.message ?? "L'envoi a échoué. Réessayez.");
+      // 403 PLAN_INSUFFICIENT : la modale globale (api.ts) affiche déjà le message.
+      if (e?.response?.status === 403 && e?.response?.data?.error === 'PLAN_INSUFFICIENT') return;
+      // 400 actionnable (ex. email de centre manquant) ou 403 « CODE|message »
+      // (centre en validation) → partie lisible seulement.
+      const msg: unknown = e?.response?.data?.message;
+      setErreur(typeof msg === 'string' ? msg.replace(/^CENTRE_EN_VALIDATION\|/, '') : "L'envoi a échoué. Réessayez.");
     }
     finally { setSending(false); }
   };
