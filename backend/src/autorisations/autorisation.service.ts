@@ -58,6 +58,68 @@ function lireChampsActifs(json: unknown): string[] | null {
     : null;
 }
 
+// Back 3 — validation serveur du formulaire parent : MÊMES règles que la page
+// (champ actif = obligatoire, bornes des numbers, options des selects, réponse
+// explicite sur les champs à valeurAucune, consentement si santé demandée).
+// Pure (aucune dépendance service) : testée unitairement dans
+// signature-parent.spec.ts. Retourne les libellés manquants/invalides.
+export function erreursSignatureParent(
+  dto: SignerAutorisationDto,
+  champsActifs: string[] | null,
+): string[] {
+  const erreurs: string[] = [];
+  const valeurs = dto as unknown as Record<string, unknown>;
+
+  // Bloc A — toujours obligatoire, avec ou sans snapshot
+  if (typeof dto.nomParent !== 'string' || !dto.nomParent.trim())
+    erreurs.push(CHAMP_PAR_CLE['nomParent'].libelle);
+  if (typeof dto.telephoneUrgence !== 'string' || !dto.telephoneUrgence.trim())
+    erreurs.push(CHAMP_PAR_CLE['telephoneUrgence'].libelle);
+  if (!parseDateOrNull(dto.eleveDateNaissance))
+    erreurs.push(CHAMP_PAR_CLE['eleveDateNaissance'].libelle);
+
+  // Pas de snapshot lisible → formulaire limité au Bloc A
+  if (!champsActifs) return erreurs;
+
+  let santeActive = false;
+  for (const cle of CLES_BLOC_B) {
+    if (!champsActifs.includes(cle)) continue;
+    const champ = CHAMP_PAR_CLE[cle];
+    if (champ.sante) santeActive = true;
+    const valeur = valeurs[cle];
+
+    if (champ.type === 'number') {
+      if (
+        typeof valeur !== 'number' || !Number.isInteger(valeur) ||
+        (champ.min !== undefined && valeur < champ.min) ||
+        (champ.max !== undefined && valeur > champ.max)
+      )
+        erreurs.push(`${champ.libelle} (entre ${champ.min} et ${champ.max})`);
+      continue;
+    }
+    if (champ.valeurAucune) {
+      // Réponse explicite obligatoire : « Aucune » ou un texte non vide
+      if (typeof valeur !== 'string' || !valeur.trim()) erreurs.push(champ.libelle);
+      continue;
+    }
+    if (cle === 'regimeAlimentaire') {
+      // Texte libre accepté (convention grille) mais jamais le littéral « Autre »
+      // (précision obligatoire) ni le vide
+      if (typeof valeur !== 'string' || !valeur.trim() || valeur.trim() === 'Autre')
+        erreurs.push(champ.libelle);
+      continue;
+    }
+    // Selects fermés (sexe, niveauSki, attestationAquatique) : valeur ∈ options
+    if (typeof valeur !== 'string' || !champ.options?.some((o) => o.value === valeur))
+      erreurs.push(champ.libelle);
+  }
+
+  if (santeActive && dto.consentementMedical !== true)
+    erreurs.push('consentement au traitement des données de santé');
+
+  return erreurs;
+}
+
 // SC7 — mappe PRUDEMMENT une valeur CSV de sexe/genre vers la catégorie
 // d'hébergement. Matching sur la valeur normalisée COMPLÈTE (jamais includes,
 // pour éviter que « Féminin » matche « M ») ; toute autre valeur — y compris
@@ -386,6 +448,13 @@ export class AutorisationService {
 
     // Pas de snapshot lisible → AUCUN champ du Bloc B écrit (cf. lireChampsActifs).
     const champsActifs = lireChampsActifs(autorisation.sejour.champsInscription);
+
+    // Back 3 — un appel API direct ne peut pas enregistrer une signature
+    // incomplète : mêmes exigences que la page parent.
+    const erreurs = erreursSignatureParent(dto, champsActifs);
+    if (erreurs.length) {
+      throw new BadRequestException(`Formulaire incomplet : ${erreurs.join(', ')}`);
+    }
 
     // « Fourni » : undefined → non fourni ; chaîne vide après trim → non fournie.
     // Une valeur existante (saisie/import organisateur ou hébergeur) n'est
