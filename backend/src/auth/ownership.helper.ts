@@ -40,10 +40,11 @@ export async function isSignataireLinkedToSejour(
     if (collegues.some((c) => c.userId === sejour.createurId)) return true;
   }
 
-  // S2 — invitation directeur par email
+  // S2 — invitation directeur par email (insensible à la casse : l'email du
+  // compte peut porter des majuscules, les adresses legacy aussi)
   if (signataire.email) {
     const invitation = await prisma.invitationDirecteur.findFirst({
-      where: { emailDirecteur: signataire.email, sejourId },
+      where: { emailDirecteur: { equals: signataire.email, mode: 'insensitive' }, sejourId },
       select: { id: true },
     });
     if (invitation) return true;
@@ -145,10 +146,10 @@ export async function getSignataireSejourIds(
       })).map((s) => s.id)
     : [];
 
-  // S2 — invitations directeur par email
+  // S2 — invitations directeur par email (insensible à la casse)
   const sejourIdsInvitation = signataire.email
     ? (await prisma.invitationDirecteur.findMany({
-        where: { emailDirecteur: signataire.email },
+        where: { emailDirecteur: { equals: signataire.email, mode: 'insensitive' } },
         select: { sejourId: true },
       })).map((i) => i.sejourId)
     : [];

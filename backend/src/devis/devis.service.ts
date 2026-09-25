@@ -2743,9 +2743,14 @@ export class DevisService {
     }
 
     // S1 — anti-abus. Invitation « en attente » = ni signée ni utilisée.
+    // Lecture insensible à la casse (les adresses legacy en base ne sont pas
+    // toutes normalisées) ; l'écriture, elle, est normalisée par le DTO.
     const enAttenteWhere = { devisId: devis.id, signeAt: null, utilisedAt: null };
     const memeAdresse = await this.prisma.invitationDirecteur.findFirst({
-      where: { ...enAttenteWhere, emailDirecteur: emailCible },
+      where: {
+        ...enAttenteWhere,
+        emailDirecteur: { equals: emailCible, mode: 'insensitive' },
+      },
       select: { id: true, createdAt: true },
     });
     if (memeAdresse && memeAdresse.createdAt > new Date(Date.now() - 3600000)) {
@@ -2760,9 +2765,6 @@ export class DevisService {
           'Nombre maximal d\'invitations atteint pour ce devis. Contactez le centre.',
         );
       }
-    } else {
-      // Renvoi (≥ 1 h) : l'ancienne invitation est remplacée par la nouvelle.
-      await this.prisma.invitationDirecteur.delete({ where: { id: memeAdresse.id } });
     }
 
     // randomUUID importé en tête de fichier (node:crypto) — l'import dynamique
@@ -2816,6 +2818,12 @@ export class DevisService {
         .delete({ where: { id: invitation.id } })
         .catch(() => { /* l'erreur d'origine prime */ });
       throw err;
+    }
+
+    // Renvoi (≥ 1 h) : l'ancienne invitation n'est remplacée qu'APRÈS l'envoi
+    // réussi — un échec Brevo la laisse intacte (le lien précédent reste valable).
+    if (memeAdresse) {
+      await this.prisma.invitationDirecteur.delete({ where: { id: memeAdresse.id } });
     }
 
     // Ne pas rétrograder un devis déjà retenu (SELECTIONNE…) : le passage en

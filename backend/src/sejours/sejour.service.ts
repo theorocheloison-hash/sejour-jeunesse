@@ -224,9 +224,10 @@ export class SejourService {
     const collegueIds = [...new Set(collegues.map(m => m.userId))];
 
     // Source 2 : séjours pour lesquels le signataire a reçu une invitation directe
-    // (InvitationDirecteur n'a pas de FK userId — matching par email destinataire)
+    // (InvitationDirecteur n'a pas de FK userId — matching par email destinataire,
+    // insensible à la casse : l'email du compte peut porter des majuscules)
     const invitations = await this.prisma.invitationDirecteur.findMany({
-      where: { emailDirecteur: signataireEmail },
+      where: { emailDirecteur: { equals: signataireEmail, mode: 'insensitive' } },
       select: { sejourId: true },
     });
     const sejourIdsInvitation = invitations.map(i => i.sejourId);
@@ -768,9 +769,10 @@ export class SejourService {
     }
 
     // Vérifier qu'une invitation récente n'a pas déjà été envoyée (anti-spam 24h)
+    // — comparaison insensible à la casse (adresses legacy non normalisées)
     const invitationRecente = await this.prisma.invitationDirecteur.findFirst({
       where: {
-        emailDirecteur,
+        emailDirecteur: { equals: emailDirecteur, mode: 'insensitive' },
         sejourId,
         utilisedAt: null,
         createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1000) },

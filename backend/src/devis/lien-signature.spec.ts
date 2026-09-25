@@ -580,13 +580,35 @@ describe('lien de signature — expiration + régénération', () => {
       expect(email.sendGenericNotification).not.toHaveBeenCalled();
     });
 
-    it('même adresse en attente ≥ 1 h → ancienne supprimée, nouvelle créée (renvoi)', async () => {
+    it('même adresse en attente ≥ 1 h → nouvelle créée, envoi, PUIS ancienne supprimée', async () => {
       prisma.devis.findUnique.mockResolvedValue(devisPublic());
       prisma.invitationDirecteur.findFirst.mockResolvedValue({ id: 'inv-old', createdAt: new Date(Date.now() - 2 * 3600000) });
       const res = await service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org');
       expect(res.success).toBe(true);
-      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledWith({ where: { id: 'inv-old' } });
       expect(prisma.invitationDirecteur.create).toHaveBeenCalledTimes(1);
+      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledWith({ where: { id: 'inv-old' } });
+      // L'ancienne n'est remplacée qu'APRÈS l'envoi réussi
+      const ordreEmail = email.sendGenericNotification.mock.invocationCallOrder[0];
+      const ordreDelete = prisma.invitationDirecteur.delete.mock.invocationCallOrder[0];
+      expect(ordreEmail).toBeLessThan(ordreDelete);
+    });
+
+    it('renvoi ≥ 1 h avec échec Brevo → la NOUVELLE est supprimée, l\'ANCIENNE conservée', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      prisma.invitationDirecteur.findFirst.mockResolvedValue({ id: 'inv-old', createdAt: new Date(Date.now() - 2 * 3600000) });
+      email.sendGenericNotification.mockRejectedValue(new Error('brevo down'));
+      await expect(
+        service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org'),
+      ).rejects.toThrow('brevo down');
+      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledTimes(1);
+      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledWith({ where: { id: 'inv-1' } });
+    });
+
+    it('recherche de doublon insensible à la casse (mode insensitive)', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      await service.envoyerADirection('t', { emailDirecteur: 'Dir@Ecole.FR' }, 'user-org');
+      const { where } = prisma.invitationDirecteur.findFirst.mock.calls[0][0];
+      expect(where.emailDirecteur).toEqual({ equals: 'dir@ecole.fr', mode: 'insensitive' });
     });
 
     it('3 invitations en attente (adresses distinctes) → 400 plafond', async () => {

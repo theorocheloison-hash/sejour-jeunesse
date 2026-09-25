@@ -34,14 +34,16 @@ const SEJOUR = {
 
 function mockPrisma() {
   return {
-    sejour: { findUnique: jest.fn().mockResolvedValue(SEJOUR) },
+    sejour: { findUnique: jest.fn().mockResolvedValue(SEJOUR), findMany: jest.fn().mockResolvedValue([]) },
     devis: {
       findUnique: jest.fn().mockResolvedValue({ sejourDirectId: 'sejour-1', demande: null }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     user: { findFirst: jest.fn().mockResolvedValue(null) },
+    membership: { findMany: jest.fn().mockResolvedValue([]) },
     invitationDirecteur: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ token: 'inv-token-1' }),
     },
   };
@@ -121,5 +123,31 @@ describe('SejourService.inviterDirecteur (S1)', () => {
     await service.inviterDirecteur('sejour-1', 'dir@ecole.fr', undefined, USER_ID);
     expect(prisma.devis.updateMany).not.toHaveBeenCalled();
     expect(prisma.devis.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('anti-spam 24h : recherche insensible à la casse', async () => {
+    await service.inviterDirecteur('sejour-1', 'Dir@Ecole.FR', undefined, USER_ID);
+    const { where } = prisma.invitationDirecteur.findFirst.mock.calls[0][0];
+    expect(where.emailDirecteur).toEqual({ equals: 'Dir@Ecole.FR', mode: 'insensitive' });
+  });
+});
+
+describe('SejourService.getAllSejoursSignataire — casse de l\'email (S1 correctif 2)', () => {
+  it('signataire avec majuscules dans l\'email → l\'invitation est retrouvée (mode insensitive)', async () => {
+    const prisma = mockPrisma();
+    prisma.invitationDirecteur.findMany.mockResolvedValue([{ sejourId: 'sejour-1' }]);
+    prisma.sejour.findMany.mockResolvedValue([{ id: 'sejour-1', titre: 'Classe verte' }]);
+    const service = new SejourService(
+      prisma as unknown as PrismaService,
+      { sendGenericNotification: jest.fn() } as unknown as EmailService,
+    );
+
+    const res = await service.getAllSejoursSignataire('signataire-1', 'Directeur@Ecole.FR');
+
+    expect(prisma.invitationDirecteur.findMany).toHaveBeenCalledWith({
+      where: { emailDirecteur: { equals: 'Directeur@Ecole.FR', mode: 'insensitive' } },
+      select: { sejourId: true },
+    });
+    expect(res).toEqual([{ id: 'sejour-1', titre: 'Classe verte' }]);
   });
 });
