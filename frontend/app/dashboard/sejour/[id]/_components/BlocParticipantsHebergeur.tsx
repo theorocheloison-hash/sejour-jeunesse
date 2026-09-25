@@ -6,13 +6,16 @@ import type { AccompagnateurMission } from '@/src/lib/accompagnateur';
 import type { User } from '@/src/types/auth';
 import TabParticipantsCollab from './TabParticipantsCollab';
 import OuvertureInscriptions from './OuvertureInscriptions';
+import ChoixResponsableInscriptions from './ChoixResponsableInscriptions';
 
 /**
  * Wrapper hébergeur de l'onglet Participants (Lot 4b) — isole la logique
  * d'ouverture hors de page.tsx :
  * - inscriptions pas ouvertes (ou édition en cours) → écran de cases ;
  * - sinon → bouton « Modifier les champs demandés » + rendu historique
- *   (TabParticipantsCollab, props identiques à page.tsx — aucune régression).
+ *   (TabParticipantsCollab, props identiques à page.tsx — aucune régression) ;
+ * - B4 : sur un séjour COLLABORATIF, choix « qui gère la liste des inscrits »
+ *   (organisateur / mon centre) entre les deux.
  */
 interface Props {
   sejourId: string;
@@ -65,6 +68,14 @@ export default function BlocParticipantsHebergeur({
           Modifier les champs demandés
         </button>
       </div>
+      {sejour.modeGestion === 'COLLABORATIF' && (
+        <ChoixResponsableInscriptions
+          sejourId={sejourId}
+          responsable={sejour.responsableInscriptions === 'HEBERGEUR' ? 'HEBERGEUR' : 'ORGANISATEUR'}
+          nbInscrits={participants.length}
+          onChanged={onOpened}
+        />
+      )}
       <TabParticipantsCollab
         sejour={sejour}
         user={user}

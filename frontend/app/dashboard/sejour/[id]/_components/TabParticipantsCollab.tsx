@@ -39,6 +39,9 @@ export interface TabParticipantsCollabProps {
    * (familles par défaut, saisie toujours possible en complément — P3).
    * Absent → comportement historique (autres rôles). */
   mode?: 'FAMILLES' | 'SAISIE';
+  /** Aperçu « vue enseignant » de l'hébergeur : rendu strictement en lecture,
+   * quels que soient les droits réels de l'hébergeur (B4). */
+  forcerLecture?: boolean;
 }
 
 export default function TabParticipantsCollab({
@@ -48,6 +51,7 @@ export default function TabParticipantsCollab({
   accompagnateurs,
   onReload,
   mode,
+  forcerLecture = false,
 }: TabParticipantsCollabProps) {
   const [participantFilter, setParticipantFilter] = useState<'all' | 'signed' | 'pending'>('all');
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
@@ -106,11 +110,12 @@ export default function TabParticipantsCollab({
     );
   }
 
+  // B4 : droits calculés par le serveur (règle unique « qui tient la main »,
+  // collaborateurs d'équipe inclus) — plus de dérivation locale.
   const peutSaisirParticipants =
-    sejour != null &&
-    (sejour.createur?.id === user.id ||
-      (sejour.modeGestion === 'DIRECT' &&
-        sejour.hebergementSelectionne?.userId === user.id));
+    sejour != null && !forcerLecture && sejour.droitsInscriptions?.ecrire === true;
+  const peutEnvoyerFamilles =
+    sejour != null && !forcerLecture && sejour.droitsInscriptions?.envoyerFamilles === true;
 
   return (
     <div className="space-y-4">
@@ -122,9 +127,10 @@ export default function TabParticipantsCollab({
           onReload={onReload}
         />
       )}
-      {/* B3a : envoi des invitations familles — hébergeur EN PROPRE uniquement
-          (l'organisateur a déjà InscriptionsEleves ; collab → gate faux) */}
-      {peutSaisirParticipants && user.role === 'HEBERGEUR' && (
+      {/* B3a : envoi des invitations familles côté centre — DIRECT uniquement
+          (droit serveur ; l'organisateur a déjà InscriptionsEleves ; sur un
+          collaboratif le centre ne contacte jamais les familles — B4) */}
+      {peutEnvoyerFamilles && user.role === 'HEBERGEUR' && (
         <EnvoiInvitationsFamilles sejourId={sejour.id} participants={participants} />
       )}
       {/* Header + actions */}
@@ -224,7 +230,7 @@ export default function TabParticipantsCollab({
             </thead>
             <tbody>
               {filteredParticipants.map((p) => (
-                <tr key={p.id} onClick={() => p.signeeAt ? setSelectedParticipant(p) : null} className={`border-b border-gray-100 transition-colors ${p.signeeAt ? 'cursor-pointer hover:bg-blue-50' : 'opacity-60'}`}>
+                <tr key={p.id} onClick={() => setSelectedParticipant(p)} className={`border-b border-gray-100 transition-colors cursor-pointer hover:bg-blue-50 ${p.signeeAt ? '' : 'opacity-60'}`}>
                   <td className="py-3 px-3">
                     <p className="font-medium text-gray-900">{p.elevePrenom} {p.eleveNom}</p>
                   </td>

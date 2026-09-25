@@ -23,6 +23,16 @@ export async function updateChampsInscriptionSejour(
   return data;
 }
 
+/** PATCH /sejours/:id/responsable-inscriptions — B4 « qui tient la main » sur un
+ * séjour collaboratif (hébergeur). Erreurs serveur (400) propagées à l'appelant. */
+export async function updateResponsableInscriptions(
+  sejourId: string,
+  responsable: 'ORGANISATEUR' | 'HEBERGEUR',
+): Promise<{ responsableInscriptions: 'ORGANISATEUR' | 'HEBERGEUR' }> {
+  const { data } = await api.patch(`/sejours/${sejourId}/responsable-inscriptions`, { responsable });
+  return data;
+}
+
 /** GET /sejours/:id/champs-inscription/verrouilles — clés Bloc B déjà remplies
  * par ≥1 inscrit (grisage de l'écran d'ouverture, Lot 5c-B). */
 export async function getChampsVerrouillesSejour(sejourId: string): Promise<string[]> {

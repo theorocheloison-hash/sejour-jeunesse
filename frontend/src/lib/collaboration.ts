@@ -94,6 +94,12 @@ export interface SejourCollabInfo {
   // de vérité du gating UI côté hébergeur, collaborateurs d'équipe inclus ; null si
   // le séjour n'a pas de centre sélectionné).
   mesPermissions?: CentrePermissions | null;
+  // B4 — « qui tient la main » sur les inscriptions d'un séjour COLLABORATIF
+  // (sans effet sur un DIRECT, où l'hébergeur gère d'office).
+  responsableInscriptions?: 'ORGANISATEUR' | 'HEBERGEUR';
+  // B4 — droits de l'utilisateur courant, calculés par la règle serveur unique
+  // (peutEcrireInscriptions / peutEnvoyerAuxFamilles) : le front ne re-dérive pas.
+  droitsInscriptions?: { ecrire: boolean; envoyerFamilles: boolean };
 }
 
 export interface SejourConventionHebergeur {

@@ -269,6 +269,18 @@ function CollaborationPageContent() {
       ? 'SAISIE'
       : 'FAMILLES';
   const modeInscription = modeInscriptionDetecte ?? modeInscriptionChoisi;
+  // Clôture des inscriptions (P5) — sous la liste, avant les accompagnateurs ;
+  // partagée par les deux rendus organisateur (main organisateur / main centre — B4).
+  const blocClotureInscriptions =
+    participantsCharges && participants.length >= 1 && !sejour?.inscriptionsCloturees ? (
+      <ClotureInscriptions
+        sejourId={id}
+        cloturee={false}
+        variant="inscriptions"
+        onDone={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
+        onError={setMutationError}
+      />
+    ) : null;
 
   // Devis signé (D11/D12) : conditionne accompagnateurs et enregistrement du prix.
   const devisSigne = ['SELECTIONNE', 'SIGNE_DIRECTION', 'FACTURE_ACOMPTE', 'FACTURE_SOLDE']
@@ -649,6 +661,29 @@ function CollaborationPageContent() {
                   ReassuranceDonnees (au-dessus) et Accompagnateurs (en pied) restent visibles. */}
               {!sejour?.champsInscription ? (
                 <GateInscriptionsFermees />
+              ) : sejour.modeGestion === 'COLLABORATIF' && sejour.responsableInscriptions === 'HEBERGEUR' ? (
+              /* B4 — le centre tient la main : l'organisateur consulte la liste
+                 (fiche au clic, export, paiements, clôture) sans outil de saisie
+                 ni d'envoi aux familles. Droits serveur : droitsInscriptions. */
+              <>
+                <div className="rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary-light)] px-4 py-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {sejour.hebergementSelectionne?.nom ?? 'Le centre'} gère la liste des inscrits de ce séjour.
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-600">
+                    Vous la consultez ici. Pour reprendre la main, demandez-le au centre.
+                  </p>
+                </div>
+                <TabParticipantsCollab
+                  sejour={sejour}
+                  user={user}
+                  participants={participants}
+                  accompagnateurs={accompagnateurs}
+                  onReload={loadParticipants}
+                  forcerLecture={apercuOrganisateur}
+                />
+                {blocClotureInscriptions}
+              </>
               ) : (
               <>
               {modeInscription === null ? (
@@ -696,17 +731,10 @@ function CollaborationPageContent() {
                 accompagnateurs={accompagnateurs}
                 onReload={loadParticipants}
                 mode={modeInscription ?? undefined}
+                forcerLecture={apercuOrganisateur}
               />
               {/* Clôture des inscriptions (P5) — sous la liste, avant les accompagnateurs. */}
-              {participantsCharges && participants.length >= 1 && !sejour?.inscriptionsCloturees && (
-                <ClotureInscriptions
-                  sejourId={id}
-                  cloturee={false}
-                  variant="inscriptions"
-                  onDone={() => { getSejourCollabInfo(id).then(setSejour).catch(() => {}); }}
-                  onError={setMutationError}
-                />
-              )}
+              {blocClotureInscriptions}
               {modeInscription === 'SAISIE' && (
                 <InscriptionsEleves sejourId={id} onChanged={loadParticipants} replieParDefaut />
               )}
