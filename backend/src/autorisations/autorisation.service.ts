@@ -120,6 +120,59 @@ export function erreursSignatureParent(
   return erreurs;
 }
 
+/**
+ * Import CSV — détection des colonnes à partir des en-têtes (déjà trimés et en
+ * minuscules). Chaque champ prend la PREMIÈRE colonne dont l'en-tête contient
+ * un de ses mots-clés, SAUF pour les mots-clés génériques, qui ne peuvent pas
+ * prendre une colonne déjà revendiquée par un champ plus précis :
+ * - nom parent (« parent », « responsable ») : jamais la colonne email, ni un
+ *   autre en-tête d'email, ni la colonne téléphone d'urgence — sinon « Email
+ *   parent » atterrissait dans nomParent quand le fichier n'a pas de colonne
+ *   nom parent. Un « Téléphone parent » sans « urgence » reste pris comme nom
+ *   parent (comportement historique : mieux vaut un numéro visible dans la
+ *   fiche contact qu'une donnée d'urgence perdue) ;
+ * - niveau de ski (« ski ») et taille (« taille ») : jamais la colonne pointure
+ *   (« Pointure ski », « Taille chaussure »).
+ * Les autres champs gardent le premier match, comportement historique.
+ */
+export function detecterColonnesImport(headers: string[]) {
+  const findCol = (keywords: string[], exclure: (h: string, i: number) => boolean = () => false): number =>
+    headers.findIndex((h, i) => !exclure(h, i) && keywords.some((k) => h.includes(k)));
+
+  // Lot 6 : « nom » est une sous-chaîne de « prénom » ET de « nom du parent » —
+  // la colonne nom-élève = un header contenant « nom » sans être prénom/parent.
+  const colNom = headers.findIndex(
+    (h) =>
+      h.includes('nom') &&
+      !h.includes('prénom') && !h.includes('prenom') &&
+      !h.includes('parent') && !h.includes('responsable'),
+  );
+  const colPrenom = findCol(['prénom', 'prenom']);
+  const colEmail = findCol(['email', 'mail', 'courriel', 'e-mail']);
+  const colPointure = findCol(['pointure', 'pointure ski', 'taille chaussure']);
+  const colTaille = findCol(['taille', 'taille (cm)', 'taille cm'], (_h, i) => i === colPointure);
+  const colPoids = findCol(['poids', 'poids (kg)', 'poids kg']);
+  const colNiveauSki = findCol(['ski', 'niveau ski', 'niveau de ski'], (_h, i) => i === colPointure);
+  // Lot 6 : allergies séparées du régime (colonne dédiée depuis 5a)
+  const colRegime = findCol(['régime', 'regime', 'régime alimentaire', 'regime alimentaire']);
+  const colAllergies = findCol(['allergie', 'allergies', 'intolérance', 'intolerance']);
+  const colAttestation = findCol(['attestation', 'aquatique', 'savoir-nager', 'aisance aquatique']);
+  const colDateNaissance = findCol(['naissance', 'date de naissance', 'date naissance', 'né(e) le', 'née le']);
+  const colTelUrgence = findCol(['urgence', 'tel urgence', 'téléphone urgence', 'telephone urgence', 'tel. urgence']);
+  const colNomParent = findCol(
+    ['parent', 'nom parent', 'nom du parent', 'responsable', 'nom responsable'],
+    (h, i) => i === colEmail || i === colTelUrgence || ['mail', 'courriel'].some((m) => h.includes(m)),
+  );
+  const colInfosMedicales = findCol(['médical', 'medical', 'infos médicales', 'infos medicales', 'santé', 'sante']);
+  const colSexe = findCol(['sexe', 'genre', 'fille', 'garçon', 'garcon']);
+
+  return {
+    colNom, colPrenom, colEmail, colTaille, colPoids, colPointure, colNiveauSki,
+    colRegime, colAllergies, colAttestation, colDateNaissance, colNomParent,
+    colTelUrgence, colInfosMedicales, colSexe,
+  };
+}
+
 // SC7 — mappe PRUDEMMENT une valeur CSV de sexe/genre vers la catégorie
 // d'hébergement. Matching sur la valeur normalisée COMPLÈTE (jamais includes,
 // pour éviter que « Féminin » matche « M ») ; toute autre valeur — y compris
@@ -604,32 +657,11 @@ export class AutorisationService {
       header.split(s).length > header.split(best).length ? s : best, ';');
 
     const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/"/g, ''));
-    const findCol = (keywords: string[]): number =>
-      headers.findIndex((h) => keywords.some((k) => h.includes(k)));
-
-    // Lot 6 : « nom » est une sous-chaîne de « prénom » ET de « nom du parent » —
-    // la colonne nom-élève = un header contenant « nom » sans être prénom/parent.
-    const colNom = headers.findIndex(
-      (h) =>
-        h.includes('nom') &&
-        !h.includes('prénom') && !h.includes('prenom') &&
-        !h.includes('parent') && !h.includes('responsable'),
-    );
-    const colPrenom = findCol(['prénom', 'prenom']);
-    const colEmail = findCol(['email', 'mail', 'courriel', 'e-mail']);
-    const colTaille = findCol(['taille', 'taille (cm)', 'taille cm']);
-    const colPoids = findCol(['poids', 'poids (kg)', 'poids kg']);
-    const colPointure = findCol(['pointure', 'pointure ski', 'taille chaussure']);
-    const colNiveauSki = findCol(['ski', 'niveau ski', 'niveau de ski']);
-    // Lot 6 : allergies séparées du régime (colonne dédiée depuis 5a)
-    const colRegime = findCol(['régime', 'regime', 'régime alimentaire', 'regime alimentaire']);
-    const colAllergies = findCol(['allergie', 'allergies', 'intolérance', 'intolerance']);
-    const colAttestation = findCol(['attestation', 'aquatique', 'savoir-nager', 'aisance aquatique']);
-    const colDateNaissance = findCol(['naissance', 'date de naissance', 'date naissance', 'né(e) le', 'née le']);
-    const colNomParent = findCol(['parent', 'nom parent', 'nom du parent', 'responsable', 'nom responsable']);
-    const colTelUrgence = findCol(['urgence', 'tel urgence', 'téléphone urgence', 'telephone urgence', 'tel. urgence']);
-    const colInfosMedicales = findCol(['médical', 'medical', 'infos médicales', 'infos medicales', 'santé', 'sante']);
-    const colSexe = findCol(['sexe', 'genre', 'fille', 'garçon', 'garcon']);
+    const {
+      colNom, colPrenom, colEmail, colTaille, colPoids, colPointure, colNiveauSki,
+      colRegime, colAllergies, colAttestation, colDateNaissance, colNomParent,
+      colTelUrgence, colInfosMedicales, colSexe,
+    } = detecterColonnesImport(headers);
 
     if (colNom === -1) throw new BadRequestException('Colonne "Nom" introuvable. Colonnes détectées : ' + headers.join(', '));
     if (colPrenom === -1) throw new BadRequestException('Colonne "Prénom" introuvable. Colonnes détectées : ' + headers.join(', '));
