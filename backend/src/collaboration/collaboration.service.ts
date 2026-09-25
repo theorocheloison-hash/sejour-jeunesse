@@ -12,6 +12,7 @@ import { isSignataireLinkedToSejour } from '../auth/ownership.helper.js';
 import { STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_VISIBLES_ORGANISATEUR } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_COLLABORATIFS, STATUTS_SEJOUR_DIRECT } from '../sejours/sejour-statuts.constants.js';
 import { OccupationsService } from '../chambres/occupations.service.js';
+import { peutEcrireInscriptions, peutEnvoyerAuxFamilles } from '../common/sejour-ownership.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -181,12 +182,20 @@ export class CollaborationService {
       select: { emailEnseignant: true, createdAt: true },
     });
 
+    // B4 : droits d'inscription calculés par la règle serveur UNIQUE (qui tient la
+    // main) — le front ne re-dérive pas la règle, il lit ces deux booléens.
+    const droitsInscriptions = {
+      ecrire: await peutEcrireInscriptions(this.prisma, full, userId),
+      envoyerFamilles: await peutEnvoyerAuxFamilles(this.prisma, full, userId),
+    };
+
     return {
       ...full,
       invitationCollab: invitationPending
         ? { email: invitationPending.emailEnseignant, createdAt: invitationPending.createdAt }
         : null,
       mesPermissions: perms,
+      droitsInscriptions,
     };
   }
 

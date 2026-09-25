@@ -13,11 +13,18 @@ import { PLAN_KEY } from '../auth/decorators/plan.decorator';
 const HEBERGEUR_ID = 'heb-1';
 const ORGA_ID = 'orga-1';
 
-function sejour(overrides: { createurId: string | null; statut: string }) {
+function sejour(overrides: {
+  createurId: string | null;
+  statut: string;
+  modeGestion?: 'DIRECT' | 'COLLABORATIF';
+  responsableInscriptions?: 'ORGANISATEUR' | 'HEBERGEUR';
+}) {
   return {
     createurId: overrides.createurId,
     titre: 'Séjour test',
-    modeGestion: 'DIRECT',
+    // DIRECT ⇒ createurId null (invariant) ; un organisateur rattaché ⇒ COLLABORATIF
+    modeGestion: overrides.modeGestion ?? 'DIRECT',
+    responsableInscriptions: overrides.responsableInscriptions ?? 'ORGANISATEUR',
     hebergementSelectionneId: 'centre-1',
     hebergementSelectionne: {
       userId: HEBERGEUR_ID,
@@ -79,11 +86,22 @@ describe('envoyerInvitations — gate anti-phishing côté centre', () => {
 
   it('organisateur créateur : pas de gate centre, même si le centre est PENDING', async () => {
     const { service, prisma } = makeService(
-      sejour({ createurId: ORGA_ID, statut: 'PENDING' }),
+      sejour({ createurId: ORGA_ID, statut: 'PENDING', modeGestion: 'COLLABORATIF' }),
     );
     await service.envoyerInvitations('sej-1', ORGA_ID).catch(() => undefined);
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(prisma.autorisationParentale.findMany).toHaveBeenCalled();
+  });
+
+  it('B4 — COLLAB, l\'hébergeur tient la main : ni l\'organisateur ni l\'hébergeur n\'envoient aux familles', async () => {
+    for (const userId of [ORGA_ID, HEBERGEUR_ID]) {
+      const { service, email, prisma } = makeService(
+        sejour({ createurId: ORGA_ID, statut: 'ACTIVE', modeGestion: 'COLLABORATIF', responsableInscriptions: 'HEBERGEUR' }),
+      );
+      await expect(service.envoyerInvitations('sej-1', userId)).rejects.toThrow(ForbiddenException);
+      expect(email.sendAutorisationParentale).not.toHaveBeenCalled();
+      expect(prisma.autorisationParentale.findMany).not.toHaveBeenCalled();
+    }
   });
 });
 

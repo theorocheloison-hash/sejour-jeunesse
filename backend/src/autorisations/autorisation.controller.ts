@@ -31,7 +31,7 @@ import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 export class AutorisationController {
   constructor(private readonly autorisationService: AutorisationService) {}
 
-  /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
+  /** POST /autorisations/batch-direct — Création batch saisie directe (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4) */
   @Post('batch-direct')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
@@ -55,7 +55,7 @@ export class AutorisationController {
     return this.autorisationService.createSansEmail(dto, user.id);
   }
 
-  /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
+  /** POST /autorisations/import-csv — Import CSV d'élèves (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4) */
   @Post('import-csv')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
@@ -119,7 +119,7 @@ export class AutorisationController {
     return this.autorisationService.validerPaiementPartiel(id, body.montant, user.id);
   }
 
-  /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
+  /** PATCH /autorisations/:id/update-fields — Mise à jour saisie directe (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4) */
   @Patch(':id/update-fields')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
@@ -165,7 +165,7 @@ export class AutorisationController {
     return this.autorisationService.validerSignaturesBatch(body.sejourId, user.id, body.autorisationIds);
   }
 
-  /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) */
+  /** DELETE /autorisations/:id — Supprimer un participant saisie directe (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4) */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)

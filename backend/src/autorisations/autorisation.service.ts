@@ -14,7 +14,12 @@ import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
 import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
 import { CHAMP_PAR_CLE, CLES_BLOC_B } from '../common/champs-inscription.constants.js';
-import { peutEcrireSejourEnPropre, peutGererEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
+import {
+  peutEcrireInscriptions,
+  peutEnvoyerAuxFamilles,
+  peutLireSejourHebergeur,
+  SELECT_SEJOUR_INSCRIPTIONS,
+} from '../common/sejour-ownership.js';
 import { assertEnvoiExterneAutorise } from '../centres/centre.helper.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -248,9 +253,13 @@ export class AutorisationService {
   ) {}
 
   async createSansEmail(dto: CreateAutorisationDto, createurId: string) {
-    const sejour = await this.prisma.sejour.findUnique({ where: { id: dto.sejourId } });
+    const sejour = await this.prisma.sejour.findUnique({
+      where: { id: dto.sejourId },
+      select: { ...SELECT_SEJOUR_INSCRIPTIONS, dateFin: true },
+    });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId)
+    // B4 : route organisateur (@Roles) — fermée quand l'hébergeur tient la main.
+    if (!(await peutEcrireInscriptions(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     return this.prisma.autorisationParentale.create({
@@ -269,12 +278,13 @@ export class AutorisationService {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
       select: {
-        createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true,
+        createurId: true, titre: true, modeGestion: true, responsableInscriptions: true, hebergementSelectionneId: true,
         hebergementSelectionne: { select: { userId: true, nom: true, email: true, statut: true, organisationId: true } },
       },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId)))
+    // B4 : DIRECT → hébergeur ; COLLAB → organisateur, seulement s'il tient la main.
+    if (!(await peutEnvoyerAuxFamilles(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     // Envoi déclenché côté centre (propriétaire OU collaborateur en propre) :
@@ -290,7 +300,9 @@ export class AutorisationService {
     // B3b : séjour géré en propre → l'email part au nom du centre, réponse au
     // centre. Refus net AVANT toute boucle si le centre n'a pas d'email de
     // contact — aucun envoi partiel, et jamais d'email auquel on ne peut pas répondre.
-    const enPropre = peutGererEnPropre(sejour, createurId);
+    // B4 : après le gate, un envoi sur DIRECT vient forcément du centre
+    // (propriétaire OU collaborateur sejours:WRITE) → identité du centre pour les deux.
+    const enPropre = sejour.modeGestion === 'DIRECT';
     if (enPropre && !sejour.hebergementSelectionne?.email?.trim()) {
       throw new BadRequestException(
         'Renseignez l\'email de contact de votre centre avant d\'envoyer aux familles : les parents doivent pouvoir vous répondre.',
@@ -646,9 +658,8 @@ export class AutorisationService {
       include: { hebergementSelectionne: { select: { userId: true } } },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    // Lot 6 : même double-motif que createBatchDirect/updateFields — créateur
-    // OU hébergeur en propre (DIRECT, propriétaire ou collaborateur sejours:WRITE).
-    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId))) {
+    // B4 : celui qui tient la main (cf. peutEcrireInscriptions).
+    if (!(await peutEcrireInscriptions(this.prisma, sejour, createurId))) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
 
@@ -783,7 +794,7 @@ export class AutorisationService {
     return { ...results, emailColumnFound: colEmail !== -1, columnsDetected };
   }
 
-  /** Création batch de participants en mode saisie directe (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6). */
+  /** Création batch de participants en mode saisie directe (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4). */
   async createBatchDirect(
     sejourId: string,
     participants: ParticipantDirectInput[],
@@ -791,16 +802,10 @@ export class AutorisationService {
   ) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
-      select: {
-        createurId: true,
-        modeGestion: true,
-        dateFin: true,
-        hebergementSelectionneId: true,
-        hebergementSelectionne: { select: { userId: true } },
-      },
+      select: { ...SELECT_SEJOUR_INSCRIPTIONS, dateFin: true },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId))) {
+    if (!(await peutEcrireInscriptions(this.prisma, sejour, createurId))) {
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     }
 
@@ -871,7 +876,7 @@ export class AutorisationService {
   }
 
   /**
-   * Mise à jour inline d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6).
+   * Mise à jour inline d'un participant (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4).
    * Après signature : seuls les champs logistiques restent modifiables
    * (taille, poids, pointure, niveauSki, regimeAlimentaire,
    * hebergementCategorie — hors consentement parent, aussi déclarable par le
@@ -880,10 +885,10 @@ export class AutorisationService {
   async updateFields(id: string, body: ParticipantDirectInput, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: SELECT_SEJOUR_INSCRIPTIONS } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, createurId)))
+    if (!(await peutEcrireInscriptions(this.prisma, autorisation.sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     const signee = autorisation.signeeAt !== null;
@@ -939,17 +944,17 @@ export class AutorisationService {
   }
 
   /**
-   * Validation manuelle « papier signé reçu » (organisateur/hébergeur en propre).
+   * Validation manuelle « papier signé reçu » (celui qui tient la main — B4).
    * Pas de signatureHash ni d'IP : ce N'EST PAS une signature électronique —
    * juste un signeeAt posé + le flag signeeManuellement (annulable).
    */
   async validerSignatureManuelle(id: string, userId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: SELECT_SEJOUR_INSCRIPTIONS } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, userId)))
+    if (!(await peutEcrireInscriptions(this.prisma, autorisation.sejour, userId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     if (autorisation.signeeAt !== null)
       throw new ConflictException('Autorisation déjà signée');
@@ -964,10 +969,10 @@ export class AutorisationService {
   async annulerSignatureManuelle(id: string, userId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: SELECT_SEJOUR_INSCRIPTIONS } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, userId)))
+    if (!(await peutEcrireInscriptions(this.prisma, autorisation.sejour, userId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     if (autorisation.signeeManuellement !== true)
       throw new ForbiddenException('Seule une validation manuelle peut être annulée');
@@ -984,10 +989,10 @@ export class AutorisationService {
   async validerSignaturesBatch(sejourId: string, userId: string, autorisationIds?: string[]) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
-      select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } },
+      select: SELECT_SEJOUR_INSCRIPTIONS,
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
-    if (sejour.createurId !== userId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, userId)))
+    if (!(await peutEcrireInscriptions(this.prisma, sejour, userId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
 
     const { count } = await this.prisma.autorisationParentale.updateMany({
@@ -1001,14 +1006,14 @@ export class AutorisationService {
     return { count };
   }
 
-  /** Suppression d'un participant (ORGANISATEUR, ou HEBERGEUR en propre — Lot 6) — interdite si signée. */
+  /** Suppression d'un participant (ORGANISATEUR, ou HEBERGEUR qui tient la main — Lot 6, B4) — interdite si signée. */
   async deleteAutorisation(id: string, createurId: string) {
     const autorisation = await this.prisma.autorisationParentale.findUnique({
       where: { id },
-      include: { sejour: { select: { createurId: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true } } } } },
+      include: { sejour: { select: SELECT_SEJOUR_INSCRIPTIONS } },
     });
     if (!autorisation) throw new NotFoundException('Autorisation introuvable');
-    if (autorisation.sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, autorisation.sejour, createurId)))
+    if (!(await peutEcrireInscriptions(this.prisma, autorisation.sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
     if (autorisation.signeeAt !== null)
       throw new ForbiddenException('Impossible de supprimer une autorisation signée');
