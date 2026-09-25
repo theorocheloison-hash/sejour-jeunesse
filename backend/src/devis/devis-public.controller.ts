@@ -12,6 +12,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { DevisService } from './devis.service.js';
+import { EnvoyerDirectionDto } from './dto/envoyer-direction.dto.js';
 
 @Controller('devis/public')
 export class DevisPublicController {
@@ -52,7 +53,7 @@ export class DevisPublicController {
   @Post(':token/envoyer-direction')
   envoyerDirection(
     @Param('token') token: string,
-    @Body() body: { emailDirecteur: string; nomDirecteur?: string },
+    @Body() body: EnvoyerDirectionDto,
   ) {
     return this.devisService.envoyerADirection(token, body, undefined, { verifierExpiration: true });
   }

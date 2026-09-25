@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { prochaineLienSignatureExpiration } from '../devis/lien-signature.constants.js';
+import { estCentreValide } from '../centres/centre.helper.js';
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -117,7 +118,9 @@ export class NotificationsService {
       },
       include: {
         centre: {
-          select: { id: true, nom: true, email: true, user: { select: { email: true } } },
+          // S1 : statut/organisationId/userId lus pour estCentreValide (relance
+          // DIRECT = lien public réarmé — jamais pour un centre non validé)
+          select: { id: true, nom: true, email: true, statut: true, organisationId: true, userId: true, user: { select: { email: true } } },
         },
         sejourDirect: {
           select: { titre: true, clientNom: true, clientPrenom: true, clientEmail: true },
@@ -174,6 +177,13 @@ export class NotificationsService {
       const inviteReponse = replyTo
         ? `Et si votre projet a changé ou que vous ne comptez pas venir, répondez simplement à cet email pour en informer ${escapeHtml(centreNom)} — cela nous aide à tenir les disponibilités à jour.`
         : `Et si votre projet a changé, n'hésitez pas à en informer directement ${escapeHtml(centreNom)}.`;
+
+      // S1 : la relance DIRECT contient le lien public et le réarme — jamais
+      // pour un centre non validé (on saute, sans throw : la boucle continue).
+      if (d.sejourDirectId && !(await estCentreValide(this.prisma, d.centre))) {
+        this.logger.warn(`[CRON] relance devis ${d.id} ignorée : centre « ${d.centre?.nom ?? ''} » non validé`);
+        continue;
+      }
 
       try {
         await this.email.sendGenericNotification(

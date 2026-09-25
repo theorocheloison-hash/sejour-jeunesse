@@ -18,6 +18,7 @@ import { CreateSejourDto }  from './dto/create-sejour.dto.js';
 import { CreateSejourDirectDto } from './dto/create-sejour-direct.dto.js';
 import { UpdateStatusDto }  from './dto/update-status.dto.js';
 import { UpdateSejourDto }  from './dto/update-sejour.dto.js';
+import { InviterDirecteurDto } from './dto/inviter-directeur.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
@@ -136,7 +137,7 @@ export class SejourController {
   @Roles(Role.ORGANISATEUR)
   inviterDirecteur(
     @Param('id') id: string,
-    @Body() body: { emailDirecteur?: string; devisId?: string },
+    @Body() body: InviterDirecteurDto,
     @CurrentUser() user: JwtUser,
   ) {
     return this.sejourService.inviterDirecteur(id, body.emailDirecteur, body.devisId, user.id);

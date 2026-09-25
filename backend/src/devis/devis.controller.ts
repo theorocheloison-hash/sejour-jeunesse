@@ -12,6 +12,7 @@ import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.
 import { UpdateStatutDevisDto } from './dto/update-statut-devis.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { MarquerEnvoyeDto } from './dto/marquer-envoye.dto.js';
+import { EnvoyerDirectionDto } from './dto/envoyer-direction.dto.js';
 import { CentreId } from '../centres/centre-id.decorator.js';
 import { PermissionGuard } from '../auth/guards/permission.guard.js';
 import { RequirePermission } from '../auth/decorators/permission.decorator.js';
@@ -233,7 +234,7 @@ export class DevisController {
   envoyerDirectionConnecte(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body() body: { emailDirecteur: string; nomDirecteur?: string },
+    @Body() body: EnvoyerDirectionDto,
   ) {
     return this.devisService.envoyerADirectionConnecte(id, user.id, body);
   }
@@ -362,11 +363,5 @@ export class DevisController {
       'Content-Length': buffer.length.toString(),
     });
     res.end(buffer);
-  }
-
-  @Get(':id/versements')
-  @Roles(Role.SIGNATAIRE, Role.HEBERGEUR)
-  getVersements(@Param('id') id: string) {
-    return this.devisService.getVersements(id);
   }
 }

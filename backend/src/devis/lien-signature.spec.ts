@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { EmailService } from '../email/email.service';
@@ -35,13 +35,19 @@ const EXPIRE = () => new Date(Date.now() - 60_000);
 
 function mockPrisma() {
   const tx = {
-    devis: { update: jest.fn().mockResolvedValue({}) },
+    devis: {
+      update: jest.fn().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({ id: 'devis-neuf' }),
+    },
+    ligneDevis: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    demandeDevis: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
     invitationDirecteur: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
   return {
     tx,
     devis: {
       findUnique: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue({}),
       create: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
@@ -51,7 +57,13 @@ function mockPrisma() {
     user: { findUnique: jest.fn().mockResolvedValue({ email: 'heb@centre.fr' }) },
     sejourClient: { findFirst: jest.fn().mockResolvedValue(null) },
     activiteClient: { create: jest.fn().mockResolvedValue({}) },
-    invitationDirecteur: { create: jest.fn().mockResolvedValue({}), deleteMany: jest.fn() },
+    invitationDirecteur: {
+      create: jest.fn().mockResolvedValue({ id: 'inv-1' }),
+      deleteMany: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
+      delete: jest.fn().mockResolvedValue({}),
+    },
     membership: { findUnique: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn(async (arg: unknown) =>
       typeof arg === 'function' ? (arg as (t: unknown) => Promise<unknown>)(tx) : Promise.all(arg as Promise<unknown>[]),
@@ -91,7 +103,12 @@ function devisPublic(over: Partial<Record<string, unknown>> = {}) {
     demandeId: null,
     sejourDirectId: 'sejour-1',
     lignes: [],
-    centre: { nom: 'Chalet des Nants', email: 'contact@centre.fr' },
+    // S1 : statut/organisationId/userId consommés par estCentreValide ; iban
+    // pour le masquage public. ACTIVE + membership null (mock) = centre validé.
+    centre: {
+      nom: 'Chalet des Nants', email: 'contact@centre.fr', iban: 'FR7630001007941234567890185',
+      statut: 'ACTIVE', organisationId: null, userId: 'user-heb',
+    },
     sejourDirect: {
       id: 'sejour-1', titre: 'Classe verte', clientNom: 'Dupont', clientPrenom: 'Anne',
       clientEmail: 'client@ecole.fr', clientOrganisation: null, clientOrganisationId: null,
@@ -260,7 +277,11 @@ describe('lien de signature — expiration + régénération', () => {
         montantTTC: 100,
         sejourDirect: { titre: 'Classe verte', clientNom: 'Dupont', clientPrenom: 'Anne', clientEmail: 'client@ecole.fr' },
         demande: null,
-        centre: { id: 'centre-1', nom: 'Chalet', email: 'contact@centre.fr', user: { email: 'heb@centre.fr' } },
+        centre: {
+          id: 'centre-1', nom: 'Chalet', email: 'contact@centre.fr',
+          statut: 'ACTIVE', organisationId: null, userId: 'user-heb',
+          user: { email: 'heb@centre.fr' },
+        },
         ...over,
       };
     }
@@ -298,6 +319,30 @@ describe('lien de signature — expiration + régénération', () => {
       const { data } = prisma.devis.update.mock.calls[0][0];
       expect(data.relanceEnvoyeeAt).toBeInstanceOf(Date);
       expect(data).not.toHaveProperty('lienSignatureExpiresAt');
+    });
+
+    it('S1 — relance DIRECT d\'un centre NON validé → ni email, ni réarmement, warn', async () => {
+      process.env.ENABLE_CRON = 'true';
+      const notif = new NotificationsService(
+        prisma as unknown as PrismaService,
+        email as unknown as EmailService,
+      );
+      const warnCron = jest.spyOn((notif as unknown as { logger: { warn: (m: string) => void } }).logger, 'warn')
+        .mockImplementation(() => {});
+      prisma.devis.findMany.mockResolvedValue([devisRelance({
+        centre: {
+          id: 'centre-1', nom: 'Chalet', email: 'contact@centre.fr',
+          statut: 'PENDING', organisationId: null, userId: 'user-heb',
+          user: { email: 'heb@centre.fr' },
+        },
+      })]);
+
+      await notif.relancerDevisEnAttente();
+
+      expect(email.sendGenericNotification).not.toHaveBeenCalled();
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+      expect(warnCron).toHaveBeenCalledTimes(1);
+      warnCron.mockRestore();
     });
   });
 
@@ -414,6 +459,165 @@ describe('lien de signature — expiration + régénération', () => {
 
       prisma.sejourClient.findFirst.mockRejectedValue(new Error('boom'));
       await expect(service.regenererLienSignature('devis-1', 'user-heb')).resolves.toEqual({ success: true });
+    });
+
+    it('S1 — centre non validé : token régénéré mais lien ÉTEINT', async () => {
+      getCentreForUserMock.mockResolvedValue(centreActive({ statut: 'PENDING' }));
+      prisma.devis.findUnique.mockResolvedValue({
+        id: 'devis-1', centreId: 'centre-1', isComplementaire: false,
+        numeroDevis: 'DEV-2026-0099', sejourDirectId: 'sejour-1', demande: null,
+      });
+
+      await service.regenererLienSignature('devis-1', 'user-heb');
+
+      const { data } = prisma.tx.devis.update.mock.calls[0][0];
+      expect(data.tokenSignature).toMatch(/^[0-9a-f-]{36}$/);
+      expect(data.lienSignatureExpiresAt.getTime()).toBeLessThanOrEqual(Date.now());
+    });
+  });
+
+  describe('S1 — surface publique : centre non validé refusé', () => {
+    const opts = { verifierExpiration: true };
+    const devisCentrePending = () =>
+      devisPublic({ centre: { nom: 'Chalet', email: 'c@c.fr', iban: 'FR76X', statut: 'PENDING', organisationId: null, userId: 'user-heb' } });
+
+    it('signerDevisDirect → 403, aucune transaction', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisCentrePending());
+      await expect(
+        service.signerDevisDirect('t', { nomSignataire: 'X', confirmation: true }, {} as Request, undefined, opts),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('uploadSignaturePublic → 403, aucun upload', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisCentrePending());
+      await expect(
+        service.uploadSignaturePublic('t', { mimetype: 'application/pdf' } as Express.Multer.File, {} as Request, undefined, undefined, opts),
+      ).rejects.toThrow(ForbiddenException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('envoyerADirection → 403, aucune invitation (même en connecté)', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisCentrePending());
+      await expect(
+        service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.invitationDirecteur.create).not.toHaveBeenCalled();
+    });
+
+    it('getContratPdfByToken → 403, storage jamais appelé', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisCentrePending());
+      await expect(service.getContratPdfByToken('t', opts)).rejects.toThrow(ForbiddenException);
+      expect(storage.fetchAsBuffer).not.toHaveBeenCalled();
+    });
+
+    it('claim EN_ATTENTE_VALIDATION (centre ACTIVE) → même refus', async () => {
+      prisma.membership.findUnique.mockResolvedValue({ claimStatut: 'EN_ATTENTE_VALIDATION' });
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({
+        centre: { nom: 'Chalet', email: 'c@c.fr', iban: null, statut: 'ACTIVE', organisationId: 'org-1', userId: 'user-heb' },
+      }));
+      await expect(
+        service.signerDevisDirect('t', { nomSignataire: 'X', confirmation: true }, {} as Request, undefined, opts),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('S1 — getDevisPublicByToken : exposition du centre', () => {
+    const CHAMPS_CENTRE_PUBLIC = [
+      'nom', 'ville', 'adresse', 'codePostal', 'siret', 'telephone', 'email',
+      'tvaIntracommunautaire', 'iban', 'brochureUrlSejour', 'brochureUrlEvenement',
+      'conditionsAnnulation', 'logoUrl',
+    ];
+
+    it('centre validé → centreEnValidation false, iban transmis', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      const res = await service.getDevisPublicByToken('t', { verifierExpiration: true });
+      expect(res.centreEnValidation).toBe(false);
+      expect(res.centre.iban).toBe('FR7630001007941234567890185');
+    });
+
+    it('centre non validé → aperçu AUTORISÉ, centreEnValidation true, iban null, AUCUN champ nouveau', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic({
+        centre: { nom: 'Chalet', email: 'c@c.fr', iban: 'FR76X', statut: 'PENDING', organisationId: null, userId: 'user-heb' },
+      }));
+      const res = await service.getDevisPublicByToken('t', { verifierExpiration: true });
+      expect(res.centreEnValidation).toBe(true);
+      expect(res.centre.iban).toBeNull();
+      // Reconstruction explicite : statut/organisationId/userId ne fuient jamais
+      expect(Object.keys(res.centre).sort()).toEqual([...CHAMPS_CENTRE_PUBLIC].sort());
+    });
+  });
+
+  describe('S1 — le lien naît éteint', () => {
+    it('createDirectDevis : lienSignatureExpiresAt ≤ maintenant', async () => {
+      prisma.sejour.findUnique.mockResolvedValue({
+        id: 'sejour-1', modeGestion: 'DIRECT', hebergementSelectionneId: 'centre-1',
+        createurId: null, deletedAt: null,
+      });
+      prisma.devis.findFirst.mockResolvedValue(null);
+      prisma.devis.findUnique.mockResolvedValue({ id: 'devis-neuf', lignes: [] });
+
+      await service.createDirectDevis(
+        // dto minimal : seuls sejourDirectId + montants sont lus avant l'écriture testée
+        { sejourDirectId: 'sejour-1', montantTotal: 100 } as unknown as Parameters<DevisService['createDirectDevis']>[0],
+        'user-heb',
+      );
+
+      const { data } = prisma.tx.devis.create.mock.calls[0][0];
+      expect(data.lienSignatureExpiresAt).toBeInstanceOf(Date);
+      expect(data.lienSignatureExpiresAt.getTime()).toBeLessThanOrEqual(Date.now());
+    });
+  });
+
+  describe('S1 — envoyerADirection : anti-abus + ordre des écritures', () => {
+    it('même adresse en attente < 1 h → 400, rien créé', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      prisma.invitationDirecteur.findFirst.mockResolvedValue({ id: 'inv-old', createdAt: new Date(Date.now() - 600000) });
+      await expect(
+        service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.invitationDirecteur.create).not.toHaveBeenCalled();
+      expect(email.sendGenericNotification).not.toHaveBeenCalled();
+    });
+
+    it('même adresse en attente ≥ 1 h → ancienne supprimée, nouvelle créée (renvoi)', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      prisma.invitationDirecteur.findFirst.mockResolvedValue({ id: 'inv-old', createdAt: new Date(Date.now() - 2 * 3600000) });
+      const res = await service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org');
+      expect(res.success).toBe(true);
+      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledWith({ where: { id: 'inv-old' } });
+      expect(prisma.invitationDirecteur.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('3 invitations en attente (adresses distinctes) → 400 plafond', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      prisma.invitationDirecteur.findFirst.mockResolvedValue(null);
+      prisma.invitationDirecteur.count.mockResolvedValue(3);
+      await expect(
+        service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.invitationDirecteur.create).not.toHaveBeenCalled();
+    });
+
+    it('échec Brevo → invitation supprimée, statut INCHANGÉ, erreur relancée', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      email.sendGenericNotification.mockRejectedValue(new Error('brevo down'));
+      await expect(
+        service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org'),
+      ).rejects.toThrow('brevo down');
+      expect(prisma.invitationDirecteur.create).toHaveBeenCalledTimes(1);
+      expect(prisma.invitationDirecteur.delete).toHaveBeenCalledWith({ where: { id: 'inv-1' } });
+      expect(prisma.devis.update).not.toHaveBeenCalled();
+    });
+
+    it('succès → statut EN_ATTENTE_VALIDATION posé APRÈS l\'envoi', async () => {
+      prisma.devis.findUnique.mockResolvedValue(devisPublic());
+      const res = await service.envoyerADirection('t', { emailDirecteur: 'dir@ecole.fr' }, 'user-org');
+      expect(res.success).toBe(true);
+      const ordreEmail = email.sendGenericNotification.mock.invocationCallOrder[0];
+      const ordreStatut = prisma.devis.update.mock.invocationCallOrder[0];
+      expect(ordreEmail).toBeLessThan(ordreStatut);
+      expect(prisma.devis.update.mock.calls[0][0].data).toEqual({ statut: 'EN_ATTENTE_VALIDATION' });
     });
   });
 });

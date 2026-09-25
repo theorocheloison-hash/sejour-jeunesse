@@ -96,14 +96,36 @@ export async function assertEnvoiExterneAutorise(
     return;
   }
 
-  // 2. Centre non validé (PENDING) — inscription ex-nihilo.
+  if (await estCentreValide(prisma, centre)) return;
+
+  // Message selon la cause (règles 2 et 3 historiques, comportement inchangé).
   if (centre.statut !== 'ACTIVE') {
+    // 2. Centre non validé (PENDING) — inscription ex-nihilo.
     throw new ForbiddenException(
       `CENTRE_EN_VALIDATION|Votre centre est en cours de validation par l'équipe LIAVO. En attendant, vous pouvez tester tous les envois vers votre propre adresse email (${userEmail}).`,
     );
   }
-
   // 3. Centre ACTIVE : la revendication du propriétaire doit être validée.
+  throw new ForbiddenException(
+    `CENTRE_EN_VALIDATION|Votre revendication du centre est en cours de validation par l'équipe LIAVO. En attendant, vous pouvez tester tous les envois vers votre propre adresse email (${userEmail}).`,
+  );
+}
+
+/**
+ * Prédicat UNIQUE de validation d'un centre (S1) — source de vérité des règles
+ * 2 et 3 d'assertEnvoiExterneAutorise, consommé aussi par la surface publique
+ * de signature (devis.service) et la relance cron. Ne pas dupliquer la règle.
+ * - statut ACTIVE requis (PENDING → non validé ; SUSPENDED n'arrive pas ici,
+ *   filtré en amont par getCentreForUser) ;
+ * - centre revendiqué (organisationId + userId) : claimStatut du propriétaire
+ *   hors EN_ATTENTE_DOCUMENT / EN_ATTENTE_VALIDATION / REFUSE ;
+ * - membership absent, NON_APPLICABLE ou centre legacy sans organisation → validé.
+ */
+export async function estCentreValide(
+  prisma: PrismaService,
+  centre: { statut: string; organisationId: string | null; userId: string | null },
+): Promise<boolean> {
+  if (centre.statut !== 'ACTIVE') return false;
   if (centre.organisationId && centre.userId) {
     const membership = await prisma.membership.findUnique({
       where: {
@@ -118,11 +140,10 @@ export async function assertEnvoiExterneAutorise(
       membership &&
       ['EN_ATTENTE_DOCUMENT', 'EN_ATTENTE_VALIDATION', 'REFUSE'].includes(membership.claimStatut)
     ) {
-      throw new ForbiddenException(
-        `CENTRE_EN_VALIDATION|Votre revendication du centre est en cours de validation par l'équipe LIAVO. En attendant, vous pouvez tester tous les envois vers votre propre adresse email (${userEmail}).`,
-      );
+      return false;
     }
   }
+  return true;
 }
 
 export async function getCentresForUser(prisma: PrismaService, userId: string) {

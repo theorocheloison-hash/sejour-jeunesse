@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   ForbiddenException,
   Logger,
@@ -14,10 +15,10 @@ import { CreateDevisDto } from './dto/create-devis.dto.js';
 import { CreateDevisComplementaireDto } from './dto/create-devis-complementaire.dto.js';
 import { UpdateDevisDto } from './dto/update-devis.dto.js';
 import { MarquerEnvoyeDto } from './dto/marquer-envoye.dto.js';
-import { prochaineLienSignatureExpiration } from './lien-signature.constants.js';
+import { prochaineLienSignatureExpiration, lienSignatureEteint } from './lien-signature.constants.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { getOrganisationPrincipale } from '../organisations/organisation.helpers.js';
-import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper.js';
+import { assertEnvoiExterneAutorise, estCentreValide, getCentreForUser } from '../centres/centre.helper.js';
 import { formatParticipants } from '../utils/format.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS, STATUTS_DEVIS_EN_COURS } from './devis-statuts.constants.js';
 import { SequenceService } from '../sequence/sequence.service.js';
@@ -29,6 +30,11 @@ import {
   getSignataireSejourIds,
   assertOrganisateurCanSignDevis,
 } from '../auth/ownership.helper.js';
+
+// S1 — refus de la surface publique de signature quand le centre n'est pas
+// validé (estCentreValide). Message affiché verbatim par la page publique.
+const MSG_CENTRE_EN_VERIFICATION =
+  "Ce devis n'est pas encore signable : le centre est en cours de vérification par l'équipe LIAVO.";
 
 // Échappe le HTML d'un message libre avant injection dans un email (anti-XSS)
 function escapeHtml(str: string): string {
@@ -162,7 +168,8 @@ export class DevisService {
           typeDevis: dto.typeDevis ?? 'PLATEFORME',
           // La création ne vaut PLUS envoi : dateEnvoi reste null jusqu'à
           // l'envoi manuel (envoyerDevis, bouton « Envoyer le devis au client »).
-          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
+          // S1 : le lien public naît ÉTEINT — seuls les envois autorisés l'arment.
+          lienSignatureExpiresAt: lienSignatureEteint(),
         },
       });
 
@@ -1293,13 +1300,6 @@ export class DevisService {
     });
   }
 
-  async getVersements(devisId: string) {
-    return this.prisma.versementPaiement.findMany({
-      where: { devisId },
-      orderBy: { datePaiement: 'asc' },
-    });
-  }
-
   /** Numéro de devis formaté DEV-{annee}-{NNNN} (consomme la séquence DEVIS). */
   private async formaterNumeroDevis(emetteurId: string): Promise<string> {
     const annee = new Date().getFullYear();
@@ -1427,7 +1427,8 @@ export class DevisService {
           montantAcompte: dto.montantAcompte,
           numeroDevis,
           typeDevis: 'PLATEFORME',
-          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
+          // S1 : le lien public naît ÉTEINT — seuls les envois autorisés l'arment.
+          lienSignatureExpiresAt: lienSignatureEteint(),
         },
       });
 
@@ -1801,12 +1802,18 @@ export class DevisService {
       throw new ForbiddenException('Utilisez l\'envoi dédié pour les devis complémentaires');
     }
 
+    // S1 : la rotation du token a toujours lieu (révocation), mais seul un
+    // centre VALIDÉ réarme l'expiration — sinon le nouveau lien naît éteint.
+    const centreValide = await estCentreValide(this.prisma, centre);
+
     await this.prisma.$transaction(async (tx) => {
       await tx.devis.update({
         where: { id: devisId },
         data: {
           tokenSignature: randomUUID(),
-          lienSignatureExpiresAt: prochaineLienSignatureExpiration(),
+          lienSignatureExpiresAt: centreValide
+            ? prochaineLienSignatureExpiration()
+            : lienSignatureEteint(),
         },
       });
       await tx.invitationDirecteur.deleteMany({
@@ -2408,6 +2415,9 @@ export class DevisService {
             tvaIntracommunautaire: true, iban: true,
             brochureUrlSejour: true, brochureUrlEvenement: true, conditionsAnnulation: true,
             logoUrl: true,
+            // S1 : lus pour estCentreValide UNIQUEMENT — l'objet centre du
+            // retour est reconstruit explicitement, ces champs n'y figurent pas.
+            statut: true, organisationId: true, userId: true,
           },
         },
         sejourDirect: {
@@ -2445,6 +2455,27 @@ export class DevisService {
     const isSigned = devis.statut === 'SELECTIONNE' || devis.statut === 'SIGNE_DIRECTION'
       || devis.statut === 'FACTURE_ACOMPTE' || devis.statut === 'FACTURE_SOLDE';
 
+    // S1 : l'aperçu public reste autorisé pour un centre non validé, mais la
+    // page désactive la signature (centreEnValidation) et l'IBAN est masqué
+    // (anti fraude au RIB). L'objet centre est reconstruit EXPLICITEMENT :
+    // statut/organisationId/userId, lus pour le prédicat, ne sortent JAMAIS.
+    const centreValide = await estCentreValide(this.prisma, devis.centre);
+    const centrePublic = {
+      nom: devis.centre.nom,
+      ville: devis.centre.ville,
+      adresse: devis.centre.adresse,
+      codePostal: devis.centre.codePostal,
+      siret: devis.centre.siret,
+      telephone: devis.centre.telephone,
+      email: devis.centre.email,
+      tvaIntracommunautaire: devis.centre.tvaIntracommunautaire,
+      iban: centreValide ? devis.centre.iban : null,
+      brochureUrlSejour: devis.centre.brochureUrlSejour,
+      brochureUrlEvenement: devis.centre.brochureUrlEvenement,
+      conditionsAnnulation: devis.centre.conditionsAnnulation,
+      logoUrl: devis.centre.logoUrl,
+    };
+
     return {
       id: devis.id,
       numeroDevis: devis.numeroDevis,
@@ -2467,7 +2498,8 @@ export class DevisService {
       // téléchargement public ; null si le devis est généré (PDF reconstruit côté client).
       documentUrl: devis.documentUrl,
       lignes: devis.lignes,
-      centre: devis.centre,
+      centre: centrePublic,
+      centreEnValidation: !centreValide,
       sejour: devis.sejourDirect ?? devis.demande?.sejour ?? null,
       isSigned,
       signatureDirecteur: devis.signatureDirecteur,
@@ -2488,11 +2520,17 @@ export class DevisService {
       select: {
         id: true, contratUrl: true, statut: true, lienSignatureExpiresAt: true,
         nomSignataireDirecteur: true, dateSignatureDirecteur: true, signatureDocumentUrl: true,
+        // S1 : lus pour estCentreValide uniquement
+        centre: { select: { statut: true, organisationId: true, userId: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
     if (opts?.verifierExpiration) {
       this.assertLienPublicNonExpire(devis, 'Lien invalide');
+    }
+    // S1 : la surface publique vérifie elle-même la validation du centre.
+    if (!(await estCentreValide(this.prisma, devis.centre))) {
+      throw new ForbiddenException(MSG_CENTRE_EN_VERIFICATION);
     }
     if (!devis.contratUrl) throw new NotFoundException('Contrat non disponible');
     return this.storage.fetchAsBuffer(devis.contratUrl);
@@ -2518,7 +2556,8 @@ export class DevisService {
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
       include: {
-        centre: { select: { nom: true, email: true } },
+        // S1 : statut/organisationId/userId lus pour estCentreValide UNIQUEMENT
+        centre: { select: { nom: true, email: true, statut: true, organisationId: true, userId: true } },
         sejourDirect: { select: { id: true, titre: true, clientEmail: true, clientNom: true, clientPrenom: true, dateDebut: true, dateFin: true, modeGestion: true } },
         demande: {
           select: {
@@ -2542,6 +2581,11 @@ export class DevisService {
     }
     if (!this.estDevisOuvertPourSignature(devis)) {
       throw new ForbiddenException('Ce devis a déjà été signé ou facturé.');
+    }
+    // S1 : la surface publique vérifie ELLE-MÊME la validation du centre —
+    // le gate d'envoi ne suffit pas (lien copiable hors plateforme).
+    if (!(await estCentreValide(this.prisma, devis.centre))) {
+      throw new ForbiddenException(MSG_CENTRE_EN_VERIFICATION);
     }
 
     const now = new Date();
@@ -2650,9 +2694,9 @@ export class DevisService {
     signataireUserId?: string,
     opts?: { verifierExpiration?: boolean },
   ) {
-    if (!body.emailDirecteur?.trim()) {
-      throw new ForbiddenException('L\'email du signataire est requis');
-    }
+    // S1 : le format est validé par EnvoyerDirectionDto (400) sur les deux
+    // routes ; ici on ne garde que la normalisation (ceinture, chemins internes).
+    const emailCible = body.emailDirecteur?.trim().toLowerCase() ?? '';
 
     const devis = await this.prisma.devis.findUnique({
       where: { tokenSignature: token },
@@ -2674,7 +2718,8 @@ export class DevisService {
             },
           },
         },
-        centre: { select: { nom: true, email: true } },
+        // S1 : statut/organisationId/userId lus pour estCentreValide UNIQUEMENT
+        centre: { select: { nom: true, email: true, statut: true, organisationId: true, userId: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
@@ -2692,6 +2737,33 @@ export class DevisService {
     if (!this.estDevisOuvertPourSignature(devis)) {
       throw new ForbiddenException('Ce devis ne peut plus être envoyé à la direction.');
     }
+    // S1 : la surface publique vérifie elle-même la validation du centre.
+    if (!(await estCentreValide(this.prisma, devis.centre))) {
+      throw new ForbiddenException(MSG_CENTRE_EN_VERIFICATION);
+    }
+
+    // S1 — anti-abus. Invitation « en attente » = ni signée ni utilisée.
+    const enAttenteWhere = { devisId: devis.id, signeAt: null, utilisedAt: null };
+    const memeAdresse = await this.prisma.invitationDirecteur.findFirst({
+      where: { ...enAttenteWhere, emailDirecteur: emailCible },
+      select: { id: true, createdAt: true },
+    });
+    if (memeAdresse && memeAdresse.createdAt > new Date(Date.now() - 3600000)) {
+      throw new BadRequestException(
+        'Une invitation a déjà été envoyée à cette adresse il y a moins d\'une heure.',
+      );
+    }
+    if (!memeAdresse) {
+      const nbEnAttente = await this.prisma.invitationDirecteur.count({ where: enAttenteWhere });
+      if (nbEnAttente >= 3) {
+        throw new BadRequestException(
+          'Nombre maximal d\'invitations atteint pour ce devis. Contactez le centre.',
+        );
+      }
+    } else {
+      // Renvoi (≥ 1 h) : l'ancienne invitation est remplacée par la nouvelle.
+      await this.prisma.invitationDirecteur.delete({ where: { id: memeAdresse.id } });
+    }
 
     // randomUUID importé en tête de fichier (node:crypto) — l'import dynamique
     // historique cassait Jest (CJS sans --experimental-vm-modules).
@@ -2704,12 +2776,15 @@ export class DevisService {
     const organisationIdPourInvitation: string | null =
       sejour.clientOrganisationId ?? null;
 
-    await this.prisma.invitationDirecteur.create({
+    // S1 — ordre des écritures : l'invitation doit exister AVANT l'email (le
+    // lien contient son token), mais un échec Brevo la supprime : aucun état
+    // persisté sans email parti. Le statut ne bouge qu'APRÈS l'envoi réussi.
+    const invitation = await this.prisma.invitationDirecteur.create({
       data: {
         token: invToken,
         sejourId,
         devisId: devis.id,
-        emailDirecteur: body.emailDirecteur.trim(),
+        emailDirecteur: emailCible,
         enseignantPrenom: sejour.clientNom ?? 'L\'organisateur',
         sejourTitre: sejour.titre,
         etablissementNom: sejour.clientOrganisation ?? null,
@@ -2717,6 +2792,31 @@ export class DevisService {
         typeContexte: 'SCOLAIRE',
       },
     });
+
+    try {
+      await this.email.sendGenericNotification(
+        emailCible,
+        `Devis à valider — ${sejour.titre}`,
+        `<p>Bonjour,</p>
+         <p>${sejour.clientNom ?? 'Un organisateur'} vous invite à consulter et signer le devis pour le séjour <strong>${sejour.titre}</strong> au centre <strong>${devis.centre?.nom ?? ''}</strong>.</p>
+         <p style="margin:24px 0">
+           <a href="${frontendUrl}/invitation-direction/${invToken}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
+             Consulter et signer le devis
+           </a>
+         </p>
+         <p style="font-size:12px;color:#9ca3af;">Si vous n'êtes pas concerné par cette demande, vous pouvez ignorer cet email.</p>`,
+        devis.centre?.nom,
+        devis.centre?.email
+          ? { name: devis.centre.nom, email: devis.centre.email }
+          : undefined,
+        null,
+      );
+    } catch (err) {
+      await this.prisma.invitationDirecteur
+        .delete({ where: { id: invitation.id } })
+        .catch(() => { /* l'erreur d'origine prime */ });
+      throw err;
+    }
 
     // Ne pas rétrograder un devis déjà retenu (SELECTIONNE…) : le passage en
     // EN_ATTENTE_VALIDATION ne concerne qu'un devis encore en attente.
@@ -2726,24 +2826,6 @@ export class DevisService {
         data: { statut: StatutDevis.EN_ATTENTE_VALIDATION },
       });
     }
-
-    await this.email.sendGenericNotification(
-      body.emailDirecteur.trim(),
-      `Devis à valider — ${sejour.titre}`,
-      `<p>Bonjour,</p>
-       <p>${sejour.clientNom ?? 'Un organisateur'} vous invite à consulter et signer le devis pour le séjour <strong>${sejour.titre}</strong> au centre <strong>${devis.centre?.nom ?? ''}</strong>.</p>
-       <p style="margin:24px 0">
-         <a href="${frontendUrl}/invitation-direction/${invToken}" style="display:inline-block;background:#1B4060;color:#fff;padding:12px 28px;border-radius:6px;font-weight:600;text-decoration:none;font-size:14px">
-           Consulter et signer le devis
-         </a>
-       </p>
-       <p style="font-size:12px;color:#9ca3af;">Si vous n'êtes pas concerné par cette demande, vous pouvez ignorer cet email.</p>`,
-      devis.centre?.nom,
-      devis.centre?.email
-        ? { name: devis.centre.nom, email: devis.centre.email }
-        : undefined,
-      null,
-    );
 
     // Log CRM non bloquant
     try {
@@ -2762,7 +2844,7 @@ export class DevisService {
             metadata: {
               devisId: devis.id,
               emailType: 'INVITATION_DIRECTION',
-              to: body.emailDirecteur.trim(),
+              to: emailCible,
               subject: `Devis à valider — ${sejour.titre}`,
               messagePreview: '',
             },
@@ -2800,7 +2882,8 @@ export class DevisService {
             sejour: { select: { id: true, titre: true, dateDebut: true } },
           },
         },
-        centre: { select: { nom: true, email: true } },
+        // S1 : statut/organisationId/userId lus pour estCentreValide UNIQUEMENT
+        centre: { select: { nom: true, email: true, statut: true, organisationId: true, userId: true } },
       },
     });
     if (!devis) throw new NotFoundException('Lien invalide');
@@ -2814,6 +2897,10 @@ export class DevisService {
     }
     if (!this.estDevisOuvertPourSignature(devis)) {
       throw new ForbiddenException('Ce devis ne peut plus recevoir de document signé.');
+    }
+    // S1 : la surface publique vérifie elle-même la validation du centre.
+    if (!(await estCentreValide(this.prisma, devis.centre))) {
+      throw new ForbiddenException(MSG_CENTRE_EN_VERIFICATION);
     }
 
     const documentUrl = await this.storage.upload(file, 'signatures');

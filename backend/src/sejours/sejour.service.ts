@@ -699,6 +699,32 @@ export class SejourService {
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== userId) throw new ForbiddenException('Accès refusé');
 
+    // S1 : le devisId du body doit appartenir AU séjour (sinon n'importe quel
+    // organisateur pouvait changer le statut de n'importe quel devis).
+    if (devisId) {
+      const devisCible = await this.prisma.devis.findUnique({
+        where: { id: devisId },
+        select: { sejourDirectId: true, demande: { select: { sejourId: true } } },
+      });
+      if (
+        !devisCible ||
+        (devisCible.sejourDirectId !== sejourId && devisCible.demande?.sejourId !== sejourId)
+      ) {
+        throw new ForbiddenException('Ce devis n\'appartient pas à ce séjour.');
+      }
+    }
+
+    // S1 : le passage EN_ATTENTE → EN_ATTENTE_VALIDATION n'a lieu qu'APRÈS un
+    // envoi d'email réussi, et ne rétrograde JAMAIS un devis retenu/signé/
+    // facturé (clause where sur le statut).
+    const passerDevisEnValidation = async () => {
+      if (!devisId) return;
+      await this.prisma.devis.updateMany({
+        where: { id: devisId, statut: 'EN_ATTENTE' },
+        data: { statut: 'EN_ATTENTE_VALIDATION' },
+      });
+    };
+
     // Résoudre l'organisation principale de l'organisateur
     const orgaPrincipale = userId
       ? await getOrganisationPrincipale(userId, this.prisma)
@@ -714,14 +740,6 @@ export class SejourService {
       },
       select: { email: true, prenom: true, nom: true },
     }) : null;
-
-    // Changer le statut du devis si fourni
-    if (devisId) {
-      await this.prisma.devis.update({
-        where: { id: devisId },
-        data: { statut: 'EN_ATTENTE_VALIDATION' },
-      });
-    }
 
     if (directeurExistant) {
       const dateDebut = sejour.dateDebut ? sejour.dateDebut.toLocaleDateString('fr-FR') : 'À définir';
@@ -740,6 +758,7 @@ export class SejourService {
         undefined,
         null,
       );
+      await passerDevisEnValidation();
       return { found: true };
     }
 
@@ -799,6 +818,7 @@ export class SejourService {
       null,
     );
 
+    await passerDevisEnValidation();
     return { found: false, sent: true };
   }
 
