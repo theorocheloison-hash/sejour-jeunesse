@@ -168,6 +168,10 @@ export default function HebergeurProfilPage() {
     setSuccess(false);
   };
 
+  // S4 : revendication en attente → coordonnées grisées (le verrou serveur
+  // d'updateMonProfil reste l'autorité ; ici c'est l'explication + l'UX).
+  const coordonneesVerrouillees = !!centre?.coordonneesVerrouillees;
+
   const toggleEquipement = (eq: string) => {
     setForm((prev) => ({
       ...prev,
@@ -783,13 +787,21 @@ export default function HebergeurProfilPage() {
               </label>
             </div>
 
+            {/* S4 : coordonnées verrouillées tant que la revendication n'est pas validée */}
+            {coordonneesVerrouillees && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                Ces informations seront modifiables dès que l&apos;équipe LIAVO aura validé
+                votre revendication du centre.
+              </div>
+            )}
+
             {/* Informations g&eacute;n&eacute;rales */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h2 className="text-sm font-semibold text-gray-900 mb-4">Informations g&eacute;n&eacute;rales</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Nom du centre *</label>
-                  <input type="text" value={form.nom} onChange={set('nom')} className={inputCls} required />
+                  <input type="text" value={form.nom} onChange={set('nom')} disabled={coordonneesVerrouillees} className={inputCls} required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
@@ -802,7 +814,7 @@ export default function HebergeurProfilPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Site web</label>
-                    <input type="text" value={form.siteWeb} onChange={set('siteWeb')} placeholder="https://..." className={inputCls} />
+                    <input type="text" value={form.siteWeb} onChange={set('siteWeb')} disabled={coordonneesVerrouillees} placeholder="https://..." className={inputCls} />
                   </div>
                 </div>
                 <div>
@@ -830,26 +842,26 @@ export default function HebergeurProfilPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Adresse</label>
-                  <input type="text" value={form.adresse} onChange={set('adresse')} className={inputCls} />
+                  <input type="text" value={form.adresse} onChange={set('adresse')} disabled={coordonneesVerrouillees} className={inputCls} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Code postal</label>
-                    <input type="text" value={form.codePostal} onChange={set('codePostal')} className={inputCls} />
+                    <input type="text" value={form.codePostal} onChange={set('codePostal')} disabled={coordonneesVerrouillees} className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Ville</label>
-                    <input type="text" value={form.ville} onChange={set('ville')} className={inputCls} />
+                    <input type="text" value={form.ville} onChange={set('ville')} disabled={coordonneesVerrouillees} className={inputCls} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">T&eacute;l&eacute;phone</label>
-                    <input type="text" value={form.telephone} onChange={set('telephone')} className={inputCls} />
+                    <input type="text" value={form.telephone} onChange={set('telephone')} disabled={coordonneesVerrouillees} className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Email de contact</label>
-                    <input type="text" value={form.email} onChange={set('email')} className={inputCls} />
+                    <input type="text" value={form.email} onChange={set('email')} disabled={coordonneesVerrouillees} className={inputCls} />
                   </div>
                 </div>
               </div>
@@ -861,16 +873,16 @@ export default function HebergeurProfilPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">SIRET</label>
-                  <input type="text" value={form.siret} onChange={set('siret')} maxLength={14} placeholder="12345678901234" className={inputCls} />
+                  <input type="text" value={form.siret} onChange={set('siret')} disabled={coordonneesVerrouillees} maxLength={14} placeholder="12345678901234" className={inputCls} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">N&deg; TVA intracommunautaire</label>
-                    <input type="text" value={form.tvaIntracommunautaire} onChange={set('tvaIntracommunautaire')} placeholder="FR12345678901" className={inputCls} />
+                    <input type="text" value={form.tvaIntracommunautaire} onChange={set('tvaIntracommunautaire')} disabled={coordonneesVerrouillees} placeholder="FR12345678901" className={inputCls} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">IBAN</label>
-                    <input type="text" value={form.iban} onChange={set('iban')} placeholder="FR76..." className={inputCls} />
+                    <input type="text" value={form.iban} onChange={set('iban')} disabled={coordonneesVerrouillees} placeholder="FR76..." className={inputCls} />
                   </div>
                 </div>
                 <p className="text-xs text-gray-400">Ces informations apparaissent sur vos factures et devis.</p>

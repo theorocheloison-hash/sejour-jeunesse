@@ -14,6 +14,9 @@ export interface Centre {
   id: string;
   /** Propriétaire du centre (renvoyé par getMonProfil) — distingue propriétaire vs collaborateur. */
   userId?: string | null;
+  /** S4 : revendication en attente → coordonnées verrouillées côté serveur,
+   *  le front les grise. Optionnel : un back antérieur ne le renvoie pas. */
+  coordonneesVerrouillees?: boolean;
   nom: string;
   adresse: string;
   ville: string;
