@@ -25,14 +25,16 @@ import {
   Paperclip,
   Upload,
   FileText,
-  Lock,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   getAutorisationPublique,
   signerAutorisation,
   uploadDocumentMedical,
   type AutorisationPublique,
+  type SignerAutorisationDto,
 } from '@/src/lib/autorisation';
+import { CHAMPS_INSCRIPTION, type ChampInscription } from '@/src/lib/champs-inscription';
 import { formatDate } from '@/src/lib/utils';
 import ReassuranceDonnees from '@/app/components/ReassuranceDonnees';
 
@@ -55,22 +57,21 @@ const TYPE_HEBERGEMENT_LABEL: Record<string, string> = {
   autre: 'Autre',
 };
 
-const REGIME_OPTIONS = [
-  'Aucun régime particulier',
-  'Végétarien',
-  'Végétalien/Vegan',
-  'Sans porc',
-  'Sans gluten',
-  'Autre',
-];
+// Miroir de lireChampsActifs (backend autorisation.service) : snapshot lisible =
+// { champsActifs: tableau de chaînes } ; null ou malformé = pas de snapshot.
+function lireChampsActifs(json: unknown): string[] | null {
+  const brut = (json as { champsActifs?: unknown } | null)?.champsActifs;
+  return Array.isArray(brut) && brut.every((c) => typeof c === 'string')
+    ? (brut as string[])
+    : null;
+}
 
-const NIVEAU_SKI_OPTIONS = [
-  { value: '', label: 'Non renseigné' },
-  { value: 'DEBUTANT', label: 'Débutant' },
-  { value: 'INTERMEDIAIRE', label: 'Intermédiaire' },
-  { value: 'CONFIRME', label: 'Confirmé' },
-  { value: 'HORS_PISTE', label: 'Hors-piste' },
-];
+// Icônes par clé Bloc B (réutilise les imports existants)
+const CHAMP_ICONS: Record<string, LucideIcon> = {
+  sexe: UserRound, taille: Ruler, poids: Weight, pointure: Footprints,
+  niveauSki: Mountain, attestationAquatique: ShieldCheck,
+  regimeAlimentaire: UtensilsCrossed, allergies: Stethoscope, infosMedicales: Stethoscope,
+};
 
 const MENSUALITES_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -96,13 +97,12 @@ export default function SignerAutorisationPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Form fields
-  const [taille, setTaille] = useState('');
-  const [poids, setPoids] = useState('');
-  const [pointure, setPointure] = useState('');
-  const [regime, setRegime] = useState('Aucun régime particulier');
-  const [regimeAutre, setRegimeAutre] = useState('');
-  const [niveauSki, setNiveauSki] = useState('');
-  const [infosMedicales, setInfosMedicales] = useState('');
+  // Bloc B dynamique — valeur par clé (nombres saisis en texte)
+  const [champsB, setChampsB] = useState<Record<string, string>>({});
+  // Précision quand le régime est sur « Autre » (envoyée à la place du littéral)
+  const [regimePrecision, setRegimePrecision] = useState('');
+  // Champs à valeurAucune : choix explicite 'AUCUNE' | 'OUI' | '' (non répondu)
+  const [choixAucune, setChoixAucune] = useState<Record<string, 'AUCUNE' | 'OUI' | ''>>({});
   const [nomParent, setNomParent] = useState('');
   const [telephoneUrgence, setTelephoneUrgence] = useState('');
   const [eleveDateNaissance, setEleveDateNaissance] = useState('');
@@ -130,14 +130,67 @@ export default function SignerAutorisationPage() {
       .then((data) => {
         setAutorisation(data);
         if (data.signeeAt) setSigned(true);
+        // Pré-remplissage (Back 2) — jamais les champs santé/sensibles : le back
+        // ne les renvoie pas, et on les saute aussi ici par défense.
+        const v = data.valeurs;
+        if (v && !data.signeeAt) {
+          if (typeof v.nomParent === 'string') setNomParent(v.nomParent);
+          if (typeof v.telephoneUrgence === 'string') setTelephoneUrgence(v.telephoneUrgence);
+          if (typeof v.eleveDateNaissance === 'string') setEleveDateNaissance(v.eleveDateNaissance);
+          const actifs = lireChampsActifs(data.sejour.champsInscription) ?? [];
+          const prefill: Record<string, string> = {};
+          for (const champ of CHAMPS_INSCRIPTION) {
+            if (champ.bloc !== 'B' || champ.sante || champ.sensible) continue;
+            if (!actifs.includes(champ.cle)) continue;
+            const val = v[champ.cle];
+            if (val === null || val === undefined) continue;
+            // Select : uniquement si la valeur figure dans les options — jamais
+            // de state hors options. Number : tel quel, borne signalée à l'écran.
+            if (champ.type === 'select') {
+              if (champ.options?.some((o) => o.value === String(val))) prefill[champ.cle] = String(val);
+            } else {
+              prefill[champ.cle] = String(val);
+            }
+          }
+          if (Object.keys(prefill).length) setChampsB(prefill);
+        }
       })
       .catch(() => setError('Lien invalide ou autorisation introuvable.'))
       .finally(() => setLoading(false));
   }, [token]);
 
-  const showSki = autorisation?.sejour.thematiquesPedagogiques?.some(
-    (t) => /ski|montagne|neige/i.test(t),
+  const champsActifs = autorisation ? lireChampsActifs(autorisation.sejour.champsInscription) : null;
+  // Bloc B à rendre, DANS L'ORDRE de CHAMPS_INSCRIPTION ; pas de snapshot → rien.
+  const champsBActifs: ChampInscription[] = CHAMPS_INSCRIPTION.filter(
+    (c) => c.bloc === 'B' && (champsActifs ?? []).includes(c.cle),
   );
+  // Consentement santé : dès qu'une clé sante est demandée (la réponse « Aucune »
+  // est elle-même une donnée de santé — décision 25/09).
+  const santeActive = champsBActifs.some((c) => c.sante);
+
+  function erreurBorne(champ: ChampInscription, brut: string): string | null {
+    if (brut === '') return null;
+    const n = Number(brut);
+    if (Number.isNaN(n) || (champ.min !== undefined && n < champ.min) || (champ.max !== undefined && n > champ.max))
+      return `Valeur attendue entre ${champ.min} et ${champ.max}.`;
+    return null;
+  }
+
+  function champBRepondu(champ: ChampInscription): boolean {
+    if (champ.valeurAucune) {
+      const choix = choixAucune[champ.cle] ?? '';
+      return choix === 'AUCUNE' || (choix === 'OUI' && !!(champsB[champ.cle] ?? '').trim());
+    }
+    const brut = champsB[champ.cle] ?? '';
+    if (champ.type === 'number') return brut !== '' && !erreurBorne(champ, brut);
+    if (champ.cle === 'regimeAlimentaire') return brut !== '' && (brut !== 'Autre' || !!regimePrecision.trim());
+    return brut !== '';
+  }
+
+  const formValid =
+    !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance &&
+    champsBActifs.every(champBRepondu) &&
+    rgpdAccepte && (!santeActive || consentementMedical);
 
   const montantParEleve = autorisation?.sejour.montantParEleve
     ? Number(autorisation.sejour.montantParEleve)
@@ -145,25 +198,38 @@ export default function SignerAutorisationPage() {
   const mensualite = montantParEleve ? montantParEleve / nombreMensualites : null;
 
   const handleSign = async () => {
-    if (!token || !taille || !poids || !pointure || !rgpdAccepte || !nomParent.trim() || !telephoneUrgence.trim() || !eleveDateNaissance) return;
+    if (!token || !formValid) return;
     setSigning(true);
     try {
-      const regimeVal = regime === 'Autre' ? regimeAutre.trim() : regime === 'Aucun régime particulier' ? undefined : regime;
-      await signerAutorisation(token, {
-        taille: parseInt(taille, 10),
-        poids: parseInt(poids, 10),
-        pointure: parseInt(pointure, 10),
-        regimeAlimentaire: regimeVal || undefined,
-        niveauSki: niveauSki || undefined,
-        infosMedicales: infosMedicales.trim() || undefined,
+      const dto: SignerAutorisationDto = {
         nomParent: nomParent.trim(),
         telephoneUrgence: telephoneUrgence.trim(),
         eleveDateNaissance,
         rgpdAccepte: true,
-        consentementMedical: infosMedicales.trim() ? consentementMedical : false,
+        consentementMedical: santeActive ? consentementMedical : false,
         nombreMensualites,
         moyenPaiement: moyenPaiement || undefined,
-      });
+      };
+      // UNIQUEMENT les clés actives du snapshot — jamais une clé non demandée.
+      // Les clés de CLES_BLOC_B sont des clés du DTO (miroir back) ; même
+      // idiome que signer() côté back (dto as unknown as Record).
+      const cible = dto as unknown as Record<string, unknown>;
+      for (const champ of champsBActifs) {
+        if (champ.valeurAucune) {
+          cible[champ.cle] = choixAucune[champ.cle] === 'AUCUNE'
+            ? champ.valeurAucune
+            : (champsB[champ.cle] ?? '').trim();
+        } else if (champ.type === 'number') {
+          cible[champ.cle] = parseInt(champsB[champ.cle], 10);
+        } else if (champ.cle === 'regimeAlimentaire') {
+          // Convention grille : le texte précisé remplace le littéral « Autre » ;
+          // « Aucun régime particulier » part tel quel (plus jamais undefined).
+          cible[champ.cle] = champsB[champ.cle] === 'Autre' ? regimePrecision.trim() : champsB[champ.cle];
+        } else {
+          cible[champ.cle] = champsB[champ.cle];
+        }
+      }
+      await signerAutorisation(token, dto);
       setSigned(true);
     } catch {
       setError('Erreur lors de la signature. Veuillez réessayer.');
@@ -171,6 +237,126 @@ export default function SignerAutorisationPage() {
       setSigning(false);
     }
   };
+
+  // Rendu d'un champ Bloc B piloté par la constante (id unique relié au label).
+  function renderChampB(champ: ChampInscription) {
+    const Icone = CHAMP_ICONS[champ.cle] ?? ClipboardCheck;
+    const id = `champ-${champ.cle}`;
+    const brut = champsB[champ.cle] ?? '';
+    const setVal = (v: string) =>
+      setChampsB((prev) => ({ ...prev, [champ.cle]: v }));
+
+    // Santé à réponse explicite (allergies, infosMedicales) : « Aucune » / « Oui, préciser »
+    if (champ.valeurAucune) {
+      const choix = choixAucune[champ.cle] ?? '';
+      const setChoix = (c: 'AUCUNE' | 'OUI') =>
+        setChoixAucune((prev) => ({ ...prev, [champ.cle]: c }));
+      return (
+        <div key={champ.cle}>
+          <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
+            <Icone className="inline h-4 w-4 mr-1 text-gray-400" />
+            {champ.libelle} <span className="text-red-500">*</span>
+          </label>
+          <div className="flex gap-2">
+            <button
+              id={id}
+              type="button"
+              onClick={() => setChoix('AUCUNE')}
+              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                choix === 'AUCUNE'
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)]'
+              }`}
+            >
+              {champ.valeurAucune}
+            </button>
+            <button
+              type="button"
+              onClick={() => setChoix('OUI')}
+              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                choix === 'OUI'
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-border-strong)]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-[var(--color-border-strong)]'
+              }`}
+            >
+              Oui, préciser
+            </button>
+          </div>
+          {choix === 'AUCUNE' && (
+            <p className="mt-1.5 text-xs text-gray-500">
+              Vérifiez bien : l&apos;équipe du séjour s&apos;appuiera sur cette réponse.
+            </p>
+          )}
+          {choix === 'OUI' && (
+            <textarea
+              id={`${id}-detail`}
+              rows={3}
+              value={brut}
+              onChange={(e) => setVal(e.target.value)}
+              placeholder="Précisez..."
+              className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
+            />
+          )}
+        </div>
+      );
+    }
+
+    if (champ.type === 'number') {
+      const erreur = erreurBorne(champ, brut);
+      return (
+        <div key={champ.cle}>
+          <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+            {champ.libelle} <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <Icone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              id={id}
+              type="number"
+              min={champ.min}
+              max={champ.max}
+              value={brut}
+              onChange={(e) => setVal(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
+            />
+          </div>
+          {erreur && <p className="mt-1 text-xs text-red-600">{erreur}</p>}
+        </div>
+      );
+    }
+
+    // Selects (sexe, niveauSki, attestationAquatique, regimeAlimentaire)
+    return (
+      <div key={champ.cle}>
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+          <Icone className="inline h-4 w-4 mr-1 text-gray-400" />
+          {champ.libelle} <span className="text-red-500">*</span>
+        </label>
+        <select
+          id={id}
+          value={brut}
+          onChange={(e) => setVal(e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
+        >
+          <option value="">Choisir…</option>
+          {(champ.options ?? []).map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {champ.aide && <p className="mt-1 text-xs text-gray-500">{champ.aide}</p>}
+        {champ.cle === 'regimeAlimentaire' && brut === 'Autre' && (
+          <input
+            id={`${id}-precision`}
+            type="text"
+            value={regimePrecision}
+            onChange={(e) => setRegimePrecision(e.target.value)}
+            placeholder="Précisez le régime alimentaire..."
+            className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
+          />
+        )}
+      </div>
+    );
+  }
 
   const handleDocUpload = async () => {
     if (!token || !docFile) return;
@@ -223,8 +409,6 @@ export default function SignerAutorisationPage() {
 
   const { sejour, hebergement } = autorisation;
   const thematiques = sejour.thematiquesPedagogiques ?? [];
-
-  const formValid = taille && poids && pointure && rgpdAccepte && !!nomParent.trim() && !!telephoneUrgence.trim() && !!eleveDateNaissance && (!infosMedicales.trim() || consentementMedical);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#003189]/5 to-white">
@@ -563,137 +747,17 @@ export default function SignerAutorisationPage() {
                 </div>
               </div>
 
-              {/* Informations pratiques */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Ruler className="h-4 w-4 text-gray-400" />
-                  Informations pratiques
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="taille" className="block text-sm font-medium text-gray-700 mb-1">
-                      Taille (cm) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="taille"
-                        type="number"
-                        min="50"
-                        max="250"
-                        value={taille}
-                        onChange={(e) => setTaille(e.target.value)}
-                        placeholder="ex: 145"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="poids" className="block text-sm font-medium text-gray-700 mb-1">
-                      Poids (kg) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="poids"
-                        type="number"
-                        min="10"
-                        max="200"
-                        value={poids}
-                        onChange={(e) => setPoids(e.target.value)}
-                        placeholder="ex: 38"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="pointure" className="block text-sm font-medium text-gray-700 mb-1">
-                      Pointure <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Footprints className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="pointure"
-                        type="number"
-                        min="20"
-                        max="50"
-                        value={pointure}
-                        onChange={(e) => setPointure(e.target.value)}
-                        placeholder="ex: 37"
-                        className="w-full rounded-xl border border-gray-300 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Régime alimentaire */}
-              <div className="mb-6">
-                <label htmlFor="regime" className="block text-sm font-medium text-gray-700 mb-1">
-                  <UtensilsCrossed className="inline h-4 w-4 mr-1 text-gray-400" />
-                  Régime alimentaire
-                </label>
-                <select
-                  id="regime"
-                  value={regime}
-                  onChange={(e) => setRegime(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                >
-                  {REGIME_OPTIONS.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-                {regime === 'Autre' && (
-                  <input
-                    type="text"
-                    value={regimeAutre}
-                    onChange={(e) => setRegimeAutre(e.target.value)}
-                    placeholder="Précisez le régime alimentaire..."
-                    className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                  />
-                )}
-              </div>
-
-              {/* Niveau de ski (conditionnel) */}
-              {showSki && (
+              {/* ── Champs demandés pour ce séjour (pilotés par le snapshot) ── */}
+              {champsBActifs.length > 0 && (
                 <div className="mb-6">
-                  <label htmlFor="niveauSki" className="block text-sm font-medium text-gray-700 mb-1">
-                    <Mountain className="inline h-4 w-4 mr-1 text-gray-400" />
-                    Niveau de ski
-                    <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
-                  </label>
-                  <select
-                    id="niveauSki"
-                    value={niveauSki}
-                    onChange={(e) => setNiveauSki(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none"
-                  >
-                    {NIVEAU_SKI_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Ruler className="h-4 w-4 text-gray-400" />
+                    Informations demandées pour ce séjour
+                  </h3>
+                  <div className="space-y-5">{champsBActifs.map(renderChampB)}</div>
                 </div>
               )}
 
-              {/* Informations médicales */}
-              <div className="mb-6">
-                <label
-                  htmlFor="infosMedicales"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  <Stethoscope className="inline h-4 w-4 mr-1 text-gray-400" />
-                  Informations médicales importantes
-                  <span className="text-gray-400 font-normal ml-1">(optionnel)</span>
-                </label>
-                <textarea
-                  id="infosMedicales"
-                  rows={3}
-                  value={infosMedicales}
-                  onChange={(e) => setInfosMedicales(e.target.value)}
-                  placeholder="Allergies, traitements en cours, contacts d'urgence..."
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:outline-none transition-shadow"
-                />
-              </div>
             </section>
 
             {/* ── SECTION PAIEMENT ──────────────────────────────────────────── */}
@@ -942,7 +1006,7 @@ export default function SignerAutorisationPage() {
                 </span>
               </label>
 
-              {infosMedicales.trim() && (
+              {santeActive && (
                 <label className="flex items-start gap-3 cursor-pointer group mt-3">
                   <input
                     type="checkbox"

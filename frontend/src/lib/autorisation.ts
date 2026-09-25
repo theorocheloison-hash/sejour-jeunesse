@@ -41,6 +41,9 @@ export interface AutorisationPublique {
     thematiquesPedagogiques: string[];
     placesTotales: number;
     montantParEleve: string | null;
+    // Lot 7a : snapshot des champs d'inscription — lu par le formulaire parent
+    // via lireChampsActifs (tableau de chaînes, sinon pas de snapshot).
+    champsInscription: { champsActifs?: unknown } | null;
   };
   hebergement: {
     nom: string;
@@ -54,6 +57,9 @@ export interface AutorisationPublique {
   // parallèle) → undefined = variante scolaire, dégradation sûre.
   gereParLeCentre?: boolean;
   centreContact?: { nom: string; email: string | null } | null;
+  // Back 2 : valeurs à pré-remplir (Bloc A + Bloc B actifs NON santé/sensible),
+  // null si signée. Optionnel : un back antérieur ne le renvoie pas.
+  valeurs?: Record<string, string | number | null> | null;
 }
 
 export interface CreateAutorisationDto {
@@ -70,6 +76,10 @@ export interface SignerAutorisationDto {
   regimeAlimentaire?: string;
   niveauSki?: string;
   infosMedicales?: string;
+  // Formulaire parent dynamique — mêmes valeurs que le DTO back
+  sexe?: 'FILLE' | 'GARCON' | 'AUTRE';
+  allergies?: string;
+  attestationAquatique?: string;
   nomParent?: string;
   telephoneUrgence?: string;
   eleveDateNaissance?: string;
@@ -149,7 +159,9 @@ export interface ParticipantDirectInput {
   // (FOURNIE | NON_FOURNIE | NON_CONCERNE) — acceptés par le back depuis 5a/5a-bis
   allergies?: string | null;
   attestationAquatique?: string | null;
-  // SC7 : donnée d'organisation interne (jamais côté parent), null = non catégorisé
+  // SC7 : catégorie d'hébergement — déclarée par le parent à la signature si le
+  // séjour demande « sexe », sinon posée par l'organisateur/hébergeur ; reste
+  // modifiable après signature. null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
 }
 

@@ -176,7 +176,9 @@ export interface Participant {
   montantVerseTotal?: number | null;
   nombreVersementsEffectues?: number | null;
   sourceInscription?: string | null;
-  // SC7 : donnée d'organisation interne (organisateur), null = non catégorisé
+  // SC7 : catégorie d'hébergement — posée par l'organisateur/hébergeur, ou
+  // déclarée par le parent à la signature si le séjour demande « sexe » ;
+  // null = non catégorisé
   hebergementCategorie?: 'FILLE' | 'GARCON' | 'AUTRE' | null;
   createdAt: string;
 }
