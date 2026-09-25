@@ -1437,6 +1437,15 @@ export class SejourService {
       return { responsableInscriptions: responsable };
     }
 
+    // Gate anti-phishing (S4) : la bascule envoie un email du centre à
+    // l'organisateur → même règle unique que tout envoi déclenché par un centre,
+    // appliquée AVANT toute écriture (fail-closed : un centre non validé ne
+    // bascule pas en silence, l'organisateur n'est jamais dépossédé sans être prévenu).
+    if (sejour.createur?.email) {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      await assertEnvoiExterneAutorise(this.prisma, centre, sejour.createur.email, me?.email ?? '');
+    }
+
     await this.prisma.sejour.update({
       where: { id: sejourId },
       data: { responsableInscriptions: responsable },

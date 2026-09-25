@@ -4,8 +4,9 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 jest.mock('../centres/centre.helper', () => ({
   ...jest.requireActual('../centres/centre.helper'),
   getCentreForUser: jest.fn(),
+  assertEnvoiExterneAutorise: jest.fn(),
 }));
-import { getCentreForUser } from '../centres/centre.helper';
+import { assertEnvoiExterneAutorise, getCentreForUser } from '../centres/centre.helper';
 import { SejourService } from './sejour.service';
 
 /**
@@ -15,6 +16,7 @@ import { SejourService } from './sejour.service';
  */
 
 const getCentreForUserMock = getCentreForUser as unknown as jest.Mock;
+const assertEnvoiMock = assertEnvoiExterneAutorise as unknown as jest.Mock;
 const HEB = 'heb-1';
 
 function sejour(over: Partial<Record<string, unknown>> = {}) {
@@ -40,6 +42,7 @@ function make(sej: unknown) {
       update: jest.fn().mockResolvedValue({}),
     },
     message: { create: jest.fn().mockResolvedValue({}) },
+    user: { findUnique: jest.fn().mockResolvedValue({ email: 'heb@chalet.test' }) },
   };
   const email = { sendGenericNotification: jest.fn().mockResolvedValue(undefined) };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +53,8 @@ function make(sej: unknown) {
 beforeEach(() => {
   getCentreForUserMock.mockReset();
   getCentreForUserMock.mockResolvedValue({ id: 'centre-1' });
+  assertEnvoiMock.mockReset();
+  assertEnvoiMock.mockResolvedValue(undefined);
 });
 
 describe('B4 — updateResponsableInscriptions', () => {
@@ -109,6 +114,16 @@ describe('B4 — updateResponsableInscriptions', () => {
     await sansOrga.service.updateResponsableInscriptions('sej-1', 'HEBERGEUR', HEB);
     expect(sansOrga.prisma.sejour.update).toHaveBeenCalled();
     expect(sansOrga.email.sendGenericNotification).not.toHaveBeenCalled();
+  });
+
+  it('centre non validé (gate S4) → refus AVANT toute écriture, aucun email', async () => {
+    const { service, prisma, email } = make(sejour());
+    assertEnvoiMock.mockRejectedValue(new ForbiddenException('CENTRE_EN_VALIDATION|…'));
+    await expect(service.updateResponsableInscriptions('sej-1', 'HEBERGEUR', HEB)).rejects.toThrow(ForbiddenException);
+    expect(assertEnvoiMock).toHaveBeenCalledWith(prisma, { id: 'centre-1' }, 'prof@college.test', 'heb@chalet.test');
+    expect(prisma.sejour.update).not.toHaveBeenCalled();
+    expect(prisma.message.create).not.toHaveBeenCalled();
+    expect(email.sendGenericNotification).not.toHaveBeenCalled();
   });
 
   it('échec de la trace ou de l\'email : la bascule reste acquise', async () => {
