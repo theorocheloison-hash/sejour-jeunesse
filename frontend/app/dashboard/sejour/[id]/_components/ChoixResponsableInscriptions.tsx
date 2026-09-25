@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { updateResponsableInscriptions } from '@/src/lib/inscription-config';
+import { extractApiError } from '@/src/contexts/AuthContext';
 
 /**
  * B4 — « qui tient la main » sur les inscriptions d'un séjour COLLABORATIF,
@@ -49,8 +50,8 @@ export default function ChoixResponsableInscriptions({ sejourId, responsable, nb
       await updateResponsableInscriptions(sejourId, valeur);
       onChanged();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setErreur(typeof msg === 'string' ? msg : 'Le changement n’a pas pu être enregistré. Réessayez.');
+      // Helper partagé : message serveur lisible, préfixe CENTRE_EN_VALIDATION| retiré.
+      setErreur(extractApiError(e));
     } finally {
       setEnCours(false);
     }
