@@ -15,6 +15,7 @@ import { SignerAutorisationDto } from './dto/signer-autorisation.dto.js';
 import { computeTokenExpiresAt, assertTokenNotExpired } from '../common/token-expiration.js';
 import { CHAMP_PAR_CLE, CLES_BLOC_B } from '../common/champs-inscription.constants.js';
 import { peutEcrireSejourEnPropre, peutGererEnPropre, peutLireSejourHebergeur } from '../common/sejour-ownership.js';
+import { assertEnvoiExterneAutorise } from '../centres/centre.helper.js';
 
 const FRONTEND_URL = process.env.CORS_ORIGIN ?? process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -267,11 +268,24 @@ export class AutorisationService {
   async envoyerInvitations(sejourId: string, createurId: string, autorisationIds?: string[]) {
     const sejour = await this.prisma.sejour.findUnique({
       where: { id: sejourId },
-      select: { createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true, hebergementSelectionne: { select: { userId: true, nom: true, email: true } } },
+      select: {
+        createurId: true, titre: true, modeGestion: true, hebergementSelectionneId: true,
+        hebergementSelectionne: { select: { userId: true, nom: true, email: true, statut: true, organisationId: true } },
+      },
     });
     if (!sejour) throw new NotFoundException('Séjour introuvable');
     if (sejour.createurId !== createurId && !(await peutEcrireSejourEnPropre(this.prisma, sejour, createurId)))
       throw new ForbiddenException('Ce séjour ne vous appartient pas');
+
+    // Envoi déclenché côté centre (propriétaire OU collaborateur en propre) :
+    // même gate anti-phishing que les autres envois hébergeur — centre non
+    // validé ou revendication en attente → 403 AVANT tout email. Destinataire
+    // null : envoi en masse vers des adresses tierces (pas d'exception « à soi »).
+    // L'organisateur créateur n'est pas concerné (flux non gaté, comme ailleurs).
+    if (sejour.createurId !== createurId && sejour.hebergementSelectionne) {
+      const me = await this.prisma.user.findUnique({ where: { id: createurId }, select: { email: true } });
+      await assertEnvoiExterneAutorise(this.prisma, sejour.hebergementSelectionne, null, me?.email ?? '');
+    }
 
     // B3b : séjour géré en propre → l'email part au nom du centre, réponse au
     // centre. Refus net AVANT toute boucle si le centre n'a pas d'email de

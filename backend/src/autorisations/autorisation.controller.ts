@@ -19,6 +19,8 @@ import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { PlanGuard } from '../auth/guards/plan.guard.js';
+import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 import { CurrentUser, type JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { AutorisationService } from './autorisation.service.js';
 import { CreateAutorisationDto } from './dto/create-autorisation.dto.js';
@@ -67,10 +69,14 @@ export class AutorisationController {
     return this.autorisationService.importCsv(file, sejourId, user.id);
   }
 
-  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (ORGANISATEUR, ou HEBERGEUR en propre — B3a) */
+  /** POST /autorisations/envoyer-invitations — Envoyer les emails d'invitation (ORGANISATEUR, ou HEBERGEUR en propre — B3a).
+   * Côté HEBERGEUR : plan ESSENTIEL requis (même niveau que /sejours — un essai
+   * expiré retombe en DECOUVERTE) ; le PlanGuard laisse passer l'ORGANISATEUR.
+   * Le gate anti-phishing (centre non validé) est appliqué dans le service. */
   @Post('envoyer-invitations')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
   @Roles(Role.ORGANISATEUR, Role.HEBERGEUR)
+  @RequirePlan('ESSENTIEL')
   envoyerInvitations(
     @Body() body: { sejourId: string; autorisationIds?: string[] },
     @CurrentUser() user: JwtUser,
