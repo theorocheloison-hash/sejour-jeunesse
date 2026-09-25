@@ -296,6 +296,11 @@ model Sejour {
   // de la grille, du formulaire parent et de l'export.
   champsInscription Json?     @map("champs_inscription")
 
+  // B4 module inscriptions v2 : « qui tient la main » sur les inscriptions d'un séjour
+  // COLLABORATIF — ORGANISATEUR | HEBERGEUR, posé par l'hébergeur. Sans effet sur un
+  // séjour DIRECT (l'hébergeur tient la main d'office). Défaut = comportement historique.
+  responsableInscriptions String @default("ORGANISATEUR") @map("responsable_inscriptions") @db.VarChar(20)
+
   createur               User?              @relation("SejoursCreer", fields: [createurId], references: [id], onDelete: SetNull)
   hebergementSelectionne CentreHebergement? @relation("SejourCentreSelectionne", fields: [hebergementSelectionneId], references: [id], onDelete: SetNull)
   inscriptions           Inscription[]
