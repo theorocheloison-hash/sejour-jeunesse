@@ -20,11 +20,9 @@ export function colonnesInscription(
       key: CHAMP_PAR_CLE[k].colonne,
       label: CHAMP_PAR_CLE[k].libelle,
     })),
-    // ORDRE IMPOSÉ : « Nom du parent / responsable » AVANT « Email parent ».
-    // L'import back (colNomParent) prend la PREMIÈRE colonne dont l'en-tête
-    // contient « parent » ou « responsable » : inverser ces deux colonnes ferait
-    // atterrir l'email dans le nom du parent. Ne protège pas un fichier SANS
-    // colonne nom parent (dette consignée, fix à faire côté back).
+    // L'import back (detecterColonnesImport) n'attribue jamais une colonne
+    // d'email ou de téléphone d'urgence au nom du parent : l'ordre de ces trois
+    // colonnes est libre (plus de dépendance à l'ordre depuis le fix du 25/09).
     { key: 'nomParent', label: 'Nom du parent / responsable' },
     { key: 'telephoneUrgence', label: "Téléphone d'urgence" },
     { key: 'parentEmail', label: 'Email parent' },
