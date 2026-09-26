@@ -408,6 +408,9 @@ model AutorisationParentale {
   montantVerseTotal    Float?    @default(0) @map("montant_verse_total")
   nombreVersementsEffectues Int? @default(0) @map("nombre_versements_effectues")
   documentMedicalUrl String?  @map("document_medical_url") @db.VarChar(500)
+  // Point 6b : date de la dernière purge automatique des données de santé
+  // (allergies, infosMedicales, documentMedicalUrl) — J+30 après la fin du séjour.
+  donneesSantePurgeesAt DateTime? @map("donnees_sante_purgees_at")
   nomParent              String?   @map("nom_parent") @db.VarChar(255)
   telephoneUrgence       String?   @map("telephone_urgence") @db.VarChar(20)
   attestationAssuranceUrl String?  @map("attestation_assurance_url") @db.VarChar(500)

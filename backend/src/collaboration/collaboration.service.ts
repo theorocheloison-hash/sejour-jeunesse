@@ -421,6 +421,8 @@ export class CollaborationService {
         // qu'il est persisté.
         hebergementCategorie: true,
         documentMedicalUrl: true,
+        // Point 6b : fiche élève « données de santé supprimées le … »
+        donneesSantePurgeesAt: true,
         nomParent: true,
         telephoneUrgence: true,
         attestationAssuranceUrl: true,

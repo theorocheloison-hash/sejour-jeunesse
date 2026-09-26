@@ -58,6 +58,11 @@ export const CHAMP_PAR_CLE: Record<string, ChampInscription> =
   Object.fromEntries(CHAMPS_INSCRIPTION.map((c) => [c.cle, c]));
 // Clés configurables (Bloc B) = seules valeurs valides de champsActifs (modèle + snapshot séjour).
 export const CLES_BLOC_B: string[] = CHAMPS_INSCRIPTION.filter((c) => c.bloc === 'B').map((c) => c.cle);
+// Conservation des données de santé (point 6b, décision Théo 26/09/2026) :
+// allergies, infos médicales et document médical sont effacés automatiquement
+// ce nombre de jours après la fin du séjour. Affiché tel quel aux parents,
+// organisateurs et hébergeurs — tout changement doit suivre le texte front.
+export const JOURS_CONSERVATION_SANTE = 30;
 // Clés « donnée de santé » → consentement médical côté parent.
 export const CLES_SANTE: string[] = CHAMPS_INSCRIPTION.filter((c) => c.sante).map((c) => c.cle);
 
