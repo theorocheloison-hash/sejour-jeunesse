@@ -179,7 +179,6 @@ export default function DevisPDF(props: DevisPDFProps) {
       {tvaEmetteur && <Text style={s.emetteurDetail}>TVA : {tvaEmetteur}</Text>}
       {emailEmetteur && <Text style={s.emetteurDetail}>{emailEmetteur}</Text>}
       {telEmetteur && <Text style={s.emetteurDetail}>{telEmetteur}</Text>}
-      {ibanEmetteur && <Text style={s.emetteurDetail}>IBAN : {ibanEmetteur}</Text>}
     </>
   );
 
