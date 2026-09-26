@@ -965,7 +965,7 @@ export class AutorisationService {
 
     return this.prisma.autorisationParentale.update({
       where: { id },
-      data: { signeeAt: new Date(), signeeManuellement: true },
+      data: { signeeAt: new Date(), signeeManuellement: true, signeeManuellementParId: userId },
     });
   }
 
@@ -983,7 +983,7 @@ export class AutorisationService {
 
     return this.prisma.autorisationParentale.update({
       where: { id },
-      data: { signeeAt: null, signeeManuellement: false },
+      data: { signeeAt: null, signeeManuellement: false, signeeManuellementParId: null },
     });
   }
 
@@ -1005,7 +1005,7 @@ export class AutorisationService {
         signeeAt: null,
         ...(autorisationIds?.length ? { id: { in: autorisationIds } } : {}),
       },
-      data: { signeeAt: new Date(), signeeManuellement: true },
+      data: { signeeAt: new Date(), signeeManuellement: true, signeeManuellementParId: userId },
     });
     return { count };
   }

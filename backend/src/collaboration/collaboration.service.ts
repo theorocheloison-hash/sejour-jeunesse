@@ -402,6 +402,8 @@ export class CollaborationService {
         // Lot 2a « valider signé » : le front n'affiche « Annuler » que sur une
         // validation manuelle (jamais sur une signature en ligne)
         signeeManuellement: true,
+        // Point 6a : qui a déclaré le papier reçu (fiche élève)
+        signeeManuellementPar: { select: { prenom: true, nom: true } },
         taille: true,
         poids: true,
         pointure: true,

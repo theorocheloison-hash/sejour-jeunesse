@@ -204,6 +204,7 @@ model User {
   centresCollaborateur   CollaborateurCentre[] @relation("collaborateur")
   invitationsEnvoyees    CollaborateurCentre[] @relation("inviteur")
   acceptationsCgv        AcceptationCgv[]
+  autorisationsValideesManuellement AutorisationParentale[] @relation("AutorisationsValideesManuellement")
 
   @@map("utilisateurs")
 }
@@ -379,6 +380,11 @@ model AutorisationParentale {
   // Validation manuelle « papier signé reçu » (organisateur/hébergeur) —
   // distincte de la signature électronique : pas de hash, pas d'IP, annulable.
   signeeManuellement  Boolean  @default(false) @map("signee_manuellement")
+  // Traçabilité (point 6a) : compte qui a déclaré le papier reçu — null si
+  // signature en ligne, validation antérieure au 26/09/2026 ou compte supprimé.
+  // La date est signeeAt (posée au même clic).
+  signeeManuellementParId String? @map("signee_manuellement_par_id") @db.Uuid
+  signeeManuellementPar   User?   @relation("AutorisationsValideesManuellement", fields: [signeeManuellementParId], references: [id], onDelete: SetNull)
   taille            Int?
   poids             Int?
   pointure          Int?
