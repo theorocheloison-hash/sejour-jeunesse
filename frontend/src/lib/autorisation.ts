@@ -30,7 +30,6 @@ export interface AutorisationPublique {
   attestationAssuranceUrl?: string | null;
   moyenPaiement?: string | null;
   paiementValide?: boolean;
-  datePaiement?: string | null;
   sejour: {
     titre: string;
     lieu: string;
@@ -200,8 +199,9 @@ export async function getAutorisationPublique(
 export async function signerAutorisation(
   token: string,
   dto: SignerAutorisationDto,
-): Promise<void> {
-  await api.patch(`/autorisations/signer/${token}`, dto);
+): Promise<{ signeeAt: string }> {
+  const { data } = await api.patch<{ signeeAt: string }>(`/autorisations/signer/${token}`, dto);
+  return data;
 }
 
 export async function validerPaiement(autorisationId: string): Promise<void> {

@@ -36,6 +36,7 @@ import {
 } from '@/src/lib/autorisation';
 import { CHAMPS_INSCRIPTION, type ChampInscription } from '@/src/lib/champs-inscription';
 import { formatDate } from '@/src/lib/utils';
+import { extractApiError } from '@/src/contexts/AuthContext';
 import ReassuranceDonnees from '@/app/components/ReassuranceDonnees';
 
 const THEMATIQUE_COLORS = [
@@ -229,10 +230,15 @@ export default function SignerAutorisationPage() {
           cible[champ.cle] = champsB[champ.cle];
         }
       }
-      await signerAutorisation(token, dto);
+      const { signeeAt } = await signerAutorisation(token, dto);
+      // L'écran post-signature lit l'autorisation : on y reporte la date de
+      // signature et le moyen de paiement déclaré (sinon « communiqué prochainement »).
+      setAutorisation((prev) => prev ? { ...prev, signeeAt, moyenPaiement: moyenPaiement || null } : prev);
       setSigned(true);
-    } catch {
-      setError('Erreur lors de la signature. Veuillez réessayer.');
+    } catch (e: unknown) {
+      // Motif serveur affiché (400 « Formulaire incomplet : … », 409 « déjà signée »,
+      // lien expiré) au lieu d'un message générique.
+      setError(extractApiError(e));
     } finally {
       setSigning(false);
     }
