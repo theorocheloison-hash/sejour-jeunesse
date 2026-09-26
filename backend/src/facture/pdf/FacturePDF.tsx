@@ -196,7 +196,6 @@ export default function FacturePDF(props: FacturePDFProps) {
       {emetteurTva && <Text style={s.emetteurDetail}>TVA intracommunautaire : {emetteurTva}</Text>}
       {emetteurEmail && <Text style={s.emetteurDetail}>{emetteurEmail}</Text>}
       {emetteurTel && <Text style={s.emetteurDetail}>{emetteurTel}</Text>}
-      {emetteurIban && <Text style={s.emetteurDetail}>IBAN : {emetteurIban}</Text>}
     </>
   );
 
