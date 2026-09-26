@@ -19,7 +19,7 @@ import { CreateDisponibiliteDto } from './dto/create-disponibilite.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
 import { STATUTS_DEVIS_RETENUS, STATUTS_DEVIS_ENGAGEANTS } from '../devis/devis-statuts.constants.js';
 import { STATUTS_SEJOUR_CONFIRMES } from '../sejours/sejour-statuts.constants.js';
-import { getCentreForUser, getCentresForUser, statutValidationCentre } from './centre.helper.js';
+import { getCentreForUser, getCentresForUser, statutValidationCentre, estProprietaireCentre } from './centre.helper.js';
 import { getUserCentrePermissions } from './permission.helper.js';
 import { matchesCapacite } from '../demandes/demande.service.js';
 import { findOrCreateOrganisation, findOrCreateMembership } from '../organisations/organisation.helpers.js';
@@ -1381,6 +1381,22 @@ export class CentreService {
       }
     }
 
+    // IBAN — décision Théo (lot A) : modification (y compris effacement) réservée
+    // au PROPRIÉTAIRE du centre (même prédicat que le mandat de facturation),
+    // centre validé ou non. Valeur identique après normalisation (le formulaire
+    // renvoie tout) → champ simplement retiré, pas un refus.
+    if (dtoEffectif.iban !== undefined && !estProprietaireCentre(centre, userId)) {
+      if (
+        normaliserChampCoordonnee('iban', dtoEffectif.iban) ===
+        normaliserChampCoordonnee('iban', (centre as { iban?: string | null }).iban)
+      ) {
+        dtoEffectif = { ...dtoEffectif };
+        delete (dtoEffectif as Record<string, unknown>).iban;
+      } else {
+        throw new ForbiddenException('Seul le propriétaire du centre peut modifier l\'IBAN.');
+      }
+    }
+
     return this.prisma.centreHebergement.update({
       where: { id: centre.id },
       data: {
@@ -1835,7 +1851,7 @@ export class CentreService {
 
   async accepterMandatFacturation(userId: string, ipAddress: string | null = null, userAgent: string | null = null, centreId?: string | null) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
-    if (centre.userId !== userId) {
+    if (!estProprietaireCentre(centre, userId)) {
       throw new ForbiddenException('Seul le propriétaire du centre peut accepter le mandat de facturation.');
     }
     if (centre.mandatFacturationAccepte) {

@@ -226,6 +226,48 @@ describe('CentreService.updateMonProfil — verrou coordonnées (S4)', () => {
     }
   });
 
+  // Lot A : le DTO accepte désormais null (effacement) — sur un champ verrouillé,
+  // null est une modification comme une autre (normalisé '' ≠ valeur stockée).
+  it('revendication en attente + telephone null sur valeur stockée non vide → 403', async () => {
+    const prisma = mockPrisma('EN_ATTENTE_VALIDATION');
+    getCentreForUserMock.mockResolvedValue(centreImporte());
+    const service = makeService(prisma);
+
+    await expect(
+      service.updateMonProfil('user-heb', formulaireComplet({ telephone: null } as unknown as UpdateCentreDto)),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.centreHebergement.update).not.toHaveBeenCalled();
+  });
+
+  it('revendication en attente + formulaire partiel sans champ verrouillé → intact, écrit tel quel', async () => {
+    const prisma = mockPrisma('EN_ATTENTE_VALIDATION');
+    getCentreForUserMock.mockResolvedValue(centreImporte());
+    const service = makeService(prisma);
+
+    await service.updateMonProfil('user-heb', { description: 'Nouvelle description' } as UpdateCentreDto);
+
+    const { data } = prisma.centreHebergement.update.mock.calls[0][0];
+    expect(data.description).toBe('Nouvelle description');
+    for (const champ of CHAMPS_COORDONNEES_VERROUILLES) {
+      expect(data).not.toHaveProperty(champ);
+    }
+  });
+
+  it('revendication en attente + telephone identique à format près → OK, non écrit', async () => {
+    const prisma = mockPrisma('EN_ATTENTE_VALIDATION');
+    getCentreForUserMock.mockResolvedValue(centreImporte({ telephone: '04 50 12 34 56' }));
+    const service = makeService(prisma);
+
+    await service.updateMonProfil('user-heb', formulaireComplet({
+      telephone: '0450123456',
+      description: 'x',
+    }));
+
+    const { data } = prisma.centreHebergement.update.mock.calls[0][0];
+    expect(data).not.toHaveProperty('telephone');
+    expect(data.description).toBe('x');
+  });
+
   it('centre PENDING ex nihilo → IBAN modifiable (comportement inchangé)', async () => {
     const prisma = mockPrisma(null);
     getCentreForUserMock.mockResolvedValue(centreImporte({ statut: 'PENDING' }));

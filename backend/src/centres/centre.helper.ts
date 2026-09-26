@@ -160,6 +160,18 @@ export async function estCentreValide(
   return (await statutValidationCentre(prisma, centre)) === 'VALIDE';
 }
 
+/**
+ * Prédicat propriétaire du centre — actions réservées au titulaire du compte
+ * (mandat de facturation, modification de l'IBAN), jamais aux collaborateurs,
+ * centre validé ou non.
+ */
+export function estProprietaireCentre(
+  centre: { userId: string | null },
+  userId: string,
+): boolean {
+  return centre.userId === userId;
+}
+
 export async function getCentresForUser(prisma: PrismaService, userId: string) {
   // PENDING inclus (centre opérable par son propriétaire) — seul SUSPENDED est exclu.
   const owned = await prisma.centreHebergement.findMany({
