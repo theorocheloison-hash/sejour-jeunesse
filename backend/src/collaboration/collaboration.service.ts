@@ -426,6 +426,11 @@ export class CollaborationService {
         moyenPaiement: true,
         paiementValide: true,
         datePaiement: true,
+        // Compteur « n/N versements » du tableau organisateur (type Participant) —
+        // sans eux le select explicite le rendait toujours invisible.
+        nombreMensualites: true,
+        montantVerseTotal: true,
+        nombreVersementsEffectues: true,
         sourceInscription: true,
         createdAt: true,
       },

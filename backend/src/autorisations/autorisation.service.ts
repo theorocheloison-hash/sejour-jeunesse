@@ -484,6 +484,10 @@ export class AutorisationService {
       elevePrenom: autorisation.elevePrenom,
       signeeAt: autorisation.signeeAt,
       attestationAssuranceUrl: autorisation.attestationAssuranceUrl,
+      // Écran post-signature : état du règlement déclaré par le parent (moyen
+      // choisi à la signature) et validé par l'organisateur — ni montant ni date.
+      moyenPaiement: autorisation.moyenPaiement,
+      paiementValide: autorisation.paiementValide,
       valeurs,
       sejour: {
         titre: sejour.titre,
