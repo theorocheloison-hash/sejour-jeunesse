@@ -70,7 +70,7 @@ export function normaliserChampCoordonnee(champ: string, valeur: unknown): strin
       return brut;
   }
 }
-import { CLES_BLOC_B } from '../common/champs-inscription.constants.js';
+import { normaliserChampsActifs } from '../common/champs-inscription.constants.js';
 
 // Garde-fou galerie multi-photos (§3.11).
 export const MAX_PHOTOS_CENTRE = 12;
@@ -183,23 +183,9 @@ export class CentreService {
 
   // ── Modèles d'inscription (Lot 3 refonte inscriptions) ──────────────────
   // CRUD de la bibliothèque de modèles du centre (modeles_inscription, Lot 1),
-  // validé sur le vocabulaire canonique CLES_BLOC_B (Lot 2). Endpoints non
-  // consommés à ce stade — l'écran d'ouverture au séjour les câblera (Lot 4).
-
-  /** Valide et normalise champsActifs : clés Bloc B uniquement, dédup, ordre canonique. */
-  private validerChampsActifs(input: unknown): string[] {
-    if (!Array.isArray(input)) {
-      throw new BadRequestException('champsActifs doit être un tableau');
-    }
-    const set = new Set<string>();
-    for (const c of input) {
-      if (typeof c !== 'string' || !CLES_BLOC_B.includes(c)) {
-        throw new BadRequestException(`Champ invalide : ${String(c)}`);
-      }
-      set.add(c);
-    }
-    return CLES_BLOC_B.filter((k) => set.has(k));
-  }
+  // validé par normaliserChampsActifs — règle unique partagée avec le snapshot
+  // séjour (sejour.service.updateChampsInscription). Consommé par l'écran
+  // d'ouverture des inscriptions (Lot 4b).
 
   /** Valide le nom d'un modèle : non vide après trim, 100 caractères max. */
   private validerNomModele(input: unknown): string {
@@ -224,7 +210,7 @@ export class CentreService {
   ) {
     const centre = await getCentreForUser(this.prisma, userId, centreId);
     const nom = this.validerNomModele(body.nom);
-    const champsActifs = this.validerChampsActifs(body.champsActifs);
+    const champsActifs = normaliserChampsActifs(body.champsActifs);
 
     const count = await this.prisma.modeleInscription.count({ where: { centreId: centre.id } });
     if (count >= 20) {
@@ -257,7 +243,7 @@ export class CentreService {
 
     const data: { nom?: string; champsActifs?: string[] } = {};
     if (body.nom !== undefined) data.nom = this.validerNomModele(body.nom);
-    if (body.champsActifs !== undefined) data.champsActifs = this.validerChampsActifs(body.champsActifs);
+    if (body.champsActifs !== undefined) data.champsActifs = normaliserChampsActifs(body.champsActifs);
     if (Object.keys(data).length === 0) return modele;
 
     try {

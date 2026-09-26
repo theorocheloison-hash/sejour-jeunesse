@@ -13,7 +13,7 @@ import { assertSignataireCanAccessSejour } from '../auth/ownership.helper.js';
 import { peutLireSejourHebergeur } from '../common/sejour-ownership.js';
 import { formatParticipants } from '../utils/format.js';
 import { buildPeriodeLabel } from '../demandes/demande.service.js';
-import { CLES_BLOC_B, CHAMP_PAR_CLE } from '../common/champs-inscription.constants.js';
+import { CLES_BLOC_B, CHAMP_PAR_CLE, normaliserChampsActifs } from '../common/champs-inscription.constants.js';
 import { escapeHtml } from '../utils/escape-html.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'https://liavo.fr';
@@ -1304,7 +1304,7 @@ export class SejourService {
    * Bloc B en ordre canonique). Première écriture = ouverture des inscriptions
    * (B1, pas de flag séparé) ; ré-écriture = modification, gardée contre le
    * retrait d'un champ déjà rempli par au moins un inscrit.
-   * Endpoint dormant : aucun appelant front avant le Lot 4b.
+   * Consommé par l'écran d'ouverture des inscriptions (OuvertureInscriptions, Lot 4b).
    */
   async updateChampsInscription(
     sejourId: string,
@@ -1332,17 +1332,8 @@ export class SejourService {
       throw new BadRequestException('Les inscriptions ne concernent que les séjours');
     }
 
-    // Validation + normalisation : Bloc B uniquement, dédup, ordre canonique.
-    if (!Array.isArray(champsActifsInput)) {
-      throw new BadRequestException('champsActifs doit être un tableau');
-    }
-    for (const c of champsActifsInput) {
-      if (typeof c !== 'string' || !CLES_BLOC_B.includes(c)) {
-        throw new BadRequestException(`Champ invalide : ${String(c)}`);
-      }
-    }
-    const demande = new Set(champsActifsInput as string[]);
-    const champsActifs = CLES_BLOC_B.filter((k) => demande.has(k));
+    // Validation + normalisation : règle unique partagée avec les modèles de centre.
+    const champsActifs = normaliserChampsActifs(champsActifsInput);
 
     // Garde-fou retrait : un champ déjà rempli par un inscrit ne peut pas disparaître
     // du formulaire (les données saisies deviendraient invisibles/incohérentes).

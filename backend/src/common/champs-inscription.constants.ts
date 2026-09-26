@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+
 // Source de vérité UNIQUE des champs d'inscription. Ordre = ordre d'affichage
 // (grille saisie, formulaire parent, colonnes CSV). Les lots consommateurs
 // importeront d'ici et supprimeront leurs listes locales (fait au rebranchement,
@@ -58,3 +60,21 @@ export const CHAMP_PAR_CLE: Record<string, ChampInscription> =
 export const CLES_BLOC_B: string[] = CHAMPS_INSCRIPTION.filter((c) => c.bloc === 'B').map((c) => c.cle);
 // Clés « donnée de santé » → consentement médical côté parent.
 export const CLES_SANTE: string[] = CHAMPS_INSCRIPTION.filter((c) => c.sante).map((c) => c.cle);
+
+/**
+ * Validation + normalisation UNIQUE d'un champsActifs reçu (modèle de centre ET
+ * snapshot séjour) : tableau de clés Bloc B uniquement (400 sinon), dédupliqué,
+ * remis dans l'ordre canonique de CHAMPS_INSCRIPTION.
+ */
+export function normaliserChampsActifs(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw new BadRequestException('champsActifs doit être un tableau');
+  }
+  for (const c of input) {
+    if (typeof c !== 'string' || !CLES_BLOC_B.includes(c)) {
+      throw new BadRequestException(`Champ invalide : ${String(c)}`);
+    }
+  }
+  const demande = new Set(input as string[]);
+  return CLES_BLOC_B.filter((k) => demande.has(k));
+}

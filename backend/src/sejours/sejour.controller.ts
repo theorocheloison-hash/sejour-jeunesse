@@ -187,7 +187,7 @@ export class SejourController {
   /**
    * PATCH /sejours/:id/champs-inscription — Ouvrir/éditer les inscriptions du séjour
    * (HEBERGEUR, Lot 4a) : écrit le snapshot figé champs_inscription (clés Bloc B).
-   * Dormant : aucun appelant front avant le Lot 4b.
+   * Consommé par l'écran d'ouverture des inscriptions (Lot 4b).
    */
   @Patch(':id/champs-inscription')
   @Roles(Role.HEBERGEUR)
