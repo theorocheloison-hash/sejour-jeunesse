@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/src/contexts/AuthContext';
+import BloqueMoletteNombres from '@/app/components/BloqueMoletteNombres';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
+        <BloqueMoletteNombres />
         <AuthProvider>
           {children}
         </AuthProvider>
