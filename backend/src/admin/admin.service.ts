@@ -8,6 +8,7 @@ import { demarrerOuAlignerTrial, estEnEssai } from '../centres/trial.helper.js';
 import { MAX_PHOTOS_CENTRE } from '../centres/centre.service.js';
 import { INVITATION_VALIDITE_JOURS } from '../invitations/invitation.service.js';
 import { normaliserDepartement } from '../utils/departements.js';
+import { SecuriteService } from '../securite/securite.service.js';
 import { calculerMontantAbonnementCents, calculerMontantPeriodeCents, libellePeriodeAbonnement, PRIX_MENSUEL } from '../abonnements/abonnement.constants.js';
 import { resyncMontantOrganisation } from '../abonnements/resync-montant.helper.js';
 import { mollieClient } from '../abonnements/mollie.client.js';
@@ -23,6 +24,7 @@ export class AdminService {
     private prisma: PrismaService,
     private email: EmailService,
     private factureLiavo: FactureLiavoService,
+    private securite: SecuriteService,
   ) {}
 
   // ─── Stats ───────────────────────────────────────────────────────────────────
@@ -317,14 +319,14 @@ export class AdminService {
     });
   }
 
-  async updateUtilisateur(id: string, data: { role?: string; compteValide?: boolean }) {
+  async updateUtilisateur(id: string, data: { role?: string; compteValide?: boolean }, adminId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, email: true, role: true },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
-    return this.prisma.user.update({
+    const misAJour = await this.prisma.user.update({
       where: { id },
       data: {
         ...(data.role && { role: data.role as Role }),
@@ -339,6 +341,10 @@ export class AdminService {
         compteValide: true,
       },
     });
+    if (misAJour.role !== user.role) {
+      await this.securite.roleModifie(adminId, { id: user.id, email: user.email }, user.role, misAJour.role);
+    }
+    return misAJour;
   }
 
   // ─── Centres ─────────────────────────────────────────────────────────────────

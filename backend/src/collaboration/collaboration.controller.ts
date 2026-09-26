@@ -19,6 +19,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { JwtUser } from '../auth/decorators/current-user.decorator.js';
 import { CollaborationService } from './collaboration.service.js';
+import { SecuriteService } from '../securite/securite.service.js';
 import { CreateMessageDto } from './dto/create-message.dto.js';
 import { CreatePlanningDto } from './dto/create-planning.dto.js';
 import { CreateDocumentDto } from './dto/create-document.dto.js';
@@ -34,7 +35,10 @@ import { RequirePlan } from '../auth/decorators/plan.decorator.js';
 @Roles(Role.ORGANISATEUR, Role.HEBERGEUR, Role.SIGNATAIRE)
 @RequirePlan('COMPLET')
 export class CollaborationController {
-  constructor(private readonly service: CollaborationService) {}
+  constructor(
+    private readonly service: CollaborationService,
+    private readonly securite: SecuriteService,
+  ) {}
 
   // ── Route statique AVANT :sejourId ────────────────────────────
 
@@ -138,11 +142,14 @@ export class CollaborationController {
   // ── Participants ─────────────────────────────────────────────
 
   @Get(':sejourId/participants')
-  getParticipants(
+  async getParticipants(
     @Param('sejourId') sejourId: string,
     @CurrentUser() user: JwtUser,
   ) {
-    return this.service.getParticipants(sejourId, user.id, user.role);
+    const participants = await this.service.getParticipants(sejourId, user.id, user.role);
+    // Alertes maison : compté seulement si l'accès a été accordé.
+    this.securite.consultationParticipants(user.id, sejourId);
+    return participants;
   }
 
   // ── Budget ───────────────────────────────────────────────────

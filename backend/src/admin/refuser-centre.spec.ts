@@ -8,6 +8,7 @@ import type { FactureLiavoService } from '../facture-liavo/facture-liavo.service
 jest.mock('../facture-liavo/facture-liavo.service', () => ({ FactureLiavoService: class {} }));
 
 import { AdminService } from './admin.service';
+import type { SecuriteService } from '../securite/securite.service';
 
 /**
  * Tests de refuserCentre : gardes (404 / 403), passage en SUSPENDED, et email
@@ -47,6 +48,7 @@ describe('AdminService.refuserCentre', () => {
       prisma as unknown as PrismaService,
       email as unknown as EmailService,
       {} as FactureLiavoService,
+      {} as SecuriteService,
     );
   });
 

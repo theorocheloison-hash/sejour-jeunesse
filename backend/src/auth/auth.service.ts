@@ -22,6 +22,7 @@ import { ClaimService } from '../organisations/claim.service.js';
 import { InvitationCollaborationService } from '../invitation-collaboration/invitation-collaboration.service.js';
 import { demarrerOuAlignerTrial } from '../centres/trial.helper.js';
 import { normaliserDepartement } from '../utils/departements.js';
+import { SecuriteService, type ContexteRequete } from '../securite/securite.service.js';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +32,7 @@ export class AuthService {
     private email: EmailService,
     private claimService: ClaimService,
     private invitationCollab: InvitationCollaborationService,
+    private securite: SecuriteService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -636,7 +638,7 @@ export class AuthService {
 
   // ── Login ────────────────────────────────────────────────────────────
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ctx: ContexteRequete = {}) {
     // Hash factice (bcrypt 12 rounds d'une chaîne aléatoire) pour garantir un temps
     // de réponse constant même si l'utilisateur n'existe pas (anti timing oracle).
     const DUMMY_HASH = '$2b$12$zaLk1a47UZc53FAmRBXI9O5RqlXxpzS5.SI9NHpsXOYavERAiuqNK';
@@ -666,6 +668,9 @@ export class AuthService {
     );
 
     if (!user || !isValid) {
+      // Alertes maison : journalisé pour les emails connus ET inconnus (même
+      // chemin → pas d'oracle temporel supplémentaire). Ne lève jamais.
+      await this.securite.connexionEchouee(dto.email, ctx);
       throw new UnauthorizedException('Identifiants invalides');
     }
 
@@ -707,7 +712,9 @@ export class AuthService {
       await this.consommerInvitationCollabPending(user.id);
     }
 
-    return this.buildAuthResponse(user);
+    const reponse = await this.buildAuthResponse(user);
+    await this.securite.connexionReussie(user, ctx);
+    return reponse;
   }
 
   // ── Recherche SIRENE ────────────────────────────────────────────────
@@ -785,13 +792,13 @@ export class AuthService {
     return { message: 'Si cet email existe, un lien a été envoyé.' };
   }
 
-  async reinitialiserMotDePasse(token: string, nouveauMotDePasse: string) {
+  async reinitialiserMotDePasse(token: string, nouveauMotDePasse: string, ctx: ContexteRequete = {}) {
     const user = await this.prisma.user.findFirst({
       where: {
         resetPasswordToken: token,
         resetPasswordExpires: { gt: new Date() },
       },
-      select: { id: true, tokenVersion: true },
+      select: { id: true, email: true, prenom: true, tokenVersion: true },
     });
     if (!user) throw new BadRequestException('Lien invalide ou expiré');
 
@@ -805,13 +812,19 @@ export class AuthService {
         resetPasswordToken: null,
         resetPasswordExpires: null,
         tokenVersion: (user.tokenVersion ?? 0) + 1,
+        // Déconnecte TOUTES les sessions : sans cela, un tiers détenteur du
+        // refresh token (30 j) survivrait à la réinitialisation — tokenVersion
+        // ne révoque que l'access token, buildAuthResponse en réémet un neuf.
+        refreshToken: null,
+        refreshTokenExpires: null,
       },
     });
 
+    await this.securite.motDePasseChange(user, 'REINITIALISE', ctx);
     return { message: 'Mot de passe modifié avec succès' };
   }
 
-  async consommerMagicLink(token: string, res: any) {
+  async consommerMagicLink(token: string, res: any, ctx: ContexteRequete = {}) {
     const frontendUrl = process.env.FRONTEND_URL ?? 'https://liavo.fr';
     const user = await this.prisma.user.findFirst({
       where: { magicLinkToken: token, magicLinkExpires: { gte: new Date() } },
@@ -827,6 +840,7 @@ export class AuthService {
       where: { id: user.id },
       data: { emailVerifie: true, magicLinkToken: null, magicLinkExpires: null },
     });
+    await this.securite.connexionReussie(user, ctx, true);
 
     const payload = { sub: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion ?? 0 };
     const accessToken = this.jwt.sign(payload);
@@ -938,14 +952,19 @@ export class AuthService {
     };
   }
 
-  async definirMotDePasse(userId: string, password: string, ancienMotDePasse?: string): Promise<{ success: boolean }> {
+  async definirMotDePasse(
+    userId: string,
+    password: string,
+    ancienMotDePasse?: string,
+    ctx: ContexteRequete = {},
+  ): Promise<{ success: boolean }> {
     if (!password || password.length < 8) {
       throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères.');
     }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { motDePasseDefini: true, motDePasse: true, tokenVersion: true },
+      select: { email: true, prenom: true, motDePasseDefini: true, motDePasse: true, tokenVersion: true },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
@@ -969,6 +988,11 @@ export class AuthService {
         tokenVersion: (user.tokenVersion ?? 0) + 1,
       },
     });
+    // Changement d'un mot de passe existant → titulaire prévenu. La première
+    // définition (après lien magique) n'envoie rien (bruit sans valeur).
+    if (user.motDePasseDefini) {
+      await this.securite.motDePasseChange({ id: userId, email: user.email, prenom: user.prenom }, 'MODIFIE', ctx);
+    }
     return { success: true };
   }
 }

@@ -12,6 +12,13 @@ import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { CurrentUser, type JwtUser } from './decorators/current-user.decorator.js';
 import { setAuthCookies, isProduction } from './auth-cookies.js';
+import type { ContexteRequete } from '../securite/securite.service.js';
+
+/** IP (via trust proxy, cf. main.ts) + navigateur, pour le journal de sécurité. */
+function contexte(req: Request): ContexteRequete {
+  const ua = req.headers['user-agent'];
+  return { ip: req.ip ?? null, userAgent: typeof ua === 'string' ? ua : null };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -74,8 +81,8 @@ export class AuthController {
   }
 
   @Get('magic/:token')
-  async magicLink(@Param('token') token: string, @Res() res: Response) {
-    return this.authService.consommerMagicLink(token, res);
+  async magicLink(@Param('token') token: string, @Req() req: Request, @Res() res: Response) {
+    return this.authService.consommerMagicLink(token, res, contexte(req));
   }
 
   @Post('login')
@@ -83,9 +90,10 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto);
+    const result = await this.authService.login(dto, contexte(req));
     setAuthCookies(res, result.access_token, result.refresh_token);
     return result; // body inchangé — backward compat
   }
@@ -98,15 +106,19 @@ export class AuthController {
 
   @Post('reset-password')
   @Throttle({ default: { limit: 5, ttl: 900000 } })   // 5/15 min par IP (token sans MDP à valider)
-  resetPassword(@Body() body: { token: string; password: string }) {
-    return this.authService.reinitialiserMotDePasse(body.token, body.password);
+  resetPassword(@Body() body: { token: string; password: string }, @Req() req: Request) {
+    return this.authService.reinitialiserMotDePasse(body.token, body.password, contexte(req));
   }
 
   @Post('set-password')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  setPassword(@CurrentUser() user: JwtUser, @Body() body: { password: string; ancienMotDePasse?: string }) {
-    return this.authService.definirMotDePasse(user.id, body.password, body.ancienMotDePasse);
+  setPassword(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { password: string; ancienMotDePasse?: string },
+    @Req() req: Request,
+  ) {
+    return this.authService.definirMotDePasse(user.id, body.password, body.ancienMotDePasse, contexte(req));
   }
 
   @Post('refresh')

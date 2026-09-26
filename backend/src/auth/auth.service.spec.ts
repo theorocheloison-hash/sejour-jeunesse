@@ -6,6 +6,16 @@ import type { EmailService } from '../email/email.service';
 import type { ClaimService } from '../organisations/claim.service';
 import type { InvitationCollaborationService } from '../invitation-collaboration/invitation-collaboration.service';
 import { AuthService } from './auth.service';
+import type { SecuriteService } from '../securite/securite.service';
+
+/** Journal de sécurité neutralisé (couvert par securite.service.spec). */
+function securiteStub() {
+  return {
+    connexionEchouee: jest.fn().mockResolvedValue(undefined),
+    connexionReussie: jest.fn().mockResolvedValue(undefined),
+    motDePasseChange: jest.fn().mockResolvedValue(undefined),
+  };
+}
 
 /**
  * Tests du trial à la première connexion, délégué à la source unique
@@ -90,6 +100,7 @@ describe('AuthService.login — trial première connexion (Lot 2e, scope organis
       email as unknown as EmailService,
       {} as ClaimService,
       { accepter: jest.fn().mockResolvedValue(undefined) } as unknown as InvitationCollaborationService,
+      securiteStub() as unknown as SecuriteService,
     );
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -206,6 +217,7 @@ describe('AuthService — portage serveur invitation collaborative (F1)', () => 
       email as unknown as EmailService,
       {} as ClaimService,
       invitationCollab as unknown as InvitationCollaborationService,
+      securiteStub() as unknown as SecuriteService,
     );
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);

@@ -58,8 +58,12 @@ export class AdminController {
   }
 
   @Patch('utilisateurs/:id')
-  updateUtilisateur(@Param('id') id: string, @Body() data: { role?: string; compteValide?: boolean }) {
-    return this.adminService.updateUtilisateur(id, data);
+  updateUtilisateur(
+    @Param('id') id: string,
+    @Body() data: { role?: string; compteValide?: boolean },
+    @Request() req: any,
+  ) {
+    return this.adminService.updateUtilisateur(id, data, req.user.id);
   }
 
   @Get('centres')

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -38,6 +38,8 @@ import { OrganisationsModule } from './organisations/organisations.module.js';
 import { PublicModule } from './public/public.module.js';
 import { ChambresModule } from './chambres/chambres.module.js';
 import { PermissionGuard } from './auth/guards/permission.guard.js';
+import { SecuriteModule } from './securite/securite.module.js';
+import { SecuriteThrottlerGuard } from './securite/securite-throttler.guard.js';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
     PrismaModule,
     StorageModule,
     EmailModule,
+    SecuriteModule,
     AuthModule,
     SejourModule,
     AutorisationModule,
@@ -85,7 +88,7 @@ import { PermissionGuard } from './auth/guards/permission.guard.js';
   controllers: [AppController],
   providers: [
     AppService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SecuriteThrottlerGuard },
     PermissionGuard,
   ],
 })

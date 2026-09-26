@@ -205,6 +205,7 @@ model User {
   invitationsEnvoyees    CollaborateurCentre[] @relation("inviteur")
   acceptationsCgv        AcceptationCgv[]
   autorisationsValideesManuellement AutorisationParentale[] @relation("AutorisationsValideesManuellement")
+  evenementsSecurite     EvenementSecurite[]
 
   @@map("utilisateurs")
 }
@@ -771,6 +772,30 @@ model AcceptationCgv {
 
   @@index([organisationId])
   @@map("acceptations_cgv")
+}
+
+// ============================================================
+// MODEL : EvenementSecurite — journal de sécurité (alertes maison)
+// Connexions, blocages anti-abus, mots de passe, rôles, alertes envoyées.
+// Purgé au-delà de JOURS_CONSERVATION_JOURNAL_SECURITE (cron quotidien).
+// ============================================================
+model EvenementSecurite {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      String   @db.VarChar(40)
+  userId    String?  @map("user_id") @db.Uuid
+  email     String?  @db.VarChar(255)
+  ip        String?  @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(300)
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@map("evenements_securite")
 }
 
 // ============================================================
