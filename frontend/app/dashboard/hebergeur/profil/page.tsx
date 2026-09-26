@@ -7,6 +7,9 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import api from '@/src/lib/api';
 import { getMonProfil, updateMonProfil, uploadCentreImage, supprimerCentreImage, reordonnerCentreImages, uploadBrochure, supprimerBrochure, uploadLogo, deleteLogo, uploadConventionPdf, supprimerConventionPdf } from '@/src/lib/centre';
 import type { Centre } from '@/src/lib/centre';
+import BarreEnregistrement from '@/src/components/BarreEnregistrement';
+import useGardeModificationsNonEnregistrees from '@/src/hooks/useGardeModificationsNonEnregistrees';
+import { messageErreurApi } from '@/src/lib/erreur-api';
 
 // Aligné sur MAX_PHOTOS_CENTRE côté backend.
 const MAX_PHOTOS = 12;
@@ -86,16 +89,52 @@ const INITIAL: FormState = {
   periodeOuverture: '',
 };
 
+// ── Lot A : envoi des seuls champs modifiés, effacement réel ────────────────
+// Obligatoires (colonnes non nullables côté serveur) : vidés → refus local,
+// aucun appel réseau. Effaçables : '' (après trim) → null explicite.
+const CHAMPS_TEXTE_OBLIGATOIRES = [
+  ['nom', 'Le nom du centre ne peut pas être vide.'],
+  ['adresse', "L'adresse ne peut pas être vide."],
+  ['codePostal', 'Le code postal ne peut pas être vide.'],
+  ['ville', 'La ville ne peut pas être vide.'],
+] as const;
+
+const CHAMPS_TEXTE_EFFACABLES = [
+  'description', 'siteWeb', 'telephone', 'email', 'siret',
+  'tvaIntracommunautaire', 'iban', 'conditionsAnnulation', 'avisSecurite', 'periodeOuverture',
+] as const;
+
+const CHAMPS_NUM_EFFACABLES = ['capaciteAdultes', 'capaciteGroupeMin', 'capaciteGroupeMax'] as const;
+
+const CHAMPS_TABLEAUX = ['equipements', 'thematiquesCentre', 'activitesCentre'] as const;
+
+const memesTableaux = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
+// '' (après trim) → null : représentation « valeur envoyée » d'un texte effaçable.
+const texteOuNull = (s: string): string | null => {
+  const v = s.trim();
+  return v === '' ? null : v;
+};
+
+const entierOuNull = (s: string): number | null =>
+  s.trim() === '' ? null : parseInt(s, 10);
+
 export default function HebergeurProfilPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   const [form, setForm] = useState<FormState>(INITIAL);
+  // Copie figée du formulaire tel que chargé — référence du diff (lot A).
+  const [initial, setInitial] = useState<FormState | null>(null);
   const [centre, setCentre] = useState<Centre | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  // error = échec de CHARGEMENT uniquement (haut de page) ; les erreurs de
+  // sauvegarde vivent dans la barre d'enregistrement (saveError).
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showMandatModal, setShowMandatModal] = useState(false);
   const [mandatLu, setMandatLu] = useState(false);
   const [mandatError, setMandatError] = useState<string | null>(null);
@@ -132,7 +171,7 @@ export default function HebergeurProfilPage() {
         setBrochureEvenementUrl(c.brochureUrlEvenement ?? null);
         setConventionPdfUrl(c.conventionPdfUrl ?? null);
         setLogoUrl(c.logoUrl ?? null);
-        setForm({
+        const charge: FormState = {
           nom: c.nom ?? '',
           description: c.description ?? '',
           capacite: c.capacite ? String(c.capacite) : '',
@@ -155,7 +194,9 @@ export default function HebergeurProfilPage() {
           capaciteGroupeMin: c.capaciteGroupeMin != null ? String(c.capaciteGroupeMin) : '',
           capaciteGroupeMax: c.capaciteGroupeMax != null ? String(c.capaciteGroupeMax) : '',
           periodeOuverture: c.periodeOuverture ?? '',
-        });
+        };
+        setForm(charge);
+        setInitial(charge);
       })
       .catch(() => setError('Impossible de charger le profil.'))
       .finally(() => setLoading(false));
@@ -172,6 +213,20 @@ export default function HebergeurProfilPage() {
   // d'updateMonProfil reste l'autorité ; ici c'est l'explication + l'UX).
   const coordonneesVerrouillees = !!centre?.coordonneesVerrouillees;
 
+  // Modifications non enregistrées : un champ diffère de la copie chargée,
+  // ou une saisie de tag en attente. Les uploads n'influencent pas dirty.
+  const dirty =
+    initial !== null &&
+    ((Object.keys(form) as (keyof FormState)[]).some((k) => {
+      const a = form[k];
+      const b = initial[k];
+      return Array.isArray(a) ? !memesTableaux(a, b as string[]) : a !== b;
+    }) ||
+      thematiqueInput.trim() !== '' ||
+      activiteInput.trim() !== '');
+
+  useGardeModificationsNonEnregistrees(dirty && !saving);
+
   const toggleEquipement = (eq: string) => {
     setForm((prev) => ({
       ...prev,
@@ -183,55 +238,99 @@ export default function HebergeurProfilPage() {
   };
 
   const handleSubmit = async () => {
+    if (!initial) return;
+    setSaveError(null);
+    setSuccess(false);
     // Validation UX : si les deux bornes sont renseignées, min ≤ max.
     if (form.capaciteGroupeMin && form.capaciteGroupeMax
       && parseInt(form.capaciteGroupeMin, 10) > parseInt(form.capaciteGroupeMax, 10)) {
-      setError('La capacité groupe minimum ne peut pas dépasser la capacité maximum.');
-      setSuccess(false);
+      setSaveError('La capacité groupe minimum ne peut pas dépasser la capacité maximum.');
       return;
     }
-    setSaving(true);
-    setError(null);
-    setSuccess(false);
     // Flush synchrone des saisies tags en attente : « ce qui est tapé est sauvegardé »,
-    // même sans Entrée. Calculé AVANT le payload (setState serait asynchrone → périmé).
+    // même sans Entrée. Calculé AVANT le diff (setState serait asynchrone → périmé).
     const thematiquesFinal = flushTag(form.thematiquesCentre, thematiqueInput);
     const activitesFinal = flushTag(form.activitesCentre, activiteInput);
+    const candidat: FormState = { ...form, thematiquesCentre: thematiquesFinal, activitesCentre: activitesFinal };
+
+    // ── Payload = UNIQUEMENT les champs différents de la copie chargée ──
+    const payload: Partial<Centre> = {};
+
+    // Obligatoires texte : vidé → refus local (aucun appel réseau).
+    for (const [champ, message] of CHAMPS_TEXTE_OBLIGATOIRES) {
+      const valeur = candidat[champ].trim();
+      if (valeur === initial[champ].trim()) continue;
+      if (valeur === '') {
+        setSaveError(message);
+        return;
+      }
+      payload[champ] = valeur;
+    }
+    if (candidat.capacite.trim() !== initial.capacite.trim()) {
+      if (candidat.capacite.trim() === '') {
+        setSaveError('La capacité en lits ne peut pas être vide.');
+        return;
+      }
+      payload.capacite = parseInt(candidat.capacite, 10);
+    }
+
+    // Effaçables : trim, vide → null (effacement réel côté serveur).
+    for (const champ of CHAMPS_TEXTE_EFFACABLES) {
+      const valeur = texteOuNull(candidat[champ]);
+      if (valeur !== texteOuNull(initial[champ])) payload[champ] = valeur;
+    }
+    for (const champ of CHAMPS_NUM_EFFACABLES) {
+      const valeur = entierOuNull(candidat[champ]);
+      if (valeur !== entierOuNull(initial[champ])) payload[champ] = valeur;
+    }
+
+    if (candidat.accessiblePmr !== initial.accessiblePmr) payload.accessiblePmr = candidat.accessiblePmr;
+    for (const champ of CHAMPS_TABLEAUX) {
+      if (!memesTableaux(candidat[champ], initial[champ])) payload[champ] = candidat[champ];
+    }
+
+    // Représentation « valeurs envoyées » du formulaire : nouvelle référence du diff.
+    const enForme: FormState = { ...candidat };
+    for (const [champ] of CHAMPS_TEXTE_OBLIGATOIRES) enForme[champ] = candidat[champ].trim();
+    enForme.capacite = candidat.capacite.trim();
+    for (const champ of CHAMPS_TEXTE_EFFACABLES) enForme[champ] = candidat[champ].trim();
+    for (const champ of CHAMPS_NUM_EFFACABLES) enForme[champ] = candidat[champ].trim();
+
+    // Rien à envoyer (modifications purement cosmétiques) → pas d'appel réseau.
+    if (Object.keys(payload).length === 0) {
+      setForm(enForme);
+      setInitial(enForme);
+      setThematiqueInput('');
+      setActiviteInput('');
+      return;
+    }
+
+    setSaving(true);
     try {
-      await updateMonProfil({
-        nom: form.nom,
-        description: form.description || undefined,
-        capacite: form.capacite ? parseInt(form.capacite, 10) : undefined,
-        siteWeb: form.siteWeb || undefined,
-        adresse: form.adresse,
-        codePostal: form.codePostal,
-        ville: form.ville,
-        telephone: form.telephone || undefined,
-        email: form.email || undefined,
-        siret: form.siret || undefined,
-        tvaIntracommunautaire: form.tvaIntracommunautaire || undefined,
-        iban: form.iban || undefined,
-        equipements: form.equipements,
-        conditionsAnnulation: form.conditionsAnnulation || undefined,
-        accessiblePmr: form.accessiblePmr,
-        avisSecurite: form.avisSecurite || undefined,
-        thematiquesCentre: thematiquesFinal,
-        activitesCentre: activitesFinal,
-        capaciteAdultes: form.capaciteAdultes ? parseInt(form.capaciteAdultes, 10) : undefined,
-        capaciteGroupeMin: form.capaciteGroupeMin ? parseInt(form.capaciteGroupeMin, 10) : undefined,
-        capaciteGroupeMax: form.capaciteGroupeMax ? parseInt(form.capaciteGroupeMax, 10) : undefined,
-        periodeOuverture: form.periodeOuverture || undefined,
-      });
-      // Refléter le flush dans l'UI (puces à jour, saisies vidées).
-      setForm((f) => ({ ...f, thematiquesCentre: thematiquesFinal, activitesCentre: activitesFinal }));
+      // NB : on ne remplace pas `centre` par la réponse du PATCH (elle ne porte
+      // pas coordonneesVerrouillees, calculé par getMonProfil seulement).
+      await updateMonProfil(payload);
+      setForm(enForme);
+      setInitial(enForme);
       setThematiqueInput('');
       setActiviteInput('');
       setSuccess(true);
-    } catch {
-      setError('Erreur lors de la sauvegarde.');
+    } catch (err) {
+      // Message serveur réel (400 DTO, 403 S4/IBAN) affiché dans la barre.
+      setSaveError(messageErreurApi(err, 'Erreur lors de la sauvegarde.'));
     } finally {
       setSaving(false);
     }
+  };
+
+  // « Annuler les modifications » : retour à l'état chargé, saisies de tags vidées.
+  const annulerModifications = () => {
+    if (!initial) return;
+    setForm({ ...initial });
+    setThematiqueInput('');
+    setActiviteInput('');
+    setSaveError(null);
+    setSuccess(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -434,7 +533,8 @@ export default function HebergeurProfilPage() {
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* pb-40 : la barre d'enregistrement fixe ne doit masquer ni le bouton du bas ni le bloc mandat. */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-40">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Modifier mon profil</h1>
         <p className="text-sm text-gray-500 mb-8">Ces informations apparaissent sur vos devis et dans l&apos;annuaire</p>
 
@@ -445,11 +545,9 @@ export default function HebergeurProfilPage() {
         ) : (
           <div className="space-y-8">
 
+            {/* Erreur de CHARGEMENT uniquement — succès/erreurs de sauvegarde : barre du bas. */}
             {error && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
-            )}
-            {success && (
-              <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">Profil mis &agrave; jour avec succ&egrave;s.</div>
             )}
 
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -882,7 +980,10 @@ export default function HebergeurProfilPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">IBAN</label>
-                    <input type="text" value={form.iban} onChange={set('iban')} disabled={coordonneesVerrouillees} placeholder="FR76..." className={inputCls} />
+                    <input type="text" value={form.iban} onChange={set('iban')} disabled={coordonneesVerrouillees || !isOwner} placeholder="FR76..." className={inputCls} />
+                    {!isOwner && (
+                      <p className="mt-1 text-xs text-gray-400">Seul le propriétaire du centre peut modifier l&apos;IBAN.</p>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-gray-400">Ces informations apparaissent sur vos factures et devis.</p>
@@ -1161,6 +1262,16 @@ export default function HebergeurProfilPage() {
           </div>
         )}
       </main>
+
+      {/* Barre d'enregistrement fixe : état non-enregistré, erreur serveur, succès 3 s. */}
+      <BarreEnregistrement
+        visible={dirty}
+        enregistrement={saving}
+        erreur={saveError}
+        succes={success}
+        onEnregistrer={handleSubmit}
+        onAnnuler={annulerModifications}
+      />
     </div>
   );
 }
