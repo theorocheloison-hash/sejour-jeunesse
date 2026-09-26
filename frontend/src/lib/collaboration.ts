@@ -164,6 +164,8 @@ export interface Participant {
   // Point 6a : compte qui a déclaré le papier reçu (null : en ligne, historique
   // antérieur au 26/09/2026 ou compte supprimé)
   signeeManuellementPar?: { prenom: string; nom: string } | null;
+  // Point 6b : date de l'effacement automatique des données de santé (J+30)
+  donneesSantePurgeesAt?: string | null;
   taille: number | null;
   poids: number | null;
   pointure: number | null;

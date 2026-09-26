@@ -59,3 +59,9 @@ export const CHAMP_PAR_CLE: Record<string, ChampInscription> =
 export const CLES_BLOC_B: string[] = CHAMPS_INSCRIPTION.filter((c) => c.bloc === 'B').map((c) => c.cle);
 // Clés « donnée de santé » → consentement médical côté parent.
 export const CLES_SANTE: string[] = CHAMPS_INSCRIPTION.filter((c) => c.sante).map((c) => c.cle);
+// MIROIR de JOURS_CONSERVATION_SANTE (back) : délai d'effacement automatique des
+// données de santé après la fin du séjour, affiché aux parents/organisateurs/hébergeurs.
+export const JOURS_CONSERVATION_SANTE = 30;
+/** Phrase unique sur les données de santé — réutilisée partout où on en parle. */
+export const PHRASE_DONNEES_SANTE =
+  `Les données de santé (allergies, informations médicales) servent uniquement à l'organisation et à la sécurité du séjour, et sont supprimées automatiquement ${JOURS_CONSERVATION_SANTE} jours après sa fin.`;

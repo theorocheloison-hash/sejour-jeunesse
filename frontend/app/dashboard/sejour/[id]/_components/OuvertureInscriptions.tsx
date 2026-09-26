@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CHAMPS_INSCRIPTION } from '@/src/lib/champs-inscription';
+import { CHAMPS_INSCRIPTION, PHRASE_DONNEES_SANTE } from '@/src/lib/champs-inscription';
 import {
   createModeleInscription,
   getChampsVerrouillesSejour,
@@ -121,6 +121,9 @@ export default function OuvertureInscriptions({ sejourId, champsInscription, onO
       <div className="rounded-lg bg-[var(--color-primary-light)] px-3 py-2 text-xs text-[var(--color-primary)] mb-4">
         Nom, prénom, date de naissance et contact du responsable sont toujours demandés.
       </div>
+      <p className="text-xs text-gray-500 -mt-2 mb-4">
+        {PHRASE_DONNEES_SANTE} Toutes les données sont sécurisées et hébergées en France.
+      </p>
 
       {/* Appliquer un modèle */}
       {modeles.length > 0 && (

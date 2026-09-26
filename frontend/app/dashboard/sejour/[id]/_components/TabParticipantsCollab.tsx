@@ -10,7 +10,7 @@ import TabParticipantsSaisieDirecte from './TabParticipantsSaisieDirecte';
 import EnvoiInvitationsFamilles from './EnvoiInvitationsFamilles';
 import ExportColonnesModal from './ExportColonnesModal';
 import { exportInscriptionsCsv } from '@/src/lib/inscription-csv';
-import { CLES_BLOC_B, CHAMP_PAR_CLE, type ChampInscription } from '@/src/lib/champs-inscription';
+import { CLES_BLOC_B, CHAMP_PAR_CLE, JOURS_CONSERVATION_SANTE, type ChampInscription } from '@/src/lib/champs-inscription';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://liavo.fr';
 
@@ -516,6 +516,17 @@ export default function TabParticipantsCollab({
               <div className="bg-red-50 rounded-xl p-3 border border-red-100">
                 <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Allergies</p>
                 <p className="text-sm text-gray-700">{selectedParticipant.allergies}</p>
+              </div>
+            )}
+
+            {/* Point 6b : données de santé effacées automatiquement après le séjour */}
+            {selectedParticipant.donneesSantePurgeesAt && (
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
+                <p className="text-xs text-gray-500">
+                  Données de santé supprimées automatiquement le{' '}
+                  {new Date(selectedParticipant.donneesSantePurgeesAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  {' '}({JOURS_CONSERVATION_SANTE} jours après la fin du séjour).
+                </p>
               </div>
             )}
 

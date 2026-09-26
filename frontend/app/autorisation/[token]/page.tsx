@@ -34,7 +34,7 @@ import {
   type AutorisationPublique,
   type SignerAutorisationDto,
 } from '@/src/lib/autorisation';
-import { CHAMPS_INSCRIPTION, type ChampInscription } from '@/src/lib/champs-inscription';
+import { CHAMPS_INSCRIPTION, JOURS_CONSERVATION_SANTE, type ChampInscription } from '@/src/lib/champs-inscription';
 import { formatDate } from '@/src/lib/utils';
 import { extractApiError } from '@/src/contexts/AuthContext';
 import ReassuranceDonnees from '@/app/components/ReassuranceDonnees';
@@ -78,7 +78,7 @@ const MENSUALITES_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const ACCEPTED_DOC_TYPES = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
 
-const RGPD_TEXT = `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par l'établissement scolaire responsable du séjour, en qualité de responsable de traitement. Elles sont transmises uniquement à l'hébergement accueillant votre enfant, en qualité de sous-traitant, dans le strict cadre de l'organisation du séjour scolaire. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Conformément à vos droits, vous pouvez accéder, rectifier ou supprimer vos données en contactant l'établissement scolaire. Les données sont conservées pour la durée légale applicable aux archives scolaires (5 ans).`;
+const RGPD_TEXT = `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par l'établissement scolaire responsable du séjour, en qualité de responsable de traitement. Elles sont transmises uniquement à l'hébergement accueillant votre enfant, en qualité de sous-traitant, dans le strict cadre de l'organisation du séjour scolaire. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Conformément à vos droits, vous pouvez accéder, rectifier ou supprimer vos données en contactant l'établissement scolaire. Les données de santé (allergies, informations médicales, documents médicaux) servent uniquement à l'organisation et à la sécurité du séjour, par l'établissement et l'hébergement ; elles sont supprimées automatiquement ${JOURS_CONSERVATION_SANTE} jours après la fin du séjour. Les autres données sont conservées pour la durée légale applicable aux archives scolaires (5 ans).`;
 
 /** B3b : texte RGPD dérivé À L'AFFICHAGE. Séjour géré en propre → le centre
  *  est responsable de traitement ; sinon (ou back pas encore déployé /
@@ -87,7 +87,7 @@ function rgpdTextPour(a: AutorisationPublique): string {
   if (!a.gereParLeCentre || !a.centreContact) return RGPD_TEXT;
   const { nom, email } = a.centreContact;
   const contact = email ? `en écrivant à ${email}` : `en contactant ${nom}`;
-  return `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par ${nom}, organisateur du séjour, en qualité de responsable de traitement. Elles servent uniquement à l'accueil et au suivi sanitaire de votre enfant pendant le séjour, et ne sont accessibles qu'aux membres de l'équipe qui en ont besoin. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Vous pouvez à tout moment accéder à vos données, les rectifier ou en demander la suppression ${contact}. Elles sont conservées le temps nécessaire à l'organisation et au suivi du séjour, puis supprimées.`;
+  return `Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679) et à la loi Informatique et Libertés du 6 janvier 1978 modifiée, les données personnelles collectées dans ce formulaire (identité, informations médicales, données de santé) sont traitées par ${nom}, organisateur du séjour, en qualité de responsable de traitement. Elles servent uniquement à l'accueil et au suivi sanitaire de votre enfant pendant le séjour, et ne sont accessibles qu'aux membres de l'équipe qui en ont besoin. Ces données ne seront ni cédées, ni vendues, ni utilisées à d'autres fins. Vous pouvez à tout moment accéder à vos données, les rectifier ou en demander la suppression ${contact}. Les données de santé (allergies, informations médicales, documents médicaux) sont supprimées automatiquement ${JOURS_CONSERVATION_SANTE} jours après la fin du séjour ; les autres données sont conservées le temps nécessaire à l'organisation et au suivi du séjour, puis supprimées.`;
 }
 
 export default function SignerAutorisationPage() {

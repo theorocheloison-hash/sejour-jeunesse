@@ -1,3 +1,5 @@
+import { PHRASE_DONNEES_SANTE } from '@/src/lib/champs-inscription';
+
 /**
  * Encart de réassurance données (RGPD) — source unique du texte, réutilisé
  * bloc Inscriptions + page parent.
@@ -23,13 +25,14 @@ export default function ReassuranceDonnees({ centreNom }: { centreNom?: string |
         />
       </svg>
       <p className="text-xs text-gray-600">
-        Vos données sont hébergées en France (Paris et Gravelines) et ne quittent jamais le
-        territoire. LIAVO est édité par un hébergeur de séjours.{' '}
+        Vos données sont sécurisées et hébergées en France (Paris et Gravelines) : elles ne
+        quittent jamais le territoire. LIAVO est édité par un hébergeur de séjours.{' '}
         {centreNom ? (
           <>Ces informations ne sont accessibles qu&apos;à l&apos;équipe de {centreNom} qui accueille votre enfant.</>
         ) : (
           <>Ces informations ne sont accessibles qu&apos;à l&apos;hébergeur qui accueille le séjour, à l&apos;enseignant organisateur et aux accompagnateurs qu&apos;il autorise.</>
-        )}
+        )}{' '}
+        {PHRASE_DONNEES_SANTE}
       </p>
     </div>
   );
