@@ -580,7 +580,12 @@ export default function TabParticipantsCollab({
             {/* Signé le */}
             {selectedParticipant.signeeAt && (
               <p className="text-xs text-gray-400 text-center">
-                Autorisation signée le {new Date(selectedParticipant.signeeAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                {selectedParticipant.signeeManuellement
+                  ? <>Autorisation papier déclarée reçue le {new Date(selectedParticipant.signeeAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      {selectedParticipant.signeeManuellementPar
+                        ? ` par ${selectedParticipant.signeeManuellementPar.prenom} ${selectedParticipant.signeeManuellementPar.nom}`
+                        : ''}</>
+                  : <>Autorisation signée en ligne par le parent le {new Date(selectedParticipant.signeeAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</>}
               </p>
             )}
           </div>

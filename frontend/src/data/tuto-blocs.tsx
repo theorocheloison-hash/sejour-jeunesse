@@ -65,10 +65,10 @@ export const FICHES_TUTO: Record<string, FicheTuto> = {
   participants: {
     icon: Users,
     titre: 'Participants — votre responsabilité principale',
-    aQuoi: "Gérer la liste de vos élèves et de vos accompagnateurs. C'est vous qui en avez la charge.",
+    aQuoi: "Gérer la liste de vos élèves et de vos accompagnateurs. C'est vous qui en avez la charge, sauf si l'hébergeur la gère pour vous (un bandeau vous l'indique alors en haut de la liste).",
     actions: "Choisir votre méthode d'inscription, ajouter vos élèves, suivre signatures et paiements, ajouter vos accompagnateurs, exporter la liste, clôturer les inscriptions.",
     comment: "Choisissez en haut votre méthode. « Je fais remplir par les familles » : ajoutez vos élèves (à la main ou par import CSV), puis sélectionnez-les et envoyez aux parents le lien d'autorisation (ils signent et paient en ligne) ; vous suivez l'avancement des signatures. « Je saisis moi-même la liste » : remplissez directement la grille (vous gérez les autorisations papier de votre côté). Ajoutez ensuite vos accompagnateurs (possible une fois le devis signé) : chacun reçoit un ordre de mission, et vous pouvez lui donner un accès à l'espace. Quand votre liste est complète, clôturez les inscriptions — c'est ce qui débloque les groupes et les chambres.",
-    bonASavoir: "Les deux méthodes restent accessibles à tout moment. Un export CSV est disponible. Les accompagnateurs ne s'ajoutent qu'après signature du devis.",
+    bonASavoir: "Les deux méthodes restent accessibles à tout moment. Un export CSV est disponible. Les accompagnateurs ne s'ajoutent qu'après signature du devis. Quand l'hébergeur gère la liste (par exemple à partir du modèle Excel que vous lui avez renvoyé), vous la consultez sans la modifier : demandez-lui de vous rendre la main si besoin.",
   },
   groupes: {
     icon: UsersRound,

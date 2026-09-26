@@ -161,6 +161,9 @@ export interface Participant {
   signeeAt: string | null;
   // Validation manuelle « papier signé reçu » (annulable) vs signature en ligne
   signeeManuellement?: boolean;
+  // Point 6a : compte qui a déclaré le papier reçu (null : en ligne, historique
+  // antérieur au 26/09/2026 ou compte supprimé)
+  signeeManuellementPar?: { prenom: string; nom: string } | null;
   taille: number | null;
   poids: number | null;
   pointure: number | null;
